@@ -74,3 +74,13 @@ docs/_static/viser/
 
 # Notebook checkpoints
 **/*.ipynb_checkpoints/
+
+# --- experiment artifacts (shengzew, fps-vs-collision study) ---
+# Generated outputs / logs / local agent memory — kept on disk, excluded from repo.
+/*.usd
+/results_*.csv
+/fps_vs_collision.png
+/panda_hydro_levers.png
+/kh_dt_coupling.png
+/demo_logs/
+/memory/
