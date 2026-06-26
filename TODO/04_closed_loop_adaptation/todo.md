@@ -200,8 +200,11 @@
 - [ ] Compare adaptation speed and failure modes beyond the two-cell gate.
       The first held-out failure-mode comparison is complete: learned residual
       evaluation passes `full_low` and `empty_high`, while no-adaptation and
-      scripted-feedback baselines failed only on object acceleration. Still
-      pending: broader adaptation-speed analysis across more ordinary cells,
+      scripted-feedback baselines failed only on object acceleration.
+      Additional ordinary learned-residual cells `half_high` and `full_medium`
+      also passed visual and metric gates in
+      `experiments/reports/2026-06-27_phase04_residual_adapter_extra_ordinary_eval_v1.md`.
+      Still pending: explicit adaptation-speed analysis across repetitions,
       held-out repetitions, and future object families.
 - [x] Save direct visual paths for success and failure cases.
       Evidence: nominal scripted feedback report records contact sheet and

@@ -748,3 +748,40 @@ two-cell held-out cup benchmark, learned residual-controller evaluation is
 therefore a valid improvement over those baselines. This remains a narrow
 Newton-native claim and does not imply T-Rex compatibility, tactile F6, or
 broad object-family generalization.
+
+2026-06-27 tenth follow-up: extra ordinary learned residual-adapter evaluation
+completed for `half_high` and `full_medium`.
+
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_extra_ordinary_eval_v1.md`.
+- Checkpoint:
+  `checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt`.
+- Controller mode: `lift_hold_learned_residual`.
+- Fresh official Newton sanity: pass for both ordinary runs.
+- Visual validation and manual frame-browser inspection: pass for both runs.
+- Generated T-Rex fields: `[]`.
+- Schema promotion: `blocked`.
+
+Ordinary `half_high`:
+
+- run tag: `residual_adapter_eval_v1_half_high_ordinary_20260627_0631`;
+- metrics status: pass;
+- lift height: `0.16001036763191223` m;
+- hold duration: `2.549997568130493` s;
+- max slip: `0.003629093007284586` m;
+- contact-loss frames: `0`;
+- max object acceleration: `0.4709508074000259` m/s^2.
+
+Ordinary `full_medium`:
+
+- run tag: `residual_adapter_eval_v1_full_medium_ordinary_20260627_0638`;
+- metrics status: pass;
+- lift height: `0.1546410769224167` m;
+- hold duration: `2.499997615814209` s;
+- max slip: `0.0034754009349139145` m;
+- contact-loss frames: `0`;
+- max object acceleration: `2.6287727996680594` m/s^2.
+
+Interpretation: this broadens ordinary mass/friction evaluation coverage after
+the held-out gate. It still does not prove adaptation speed, multi-seed
+stability, new object-family generalization, or tactile/T-Rex equivalence.

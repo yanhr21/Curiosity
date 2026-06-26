@@ -35,7 +35,12 @@
     "residual_adapter_full_low_metrics": "experiments/outputs/residual_adapter_eval_v1_full_low_heldout_20260627_0613_metrics.json",
     "residual_adapter_full_low_manual_visual": "experiments/outputs/residual_adapter_eval_v1_full_low_heldout_20260627_0613_manual_visual_inspection.json",
     "residual_adapter_empty_high_metrics": "experiments/outputs/residual_adapter_eval_v1_empty_high_heldout_20260627_0620_metrics.json",
-    "residual_adapter_empty_high_manual_visual": "experiments/outputs/residual_adapter_eval_v1_empty_high_heldout_20260627_0620_manual_visual_inspection.json"
+    "residual_adapter_empty_high_manual_visual": "experiments/outputs/residual_adapter_eval_v1_empty_high_heldout_20260627_0620_manual_visual_inspection.json",
+    "residual_adapter_extra_ordinary_eval_report": "experiments/reports/2026-06-27_phase04_residual_adapter_extra_ordinary_eval_v1.md",
+    "residual_adapter_half_high_metrics": "experiments/outputs/residual_adapter_eval_v1_half_high_ordinary_20260627_0631_metrics.json",
+    "residual_adapter_half_high_manual_visual": "experiments/outputs/residual_adapter_eval_v1_half_high_ordinary_20260627_0631_manual_visual_inspection.json",
+    "residual_adapter_full_medium_metrics": "experiments/outputs/residual_adapter_eval_v1_full_medium_ordinary_20260627_0638_metrics.json",
+    "residual_adapter_full_medium_manual_visual": "experiments/outputs/residual_adapter_eval_v1_full_medium_ordinary_20260627_0638_manual_visual_inspection.json"
   },
   "ready_gates": [
     {
@@ -87,13 +92,18 @@
       "name": "held_out_checkpoint_controller_evaluation",
       "status": "pass_two_cell_cup_benchmark",
       "evidence": "Runs residual_adapter_eval_v1_full_low_heldout_20260627_0613 and residual_adapter_eval_v1_empty_high_heldout_20260627_0620 passed fresh official Newton sanity, visual validation, manual frame/browser inspection, and lift-hold metrics. full_low reached lift_height_m=0.1548849195241928, hold_duration_s=2.499997615814209, max_object_accel_m_s2=1.5345948979069628. empty_high reached lift_height_m=0.1613951474428177, hold_duration_s=2.566664218902588, max_object_accel_m_s2=0.4686260874870734. generated_trex_fields=[], schema_promotion=blocked."
+    },
+    {
+      "name": "extra_ordinary_checkpoint_controller_evaluation",
+      "status": "pass_two_additional_ordinary_cells",
+      "evidence": "Runs residual_adapter_eval_v1_half_high_ordinary_20260627_0631 and residual_adapter_eval_v1_full_medium_ordinary_20260627_0638 passed fresh official Newton sanity, visual validation, manual frame/browser inspection, and lift-hold metrics. half_high reached lift_height_m=0.16001036763191223, hold_duration_s=2.549997568130493, max_object_accel_m_s2=0.4709508074000259. full_medium reached lift_height_m=0.1546410769224167, hold_duration_s=2.499997615814209, max_object_accel_m_s2=2.6287727996680594. generated_trex_fields=[], schema_promotion=blocked."
     }
   ],
   "blockers": [
     {
       "name": "limited_source_coverage",
       "status": "blocks_broad_claims_only",
-      "evidence": "Five ordinary source candidates were used, and held-out evaluation covers two cup cells. This supports a narrow two-cell cup-benchmark improvement claim, not broad object-family generalization."
+      "evidence": "Five ordinary source candidates were used, held-out evaluation covers two cup cells, and extra ordinary checkpoint evaluation covers two more ordinary cells. This supports a narrow current cup-benchmark improvement claim, not broad object-family generalization or tactile/T-Rex equivalence."
     }
   ],
   "resolved_blockers": [
