@@ -33,3 +33,91 @@ action_abs
 - Contact/tactile source improves or clarifies adaptation behavior.
 - Every tactile visual has direct image paths.
 - No partial source is renamed into T-Rex schema.
+
+## Fusion Plan
+
+Touch should enter both the policy and the curiosity forward model:
+
+```text
+vision_encoder(rgb, depth) -> z_v
+tactile_encoder(contact_proxy, marker_flow, deform) -> z_t
+proprio_encoder(joint, ee, gripper, phase) -> z_p
+action_encoder(controller_params) -> z_a
+
+fusion(z_v, z_t, z_p, z_a, masks) -> z
+policy_head(z) -> residual controller params
+forward_model(z, action) -> next object/contact/tactile prediction
+```
+
+The first tactile source can be Newton contact proxies. Taccel marker evidence
+can be added only under `taccel.marker.*` after real nonzero data and visual
+inspection exist. Dense tactile deformation can be added only after a real
+nonuniform deformation stream passes its own gate.
+
+## Modality Masking
+
+Training must prevent the policy from collapsing into pure vision or pure
+touch. Required masking modes:
+
+- both vision and touch visible;
+- vision masked, touch visible;
+- touch masked, vision visible;
+- partial vision mask;
+- partial tactile mask.
+
+After contact, include pure tactile windows:
+
+```text
+p(mask_vision | post_contact) = 0.3 -> 0.6 curriculum
+p(mask_tactile | post_contact) = 0.1 -> 0.2
+p(both_visible) remains nonzero
+```
+
+This is intended to make the robot stabilize and detect slip by touch once
+contact has been established, while still requiring vision for approach and
+global scene context.
+
+## Balance Tests
+
+Report vision-only, tactile-only, vision+tactile, shuffled tactile, and delayed
+tactile results. Touch is considered causally useful only if vision+tactile
+outperforms single-modality baselines and corrupted tactile hurts performance.
+
+## Completed Newton Contact Source Conversion
+
+2026-06-27: converted the Phase 04 scripted feedback lift-hold rollouts into a
+namespace-preserving Newton contact/tactile source manifest.
+
+- Config:
+  `experiments/configs/newton_lift_hold_contact_source_manifest_v1.json`.
+- Builder:
+  `experiments/configs/build_newton_lift_hold_contact_source_manifest.py`.
+- Runner:
+  `experiments/configs/run_newton_lift_hold_contact_source_manifest_in_alloc.sh`.
+- Launcher:
+  `experiments/configs/launch_newton_lift_hold_contact_source_manifest_tmux.sh`.
+- Slurm job: `154023`.
+- Tmux session: `curiosity_next_source_alloc_20260626_232937`.
+- Log:
+  `logs/newton/newton_lift_hold_contact_source_manifest_v1_20260627.log`.
+- Manifest:
+  `data/processed/newton_lift_hold_contact_source_manifest_v1_20260627/manifest.json`.
+- Records CSV:
+  `data/processed/newton_lift_hold_contact_source_manifest_v1_20260627/contact_source_records.csv`.
+- Report:
+  `experiments/reports/2026-06-27_phase05_newton_lift_hold_contact_source_manifest.md`.
+
+Result:
+
+- status: pass;
+- source runs: `10` real Newton rollouts;
+- timestep records: `3600`;
+- contact proxy range: `29..63`;
+- total feedback trigger count: `0`;
+- generated T-Rex fields: `[]`;
+- schema promotion: `blocked`.
+
+Dataset/schema mismatch was not used as a stop gate. The conversion preserves
+real source evidence under `newton.*` and `candidate.*` namespaces and does not
+create `observation.*`, `action`, `action_abs`, calibrated F6, or dense tactile
+deformation fields.

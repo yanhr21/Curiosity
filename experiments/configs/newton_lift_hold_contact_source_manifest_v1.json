@@ -1,0 +1,52 @@
+{
+  "classification": "newton_lift_hold_contact_source_manifest_config_v1",
+  "phase": "05_tactile_contact_sources",
+  "purpose": "Convert real Newton lift-hold rollouts into a namespace-preserving contact/tactile source manifest without promoting partial data into T-Rex schema.",
+  "source_config": "experiments/configs/lift_hold_scripted_feedback_baseline_v1.json",
+  "source_status_required": "held_out_evaluation_complete_with_acceleration_failures_feedback_not_triggered",
+  "output_dir": "data/processed/newton_lift_hold_contact_source_manifest_v1_20260627",
+  "allowed_namespaces": [
+    "newton.contact.*",
+    "newton.camera.*",
+    "newton.object.*",
+    "newton.panda.*",
+    "candidate.controller.*",
+    "candidate.physics.*"
+  ],
+  "field_mapping": {
+    "newton.contact.rigid_contact_count": "newton.panda.rigid_contact_count",
+    "newton.object.body_q": "newton.panda.object_body_q",
+    "newton.camera.color_rgba": "newton.camera.color_rgba",
+    "newton.camera.depth": "newton.camera.depth",
+    "candidate.controller.feedback_trigger_count": "candidate.controller.feedback_trigger_count",
+    "candidate.controller.phase_index": "candidate.controller.phase_index"
+  },
+  "forbidden_generated_fields": [
+    "observation.tactile_f6",
+    "observation.tactile_deform.*",
+    "observation.images.*",
+    "observation.state",
+    "action",
+    "action_abs"
+  ],
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "requires_compute_node": true,
+  "requires_fresh_source_gates": [
+    "fresh_newton_sensor_contact_sanity",
+    "visual_validation",
+    "manual_visual_inspection",
+    "metrics_json"
+  ],
+  "valid_use": [
+    "Newton-native contact/tactile proxy source evidence",
+    "contact-aware curiosity replay diagnostics",
+    "residual controller adapter input audit"
+  ],
+  "not_valid_use": [
+    "T-Rex training dataset",
+    "exact T-Rex schema compatibility",
+    "calibrated F6 tactile force claim",
+    "dense tactile deformation claim"
+  ]
+}
