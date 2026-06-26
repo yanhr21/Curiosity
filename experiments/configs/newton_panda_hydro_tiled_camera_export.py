@@ -27,7 +27,7 @@ from newton.sensors import SensorTiledCamera
 
 CAMERA_NAMES = ("head_proxy", "right_wrist_proxy", "left_wrist_proxy")
 TRACKED_OBJECTS = ("official_object", "existing_cup_asset")
-CONTROLLER_MODES = ("official_pick_place", "lift_hold")
+CONTROLLER_MODES = ("official_pick_place", "lift_hold", "lift_hold_feedback")
 
 
 def _controller_phase(example: Example) -> tuple[int, str]:
@@ -546,6 +546,130 @@ def _configure_lift_hold_waypoints(example: Example, hold_duration: float) -> di
     }
 
 
+def _configure_lift_hold_feedback_waypoints(
+    example: Example,
+    hold_duration: float,
+    lift_duration_scale: float,
+    stabilization_duration: float,
+) -> dict:
+    meta = _configure_lift_hold_waypoints(example, hold_duration)
+    if lift_duration_scale <= 0.0:
+        raise ValueError("feedback lift duration scale must be positive")
+    if stabilization_duration < 0.0:
+        raise ValueError("feedback stabilization duration must be nonnegative")
+    example.waypoints[2][1] = float(example.waypoints[2][1]) * float(lift_duration_scale)
+    example.waypoints[3][1] = float(hold_duration) + float(stabilization_duration)
+    example.capture_ik()
+    return {
+        **meta,
+        "adapter": "official_panda_hydro_waypoints_lift_hold_scripted_feedback",
+        "feedback_adaptation": True,
+        "feedback_type": "scripted_contact_object_motion_controller",
+        "initial_lift_duration_scale": float(lift_duration_scale),
+        "initial_stabilization_duration_s": float(stabilization_duration),
+        "learned_policy": False,
+        "curiosity_reward": "none",
+    }
+
+
+def _feedback_state() -> dict:
+    return {
+        "prev_object_z": None,
+        "prev_object_vz": None,
+        "lift_velocity_scale": 1.0,
+        "hold_height_offset_m": 0.0,
+        "applied_hold_height_offset_m": 0.0,
+        "stabilization_extension_s": 0.0,
+        "trigger_count": 0,
+        "active_reason": "none",
+        "original_lift_duration_s": None,
+    }
+
+
+def _apply_scripted_feedback(
+    example: Example,
+    state: dict,
+    object_pose: np.ndarray,
+    contact_proxy: np.ndarray,
+    frame_dt: float,
+    min_contact_count: int,
+    accel_threshold: float,
+    height_drop_threshold: float,
+    lift_duration_scale_max: float,
+    hold_height_step: float,
+    hold_height_offset_max: float,
+    stabilization_step: float,
+    stabilization_max: float,
+) -> dict:
+    import warp as wp
+
+    object_z = float(object_pose[0, 2])
+    prev_z = state["prev_object_z"]
+    prev_vz = state["prev_object_vz"]
+    vz = 0.0 if prev_z is None else (object_z - float(prev_z)) / max(frame_dt, 1e-6)
+    accel = 0.0 if prev_vz is None else (vz - float(prev_vz)) / max(frame_dt, 1e-6)
+    contact_count = int(np.max(contact_proxy)) if np.size(contact_proxy) else 0
+
+    reason = "none"
+    if contact_count < min_contact_count and int(example.current_waypoint) >= 2:
+        reason = "low_contact_count"
+    elif abs(accel) > accel_threshold and int(example.current_waypoint) >= 2:
+        reason = "object_acceleration_above_feedback_threshold"
+    elif (
+        int(example.current_waypoint) >= 3
+        and prev_z is not None
+        and (float(prev_z) - object_z) > height_drop_threshold
+    ):
+        reason = "object_height_drop"
+
+    if reason != "none":
+        if state["original_lift_duration_s"] is None:
+            state["original_lift_duration_s"] = float(example.waypoints[2][1])
+        state["trigger_count"] += 1
+        state["active_reason"] = reason
+        state["lift_velocity_scale"] = max(
+            0.35,
+            state["lift_velocity_scale"] * 0.92,
+        )
+        state["hold_height_offset_m"] = max(
+            -abs(hold_height_offset_max),
+            state["hold_height_offset_m"] - abs(hold_height_step),
+        )
+        state["stabilization_extension_s"] = min(
+            stabilization_max,
+            state["stabilization_extension_s"] + stabilization_step,
+        )
+
+        lift_duration = min(
+            float(example.waypoints[2][1]) / 0.92,
+            float(state["original_lift_duration_s"]) * lift_duration_scale_max,
+        )
+        example.waypoints[2][1] = float(max(example.waypoints[2][1], lift_duration))
+        offset_delta = state["hold_height_offset_m"] - state["applied_hold_height_offset_m"]
+        for idx in (3, 4):
+            target_pos = list(example.waypoints[idx][0])
+            target_pos[2] = float(target_pos[2]) + offset_delta
+            example.waypoints[idx][0] = wp.vec3(target_pos)
+        state["applied_hold_height_offset_m"] = state["hold_height_offset_m"]
+        example.waypoints[3][1] = float(example.waypoints[3][1]) + stabilization_step
+        example.capture_ik()
+    else:
+        state["active_reason"] = "none"
+
+    state["prev_object_z"] = object_z
+    state["prev_object_vz"] = vz
+    return {
+        "feedback_active": int(reason != "none"),
+        "feedback_reason": reason,
+        "feedback_lift_velocity_scale": float(state["lift_velocity_scale"]),
+        "feedback_hold_height_offset_m": float(state["hold_height_offset_m"]),
+        "feedback_stabilization_extension_s": float(state["stabilization_extension_s"]),
+        "feedback_trigger_count": int(state["trigger_count"]),
+        "feedback_observed_object_vz_m_s": float(vz),
+        "feedback_observed_object_accel_m_s2": float(accel),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -565,6 +689,15 @@ def main() -> None:
     parser.add_argument("--shape-friction-scale", type=float, default=1.0)
     parser.add_argument("--object-mass-kg", type=float, default=None)
     parser.add_argument("--object-friction-mu", type=float, default=None)
+    parser.add_argument("--feedback-min-contact-count", type=int, default=20)
+    parser.add_argument("--feedback-accel-threshold", type=float, default=6.5)
+    parser.add_argument("--feedback-height-drop-threshold", type=float, default=0.015)
+    parser.add_argument("--feedback-initial-lift-duration-scale", type=float, default=1.35)
+    parser.add_argument("--feedback-lift-duration-scale-max", type=float, default=2.25)
+    parser.add_argument("--feedback-hold-height-step", type=float, default=0.003)
+    parser.add_argument("--feedback-hold-height-offset-max", type=float, default=0.03)
+    parser.add_argument("--feedback-stabilization-step", type=float, default=0.25)
+    parser.add_argument("--feedback-stabilization-max", type=float, default=2.0)
     parser.add_argument("--width", type=int, default=192)
     parser.add_argument("--height", type=int, default=144)
     args_in = parser.parse_args()
@@ -618,6 +751,13 @@ def main() -> None:
     controller_adapter_meta = {"adapter": "official_panda_hydro_waypoints_unmodified"}
     if args_in.controller_mode == "lift_hold":
         controller_adapter_meta = _configure_lift_hold_waypoints(example, args_in.final_hold_duration)
+    if args_in.controller_mode == "lift_hold_feedback":
+        controller_adapter_meta = _configure_lift_hold_feedback_waypoints(
+            example,
+            args_in.final_hold_duration,
+            args_in.feedback_initial_lift_duration_scale,
+            args_in.feedback_stabilization_step,
+        )
 
     sensor = SensorTiledCamera(model=example.model)
     sensor.utils.create_default_light(enable_shadows=True)
@@ -651,11 +791,57 @@ def main() -> None:
         "controller_phase_index": [],
         "commanded_gripper_target": [],
         "commanded_lift_target": [],
+        "feedback_active": [],
+        "feedback_reason_id": [],
+        "feedback_lift_velocity_scale": [],
+        "feedback_hold_height_offset_m": [],
+        "feedback_stabilization_extension_s": [],
+        "feedback_trigger_count": [],
+        "feedback_observed_object_vz_m_s": [],
+        "feedback_observed_object_accel_m_s2": [],
     }
     controller_phase_labels = {}
+    feedback_state = _feedback_state()
+    feedback_reason_labels = {"0": "none"}
+    feedback_reason_to_id = {"none": 0}
 
     for step in range(args_in.num_steps):
         example.step()
+        object_pose = _object_pose(example)
+        contact_proxy = _as_np(example.contacts.rigid_contact_count)
+        if args_in.controller_mode == "lift_hold_feedback":
+            feedback_record = _apply_scripted_feedback(
+                example=example,
+                state=feedback_state,
+                object_pose=object_pose,
+                contact_proxy=contact_proxy,
+                frame_dt=float(example.frame_dt),
+                min_contact_count=args_in.feedback_min_contact_count,
+                accel_threshold=args_in.feedback_accel_threshold,
+                height_drop_threshold=args_in.feedback_height_drop_threshold,
+                lift_duration_scale_max=args_in.feedback_lift_duration_scale_max,
+                hold_height_step=args_in.feedback_hold_height_step,
+                hold_height_offset_max=args_in.feedback_hold_height_offset_max,
+                stabilization_step=args_in.feedback_stabilization_step,
+                stabilization_max=args_in.feedback_stabilization_max,
+            )
+        else:
+            feedback_record = {
+                "feedback_active": 0,
+                "feedback_reason": "none",
+                "feedback_lift_velocity_scale": 1.0,
+                "feedback_hold_height_offset_m": 0.0,
+                "feedback_stabilization_extension_s": 0.0,
+                "feedback_trigger_count": 0,
+                "feedback_observed_object_vz_m_s": 0.0,
+                "feedback_observed_object_accel_m_s2": 0.0,
+            }
+        reason = feedback_record["feedback_reason"]
+        if reason not in feedback_reason_to_id:
+            reason_id = len(feedback_reason_to_id)
+            feedback_reason_to_id[reason] = reason_id
+            feedback_reason_labels[str(reason_id)] = reason
+        reason_id = feedback_reason_to_id[reason]
         phase_idx, phase_label = _controller_phase(example)
         controller_phase_labels[str(phase_idx)] = phase_label
         rollout_records["step"].append(step + 1)
@@ -663,12 +849,26 @@ def main() -> None:
         rollout_records["joint_q"].append(_as_np(example.state_0.joint_q))
         rollout_records["joint_qd"].append(_as_np(example.state_0.joint_qd))
         rollout_records["joint_target_q"].append(_as_np(example.control.joint_target_q))
-        rollout_records["object_body_q"].append(_object_pose(example))
+        rollout_records["object_body_q"].append(object_pose)
         rollout_records["ee_body_q"].append(_ee_pose(example))
-        rollout_records["rigid_contact_count"].append(_as_np(example.contacts.rigid_contact_count))
+        rollout_records["rigid_contact_count"].append(contact_proxy)
         rollout_records["controller_phase_index"].append(phase_idx)
         rollout_records["commanded_gripper_target"].append(_commanded_gripper_target(example))
         rollout_records["commanded_lift_target"].append(_commanded_lift_target(example))
+        rollout_records["feedback_active"].append(feedback_record["feedback_active"])
+        rollout_records["feedback_reason_id"].append(reason_id)
+        rollout_records["feedback_lift_velocity_scale"].append(feedback_record["feedback_lift_velocity_scale"])
+        rollout_records["feedback_hold_height_offset_m"].append(feedback_record["feedback_hold_height_offset_m"])
+        rollout_records["feedback_stabilization_extension_s"].append(
+            feedback_record["feedback_stabilization_extension_s"]
+        )
+        rollout_records["feedback_trigger_count"].append(feedback_record["feedback_trigger_count"])
+        rollout_records["feedback_observed_object_vz_m_s"].append(
+            feedback_record["feedback_observed_object_vz_m_s"]
+        )
+        rollout_records["feedback_observed_object_accel_m_s2"].append(
+            feedback_record["feedback_observed_object_accel_m_s2"]
+        )
         if step not in requested:
             continue
         example.model.bvh_refit_shapes(example.state_0)
@@ -715,6 +915,26 @@ def main() -> None:
         ),
         "candidate.controller.commanded_lift_target": np.asarray(
             rollout_records["commanded_lift_target"], dtype=np.float32
+        ),
+        "candidate.controller.feedback_active": np.asarray(rollout_records["feedback_active"], dtype=np.int32),
+        "candidate.controller.feedback_reason_id": np.asarray(rollout_records["feedback_reason_id"], dtype=np.int32),
+        "candidate.controller.feedback_lift_velocity_scale": np.asarray(
+            rollout_records["feedback_lift_velocity_scale"], dtype=np.float32
+        ),
+        "candidate.controller.feedback_hold_height_offset_m": np.asarray(
+            rollout_records["feedback_hold_height_offset_m"], dtype=np.float32
+        ),
+        "candidate.controller.feedback_stabilization_extension_s": np.asarray(
+            rollout_records["feedback_stabilization_extension_s"], dtype=np.float32
+        ),
+        "candidate.controller.feedback_trigger_count": np.asarray(
+            rollout_records["feedback_trigger_count"], dtype=np.int32
+        ),
+        "candidate.controller.feedback_observed_object_vz_m_s": np.asarray(
+            rollout_records["feedback_observed_object_vz_m_s"], dtype=np.float32
+        ),
+        "candidate.controller.feedback_observed_object_accel_m_s2": np.asarray(
+            rollout_records["feedback_observed_object_accel_m_s2"], dtype=np.float32
         ),
         "candidate.physics.tracked_body_indices": np.asarray(
             []
@@ -767,6 +987,23 @@ def main() -> None:
         "sample_steps": requested,
         "controller_type": "official_newton_panda_hydro_scripted_no_adaptation",
         "controller_phase_labels": controller_phase_labels,
+        "feedback_reason_labels": feedback_reason_labels,
+        "scripted_feedback": {
+            "enabled": args_in.controller_mode == "lift_hold_feedback",
+            "learned_policy": False,
+            "curiosity_reward": "none",
+            "min_contact_count": args_in.feedback_min_contact_count,
+            "accel_threshold_m_s2": args_in.feedback_accel_threshold,
+            "height_drop_threshold_m": args_in.feedback_height_drop_threshold,
+            "initial_lift_duration_scale": args_in.feedback_initial_lift_duration_scale,
+            "lift_duration_scale_max": args_in.feedback_lift_duration_scale_max,
+            "hold_height_step_m": args_in.feedback_hold_height_step,
+            "hold_height_offset_max_m": args_in.feedback_hold_height_offset_max,
+            "stabilization_step_s": args_in.feedback_stabilization_step,
+            "stabilization_max_s": args_in.feedback_stabilization_max,
+            "final_trigger_count": int(feedback_state["trigger_count"]),
+            "source": "candidate.controller.*",
+        },
         "camera_names": list(CAMERA_NAMES),
         "width": args_in.width,
         "height": args_in.height,
