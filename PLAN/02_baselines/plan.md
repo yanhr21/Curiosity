@@ -12,6 +12,141 @@ Establish serious baselines before evaluating curiosity.
    manipulation baseline if demonstrations are available.
 4. Newton-native contact-aware diagnostic baseline.
 
+## Basic Infant Prior
+
+Current decision: use the official Newton Panda hydro scripted grasp/lift path
+as the short-term "infant" prior. Do not wait for a pretrained grasping
+checkpoint before building the first baselines. This prior provides approach,
+gripper close, lift, and hold behavior so later learning can focus on residual
+adaptation rather than discovering grasping from scratch.
+
+Reason: the current audit did not find a directly usable Newton-native Panda
+grasp/lift checkpoint. Newton policy examples are mainly locomotion-oriented,
+Isaac Sim exposes a Franka open-drawer policy rather than a cup/cube grasp
+prior, Isaac Lab Mimic provides data-generation and training routes, and OpenPI
+DROID/Franka checkpoints require a substantial observation/action adapter
+before they can honestly be treated as Newton-compatible.
+
+Checkpoint-based priors are allowed only after a source audit records:
+
+- official code repository and commit;
+- checkpoint URL/path and license;
+- robot embodiment and gripper/action semantics;
+- camera and proprioception requirements;
+- whether the checkpoint can control Franka/Panda or can be adapted only
+  through a documented controller interface;
+- a smoke test command and direct visual evidence.
+
+OpenPI/pi0, diffusion-policy-style checkpoints, ACT-style checkpoints, or
+T-Rex-style checkpoints are candidates only if the observation/action contract
+is compatible or the adapter is scientifically explicit. Do not treat a
+generic robot checkpoint as Newton grasp success until it runs through the
+same visual and metric gates as the scripted baseline.
+
+## Training Data Contract
+
+Baseline datasets should be synchronized Newton episodes containing robot
+state, controller command, object pose/velocity, contact proxy, camera RGB-D,
+task phase, success/failure labels, and later tactile/contact evidence under
+source-preserving namespaces.
+
+Held-out cells such as full low-friction and empty high-friction cups must stay
+out of training and be used for generalization tests.
+
+## No-Adaptation Baseline V1
+
+The first configured baseline is:
+
+```text
+experiments/configs/lift_hold_no_adaptation_baseline_v1.json
+```
+
+It uses:
+
+```text
+scene=cube
+tracked_object=official_object
+controller_mode=lift_hold
+controller=official_newton_panda_hydro_scripted_no_adaptation
+curiosity_reward=none
+learned_policy=false
+pretrained_checkpoint=null
+```
+
+Launch path:
+
+```text
+JOB_ID=<held_curiosity_allocation> \
+TMUX_SESSION=<curiosity_tmux_session> \
+bash experiments/configs/launch_lift_hold_no_adaptation_baseline_tmux.sh
+```
+
+The launcher reuses the existing Panda hydro camera export runner, which
+reruns fresh official Newton `sensor_contact` sanity inside the allocation,
+exports the namespaced rollout and camera evidence, and keeps downstream use
+blocked until manual visual inspection passes. The Phase 02 baseline now uses
+`controller_mode=lift_hold`: it preserves the official approach/grasp/lift
+waypoints but disables the release/place segment and holds the lifted pose.
+
+The exporter now records controller provenance:
+
+```text
+candidate.controller.phase_index
+candidate.controller.commanded_gripper_target
+candidate.controller.commanded_lift_target
+```
+
+Shared metrics schema:
+
+```text
+experiments/configs/lift_hold_metrics_schema_v1.json
+```
+
+This is still not a baseline result until the compute run, visual validation,
+manual inspection, and metrics report exist.
+
+## Nominal Official Cube Baseline Result
+
+The first no-adaptation baseline evidence run has completed for the official
+Newton cube object:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_20260627_0210
+report=experiments/reports/2026-06-27_phase02_no_adaptation_nominal_baseline.md
+```
+
+Result:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+sensor_tiled_camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass_with_metric_limitations
+metrics_extractor=pass_as_tool
+baseline_status=fail
+lift_height_m=0.22359015047550201
+hold_duration_s=1.3166654109954834
+max_slip_m=0.09295262564260072
+failure_reasons=[hold_duration_below_threshold, slip_above_threshold]
+```
+
+This clears the nominal official-cube no-adaptation evidence gate and provides
+a valid failure baseline. It does not clear nominal cup success, mass/fill
+variants, curiosity, or learned policy claims.
+
+The metrics extractor is implemented as:
+
+```text
+experiments/configs/extract_lift_hold_metrics.py
+experiments/configs/launch_lift_hold_metrics_tmux.sh
+experiments/configs/run_lift_hold_metrics_in_alloc.sh
+```
+
+Next requirement: rerun the no-adaptation nominal cube baseline with
+`controller_mode=lift_hold` and extract full metrics. After that, run and
+report the no-adaptation baseline on the nominal cup asset, then run mass/fill
+variants.
+
 ## Rules
 
 - Do not introduce toy T-Rex, toy VQ-VAE, toy Transformer, or toy world model.
@@ -24,3 +159,4 @@ Establish serious baselines before evaluating curiosity.
 - Baseline commands exist.
 - Metrics table format exists.
 - At least one visual success and one failure case are saved.
+- A checkpoint audit exists if any pretrained policy is used.

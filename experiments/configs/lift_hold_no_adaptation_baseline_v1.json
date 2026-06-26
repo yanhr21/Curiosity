@@ -1,0 +1,97 @@
+{
+  "classification": "newton_native_lift_hold_no_adaptation_scripted_baseline_v1",
+  "status": "nominal_official_cube_metric_fail_recorded",
+  "phase": "02_baselines",
+  "purpose": "Define the first short-term infant-prior baseline using the official Newton Panda hydro scripted grasp/lift path with no learned policy and no feedback adaptation.",
+  "infant_prior": {
+    "type": "official_newton_panda_hydro_scripted_grasp_lift",
+    "source_entry_point": "external/newton/newton/examples/robot/example_robot_panda_hydro.py",
+    "selected_reason": "No directly usable Newton-native Panda grasp/lift checkpoint was found. The official scripted path provides approach, close gripper, lift, and hold behavior while keeping the first baseline source-first and reproducible.",
+    "pretrained_checkpoint": null,
+    "learned_policy": false
+  },
+  "baseline_policy": {
+    "name": "no_adaptation_scripted_grasp_lift",
+    "adaptation": "none",
+    "curiosity_reward": "none",
+    "tactile_source": "newton.contact_proxy_only",
+    "scene": "cube",
+    "tracked_object": "official_object",
+    "controller_mode": "lift_hold",
+    "num_steps": 360,
+    "sample_steps": [0, 45, 90, 135, 180, 225, 270, 315, 359],
+    "final_hold_duration": 2.5,
+    "controller_outputs_logged": [
+      "candidate.controller.phase_index",
+      "candidate.controller.commanded_gripper_target",
+      "candidate.controller.commanded_lift_target"
+    ]
+  },
+  "compute_execution": {
+    "must_run_on_compute_node": true,
+    "must_use_tmux_held_srun_or_salloc": true,
+    "launcher": "experiments/configs/launch_lift_hold_no_adaptation_baseline_tmux.sh",
+    "allocation_runner": "experiments/configs/run_newton_panda_hydro_camera_export_in_alloc.sh",
+    "forbidden_login_node_actions": [
+      "simulation",
+      "rendering",
+      "validation builders",
+      "dataset conversion",
+      "training",
+      "evaluation"
+    ],
+    "requires_fresh_official_newton_sanity": true,
+    "requires_manual_visual_inspection": true
+  },
+  "expected_outputs": [
+    "experiments/outputs/<run_tag>_fresh_newton_sensor_contact_sanity.json",
+    "experiments/outputs/<run_tag>_summary.json",
+    "experiments/outputs/<run_tag>_visual_validation.json",
+    "experiments/outputs/<run_tag>_manual_visual_inspection.json",
+    "experiments/outputs/<run_tag>_downstream_gate_cleared.json",
+    "experiments/outputs/<run_tag>.npz",
+    "experiments/visuals/<run_tag>/frame_browser.html",
+    "experiments/visuals/<run_tag>/contact_sheet.png"
+  ],
+  "metrics_schema": "experiments/configs/lift_hold_metrics_schema_v1.json",
+  "success_claim_gate": {
+    "stable_grasp_success_requires": [
+      "lift_height_m >= 0.12",
+      "hold_duration_s >= 2.0",
+      "max_slip_m <= 0.025",
+      "object_not_dropped == true",
+      "manual_visual_inspection == pass"
+    ],
+    "current_claim": "nominal_official_cube_lift_pass_but_full_metric_fail"
+  },
+  "completed_nominal_cube_gate": {
+    "run_tag": "lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_20260627_0210",
+    "fresh_newton_sensor_contact_sanity": "experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_20260627_0210_fresh_newton_sensor_contact_sanity.json",
+    "visual_validation": "experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_20260627_0210_visual_validation.json",
+    "manual_visual_inspection": "experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_20260627_0210_manual_visual_inspection.json",
+    "downstream_gate": "experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_20260627_0210_downstream_gate_cleared.json",
+    "metrics_json": "experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_20260627_0210_metrics.json",
+    "metrics_csv": "experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_20260627_0210_metrics.csv",
+    "frame_browser": "experiments/visuals/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_20260627_0210/frame_browser.html",
+    "contact_sheet": "experiments/visuals/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_20260627_0210/contact_sheet.png",
+    "status": "fail",
+    "lift_height_m": 0.22359015047550201,
+    "hold_duration_s": 1.3166654109954834,
+    "max_slip_m": 0.09295262564260072,
+    "object_not_dropped": true,
+    "failure_reasons": [
+      "hold_duration_below_threshold",
+      "slip_above_threshold"
+    ]
+  },
+  "forbidden_claims": [
+    "learned policy",
+    "curiosity improvement",
+    "tactile dominance",
+    "T-Rex schema promotion",
+    "pretrained checkpoint success"
+  ],
+  "generated_trex_fields": [],
+  "schema_promotion": "blocked",
+  "no_model_or_training": true
+}

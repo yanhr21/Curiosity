@@ -26,6 +26,7 @@ from newton.sensors import SensorTiledCamera
 
 CAMERA_NAMES = ("head_proxy", "right_wrist_proxy", "left_wrist_proxy")
 TRACKED_OBJECTS = ("official_object", "existing_cup_asset")
+CONTROLLER_MODES = ("official_pick_place", "lift_hold")
 
 
 def _controller_phase(example: Example) -> tuple[int, str]:
@@ -339,6 +340,30 @@ def _retarget_existing_cup_as_object(example: Example, final_hold_duration: floa
     }
 
 
+def _configure_lift_hold_waypoints(example: Example, hold_duration: float) -> dict:
+    """Keep the official approach/grasp/lift prior but hold instead of placing."""
+
+    if len(example.waypoints) < 4:
+        raise ValueError("official Panda hydro example did not create enough waypoints for lift-hold mode")
+    lift_wp = list(example.waypoints[3])
+    hold_wp = [lift_wp[0], float(hold_duration), lift_wp[2], lift_wp[3]]
+    guard_wp = [lift_wp[0], 999.0, lift_wp[2], lift_wp[3]]
+    original_waypoint_count = len(example.waypoints)
+    example.waypoints = [list(example.waypoints[0]), list(example.waypoints[1]), list(example.waypoints[2]), hold_wp, guard_wp]
+    example.current_waypoint = 0
+    example.time_in_waypoint = 0.0
+    example.capture_ik()
+    return {
+        "adapter": "official_panda_hydro_waypoints_lift_hold_no_release",
+        "original_waypoint_count": int(original_waypoint_count),
+        "new_waypoint_count": int(len(example.waypoints)),
+        "hold_duration_s": float(hold_duration),
+        "guard_duration_s": 999.0,
+        "learned_policy": False,
+        "feedback_adaptation": False,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -348,6 +373,7 @@ def main() -> None:
     parser.add_argument("--sample-steps", type=str, default="0,60,120,180,239")
     parser.add_argument("--scene", choices=["pen", "cube"], default="cube")
     parser.add_argument("--tracked-object", choices=TRACKED_OBJECTS, default="official_object")
+    parser.add_argument("--controller-mode", choices=CONTROLLER_MODES, default="official_pick_place")
     parser.add_argument("--final-hold-duration", type=float, default=1.0)
     parser.add_argument("--lift-height-min", type=float, default=0.12)
     parser.add_argument("--hold-duration-min", type=float, default=2.0)
@@ -389,6 +415,9 @@ def main() -> None:
         if args_in.scene != "cube":
             raise ValueError("existing_cup_asset gate currently requires --scene cube so the official cup asset is loaded")
         object_adapter_meta = _retarget_existing_cup_as_object(example, args_in.final_hold_duration)
+    controller_adapter_meta = {"adapter": "official_panda_hydro_waypoints_unmodified"}
+    if args_in.controller_mode == "lift_hold":
+        controller_adapter_meta = _configure_lift_hold_waypoints(example, args_in.final_hold_duration)
 
     sensor = SensorTiledCamera(model=example.model)
     sensor.utils.create_default_light(enable_shadows=True)
@@ -517,8 +546,10 @@ def main() -> None:
         "device": str(wp.get_device()),
         "scene": args_in.scene,
         "tracked_object": args_in.tracked_object,
+        "controller_mode": args_in.controller_mode,
         "final_hold_duration": args_in.final_hold_duration,
         "object_adapter": object_adapter_meta,
+        "controller_adapter": controller_adapter_meta,
         "num_steps": args_in.num_steps,
         "sample_steps": requested,
         "controller_type": "official_newton_panda_hydro_scripted_no_adaptation",
