@@ -351,6 +351,21 @@ record it as a Newton cup-asset adaptation issue and keep iterating inside the
 Phase 01 task definition. Do not substitute a toy model or pretend the result
 is T-Rex-style data.
 
-The next concrete step is to tune cup grasp initialization and object physical
-parameters while preserving the official Newton asset path and Newton-native
-namespaces.
+The next concrete step was to distinguish a real cup-grasp issue from the
+official controller's short release cycle. A second gate,
+`lift_hold_variable_mass_cup_v1_existing_cup_hold_gate_20260627_0145`, added
+`final_hold_duration=999.0`. It passed official sanity and visual validation,
+and manual inspection showed the cup still elevated at frame `0239`.
+
+Numeric result:
+
+```text
+final_object_z=0.30836987495422363
+max_lift=0.15986861288547516
+```
+
+This clears the extended-hold visual gate, but it still does not claim the full
+two-second hold metric because the 240-frame diagnostic window covers only
+about one second after reaching the high hold pose. The next step is a longer
+metric gate, for example 360 frames or more, with explicit success/failure
+metric extraction.

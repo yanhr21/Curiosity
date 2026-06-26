@@ -34,3 +34,11 @@
       cup-asset gate shows the cup visible and retargeted, with
       `max_lift=0.15901388227939606`, but the final inspected frame shows the
       cup tilted/fallen, so stable cup grasp success is still pending.
+- [x] Add an extended final-hold controller parameter and rerun the cup hold
+      visual gate. Run
+      `lift_hold_variable_mass_cup_v1_existing_cup_hold_gate_20260627_0145`
+      passed official sanity and visual validation with
+      `final_hold_duration=999.0`, `final_object_z=0.30836987495422363`, and
+      `max_lift=0.15986861288547516`.
+- [ ] Run a longer-window cup hold metric gate, for example 360 frames or more,
+      before claiming the configured full two-second hold success metric.

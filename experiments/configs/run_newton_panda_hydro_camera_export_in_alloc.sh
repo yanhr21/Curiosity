@@ -8,6 +8,7 @@ RUN_TAG="${RUN_TAG:-newton_panda_hydro_camera_export_$(date +%Y%m%d_%H%M%S)}"
 NEWTON_VENV="${NEWTON_VENV:-$ROOT/envs/newton/.venv}"
 SCENE="${SCENE:-pen}"
 TRACKED_OBJECT="${TRACKED_OBJECT:-official_object}"
+FINAL_HOLD_DURATION="${FINAL_HOLD_DURATION:-1.0}"
 NUM_STEPS="${NUM_STEPS:-240}"
 SAMPLE_STEPS="${SAMPLE_STEPS:-0,60,120,180,239}"
 DEVICE="${DEVICE:-cuda:0}"
@@ -56,6 +57,7 @@ echo "NEWTON_VENV=$NEWTON_VENV"
 echo "NEWTON_CACHE_PATH=$NEWTON_CACHE_PATH"
 echo "SCENE=$SCENE"
 echo "TRACKED_OBJECT=$TRACKED_OBJECT"
+echo "FINAL_HOLD_DURATION=$FINAL_HOLD_DURATION"
 echo "NUM_STEPS=$NUM_STEPS"
 echo "SAMPLE_STEPS=$SAMPLE_STEPS"
 echo "DEVICE=$DEVICE"
@@ -105,7 +107,8 @@ echo "=== NEWTON_CAMERA_EXPORT_START ==="
   --num-steps "$NUM_STEPS" \
   --sample-steps "$SAMPLE_STEPS" \
   --scene "$SCENE" \
-  --tracked-object "$TRACKED_OBJECT"
+  --tracked-object "$TRACKED_OBJECT" \
+  --final-hold-duration "$FINAL_HOLD_DURATION"
 echo "=== NEWTON_CAMERA_EXPORT_END ==="
 
 "$NEWTON_VENV/bin/python" experiments/configs/validate_newton_visual_preview.py \
@@ -132,6 +135,7 @@ payload = {
     "visual_validation": visual_validation,
     "scene": summary.get("scene"),
     "tracked_object": summary.get("tracked_object"),
+    "final_hold_duration": summary.get("final_hold_duration"),
     "num_steps": summary.get("num_steps"),
     "sample_steps": summary.get("sample_steps"),
     "frame_browser": summary.get("frame_browser"),

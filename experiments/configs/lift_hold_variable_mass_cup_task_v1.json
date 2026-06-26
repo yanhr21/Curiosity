@@ -206,6 +206,21 @@
       "contact_sheet": "experiments/visuals/lift_hold_variable_mass_cup_v1_existing_cup_asset_gate_20260627_0105/contact_sheet.png",
       "stable_grasp_status": "pending",
       "max_lift_m": 0.15901388227939606
+    },
+    "completed_extended_hold_gate": {
+      "run_tag": "lift_hold_variable_mass_cup_v1_existing_cup_hold_gate_20260627_0145",
+      "tracked_object": "existing_cup_asset",
+      "adapter": "retarget_existing_official_cup_asset_as_object",
+      "final_hold_duration": 999.0,
+      "fresh_newton_sensor_contact_sanity": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_hold_gate_20260627_0145_fresh_newton_sensor_contact_sanity.json",
+      "visual_validation": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_hold_gate_20260627_0145_visual_validation.json",
+      "manual_visual_inspection": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_hold_gate_20260627_0145_manual_visual_inspection.json",
+      "downstream_gate": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_hold_gate_20260627_0145_downstream_gate_cleared.json",
+      "frame_browser": "experiments/visuals/lift_hold_variable_mass_cup_v1_existing_cup_hold_gate_20260627_0145/frame_browser.html",
+      "contact_sheet": "experiments/visuals/lift_hold_variable_mass_cup_v1_existing_cup_hold_gate_20260627_0145/contact_sheet.png",
+      "full_two_second_hold_metric_status": "pending",
+      "final_object_z_m": 0.30836987495422363,
+      "max_lift_m": 0.15986861288547516
     }
   },
   "valid_claims": [

@@ -192,7 +192,7 @@ def _find_local_body_index(example: Example, label_suffix: str) -> int:
     raise ValueError(f"Could not find local body label ending with {label_suffix!r}")
 
 
-def _retarget_existing_cup_as_object(example: Example) -> dict:
+def _retarget_existing_cup_as_object(example: Example, final_hold_duration: float) -> dict:
     """Track and lift the cup body already created by the official example.
 
     The official Panda hydro cube scene loads `manipulation_objects/cup` as the
@@ -212,6 +212,8 @@ def _retarget_existing_cup_as_object(example: Example) -> dict:
     example.put_in_cup = False
     example.object_max_z = [example.object_pos[2]] * example.world_count if example.test_mode else None
     example.setup_ik()
+    if final_hold_duration > 0.0 and example.waypoints:
+        example.waypoints[-1][1] = float(final_hold_duration)
     example.capture_ik()
     return {
         "adapter": "retarget_existing_official_cup_asset_as_object",
@@ -220,6 +222,7 @@ def _retarget_existing_cup_as_object(example: Example) -> dict:
         "cup_body_local": cup_body_local,
         "cup_pos": list(example.cup_pos),
         "grasping_offset": list(example.grasping_offset),
+        "final_hold_duration": float(final_hold_duration),
         "body_label": example.model_single.body_label[cup_body_local],
         "put_in_cup_after_retarget": bool(example.put_in_cup),
     }
@@ -234,6 +237,7 @@ def main() -> None:
     parser.add_argument("--sample-steps", type=str, default="0,60,120,180,239")
     parser.add_argument("--scene", choices=["pen", "cube"], default="cube")
     parser.add_argument("--tracked-object", choices=TRACKED_OBJECTS, default="official_object")
+    parser.add_argument("--final-hold-duration", type=float, default=1.0)
     parser.add_argument("--width", type=int, default=192)
     parser.add_argument("--height", type=int, default=144)
     args_in = parser.parse_args()
@@ -270,7 +274,7 @@ def main() -> None:
     if args_in.tracked_object == "existing_cup_asset":
         if args_in.scene != "cube":
             raise ValueError("existing_cup_asset gate currently requires --scene cube so the official cup asset is loaded")
-        object_adapter_meta = _retarget_existing_cup_as_object(example)
+        object_adapter_meta = _retarget_existing_cup_as_object(example, args_in.final_hold_duration)
 
     sensor = SensorTiledCamera(model=example.model)
     sensor.utils.create_default_light(enable_shadows=True)
@@ -376,6 +380,7 @@ def main() -> None:
         "device": str(wp.get_device()),
         "scene": args_in.scene,
         "tracked_object": args_in.tracked_object,
+        "final_hold_duration": args_in.final_hold_duration,
         "object_adapter": object_adapter_meta,
         "num_steps": args_in.num_steps,
         "sample_steps": requested,
