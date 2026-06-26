@@ -317,17 +317,17 @@ around `experiments/configs/residual_label_source_manifest_v1.json`, collect
 additional ordinary cells, and keep held-out `full_low` and `empty_high` for
 evaluation.
 
-The formal source runner now exists and has passed on three ordinary cells:
-`half_low`, `empty_low`, and `half_medium`. The final runner
-`residual_label_source_runner_v1_20260627_0401` reran fresh official Newton
+The formal source runner now exists and has passed on four ordinary cells:
+`half_low`, `empty_low`, `half_medium`, and `full_high`. The final runner
+`residual_label_source_runner_v1_20260627_0420` reran fresh official Newton
 sanity inside tmux-held allocation `154142`, produced
 `data/processed/residual_label_source_runner_v1_20260627/manifest.json`, and
-validated `1080` records from `3` source runs with `failures=[]`,
+validated `1440` records from `4` source runs with `failures=[]`,
 `generated_trex_fields=[]`, `schema_promotion=blocked`, and
 `training_started=false`. This clears the source-runner blocker but still does
-not create a learned adapter. The next step is either more ordinary-cell source
-collection such as `full_high`, or a reviewed learned residual-adapter runner
-that consumes these sources while preserving held-out split enforcement.
+not create a learned adapter. The next step is either remaining ordinary-cell
+source collection if useful, or a reviewed learned residual-adapter runner that
+consumes these sources while preserving held-out split enforcement.
 
 The training path is:
 
