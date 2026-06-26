@@ -184,3 +184,22 @@ feedback event was triggered.
 Interpretation: this fifth ordinary cell remains visually valid and physically
 parameterized, but still does not demonstrate feedback adaptation because no
 feedback event was triggered.
+
+2026-06-27: validated the sixth scripted feedback ordinary grid cell.
+
+- Cell: `full_medium`.
+- Run tag:
+  `lift_hold_scripted_feedback_baseline_v1_cup_full_medium_prefinalize_20260627_1805`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_scripted_feedback_full_medium_variant.md`.
+- Fresh official Newton sanity: pass.
+- Automated visual validation: pass.
+- Manual visual inspection: pass.
+- Applied object mass: `0.3499999940395355` kg observed.
+- Applied friction mu: `0.800000011920929` observed.
+- Strict metric status: fail, only `object_accel_above_threshold`.
+- Feedback trigger count: 0.
+
+Interpretation: this sixth ordinary cell remains visually valid and physically
+parameterized, but still does not demonstrate feedback adaptation because no
+feedback event was triggered.
