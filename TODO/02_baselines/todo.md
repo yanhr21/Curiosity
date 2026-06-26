@@ -35,9 +35,26 @@
 - [x] Add `controller_mode=lift_hold` to the no-adaptation baseline launcher
       so the baseline uses official approach/grasp/lift waypoints without the
       release/place segment.
-- [ ] Rerun no-adaptation nominal cube baseline with `controller_mode=lift_hold`
-      and extract full metrics.
-- [ ] Run baseline on nominal cup.
-- [ ] Run baseline across mass/fill variants.
-- [ ] Write Phase 02 no-adaptation nominal cup report after compute run and
-      manual visual inspection.
+- [x] Rerun no-adaptation nominal cube baseline with `controller_mode=lift_hold`
+      and extract full metrics:
+      `lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255`.
+      This run passed official sanity, camera export, visual validation,
+      manual visual inspection, and full metrics with `hold_duration_s=4.316662549972534`,
+      `max_slip_m=0.007660537484248558`, and `status=success`.
+- [x] Run baseline on nominal cup:
+      `lift_hold_no_adaptation_scripted_baseline_v1_nominal_cup_existing_asset_lifthold_20260627_0915`.
+      This run passed official sanity, camera export, visual validation, and
+      manual visual inspection. Full metrics correctly marked it as `fail`
+      because `max_object_accel_m_s2=8.308498000056417` exceeded the schema
+      threshold `8.0`, even though lift, hold duration, slip, drop, and contact
+      loss passed.
+- [ ] Implement and sanity-check a real mass/friction variant adapter before
+      running mass/fill variants. Do not create variant runs by changing only
+      labels such as `MASS_LABEL` or `FRICTION_LABEL`; the Newton model must
+      actually change object mass/inertia and contact friction with provenance
+      recorded in the summary.
+- [ ] Run baseline across mass/fill variants after the real physics-parameter
+      adapter passes a fresh official sanity/export/visual gate.
+- [x] Write Phase 02 no-adaptation nominal cup report after compute run and
+      manual visual inspection:
+      `experiments/reports/2026-06-27_phase02_no_adaptation_nominal_cup_baseline.md`.

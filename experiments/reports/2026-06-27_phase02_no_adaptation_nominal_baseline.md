@@ -108,11 +108,87 @@ clears lift-height evidence. It fails the full stable-grasp baseline metric
 because the continuous hold duration is below `2.0s` and lateral slip is above
 `0.025m`.
 
+## Corrected Lift-Hold Success Case
+
+Run tag:
+
+```text
+lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255
+```
+
+This rerun used the corrected `controller_mode=lift_hold` path. It preserves
+the official Newton Panda hydro approach/grasp/lift waypoints, disables the
+release/place segment, and holds the lifted pose.
+
+Command:
+
+```text
+JOB_ID=154023 \
+TMUX_SESSION=curiosity_next_source_alloc_20260626_232937 \
+RUN_TAG=lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255 \
+WINDOW_NAME=phase02_noadapt_lifthold_v2 \
+bash experiments/configs/launch_lift_hold_no_adaptation_baseline_tmux.sh
+```
+
+Metrics command:
+
+```text
+JOB_ID=154023 \
+TMUX_SESSION=curiosity_next_source_alloc_20260626_232937 \
+RUN_TAG=lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255 \
+WINDOW_NAME=phase02_metrics_lifthold_v2 \
+MANUAL_VISUAL_INSPECTION=pass \
+bash experiments/configs/launch_lift_hold_metrics_tmux.sh
+```
+
+Evidence:
+
+```text
+logs/newton/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255.log
+logs/newton/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255_metrics.log
+experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255_fresh_newton_sensor_contact_sanity.json
+experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255_summary.json
+experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255_visual_validation.json
+experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255_manual_visual_inspection.json
+experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255_downstream_gate_cleared.json
+experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255_metrics.json
+experiments/outputs/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255_metrics.csv
+experiments/visuals/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255/contact_sheet.png
+experiments/visuals/lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255/frame_browser.html
+```
+
+Result:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+sensor_tiled_camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+controller_mode=lift_hold
+status=success
+lift_height_m=0.22698602825403214
+hold_duration_s=4.316662549972534
+max_slip_m=0.007660537484248558
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=98
+max_object_accel_m_s2=4.997248082381072
+failure_reasons=[]
+```
+
+This gives Phase 02 both a valid official-cube failure case and a valid
+official-cube success case under the same metrics schema. The success case
+does not change the failure case or loosen any threshold.
+
 ## Limitations
 
-This is a valid no-adaptation baseline failure case for the official cube
-object. It does not block progress; it gives the next adaptive baselines a
-concrete failure mode to improve: hold duration and slip control. It does not
+This report now contains two official-cube no-adaptation cases under the same
+metrics schema: one failure case from the original release/place trajectory
+and one success case from the corrected `controller_mode=lift_hold` trajectory.
+The failure case remains useful because it gives the next adaptive baselines a
+concrete failure mode to improve: hold duration and slip control. The success
+case clears only the nominal official-cube no-adaptation gate. It does not
 claim nominal cup success, mass/fill generalization, curiosity, or learned
 policy behavior.
 

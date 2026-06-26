@@ -41,7 +41,7 @@ if [[ ! -x "$NEWTON_VENV/bin/python" ]]; then
   exit 4
 fi
 
-bash -n "$ROOT/experiments/configs/run_newton_panda_hydro_camera_export_in_alloc.sh"
+bash -n "$ROOT/experiments/configs/run_newton_panda_hydro_camera_export_v2_in_alloc.sh"
 sed -n '1,120p' AGENTS.md >/dev/null
 
 ps -u "$USER" -o pid,ppid,stat,etime,cmd \
@@ -49,6 +49,7 @@ ps -u "$USER" -o pid,ppid,stat,etime,cmd \
       $1 == self {next}
       /awk -v self=/ {next}
       /run_newton_panda_hydro_camera_export_in_alloc.sh/ {print; next}
+      /run_newton_panda_hydro_camera_export_v2_in_alloc.sh/ {print; next}
       /srun .*newton_panda_hydro_camera_export/ {print; next}
     ' >/tmp/newton_panda_hydro_camera_export_running.$$
 if [[ -s /tmp/newton_panda_hydro_camera_export_running.$$ ]]; then
@@ -60,7 +61,7 @@ fi
 rm -f /tmp/newton_panda_hydro_camera_export_running.$$
 
 log="$ROOT/logs/newton/${RUN_TAG}.log"
-remote_cmd="cd $(printf '%q' "$ROOT") && RUN_TAG=$(printf '%q' "$RUN_TAG") NEWTON_VENV=$(printf '%q' "$NEWTON_VENV") SCENE=$(printf '%q' "$SCENE") TRACKED_OBJECT=$(printf '%q' "$TRACKED_OBJECT") CONTROLLER_MODE=$(printf '%q' "$CONTROLLER_MODE") FINAL_HOLD_DURATION=$(printf '%q' "$FINAL_HOLD_DURATION") LIFT_HEIGHT_MIN=$(printf '%q' "$LIFT_HEIGHT_MIN") HOLD_DURATION_MIN=$(printf '%q' "$HOLD_DURATION_MIN") DROP_HEIGHT_LOSS=$(printf '%q' "$DROP_HEIGHT_LOSS") NUM_STEPS=$(printf '%q' "$NUM_STEPS") SAMPLE_STEPS=$(printf '%q' "$SAMPLE_STEPS") DEVICE=$(printf '%q' "$DEVICE") NEWTON_CACHE_PATH=$(printf '%q' "$NEWTON_CACHE_PATH") bash $(printf '%q' "$ROOT/experiments/configs/run_newton_panda_hydro_camera_export_in_alloc.sh")"
+remote_cmd="cd $(printf '%q' "$ROOT") && RUN_TAG=$(printf '%q' "$RUN_TAG") NEWTON_VENV=$(printf '%q' "$NEWTON_VENV") SCENE=$(printf '%q' "$SCENE") TRACKED_OBJECT=$(printf '%q' "$TRACKED_OBJECT") CONTROLLER_MODE=$(printf '%q' "$CONTROLLER_MODE") FINAL_HOLD_DURATION=$(printf '%q' "$FINAL_HOLD_DURATION") LIFT_HEIGHT_MIN=$(printf '%q' "$LIFT_HEIGHT_MIN") HOLD_DURATION_MIN=$(printf '%q' "$HOLD_DURATION_MIN") DROP_HEIGHT_LOSS=$(printf '%q' "$DROP_HEIGHT_LOSS") NUM_STEPS=$(printf '%q' "$NUM_STEPS") SAMPLE_STEPS=$(printf '%q' "$SAMPLE_STEPS") DEVICE=$(printf '%q' "$DEVICE") NEWTON_CACHE_PATH=$(printf '%q' "$NEWTON_CACHE_PATH") bash $(printf '%q' "$ROOT/experiments/configs/run_newton_panda_hydro_camera_export_v2_in_alloc.sh")"
 cmd="cd $(printf '%q' "$ROOT") && srun --jobid=$(printf '%q' "$JOB_ID") --overlap --export=ALL --nodes=1 --ntasks=1 --cpus-per-task=8 --gres=gpu:1 bash -lc $(printf '%q' "$remote_cmd")"
 
 window="${WINDOW_NAME}_${RUN_TAG##*_}"

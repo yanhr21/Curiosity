@@ -16,14 +16,24 @@ SAMPLE_STEPS="${SAMPLE_STEPS:-0,45,90,135,180,225,270,315,359}"
 
 cd "$ROOT"
 
-if [[ "$TRACKED_OBJECT" != "official_object" ]]; then
-  echo "ERROR: Phase 02 no-adaptation baseline v1 must use TRACKED_OBJECT=official_object." >&2
-  echo "Cup-asset retargeting remains a Phase 01 adaptation issue until stable cup grasp is cleared." >&2
-  exit 2
-fi
+case "$TRACKED_OBJECT" in
+  official_object)
+    ;;
+  existing_cup_asset)
+    if [[ "$SCENE" != "cube" ]]; then
+      echo "ERROR: TRACKED_OBJECT=existing_cup_asset requires SCENE=cube so the official cup asset is loaded." >&2
+      exit 2
+    fi
+    ;;
+  *)
+    echo "ERROR: unsupported TRACKED_OBJECT=$TRACKED_OBJECT for Phase 02 no-adaptation baseline v1." >&2
+    echo "Allowed values: official_object, existing_cup_asset." >&2
+    exit 2
+    ;;
+esac
 
 bash -n "$ROOT/experiments/configs/launch_newton_panda_hydro_camera_export_tmux.sh"
-bash -n "$ROOT/experiments/configs/run_newton_panda_hydro_camera_export_in_alloc.sh"
+bash -n "$ROOT/experiments/configs/run_newton_panda_hydro_camera_export_v2_in_alloc.sh"
 
 RUN_TAG="$RUN_TAG" \
 WINDOW_NAME="$WINDOW_NAME" \

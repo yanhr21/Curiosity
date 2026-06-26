@@ -142,10 +142,89 @@ experiments/configs/launch_lift_hold_metrics_tmux.sh
 experiments/configs/run_lift_hold_metrics_in_alloc.sh
 ```
 
-Next requirement: rerun the no-adaptation nominal cube baseline with
-`controller_mode=lift_hold` and extract full metrics. After that, run and
-report the no-adaptation baseline on the nominal cup asset, then run mass/fill
-variants.
+## Nominal Official Cube Lift-Hold Success Result
+
+The corrected lift-hold no-adaptation run has completed for the official
+Newton cube object:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_nominal_cube_lifthold_v2_20260627_0255
+```
+
+Result:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+sensor_tiled_camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass
+baseline_status=success
+controller_mode=lift_hold
+lift_height_m=0.22698602825403214
+hold_duration_s=4.316662549972534
+max_slip_m=0.007660537484248558
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=98
+max_object_accel_m_s2=4.997248082381072
+```
+
+This supplies the required nominal official-cube no-adaptation success case.
+It does not claim cup success, mass/fill generalization, curiosity, adaptation,
+learned policy behavior, tactile dominance, or T-Rex schema promotion.
+
+## Nominal Official Cup Lift-Hold Result
+
+The no-adaptation baseline has completed for the official Newton cup asset
+retargeted from the Panda hydro cube scene:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_nominal_cup_existing_asset_lifthold_20260627_0915
+tracked_object=existing_cup_asset
+object_adapter=retarget_existing_official_cup_asset_as_object
+```
+
+Result:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+sensor_tiled_camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+controller_mode=lift_hold
+lift_height_m=0.16000424325466156
+hold_duration_s=4.099996089935303
+max_slip_m=0.0034891533600654033
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=62.0
+max_object_accel_m_s2=8.308498000056417
+failure_reasons=[object_accel_above_threshold]
+```
+
+This is a valid nominal-cup no-adaptation failure case under the same metrics
+schema. It passes lift, hold, slip, drop, and contact-loss gates but fails the
+unstable object acceleration threshold. Do not lower the threshold to convert
+this into success.
+
+## Mass/Fill Variant Readiness
+
+The task specification already defines empty/half/full and low/medium/high
+cells, but the current exporter does not yet expose a verified physics
+parameter adapter for mass, inertia, or contact friction. Therefore mass/fill
+variants must not be run by changing only report labels such as `MASS_LABEL`
+or `FRICTION_LABEL`.
+
+Next requirement: implement and sanity-check a real Newton parameter adapter
+that changes the tracked object's mass/inertia and contact friction, records
+the requested and observed parameters in the rollout summary, and passes the
+same official sanity/export/visual gate before any mass/fill variant is
+reported.
 
 ## Rules
 
