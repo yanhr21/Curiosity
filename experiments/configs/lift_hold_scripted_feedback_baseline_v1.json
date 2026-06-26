@@ -120,6 +120,41 @@
       "full_medium",
       "full_high"
     ],
+    "completed_ordinary_grid_cells": {
+      "empty_low": {
+        "run_tag": "lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615",
+        "tracked_object": "existing_cup_asset",
+        "physics_variant_label": "feedback_empty_low_mass0p08_mu0p35",
+        "object_mass_kg": 0.08,
+        "object_friction_mu": 0.35,
+        "held_out_generalization_cell": false,
+        "fresh_newton_sensor_contact_sanity": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615_fresh_newton_sensor_contact_sanity.json",
+        "visual_validation": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615_visual_validation.json",
+        "manual_visual_inspection": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615_manual_visual_inspection.json",
+        "summary_json": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615_summary.json",
+        "npz": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615.npz",
+        "metrics_json": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615_metrics.json",
+        "metrics_csv": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615_metrics.csv",
+        "frame_browser": "experiments/visuals/lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615/frame_browser.html",
+        "contact_sheet": "experiments/visuals/lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615/contact_sheet.png",
+        "status": "fail",
+        "failure_reasons": [
+          "object_accel_above_threshold"
+        ],
+        "lift_height_m": 0.1602502018213272,
+        "hold_duration_s": 2.8333306312561035,
+        "max_slip_m": 0.003562770042336314,
+        "object_not_dropped": true,
+        "drop_height_loss_m": 0.0,
+        "contact_loss_frames": 0,
+        "max_contact_proxy": 61.0,
+        "max_object_accel_m_s2": 8.308707937632189,
+        "observed_body_mass_kg": 0.07999999821186066,
+        "observed_shape_material_mu": 0.3499999940395355,
+        "feedback_trigger_count": 0,
+        "interpretation": "Empty/low feedback ordinary grid cell is runnable and visually valid. Real Newton mass/friction values were applied. Strict metrics still fail only on object acceleration, and no feedback event was triggered."
+      }
+    },
     "held_out_generalization_cells": [
       "full_low",
       "empty_high"

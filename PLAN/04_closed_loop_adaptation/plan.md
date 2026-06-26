@@ -84,3 +84,25 @@ Interpretation: nominal cup verifies the feedback path and logged controller
 fields, but it does not yet demonstrate adaptation because no feedback event
 was triggered. The next Phase 04 step is to run the scripted feedback baseline
 across the same mass/friction grid used by Phase 02, preserving held-out cells.
+
+## Completed Scripted Feedback Ordinary Grid Cells
+
+2026-06-27: ran the first scripted feedback ordinary grid cell.
+
+- Cell: `empty_low`.
+- Run tag:
+  `lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_scripted_feedback_empty_low_variant.md`.
+- Fresh official Newton sanity: pass.
+- Automated visual validation: pass.
+- Manual visual inspection: pass.
+- Applied object mass: `0.07999999821186066` kg observed.
+- Applied friction mu: `0.3499999940395355` observed.
+- Strict metric status: fail, only `object_accel_above_threshold`.
+- Feedback trigger count: 0.
+
+Interpretation: the feedback grid path is runnable on a real mass/friction
+variant. This cell still does not demonstrate adaptation because the current
+feedback thresholds did not trigger. Continue through the grid before drawing
+adaptation claims.
