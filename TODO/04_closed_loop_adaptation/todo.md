@@ -11,9 +11,9 @@
 - [ ] Run scripted adaptive baseline across mass/fill variants.
       Nominal cup gate complete:
       `lift_hold_scripted_feedback_baseline_v1_nominal_cup_20260627_1545`.
-      Ordinary grid cells complete: `empty_low`, `empty_medium`, `half_low`.
-      Remaining ordinary cells: `half_medium`, `half_high`, `full_medium`,
-      `full_high`.
+      Ordinary grid cells complete: `empty_low`, `empty_medium`, `half_low`,
+      `half_medium`.
+      Remaining ordinary cells: `half_high`, `full_medium`, `full_high`.
 - [ ] Run contact-aware curiosity diagnostic across mass/fill variants.
 - [ ] Train the first learned adapter as residual controller-parameter output,
       not full low-level torque control.
