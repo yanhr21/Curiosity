@@ -533,3 +533,39 @@ checks around `experiments/configs/residual_label_source_manifest_v1.json`,
 then collect additional ordinary cells. Learned residual-adapter training
 remains blocked until the runner exists and held-out split enforcement is
 present.
+
+2026-06-27 fourth follow-up: the formal residual-label source runner was
+implemented and run inside tmux-held allocation `154142`.
+
+- Runner config:
+  `experiments/configs/residual_label_source_runner_v1.json`.
+- Builder:
+  `experiments/configs/build_residual_label_source_runner.py`.
+- Launcher:
+  `experiments/configs/launch_residual_label_source_runner_tmux.sh`.
+- Compute runner:
+  `experiments/configs/run_residual_label_source_runner_in_alloc.sh`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_label_source_runner_v1.md`.
+- Final runner tag: `residual_label_source_runner_v1_20260627_0401`.
+- Output manifest:
+  `data/processed/residual_label_source_runner_v1_20260627/manifest.json`.
+- Output records:
+  `data/processed/residual_label_source_runner_v1_20260627/residual_label_records.csv`.
+- Fresh official Newton sanity: pass.
+- Source run count: `3`.
+- Record count: `1080`.
+- Total feedback trigger count: `722`.
+- Total feedback-active frames: `722`.
+- Contact count range: `46..62`.
+- Failures: `[]`.
+- Generated T-Rex fields: `[]`.
+- Schema promotion: `blocked`.
+- Training started: `false`.
+
+Promoted source cells are ordinary `half_low`, `empty_low`, and `half_medium`.
+Held-out `full_low` and `empty_high` remain unused for label collection.
+
+Next action: continue source collection on additional ordinary cells such as
+`full_high`, then implement a reviewed learned residual-adapter runner. No
+learned-adapter result exists yet.

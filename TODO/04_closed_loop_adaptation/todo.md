@@ -102,7 +102,7 @@
       `experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle_lift165_warmup15.md`.
       Decision record updated:
       `experiments/reports/2026-06-27_phase04_object_acceleration_gate_decision.md`.
-- [ ] Build the formal residual-label source runner and source-gate checks.
+- [x] Build the formal residual-label source runner and source-gate checks.
       Input manifest:
       `experiments/configs/residual_label_source_manifest_v1.json`.
       Requirements: run only in the held tmux allocation or later equivalent
@@ -111,10 +111,25 @@
       held-out `full_low` and `empty_high`, record commands/logs/configs, and
       keep `generated_trex_fields=[]` with `schema_promotion=blocked`.
       This is still not learned-adapter training.
+      Evidence:
+      `experiments/reports/2026-06-27_phase04_residual_label_source_runner_v1.md`.
+      Final runner `residual_label_source_runner_v1_20260627_0401` ran inside
+      tmux-held allocation `154142`, passed fresh official Newton sanity, and
+      generated
+      `data/processed/residual_label_source_runner_v1_20260627/manifest.json`
+      with `status=pass`, `source_run_count=3`, `record_count=1080`,
+      `total_feedback_trigger_count=722`, `failures=[]`,
+      `generated_trex_fields=[]`, `schema_promotion=blocked`, and
+      `training_started=false`.
 - [ ] Collect additional ordinary-cell residual-label source candidates after
       the runner gates are in place.
-      Start from ordinary cells such as `empty_low`, `half_medium`, and
-      `full_high`; keep held-out cells evaluation-only.
+      Progress: ordinary `empty_low` and `half_medium` were collected after
+      the runner gate and both passed fresh official Newton sanity, automated
+      visual validation, manual visual inspection, strict metrics, and peak
+      analysis. They were added to
+      `experiments/configs/residual_label_source_manifest_v1.json` and the
+      source runner passed with all three sources. Continue with ordinary
+      cells such as `full_high`; keep held-out cells evaluation-only.
 - [x] Plan nonzero residual correction data collection before learned-adapter
       training.
       Evidence:

@@ -8,23 +8,39 @@ model.
 
 ## Result
 
-Status: residual-label source candidate ready, training runner not started.
+Status: residual-label source runner passed, learned-adapter training runner
+not started.
 
 The original blocker was that every default scripted-feedback evaluation had
 `feedback_trigger_count=0`. Follow-up ordinary-cell diagnostics proved that
 the official Newton rollout path can emit nonzero `candidate.controller.*`
-residual fields. The first fully promoted source candidate is now:
+residual fields, and the formal source runner now validates three ordinary
+source candidates:
 
-```text
-residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006
-```
+- `half_low`:
+  `residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006`;
+- `empty_low`:
+  `residual_label_sweep_empty_low_contact58_gentle_lift165_warmup15_20260627_0345`;
+- `half_medium`:
+  `residual_label_sweep_half_medium_contact58_gentle_lift165_warmup15_20260627_0352`.
 
-This run uses ordinary `half_low`, not a held-out cell. It passed fresh
-official Newton sanity, automated visual validation, manual visual inspection,
-and strict lift-hold metrics while producing `feedback_trigger_count=241`.
+Final source-runner output:
 
-Training still has not started because the formal residual-label source runner
-and adapter-training runner are not implemented or reviewed yet.
+- manifest:
+  `data/processed/residual_label_source_runner_v1_20260627/manifest.json`;
+- records:
+  `data/processed/residual_label_source_runner_v1_20260627/residual_label_records.csv`;
+- status: pass;
+- source run count: 3;
+- record count: 1080;
+- total feedback trigger count: 722;
+- failures: [];
+- generated T-Rex fields: [];
+- schema promotion: blocked;
+- training started: false.
+
+Training still has not started because no learned residual-adapter training
+implementation or adapter sanity runner has been reviewed.
 
 ## Ready Evidence
 
@@ -39,48 +55,36 @@ and adapter-training runner are not implemented or reviewed yet.
 - Phase 03 curiosity replay diagnostic passed with `rollout_count=9`.
 - Residual adapter and forward-model target contract exists:
   `experiments/configs/residual_adapter_forward_model_contract_v1.json`.
-- First source manifest exists:
+- Source manifest exists:
   `experiments/configs/residual_label_source_manifest_v1.json`.
-- First promoted source candidate report exists:
-  `experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle_lift165_warmup15.md`.
+- Source runner report exists:
+  `experiments/reports/2026-06-27_phase04_residual_label_source_runner_v1.md`.
 
-Key source metrics:
+## Resolved Blockers
 
-- metrics status: pass;
-- feedback trigger count: 241;
-- lift height: 0.15815936028957367 m;
-- hold duration: 2.5333309173583984 s;
-- max slip: 0.0030417809728431086 m;
-- contact-loss frames: 0;
-- max object acceleration: 0.5063306543767194 m/s^2.
-
-## Resolved Blocker
-
-The previous strict acceleration blocker was traced to a recorded initial
-settling artifact. Peak analysis on the non-warmup diagnostic found the top
-acceleration event at step 2, phase 0, before feedback was active. The warmup15
-source candidate excludes that artifact from the recorded metric window and
-passes strict metrics.
+- The previous strict acceleration blocker was traced to a recorded initial
+  settling artifact and resolved by `PRE_RECORD_WARMUP_STEPS=15`.
+- The lack of a promoted nonzero residual-label source is resolved for three
+  ordinary cells.
+- The formal source-runner blocker is resolved: the runner passed after fresh
+  official Newton sanity and held-out split checks.
 
 ## Blocking Gaps
 
-- No formal residual-label source runner exists yet.
-- No compute-side residual-adapter training runner exists with official Newton
-  sanity, source-gate checks, held-out split enforcement, and report
-  generation.
-- Only one ordinary `half_low` source candidate is promoted, so no general
-  adaptation claim is valid yet.
-- No approved learned-adapter training implementation exists. A placeholder
-  MLP/policy must not be introduced as learned adaptation progress.
+- No approved learned residual-adapter training implementation exists.
+- No compute-side adapter training runner exists with official Newton sanity,
+  source-gate checks, held-out split enforcement, and report generation.
+- Source coverage is still limited to three ordinary cells, so no general
+  learned-adaptation claim is valid yet.
 
 ## Allowed Next Routes
 
-1. Build the formal residual-label source runner around
-   `experiments/configs/residual_label_source_manifest_v1.json`.
-2. Collect additional ordinary-cell source candidates after the runner gates
-   are in place, still excluding held-out `full_low` and `empty_high`.
-3. Only after source gates and runner review, implement the learned residual
-   adapter runner with official Newton sanity and report generation.
+1. Continue collecting ordinary-cell sources such as `full_high`, excluding
+   held-out `full_low` and `empty_high`.
+2. Design and review the learned residual-adapter runner using the source
+   manifest and runner output as inputs.
+3. Only after runner review, start a real training run that follows the
+   no-placeholder-model and GPU-duration rules.
 
 ## Forbidden Next Steps
 
@@ -92,6 +96,6 @@ passes strict metrics.
 
 ## Interpretation
 
-The project is no longer blocked on the first nonzero residual-label source.
-It is now blocked on formal runner construction and broader ordinary-cell
-collection before any learned residual-adapter training claim.
+The project has moved past source-runner construction. The next technical
+blocker is the learned residual-adapter runner, not source availability for the
+first three ordinary cells.

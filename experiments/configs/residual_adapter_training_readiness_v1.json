@@ -1,7 +1,7 @@
 {
   "classification": "residual_adapter_training_readiness_v1",
   "phase": "04_closed_loop_adaptation",
-  "status": "residual_label_source_ready_training_runner_not_started",
+  "status": "residual_label_source_runner_passed_training_runner_not_started",
   "purpose": "Audit whether the first residual controller-parameter adapter can be trained without downgrading into a toy or meaningless model.",
   "contract": "experiments/configs/residual_adapter_forward_model_contract_v1.json",
   "source_evidence": {
@@ -15,7 +15,9 @@
     "smooth_followup_diagnostic": "experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle_smooth.md",
     "object_acceleration_gate_decision_record": "experiments/reports/2026-06-27_phase04_object_acceleration_gate_decision.md",
     "first_promoted_residual_label_source_candidate": "experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle_lift165_warmup15.md",
-    "residual_label_source_manifest": "experiments/configs/residual_label_source_manifest_v1.json"
+    "residual_label_source_manifest": "experiments/configs/residual_label_source_manifest_v1.json",
+    "residual_label_source_runner_report": "experiments/reports/2026-06-27_phase04_residual_label_source_runner_v1.md",
+    "residual_label_source_runner_manifest": "data/processed/residual_label_source_runner_v1_20260627/manifest.json"
   },
   "ready_gates": [
     {
@@ -75,16 +77,16 @@
     },
     {
       "name": "residual_label_source_manifest",
-      "status": "created_training_not_started",
-      "evidence": "experiments/configs/residual_label_source_manifest_v1.json records the warmup15 source candidate with generated_trex_fields=[] and schema_promotion=blocked."
+      "status": "ready_with_three_ordinary_sources_training_not_started",
+      "evidence": "experiments/configs/residual_label_source_manifest_v1.json records promoted ordinary cells half_low, empty_low, and half_medium with generated_trex_fields=[] and schema_promotion=blocked."
+    },
+    {
+      "name": "formal_residual_label_source_runner",
+      "status": "ready_training_not_started",
+      "evidence": "Run residual_label_source_runner_v1_20260627_0401 passed fresh official Newton sanity and source gates with source_run_count=3, record_count=1080, total_feedback_trigger_count=722, failures=[], generated_trex_fields=[], schema_promotion=blocked, and training_started=false."
     }
   ],
   "blockers": [
-    {
-      "name": "no_formal_residual_label_source_runner",
-      "status": "blocking",
-      "evidence": "A source manifest now exists, but no reviewed compute-side runner has converted source candidates into a training dataset with official sanity checks, source gates, and held-out split enforcement."
-    },
     {
       "name": "no_approved_training_implementation",
       "status": "blocking",
@@ -96,16 +98,21 @@
       "evidence": "No compute-side residual-adapter training runner exists with official Newton sanity, source-gate checks, held-out split enforcement, and report generation."
     },
     {
-      "name": "single_source_candidate_only",
+      "name": "limited_source_coverage",
       "status": "blocking_for_general_training_claims",
-      "evidence": "Only one ordinary half_low source candidate is promoted. More ordinary cells should be collected before claiming a general learned adaptation result."
+      "evidence": "Three ordinary source candidates are promoted: half_low, empty_low, and half_medium. More ordinary cells such as full_high should still be collected before claiming a general learned adaptation result."
     }
   ],
   "resolved_blockers": [
     {
+      "name": "no_formal_residual_label_source_runner",
+      "status": "resolved",
+      "evidence": "experiments/configs/build_residual_label_source_runner.py and run residual_label_source_runner_v1_20260627_0401 produced a passing compute-side source manifest with 3 source runs and 1080 records after fresh official Newton sanity."
+    },
+    {
       "name": "no_promoted_nonzero_residual_demonstrations",
-      "status": "resolved_for_first_source_candidate",
-      "evidence": "Run residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006 produced nonzero residual labels and passed strict metrics after pre-record warmup removed the initial settling artifact from the recorded metric window."
+      "status": "resolved_for_three_source_candidates",
+      "evidence": "Runs residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006, residual_label_sweep_empty_low_contact58_gentle_lift165_warmup15_20260627_0345, and residual_label_sweep_half_medium_contact58_gentle_lift165_warmup15_20260627_0352 produced nonzero residual labels and passed strict metrics."
     },
     {
       "name": "object_acceleration_gate_for_first_source_candidate",
@@ -125,8 +132,8 @@
   ],
   "allowed_next_routes": [
     {
-      "route": "build_formal_residual_label_source_runner",
-      "description": "Use experiments/configs/residual_label_source_manifest_v1.json as runner input, verify official sanity/source gates, enforce held-out split, and emit reproducible dataset/report artifacts without starting learned adapter training."
+      "route": "collect_more_ordinary_source_candidates_before_training",
+      "description": "Use the same source gates to collect additional ordinary cells such as full_high, keeping held-out full_low and empty_high reserved for evaluation."
     },
     {
       "route": "create_formal_residual_training_runner_after_label_source_exists",

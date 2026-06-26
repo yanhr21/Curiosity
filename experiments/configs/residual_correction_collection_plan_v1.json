@@ -1,11 +1,11 @@
 {
   "classification": "residual_correction_collection_plan_v1",
   "phase": "04_closed_loop_adaptation",
-  "status": "promoted_residual_label_source_candidate_found_training_runner_not_started",
+  "status": "residual_label_source_runner_passed_three_sources_training_not_started",
   "purpose": "Plan the next diagnostic collection needed before residual-adapter training: collect nonzero residual controller-parameter corrections around the official Newton scripted infant prior.",
   "training_started": false,
   "no_model_created": true,
-  "source_blocker": "resolved_for_first_source_candidate: warmup15 contact58 gentle lift165 run produced nonzero residual labels and passed strict metrics. Remaining work is formal runner/source-gate construction and additional ordinary-cell collection.",
+  "source_blocker": "resolved_for_three_source_candidates: warmup15 contact58 gentle lift165 runs produced nonzero residual labels and passed strict metrics on ordinary half_low, empty_low, and half_medium. The formal source runner passed with 1080 records; remaining work is broader ordinary-cell collection and learned-adapter runner design.",
   "current_feedback_rule": {
     "source_file": "experiments/configs/newton_panda_hydro_tiled_camera_export.py",
     "function": "_apply_scripted_feedback",
@@ -19,7 +19,7 @@
       "feedback_accel_threshold_m_s2": 6.5,
       "feedback_height_drop_threshold_m": 0.015
     },
-    "observed_status": "default grid had no triggers, but contact58 gentle lift165 warmup15 produced nonzero labels and strict metric pass on ordinary half_low"
+    "observed_status": "default grid had no triggers, but contact58 gentle lift165 warmup15 produced nonzero labels and strict metric passes on ordinary half_low, empty_low, and half_medium"
   },
   "diagnostic_collection_objective": {
     "must_produce": [
@@ -424,5 +424,5 @@
       "interpretation": "Pre-record warmup removes the phase-0 initial settling artifact from the recorded metrics while preserving nonzero feedback labels and strict lift-hold success. This is a source candidate, not a trained adapter."
     }
   ],
-  "next_action": "Use experiments/configs/residual_label_source_manifest_v1.json as the first source manifest. Build the formal residual-label source runner and source-gate checks, then collect additional ordinary cells. Do not start learned adapter training until runner review and held-out split enforcement are present."
+  "next_action": "Continue collecting additional ordinary cells such as full_high with the same visual/manual/metrics/peak/source-runner gates. Do not use held-out full_low or empty_high for labels. Do not start learned adapter training until the learned-adapter runner is implemented and reviewed."
 }
