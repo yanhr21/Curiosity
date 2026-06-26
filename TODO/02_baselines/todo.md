@@ -6,6 +6,9 @@
       scripted controller as the non-learned infant prior, fix real Newton
       physics variation before mass/fill baselines, then train residual
       controller adaptation instead of an end-to-end grasp policy first.
+- [x] Record user approval on 2026-06-27 to use the short-term stable Newton
+      scripted-prior route now; checkpoint audits are secondary and must not
+      block the feedback-adaptation and residual-controller path.
 - [x] Implement no-adaptation scripted grasp baseline launch path from the
       selected Newton Panda hydro prior:
       `experiments/configs/lift_hold_no_adaptation_baseline_v1.json` and
@@ -124,6 +127,30 @@
       exceeded the schema threshold `8.0`; lift, hold, slip, drop, contact-loss,
       and contact-proxy gates passed. Keep it labeled as held-out evidence for
       later learned adaptation comparisons.
+      Started ordinary high-friction axis with `half_high`:
+      `lift_hold_no_adaptation_scripted_baseline_v1_cup_half_high_prefinalize_20260627_1415`.
+      The run passed fresh official Newton sanity, camera export, visual
+      validation, and manual visual inspection. Full metrics correctly marked
+      it as `fail` only because `max_object_accel_m_s2=8.308498000056417`
+      exceeded the schema threshold `8.0`; lift, hold, slip, drop, contact-loss,
+      and contact-proxy gates passed. `empty_high` remains held out.
+      Completed ordinary high-friction axis with `full_high`:
+      `lift_hold_no_adaptation_scripted_baseline_v1_cup_full_high_prefinalize_20260627_1430`.
+      The run passed fresh official Newton sanity, camera export, visual
+      validation, and manual visual inspection. Full metrics correctly marked
+      it as `fail` only because `max_object_accel_m_s2=8.308498000056417`
+      exceeded the schema threshold `8.0`; lift, hold, slip, drop, contact-loss,
+      and contact-proxy gates passed. This completes the ordinary mass/friction
+      grid while preserving held-out `full_low` and `empty_high`.
+      Evaluated held-out `empty_high` as no-adaptation evidence:
+      `lift_hold_no_adaptation_scripted_baseline_v1_cup_empty_high_prefinalize_20260627_1445`.
+      The run passed fresh official Newton sanity, camera export, visual
+      validation, and manual visual inspection. Full metrics correctly marked
+      it as `fail` only because `max_object_accel_m_s2=8.308498000056417`
+      exceeded the schema threshold `8.0`; lift, hold, slip, drop, contact-loss,
+      and contact-proxy gates passed. This completes the 3x3 no-adaptation
+      physics-variant evaluation grid; `full_low` and `empty_high` remain
+      held-out evidence for later learned adaptation comparisons.
 - [x] Write Phase 02 no-adaptation nominal cup report after compute run and
       manual visual inspection:
       `experiments/reports/2026-06-27_phase02_no_adaptation_nominal_cup_baseline.md`.

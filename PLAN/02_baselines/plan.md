@@ -20,6 +20,13 @@ checkpoint before building the first baselines. This prior provides approach,
 gripper close, lift, and hold behavior so later learning can focus on residual
 adaptation rather than discovering grasping from scratch.
 
+User-approved decision as of 2026-06-27: this is the active short-term stable
+method. The immediate plan is to continue from the Newton scripted infant
+prior into scripted feedback adaptation and then residual controller-parameter
+learning. Pretrained checkpoints remain audit candidates only; they do not
+block the current baseline/adaptation path and must not be claimed unless a
+compatible official policy passes the same sanity, visual, and metric gates.
+
 Short-term stable method:
 
 1. Keep official Newton Panda hydro scripted grasp/lift as the non-learned
@@ -638,6 +645,181 @@ Report:
 
 ```text
 experiments/reports/2026-06-27_phase02_no_adaptation_full_low_variant.md
+```
+
+## Half/High Cup Variant Result
+
+The first ordinary high-friction real mass/friction variant baseline has
+completed:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_cup_half_high_prefinalize_20260627_1415
+cell=half_high
+object_mass_kg=0.20
+object_friction_mu=1.20
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.20000000298023224
+original_shape_material_mu=1.0
+observed_shape_material_mu=1.2000000476837158
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.15865357220172882
+hold_duration_s=3.099997043609619
+max_slip_m=0.003593952800185949
+object_not_dropped=true
+drop_height_loss_m=0.0000010132789611816406
+contact_loss_frames=0
+max_contact_proxy=61.0
+max_object_accel_m_s2=8.308498000056417
+failure_reasons=[object_accel_above_threshold]
+```
+
+This is a valid no-adaptation failure baseline for the half/high cup cell.
+It starts the ordinary high-friction axis while preserving the held-out status
+of `empty_high`. It passes lift, hold, slip, drop, and contact-loss gates, and
+fails the unchanged full schema only on object acceleration.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_no_adaptation_half_high_variant.md
+```
+
+## Full/High Cup Variant Result
+
+The second ordinary high-friction real mass/friction variant baseline has
+completed:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_cup_full_high_prefinalize_20260627_1430
+cell=full_high
+object_mass_kg=0.35
+object_friction_mu=1.20
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.3499999940395355
+original_shape_material_mu=1.0
+observed_shape_material_mu=1.2000000476837158
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.15366242825984955
+hold_duration_s=3.0666637420654297
+max_slip_m=0.003366944785191424
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=63.0
+max_object_accel_m_s2=8.308498000056417
+failure_reasons=[object_accel_above_threshold]
+```
+
+This is a valid no-adaptation failure baseline for the full/high cup cell.
+It completes the ordinary mass/friction grid while preserving `full_low` and
+`empty_high` as held-out generalization cells. It passes lift, hold, slip,
+drop, and contact-loss gates, and fails the unchanged full schema only on
+object acceleration.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_no_adaptation_full_high_variant.md
+```
+
+## Empty/High Held-Out Cup Variant Result
+
+The empty/high held-out generalization cell has completed as a no-adaptation
+evaluation:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_cup_empty_high_prefinalize_20260627_1445
+cell=empty_high
+held_out_generalization_cell=true
+object_mass_kg=0.08
+object_friction_mu=1.20
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.07999999821186066
+original_shape_material_mu=1.0
+observed_shape_material_mu=1.2000000476837158
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.16015110909938812
+hold_duration_s=3.099997043609619
+max_slip_m=0.003486471675153751
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=62.0
+max_object_accel_m_s2=8.308498000056417
+failure_reasons=[object_accel_above_threshold]
+```
+
+This completes the 3x3 no-adaptation physics-variant evaluation grid. All cells
+pass fresh official Newton sanity, camera export, visual validation, manual
+inspection, and full metrics extraction. All cells pass lift/hold/slip/drop and
+contact gates and fail the unchanged full schema only on object acceleration.
+`full_low` and `empty_high` remain labeled as held-out evidence for later
+learned adaptation comparisons.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_no_adaptation_empty_high_variant.md
 ```
 
 ## Rules
