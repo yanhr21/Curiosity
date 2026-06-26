@@ -197,6 +197,11 @@ def run(config_path: Path, root: Path, fresh_sanity_json: Path, run_tag: str, ru
     )
     train_features, train_active, train_continuous = _torch_stack_sequences(torch, train_sequences, device)
     val_features, val_active, val_continuous = _torch_stack_sequences(torch, validation_sequences, device)
+    if run_mode == "train":
+        train_repeat = int(config["real_training"].get("train_batch_repeat", 1))
+        train_features = train_features.repeat(train_repeat, 1, 1)
+        train_active = train_active.repeat(train_repeat, 1, 1)
+        train_continuous = train_continuous.repeat(train_repeat, 1, 1)
 
     class ResidualControllerAdapter(nn.Module):
         def __init__(self, input_dim: int, hidden_dim: int, gru_layers: int) -> None:
@@ -315,6 +320,8 @@ def run(config_path: Path, root: Path, fresh_sanity_json: Path, run_tag: str, ru
         "validation_sequence_count": len(validation_sequences),
         "train_record_count": len(train_rows),
         "validation_record_count": len(validation_rows),
+        "effective_train_batch_size": int(train_features.shape[0]),
+        "train_batch_repeat": int(config["real_training"].get("train_batch_repeat", 1)) if run_mode == "train" else 1,
         "optimizer_steps": optimizer_steps,
         "elapsed_seconds": elapsed,
         "train_loss_first": train_losses[0] if train_losses else None,

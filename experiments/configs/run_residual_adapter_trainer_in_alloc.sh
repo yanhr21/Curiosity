@@ -93,6 +93,22 @@ if payload["status"] != "pass":
 PY
 echo "=== OFFICIAL_NEWTON_SANITY_END ==="
 
+util_csv="$ROOT/logs/newton/${RUN_TAG}_gpu_utilization.csv"
+util_json="$ROOT/experiments/outputs/residual_adapter_trainer_v1_20260627/${RUN_TAG}_gpu_utilization.json"
+monitor_pid=""
+if [[ "$RUN_MODE" == "train" ]]; then
+  mkdir -p "$(dirname "$util_json")"
+  echo "timestamp,utilization.gpu [%],memory.used [MiB]" >"$util_csv"
+  (
+    while true; do
+      nvidia-smi --query-gpu=timestamp,utilization.gpu,memory.used --format=csv,noheader,nounits >>"$util_csv" || true
+      sleep 30
+    done
+  ) &
+  monitor_pid="$!"
+fi
+
+set +e
 "$TRAINER_VENV/bin/python" "$ROOT/experiments/configs/train_residual_adapter_v1.py" \
   --config "$CONFIG" \
   --root "$ROOT" \
@@ -100,3 +116,71 @@ echo "=== OFFICIAL_NEWTON_SANITY_END ==="
   --run-tag "$RUN_TAG" \
   --run-mode "$RUN_MODE" \
   --device "$DEVICE"
+trainer_exit=$?
+set -e
+
+if [[ -n "$monitor_pid" ]]; then
+  kill "$monitor_pid" 2>/dev/null || true
+  wait "$monitor_pid" 2>/dev/null || true
+  "$TRAINER_VENV/bin/python" - "$ROOT" "$RUN_TAG" "$util_csv" "$util_json" "$CONFIG" "$trainer_exit" <<'PY'
+import csv
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+run_tag = sys.argv[2]
+util_csv = Path(sys.argv[3])
+util_json = Path(sys.argv[4])
+config_path = Path(sys.argv[5])
+trainer_exit = int(sys.argv[6])
+summary_path = root / "experiments/outputs/residual_adapter_trainer_v1_20260627" / f"{run_tag}_summary.json"
+config = json.loads(config_path.read_text(encoding="utf-8"))
+threshold = float(config["real_training"]["min_gpu_utilization_percent"])
+values = []
+memory_values = []
+if util_csv.exists():
+    with util_csv.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            try:
+                values.append(float(row["utilization.gpu [%]"]))
+                memory_values.append(float(row["memory.used [MiB]"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+payload = {
+    "classification": "residual_adapter_trainer_gpu_utilization_v1",
+    "run_tag": run_tag,
+    "csv": str(util_csv),
+    "sample_count": len(values),
+    "min_gpu_utilization_percent": min(values) if values else None,
+    "max_gpu_utilization_percent": max(values) if values else None,
+    "mean_gpu_utilization_percent": sum(values) / len(values) if values else None,
+    "samples_below_30_percent": sum(1 for value in values if value < threshold),
+    "max_memory_used_mib": max(memory_values) if memory_values else None,
+    "threshold_percent": threshold,
+    "status": "pass" if values and (sum(values) / len(values)) >= threshold else "fail",
+}
+util_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+if summary_path.exists():
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["gpu_utilization"] = payload
+    if summary.get("run_mode") == "train" and payload["status"] != "pass":
+        summary["real_training_result"] = False
+        failures = list(summary.get("failures", []))
+        failures.append("gpu_utilization_below_threshold")
+        summary["failures"] = failures
+        summary["status"] = "fail"
+    summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+print(json.dumps(payload, indent=2, sort_keys=True))
+if trainer_exit != 0:
+    raise SystemExit(trainer_exit)
+if payload["status"] != "pass":
+    raise SystemExit(7)
+PY
+fi
+
+raise_exit="$trainer_exit"
+if [[ "$raise_exit" -ne 0 ]]; then
+  exit "$raise_exit"
+fi

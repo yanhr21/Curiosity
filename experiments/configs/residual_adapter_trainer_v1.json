@@ -19,8 +19,8 @@
   "architecture": {
     "type": "gru_residual_controller_sequence_model",
     "input_dim": 6,
-    "hidden_dim": 128,
-    "gru_layers": 1,
+    "hidden_dim": 512,
+    "gru_layers": 2,
     "dropout": 0.0,
     "active_head": "binary_feedback_active_logit",
     "continuous_head": [
@@ -61,6 +61,8 @@
   "real_training": {
     "min_train_seconds": 3600,
     "min_gpu_utilization_percent": 30,
+    "train_batch_repeat": 512,
+    "monitor_interval_seconds": 30,
     "checkpoint_written": true,
     "valid_claim": "newton_native_residual_controller_adapter_training_only_after_duration_and_report_gates"
   },
