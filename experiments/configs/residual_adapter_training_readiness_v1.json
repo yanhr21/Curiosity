@@ -1,7 +1,7 @@
 {
   "classification": "residual_adapter_training_readiness_v1",
   "phase": "04_closed_loop_adaptation",
-  "status": "residual_adapter_training_preflight_passed_trainer_not_started",
+  "status": "residual_adapter_trainer_smoke_passed_real_training_not_started",
   "purpose": "Audit whether the first residual controller-parameter adapter can be trained without downgrading into a toy or meaningless model.",
   "contract": "experiments/configs/residual_adapter_forward_model_contract_v1.json",
   "source_evidence": {
@@ -20,7 +20,10 @@
     "residual_label_source_runner_manifest": "data/processed/residual_label_source_runner_v1_20260627/manifest.json",
     "residual_adapter_training_preflight_config": "experiments/configs/residual_adapter_training_preflight_v1.json",
     "residual_adapter_training_preflight_manifest": "data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json",
-    "residual_adapter_training_preflight_report": "experiments/reports/2026-06-27_phase04_residual_adapter_training_preflight_v1.md"
+    "residual_adapter_training_preflight_report": "experiments/reports/2026-06-27_phase04_residual_adapter_training_preflight_v1.md",
+    "residual_adapter_trainer_config": "experiments/configs/residual_adapter_trainer_v1.json",
+    "residual_adapter_trainer_smoke_summary": "experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_smoke_20260627_0539_summary.json",
+    "residual_adapter_trainer_smoke_report": "experiments/reports/2026-06-27_phase04_residual_adapter_trainer_smoke_v1.md"
   },
   "ready_gates": [
     {
@@ -92,18 +95,23 @@
       "name": "residual_adapter_training_preflight",
       "status": "ready_trainer_not_started",
       "evidence": "Run residual_adapter_training_preflight_v1_20260627_0523 passed fresh official Newton sanity and input gates with 1800 source records, 1440 train records, 360 validation records, failures=[], generated_trex_fields=[], schema_promotion=blocked, training_started=false, and no_model_created=true."
+    },
+    {
+      "name": "residual_adapter_trainer_smoke",
+      "status": "ready_real_training_not_started",
+      "evidence": "Run residual_adapter_trainer_v1_smoke_20260627_0539 passed fresh official Newton sanity and CUDA/PyTorch trainer smoke with optimizer_steps=3, validation loss=1.626072883605957, checkpoint_written=false, real_training_result=false, generated_trex_fields=[], schema_promotion=blocked, and failures=[]."
     }
   ],
   "blockers": [
     {
-      "name": "no_approved_training_implementation",
+      "name": "real_training_not_started",
       "status": "blocking",
-      "evidence": "No faithful residual-adapter training implementation has been selected or reviewed; a placeholder MLP/policy must not be introduced as learned adaptation progress."
+      "evidence": "The Newton-native residual adapter trainer exists and passed smoke, but no RUN_MODE=train run has completed the required one-GPU one-hour training, checkpoint writing, utilization monitoring, and evaluation gates."
     },
     {
-      "name": "no_actual_adapter_trainer",
+      "name": "no_held_out_adapter_evaluation",
       "status": "blocking",
-      "evidence": "A compute-side residual-adapter training preflight runner exists and passes, but the actual trainer that consumes the preflight manifest, trains for the required GPU duration, and emits metrics/checkpoints/reports has not been implemented or reviewed."
+      "evidence": "No trained adapter checkpoint has been evaluated on held-out full_low or empty_high with visual and lift-hold metrics."
     },
     {
       "name": "limited_source_coverage",
@@ -128,6 +136,11 @@
       "evidence": "experiments/configs/build_residual_adapter_training_preflight.py and run residual_adapter_training_preflight_v1_20260627_0523 produced a passing compute-side training-input manifest with train=1440 records, validation=360 records, held-out full_low/empty_high excluded, and no model training."
     },
     {
+      "name": "no_adapter_trainer_smoke",
+      "status": "resolved",
+      "evidence": "experiments/configs/train_residual_adapter_v1.py and run residual_adapter_trainer_v1_smoke_20260627_0539 produced a passing compute-side CUDA smoke diagnostic after fresh official Newton sanity. It wrote no checkpoint and is not a real training result."
+    },
+    {
       "name": "object_acceleration_gate_for_first_source_candidate",
       "status": "resolved_by_pre_record_warmup_and_peak_analysis",
       "evidence": "Peak analysis showed the non-warmup 8.3087 m/s^2 maximum occurred at step 2, phase 0, feedback inactive. The warmup15 candidate reports max_object_accel_m_s2=0.5063306543767194 and metrics status pass."
@@ -150,7 +163,7 @@
     },
     {
       "route": "create_formal_residual_training_runner_after_label_source_exists",
-      "description": "Implement the actual training runner that consumes data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json, reruns official Newton sanity, preserves held-out split checks, trains for the required GPU duration, and writes metrics/report/checkpoint paths without T-Rex schema promotion."
+      "description": "Run the actual trainer with RUN_MODE=train only after confirming the GPU-utilization plan. The run must consume data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json, rerun official Newton sanity, preserve held-out split checks, train for at least one GPU-hour, and write metrics/report/checkpoint paths without T-Rex schema promotion."
     },
     {
       "route": "ask_user_before_switching_to_a_different_serious_policy_method",

@@ -43,17 +43,19 @@
       not full low-level torque control.
       Current status: blocked, training not started. Five promoted source
       candidates now exist, the formal residual-label source runner passes,
-      and the residual-adapter training preflight passes; the actual trainer
-      still does not exist yet.
+      the residual-adapter training preflight passes, and the trainer smoke
+      passes. Real training has not started.
       Evidence:
       `experiments/configs/residual_adapter_training_readiness_v1.json`,
       `experiments/reports/2026-06-27_phase04_residual_adapter_training_readiness_v1.md`,
       `experiments/configs/residual_adapter_training_preflight_v1.json`, and
-      `experiments/reports/2026-06-27_phase04_residual_adapter_training_preflight_v1.md`.
-      Blocker: training now would skip reviewed adapter-training code,
-      trainer-side held-out split enforcement, checkpoint output, metrics, and
-      visual/report generation. Next step is the actual learned
-      residual-adapter trainer, not more source or split gating.
+      `experiments/reports/2026-06-27_phase04_residual_adapter_training_preflight_v1.md`,
+      `experiments/configs/residual_adapter_trainer_v1.json`, and
+      `experiments/reports/2026-06-27_phase04_residual_adapter_trainer_smoke_v1.md`.
+      Blocker: real training still needs a `RUN_MODE=train` run that satisfies
+      the one-GPU one-hour rule, monitors GPU utilization, writes a checkpoint,
+      and then runs held-out visual/metric evaluation. The smoke result is not
+      a learned-adaptation result.
 - [x] Run first ordinary-cell diagnostic to verify whether the official Newton
       path can emit nonzero residual controller-parameter labels.
       Evidence:

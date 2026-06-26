@@ -605,3 +605,39 @@ Next action: implement the actual learned residual-adapter trainer that
 consumes the preflight manifest, reruns fresh official Newton sanity, preserves
 held-out split checks, trains for the required GPU duration, and reports
 checkpoint/metrics/visual evidence. No learned-adapter result exists yet.
+
+2026-06-27 sixth follow-up: the Newton-native residual-adapter trainer smoke
+was implemented and run inside tmux-held allocation `154142`.
+
+- Trainer config:
+  `experiments/configs/residual_adapter_trainer_v1.json`.
+- Trainer script:
+  `experiments/configs/train_residual_adapter_v1.py`.
+- Launcher:
+  `experiments/configs/launch_residual_adapter_trainer_tmux.sh`.
+- Compute runner:
+  `experiments/configs/run_residual_adapter_trainer_in_alloc.sh`.
+- Environment note:
+  `docs/residual_adapter_environment_v1.md`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_trainer_smoke_v1.md`.
+- Final smoke tag:
+  `residual_adapter_trainer_v1_smoke_20260627_0539`.
+- Summary:
+  `experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_smoke_20260627_0539_summary.json`.
+- Fresh official Newton sanity: pass.
+- Trainer venv: `envs/residual_adapter/.venv`.
+- Torch version: `2.6.0+cu124`.
+- Device: `cuda:0`, NVIDIA H200.
+- Optimizer steps: `3`.
+- Validation loss: `1.626072883605957`.
+- Checkpoint written: `false`.
+- Real training result: `false`.
+- Generated T-Rex fields: `[]`.
+- Schema promotion: `blocked`.
+- Failures: `[]`.
+
+Next action: run real `RUN_MODE=train` only with a GPU-utilization plan that
+satisfies the one-GPU one-hour rule, then evaluate the checkpoint on held-out
+`full_low` and `empty_high` with visual and metric gates before making any
+learned-adaptation claim.

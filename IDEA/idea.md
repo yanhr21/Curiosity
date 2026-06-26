@@ -342,6 +342,17 @@ and `full_high`, validation=`360` records from `empty_medium`, with held-out
 the actual residual-adapter trainer implementation and review, not source
 collection or split construction.
 
+The residual-adapter trainer smoke now also passes. The final smoke run
+`residual_adapter_trainer_v1_smoke_20260627_0539` used separate local venvs:
+`envs/newton/.venv` for fresh official Newton sanity and
+`envs/residual_adapter/.venv` for PyTorch/CUDA. It ran on `cuda:0` / NVIDIA
+H200, executed 3 optimizer steps, produced validation metrics, wrote no
+checkpoint, and recorded `real_training_result=false`,
+`generated_trex_fields=[]`, and `schema_promotion=blocked`. The next active
+gate is a real `RUN_MODE=train` run that satisfies the one-GPU one-hour rule,
+monitors GPU utilization, writes a checkpoint, and is followed by held-out
+visual/metric evaluation.
+
 The training path is:
 
 1. Start with the official Newton Panda hydro scripted grasp/lift path as the

@@ -8,8 +8,8 @@ model.
 
 ## Result
 
-Status: residual-adapter training preflight passed, actual learned-adapter
-trainer not started.
+Status: residual-adapter trainer smoke passed, real learned-adapter training
+not started.
 
 The original blocker was that every default scripted-feedback evaluation had
 `feedback_trigger_count=0`. Follow-up ordinary-cell diagnostics proved that
@@ -43,8 +43,9 @@ Final source-runner output:
 - schema promotion: blocked;
 - training started: false.
 
-Training still has not started because no actual learned residual-adapter
-trainer has been implemented or reviewed.
+Real training still has not started because no `RUN_MODE=train` run has
+completed the required one-GPU one-hour training, checkpoint writing, and
+held-out evaluation gates.
 
 ## Ready Evidence
 
@@ -69,6 +70,12 @@ trainer has been implemented or reviewed.
   `data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json`.
 - Training-input preflight report exists:
   `experiments/reports/2026-06-27_phase04_residual_adapter_training_preflight_v1.md`.
+- Trainer config exists:
+  `experiments/configs/residual_adapter_trainer_v1.json`.
+- Trainer smoke summary passed:
+  `experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_smoke_20260627_0539_summary.json`.
+- Trainer smoke report exists:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_trainer_smoke_v1.md`.
 
 ## Resolved Blockers
 
@@ -81,21 +88,23 @@ trainer has been implemented or reviewed.
 - The training-input preflight blocker is resolved: the preflight runner passed
   after fresh official Newton sanity with 1440 train records and 360 validation
   records, while excluding held-out `full_low` and `empty_high`.
+- The trainer smoke blocker is resolved: the CUDA/PyTorch trainer path passed
+  after fresh official Newton sanity with optimizer steps and validation metrics
+  while writing no checkpoint and making no real-training claim.
 
 ## Blocking Gaps
 
-- No approved learned residual-adapter training implementation exists.
-- No actual compute-side adapter trainer exists with official Newton sanity,
-  source/preflight checks, held-out split enforcement, checkpoint output, and
-  report generation.
+- No real one-GPU one-hour adapter training run has completed.
+- No trained adapter checkpoint exists.
+- No held-out adapter evaluation exists on `full_low` or `empty_high`.
 - Source coverage is five ordinary cells. This limits broad learned-adaptation
   claims, but it is not a blocker for designing the learned residual-adapter
   runner.
 
 ## Allowed Next Routes
 
-1. Implement and review the actual learned residual-adapter trainer using the
-   preflight manifest as input.
+1. Run `RUN_MODE=train` only after confirming the GPU-utilization plan and
+   preserving the one-GPU one-hour rule.
 2. Optionally collect more ordinary-cell sources later, excluding held-out
    `full_low` and `empty_high`, but do not treat this as the active gate.
 3. Only after runner review, start a real training run that follows the
@@ -111,7 +120,7 @@ trainer has been implemented or reviewed.
 
 ## Interpretation
 
-The project has moved past source-runner construction and training-input
-preflight. The next technical blocker is the actual learned residual-adapter
-trainer, not source availability or split construction for the first five
-ordinary cells.
+The project has moved past source-runner construction, training-input
+preflight, and trainer smoke. The next technical blocker is the real one-hour
+training run plus held-out evaluation, not source availability, split
+construction, or trainer import.
