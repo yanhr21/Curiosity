@@ -84,3 +84,6 @@ docs/_static/viser/
 /kh_dt_coupling.png
 /demo_logs/
 /memory/
+/tactile_frames/
+/tactile_frames_test/
+/*.mp4
