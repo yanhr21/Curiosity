@@ -25,6 +25,7 @@ from newton.sensors import SensorTiledCamera
 
 
 CAMERA_NAMES = ("head_proxy", "right_wrist_proxy", "left_wrist_proxy")
+TRACKED_OBJECTS = ("official_object", "existing_cup_asset")
 
 
 def _look_at_transform(position: np.ndarray, target: np.ndarray, up_hint: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -184,6 +185,46 @@ def _ee_pose(example: Example) -> np.ndarray:
     return np.asarray(poses, dtype=np.float32)
 
 
+def _find_local_body_index(example: Example, label_suffix: str) -> int:
+    for idx, label in enumerate(example.model_single.body_label):
+        if label == label_suffix or label.endswith(f"/{label_suffix}"):
+            return idx
+    raise ValueError(f"Could not find local body label ending with {label_suffix!r}")
+
+
+def _retarget_existing_cup_as_object(example: Example) -> dict:
+    """Track and lift the cup body already created by the official example.
+
+    The official Panda hydro cube scene loads `manipulation_objects/cup` as the
+    placement target. For the Phase 01 cup-asset gate we reuse that official
+    asset and retarget the example's object bookkeeping and IK waypoints to the
+    cup body. This is a scene adapter only; it does not create T-Rex fields or a
+    learned model.
+    """
+
+    cup_body_local = _find_local_body_index(example, "cup")
+    original_object_body_local = int(example.object_body_local)
+    original_object_pos = list(example.object_pos)
+    example.object_body_local = cup_body_local
+    example.object_pos = list(example.cup_pos)
+    example.grasping_offset = [0.0, 0.0, 0.18]
+    example.place_offset = 0.0
+    example.put_in_cup = False
+    example.object_max_z = [example.object_pos[2]] * example.world_count if example.test_mode else None
+    example.setup_ik()
+    example.capture_ik()
+    return {
+        "adapter": "retarget_existing_official_cup_asset_as_object",
+        "original_object_body_local": original_object_body_local,
+        "original_object_pos": original_object_pos,
+        "cup_body_local": cup_body_local,
+        "cup_pos": list(example.cup_pos),
+        "grasping_offset": list(example.grasping_offset),
+        "body_label": example.model_single.body_label[cup_body_local],
+        "put_in_cup_after_retarget": bool(example.put_in_cup),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -192,6 +233,7 @@ def main() -> None:
     parser.add_argument("--num-steps", type=int, default=240)
     parser.add_argument("--sample-steps", type=str, default="0,60,120,180,239")
     parser.add_argument("--scene", choices=["pen", "cube"], default="cube")
+    parser.add_argument("--tracked-object", choices=TRACKED_OBJECTS, default="official_object")
     parser.add_argument("--width", type=int, default=192)
     parser.add_argument("--height", type=int, default=144)
     args_in = parser.parse_args()
@@ -219,6 +261,16 @@ def main() -> None:
         scene=args_in.scene,
     )
     example = Example(viewer, example_args)
+    object_adapter_meta = {
+        "adapter": "official_example_default_object",
+        "body_label": example.model_single.body_label[int(example.object_body_local)],
+        "object_body_local": int(example.object_body_local),
+        "object_pos": list(example.object_pos),
+    }
+    if args_in.tracked_object == "existing_cup_asset":
+        if args_in.scene != "cube":
+            raise ValueError("existing_cup_asset gate currently requires --scene cube so the official cup asset is loaded")
+        object_adapter_meta = _retarget_existing_cup_as_object(example)
 
     sensor = SensorTiledCamera(model=example.model)
     sensor.utils.create_default_light(enable_shadows=True)
@@ -323,6 +375,8 @@ def main() -> None:
         "newton_version": getattr(newton, "__version__", "unknown"),
         "device": str(wp.get_device()),
         "scene": args_in.scene,
+        "tracked_object": args_in.tracked_object,
+        "object_adapter": object_adapter_meta,
         "num_steps": args_in.num_steps,
         "sample_steps": requested,
         "camera_names": list(CAMERA_NAMES),

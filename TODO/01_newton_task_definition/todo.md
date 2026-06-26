@@ -24,6 +24,13 @@
       9 SensorTiledCamera frames, manually inspected the contact sheet plus
       frames `0000`, `0120`, and `0239`, and cleared downstream use only for
       task-spec/visual evidence.
-- [ ] Run the next cup-asset gate where the grasped object path is adapted to
+- [x] Run the next cup-asset gate where the grasped object path is adapted to
       the local cup asset, after fresh official sanity and manual visual
-      inspection.
+      inspection. The gate passed for cup-asset retarget and visual evidence as
+      `lift_hold_variable_mass_cup_v1_existing_cup_asset_gate_20260627_0105`,
+      with `tracked_object=existing_cup_asset`,
+      `generated_trex_fields=[]`, and `schema_promotion=blocked`.
+- [ ] Tune cup grasp initialization and object physical parameters. Current
+      cup-asset gate shows the cup visible and retargeted, with
+      `max_lift=0.15901388227939606`, but the final inspected frame shows the
+      cup tilted/fallen, so stable cup grasp success is still pending.

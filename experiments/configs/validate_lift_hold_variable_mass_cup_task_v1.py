@@ -61,6 +61,7 @@ def main() -> int:
     allowed_statuses = {
         "design_ready_visual_gate_pending",
         "design_ready_first_official_visual_gate_pass",
+        "design_ready_cup_asset_visual_gate_pass_stable_grasp_pending",
     }
     if spec.get("status") not in allowed_statuses:
         failures.append(f"status:{spec.get('status')}")
@@ -139,6 +140,7 @@ def main() -> int:
     allowed_visual_statuses = {
         "pending_compute_run",
         "first_official_gate_pass_cup_asset_gate_pending",
+        "cup_asset_visual_gate_pass_stable_grasp_pending",
     }
     if visual_gate.get("status") not in allowed_visual_statuses:
         failures.append(f"visual_gate_status:{visual_gate.get('status')}")
@@ -151,7 +153,10 @@ def main() -> int:
     if len(visual_gate.get("direct_image_paths_required", [])) < 3:
         failures.append("direct_image_paths_lt_3")
     completed_gate = visual_gate.get("completed_first_gate", {})
-    if visual_gate.get("status") == "first_official_gate_pass_cup_asset_gate_pending":
+    if visual_gate.get("status") in {
+        "first_official_gate_pass_cup_asset_gate_pending",
+        "cup_asset_visual_gate_pass_stable_grasp_pending",
+    }:
         required_gate_files = [
             "fresh_newton_sensor_contact_sanity",
             "visual_validation",
@@ -183,6 +188,46 @@ def main() -> int:
                 failures.append("completed_gate_downstream_generated_trex_fields_not_empty")
             if downstream.get("schema_promotion") != "blocked":
                 failures.append(f"completed_gate_downstream_schema_promotion:{downstream.get('schema_promotion')}")
+
+    cup_gate = visual_gate.get("completed_cup_asset_gate", {})
+    if visual_gate.get("status") == "cup_asset_visual_gate_pass_stable_grasp_pending":
+        required_cup_gate_files = [
+            "fresh_newton_sensor_contact_sanity",
+            "visual_validation",
+            "manual_visual_inspection",
+            "downstream_gate",
+            "frame_browser",
+            "contact_sheet",
+        ]
+        for key in required_cup_gate_files:
+            path = resolve(str(cup_gate.get(key, "")))
+            if not path.exists() or path.stat().st_size <= 0:
+                failures.append(f"missing_cup_gate_file:{key}:{cup_gate.get(key)}")
+        if cup_gate.get("tracked_object") != "existing_cup_asset":
+            failures.append(f"cup_gate_tracked_object:{cup_gate.get('tracked_object')}")
+        if cup_gate.get("adapter") != "retarget_existing_official_cup_asset_as_object":
+            failures.append(f"cup_gate_adapter:{cup_gate.get('adapter')}")
+        if cup_gate.get("stable_grasp_status") != "pending":
+            failures.append(f"cup_gate_stable_grasp_status:{cup_gate.get('stable_grasp_status')}")
+        for key, expected_statuses in [
+            ("fresh_newton_sensor_contact_sanity", {"pass"}),
+            ("visual_validation", {"pass"}),
+            ("manual_visual_inspection", {"pass_with_task_limitations"}),
+        ]:
+            path = resolve(str(cup_gate.get(key, "")))
+            if path.exists():
+                payload = read_json(path)
+                if payload.get("status") not in expected_statuses:
+                    failures.append(f"cup_gate_{key}_status:{payload.get('status')}")
+        downstream_path = resolve(str(cup_gate.get("downstream_gate", "")))
+        if downstream_path.exists():
+            downstream = read_json(downstream_path)
+            if downstream.get("status") != "pass_phase01_cup_asset_visual_gate_stable_grasp_pending":
+                failures.append(f"cup_gate_downstream_status:{downstream.get('status')}")
+            if downstream.get("generated_trex_fields") != []:
+                failures.append("cup_gate_downstream_generated_trex_fields_not_empty")
+            if downstream.get("schema_promotion") != "blocked":
+                failures.append(f"cup_gate_downstream_schema_promotion:{downstream.get('schema_promotion')}")
 
     forbidden_exact_found = sorted(FORBIDDEN_EXACT_KEYS & set(flatten_values(spec)))
     allowed_forbidden_list = set(observations.get("forbidden_promotions", []))

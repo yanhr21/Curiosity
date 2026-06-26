@@ -320,12 +320,37 @@ learned curiosity, policy adaptation, T-Rex compatibility, or tactile F6.
 ## Immediate Next Step
 
 Do not wait for strict T-Rex schema compatibility before moving. The next
-step is to adapt the grasped object path from the official Panda hydro example
-to the local official cup asset, rerun fresh official Newton sanity, export
-camera frames, manually inspect the result, and record whether the cup asset
-gate passes.
+completed step adapted the grasped object path from the official Panda hydro
+example to the local official cup asset, reran fresh official Newton sanity,
+exported camera frames, manually inspected the result, and recorded the cup
+asset gate result.
+
+Cup asset run tag:
+
+```text
+lift_hold_variable_mass_cup_v1_existing_cup_asset_gate_20260627_0105
+```
+
+The cup-asset gate passed for retarget and visual evidence:
+
+```text
+tracked_object=existing_cup_asset
+adapter=retarget_existing_official_cup_asset_as_object
+generated_trex_fields=[]
+schema_promotion=blocked
+no_model_or_training=true
+```
+
+Manual inspection confirmed that the cup is visible and tracked. The numeric
+summary reports `max_lift=0.15901388227939606`, but the final inspected frame
+shows the cup tilted/fallen. Therefore this is not a stable cup grasp success
+yet.
 
 If cup geometry, collision, mass, or grasp initialization needs adjustment,
 record it as a Newton cup-asset adaptation issue and keep iterating inside the
 Phase 01 task definition. Do not substitute a toy model or pretend the result
 is T-Rex-style data.
+
+The next concrete step is to tune cup grasp initialization and object physical
+parameters while preserving the official Newton asset path and Newton-native
+namespaces.

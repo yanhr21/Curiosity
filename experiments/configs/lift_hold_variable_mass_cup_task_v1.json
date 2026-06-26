@@ -1,6 +1,6 @@
 {
   "classification": "newton_native_lift_hold_variable_mass_cup_task_v1",
-  "status": "design_ready_first_official_visual_gate_pass",
+  "status": "design_ready_cup_asset_visual_gate_pass_stable_grasp_pending",
   "scope": "phase_01_task_definition_no_training",
   "official_source_basis": {
     "newton_repository": "external/newton",
@@ -163,7 +163,7 @@
     ]
   },
   "visual_gate": {
-    "status": "first_official_gate_pass_cup_asset_gate_pending",
+    "status": "cup_asset_visual_gate_pass_stable_grasp_pending",
     "must_run_on_compute_node": true,
     "requires_fresh_official_newton_sanity": true,
     "requires_manual_browser_inspection": true,
@@ -193,6 +193,19 @@
       "downstream_gate": "experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_downstream_gate_cleared.json",
       "frame_browser": "experiments/visuals/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021/frame_browser.html",
       "contact_sheet": "experiments/visuals/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021/contact_sheet.png"
+    },
+    "completed_cup_asset_gate": {
+      "run_tag": "lift_hold_variable_mass_cup_v1_existing_cup_asset_gate_20260627_0105",
+      "tracked_object": "existing_cup_asset",
+      "adapter": "retarget_existing_official_cup_asset_as_object",
+      "fresh_newton_sensor_contact_sanity": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_asset_gate_20260627_0105_fresh_newton_sensor_contact_sanity.json",
+      "visual_validation": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_asset_gate_20260627_0105_visual_validation.json",
+      "manual_visual_inspection": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_asset_gate_20260627_0105_manual_visual_inspection.json",
+      "downstream_gate": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_asset_gate_20260627_0105_downstream_gate_cleared.json",
+      "frame_browser": "experiments/visuals/lift_hold_variable_mass_cup_v1_existing_cup_asset_gate_20260627_0105/frame_browser.html",
+      "contact_sheet": "experiments/visuals/lift_hold_variable_mass_cup_v1_existing_cup_asset_gate_20260627_0105/contact_sheet.png",
+      "stable_grasp_status": "pending",
+      "max_lift_m": 0.15901388227939606
     }
   },
   "valid_claims": [
