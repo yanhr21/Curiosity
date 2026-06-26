@@ -1,0 +1,320 @@
+{
+  "classification": "residual_correction_collection_plan_v1",
+  "phase": "04_closed_loop_adaptation",
+  "status": "best_candidate_found_strict_acceleration_gate_remaining",
+  "purpose": "Plan the next diagnostic collection needed before residual-adapter training: collect nonzero residual controller-parameter corrections around the official Newton scripted infant prior.",
+  "training_started": false,
+  "no_model_created": true,
+  "source_blocker": "residual_adapter_training_readiness_v1 reported no nonzero residual demonstrations because all scripted-feedback runs had feedback_trigger_count=0.",
+  "current_feedback_rule": {
+    "source_file": "experiments/configs/newton_panda_hydro_tiled_camera_export.py",
+    "function": "_apply_scripted_feedback",
+    "triggers": [
+      "contact_count < feedback_min_contact_count and current_waypoint >= 2",
+      "abs(framewise_object_z_acceleration) > feedback_accel_threshold and current_waypoint >= 2",
+      "object_height_drop > feedback_height_drop_threshold and current_waypoint >= 3"
+    ],
+    "default_thresholds": {
+      "feedback_min_contact_count": 20,
+      "feedback_accel_threshold_m_s2": 6.5,
+      "feedback_height_drop_threshold_m": 0.015
+    },
+    "observed_status": "no_trigger_on_nominal_ordinary_or_held_out_grid"
+  },
+  "diagnostic_collection_objective": {
+    "must_produce": [
+      "candidate.controller.feedback_active > 0 on at least one training/ordinary cell",
+      "candidate.controller.feedback_trigger_count > 0 on at least one training/ordinary cell",
+      "nonzero residual controller parameters in logged feedback fields"
+    ],
+    "must_preserve": [
+      "fresh official Newton sanity",
+      "camera export summary",
+      "automated visual validation",
+      "manual visual inspection",
+      "lift_hold metrics",
+      "held_out full_low and empty_high are not used as training cells",
+      "no T-Rex schema promotion"
+    ]
+  },
+  "candidate_trigger_revision": {
+    "name": "accel_sensitive_training_diagnostic_v1",
+    "type": "diagnostic_collection_only",
+    "rationale": "All scripted-feedback runs failed strict metrics only on object acceleration around 8.31 m/s^2, but the online framewise trigger never fired. A diagnostic threshold should intentionally capture acceleration mismatch to create residual correction labels.",
+    "parameter_overrides": {
+      "feedback_accel_threshold_m_s2": 5.5,
+      "feedback_min_contact_count": 20,
+      "feedback_height_drop_threshold_m": 0.015,
+      "feedback_initial_lift_duration_scale": 1.35,
+      "feedback_lift_duration_scale_max": 2.25,
+      "feedback_hold_height_step_m": 0.003,
+      "feedback_hold_height_offset_max_m": 0.03,
+      "feedback_stabilization_step_s": 0.25,
+      "feedback_stabilization_max_s": 2.0
+    },
+    "extra_required_logging": [
+      "per-frame feedback_observed_object_accel_m_s2 max",
+      "per-frame feedback_active sum",
+      "feedback reason labels",
+      "first trigger timestep",
+      "residual output deltas"
+    ],
+    "allowed_training_cells_for_first_diagnostic": [
+      "empty_low",
+      "half_medium",
+      "full_high"
+    ],
+    "forbidden_cells_for_first_diagnostic": [
+      "full_low",
+      "empty_high"
+    ]
+  },
+  "promotion_gates": {
+    "can_become_residual_label_source_if": [
+      "fresh official Newton sanity passes",
+      "visual validation passes",
+      "manual visual inspection passes",
+      "feedback_trigger_count > 0",
+      "object_not_dropped is true",
+      "contact_loss_frames remains low",
+      "held_out cells are untouched",
+      "report records direct visual paths"
+    ],
+    "must_remain_diagnostic_if": [
+      "strict metrics still fail only on object_accel_above_threshold",
+      "feedback triggers but does not improve metrics",
+      "trigger threshold is intentionally aggressive"
+    ],
+    "must_block_if": [
+      "fresh official Newton sanity fails",
+      "visual validation fails",
+      "manual visual inspection fails",
+      "object is dropped",
+      "held_out cells are used for label collection",
+      "feedback_trigger_count remains 0"
+    ]
+  },
+  "forbidden_claims": [
+    "learned_adapter_trained",
+    "adaptation_improved",
+    "curiosity_policy_updated",
+    "tactile_f6_available",
+    "trex_schema_compatible"
+  ],
+  "executed_diagnostics": [
+    {
+      "name": "contact_sensitive_half_low_diagnostic_v1",
+      "type": "diagnostic_collection_only",
+      "run_tag": "residual_label_source_sensitive_feedback_half_low_20260627_030145",
+      "slurm_job_id": "154023",
+      "tmux_session": "curiosity_next_source_alloc_20260626_232937",
+      "cell": "half_low",
+      "held_out_generalization_cell": false,
+      "parameter_overrides": {
+        "feedback_min_contact_count": 64,
+        "feedback_accel_threshold_m_s2": 6.5,
+        "feedback_height_drop_threshold_m": 0.015,
+        "feedback_initial_lift_duration_scale": 1.35,
+        "feedback_lift_duration_scale_max": 2.25,
+        "feedback_hold_height_step_m": 0.003,
+        "feedback_hold_height_offset_max_m": 0.03,
+        "feedback_stabilization_step_s": 0.25,
+        "feedback_stabilization_max_s": 2.0
+      },
+      "outputs": {
+        "fresh_official_newton_sanity": "experiments/outputs/residual_label_source_sensitive_feedback_half_low_20260627_030145_fresh_newton_sensor_contact_sanity.json",
+        "summary_json": "experiments/outputs/residual_label_source_sensitive_feedback_half_low_20260627_030145_summary.json",
+        "visual_validation": "experiments/outputs/residual_label_source_sensitive_feedback_half_low_20260627_030145_visual_validation.json",
+        "manual_visual_inspection": "experiments/outputs/residual_label_source_sensitive_feedback_half_low_20260627_030145_manual_visual_inspection.json",
+        "metrics_json": "experiments/outputs/residual_label_source_sensitive_feedback_half_low_20260627_030145_metrics.json",
+        "metrics_csv": "experiments/outputs/residual_label_source_sensitive_feedback_half_low_20260627_030145_metrics.csv",
+        "npz": "experiments/outputs/residual_label_source_sensitive_feedback_half_low_20260627_030145.npz",
+        "contact_sheet": "experiments/visuals/residual_label_source_sensitive_feedback_half_low_20260627_030145/contact_sheet.png",
+        "frame_browser": "experiments/visuals/residual_label_source_sensitive_feedback_half_low_20260627_030145/frame_browser.html",
+        "log": "logs/newton/residual_label_source_sensitive_feedback_half_low_20260627_030145.log",
+        "metrics_log": "logs/newton/residual_label_source_sensitive_feedback_half_low_20260627_030145_metrics.log"
+      },
+      "observed": {
+        "fresh_official_newton_sanity": "pass",
+        "visual_validation": "pass",
+        "manual_visual_inspection": "pass_nonblank_but_task_failure",
+        "feedback_reason": "low_contact_count",
+        "feedback_trigger_count_max": 241,
+        "feedback_active_nonzero_frames": 241,
+        "object_not_dropped": true,
+        "contact_loss_frames": 0,
+        "max_contact_proxy": 61,
+        "lift_height_m": 0.12735126912593842,
+        "hold_duration_s": 0.9833323955535889,
+        "max_slip_m": 0.000388524929963087,
+        "max_object_accel_m_s2": 8.308707788010144,
+        "metrics_status": "fail",
+        "failure_reasons": [
+          "hold_duration_below_threshold",
+          "object_accel_above_threshold"
+        ]
+      },
+      "promotion_decision": "not_promoted_to_training_label_source",
+      "interpretation": "The contact-sensitive threshold proved that nonzero residual controller-parameter labels can be generated in the official Newton rollout path, but the rule is too aggressive for training-source promotion because it shortens valid hold time below threshold."
+    },
+    {
+      "name": "contact58_half_low_threshold_sweep_v1",
+      "type": "diagnostic_collection_only",
+      "run_tag": "residual_label_sweep_half_low_contact58_20260627_0310",
+      "slurm_job_id": "154023",
+      "tmux_session": "curiosity_next_source_alloc_20260626_232937",
+      "cell": "half_low",
+      "held_out_generalization_cell": false,
+      "parameter_overrides": {
+        "feedback_min_contact_count": 58,
+        "feedback_accel_threshold_m_s2": 6.5,
+        "feedback_height_drop_threshold_m": 0.015,
+        "feedback_initial_lift_duration_scale": 1.35,
+        "feedback_lift_duration_scale_max": 2.25,
+        "feedback_hold_height_step_m": 0.003,
+        "feedback_hold_height_offset_max_m": 0.03,
+        "feedback_stabilization_step_s": 0.25,
+        "feedback_stabilization_max_s": 2.0
+      },
+      "outputs": {
+        "fresh_official_newton_sanity": "experiments/outputs/residual_label_sweep_half_low_contact58_20260627_0310_fresh_newton_sensor_contact_sanity.json",
+        "summary_json": "experiments/outputs/residual_label_sweep_half_low_contact58_20260627_0310_summary.json",
+        "visual_validation": "experiments/outputs/residual_label_sweep_half_low_contact58_20260627_0310_visual_validation.json",
+        "manual_visual_inspection": "experiments/outputs/residual_label_sweep_half_low_contact58_20260627_0310_manual_visual_inspection.json",
+        "npz": "experiments/outputs/residual_label_sweep_half_low_contact58_20260627_0310.npz",
+        "contact_sheet": "experiments/visuals/residual_label_sweep_half_low_contact58_20260627_0310/contact_sheet.png",
+        "frame_browser": "experiments/visuals/residual_label_sweep_half_low_contact58_20260627_0310/frame_browser.html",
+        "log": "logs/newton/residual_label_sweep_half_low_contact58_20260627_0310.log"
+      },
+      "observed": {
+        "fresh_official_newton_sanity": "pass",
+        "visual_validation": "pass",
+        "manual_visual_inspection": "pass_nonblank_but_task_failure",
+        "feedback_reason": "low_contact_count",
+        "feedback_trigger_count_max": 241,
+        "feedback_active_nonzero_frames": 241,
+        "object_not_dropped": true,
+        "contact_proxy_min": 31,
+        "contact_proxy_max": 62,
+        "lift_height_m": 0.12752966582775116,
+        "hold_duration_s": 0.9833333333333333,
+        "drop_from_max_m": 0.0,
+        "metrics_status": "fail",
+        "failure_reasons": [
+          "hold_duration_below_min"
+        ]
+      },
+      "promotion_decision": "not_promoted_to_training_label_source",
+      "interpretation": "Lowering the contact threshold from 64 to 58 still produced nonzero residual controller-parameter labels but did not recover the formal 2s hold gate. It is threshold-sweep evidence only."
+    },
+    {
+      "name": "accel_sensitive_half_low_diagnostic_v1",
+      "type": "diagnostic_collection_only",
+      "run_tag": "residual_label_source_accel_sensitive_half_low_20260627_030748",
+      "slurm_job_id": "154023",
+      "tmux_session": "curiosity_next_source_alloc_20260626_232937",
+      "cell": "half_low",
+      "held_out_generalization_cell": false,
+      "parameter_overrides": {
+        "feedback_min_contact_count": 20,
+        "feedback_accel_threshold_m_s2": 5.5,
+        "feedback_height_drop_threshold_m": 0.015,
+        "feedback_initial_lift_duration_scale": 1.35,
+        "feedback_lift_duration_scale_max": 2.25,
+        "feedback_hold_height_step_m": 0.003,
+        "feedback_hold_height_offset_max_m": 0.03,
+        "feedback_stabilization_step_s": 0.25,
+        "feedback_stabilization_max_s": 2.0
+      },
+      "outputs": {
+        "fresh_official_newton_sanity": "experiments/outputs/residual_label_source_accel_sensitive_half_low_20260627_030748_fresh_newton_sensor_contact_sanity.json",
+        "summary_json": "experiments/outputs/residual_label_source_accel_sensitive_half_low_20260627_030748_summary.json",
+        "visual_validation": "experiments/outputs/residual_label_source_accel_sensitive_half_low_20260627_030748_visual_validation.json",
+        "manual_visual_inspection": "experiments/outputs/residual_label_source_accel_sensitive_half_low_20260627_030748_manual_visual_inspection.json",
+        "metrics_json": "experiments/outputs/residual_label_source_accel_sensitive_half_low_20260627_030748_metrics.json",
+        "metrics_csv": "experiments/outputs/residual_label_source_accel_sensitive_half_low_20260627_030748_metrics.csv",
+        "npz": "experiments/outputs/residual_label_source_accel_sensitive_half_low_20260627_030748.npz",
+        "contact_sheet": "experiments/visuals/residual_label_source_accel_sensitive_half_low_20260627_030748/contact_sheet.png",
+        "frame_browser": "experiments/visuals/residual_label_source_accel_sensitive_half_low_20260627_030748/frame_browser.html",
+        "log": "logs/newton/residual_label_source_accel_sensitive_half_low_20260627_030748.log",
+        "metrics_log": "logs/newton/residual_label_source_accel_sensitive_half_low_20260627_030748_metrics.log"
+      },
+      "observed": {
+        "fresh_official_newton_sanity": "pass",
+        "visual_validation": "pass",
+        "manual_visual_inspection": "pass_nonblank_success_no_feedback",
+        "feedback_reason": "none",
+        "feedback_trigger_count_max": 0,
+        "feedback_active_nonzero_frames": 0,
+        "object_not_dropped": true,
+        "contact_loss_frames": 0,
+        "max_contact_proxy": 62,
+        "lift_height_m": 0.15682174265384674,
+        "hold_duration_s": 2.799997329711914,
+        "max_slip_m": 0.003185424534726402,
+        "max_object_accel_m_s2": 8.308707937632189,
+        "metrics_status": "fail",
+        "failure_reasons": [
+          "object_accel_above_threshold"
+        ]
+      },
+      "promotion_decision": "not_promoted_to_training_label_source",
+      "interpretation": "The acceleration-sensitive threshold preserved lift, hold, drop, contact-loss, and visual behavior on half_low, but did not trigger feedback. It is useful as a stable no-label diagnostic and suggests the online trigger timing or waypoint condition must be revised before this route can produce residual labels."
+    },
+    {
+      "name": "contact58_gentle_half_low_sweep_v1",
+      "type": "diagnostic_collection_only",
+      "run_tag": "residual_label_sweep_half_low_contact58_gentle_20260627_0345",
+      "slurm_job_id": "154023",
+      "tmux_session": "curiosity_next_source_alloc_20260626_232937",
+      "cell": "half_low",
+      "held_out_generalization_cell": false,
+      "parameter_overrides": {
+        "feedback_min_contact_count": 58,
+        "feedback_accel_threshold_m_s2": 6.5,
+        "feedback_height_drop_threshold_m": 0.015,
+        "feedback_initial_lift_duration_scale": 1.35,
+        "feedback_lift_duration_scale_max": 1.05,
+        "feedback_hold_height_step_m": 0.0005,
+        "feedback_hold_height_offset_max_m": 0.005,
+        "feedback_stabilization_step_s": 0.05,
+        "feedback_stabilization_max_s": 0.3
+      },
+      "outputs": {
+        "fresh_official_newton_sanity": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_20260627_0345_fresh_newton_sensor_contact_sanity.json",
+        "summary_json": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_20260627_0345_summary.json",
+        "visual_validation": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_20260627_0345_visual_validation.json",
+        "manual_visual_inspection": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_20260627_0345_manual_visual_inspection.json",
+        "metrics_json": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_20260627_0345_metrics.json",
+        "metrics_csv": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_20260627_0345_metrics.csv",
+        "npz": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_20260627_0345.npz",
+        "contact_sheet": "experiments/visuals/residual_label_sweep_half_low_contact58_gentle_20260627_0345/contact_sheet.png",
+        "frame_browser": "experiments/visuals/residual_label_sweep_half_low_contact58_gentle_20260627_0345/frame_browser.html",
+        "log": "logs/newton/residual_label_sweep_half_low_contact58_gentle_20260627_0345.log",
+        "metrics_log": "logs/newton/residual_label_sweep_half_low_contact58_gentle_20260627_0345_metrics.log"
+      },
+      "observed": {
+        "fresh_official_newton_sanity": "pass",
+        "visual_validation": "pass",
+        "manual_visual_inspection": "pass_nonblank_success_with_feedback",
+        "feedback_reason": "low_contact_count",
+        "feedback_trigger_count_max": 241,
+        "feedback_active_nonzero_frames": 241,
+        "object_not_dropped": true,
+        "contact_loss_frames": 0,
+        "max_contact_proxy": 61,
+        "lift_height_m": 0.1518997997045517,
+        "hold_duration_s": 2.7166640758514404,
+        "max_slip_m": 0.002728142855700976,
+        "max_object_accel_m_s2": 8.308707788010144,
+        "metrics_status": "fail",
+        "failure_reasons": [
+          "object_accel_above_threshold"
+        ]
+      },
+      "promotion_decision": "best_candidate_not_fully_promoted_due_strict_acceleration_gate",
+      "interpretation": "Gentle correction bounds preserve lift, hold, drop, contact-loss, and visual gates while producing nonzero residual labels. The remaining strict blocker is object acceleration above the current threshold."
+    }
+  ],
+  "next_action": "Use contact58_gentle as the best current residual-label candidate for follow-up diagnostics, but do not start learned training yet. Next reduce object acceleration with gentler lift/hold timing or capped trigger frequency, then repeat sanity, visual, manual, and strict metrics gates on ordinary cells."
+}

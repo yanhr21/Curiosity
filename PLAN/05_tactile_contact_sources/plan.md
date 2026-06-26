@@ -105,7 +105,7 @@ namespace-preserving Newton contact/tactile source manifest.
 - Records CSV:
   `data/processed/newton_lift_hold_contact_source_manifest_v1_20260627/contact_source_records.csv`.
 - Report:
-  `experiments/reports/2026-06-27_phase05_newton_lift_hold_contact_source_manifest.md`.
+  `experiments/reports/2026-06-27_phase05_newton_contact_source_manifest_v1.md`.
 
 Result:
 
@@ -117,7 +117,55 @@ Result:
 - generated T-Rex fields: `[]`;
 - schema promotion: `blocked`.
 
+The compute-side runner now fails if `SLURM_JOB_ID` is not set, so this NumPy
+manifest build cannot be accidentally run as a login-node data-processing job.
+
 Dataset/schema mismatch was not used as a stop gate. The conversion preserves
 real source evidence under `newton.*` and `candidate.*` namespaces and does not
 create `observation.*`, `action`, `action_abs`, calibrated F6, or dense tactile
 deformation fields.
+
+## Tactile/Contact Stream And Mask Contract
+
+2026-06-27: added the active Newton contact proxy to the residual-adapter and
+forward-model target contract.
+
+- Spec: `docs/residual_adapter_forward_model_contract_v1.md`.
+- Config: `experiments/configs/residual_adapter_forward_model_contract_v1.json`.
+- Active contact stream: `newton.contact.rigid_contact_count`.
+- Active forward target: `contact_proxy_next_step`.
+- Blocked future tactile streams: `taccel.marker.*` and `taccel.ftac.*` until
+  real nonzero, visually inspected evidence exists.
+
+The contract defines both vision/contact visible, vision masked, contact
+masked, partial vision mask, partial contact mask, and post-contact pure-touch
+windows. It does not train a model and does not prove tactile benefit; those
+claims still require the required ablations and held-out evaluation.
+
+## Contact-Proxy Ablation Report V1
+
+2026-06-27: reported the current contact-proxy ablation evidence from the
+validated Phase 03 replay output.
+
+- Report:
+  `experiments/reports/2026-06-27_phase05_contact_proxy_ablation_report_v1.md`.
+- Source replay:
+  `experiments/outputs/curiosity_reward_baseline_replay_v1_20260627.json`.
+- Source manifest:
+  `data/processed/newton_lift_hold_contact_source_manifest_v1_20260627/manifest.json`.
+- Rollouts: 9.
+- Held-out cells: `full_low`, `empty_high`.
+- Tactile/contact source: `newton.contact_proxy_only`.
+
+Reported diagnostic ablations:
+
+- object-motion-only proxy for current vision-only reporting;
+- Newton contact-proxy tactile/contact-only;
+- object-motion plus contact proxy;
+- shuffled contact proxy;
+- delayed contact proxy.
+
+This completes the current Phase 05 ablation-reporting item, but only as
+replay diagnostics. It does not show a trained policy using tactile/contact
+information and does not provide calibrated tactile F6 or dense deformation
+evidence.

@@ -822,6 +822,508 @@ Report:
 experiments/reports/2026-06-27_phase02_no_adaptation_empty_high_variant.md
 ```
 
+## Scripted Feedback Baseline V1
+
+The next Phase 02 baseline has been configured and its nominal cup gate has
+completed:
+
+```text
+config=experiments/configs/lift_hold_scripted_feedback_baseline_v1.json
+launcher=experiments/configs/launch_lift_hold_scripted_feedback_baseline_tmux.sh
+controller_mode=lift_hold_feedback
+```
+
+This baseline keeps the official Newton Panda hydro scripted grasp/lift infant
+prior and adds deterministic feedback around controller parameters. It uses
+real Newton object motion and contact proxy evidence to extend lift duration,
+slightly lower the hold target if instability is detected, and extend
+stabilization hold. It does not train a policy, does not use curiosity reward,
+does not use a pretrained checkpoint, and does not generate T-Rex fields.
+
+New controller provenance arrays:
+
+```text
+candidate.controller.feedback_active
+candidate.controller.feedback_reason_id
+candidate.controller.feedback_lift_velocity_scale
+candidate.controller.feedback_hold_height_offset_m
+candidate.controller.feedback_stabilization_extension_s
+candidate.controller.feedback_trigger_count
+candidate.controller.feedback_observed_object_vz_m_s
+candidate.controller.feedback_observed_object_accel_m_s2
+```
+
+Initial compute gate:
+
+```text
+RUN_TAG=lift_hold_scripted_feedback_baseline_v1_nominal_cup_<timestamp>
+TRACKED_OBJECT=existing_cup_asset
+SCENE=cube
+CONTROLLER_MODE=lift_hold_feedback
+PHYSICS_VARIANT_LABEL=nominal_feedback
+JOB_ID=<held_curiosity_allocation>
+TMUX_SESSION=<curiosity_tmux_session>
+bash experiments/configs/launch_lift_hold_scripted_feedback_baseline_tmux.sh
+```
+
+Nominal cup gate:
+
+```text
+run_tag=lift_hold_scripted_feedback_baseline_v1_nominal_cup_20260627_1545
+fresh_official_newton_sensor_contact_sanity=pass
+sensor_tiled_camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+feedback_trigger_count=0
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.16002337634563446
+hold_duration_s=2.8333306312561035
+max_slip_m=0.0035689558514817674
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=62.0
+max_object_accel_m_s2=8.308707937632189
+failure_reasons=[object_accel_above_threshold]
+```
+
+The nominal scripted feedback baseline passes lift, hold, slip, drop,
+contact-loss, and contact-proxy gates, and fails the unchanged full schema only
+on object acceleration. The feedback rule did not trigger on the nominal cup,
+which is acceptable for this gate because the baseline should not perturb
+stable nominal behavior without a detected mismatch.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_scripted_feedback_nominal_cup_baseline.md
+```
+
+Next: run scripted feedback over ordinary mass/friction cells while preserving
+`full_low` and `empty_high` as held-out generalization evidence.
+
+## Scripted Feedback Empty/Low Cup Variant Result
+
+The first ordinary scripted feedback mass/friction variant has completed:
+
+```text
+run_tag=lift_hold_scripted_feedback_baseline_v1_cup_empty_low_prefinalize_20260627_1615
+cell=empty_low
+held_out_generalization_cell=false
+object_mass_kg=0.08
+object_friction_mu=0.35
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+feedback_trigger_count=0
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.07999999821186066
+original_shape_material_mu=1.0
+observed_shape_material_mu=0.3499999940395355
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.1602502018213272
+hold_duration_s=2.8333306312561035
+max_slip_m=0.003562770042336314
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=61.0
+max_object_accel_m_s2=8.308707937632189
+failure_reasons=[object_accel_above_threshold]
+```
+
+This starts the ordinary scripted feedback mass/friction grid. It passes lift,
+hold, slip, drop, contact-loss, and contact-proxy gates, and fails the
+unchanged full schema only on object acceleration. The feedback rule did not
+trigger on this cell, so this is a valid scripted-feedback evaluation but not a
+learned adaptation success and not evidence that feedback improved this cell.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_scripted_feedback_empty_low_variant.md
+```
+
+## Scripted Feedback Empty/Medium Cup Variant Result
+
+The second ordinary scripted feedback mass/friction variant has completed:
+
+```text
+run_tag=lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635
+cell=empty_medium
+held_out_generalization_cell=false
+object_mass_kg=0.08
+object_friction_mu=0.80
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+feedback_trigger_count=0
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.07999999821186066
+original_shape_material_mu=1.0
+observed_shape_material_mu=0.800000011920929
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.160252645611763
+hold_duration_s=2.8333306312561035
+max_slip_m=0.0035626504907293466
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=62.0
+max_object_accel_m_s2=8.308392358032673
+failure_reasons=[object_accel_above_threshold]
+```
+
+This continues the ordinary scripted feedback mass/friction grid. It passes
+lift, hold, slip, drop, contact-loss, and contact-proxy gates, and fails the
+unchanged full schema only on object acceleration. The feedback rule did not
+trigger on this cell, so this is a valid scripted-feedback evaluation but not a
+learned adaptation success and not evidence that feedback improved this cell.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_scripted_feedback_empty_medium_variant.md
+```
+
+## Scripted Feedback Half/Low Cup Variant Result
+
+The third ordinary scripted feedback mass/friction variant has completed:
+
+```text
+run_tag=lift_hold_scripted_feedback_baseline_v1_cup_half_low_prefinalize_20260627_1700
+cell=half_low
+held_out_generalization_cell=false
+object_mass_kg=0.20
+object_friction_mu=0.35
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+feedback_trigger_count=0
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.20000000298023224
+original_shape_material_mu=1.0
+observed_shape_material_mu=0.3499999940395355
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.15686045587062836
+hold_duration_s=2.799997329711914
+max_slip_m=0.0031789766747960385
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=62.0
+max_object_accel_m_s2=8.308132118662849
+failure_reasons=[object_accel_above_threshold]
+```
+
+This continues the ordinary scripted feedback mass/friction grid. It passes
+lift, hold, slip, drop, contact-loss, and contact-proxy gates, and fails the
+unchanged full schema only on object acceleration. The feedback rule did not
+trigger on this cell, so this is a valid scripted-feedback evaluation but not a
+learned adaptation success and not evidence that feedback improved this cell.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_scripted_feedback_half_low_variant.md
+```
+
+## Scripted Feedback Half/Medium Cup Variant Result
+
+The fourth ordinary scripted feedback mass/friction variant has completed:
+
+```text
+run_tag=lift_hold_scripted_feedback_baseline_v1_cup_half_medium_prefinalize_20260627_1725
+cell=half_medium
+held_out_generalization_cell=false
+object_mass_kg=0.20
+object_friction_mu=0.80
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+feedback_trigger_count=0
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.20000000298023224
+original_shape_material_mu=1.0
+observed_shape_material_mu=0.800000011920929
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.15682105720043182
+hold_duration_s=2.799997329711914
+max_slip_m=0.003182727513861391
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=62.0
+max_object_accel_m_s2=8.308865546822908
+failure_reasons=[object_accel_above_threshold]
+```
+
+This continues the ordinary scripted feedback mass/friction grid. It passes
+lift, hold, slip, drop, contact-loss, and contact-proxy gates, and fails the
+unchanged full schema only on object acceleration. The feedback rule did not
+trigger on this cell, so this is a valid scripted-feedback evaluation but not a
+learned adaptation success and not evidence that feedback improved this cell.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_scripted_feedback_half_medium_variant.md
+```
+
+## Scripted Feedback Half/High Cup Variant Result
+
+The fifth ordinary scripted feedback mass/friction variant has completed:
+
+```text
+run_tag=lift_hold_scripted_feedback_baseline_v1_cup_half_high_prefinalize_20260627_1745
+cell=half_high
+held_out_generalization_cell=false
+object_mass_kg=0.20
+object_friction_mu=1.20
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+feedback_trigger_count=0
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.20000000298023224
+original_shape_material_mu=1.0
+observed_shape_material_mu=1.2000000476837158
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.15871746838092804
+hold_duration_s=2.816663980484009
+max_slip_m=0.0034686670254336456
+object_not_dropped=true
+drop_height_loss_m=4.32133674621582e-06
+contact_loss_frames=0
+max_contact_proxy=61.0
+max_object_accel_m_s2=8.308550048022228
+failure_reasons=[object_accel_above_threshold]
+```
+
+This continues the ordinary scripted feedback mass/friction grid. It passes
+lift, hold, slip, drop, contact-loss, and contact-proxy gates, and fails the
+unchanged full schema only on object acceleration. The feedback rule did not
+trigger on this cell, so this is a valid scripted-feedback evaluation but not a
+learned adaptation success and not evidence that feedback improved this cell.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_scripted_feedback_half_high_variant.md
+```
+
+## Scripted Feedback Full/Medium Cup Variant Result
+
+The sixth ordinary scripted feedback mass/friction variant has completed:
+
+```text
+run_tag=lift_hold_scripted_feedback_baseline_v1_cup_full_medium_prefinalize_20260627_1805
+cell=full_medium
+held_out_generalization_cell=false
+object_mass_kg=0.35
+object_friction_mu=0.80
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+feedback_trigger_count=0
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.3499999940395355
+original_shape_material_mu=1.0
+observed_shape_material_mu=0.800000011920929
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.15381594002246857
+hold_duration_s=2.7833306789398193
+max_slip_m=0.003283848177821986
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=62.0
+max_object_accel_m_s2=8.308707937632189
+failure_reasons=[object_accel_above_threshold]
+```
+
+This continues the ordinary scripted feedback mass/friction grid. It passes
+lift, hold, slip, drop, contact-loss, and contact-proxy gates, and fails the
+unchanged full schema only on object acceleration. The feedback rule did not
+trigger on this cell, so this is a valid scripted-feedback evaluation but not a
+learned adaptation success and not evidence that feedback improved this cell.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_scripted_feedback_full_medium_variant.md
+```
+
+## Scripted Feedback Full/High Cup Variant Result
+
+The seventh and final ordinary scripted feedback mass/friction variant has
+completed:
+
+```text
+run_tag=lift_hold_scripted_feedback_baseline_v1_cup_full_high_prefinalize_20260627_1820
+cell=full_high
+held_out_generalization_cell=false
+object_mass_kg=0.35
+object_friction_mu=1.20
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+feedback_trigger_count=0
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.3499999940395355
+original_shape_material_mu=1.0
+observed_shape_material_mu=1.2000000476837158
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.1542350798845291
+hold_duration_s=2.7833306789398193
+max_slip_m=0.0032414356600358944
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=63.0
+max_object_accel_m_s2=8.308127374067027
+failure_reasons=[object_accel_above_threshold]
+```
+
+This completes the ordinary scripted feedback mass/friction grid while
+preserving `full_low` and `empty_high` as held-out generalization cells. The
+cell passes lift, hold, slip, drop, contact-loss, and contact-proxy gates, and
+fails the unchanged full schema only on object acceleration. The feedback rule
+did not trigger on this cell, so this is a valid scripted-feedback evaluation
+but not a learned adaptation success and not evidence that feedback improved
+this cell.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_scripted_feedback_full_high_variant.md
+```
+
 ## Rules
 
 - Do not introduce toy T-Rex, toy VQ-VAE, toy Transformer, or toy world model.

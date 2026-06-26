@@ -24,10 +24,17 @@
       error before using curiosity for policy updates.
       Evidence: `docs/curiosity_reward_spec_v1.md` and
       `experiments/configs/curiosity_reward_baseline_replay_v1.json`.
-- [ ] Add learned forward-model targets for object pose delta, object velocity,
+- [x] Add learned forward-model targets for object pose delta, object velocity,
       contact proxy, slip/contact-loss risk, and tactile-marker response when
       tactile evidence exists. Current V1 only adds diagnostic replay predictors
       and must not be treated as a learned world model.
+      Evidence: `docs/residual_adapter_forward_model_contract_v1.md` and
+      `experiments/configs/residual_adapter_forward_model_contract_v1.json`
+      define target fields for object pose delta, object velocity, contact
+      proxy next step, slip risk, contact-loss risk, lift-response residual,
+      success/failure risk, and a blocked tactile-marker target for future real
+      `taccel.marker.*` evidence. This is a target contract only; no learned
+      model has been trained or claimed.
 - [x] Run curiosity ablations: no curiosity, random intrinsic reward,
       object-motion-only, contact-only, tactile-only, vision+tactile, shuffled
       tactile, and delayed tactile.

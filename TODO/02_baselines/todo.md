@@ -13,7 +13,34 @@
       selected Newton Panda hydro prior:
       `experiments/configs/lift_hold_no_adaptation_baseline_v1.json` and
       `experiments/configs/launch_lift_hold_no_adaptation_baseline_tmux.sh`.
-- [ ] Implement scripted feedback adaptation baseline.
+- [x] Implement scripted feedback adaptation baseline configuration and
+      launcher:
+      `experiments/configs/lift_hold_scripted_feedback_baseline_v1.json`,
+      `experiments/configs/launch_lift_hold_scripted_feedback_baseline_tmux.sh`,
+      and `CONTROLLER_MODE=lift_hold_feedback` in the Newton Panda hydro camera
+      exporter. This is a scripted controller-parameter feedback baseline, not
+      a learned policy, not curiosity, and not a checkpoint claim.
+- [x] Run scripted feedback adaptation nominal cup gate inside the held
+      Curiosity allocation with fresh official Newton sanity, camera export,
+      visual validation, manual visual inspection, and lift-hold metrics.
+      Run `lift_hold_scripted_feedback_baseline_v1_nominal_cup_20260627_1545`
+      passed sanity/export/visual/manual gates and metrics extraction. Full
+      metrics marked it as `fail` only because
+      `max_object_accel_m_s2=8.308707937632189` exceeded the unchanged schema
+      threshold `8.0`; lift, hold, slip, drop, contact-loss, and contact-proxy
+      gates passed. The nominal cup did not trigger feedback
+      (`feedback_trigger_count=0`), which is acceptable for the nominal gate.
+- [x] Run scripted feedback adaptation across ordinary mass/friction cells,
+      preserving `full_low` and `empty_high` as held-out generalization cells.
+      Completed cells: `empty_low`, `empty_medium`, `half_low`,
+      `half_medium`, `half_high`, `full_medium`, and `full_high`. All seven
+      runs passed fresh official Newton sanity, camera export, visual
+      validation, manual visual inspection, lift, hold, slip, drop,
+      contact-loss, and contact-proxy gates. All seven full metrics rows remain
+      `fail` only because `max_object_accel_m_s2` exceeded the unchanged schema
+      threshold `8.0`; feedback did not trigger in any ordinary cell
+      (`feedback_trigger_count=0`). This completes ordinary scripted feedback
+      evaluation while preserving held-out `full_low` and `empty_high`.
 - [ ] Decide whether the first learned baseline is BC, diffusion policy,
       ACT-style, or another documented method.
 - [x] Search for real Newton-compatible basic grasping checkpoints before
@@ -78,7 +105,7 @@
       `0.15151481330394745`, and shape friction changed from `1.0` to observed
       `0.6000000238418579`. This is not a task-success claim because diagnostic
       task metrics still failed with `hold_duration_below_min`.
-- [ ] Run baseline across mass/fill variants after the real physics-parameter
+- [x] Run baseline across mass/fill variants after the real physics-parameter
       adapter passes a fresh official sanity/export/visual gate.
       Started grid execution with `empty_medium`:
       `lift_hold_no_adaptation_scripted_baseline_v1_cup_empty_medium_prefinalize_20260627_1140`.

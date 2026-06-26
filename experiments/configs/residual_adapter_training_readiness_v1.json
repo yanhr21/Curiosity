@@ -1,0 +1,126 @@
+{
+  "classification": "residual_adapter_training_readiness_v1",
+  "phase": "04_closed_loop_adaptation",
+  "status": "blocked_training_not_started_best_candidate_not_fully_promoted",
+  "purpose": "Audit whether the first residual controller-parameter adapter can be trained without downgrading into a toy or meaningless model.",
+  "contract": "experiments/configs/residual_adapter_forward_model_contract_v1.json",
+  "source_evidence": {
+    "scripted_feedback_config": "experiments/configs/lift_hold_scripted_feedback_baseline_v1.json",
+    "contact_source_manifest": "data/processed/newton_lift_hold_contact_source_manifest_v1_20260627/manifest.json",
+    "curiosity_replay_output": "experiments/outputs/curiosity_reward_baseline_replay_v1_20260627.json",
+    "phase05_ablation_report": "experiments/reports/2026-06-27_phase05_contact_proxy_ablation_report_v1.md",
+    "first_nonzero_residual_diagnostic": "experiments/reports/2026-06-27_phase04_residual_label_source_sensitive_feedback_half_low.md",
+    "second_nonzero_residual_sweep_diagnostic": "experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58.md",
+    "best_current_residual_label_candidate": "experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle.md"
+  },
+  "ready_gates": [
+    {
+      "name": "official_newton_scripted_infant_prior",
+      "status": "ready",
+      "evidence": "Phase 02/04 Newton Panda hydro scripted lift-hold runs passed visual/lift/hold/slip/drop/contact gates."
+    },
+    {
+      "name": "real_mass_friction_grid",
+      "status": "ready_with_acceleration_metric_failure",
+      "evidence": "Nominal, ordinary grid, and held-out scripted-feedback runs apply real Newton mass/friction provenance; strict metrics fail only on object acceleration."
+    },
+    {
+      "name": "held_out_generalization_cells",
+      "status": "ready",
+      "evidence": "full_low and empty_high remain held-out evaluation cells."
+    },
+    {
+      "name": "contact_proxy_source",
+      "status": "ready",
+      "evidence": "Phase 05 contact source manifest has status=pass, source_run_count=10, record_count=3600, generated_trex_fields=[]."
+    },
+    {
+      "name": "curiosity_replay_ablation_baseline",
+      "status": "ready_diagnostic_only",
+      "evidence": "Phase 03 replay output has status=pass and rollout_count=9."
+    },
+    {
+      "name": "residual_adapter_target_contract",
+      "status": "ready_training_not_started",
+      "evidence": "Residual adapter and forward-model target contract is defined with status=target_contract_ready_training_not_started."
+    },
+    {
+      "name": "nonzero_residual_diagnostic_path",
+      "status": "diagnostic_not_promoted",
+      "evidence": "Run residual_label_source_sensitive_feedback_half_low_20260627_030145 produced feedback_trigger_count=241 and nonzero candidate.controller residual fields, but metrics failed on hold_duration_below_threshold and object_accel_above_threshold."
+    },
+    {
+      "name": "bounded_residual_label_sweep_started",
+      "status": "diagnostic_not_promoted",
+      "evidence": "Run residual_label_sweep_half_low_contact58_20260627_0310 produced feedback_trigger_count=241 and nonzero candidate.controller residual fields, but failed the formal hold-duration gate with longest_hold_s=0.9833333333333333."
+    },
+    {
+      "name": "best_current_residual_label_candidate",
+      "status": "best_candidate_not_fully_promoted_due_strict_acceleration_gate",
+      "evidence": "Run residual_label_sweep_half_low_contact58_gentle_20260627_0345 passed fresh official Newton sanity, automated and manual visual checks, nonzero feedback_trigger_count=241, lift_height_m=0.1518997997045517, hold_duration_s=2.7166640758514404, max_slip_m=0.002728142855700976, contact_loss_frames=0, and drop_from_max=0.0, but strict metrics still failed on object_accel_above_threshold with max_object_accel_m_s2=8.308707788010144."
+    }
+  ],
+  "blockers": [
+    {
+      "name": "no_fully_promoted_strict_residual_label_source",
+      "status": "blocking",
+      "evidence": "The best current gentle contact58 run restores lift/hold/drop/contact gates and nonzero residual labels, but strict metrics still fail only on object_accel_above_threshold."
+    },
+    {
+      "name": "object_acceleration_gate_not_recovered",
+      "status": "blocking",
+      "evidence": "The current strict threshold is max_object_accel_m_s2 <= 8.0; the best current candidate reports max_object_accel_m_s2=8.308707788010144."
+    },
+    {
+      "name": "no_approved_training_implementation",
+      "status": "blocking",
+      "evidence": "No faithful residual-adapter training implementation has been selected or reviewed; a placeholder MLP/policy must not be introduced as learned adaptation progress."
+    },
+    {
+      "name": "no_adapter_sanity_runner",
+      "status": "blocking",
+      "evidence": "No compute-side residual-adapter training runner exists with official Newton sanity, source-gate checks, held-out split enforcement, and report generation."
+    }
+  ],
+  "resolved_blockers": [
+    {
+      "name": "no_promoted_nonzero_residual_demonstrations",
+      "status": "partially_resolved_by_best_candidate",
+      "evidence": "Run residual_label_sweep_half_low_contact58_gentle_20260627_0345 produced nonzero residual labels and passed lift/hold/drop/contact/visual gates, but is not fully promoted because strict metrics still fail on object_accel_above_threshold."
+    },
+    {
+      "name": "first_nonzero_residual_diagnostic_rejected",
+      "status": "historical_rejected_diagnostic",
+      "evidence": "Run residual_label_source_sensitive_feedback_half_low_20260627_030145 produced feedback_trigger_count=241 but failed formal metrics with hold_duration_below_min, so it remains diagnostic-only."
+    },
+    {
+      "name": "contact58_sweep_diagnostic_rejected",
+      "status": "historical_rejected_diagnostic",
+      "evidence": "Run residual_label_sweep_half_low_contact58_20260627_0310 preserved nonzero feedback labels but still failed the formal 2s hold gate, so it remains diagnostic-only."
+    }
+  ],
+  "allowed_next_routes": [
+    {
+      "route": "reduce_object_acceleration_for_best_current_candidate",
+      "description": "Use the gentle contact58 run as the starting point and adjust only ordinary-cell diagnostics to reduce max_object_accel_m_s2 below the strict threshold while preserving nonzero residual labels, lift, hold, drop, contact-loss, visual, and sanity gates."
+    },
+    {
+      "route": "create_formal_residual_training_runner_after_label_source_exists",
+      "description": "Only after nonzero residual labels or an approved objective exist, implement the training runner with source gates, held-out split checks, and no T-Rex schema promotion."
+    },
+    {
+      "route": "ask_user_before_switching_to_a_different_serious_policy_method",
+      "description": "If using diffusion policy, ACT, OpenPI, or another serious baseline, first audit official code/checkpoints and observation/action contracts."
+    }
+  ],
+  "forbidden_next_steps": [
+    "train_noop_zero_residual_adapter_and_claim_adaptation",
+    "train_placeholder_mlp_policy_and_claim_official_method_equivalence",
+    "ignore_feedback_trigger_count_zero",
+    "use_held_out_full_low_or_empty_high_as_training_cells",
+    "promote_newton_contact_proxy_to_trex_tactile_f6"
+  ],
+  "training_started": false,
+  "no_model_created": true,
+  "no_placeholder_model": true
+}

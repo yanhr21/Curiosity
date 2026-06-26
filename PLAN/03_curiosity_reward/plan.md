@@ -95,3 +95,28 @@ Replay gate result:
 This clears the baseline-rollout reward-shape gate before policy adaptation.
 It does not clear the later learned forward-model or true tactile-marker
 representation requirement.
+
+## Forward-Model Target Contract V1
+
+2026-06-27: added the first learned forward-model target contract without
+implementing or claiming a learned world model.
+
+- Spec: `docs/residual_adapter_forward_model_contract_v1.md`.
+- Config: `experiments/configs/residual_adapter_forward_model_contract_v1.json`.
+- Status: `target_contract_ready_training_not_started`.
+
+Defined targets:
+
+- object pose delta;
+- object velocity;
+- contact proxy next step;
+- slip risk;
+- contact-loss risk;
+- lift-response residual;
+- success/failure risk;
+- tactile-marker response, blocked until real `taccel.marker.*` evidence is
+  added.
+
+This satisfies the target-definition gate for learned curiosity, but not the
+training gate. No placeholder MLP, VQ-VAE, Transformer, or world model has been
+created.

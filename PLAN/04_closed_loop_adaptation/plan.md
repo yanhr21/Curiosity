@@ -281,3 +281,173 @@ parameterized, but no cell triggered the current feedback rule, so no
 adaptation-improvement claim is valid. The next adaptation step must either
 revise the feedback trigger with documented rationale or move to the planned
 residual learned controller-parameter adapter.
+
+## Contact-Aware Curiosity Diagnostic Gate
+
+2026-06-27: Phase 03 contact-aware curiosity replay diagnostic already covers
+the mass/friction variant grid needed by Phase 04.
+
+- Config: `experiments/configs/curiosity_reward_baseline_replay_v1.json`.
+- Evaluator: `experiments/configs/evaluate_curiosity_reward_baseline_replay.py`.
+- Output JSON:
+  `experiments/outputs/curiosity_reward_baseline_replay_v1_20260627.json`.
+- Output CSV:
+  `experiments/outputs/curiosity_reward_baseline_replay_v1_20260627.csv`.
+- Report:
+  `experiments/reports/2026-06-27_phase03_curiosity_reward_replay_v1.md`.
+- Log: `logs/newton/curiosity_reward_baseline_replay_v1_20260627.log`.
+- Status: pass.
+- Rollouts evaluated: 9.
+- Held-out cells included: `full_low`, `empty_high`.
+- Tactile source: `newton.contact_proxy_only`.
+
+This completes the Phase 04 contact-aware curiosity diagnostic across
+mass/friction variants, but only as replay reward-shape evidence. It does not
+train a world model, does not update a policy, does not promote data to the
+T-Rex schema, and does not use real tactile-marker evidence yet. The learned
+forward-model target path remains a separate Phase 03/04 requirement before
+curiosity can be treated as a learned adaptation mechanism.
+
+## Residual Adapter Training Contract V1
+
+2026-06-27: defined the first residual controller-parameter adapter contract
+without starting training.
+
+- Spec: `docs/residual_adapter_forward_model_contract_v1.md`.
+- Config: `experiments/configs/residual_adapter_forward_model_contract_v1.json`.
+- Status: `target_contract_ready_training_not_started`.
+
+Allowed residual outputs:
+
+- gripper closure target delta;
+- lift velocity scale delta;
+- hold height target delta;
+- regrasp trigger threshold delta;
+- stabilization duration delta.
+
+Forbidden outputs remain full low-level torque control, T-Rex `action`,
+T-Rex `action_abs`, and promoted `observation.*` fields. Training remains a
+separate unfinished Phase 04 item and must run only after source gates, official
+sanity checks, held-out split preservation, visual paths, and ablations are
+ready.
+
+## Residual Adapter Training Readiness V1
+
+2026-06-27: audited whether the first learned residual controller-parameter
+adapter can be trained now.
+
+- Config:
+  `experiments/configs/residual_adapter_training_readiness_v1.json`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_training_readiness_v1.md`.
+- Status: `blocked_training_not_started`.
+
+Ready:
+
+- official Newton scripted infant prior;
+- real mass/friction grid;
+- held-out `full_low` and `empty_high`;
+- Phase 05 Newton contact proxy source manifest;
+- Phase 03 curiosity replay diagnostics;
+- residual adapter and forward-model target contract.
+
+Blocking:
+
+- all scripted-feedback runs have `feedback_trigger_count=0`;
+- current data has no nonzero residual controller-parameter corrections;
+- training on current labels would produce a no-op residual adapter;
+- no approved residual-adapter training implementation/runner exists yet.
+
+Interpretation: Phase 04 should not start learned-adapter training until
+nonzero residual demonstrations or another approved serious objective exists.
+The next aligned action is to revise the scripted feedback trigger and collect
+real residual correction evidence, or ask for approval before switching to a
+different serious policy method.
+
+## Residual Correction Collection Diagnostic V1
+
+2026-06-27: converted the no-nonzero-residual blocker into an executed
+ordinary-cell diagnostic.
+
+- Plan/config:
+  `experiments/configs/residual_correction_collection_plan_v1.json`.
+- Plan report:
+  `experiments/reports/2026-06-27_phase04_residual_correction_collection_plan_v1.md`.
+- Executed diagnostic report:
+  `experiments/reports/2026-06-27_phase04_residual_label_source_sensitive_feedback_half_low.md`.
+- Run tag:
+  `residual_label_source_sensitive_feedback_half_low_20260627_030145`.
+- Allocation: `154023`.
+- Tmux session: `curiosity_next_source_alloc_20260626_232937`.
+- Cell: ordinary `half_low`, not held-out.
+
+Result:
+
+- official Newton sanity: pass;
+- automated visual validation: pass;
+- manual visual inspection: `pass_nonblank_but_task_failure`;
+- feedback reason: `low_contact_count`;
+- final feedback trigger count: 241;
+- feedback-active frames: 241;
+- object dropped: false;
+- contact-loss frames: 0;
+- metrics status: fail;
+- failure reasons: `hold_duration_below_threshold`,
+  `object_accel_above_threshold`.
+
+Interpretation: the official Newton rollout path can produce nonzero residual
+controller-parameter labels under `candidate.controller.*`, so the project is
+not stuck on schema mismatch or an impossible data path. This specific
+threshold is too aggressive and is not promoted to a training-label source.
+Two additional sweep facts are now recorded in
+`experiments/configs/residual_correction_collection_plan_v1.json`:
+
+- `residual_label_sweep_half_low_contact58_20260627_0310`: nonzero labels, but
+  hold still fails.
+- `residual_label_source_accel_sensitive_half_low_20260627_030748`: lift/hold/
+  drop/contact behavior preserved, but `feedback_trigger_count=0`.
+- `residual_label_sweep_half_low_contact58_gentle_20260627_0345`: nonzero
+  labels plus preserved lift/hold/drop/contact/visual/manual gates; strict
+  metrics still fail only on `object_accel_above_threshold`.
+
+The next Phase 04 action should use `contact58_gentle` as the best current
+candidate and reduce object acceleration while preserving nonzero feedback. Do
+not start learned-adapter training until the candidate passes the strict gate
+or the object-acceleration threshold change is explicitly approved and
+documented.
+
+## Short-Term Stable Residual Route
+
+2026-06-27: user approved the short-term stable method. The active route is:
+
+1. Keep the official Newton Panda hydro scripted controller as the infant
+   grasp/lift prior.
+2. Do not wait for an unverified Newton-native pretrained grasp checkpoint.
+3. Collect residual controller-parameter labels only from ordinary cells that
+   pass official Newton sanity, automated/manual visual checks, lift, hold,
+   drop, and contact gates.
+4. Preserve `full_low` and `empty_high` as held-out generalization cells.
+5. Train the learned residual adapter only after at least one nonzero residual
+   label source is promoted by those gates.
+
+The first threshold-sweep follow-up was run:
+
+- Run tag: `residual_label_sweep_half_low_contact58_20260627_0310`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58.md`.
+- Cell: ordinary `half_low`, not held-out.
+- Fresh official Newton sanity: pass.
+- Automated visual validation: pass.
+- Manual visual inspection: `pass_nonblank_but_task_failure`.
+- Feedback trigger count: `241`.
+- Feedback-active frames: `241`.
+- Lift height: `0.12752966582775116` m.
+- Longest hold: `0.9833333333333333` s.
+- Drop from max: `0.0` m.
+- Promotion decision: not promoted to training-label source.
+
+Interpretation: lowering the contact trigger from 64 to 58 still produced
+nonzero residual labels but did not recover the formal 2s hold gate. The next
+run should use a less disruptive ordinary-cell trigger strategy, preferably
+acceleration-sensitive or milder contact-sensitive, instead of starting
+adapter training.
