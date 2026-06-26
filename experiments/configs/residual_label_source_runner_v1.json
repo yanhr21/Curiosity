@@ -3,7 +3,7 @@
   "phase": "04_closed_loop_adaptation",
   "purpose": "Build a compute-node verified residual-label source manifest from promoted Newton scripted-feedback source candidates before learned-adapter training.",
   "source_manifest": "experiments/configs/residual_label_source_manifest_v1.json",
-  "source_status_required": "four_promoted_source_candidates_runner_passed_training_not_started",
+  "source_status_required": "five_promoted_source_candidates_runner_passed_training_not_started",
   "output_dir": "data/processed/residual_label_source_runner_v1_20260627",
   "requires_compute_node": true,
   "requires_fresh_official_newton_sanity": true,

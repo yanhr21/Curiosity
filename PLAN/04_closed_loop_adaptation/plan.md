@@ -547,25 +547,25 @@ implemented and run inside tmux-held allocation `154142`.
   `experiments/configs/run_residual_label_source_runner_in_alloc.sh`.
 - Report:
   `experiments/reports/2026-06-27_phase04_residual_label_source_runner_v1.md`.
-- Final runner tag: `residual_label_source_runner_v1_20260627_0420`.
+- Final runner tag: `residual_label_source_runner_v1_20260627_0455`.
 - Output manifest:
   `data/processed/residual_label_source_runner_v1_20260627/manifest.json`.
 - Output records:
   `data/processed/residual_label_source_runner_v1_20260627/residual_label_records.csv`.
 - Fresh official Newton sanity: pass.
-- Source run count: `4`.
-- Record count: `1440`.
-- Total feedback trigger count: `963`.
-- Total feedback-active frames: `963`.
+- Source run count: `5`.
+- Record count: `1800`.
+- Total feedback trigger count: `1203`.
+- Total feedback-active frames: `1203`.
 - Contact count range: `44..62`.
 - Failures: `[]`.
 - Generated T-Rex fields: `[]`.
 - Schema promotion: `blocked`.
 - Training started: `false`.
 
-Promoted source cells are ordinary `half_low`, `empty_low`, `half_medium`, and
-`full_high`. Held-out `full_low` and `empty_high` remain unused for label
-collection.
+Promoted source cells are ordinary `half_low`, `empty_low`, `half_medium`,
+`full_high`, and `empty_medium`. Held-out `full_low` and `empty_high` remain
+unused for label collection.
 
 Next action: continue any remaining ordinary source collection if useful, then
 implement a reviewed learned residual-adapter runner. No learned-adapter result

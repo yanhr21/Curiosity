@@ -2,7 +2,7 @@
 
 ## Scope
 
-This report records the first formal residual-label source runner and two
+This report records the first formal residual-label source runner and four
 additional ordinary-cell source candidates. It is not learned-adapter training
 and does not create a model.
 
@@ -28,10 +28,10 @@ Files:
 Final command:
 
 ```bash
-RUN_TAG=residual_label_source_runner_v1_20260627_0420 \
+RUN_TAG=residual_label_source_runner_v1_20260627_0455 \
 JOB_ID=154142 \
 TMUX_SESSION=curiosity_residual_source_alloc_20260627_034021 \
-WINDOW_NAME=phase04_residual_source_runner4_final \
+WINDOW_NAME=residual_source_runner_5src_passed \
 bash experiments/configs/launch_residual_label_source_runner_tmux.sh
 ```
 
@@ -42,18 +42,18 @@ Final output:
 - Records CSV:
   `data/processed/residual_label_source_runner_v1_20260627/residual_label_records.csv`.
 - Fresh sanity:
-  `experiments/outputs/residual_label_source_runner_v1_20260627_0420_fresh_newton_sensor_contact_sanity.json`.
+  `experiments/outputs/residual_label_source_runner_v1_20260627_0455_fresh_newton_sensor_contact_sanity.json`.
 - Log:
-  `logs/newton/residual_label_source_runner_v1_20260627_0420.log`.
+  `logs/newton/residual_label_source_runner_v1_20260627_0455.log`.
 
 Result:
 
 - fresh official Newton sanity: pass;
 - status: pass;
-- source run count: 4;
-- record count: 1440;
-- total feedback trigger count: 963;
-- total feedback-active frames: 963;
+- source run count: 5;
+- record count: 1800;
+- total feedback trigger count: 1203;
+- total feedback-active frames: 1203;
 - contact count range: 44 to 62;
 - failures: [];
 - generated T-Rex fields: [];
@@ -76,6 +76,9 @@ Promoted ordinary cells:
 - `full_high`:
   `residual_label_sweep_full_high_contact58_gentle_lift165_warmup15_20260627_0410`,
   360 records, feedback trigger count 241, strict metrics pass.
+- `empty_medium`:
+  `residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425`,
+  360 records, feedback trigger count 240, strict metrics pass.
 
 Held-out cells `full_low` and `empty_high` were not used for label collection.
 
@@ -180,14 +183,47 @@ Evidence:
 `2.499997615814209` s, max slip `0.0033865464497656577` m, max object
 acceleration `1.3344599392207466` m/s^2, contact loss frames `0`.
 
+`empty_medium` command:
+
+```bash
+RUN_TAG=residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425 \
+JOB_ID=154142 \
+TMUX_SESSION=curiosity_residual_source_alloc_20260627_034021 \
+OBJECT_MASS_KG=0.08 \
+OBJECT_FRICTION_MU=0.80 \
+PRE_RECORD_WARMUP_STEPS=15 \
+bash experiments/configs/launch_lift_hold_scripted_feedback_baseline_tmux.sh
+```
+
+Evidence:
+
+- summary:
+  `experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_summary.json`;
+- visual validation:
+  `experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_visual_validation.json`;
+- manual visual inspection:
+  `experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_manual_visual_inspection.json`;
+- metrics:
+  `experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_metrics.json`;
+- peak analysis:
+  `experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_accel_peak_analysis.json`;
+- contact sheet:
+  `experiments/visuals/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425/contact_sheet.png`;
+- frame browser:
+  `experiments/visuals/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425/frame_browser.html`.
+
+`empty_medium` metrics: lift height `0.1614871472120285` m, hold duration
+`2.566664218902588` s, max slip `0.0036940056160040986` m, max object
+acceleration `0.6388457298275481` m/s^2, contact loss frames `0`.
+
 Manual visual inspection opened the contact sheets plus `frame_0225.png` and
 `frame_0359.png` for each new cell. All were nonblank and showed the cup held
 at the final sampled frame.
 
 ## Interpretation
 
-The source-gate path is now functional and has four promoted ordinary-cell
+The source-gate path is now functional and has five promoted ordinary-cell
 sources. This clears the previous runner blocker but does not authorize a
-learned-adapter claim. The next aligned step is either to collect any remaining
-ordinary source coverage or implement a reviewed learned residual-adapter
+learned-adapter claim. Source availability should no longer be treated as the
+active gate; the next aligned step is a reviewed learned residual-adapter
 runner with the same fresh-sanity/source-gate/held-out split checks.

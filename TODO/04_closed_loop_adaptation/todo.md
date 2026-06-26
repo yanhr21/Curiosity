@@ -41,15 +41,16 @@
       `newton.contact_proxy_only`.
 - [ ] Train the first learned adapter as residual controller-parameter output,
       not full low-level torque control.
-      Current status: blocked, training not started. One promoted source
-      candidate now exists, but the formal residual-label source runner and
-      adapter-training runner do not exist yet.
+      Current status: blocked, training not started. Five promoted source
+      candidates now exist and the formal residual-label source runner passes;
+      the adapter-training runner still does not exist yet.
       Evidence:
       `experiments/configs/residual_adapter_training_readiness_v1.json` and
       `experiments/reports/2026-06-27_phase04_residual_adapter_training_readiness_v1.md`.
-      Blocker: training now would skip source-runner review, held-out split
-      enforcement, and additional ordinary-cell collection. Next step is the
-      runner/source-gate path, not direct learned-adapter training.
+      Blocker: training now would skip reviewed adapter-training code,
+      held-out split enforcement inside the trainer, and adapter-specific
+      sanity/report generation. Next step is the learned residual-adapter
+      runner design, not more source gating.
 - [x] Run first ordinary-cell diagnostic to verify whether the official Newton
       path can emit nonzero residual controller-parameter labels.
       Evidence:
@@ -113,23 +114,26 @@
       This is still not learned-adapter training.
       Evidence:
       `experiments/reports/2026-06-27_phase04_residual_label_source_runner_v1.md`.
-      Final runner `residual_label_source_runner_v1_20260627_0420` ran inside
+      Final runner `residual_label_source_runner_v1_20260627_0455` ran inside
       tmux-held allocation `154142`, passed fresh official Newton sanity, and
       generated
       `data/processed/residual_label_source_runner_v1_20260627/manifest.json`
-      with `status=pass`, `source_run_count=4`, `record_count=1440`,
-      `total_feedback_trigger_count=963`, `failures=[]`,
+      with `status=pass`, `source_run_count=5`, `record_count=1800`,
+      `total_feedback_trigger_count=1203`, `failures=[]`,
       `generated_trex_fields=[]`, `schema_promotion=blocked`, and
       `training_started=false`.
-- [ ] Collect additional ordinary-cell residual-label source candidates after
+- [x] Collect additional ordinary-cell residual-label source candidates after
       the runner gates are in place.
-      Progress: ordinary `empty_low`, `half_medium`, and `full_high` were
+      Progress: ordinary `empty_low`, `half_medium`, `full_high`, and
+      `empty_medium` were
       collected after the runner gate and all passed fresh official Newton
       sanity, automated visual validation, manual visual inspection, strict
       metrics, and peak analysis. They were added to
       `experiments/configs/residual_label_source_manifest_v1.json` and the
-      source runner passed with all four sources. Continue only with remaining
-      ordinary cells if useful; keep held-out cells evaluation-only.
+      source runner passed with all five sources. Remaining ordinary cells can
+      be collected if useful, but this TODO is no longer a source-availability
+      blocker for designing the learned residual-adapter runner; keep held-out
+      cells evaluation-only.
 - [x] Plan nonzero residual correction data collection before learned-adapter
       training.
       Evidence:

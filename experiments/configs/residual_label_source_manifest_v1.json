@@ -1,7 +1,7 @@
 {
   "classification": "residual_label_source_manifest_v1",
   "phase": "04_closed_loop_adaptation",
-  "status": "four_promoted_source_candidates_runner_passed_training_not_started",
+  "status": "five_promoted_source_candidates_runner_passed_training_not_started",
   "purpose": "Record residual controller-parameter label sources that passed official Newton sanity, visual checks, manual inspection, strict lift-hold metrics, and source-runner gates before any learned adapter training.",
   "training_started": false,
   "no_model_created": true,
@@ -231,7 +231,62 @@
       },
       "promotion_decision": "promoted_as_first_additional_residual_label_source_candidate_for_runner_input",
       "interpretation": "The warmup15 contact58 gentle source route transfers to ordinary full_high, preserving nonzero feedback labels and strict lift-hold success without schema promotion or model training."
+    },
+    {
+      "name": "contact58_gentle_lift165_warmup15_empty_medium_source_v1",
+      "status": "promoted_source_candidate",
+      "run_tag": "residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425",
+      "slurm_job_id": "154142",
+      "tmux_session": "curiosity_residual_source_alloc_20260627_034021",
+      "cell": "empty_medium",
+      "held_out_generalization_cell": false,
+      "pre_record_warmup_steps": 15,
+      "parameter_overrides": {
+        "feedback_min_contact_count": 58,
+        "feedback_accel_threshold_m_s2": 6.5,
+        "feedback_height_drop_threshold_m": 0.015,
+        "feedback_initial_lift_duration_scale": 1.65,
+        "feedback_lift_duration_scale_max": 1.05,
+        "feedback_hold_height_step_m": 0.0005,
+        "feedback_hold_height_offset_max_m": 0.005,
+        "feedback_stabilization_step_s": 0.05,
+        "feedback_stabilization_max_s": 0.3
+      },
+      "outputs": {
+        "fresh_official_newton_sanity": "experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_fresh_newton_sensor_contact_sanity.json",
+        "summary_json": "experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_summary.json",
+        "visual_validation": "experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_visual_validation.json",
+        "manual_visual_inspection": "experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_manual_visual_inspection.json",
+        "metrics_json": "experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_metrics.json",
+        "metrics_csv": "experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_metrics.csv",
+        "accel_peak_analysis": "experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_accel_peak_analysis.json",
+        "npz": "experiments/outputs/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425.npz",
+        "contact_sheet": "experiments/visuals/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425/contact_sheet.png",
+        "frame_browser": "experiments/visuals/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425/frame_browser.html",
+        "log": "logs/newton/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425.log",
+        "metrics_log": "logs/newton/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_metrics.log",
+        "accel_peak_log": "logs/newton/residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425_accel_peak_analysis.log"
+      },
+      "observed": {
+        "fresh_official_newton_sanity": "pass",
+        "visual_validation": "pass",
+        "manual_visual_inspection": "pass_nonblank_success_with_feedback",
+        "metrics_status": "pass",
+        "feedback_reason": "low_contact_count",
+        "feedback_trigger_count_max": 240,
+        "feedback_active_nonzero_frames": 240,
+        "object_not_dropped": true,
+        "contact_loss_frames": 0,
+        "max_contact_proxy": 62,
+        "lift_height_m": 0.1614871472120285,
+        "hold_duration_s": 2.566664218902588,
+        "max_slip_m": 0.0036940056160040986,
+        "max_object_accel_m_s2": 0.6388457298275481,
+        "success_per_contact_proxy_integral": 0.003085946470221342
+      },
+      "promotion_decision": "promoted_as_first_additional_residual_label_source_candidate_for_runner_input",
+      "interpretation": "The warmup15 contact58 gentle source route transfers to ordinary empty_medium, preserving nonzero feedback labels and strict lift-hold success without schema promotion or model training."
     }
   ],
-  "next_action": "Rerun the formal residual-label source runner after each promoted ordinary-cell candidate is added, then continue collecting additional ordinary cells. Do not start learned adapter training until runner review and held-out split enforcement remain passing."
+  "next_action": "Use the five-source runner output to design the learned residual-adapter runner. Additional ordinary-cell source collection is optional, but held-out full_low and empty_high must remain evaluation-only. Do not start learned adapter training until the adapter runner is implemented, reviewed, and preserves fresh sanity plus held-out split checks."
 }
