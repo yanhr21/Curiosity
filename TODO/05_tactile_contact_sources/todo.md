@@ -7,7 +7,14 @@
       controller, camera, visual-validation, and manual-inspection evidence.
       Evidence:
       `data/processed/newton_lift_hold_contact_source_manifest_v1_20260627/manifest.json`.
-- [ ] If using Taccel marker evidence, keep it under `taccel.marker.*`.
+- [x] If using Taccel marker evidence, keep it under `taccel.marker.*`.
+      Evidence: current Phase 05/06 mainline keeps Newton contact evidence
+      under `newton.*` / `candidate.*`, keeps Taccel marker evidence
+      provenance-only, and does not promote marker evidence into
+      `observation.tactile_f6` or `observation.tactile_deform.*`.
+      The Phase 06 reassessment records this as still blocked for strict T-Rex
+      promotion:
+      `experiments/reports/2026-06-27_phase06_trex_bridge_source_reassessment_v1.md`.
 - [x] Do not create `observation.tactile_f6` without calibrated nonzero F6.
       Evidence: Phase 05 Newton contact manifest generated no
       `observation.tactile_f6` field; `generated_trex_fields=[]` and

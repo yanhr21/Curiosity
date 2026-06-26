@@ -41,14 +41,28 @@
       threshold `8.0`; feedback did not trigger in any ordinary cell
       (`feedback_trigger_count=0`). This completes ordinary scripted feedback
       evaluation while preserving held-out `full_low` and `empty_high`.
-- [ ] Decide whether the first learned baseline is BC, diffusion policy,
+- [x] Decide whether the first learned baseline is BC, diffusion policy,
       ACT-style, or another documented method.
+      Decision: the first learned baseline is a Newton-native residual
+      controller-parameter adapter around the official Newton Panda hydro
+      scripted infant prior, not BC, diffusion policy, ACT, or end-to-end
+      low-level torque control. Evidence:
+      `experiments/reports/2026-06-27_phase04_residual_adapter_training_v1.md`,
+      `experiments/reports/2026-06-27_phase04_residual_adapter_heldout_eval_v1.md`,
+      and
+      `experiments/reports/2026-06-27_phase04_residual_adapter_failure_mode_comparison_v1.md`.
 - [x] Search for real Newton-compatible basic grasping checkpoints before
       training any grasp policy from scratch; no directly usable Newton-native
       Panda grasp/lift checkpoint found.
-- [ ] If a pretrained policy is considered, write a checkpoint audit covering
+- [x] If a pretrained policy is considered, write a checkpoint audit covering
       codebase, checkpoint path, license, embodiment, action semantics, camera
       requirements, and smoke-test command.
+      Evidence: T-Rex checkpoint assets were audited as reference-only in
+      `experiments/reports/2026-06-27_phase06_trex_checkpoint_current_sanity.md`.
+      Source bridge reassessment concluded no-go for strict T-Rex promotion in
+      `experiments/reports/2026-06-27_phase06_trex_bridge_source_reassessment_v1.md`.
+      The short-term learned baseline remains Newton-native residual
+      adaptation rather than a pretrained-policy route.
 - [x] Keep the official Newton Panda hydro scripted grasp/lift controller as
       the default infant prior for the short-term baseline path.
 - [x] Define shared metrics table schema:

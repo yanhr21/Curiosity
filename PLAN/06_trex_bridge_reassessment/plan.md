@@ -62,3 +62,35 @@ short-term Newton-native scripted-prior route. Strict bridge promotion remains
 blocked until real synchronized bimanual state/action/action_abs, accepted
 cameras, calibrated nonzero `[10,6]` F6, and ten dense tactile deformation
 streams exist without padding or renaming.
+
+## Source Reassessment And Go/No-Go
+
+2026-06-27: after Newton-native learned residual adaptation showed useful
+current-benchmark behavior, the T-Rex bridge source contract was reassessed.
+
+- Audit config:
+  `experiments/configs/trex_bridge_source_reassessment_v1.json`.
+- Report:
+  `experiments/reports/2026-06-27_phase06_trex_bridge_source_reassessment_v1.md`.
+- Useful-behavior evidence:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_heldout_eval_v1.md`,
+  `experiments/reports/2026-06-27_phase04_residual_adapter_extra_ordinary_eval_v1.md`,
+  and
+  `experiments/reports/2026-06-27_phase04_residual_adapter_failure_mode_comparison_v1.md`.
+- Source inventories:
+  `data/processed/newton_contact_aware_frontier_source_manifest_v2_cube_dense_0_239_20260626/strict_inventory.json`
+  and
+  `data/processed/newton_contact_aware_frontier_source_manifest_v2_pen_dense_0_239_20260626/strict_inventory.json`.
+
+Decision: no-go for strict T-Rex bridge promotion now.
+
+Reason: current Newton mainline lacks real synchronized bimanual 62D
+state/action/action_abs, accepted T-Rex image keys, calibrated nonzero
+`[10,6]` F6, and ten dense tactile deformation streams. Existing dense Newton
+strict inventories are `blocked` with 17 missing fields and 0 incompatible
+fields. The public compatibility slice has state/action/images/F6 features, but
+it is not the current Newton lift-hold source and has no dense deformation
+streams.
+
+Allowed route: keep T-Rex as reference-only and continue Newton-native
+adaptation. Do not pad, rename, or fabricate missing T-Rex fields.

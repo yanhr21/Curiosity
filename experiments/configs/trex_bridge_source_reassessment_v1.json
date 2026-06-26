@@ -1,0 +1,95 @@
+{
+  "classification": "trex_bridge_source_reassessment_v1",
+  "phase": "06_trex_bridge_reassessment",
+  "status": "no_go_for_strict_trex_bridge",
+  "purpose": "Reassess whether the current Newton-native adaptation line has enough faithful source data to build a strict T-Rex bridge after useful Newton-native behavior was demonstrated.",
+  "not_training": true,
+  "not_model_creation": true,
+  "checkpoint_sanity": {
+    "status": "pass_reference_only",
+    "report": "experiments/reports/2026-06-27_phase06_trex_checkpoint_current_sanity.md",
+    "integrity_json": "experiments/outputs/trex_checkpoint_current_sanity_20260627_2055_integrity.json",
+    "model_load_json": "experiments/outputs/trex_checkpoint_current_sanity_20260627_2055_midtrain_model_load.json",
+    "interpretation": "Official T-Rex checkpoint assets can be loaded as reference assets, but this does not make Newton lift-hold data T-Rex-compatible."
+  },
+  "newton_native_useful_behavior_gate": {
+    "status": "pass_current_cup_benchmark",
+    "evidence": [
+      "experiments/reports/2026-06-27_phase04_residual_adapter_heldout_eval_v1.md",
+      "experiments/reports/2026-06-27_phase04_residual_adapter_extra_ordinary_eval_v1.md",
+      "experiments/reports/2026-06-27_phase04_residual_adapter_failure_mode_comparison_v1.md"
+    ],
+    "interpretation": "The learned residual adapter has useful Newton-native stabilization behavior on the current cup benchmark."
+  },
+  "required_source_groups": [
+    {
+      "name": "bimanual_62d_state_action_action_abs",
+      "status": "missing_for_current_newton_mainline",
+      "evidence": "Newton dense strict inventories list observation.state, action, and action_abs as missing.",
+      "source": "data/processed/newton_contact_aware_frontier_source_manifest_v2_cube_dense_0_239_20260626/strict_inventory.json"
+    },
+    {
+      "name": "accepted_synchronized_head_right_left_cameras",
+      "status": "missing_as_trex_keys_for_current_newton_mainline",
+      "evidence": "Newton outputs contain newton.camera.* visual evidence and manual visual inspection, but strict inventories list observation.images.head, observation.images.wrist_right, and observation.images.wrist_left as missing.",
+      "source": "data/processed/newton_contact_aware_frontier_source_manifest_v2_cube_dense_0_239_20260626/strict_inventory.json"
+    },
+    {
+      "name": "calibrated_nonzero_tactile_f6_10x6",
+      "status": "missing_for_current_newton_mainline",
+      "evidence": "Newton contact proxy exists, but calibrated nonzero observation.tactile_f6 is missing and must not be generated from contact proxy.",
+      "source": "data/processed/newton_lift_hold_contact_source_manifest_v1_20260627/manifest.json"
+    },
+    {
+      "name": "ten_dense_tactile_deformation_streams",
+      "status": "missing_for_current_newton_mainline",
+      "evidence": "Strict inventories list observation.tactile_deform.l0-l4 and r0-r4 as missing.",
+      "source": "data/processed/newton_contact_aware_frontier_source_manifest_v2_cube_dense_0_239_20260626/strict_inventory.json"
+    },
+    {
+      "name": "public_compat_slice",
+      "status": "reference_only_not_newton_bridge_source",
+      "evidence": "The public compatibility slice exposes observation.state/action/action_abs/images/tactile_f6 features, but it is not the current Newton lift-hold source and has no tactile_deform streams.",
+      "source": "data/processed/trex_public_slice_joint58_compat62_f6_blank_fast/meta/info.json"
+    }
+  ],
+  "strict_inventory": {
+    "status": "blocked_by_missing_source_groups",
+    "newton_cube_dense_inventory": "data/processed/newton_contact_aware_frontier_source_manifest_v2_cube_dense_0_239_20260626/strict_inventory.json",
+    "newton_pen_dense_inventory": "data/processed/newton_contact_aware_frontier_source_manifest_v2_pen_dense_0_239_20260626/strict_inventory.json",
+    "missing_field_count": 17,
+    "incompatible_field_count": 0,
+    "missing_fields": [
+      "observation.state",
+      "action",
+      "action_abs",
+      "observation.tactile_f6",
+      "observation.images.head",
+      "observation.images.wrist_right",
+      "observation.images.wrist_left",
+      "observation.tactile_deform.l0",
+      "observation.tactile_deform.l1",
+      "observation.tactile_deform.l2",
+      "observation.tactile_deform.l3",
+      "observation.tactile_deform.l4",
+      "observation.tactile_deform.r0",
+      "observation.tactile_deform.r1",
+      "observation.tactile_deform.r2",
+      "observation.tactile_deform.r3",
+      "observation.tactile_deform.r4"
+    ]
+  },
+  "decision": {
+    "go_no_go": "no_go",
+    "allowed_route": "keep_trex_as_reference_only_and_continue_newton_native_adaptation",
+    "forbidden_routes": [
+      "pad_missing_62d_state_action_fields",
+      "rename_newton.camera.* into accepted T-Rex image keys without a faithful contract",
+      "promote_newton_contact_proxy_to_observation.tactile_f6",
+      "generate_fake_tactile_deform_streams",
+      "claim official T-Rex bridge compatibility from the current Newton cup benchmark"
+    ]
+  },
+  "generated_trex_fields": [],
+  "schema_promotion": "blocked"
+}
