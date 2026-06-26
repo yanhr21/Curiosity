@@ -101,6 +101,29 @@
       exceeded the schema threshold `8.0`; lift, hold, slip, drop, contact-loss,
       and contact-proxy gates passed. The remaining grid cells are low/high
       friction variants and held-out generalization cells.
+      Started low-friction axis with `empty_low`:
+      `lift_hold_no_adaptation_scripted_baseline_v1_cup_empty_low_prefinalize_20260627_1320`.
+      The run passed fresh official Newton sanity, camera export, visual
+      validation, and manual visual inspection. Full metrics correctly marked
+      it as `fail` only because `max_object_accel_m_s2=8.308707937632189`
+      exceeded the schema threshold `8.0`; lift, hold, slip, drop, contact-loss,
+      and contact-proxy gates passed. Continue low/high friction cells without
+      using held-out `full_low` or `empty_high` as training/grid-completion cells.
+      Continued low-friction axis with `half_low`:
+      `lift_hold_no_adaptation_scripted_baseline_v1_cup_half_low_prefinalize_20260627_1335`.
+      The run passed fresh official Newton sanity, camera export, visual
+      validation, and manual visual inspection. Full metrics correctly marked
+      it as `fail` only because `max_object_accel_m_s2=8.308498000056417`
+      exceeded the schema threshold `8.0`; lift, hold, slip, drop, contact-loss,
+      and contact-proxy gates passed. `full_low` remains held out.
+      Evaluated held-out `full_low` as no-adaptation evidence:
+      `lift_hold_no_adaptation_scripted_baseline_v1_cup_full_low_prefinalize_20260627_1350`.
+      The run passed fresh official Newton sanity, camera export, visual
+      validation, and manual visual inspection. Full metrics correctly marked
+      it as `fail` only because `max_object_accel_m_s2=8.308390712127508`
+      exceeded the schema threshold `8.0`; lift, hold, slip, drop, contact-loss,
+      and contact-proxy gates passed. Keep it labeled as held-out evidence for
+      later learned adaptation comparisons.
 - [x] Write Phase 02 no-adaptation nominal cup report after compute run and
       manual visual inspection:
       `experiments/reports/2026-06-27_phase02_no_adaptation_nominal_cup_baseline.md`.

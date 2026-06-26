@@ -470,6 +470,176 @@ Report:
 experiments/reports/2026-06-27_phase02_no_adaptation_full_medium_variant.md
 ```
 
+## Empty/Low Cup Variant Result
+
+The first low-friction real mass/friction variant baseline has completed:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_cup_empty_low_prefinalize_20260627_1320
+cell=empty_low
+object_mass_kg=0.08
+object_friction_mu=0.35
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.07999999821186066
+original_shape_material_mu=1.0
+observed_shape_material_mu=0.3499999940395355
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.1602293699979782
+hold_duration_s=3.099997043609619
+max_slip_m=0.00348078277085327
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=61.0
+max_object_accel_m_s2=8.308707937632189
+failure_reasons=[object_accel_above_threshold]
+```
+
+This is a valid no-adaptation failure baseline for the empty/low cup cell.
+It starts the low-friction axis while preserving the held-out status of
+`full_low` and `empty_high`. It passes lift, hold, slip, drop, and contact-loss
+gates, and fails the unchanged full schema only on object acceleration.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_no_adaptation_empty_low_variant.md
+```
+
+## Half/Low Cup Variant Result
+
+The second low-friction real mass/friction variant baseline has completed:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_cup_half_low_prefinalize_20260627_1335
+cell=half_low
+object_mass_kg=0.20
+object_friction_mu=0.35
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.20000000298023224
+original_shape_material_mu=1.0
+observed_shape_material_mu=0.3499999940395355
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.15679897367954254
+hold_duration_s=3.0833303928375244
+max_slip_m=0.003276861798514688
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=62.0
+max_object_accel_m_s2=8.308498000056417
+failure_reasons=[object_accel_above_threshold]
+```
+
+This is a valid no-adaptation failure baseline for the half/low cup cell.
+It continues the low-friction axis while preserving the held-out status of
+`full_low`. It passes lift, hold, slip, drop, and contact-loss gates, and fails
+the unchanged full schema only on object acceleration.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_no_adaptation_half_low_variant.md
+```
+
+## Full/Low Held-Out Cup Variant Result
+
+The full/low held-out generalization cell has completed as a no-adaptation
+evaluation:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_cup_full_low_prefinalize_20260627_1350
+cell=full_low
+held_out_generalization_cell=true
+object_mass_kg=0.35
+object_friction_mu=0.35
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.3499999940395355
+original_shape_material_mu=1.0
+observed_shape_material_mu=0.3499999940395355
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.15308110415935516
+hold_duration_s=3.0666637420654297
+max_slip_m=0.0034788257913540574
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=62.0
+max_object_accel_m_s2=8.308390712127508
+failure_reasons=[object_accel_above_threshold]
+```
+
+This is a valid held-out no-adaptation evaluation result. It passes lift, hold,
+slip, drop, and contact-loss gates, and fails the unchanged full schema only on
+object acceleration. It must remain labeled as held-out evidence and not as a
+training/grid-completion cell for later learned adaptation.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_no_adaptation_full_low_variant.md
+```
+
 ## Rules
 
 - Do not introduce toy T-Rex, toy VQ-VAE, toy Transformer, or toy world model.
