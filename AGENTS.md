@@ -1,5 +1,59 @@
 # Global Agent Rules
 
+## Highest Priority Cluster Safety Rules
+
+These rules override all other project instructions. If any lower-priority
+instruction conflicts with this section, follow this section and record the
+conflict.
+
+### Login Node Hard Limit
+
+- Never run Python experiments, data processing, validation builders, model
+  loading, rendering, simulation, training, evaluation, visualization
+  generation, dataset conversion, NumPy/PyTorch-heavy scripts, or any other
+  compute-heavy project task on a login or management node such as
+  `mgmtserver02`.
+- Login nodes are only for lightweight operations: editing files, `git`
+  commands, `git clone`, `git push`, small text inspection with tools such as
+  `sed`/`rg`, lightweight file listing, and job/allocation submission.
+- Keep login-node CPU below 300% and memory within lightweight interactive
+  limits. If a command can plausibly exceed those limits, do not run it on the
+  login node.
+- If a project Python command is needed and it is not a trivial import-free
+  syntax check, submit or run it inside a compute allocation instead.
+- If a Python or experiment process is found running on the login node for this
+  project, report it immediately and stop or move the workflow to compute
+  resources unless the user explicitly says otherwise.
+
+### Compute Node Requirements
+
+- All simulation, rendering, validation builders, source-manifest builders,
+  dataset conversion, training, evaluation, and other compute tasks must run on
+  compute nodes.
+- GPU resources must be obtained and kept through `tmux` plus persistent
+  `srun`/`salloc` allocation workflow. Do not use one-shot submission paths
+  such as `sbatch`/single-use wrappers for experiments unless the user
+  explicitly approves.
+- Do not use `sspath` or other one-shot resource paths for this project.
+- Compute nodes should only activate prebuilt local shared-filesystem
+  environments. Do not perform normal dependency installation, venv creation,
+  package builds, or dependency resolution on compute nodes.
+- During real GPU work, maintain GPU utilization above 30%. If utilization
+  stays below 30% for more than 3 hours, release the allocation or fix the job.
+- Short runs must be labeled as diagnostics or smoke tests, not as real
+  training or real experiment results.
+
+### Resource Exclusion Zone
+
+- Do not touch, inspect, stop, reuse, attach to, or modify any `reflex`,
+  `ICLR2027/Reflex`, OpenPI, Cosmos, or other non-Curiosity tmux sessions,
+  allocations, processes, logs, scripts, or resources.
+- Reflex-related jobs and tmux sessions are outside this project even if they
+  appear in process listings. Ignore them except to avoid interfering with
+  them.
+- Curiosity work must use only Curiosity-specific sessions, allocations, paths,
+  and logs.
+
 ## No Degraded Placeholder Model Rule
 
 - Hard user rule from 2026-06-24: never casually write downgraded placeholder MLP/VAE/Transformer/world-model implementations and present them as T-Rex-style, VQ-VAE-style, or world-model progress.
@@ -20,7 +74,7 @@
 
 ## Cluster Usage Rules
 
-- The login node is only for lightweight repository and file operations such as `git clone`, editing, inspection, and job submission. Do not run training, evaluation, data preprocessing, or other compute-heavy tasks on the login node.
+- The login-node restrictions in `Highest Priority Cluster Safety Rules` are mandatory and take precedence over this section.
 - GPU resources must be acquired and held through `tmux` or an equivalent persistent interactive session. Do not use one-shot `sbatch` runs for experiments unless the user explicitly approves a different cluster workflow.
 - Keep GPU jobs inside `tmux` or an equivalent persistent terminal/session mechanism so the job is not released or interrupted when the connection drops.
 - Each GPU resource request must reserve at least one full day by default, for example one GPU for one day. Reuse the same held allocation for multiple sanity checks, visualization jobs, and follow-up diagnostics instead of repeatedly submitting short jobs and wasting time in the queue.
