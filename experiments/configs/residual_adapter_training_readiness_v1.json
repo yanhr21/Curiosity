@@ -1,7 +1,7 @@
 {
   "classification": "residual_adapter_training_readiness_v1",
   "phase": "04_closed_loop_adaptation",
-  "status": "residual_adapter_trained_heldout_evaluation_not_started",
+  "status": "residual_adapter_heldout_two_cell_evaluation_passed",
   "purpose": "Audit the first Newton-native residual controller-parameter adapter after real one-GPU one-hour training, while preserving the no-placeholder and no-T-Rex-promotion rules.",
   "contract": "experiments/configs/residual_adapter_forward_model_contract_v1.json",
   "method_name": "newton_native_residual_controller_adapter_v1",
@@ -30,7 +30,12 @@
     "residual_adapter_empty_medium_eval_report": "experiments/reports/2026-06-27_phase04_residual_adapter_eval_empty_medium_validation_v1.md",
     "residual_adapter_empty_medium_eval_summary": "experiments/outputs/residual_adapter_eval_v1_empty_medium_validation_20260627_0605_summary.json",
     "residual_adapter_empty_medium_eval_metrics": "experiments/outputs/residual_adapter_eval_v1_empty_medium_validation_20260627_0605_metrics.json",
-    "residual_adapter_empty_medium_manual_visual": "experiments/outputs/residual_adapter_eval_v1_empty_medium_validation_20260627_0605_manual_visual_inspection.json"
+    "residual_adapter_empty_medium_manual_visual": "experiments/outputs/residual_adapter_eval_v1_empty_medium_validation_20260627_0605_manual_visual_inspection.json",
+    "residual_adapter_heldout_eval_report": "experiments/reports/2026-06-27_phase04_residual_adapter_heldout_eval_v1.md",
+    "residual_adapter_full_low_metrics": "experiments/outputs/residual_adapter_eval_v1_full_low_heldout_20260627_0613_metrics.json",
+    "residual_adapter_full_low_manual_visual": "experiments/outputs/residual_adapter_eval_v1_full_low_heldout_20260627_0613_manual_visual_inspection.json",
+    "residual_adapter_empty_high_metrics": "experiments/outputs/residual_adapter_eval_v1_empty_high_heldout_20260627_0620_metrics.json",
+    "residual_adapter_empty_high_manual_visual": "experiments/outputs/residual_adapter_eval_v1_empty_high_heldout_20260627_0620_manual_visual_inspection.json"
   },
   "ready_gates": [
     {
@@ -77,18 +82,18 @@
       "name": "ordinary_checkpoint_controller_evaluation",
       "status": "pass_not_held_out",
       "evidence": "Run residual_adapter_eval_v1_empty_medium_validation_20260627_0605 wired the checkpoint into lift_hold_learned_residual mode and passed fresh official Newton sanity, visual validation, manual frame/browser inspection, and lift-hold metrics on ordinary empty_medium with lift_height_m=0.16149283945560455, hold_duration_s=2.566664218902588, max_slip_m=0.0036941702785655258, contact_loss_frames=0, max_object_accel_m_s2=0.6439671191529558, generated_trex_fields=[], and schema_promotion=blocked."
+    },
+    {
+      "name": "held_out_checkpoint_controller_evaluation",
+      "status": "pass_two_cell_cup_benchmark",
+      "evidence": "Runs residual_adapter_eval_v1_full_low_heldout_20260627_0613 and residual_adapter_eval_v1_empty_high_heldout_20260627_0620 passed fresh official Newton sanity, visual validation, manual frame/browser inspection, and lift-hold metrics. full_low reached lift_height_m=0.1548849195241928, hold_duration_s=2.499997615814209, max_object_accel_m_s2=1.5345948979069628. empty_high reached lift_height_m=0.1613951474428177, hold_duration_s=2.566664218902588, max_object_accel_m_s2=0.4686260874870734. generated_trex_fields=[], schema_promotion=blocked."
     }
   ],
   "blockers": [
     {
-      "name": "no_held_out_adapter_evaluation",
-      "status": "blocking_policy_improvement_claims",
-      "evidence": "The trained checkpoint has not been evaluated on held-out full_low or empty_high with fresh Newton sanity, visual/browser inspection, and lift-hold metrics."
-    },
-    {
       "name": "limited_source_coverage",
-      "status": "not_blocking_next_evaluation_blocks_broad_claims_only",
-      "evidence": "Five ordinary source candidates were used. This is enough to proceed to held-out evaluation, but it limits broad learned-adaptation claims until more ordinary cells or object families are added."
+      "status": "blocks_broad_claims_only",
+      "evidence": "Five ordinary source candidates were used, and held-out evaluation covers two cup cells. This supports a narrow two-cell cup-benchmark improvement claim, not broad object-family generalization."
     }
   ],
   "resolved_blockers": [
@@ -126,12 +131,17 @@
       "name": "no_trained_policy_visual_gate",
       "status": "resolved_for_ordinary_validation",
       "evidence": "Manual visual inspection for residual_adapter_eval_v1_empty_medium_validation_20260627_0605 passed on frame browser, contact sheet, and frames 0000/0180/0359."
+    },
+    {
+      "name": "no_held_out_adapter_evaluation",
+      "status": "resolved_for_two_cell_cup_benchmark",
+      "evidence": "Held-out full_low and empty_high learned residual runs passed visual and metric gates. See experiments/reports/2026-06-27_phase04_residual_adapter_heldout_eval_v1.md."
     }
   ],
   "allowed_next_routes": [
     {
-      "route": "evaluate_trained_checkpoint_on_held_out_cells",
-      "description": "Ordinary validation has passed. Evaluate full_low and empty_high with visual/manual/metric gates and compare against no-adaptation and scripted-feedback baselines."
+      "route": "broaden_evaluation_or_repetition",
+      "description": "The two reserved held-out cup cells have passed. Next work should repeat seeds, add ordinary/held-out cells, or add new object families before making broader claims."
     },
     {
       "route": "collect_more_ordinary_source_candidates_optional_not_active_gate",
@@ -149,6 +159,6 @@
   "checkpoint_created": true,
   "no_model_created": false,
   "no_placeholder_model": true,
-  "policy_improvement_claim_valid": false,
-  "next_required_step": "Evaluate checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt on held-out full_low and empty_high with visual plus metric gates before any learned-adaptation claim."
+  "policy_improvement_claim_valid": "valid_only_for_current_two_cell_heldout_cup_benchmark_against_recorded_baselines",
+  "next_required_step": "Broaden evaluation with repetitions, additional cells, or new object families before any broad learned-adaptation or generalization claim."
 }

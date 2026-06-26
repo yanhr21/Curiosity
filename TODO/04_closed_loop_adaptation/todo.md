@@ -78,12 +78,31 @@
       max object acceleration `0.6439671191529558` m/s^2, status success.
       This clears ordinary checkpoint integration only; held-out evaluation is
       still pending.
-- [ ] Evaluate the trained residual adapter on held-out `full_low` and
+- [x] Evaluate the trained residual adapter on held-out `full_low` and
       `empty_high`.
       These cells must remain evaluation-only. Do not use them for labels,
       training, hyperparameter tuning, or threshold selection. No
       learned-adaptation, curiosity-policy-update, or held-out-generalization
       claim is valid until this passes visual and metric gates.
+      Evidence:
+      `experiments/reports/2026-06-27_phase04_residual_adapter_heldout_eval_v1.md`.
+      `full_low` run
+      `residual_adapter_eval_v1_full_low_heldout_20260627_0613` passed fresh
+      official Newton sanity, visual validation, manual frame inspection, and
+      metrics with lift `0.1548849195241928` m, hold `2.499997615814209` s,
+      max slip `0.0034206882392378247` m, contact-loss frames `0`, and max
+      acceleration `1.5345948979069628` m/s^2.
+      `empty_high` run
+      `residual_adapter_eval_v1_empty_high_heldout_20260627_0620` passed the
+      same gates with lift `0.1613951474428177` m, hold
+      `2.566664218902588` s, max slip `0.003700697622575275` m,
+      contact-loss frames `0`, and max acceleration
+      `0.4686260874870734` m/s^2.
+      Narrow claim now valid: on these two held-out cup cells, learned
+      residual-controller evaluation passes the current full metrics where
+      no-adaptation and scripted-feedback baselines failed only on object
+      acceleration. Do not extend this to broad object-family generalization
+      or T-Rex/tactile claims.
 - [x] Run first ordinary-cell diagnostic to verify whether the official Newton
       path can emit nonzero residual controller-parameter labels.
       Evidence:
@@ -178,11 +197,12 @@
 - [x] Reserve held-out mass/friction cells for generalization evaluation.
       Evidence: Phase 02/04 configs preserve `full_low` and `empty_high` as
       held-out cells.
-- [ ] Compare adaptation speed and failure modes.
-      Waiting on held-out trained-checkpoint closed-loop evaluation and
-      comparison against no-adaptation/scripted-feedback baselines. Ordinary
-      validation now passes, but no held-out adaptation-improvement claim is
-      valid yet.
+- [ ] Compare adaptation speed and failure modes beyond the two-cell gate.
+      The first held-out failure-mode comparison is complete: learned residual
+      evaluation passes `full_low` and `empty_high`, while no-adaptation and
+      scripted-feedback baselines failed only on object acceleration. Still
+      pending: broader adaptation-speed analysis across more ordinary cells,
+      held-out repetitions, and future object families.
 - [x] Save direct visual paths for success and failure cases.
       Evidence: nominal scripted feedback report records contact sheet and
       frame browser paths; grid reports still pending.

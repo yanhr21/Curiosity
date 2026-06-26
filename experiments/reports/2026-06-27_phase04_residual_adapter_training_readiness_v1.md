@@ -9,8 +9,9 @@ controller evaluation.
 
 ## Current Result
 
-Status: real one-GPU one-hour residual-adapter training completed; held-out
-adapter evaluation has not started.
+Status: real one-GPU one-hour residual-adapter training completed, ordinary
+validation passed, and the two reserved held-out cup cells passed visual plus
+metric evaluation.
 
 The previous active blocker was `real_training_not_started`. That blocker is
 resolved by:
@@ -68,11 +69,6 @@ GPU utilization monitor:
 - No trainer smoke: resolved earlier by
   `residual_adapter_trainer_v1_smoke_20260627_0539`.
 
-## Remaining Blocking Gaps
-
-- No held-out adapter evaluation exists on `full_low` or `empty_high`.
-- No policy-improvement or learned-adaptation claim is valid yet.
-
 ## Ordinary Evaluation Follow-Up
 
 The checkpoint has now been wired into the Newton controller evaluation path
@@ -92,14 +88,41 @@ and passed ordinary validation on `empty_medium`.
 - Generated T-Rex fields: `[]`.
 - Schema promotion: `blocked`.
 
+## Held-Out Evaluation Follow-Up
+
+Held-out evaluation now passes on both reserved cup cells.
+
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_heldout_eval_v1.md`.
+- `full_low` run:
+  `residual_adapter_eval_v1_full_low_heldout_20260627_0613`.
+- `full_low` metrics: lift `0.1548849195241928` m, hold
+  `2.499997615814209` s, max slip `0.0034206882392378247` m,
+  contact-loss frames `0`, max acceleration `1.5345948979069628` m/s^2.
+- `empty_high` run:
+  `residual_adapter_eval_v1_empty_high_heldout_20260627_0620`.
+- `empty_high` metrics: lift `0.1613951474428177` m, hold
+  `2.566664218902588` s, max slip `0.003700697622575275` m,
+  contact-loss frames `0`, max acceleration `0.4686260874870734` m/s^2.
+
+Baseline comparison on the same two cells: no-adaptation and scripted-feedback
+baselines were visually valid but failed the full metrics schema only on
+`object_accel_above_threshold` around `8.308` m/s^2. The learned residual
+adapter passes those two held-out cells under the current schema.
+
+## Remaining Blocking Gaps
+
+- Broad object-family generalization is not proven.
+- Tactile F6 and T-Rex compatibility remain unavailable.
+- More seeds/cells are needed before broad learned-adaptation claims.
+
 ## Next Step
 
-Proceed to held-out checkpoint evaluation, not more gating on source mismatch:
+Proceed to broader evaluation, not more gating on source mismatch:
 
-1. Evaluate held-out `full_low` with fresh official Newton sanity, camera
-   export, visual/browser inspection, and lift-hold metrics.
-2. Evaluate held-out `empty_high` with the same gates.
-3. Compare against no-adaptation and scripted-feedback baselines.
+1. Repeat held-out cells with additional seeds or perturbations.
+2. Add more ordinary/held-out cup cells or new object families.
+3. Keep comparing against no-adaptation and scripted-feedback baselines.
 
 Do not claim T-Rex compatibility, tactile F6, curiosity policy update, or
 policy improvement until those controller-evaluation gates pass.

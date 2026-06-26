@@ -705,3 +705,46 @@ Interpretation: ordinary checkpoint integration and visual/metric evaluation
 now pass. This is still not held-out generalization and not a policy
 improvement claim. The next step is held-out evaluation on `full_low` and
 `empty_high` with the same visual and metric gates.
+
+2026-06-27 ninth follow-up: held-out learned residual-adapter evaluation
+completed for `full_low` and `empty_high`.
+
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_heldout_eval_v1.md`.
+- Checkpoint:
+  `checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt`.
+- Controller mode: `lift_hold_learned_residual`.
+- Fresh official Newton sanity: pass for both held-out runs.
+- Visual validation and manual frame-browser inspection: pass for both
+  held-out runs.
+- Generated T-Rex fields: `[]`.
+- Schema promotion: `blocked`.
+
+Held-out `full_low`:
+
+- run tag: `residual_adapter_eval_v1_full_low_heldout_20260627_0613`;
+- metrics status: pass;
+- lift height: `0.1548849195241928` m;
+- hold duration: `2.499997615814209` s;
+- max slip: `0.0034206882392378247` m;
+- contact-loss frames: `0`;
+- max object acceleration: `1.5345948979069628` m/s^2.
+
+Held-out `empty_high`:
+
+- run tag: `residual_adapter_eval_v1_empty_high_heldout_20260627_0620`;
+- metrics status: pass;
+- lift height: `0.1613951474428177` m;
+- hold duration: `2.566664218902588` s;
+- max slip: `0.003700697622575275` m;
+- contact-loss frames: `0`;
+- max object acceleration: `0.4686260874870734` m/s^2.
+
+Baseline comparison: no-adaptation and scripted-feedback baselines on the same
+two held-out cells were visually valid and kept lift/hold/slip/drop/contact
+gates, but both failed the full metrics schema only on
+`object_accel_above_threshold` around `8.308` m/s^2. Under the current
+two-cell held-out cup benchmark, learned residual-controller evaluation is
+therefore a valid improvement over those baselines. This remains a narrow
+Newton-native claim and does not imply T-Rex compatibility, tactile F6, or
+broad object-family generalization.
