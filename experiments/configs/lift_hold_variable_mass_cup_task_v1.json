@@ -1,6 +1,6 @@
 {
   "classification": "newton_native_lift_hold_variable_mass_cup_task_v1",
-  "status": "design_ready_cup_asset_visual_gate_pass_stable_grasp_pending",
+  "status": "design_ready_cup_hold_metric_gate_pass",
   "scope": "phase_01_task_definition_no_training",
   "official_source_basis": {
     "newton_repository": "external/newton",
@@ -163,7 +163,7 @@
     ]
   },
   "visual_gate": {
-    "status": "cup_asset_visual_gate_pass_stable_grasp_pending",
+    "status": "cup_hold_metric_gate_pass",
     "must_run_on_compute_node": true,
     "requires_fresh_official_newton_sanity": true,
     "requires_manual_browser_inspection": true,
@@ -221,6 +221,24 @@
       "full_two_second_hold_metric_status": "pending",
       "final_object_z_m": 0.30836987495422363,
       "max_lift_m": 0.15986861288547516
+    },
+    "completed_metric_gate": {
+      "run_tag": "lift_hold_variable_mass_cup_v1_existing_cup_metric_gate_20260627_0210",
+      "tracked_object": "existing_cup_asset",
+      "adapter": "retarget_existing_official_cup_asset_as_object",
+      "final_hold_duration": 999.0,
+      "num_steps": 420,
+      "fresh_newton_sensor_contact_sanity": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_metric_gate_20260627_0210_fresh_newton_sensor_contact_sanity.json",
+      "visual_validation": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_metric_gate_20260627_0210_visual_validation.json",
+      "manual_visual_inspection": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_metric_gate_20260627_0210_manual_visual_inspection.json",
+      "downstream_gate": "experiments/outputs/lift_hold_variable_mass_cup_v1_existing_cup_metric_gate_20260627_0210_downstream_gate_cleared.json",
+      "frame_browser": "experiments/visuals/lift_hold_variable_mass_cup_v1_existing_cup_metric_gate_20260627_0210/frame_browser.html",
+      "contact_sheet": "experiments/visuals/lift_hold_variable_mass_cup_v1_existing_cup_metric_gate_20260627_0210/contact_sheet.png",
+      "success_all_worlds": true,
+      "longest_hold_s": 4.1,
+      "max_lift_m": 0.16001205146312714,
+      "drop_from_max_m": 0.0,
+      "failure_reasons": []
     }
   },
   "valid_claims": [

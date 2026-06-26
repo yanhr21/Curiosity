@@ -369,3 +369,20 @@ two-second hold metric because the 240-frame diagnostic window covers only
 about one second after reaching the high hold pose. The next step is a longer
 metric gate, for example 360 frames or more, with explicit success/failure
 metric extraction.
+
+That longer metric gate has now passed:
+
+```text
+run_tag=lift_hold_variable_mass_cup_v1_existing_cup_metric_gate_20260627_0210
+num_steps=420
+success_all_worlds=true
+longest_hold_s=4.1
+max_lift=0.16001205146312714
+drop_from_max=0.0
+failure_reasons=[]
+```
+
+Manual inspection of frames `0240`, `0360`, and `0419` confirmed that the cup
+remains elevated through the sampled hold window. This clears the Phase 01
+scripted cup lift-and-hold metric gate, but it still does not claim learned
+curiosity, policy adaptation, T-Rex compatibility, tactile F6, or training.

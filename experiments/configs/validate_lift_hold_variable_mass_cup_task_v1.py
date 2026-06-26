@@ -62,6 +62,7 @@ def main() -> int:
         "design_ready_visual_gate_pending",
         "design_ready_first_official_visual_gate_pass",
         "design_ready_cup_asset_visual_gate_pass_stable_grasp_pending",
+        "design_ready_cup_hold_metric_gate_pass",
     }
     if spec.get("status") not in allowed_statuses:
         failures.append(f"status:{spec.get('status')}")
@@ -141,6 +142,7 @@ def main() -> int:
         "pending_compute_run",
         "first_official_gate_pass_cup_asset_gate_pending",
         "cup_asset_visual_gate_pass_stable_grasp_pending",
+        "cup_hold_metric_gate_pass",
     }
     if visual_gate.get("status") not in allowed_visual_statuses:
         failures.append(f"visual_gate_status:{visual_gate.get('status')}")
@@ -156,6 +158,7 @@ def main() -> int:
     if visual_gate.get("status") in {
         "first_official_gate_pass_cup_asset_gate_pending",
         "cup_asset_visual_gate_pass_stable_grasp_pending",
+        "cup_hold_metric_gate_pass",
     }:
         required_gate_files = [
             "fresh_newton_sensor_contact_sanity",
@@ -190,7 +193,10 @@ def main() -> int:
                 failures.append(f"completed_gate_downstream_schema_promotion:{downstream.get('schema_promotion')}")
 
     cup_gate = visual_gate.get("completed_cup_asset_gate", {})
-    if visual_gate.get("status") == "cup_asset_visual_gate_pass_stable_grasp_pending":
+    if visual_gate.get("status") in {
+        "cup_asset_visual_gate_pass_stable_grasp_pending",
+        "cup_hold_metric_gate_pass",
+    }:
         required_cup_gate_files = [
             "fresh_newton_sensor_contact_sanity",
             "visual_validation",
@@ -228,6 +234,58 @@ def main() -> int:
                 failures.append("cup_gate_downstream_generated_trex_fields_not_empty")
             if downstream.get("schema_promotion") != "blocked":
                 failures.append(f"cup_gate_downstream_schema_promotion:{downstream.get('schema_promotion')}")
+
+    metric_gate = visual_gate.get("completed_metric_gate", {})
+    if visual_gate.get("status") == "cup_hold_metric_gate_pass":
+        required_metric_gate_files = [
+            "fresh_newton_sensor_contact_sanity",
+            "visual_validation",
+            "manual_visual_inspection",
+            "downstream_gate",
+            "frame_browser",
+            "contact_sheet",
+        ]
+        for key in required_metric_gate_files:
+            path = resolve(str(metric_gate.get(key, "")))
+            if not path.exists() or path.stat().st_size <= 0:
+                failures.append(f"missing_metric_gate_file:{key}:{metric_gate.get(key)}")
+        if metric_gate.get("tracked_object") != "existing_cup_asset":
+            failures.append(f"metric_gate_tracked_object:{metric_gate.get('tracked_object')}")
+        if metric_gate.get("adapter") != "retarget_existing_official_cup_asset_as_object":
+            failures.append(f"metric_gate_adapter:{metric_gate.get('adapter')}")
+        if int(metric_gate.get("num_steps", 0)) < 360:
+            failures.append(f"metric_gate_num_steps:{metric_gate.get('num_steps')}")
+        if metric_gate.get("success_all_worlds") is not True:
+            failures.append(f"metric_gate_success_all_worlds:{metric_gate.get('success_all_worlds')}")
+        if float(metric_gate.get("longest_hold_s", 0.0)) < float(metrics.get("success", {}).get("hold_duration_s_min", 0.0)):
+            failures.append(f"metric_gate_longest_hold_s:{metric_gate.get('longest_hold_s')}")
+        if float(metric_gate.get("max_lift_m", 0.0)) < float(metrics.get("success", {}).get("lift_height_m_min", 0.0)):
+            failures.append(f"metric_gate_max_lift_m:{metric_gate.get('max_lift_m')}")
+        if float(metric_gate.get("drop_from_max_m", 999.0)) > float(metrics.get("failure", {}).get("drop_height_loss_m", 0.0)):
+            failures.append(f"metric_gate_drop_from_max_m:{metric_gate.get('drop_from_max_m')}")
+        if metric_gate.get("failure_reasons") != []:
+            failures.append(f"metric_gate_failure_reasons:{metric_gate.get('failure_reasons')}")
+        for key, expected_status in [
+            ("fresh_newton_sensor_contact_sanity", "pass"),
+            ("visual_validation", "pass"),
+            ("manual_visual_inspection", "pass"),
+        ]:
+            path = resolve(str(metric_gate.get(key, "")))
+            if path.exists():
+                payload = read_json(path)
+                if payload.get("status") != expected_status:
+                    failures.append(f"metric_gate_{key}_status:{payload.get('status')}")
+        downstream_path = resolve(str(metric_gate.get("downstream_gate", "")))
+        if downstream_path.exists():
+            downstream = read_json(downstream_path)
+            if downstream.get("status") != "pass_phase01_cup_hold_metric_gate":
+                failures.append(f"metric_gate_downstream_status:{downstream.get('status')}")
+            if downstream.get("task_metrics_success_all_worlds") is not True:
+                failures.append("metric_gate_downstream_success_not_true")
+            if downstream.get("generated_trex_fields") != []:
+                failures.append("metric_gate_downstream_generated_trex_fields_not_empty")
+            if downstream.get("schema_promotion") != "blocked":
+                failures.append(f"metric_gate_downstream_schema_promotion:{downstream.get('schema_promotion')}")
 
     forbidden_exact_found = sorted(FORBIDDEN_EXACT_KEYS & set(flatten_values(spec)))
     allowed_forbidden_list = set(observations.get("forbidden_promotions", []))

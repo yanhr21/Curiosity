@@ -9,6 +9,9 @@ NEWTON_VENV="${NEWTON_VENV:-$ROOT/envs/newton/.venv}"
 SCENE="${SCENE:-pen}"
 TRACKED_OBJECT="${TRACKED_OBJECT:-official_object}"
 FINAL_HOLD_DURATION="${FINAL_HOLD_DURATION:-1.0}"
+LIFT_HEIGHT_MIN="${LIFT_HEIGHT_MIN:-0.12}"
+HOLD_DURATION_MIN="${HOLD_DURATION_MIN:-2.0}"
+DROP_HEIGHT_LOSS="${DROP_HEIGHT_LOSS:-0.05}"
 NUM_STEPS="${NUM_STEPS:-240}"
 SAMPLE_STEPS="${SAMPLE_STEPS:-0,60,120,180,239}"
 DEVICE="${DEVICE:-cuda:0}"
@@ -58,6 +61,9 @@ echo "NEWTON_CACHE_PATH=$NEWTON_CACHE_PATH"
 echo "SCENE=$SCENE"
 echo "TRACKED_OBJECT=$TRACKED_OBJECT"
 echo "FINAL_HOLD_DURATION=$FINAL_HOLD_DURATION"
+echo "LIFT_HEIGHT_MIN=$LIFT_HEIGHT_MIN"
+echo "HOLD_DURATION_MIN=$HOLD_DURATION_MIN"
+echo "DROP_HEIGHT_LOSS=$DROP_HEIGHT_LOSS"
 echo "NUM_STEPS=$NUM_STEPS"
 echo "SAMPLE_STEPS=$SAMPLE_STEPS"
 echo "DEVICE=$DEVICE"
@@ -108,7 +114,10 @@ echo "=== NEWTON_CAMERA_EXPORT_START ==="
   --sample-steps "$SAMPLE_STEPS" \
   --scene "$SCENE" \
   --tracked-object "$TRACKED_OBJECT" \
-  --final-hold-duration "$FINAL_HOLD_DURATION"
+  --final-hold-duration "$FINAL_HOLD_DURATION" \
+  --lift-height-min "$LIFT_HEIGHT_MIN" \
+  --hold-duration-min "$HOLD_DURATION_MIN" \
+  --drop-height-loss "$DROP_HEIGHT_LOSS"
 echo "=== NEWTON_CAMERA_EXPORT_END ==="
 
 "$NEWTON_VENV/bin/python" experiments/configs/validate_newton_visual_preview.py \
@@ -136,6 +145,7 @@ payload = {
     "scene": summary.get("scene"),
     "tracked_object": summary.get("tracked_object"),
     "final_hold_duration": summary.get("final_hold_duration"),
+    "task_metrics": summary.get("task_metrics"),
     "num_steps": summary.get("num_steps"),
     "sample_steps": summary.get("sample_steps"),
     "frame_browser": summary.get("frame_browser"),

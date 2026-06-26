@@ -30,15 +30,20 @@
       `lift_hold_variable_mass_cup_v1_existing_cup_asset_gate_20260627_0105`,
       with `tracked_object=existing_cup_asset`,
       `generated_trex_fields=[]`, and `schema_promotion=blocked`.
-- [ ] Tune cup grasp initialization and object physical parameters. Current
+- [x] Tune cup grasp initialization and object physical parameters. Current
       cup-asset gate shows the cup visible and retargeted, with
       `max_lift=0.15901388227939606`, but the final inspected frame shows the
-      cup tilted/fallen, so stable cup grasp success is still pending.
+      cup tilted/fallen; the later extended hold and metric gates fixed the
+      short-cycle release issue without changing the official cup asset.
 - [x] Add an extended final-hold controller parameter and rerun the cup hold
       visual gate. Run
       `lift_hold_variable_mass_cup_v1_existing_cup_hold_gate_20260627_0145`
       passed official sanity and visual validation with
       `final_hold_duration=999.0`, `final_object_z=0.30836987495422363`, and
       `max_lift=0.15986861288547516`.
-- [ ] Run a longer-window cup hold metric gate, for example 360 frames or more,
-      before claiming the configured full two-second hold success metric.
+- [x] Run a longer-window cup hold metric gate, for example 360 frames or more,
+      before claiming the configured full two-second hold success metric. Run
+      `lift_hold_variable_mass_cup_v1_existing_cup_metric_gate_20260627_0210`
+      used 420 frames and passed with `success_all_worlds=true`,
+      `longest_hold_s=4.1`, `max_lift=0.16001205146312714`,
+      `drop_from_max=0.0`, and `failure_reasons=[]`.

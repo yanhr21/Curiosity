@@ -28,6 +28,40 @@ CAMERA_NAMES = ("head_proxy", "right_wrist_proxy", "left_wrist_proxy")
 TRACKED_OBJECTS = ("official_object", "existing_cup_asset")
 
 
+def _controller_phase(example: Example) -> tuple[int, str]:
+    idx = int(example.current_waypoint)
+    labels = (
+        "approach_rest",
+        "approach_pre_grasp",
+        "close_gripper",
+        "lift_to_rest",
+        "transport_above_cup",
+        "loosen_gripper",
+        "recover_grip",
+        "lower_to_place",
+        "release",
+    )
+    if idx < len(labels):
+        return idx, labels[idx]
+    return idx, f"waypoint_{idx}"
+
+
+def _commanded_gripper_target(example: Example) -> float:
+    if example.waypoints:
+        t = example.time_in_waypoint / max(float(example.waypoints[example.current_waypoint][1]), 1e-6)
+        next_waypoint = (example.current_waypoint + 1) % len(example.waypoints)
+        t_gripper = example.waypoints[example.current_waypoint][2] * (1 - t) + example.waypoints[next_waypoint][2] * t
+        return float(0.06 * (1 - t_gripper))
+    return float("nan")
+
+
+def _commanded_lift_target(example: Example) -> float:
+    if example.waypoints:
+        target_position = example.waypoints[example.current_waypoint][0]
+        return float(target_position[2])
+    return float("nan")
+
+
 def _look_at_transform(position: np.ndarray, target: np.ndarray, up_hint: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     forward = target - position
     forward = forward / np.linalg.norm(forward)
@@ -162,6 +196,83 @@ def _summary(arr: np.ndarray) -> dict:
     }
 
 
+def _longest_true_run(mask: np.ndarray) -> int:
+    longest = 0
+    current = 0
+    for value in mask:
+        if bool(value):
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 0
+    return int(longest)
+
+
+def _task_metrics(
+    full_object_q: np.ndarray,
+    fps: float,
+    lift_height_min: float,
+    hold_duration_min: float,
+    drop_height_loss: float,
+) -> dict:
+    xyz = full_object_q[:, :, :3]
+    initial_xyz = xyz[0]
+    final_xyz = xyz[-1]
+    z = xyz[:, :, 2]
+    initial_z = initial_xyz[:, 2]
+    max_z = z.max(axis=0)
+    final_z = final_xyz[:, 2]
+    threshold_z = initial_z + lift_height_min
+    per_world = []
+    success_flags = []
+    for world_idx in range(z.shape[1]):
+        lifted = z[:, world_idx] >= threshold_z[world_idx]
+        longest_hold_frames = _longest_true_run(lifted)
+        longest_hold_s = longest_hold_frames / fps
+        max_lift = max_z[world_idx] - initial_z[world_idx]
+        final_lift = final_z[world_idx] - initial_z[world_idx]
+        drop_from_max = max_z[world_idx] - final_z[world_idx]
+        xy_drift = np.linalg.norm(xyz[:, world_idx, :2] - initial_xyz[world_idx, :2], axis=1)
+        failures = []
+        if max_lift < lift_height_min:
+            failures.append("lift_height_below_min")
+        if longest_hold_s < hold_duration_min:
+            failures.append("hold_duration_below_min")
+        if drop_from_max > drop_height_loss:
+            failures.append("drop_height_loss_above_threshold")
+        success = not failures
+        success_flags.append(success)
+        per_world.append(
+            {
+                "world_idx": int(world_idx),
+                "success": bool(success),
+                "failure_reasons": failures,
+                "initial_z": float(initial_z[world_idx]),
+                "max_z": float(max_z[world_idx]),
+                "final_z": float(final_z[world_idx]),
+                "max_lift": float(max_lift),
+                "final_lift": float(final_lift),
+                "drop_from_max": float(drop_from_max),
+                "lift_threshold_z": float(threshold_z[world_idx]),
+                "longest_hold_frames": int(longest_hold_frames),
+                "longest_hold_s": float(longest_hold_s),
+                "max_xy_drift": float(xy_drift.max()),
+                "final_xy_drift": float(xy_drift[-1]),
+            }
+        )
+    return {
+        "classification": "newton_native_lift_hold_success_metrics",
+        "fps": float(fps),
+        "thresholds": {
+            "lift_height_m_min": float(lift_height_min),
+            "hold_duration_s_min": float(hold_duration_min),
+            "drop_height_loss_m": float(drop_height_loss),
+        },
+        "success_all_worlds": bool(all(success_flags)),
+        "per_world": per_world,
+    }
+
+
 def _as_np(value) -> np.ndarray:
     arr = value.numpy() if hasattr(value, "numpy") else np.asarray(value)
     return np.asarray(arr).copy()
@@ -238,6 +349,9 @@ def main() -> None:
     parser.add_argument("--scene", choices=["pen", "cube"], default="cube")
     parser.add_argument("--tracked-object", choices=TRACKED_OBJECTS, default="official_object")
     parser.add_argument("--final-hold-duration", type=float, default=1.0)
+    parser.add_argument("--lift-height-min", type=float, default=0.12)
+    parser.add_argument("--hold-duration-min", type=float, default=2.0)
+    parser.add_argument("--drop-height-loss", type=float, default=0.05)
     parser.add_argument("--width", type=int, default=192)
     parser.add_argument("--height", type=int, default=144)
     args_in = parser.parse_args()
@@ -305,10 +419,16 @@ def main() -> None:
         "object_body_q": [],
         "ee_body_q": [],
         "rigid_contact_count": [],
+        "controller_phase_index": [],
+        "commanded_gripper_target": [],
+        "commanded_lift_target": [],
     }
+    controller_phase_labels = {}
 
     for step in range(args_in.num_steps):
         example.step()
+        phase_idx, phase_label = _controller_phase(example)
+        controller_phase_labels[str(phase_idx)] = phase_label
         rollout_records["step"].append(step + 1)
         rollout_records["sim_time"].append(float(example.sim_time))
         rollout_records["joint_q"].append(_as_np(example.state_0.joint_q))
@@ -317,6 +437,9 @@ def main() -> None:
         rollout_records["object_body_q"].append(_object_pose(example))
         rollout_records["ee_body_q"].append(_ee_pose(example))
         rollout_records["rigid_contact_count"].append(_as_np(example.contacts.rigid_contact_count))
+        rollout_records["controller_phase_index"].append(phase_idx)
+        rollout_records["commanded_gripper_target"].append(_commanded_gripper_target(example))
+        rollout_records["commanded_lift_target"].append(_commanded_lift_target(example))
         if step not in requested:
             continue
         example.model.bvh_refit_shapes(example.state_0)
@@ -357,6 +480,13 @@ def main() -> None:
         "newton.panda.object_body_q": np.asarray(rollout_records["object_body_q"], dtype=np.float32),
         "newton.panda.ee_body_q": np.asarray(rollout_records["ee_body_q"], dtype=np.float32),
         "newton.panda.rigid_contact_count": np.asarray(rollout_records["rigid_contact_count"], dtype=np.int32),
+        "candidate.controller.phase_index": np.asarray(rollout_records["controller_phase_index"], dtype=np.int32),
+        "candidate.controller.commanded_gripper_target": np.asarray(
+            rollout_records["commanded_gripper_target"], dtype=np.float32
+        ),
+        "candidate.controller.commanded_lift_target": np.asarray(
+            rollout_records["commanded_lift_target"], dtype=np.float32
+        ),
     }
     args_in.npz.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
@@ -371,6 +501,13 @@ def main() -> None:
     full_object_z = rollout_arrays["newton.panda.object_body_q"][:, :, 2]
     initial_z = full_object_z[0]
     max_lift = full_object_z.max(axis=0) - initial_z
+    metrics = _task_metrics(
+        rollout_arrays["newton.panda.object_body_q"],
+        fps=float(example.fps),
+        lift_height_min=args_in.lift_height_min,
+        hold_duration_min=args_in.hold_duration_min,
+        drop_height_loss=args_in.drop_height_loss,
+    )
 
     summary = {
         "status": "pass",
@@ -384,6 +521,8 @@ def main() -> None:
         "object_adapter": object_adapter_meta,
         "num_steps": args_in.num_steps,
         "sample_steps": requested,
+        "controller_type": "official_newton_panda_hydro_scripted_no_adaptation",
+        "controller_phase_labels": controller_phase_labels,
         "camera_names": list(CAMERA_NAMES),
         "width": args_in.width,
         "height": args_in.height,
@@ -402,6 +541,7 @@ def main() -> None:
         "final_object_z": [float(x) for x in full_object_z[-1]],
         "max_object_z": [float(x) for x in full_object_z.max(axis=0)],
         "max_lift": [float(x) for x in max_lift],
+        "task_metrics": metrics,
         "trex_missing_by_design": [
             "observation.state[62]",
             "action[16,62]",
