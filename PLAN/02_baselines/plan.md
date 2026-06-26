@@ -235,10 +235,10 @@ parameter adapter for mass, inertia, or contact friction. Therefore mass/fill
 variants must not be run by changing only report labels such as `MASS_LABEL`
 or `FRICTION_LABEL`.
 
-Next requirement: implement and sanity-check a real Newton parameter adapter
-that changes the tracked object's mass/inertia and contact friction, records
-the requested and observed parameters in the rollout summary, and passes the
-same official sanity/export/visual gate before any mass/fill variant is
+Requirement: mass/fill variants must use a real Newton parameter adapter that
+changes the tracked object's mass/inertia and contact friction, records the
+requested and observed parameters in the rollout summary, and passes the same
+official sanity/export/visual gate before any formal mass/fill variant is
 reported.
 
 Runtime mutation attempt status on 2026-06-27:
@@ -275,6 +275,200 @@ Panda hydro builder path, or use a documented Newton model-update API that is
 compatible with the collision pipeline and SensorTiledCamera. Do not run
 mass/fill variants until that adapter passes the fresh official sanity/export
 visual gate.
+
+Pre-finalize builder adapter status on 2026-06-27:
+
+```text
+physics_variant_adapter_prefinalize_sanity_cup_mass15_friction06_v2_20260627_1125
+```
+
+This replacement adapter applies the change before `scene.replicate(builder,
+world_count)` and before the final Newton model is finalized. It passed fresh
+official Newton sanity, SensorTiledCamera export, automated visual validation,
+and manual visual inspection. Final model observations prove the requested
+physics reached the simulation model:
+
+```text
+body_mass_scale=1.5
+shape_friction_scale=0.6
+original_body_mass_kg=0.10100987856276333
+updated_body_mass_kg=0.151514817844145
+observed_body_mass_kg=0.15151481330394745
+original_shape_material_mu=1.0
+updated_shape_material_mu=0.6
+observed_shape_material_mu=0.6000000238418579
+generated_trex_fields=[]
+schema_promotion=blocked
+```
+
+This clears the adapter readiness gate for launching formal mass/friction
+variant baselines under `candidate.physics.*` provenance. It does not itself
+count as a formal mass/fill baseline because the diagnostic ran only 180 steps
+and failed the formal hold-duration threshold.
+
+## Empty/Medium Cup Variant Result
+
+The first real mass/friction variant baseline has completed:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_cup_empty_medium_prefinalize_20260627_1140
+cell=empty_medium
+object_mass_kg=0.08
+object_friction_mu=0.80
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.07999999821186066
+original_shape_material_mu=1.0
+observed_shape_material_mu=0.800000011920929
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.16022799909114838
+hold_duration_s=3.099997043609619
+max_slip_m=0.003480872071019147
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=62.0
+max_object_accel_m_s2=8.307760545609415
+failure_reasons=[object_accel_above_threshold]
+```
+
+This is a valid no-adaptation failure baseline for the empty/medium cup cell.
+It does not complete the full mass/friction grid.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_no_adaptation_empty_medium_variant.md
+```
+
+## Half/Medium Cup Variant Result
+
+The second real mass/friction variant baseline has completed:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_cup_half_medium_prefinalize_20260627_1155
+cell=half_medium
+object_mass_kg=0.20
+object_friction_mu=0.80
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.20000000298023224
+original_shape_material_mu=1.0
+observed_shape_material_mu=0.800000011920929
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.15677814185619354
+hold_duration_s=3.0833303928375244
+max_slip_m=0.003278913129597797
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=62.0
+max_object_accel_m_s2=8.308443857335977
+failure_reasons=[object_accel_above_threshold]
+```
+
+This is a valid no-adaptation failure baseline for the half/medium cup cell.
+It extends the mass axis but does not complete the full mass/friction grid.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_no_adaptation_half_medium_variant.md
+```
+
+## Full/Medium Cup Variant Result
+
+The third real mass/friction variant baseline has completed:
+
+```text
+run_tag=lift_hold_no_adaptation_scripted_baseline_v1_cup_full_medium_prefinalize_20260627_1205
+cell=full_medium
+object_mass_kg=0.35
+object_friction_mu=0.80
+```
+
+Gate results:
+
+```text
+fresh_official_newton_sensor_contact_sanity=pass
+camera_export=pass
+visual_validation=pass
+manual_visual_inspection=pass
+metrics_extractor=pass_as_tool
+baseline_status=fail
+```
+
+Observed physics provenance:
+
+```text
+original_body_mass_kg=0.10100987856276333
+observed_body_mass_kg=0.3499999940395355
+original_shape_material_mu=1.0
+observed_shape_material_mu=0.800000011920929
+```
+
+Full metrics:
+
+```text
+lift_height_m=0.15296600759029388
+hold_duration_s=3.049997091293335
+max_slip_m=0.0031441027020740002
+object_not_dropped=true
+drop_height_loss_m=0.0
+contact_loss_frames=0
+max_contact_proxy=61.0
+max_object_accel_m_s2=8.308498000056417
+failure_reasons=[object_accel_above_threshold]
+```
+
+This completes the medium-friction mass axis for no-adaptation baselines:
+empty, half, and full all pass lift/hold/slip/drop/contact gates and all fail
+the unchanged full schema only on object acceleration. The remaining grid cells
+are low/high friction cells and held-out generalization cells.
+
+Report:
+
+```text
+experiments/reports/2026-06-27_phase02_no_adaptation_full_medium_variant.md
+```
 
 ## Rules
 

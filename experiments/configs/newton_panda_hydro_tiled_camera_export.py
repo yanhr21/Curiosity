@@ -9,6 +9,7 @@ image keys or fake tensors are created.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import json
 import math
 from pathlib import Path
@@ -304,6 +305,187 @@ def _find_local_body_index(example: Example, label_suffix: str) -> int:
     raise ValueError(f"Could not find local body label ending with {label_suffix!r}")
 
 
+def _find_builder_body_index(builder, label_suffix: str) -> int:
+    for idx, label in enumerate(builder.body_label):
+        if label == label_suffix or label.endswith(f"/{label_suffix}"):
+            return idx
+    raise ValueError(f"Could not find builder body label ending with {label_suffix!r}")
+
+
+def _find_final_model_body_index(example: Example, label_suffix: str) -> int:
+    for idx, label in enumerate(example.model.body_label):
+        if label == label_suffix or label.endswith(f"/{label_suffix}"):
+            return idx
+    raise ValueError(f"Could not find final model body label ending with {label_suffix!r}")
+
+
+def _scale_mat33(value, scale: float):
+    import warp as wp
+
+    return wp.mat33(np.asarray(value, dtype=np.float32) * float(scale))
+
+
+def _inv_mat33_or_zero(value):
+    import warp as wp
+
+    return wp.inverse(value) if np.any(np.asarray(value, dtype=np.float32)) else value
+
+
+def _apply_builder_physics_variant(
+    builder,
+    *,
+    target_label_suffix: str,
+    physics_variant_label: str,
+    body_mass_scale: float,
+    shape_friction_scale: float,
+    object_mass_kg: float | None,
+    object_friction_mu: float | None,
+) -> dict:
+    if body_mass_scale <= 0.0:
+        raise ValueError(f"body_mass_scale must be positive, got {body_mass_scale}")
+    if shape_friction_scale < 0.0:
+        raise ValueError(f"shape_friction_scale must be nonnegative, got {shape_friction_scale}")
+    if object_mass_kg is not None and object_mass_kg <= 0.0:
+        raise ValueError(f"object_mass_kg must be positive, got {object_mass_kg}")
+    if object_friction_mu is not None and object_friction_mu < 0.0:
+        raise ValueError(f"object_friction_mu must be nonnegative, got {object_friction_mu}")
+
+    body_idx = _find_builder_body_index(builder, target_label_suffix)
+    shape_indices = list(builder.body_shapes.get(body_idx, []))
+    original_body_mass = float(builder.body_mass[body_idx])
+    original_body_inv_mass = float(builder.body_inv_mass[body_idx])
+    original_shape_mu = {str(idx): float(builder.shape_material_mu[idx]) for idx in shape_indices}
+    requested = {
+        "physics_variant_label": physics_variant_label,
+        "target_label_suffix": target_label_suffix,
+        "body_mass_scale": float(body_mass_scale),
+        "shape_friction_scale": float(shape_friction_scale),
+        "object_mass_kg": None if object_mass_kg is None else float(object_mass_kg),
+        "object_friction_mu": None if object_friction_mu is None else float(object_friction_mu),
+    }
+
+    should_update_mass = object_mass_kg is not None or not np.isclose(body_mass_scale, 1.0)
+    should_update_friction = object_friction_mu is not None or not np.isclose(shape_friction_scale, 1.0)
+    if should_update_mass:
+        if original_body_mass <= 0.0:
+            raise ValueError(f"cannot scale non-dynamic body {body_idx} with mass {original_body_mass}")
+        new_mass = float(object_mass_kg) if object_mass_kg is not None else original_body_mass * float(body_mass_scale)
+        mass_ratio = new_mass / original_body_mass
+        builder.body_mass[body_idx] = new_mass
+        builder.body_inv_mass[body_idx] = 1.0 / new_mass
+        builder.body_inertia[body_idx] = _scale_mat33(builder.body_inertia[body_idx], mass_ratio)
+        builder.body_inv_inertia[body_idx] = _inv_mat33_or_zero(builder.body_inertia[body_idx])
+
+    if should_update_friction:
+        for shape_idx in shape_indices:
+            builder.shape_material_mu[shape_idx] = (
+                float(object_friction_mu)
+                if object_friction_mu is not None
+                else float(builder.shape_material_mu[shape_idx]) * float(shape_friction_scale)
+            )
+
+    return {
+        "adapter": "pre_finalize_builder_body_mass_inertia_and_shape_friction",
+        "applied": bool(should_update_mass or should_update_friction),
+        "builder_stage": "before_scene_replicate_and_before_final_model_finalize",
+        "requested": requested,
+        "body_label": builder.body_label[body_idx],
+        "body_index_local": int(body_idx),
+        "shape_indices_local": [int(idx) for idx in shape_indices],
+        "original_body_mass_kg": original_body_mass,
+        "original_body_inv_mass": original_body_inv_mass,
+        "updated_body_mass_kg": float(builder.body_mass[body_idx]),
+        "updated_body_inv_mass": float(builder.body_inv_mass[body_idx]),
+        "original_shape_material_mu": original_shape_mu,
+        "updated_shape_material_mu": {str(idx): float(builder.shape_material_mu[idx]) for idx in shape_indices},
+        "source_namespace": "candidate.physics.*",
+        "generated_trex_fields": [],
+        "schema_promotion": "blocked",
+        "learned_policy": False,
+    }
+
+
+@contextmanager
+def _pre_finalize_physics_variant_context(
+    *,
+    tracked_object: str,
+    physics_variant_label: str,
+    body_mass_scale: float,
+    shape_friction_scale: float,
+    object_mass_kg: float | None,
+    object_friction_mu: float | None,
+):
+    should_apply = (
+        object_mass_kg is not None
+        or object_friction_mu is not None
+        or not np.isclose(body_mass_scale, 1.0)
+        or not np.isclose(shape_friction_scale, 1.0)
+    )
+    target_label_suffix = "cup" if tracked_object == "existing_cup_asset" else "object"
+    meta = {
+        "adapter": "pre_finalize_builder_body_mass_inertia_and_shape_friction",
+        "applied": False,
+        "builder_stage": "not_requested",
+        "requested": {
+            "physics_variant_label": physics_variant_label,
+            "target_label_suffix": target_label_suffix,
+            "body_mass_scale": float(body_mass_scale),
+            "shape_friction_scale": float(shape_friction_scale),
+            "object_mass_kg": None if object_mass_kg is None else float(object_mass_kg),
+            "object_friction_mu": None if object_friction_mu is None else float(object_friction_mu),
+        },
+        "body_index_local": None,
+        "shape_indices_local": [],
+        "source_namespace": "candidate.physics.*",
+        "generated_trex_fields": [],
+        "schema_promotion": "blocked",
+        "learned_policy": False,
+    }
+    if not should_apply:
+        yield meta
+        return
+
+    original_replicate = newton.ModelBuilder.replicate
+    holder = {"meta": meta}
+
+    def wrapped_replicate(scene_builder, template_builder, *args, **kwargs):
+        if not holder["meta"].get("applied", False):
+            holder["meta"] = _apply_builder_physics_variant(
+                template_builder,
+                target_label_suffix=target_label_suffix,
+                physics_variant_label=physics_variant_label,
+                body_mass_scale=body_mass_scale,
+                shape_friction_scale=shape_friction_scale,
+                object_mass_kg=object_mass_kg,
+                object_friction_mu=object_friction_mu,
+            )
+        return original_replicate(scene_builder, template_builder, *args, **kwargs)
+
+    newton.ModelBuilder.replicate = wrapped_replicate
+    try:
+        yield holder
+    finally:
+        newton.ModelBuilder.replicate = original_replicate
+
+
+def _observed_physics_from_model(example: Example, adapter_meta: dict) -> dict:
+    body_label = adapter_meta.get("body_label")
+    if body_label is None:
+        return {}
+    body_idx = _find_final_model_body_index(example, str(body_label).split("/")[-1])
+    shape_indices = list(example.model.body_shapes.get(int(body_idx), []))
+    body_mass = example.model.body_mass.numpy().copy()
+    body_inv_mass = example.model.body_inv_mass.numpy().copy()
+    shape_mu = example.model.shape_material_mu.numpy().copy()
+    return {
+        "observed_body_index_final_model": int(body_idx),
+        "observed_shape_indices_final_model": [int(idx) for idx in shape_indices],
+        "observed_body_mass_kg": {str(body_idx): float(body_mass[int(body_idx)])},
+        "observed_body_inv_mass": {str(body_idx): float(body_inv_mass[int(body_idx)])},
+        "observed_shape_material_mu": {str(idx): float(shape_mu[int(idx)]) for idx in shape_indices},
+    }
+
+
 def _retarget_existing_cup_as_object(example: Example, final_hold_duration: float) -> dict:
     """Track and lift the cup body already created by the official example.
 
@@ -378,6 +560,11 @@ def main() -> None:
     parser.add_argument("--lift-height-min", type=float, default=0.12)
     parser.add_argument("--hold-duration-min", type=float, default=2.0)
     parser.add_argument("--drop-height-loss", type=float, default=0.05)
+    parser.add_argument("--physics-variant-label", type=str, default="nominal")
+    parser.add_argument("--body-mass-scale", type=float, default=1.0)
+    parser.add_argument("--shape-friction-scale", type=float, default=1.0)
+    parser.add_argument("--object-mass-kg", type=float, default=None)
+    parser.add_argument("--object-friction-mu", type=float, default=None)
     parser.add_argument("--width", type=int, default=192)
     parser.add_argument("--height", type=int, default=144)
     args_in = parser.parse_args()
@@ -404,7 +591,20 @@ def main() -> None:
         world_count=1,
         scene=args_in.scene,
     )
-    example = Example(viewer, example_args)
+    with _pre_finalize_physics_variant_context(
+        tracked_object=args_in.tracked_object,
+        physics_variant_label=args_in.physics_variant_label,
+        body_mass_scale=args_in.body_mass_scale,
+        shape_friction_scale=args_in.shape_friction_scale,
+        object_mass_kg=args_in.object_mass_kg,
+        object_friction_mu=args_in.object_friction_mu,
+    ) as object_physics_adapter_holder:
+        example = Example(viewer, example_args)
+    object_physics_adapter_meta = object_physics_adapter_holder.get("meta", object_physics_adapter_holder)
+    object_physics_adapter_meta = {
+        **object_physics_adapter_meta,
+        **_observed_physics_from_model(example, object_physics_adapter_meta),
+    }
     object_adapter_meta = {
         "adapter": "official_example_default_object",
         "body_label": example.model_single.body_label[int(example.object_body_local)],
@@ -516,6 +716,17 @@ def main() -> None:
         "candidate.controller.commanded_lift_target": np.asarray(
             rollout_records["commanded_lift_target"], dtype=np.float32
         ),
+        "candidate.physics.tracked_body_indices": np.asarray(
+            []
+            if object_physics_adapter_meta.get("body_index_local") is None
+            else [object_physics_adapter_meta["body_index_local"]],
+            dtype=np.int32,
+        ),
+        "candidate.physics.tracked_shape_indices": np.asarray(
+            object_physics_adapter_meta.get("shape_indices_local") or [], dtype=np.int32
+        ),
+        "candidate.physics.body_mass_scale": np.asarray([args_in.body_mass_scale], dtype=np.float32),
+        "candidate.physics.shape_friction_scale": np.asarray([args_in.shape_friction_scale], dtype=np.float32),
     }
     args_in.npz.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
@@ -548,7 +759,9 @@ def main() -> None:
         "tracked_object": args_in.tracked_object,
         "controller_mode": args_in.controller_mode,
         "final_hold_duration": args_in.final_hold_duration,
+        "physics_variant": object_physics_adapter_meta["requested"],
         "object_adapter": object_adapter_meta,
+        "object_physics_adapter": object_physics_adapter_meta,
         "controller_adapter": controller_adapter_meta,
         "num_steps": args_in.num_steps,
         "sample_steps": requested,

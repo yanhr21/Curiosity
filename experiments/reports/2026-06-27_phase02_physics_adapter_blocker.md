@@ -68,3 +68,29 @@ visual validation
 manual visual inspection
 metrics extraction
 ```
+
+## Follow-Up Resolution
+
+The runtime mutation blocker is superseded by the pre-finalize builder adapter
+sanity run:
+
+```text
+physics_variant_adapter_prefinalize_sanity_cup_mass15_friction06_v2_20260627_1125
+```
+
+This replacement path passed fresh official Newton sanity, SensorTiledCamera
+export, automated visual validation, and manual visual inspection. It observed
+the requested values in the final Newton model:
+
+```text
+observed_body_mass_kg=0.15151481330394745
+observed_shape_material_mu=0.6000000238418579
+generated_trex_fields=[]
+schema_promotion=blocked
+```
+
+The new evidence is recorded in:
+
+```text
+experiments/reports/2026-06-27_phase02_physics_prefinalize_adapter_sanity.md
+```

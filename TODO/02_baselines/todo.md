@@ -52,7 +52,7 @@
       because `max_object_accel_m_s2=8.308498000056417` exceeded the schema
       threshold `8.0`, even though lift, hold duration, slip, drop, and contact
       loss passed.
-- [ ] Implement and sanity-check a real mass/friction variant adapter before
+- [x] Implement and sanity-check a real mass/friction variant adapter before
       running mass/fill variants. Do not create variant runs by changing only
       labels such as `MASS_LABEL` or `FRICTION_LABEL`; the Newton model must
       actually change object mass/inertia and contact friction with provenance
@@ -67,8 +67,40 @@
       implementation must move physics changes to the official builder/finalize
       path or a documented Newton API, then rerun the fresh sanity/export/visual
       gate.
+      Completed replacement path:
+      `physics_variant_adapter_prefinalize_sanity_cup_mass15_friction06_v2_20260627_1125`
+      passed fresh official Newton sanity, camera export, visual validation, and
+      manual visual inspection for adapter sanity. Summary provenance confirmed
+      cup mass changed from `0.10100987856276333` to observed
+      `0.15151481330394745`, and shape friction changed from `1.0` to observed
+      `0.6000000238418579`. This is not a task-success claim because diagnostic
+      task metrics still failed with `hold_duration_below_min`.
 - [ ] Run baseline across mass/fill variants after the real physics-parameter
       adapter passes a fresh official sanity/export/visual gate.
+      Started grid execution with `empty_medium`:
+      `lift_hold_no_adaptation_scripted_baseline_v1_cup_empty_medium_prefinalize_20260627_1140`.
+      The run passed fresh official Newton sanity, camera export, visual
+      validation, and manual visual inspection. Full metrics correctly marked
+      it as `fail` only because `max_object_accel_m_s2=8.307760545609415`
+      exceeded the schema threshold `8.0`; lift, hold, slip, drop, contact-loss,
+      and contact-proxy gates passed. Continue remaining grid cells without
+      lowering thresholds.
+      Continued grid execution with `half_medium`:
+      `lift_hold_no_adaptation_scripted_baseline_v1_cup_half_medium_prefinalize_20260627_1155`.
+      The run passed fresh official Newton sanity, camera export, visual
+      validation, and manual visual inspection. Full metrics correctly marked
+      it as `fail` only because `max_object_accel_m_s2=8.308443857335977`
+      exceeded the schema threshold `8.0`; lift, hold, slip, drop, contact-loss,
+      and contact-proxy gates passed. Continue remaining grid cells without
+      lowering thresholds.
+      Completed the medium-friction mass axis with `full_medium`:
+      `lift_hold_no_adaptation_scripted_baseline_v1_cup_full_medium_prefinalize_20260627_1205`.
+      The run passed fresh official Newton sanity, camera export, visual
+      validation, and manual visual inspection. Full metrics correctly marked
+      it as `fail` only because `max_object_accel_m_s2=8.308498000056417`
+      exceeded the schema threshold `8.0`; lift, hold, slip, drop, contact-loss,
+      and contact-proxy gates passed. The remaining grid cells are low/high
+      friction variants and held-out generalization cells.
 - [x] Write Phase 02 no-adaptation nominal cup report after compute run and
       manual visual inspection:
       `experiments/reports/2026-06-27_phase02_no_adaptation_nominal_cup_baseline.md`.

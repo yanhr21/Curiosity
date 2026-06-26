@@ -14,6 +14,11 @@ FINAL_HOLD_DURATION="${FINAL_HOLD_DURATION:-1.0}"
 LIFT_HEIGHT_MIN="${LIFT_HEIGHT_MIN:-0.12}"
 HOLD_DURATION_MIN="${HOLD_DURATION_MIN:-2.0}"
 DROP_HEIGHT_LOSS="${DROP_HEIGHT_LOSS:-0.05}"
+PHYSICS_VARIANT_LABEL="${PHYSICS_VARIANT_LABEL:-nominal}"
+BODY_MASS_SCALE="${BODY_MASS_SCALE:-1.0}"
+SHAPE_FRICTION_SCALE="${SHAPE_FRICTION_SCALE:-1.0}"
+OBJECT_MASS_KG="${OBJECT_MASS_KG:-}"
+OBJECT_FRICTION_MU="${OBJECT_FRICTION_MU:-}"
 NUM_STEPS="${NUM_STEPS:-240}"
 SAMPLE_STEPS="${SAMPLE_STEPS:-0,60,120,180,239}"
 DEVICE="${DEVICE:-cuda:0}"
@@ -68,6 +73,11 @@ echo "FINAL_HOLD_DURATION=$FINAL_HOLD_DURATION"
 echo "LIFT_HEIGHT_MIN=$LIFT_HEIGHT_MIN"
 echo "HOLD_DURATION_MIN=$HOLD_DURATION_MIN"
 echo "DROP_HEIGHT_LOSS=$DROP_HEIGHT_LOSS"
+echo "PHYSICS_VARIANT_LABEL=$PHYSICS_VARIANT_LABEL"
+echo "BODY_MASS_SCALE=$BODY_MASS_SCALE"
+echo "SHAPE_FRICTION_SCALE=$SHAPE_FRICTION_SCALE"
+echo "OBJECT_MASS_KG=$OBJECT_MASS_KG"
+echo "OBJECT_FRICTION_MU=$OBJECT_FRICTION_MU"
 echo "NUM_STEPS=$NUM_STEPS"
 echo "SAMPLE_STEPS=$SAMPLE_STEPS"
 echo "DEVICE=$DEVICE"
@@ -110,6 +120,17 @@ PY
 echo "=== OFFICIAL_NEWTON_SANITY_END ==="
 
 echo "=== NEWTON_CAMERA_EXPORT_START ==="
+physics_args=(
+  --physics-variant-label "$PHYSICS_VARIANT_LABEL"
+  --body-mass-scale "$BODY_MASS_SCALE"
+  --shape-friction-scale "$SHAPE_FRICTION_SCALE"
+)
+if [[ -n "$OBJECT_MASS_KG" ]]; then
+  physics_args+=(--object-mass-kg "$OBJECT_MASS_KG")
+fi
+if [[ -n "$OBJECT_FRICTION_MU" ]]; then
+  physics_args+=(--object-friction-mu "$OBJECT_FRICTION_MU")
+fi
 "$NEWTON_VENV/bin/python" experiments/configs/newton_panda_hydro_tiled_camera_export.py \
   --output-dir "$visual_root" \
   --summary "$summary_json" \
@@ -122,7 +143,8 @@ echo "=== NEWTON_CAMERA_EXPORT_START ==="
   --final-hold-duration "$FINAL_HOLD_DURATION" \
   --lift-height-min "$LIFT_HEIGHT_MIN" \
   --hold-duration-min "$HOLD_DURATION_MIN" \
-  --drop-height-loss "$DROP_HEIGHT_LOSS"
+  --drop-height-loss "$DROP_HEIGHT_LOSS" \
+  "${physics_args[@]}"
 echo "=== NEWTON_CAMERA_EXPORT_END ==="
 
 "$NEWTON_VENV/bin/python" experiments/configs/validate_newton_visual_preview.py \
@@ -152,6 +174,8 @@ payload = {
     "tracked_object": summary.get("tracked_object"),
     "controller_mode": summary.get("controller_mode"),
     "final_hold_duration": summary.get("final_hold_duration"),
+    "physics_variant": summary.get("physics_variant"),
+    "object_physics_adapter": summary.get("object_physics_adapter"),
     "task_metrics": summary.get("task_metrics"),
     "num_steps": summary.get("num_steps"),
     "sample_steps": summary.get("sample_steps"),
