@@ -2,6 +2,10 @@
 
 - [x] Select short-term infant prior: official Newton Panda hydro scripted
       grasp/lift path, not a pretrained checkpoint.
+- [x] Record short-term stable method: use the official Newton Panda hydro
+      scripted controller as the non-learned infant prior, fix real Newton
+      physics variation before mass/fill baselines, then train residual
+      controller adaptation instead of an end-to-end grasp policy first.
 - [x] Implement no-adaptation scripted grasp baseline launch path from the
       selected Newton Panda hydro prior:
       `experiments/configs/lift_hold_no_adaptation_baseline_v1.json` and
@@ -53,6 +57,16 @@
       labels such as `MASS_LABEL` or `FRICTION_LABEL`; the Newton model must
       actually change object mass/inertia and contact friction with provenance
       recorded in the summary.
+      Attempted runtime model-array mutation on 2026-06-27:
+      `physics_variant_adapter_sanity_cup_mass15_friction06_20260627_0945`
+      proved the requested values were written into summary/NPZ provenance
+      (`body_mass_scale=1.5`, `shape_friction_scale=0.6`) but failed visual
+      validation because only 4 frames were sampled. Follow-up 5-frame runs
+      repeatedly failed with Warp CUDA illegal memory access during
+      SensorTiledCamera/export cleanup. Stop this runtime mutation path; next
+      implementation must move physics changes to the official builder/finalize
+      path or a documented Newton API, then rerun the fresh sanity/export/visual
+      gate.
 - [ ] Run baseline across mass/fill variants after the real physics-parameter
       adapter passes a fresh official sanity/export/visual gate.
 - [x] Write Phase 02 no-adaptation nominal cup report after compute run and

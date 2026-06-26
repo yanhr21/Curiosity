@@ -20,6 +20,21 @@ checkpoint before building the first baselines. This prior provides approach,
 gripper close, lift, and hold behavior so later learning can focus on residual
 adaptation rather than discovering grasping from scratch.
 
+Short-term stable method:
+
+1. Keep official Newton Panda hydro scripted grasp/lift as the non-learned
+   infant prior.
+2. Use it to generate synchronized Newton episodes with camera, robot state,
+   object motion, contact/slip proxies, controller phase, and success/failure
+   labels.
+3. Fix physics variation honestly before reporting mass/fill results: object
+   mass/inertia/friction must be changed in the real Newton model and recorded
+   in provenance.
+4. Learn only residual controller parameters first, such as grip target, lift
+   velocity, hold height, regrasp threshold, and stabilization timing.
+5. Add curiosity only after forward-model diagnostics can predict
+   object/contact/tactile consequences better than trivial baselines.
+
 Reason: the current audit did not find a directly usable Newton-native Panda
 grasp/lift checkpoint. Newton policy examples are mainly locomotion-oriented,
 Isaac Sim exposes a Franka open-drawer policy rather than a cup/cube grasp
@@ -225,6 +240,41 @@ that changes the tracked object's mass/inertia and contact friction, records
 the requested and observed parameters in the rollout summary, and passes the
 same official sanity/export/visual gate before any mass/fill variant is
 reported.
+
+Runtime mutation attempt status on 2026-06-27:
+
+```text
+physics_variant_adapter_sanity_cup_mass15_friction06_20260627_0945
+```
+
+This diagnostic changed real Newton model values and recorded provenance:
+
+```text
+body_mass_scale=1.5
+shape_friction_scale=0.6
+original_body_mass=0.10100987553596497
+updated_body_mass=0.15151481330394745
+original_shape_material_mu=1.0
+updated_shape_material_mu=0.6000000238418579
+```
+
+However, this path is not cleared. The first diagnostic sampled only four
+frames and failed the visual validator's five-frame minimum. Follow-up
+five-frame diagnostics repeatedly failed with Warp CUDA illegal memory access
+during SensorTiledCamera/export cleanup:
+
+```text
+lift_hold_physics_adapter_sanity_existing_cup_mass2p5_friction0p5_20260627_0935
+physics_variant_adapter_sanity_cup_mass15_friction06_20260627_0955
+physics_variant_adapter_sanity_cup_mass15_friction06_20260627_1015
+```
+
+Stop this runtime model-array mutation route. The next implementation should
+apply mass/inertia/friction changes before model finalization in the official
+Panda hydro builder path, or use a documented Newton model-update API that is
+compatible with the collision pipeline and SensorTiledCamera. Do not run
+mass/fill variants until that adapter passes the fresh official sanity/export
+visual gate.
 
 ## Rules
 
