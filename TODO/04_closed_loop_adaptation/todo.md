@@ -197,15 +197,20 @@
 - [x] Reserve held-out mass/friction cells for generalization evaluation.
       Evidence: Phase 02/04 configs preserve `full_low` and `empty_high` as
       held-out cells.
-- [ ] Compare adaptation speed and failure modes beyond the two-cell gate.
+- [x] Compare adaptation speed and failure modes beyond the two-cell gate.
       The first held-out failure-mode comparison is complete: learned residual
       evaluation passes `full_low` and `empty_high`, while no-adaptation and
       scripted-feedback baselines failed only on object acceleration.
       Additional ordinary learned-residual cells `half_high` and `full_medium`
       also passed visual and metric gates in
       `experiments/reports/2026-06-27_phase04_residual_adapter_extra_ordinary_eval_v1.md`.
-      Still pending: explicit adaptation-speed analysis across repetitions,
-      held-out repetitions, and future object families.
+      Four-cell failure-mode comparison complete:
+      `experiments/reports/2026-06-27_phase04_residual_adapter_failure_mode_comparison_v1.md`.
+      Learned residual first active time is `2.2666666507720947` s in these
+      runs, with `final_feedback_trigger_count=240`; scripted feedback and
+      no-adaptation both have `final_feedback_trigger_count=0`. Remaining
+      broad-claim blockers are multi-seed stability, held-out repetitions, and
+      future object families.
 - [x] Save direct visual paths for success and failure cases.
       Evidence: nominal scripted feedback report records contact sheet and
       frame browser paths; grid reports still pending.

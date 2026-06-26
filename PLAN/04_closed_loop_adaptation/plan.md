@@ -785,3 +785,39 @@ Ordinary `full_medium`:
 Interpretation: this broadens ordinary mass/friction evaluation coverage after
 the held-out gate. It still does not prove adaptation speed, multi-seed
 stability, new object-family generalization, or tactile/T-Rex equivalence.
+
+2026-06-27 eleventh follow-up: four-cell failure-mode comparison completed for
+no-adaptation, scripted-feedback, and learned-residual policies.
+
+- Config:
+  `experiments/configs/residual_adapter_failure_mode_comparison_v1.json`.
+- Script:
+  `experiments/configs/compare_residual_adapter_failure_modes.py`.
+- Launcher:
+  `experiments/configs/launch_residual_adapter_failure_mode_comparison_tmux.sh`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_failure_mode_comparison_v1.md`.
+- Output JSON:
+  `experiments/outputs/residual_adapter_failure_mode_comparison_v1_20260627.json`.
+- Output CSV:
+  `experiments/outputs/residual_adapter_failure_mode_comparison_v1_20260627.csv`.
+- Run location: existing tmux-held allocation `154142` on `server56`.
+- Status: pass.
+- Rows: `12`.
+- Cell comparisons: `4`.
+- Generated T-Rex fields: `[]`.
+- Schema promotion: `blocked`.
+
+Finding: across `full_low`, `empty_high`, `half_high`, and `full_medium`,
+no-adaptation and scripted-feedback baselines fail only on
+`object_accel_above_threshold`; scripted feedback never triggers
+(`final_feedback_trigger_count=0`). Learned residual passes all four cells,
+activates at `2.2666666507720947` s with
+`final_feedback_trigger_count=240`, and reduces recorded max object
+acceleration by `5.679725200388358` to `7.839871912569344` m/s^2 against
+no-adaptation depending on the cell.
+
+Interpretation: the current checkpoint is best described as a post-lift
+stabilization residual. It is useful in the current cup benchmark, but it is
+not yet a full curiosity-driven exploration policy and not evidence for broad
+object-family generalization.

@@ -1,0 +1,90 @@
+{
+  "classification": "residual_adapter_failure_mode_comparison_config_v1",
+  "phase": "04_closed_loop_adaptation",
+  "purpose": "Compare timing and failure modes for no-adaptation, scripted-feedback, and learned-residual cup rollouts using already validated Newton outputs.",
+  "not_training": true,
+  "not_model_creation": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "warmup_steps_for_accel": 15,
+  "lift_threshold_m": 0.12,
+  "runs": [
+    {
+      "cell": "full_low",
+      "split": "held_out",
+      "policy": "no_adaptation",
+      "run_tag": "lift_hold_no_adaptation_scripted_baseline_v1_cup_full_low_prefinalize_20260627_1350"
+    },
+    {
+      "cell": "full_low",
+      "split": "held_out",
+      "policy": "scripted_feedback",
+      "run_tag": "lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845"
+    },
+    {
+      "cell": "full_low",
+      "split": "held_out",
+      "policy": "learned_residual",
+      "run_tag": "residual_adapter_eval_v1_full_low_heldout_20260627_0613"
+    },
+    {
+      "cell": "empty_high",
+      "split": "held_out",
+      "policy": "no_adaptation",
+      "run_tag": "lift_hold_no_adaptation_scripted_baseline_v1_cup_empty_high_prefinalize_20260627_1445"
+    },
+    {
+      "cell": "empty_high",
+      "split": "held_out",
+      "policy": "scripted_feedback",
+      "run_tag": "lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955"
+    },
+    {
+      "cell": "empty_high",
+      "split": "held_out",
+      "policy": "learned_residual",
+      "run_tag": "residual_adapter_eval_v1_empty_high_heldout_20260627_0620"
+    },
+    {
+      "cell": "half_high",
+      "split": "ordinary",
+      "policy": "no_adaptation",
+      "run_tag": "lift_hold_no_adaptation_scripted_baseline_v1_cup_half_high_prefinalize_20260627_1415"
+    },
+    {
+      "cell": "half_high",
+      "split": "ordinary",
+      "policy": "scripted_feedback",
+      "run_tag": "lift_hold_scripted_feedback_baseline_v1_cup_half_high_prefinalize_20260627_1745"
+    },
+    {
+      "cell": "half_high",
+      "split": "ordinary",
+      "policy": "learned_residual",
+      "run_tag": "residual_adapter_eval_v1_half_high_ordinary_20260627_0631"
+    },
+    {
+      "cell": "full_medium",
+      "split": "ordinary",
+      "policy": "no_adaptation",
+      "run_tag": "lift_hold_no_adaptation_scripted_baseline_v1_cup_full_medium_prefinalize_20260627_1205"
+    },
+    {
+      "cell": "full_medium",
+      "split": "ordinary",
+      "policy": "scripted_feedback",
+      "run_tag": "lift_hold_scripted_feedback_baseline_v1_cup_full_medium_prefinalize_20260627_1805"
+    },
+    {
+      "cell": "full_medium",
+      "split": "ordinary",
+      "policy": "learned_residual",
+      "run_tag": "residual_adapter_eval_v1_full_medium_ordinary_20260627_0638"
+    }
+  ],
+  "outputs": {
+    "json": "experiments/outputs/residual_adapter_failure_mode_comparison_v1_20260627.json",
+    "csv": "experiments/outputs/residual_adapter_failure_mode_comparison_v1_20260627.csv",
+    "report": "experiments/reports/2026-06-27_phase04_residual_adapter_failure_mode_comparison_v1.md"
+  }
+}
