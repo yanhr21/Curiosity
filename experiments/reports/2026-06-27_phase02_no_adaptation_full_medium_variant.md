@@ -112,3 +112,12 @@ The run passes lift, hold duration, slip, drop, contact-loss, and contact-proxy
 gates. It fails the unchanged full metrics schema because object acceleration
 exceeds the `8.0 m/s^2` threshold. Do not lower the threshold to convert this
 into success.
+
+## Duplicate Launch Note
+
+During continuation on 2026-06-27, a duplicate run tag
+`lift_hold_no_adaptation_scripted_baseline_v1_cup_full_medium_prefinalize_20260627_1310`
+was started before the existing `1205` result was noticed. The duplicate passed
+fresh official Newton sanity, reached `NEWTON_CAMERA_EXPORT_START`, and was
+interrupted immediately after discovery. It is not a baseline result and should
+not be used for metrics or reporting.
