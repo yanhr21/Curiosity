@@ -231,11 +231,14 @@ def _extract_metrics(
             }
         )
 
+    model_evaluation = summary.get("controller_mode") == "lift_hold_learned_residual"
     payload = {
         "classification": "newton_native_lift_hold_metrics_v1",
         "status": "pass" if rows and all(row["status"] == "success" for row in rows) else "fail",
         "run_tag": run_tag,
         "baseline_name": baseline_name,
+        "controller_mode": summary.get("controller_mode"),
+        "controller_type": summary.get("controller_type"),
         "schema": schema.get("classification"),
         "dt_s": dt_s,
         "timesteps": int(timesteps),
@@ -254,7 +257,9 @@ def _extract_metrics(
         "rows": rows,
         "generated_trex_fields": [],
         "schema_promotion": "blocked",
-        "no_model_or_training": True,
+        "no_model_or_training": not model_evaluation,
+        "model_evaluation": model_evaluation,
+        "residual_adapter_checkpoint": summary.get("scripted_feedback", {}).get("residual_adapter_checkpoint"),
     }
     return payload, rows
 
