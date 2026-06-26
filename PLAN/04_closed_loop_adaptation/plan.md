@@ -223,3 +223,61 @@ cell.
 Interpretation: the ordinary scripted feedback grid is now complete. All cells
 are visually valid and correctly parameterized, but no cell triggered the
 current feedback rule, so no adaptation-improvement claim is valid yet.
+
+## Held-Out Scripted Feedback Evaluation
+
+2026-06-27: evaluated the first held-out scripted feedback cell.
+
+- Cell: `full_low`.
+- Run tag:
+  `lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845`.
+- Held-out generalization cell: true.
+- Report:
+  `experiments/reports/2026-06-27_phase04_scripted_feedback_full_low_heldout.md`.
+- Fresh official Newton sanity: pass.
+- Automated visual validation: pass.
+- Manual visual inspection: pass.
+- Applied object mass: `0.3499999940395355` kg observed.
+- Applied friction mu: `0.3499999940395355` observed.
+- Strict metric status: fail, only `object_accel_above_threshold`.
+- Lift height: `0.15313686430454254` m.
+- Hold duration: `2.7833306789398193` s.
+- Max slip: `0.0034078387381632435` m.
+- Contact-loss frames: `0`.
+- Max contact proxy: `62.0`.
+- Max object acceleration: `8.308707788010144` m/s^2.
+- Feedback trigger count: `0`.
+
+Interpretation: `full_low` remains held-out evidence. It is visually valid and
+correctly parameterized, but still does not demonstrate feedback adaptation
+because the feedback rule did not trigger. `empty_high` remains the last
+held-out scripted feedback evaluation cell.
+
+2026-06-27: evaluated the second and final held-out scripted feedback cell.
+
+- Cell: `empty_high`.
+- Run tag:
+  `lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955`.
+- Held-out generalization cell: true.
+- Report:
+  `experiments/reports/2026-06-27_phase04_scripted_feedback_empty_high_heldout.md`.
+- Fresh official Newton sanity: pass.
+- Automated visual validation: pass.
+- Manual visual inspection: pass.
+- Applied object mass: `0.07999999821186066` kg observed.
+- Applied friction mu: `1.2000000476837158` observed.
+- Strict metric status: fail, only `object_accel_above_threshold`.
+- Lift height: `0.16016103327274323` m.
+- Hold duration: `2.8333306312561035` s.
+- Max slip: `0.0035689078921667837` m.
+- Contact-loss frames: `0`.
+- Max contact proxy: `62.0`.
+- Max object acceleration: `8.308498000056417` m/s^2.
+- Feedback trigger count: `0`.
+
+Interpretation: scripted feedback evaluation now covers the nominal cup, seven
+ordinary cells, and two held-out cells. All are visually valid and correctly
+parameterized, but no cell triggered the current feedback rule, so no
+adaptation-improvement claim is valid. The next adaptation step must either
+revise the feedback trigger with documented rationale or move to the planned
+residual learned controller-parameter adapter.

@@ -1,6 +1,6 @@
 {
   "classification": "newton_native_lift_hold_scripted_feedback_baseline_v1",
-  "status": "ordinary_grid_complete_with_acceleration_failures_feedback_not_triggered",
+  "status": "held_out_evaluation_complete_with_acceleration_failures_feedback_not_triggered",
   "phase": "04_closed_loop_adaptation",
   "purpose": "Define the first scripted feedback adaptation baseline around the official Newton Panda hydro scripted infant prior. This is not a learned policy and not a pretrained checkpoint claim.",
   "infant_prior": {
@@ -356,6 +356,74 @@
     "held_out_generalization_cells": [
       "full_low",
       "empty_high"
-    ]
+    ],
+    "completed_held_out_evaluation_cells": {
+      "full_low": {
+        "run_tag": "lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845",
+        "tracked_object": "existing_cup_asset",
+        "physics_variant_label": "feedback_full_low_heldout_mass0p35_mu0p35",
+        "object_mass_kg": 0.35,
+        "object_friction_mu": 0.35,
+        "held_out_generalization_cell": true,
+        "fresh_newton_sensor_contact_sanity": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845_fresh_newton_sensor_contact_sanity.json",
+        "visual_validation": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845_visual_validation.json",
+        "manual_visual_inspection": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845_manual_visual_inspection.json",
+        "summary_json": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845_summary.json",
+        "npz": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845.npz",
+        "metrics_json": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845_metrics.json",
+        "metrics_csv": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845_metrics.csv",
+        "frame_browser": "experiments/visuals/lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845/frame_browser.html",
+        "contact_sheet": "experiments/visuals/lift_hold_scripted_feedback_baseline_v1_cup_full_low_heldout_prefinalize_20260627_1845/contact_sheet.png",
+        "status": "fail",
+        "failure_reasons": [
+          "object_accel_above_threshold"
+        ],
+        "lift_height_m": 0.15313686430454254,
+        "hold_duration_s": 2.7833306789398193,
+        "max_slip_m": 0.0034078387381632435,
+        "object_not_dropped": true,
+        "drop_height_loss_m": 0.0,
+        "contact_loss_frames": 0,
+        "max_contact_proxy": 62.0,
+        "max_object_accel_m_s2": 8.308707788010144,
+        "observed_body_mass_kg": 0.3499999940395355,
+        "observed_shape_material_mu": 0.3499999940395355,
+        "feedback_trigger_count": 0,
+        "interpretation": "Full/low held-out scripted feedback evaluation is runnable and visually valid. Real Newton mass/friction values were applied. Strict metrics still fail only on object acceleration, and no feedback event was triggered."
+      },
+      "empty_high": {
+        "run_tag": "lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955",
+        "tracked_object": "existing_cup_asset",
+        "physics_variant_label": "feedback_empty_high_heldout_mass0p08_mu1p20",
+        "object_mass_kg": 0.08,
+        "object_friction_mu": 1.2,
+        "held_out_generalization_cell": true,
+        "fresh_newton_sensor_contact_sanity": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955_fresh_newton_sensor_contact_sanity.json",
+        "visual_validation": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955_visual_validation.json",
+        "manual_visual_inspection": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955_manual_visual_inspection.json",
+        "summary_json": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955_summary.json",
+        "npz": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955.npz",
+        "metrics_json": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955_metrics.json",
+        "metrics_csv": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955_metrics.csv",
+        "frame_browser": "experiments/visuals/lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955/frame_browser.html",
+        "contact_sheet": "experiments/visuals/lift_hold_scripted_feedback_baseline_v1_cup_empty_high_heldout_prefinalize_20260627_1955/contact_sheet.png",
+        "status": "fail",
+        "failure_reasons": [
+          "object_accel_above_threshold"
+        ],
+        "lift_height_m": 0.16016103327274323,
+        "hold_duration_s": 2.8333306312561035,
+        "max_slip_m": 0.0035689078921667837,
+        "object_not_dropped": true,
+        "drop_height_loss_m": 0.0,
+        "contact_loss_frames": 0,
+        "max_contact_proxy": 62.0,
+        "max_object_accel_m_s2": 8.308498000056417,
+        "observed_body_mass_kg": 0.07999999821186066,
+        "observed_shape_material_mu": 1.2000000476837158,
+        "feedback_trigger_count": 0,
+        "interpretation": "Empty/high held-out scripted feedback evaluation is runnable and visually valid. Real Newton mass/friction values were applied. Strict metrics still fail only on object acceleration, and no feedback event was triggered."
+      }
+    }
   }
 }
