@@ -7,6 +7,7 @@ set -euo pipefail
 ROOT="${ROOT:-/public/home/yanhongru/Curiosity}"
 RUN_TAG="${RUN_TAG:-newton_panda_hydro_camera_export_$(date +%Y%m%d_%H%M%S)}"
 NEWTON_VENV="${NEWTON_VENV:-$ROOT/envs/newton/.venv}"
+TRAINER_VENV="${TRAINER_VENV:-$ROOT/envs/residual_adapter/.venv}"
 SCENE="${SCENE:-pen}"
 TRACKED_OBJECT="${TRACKED_OBJECT:-official_object}"
 CONTROLLER_MODE="${CONTROLLER_MODE:-official_pick_place}"
@@ -29,6 +30,8 @@ FEEDBACK_HOLD_HEIGHT_OFFSET_MAX="${FEEDBACK_HOLD_HEIGHT_OFFSET_MAX:-0.03}"
 FEEDBACK_STABILIZATION_STEP="${FEEDBACK_STABILIZATION_STEP:-0.25}"
 FEEDBACK_STABILIZATION_MAX="${FEEDBACK_STABILIZATION_MAX:-2.0}"
 PRE_RECORD_WARMUP_STEPS="${PRE_RECORD_WARMUP_STEPS:-0}"
+RESIDUAL_ADAPTER_CHECKPOINT="${RESIDUAL_ADAPTER_CHECKPOINT:-}"
+RESIDUAL_ADAPTER_ACTIVE_THRESHOLD="${RESIDUAL_ADAPTER_ACTIVE_THRESHOLD:-0.5}"
 NUM_STEPS="${NUM_STEPS:-240}"
 SAMPLE_STEPS="${SAMPLE_STEPS:-0,60,120,180,239}"
 DEVICE="${DEVICE:-cuda:0}"
@@ -46,10 +49,28 @@ if [[ ! -x "$NEWTON_VENV/bin/python" ]]; then
   echo "ERROR: missing local Newton venv python at $NEWTON_VENV/bin/python" >&2
   exit 3
 fi
+if [[ "$CONTROLLER_MODE" == "lift_hold_learned_residual" ]]; then
+  if [[ ! -x "$TRAINER_VENV/bin/python" ]]; then
+    echo "ERROR: learned residual evaluation requires local trainer venv at $TRAINER_VENV/bin/python" >&2
+    exit 5
+  fi
+  if [[ -z "$RESIDUAL_ADAPTER_CHECKPOINT" || ! -f "$RESIDUAL_ADAPTER_CHECKPOINT" ]]; then
+    echo "ERROR: learned residual evaluation requires RESIDUAL_ADAPTER_CHECKPOINT to point at an existing checkpoint." >&2
+    exit 6
+  fi
+fi
 
 source "$NEWTON_VENV/bin/activate"
 export NEWTON_CACHE_PATH
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy
+
+EXPORT_PYTHON="$NEWTON_VENV/bin/python"
+if [[ "$CONTROLLER_MODE" == "lift_hold_learned_residual" ]]; then
+  EXPORT_PYTHON="$TRAINER_VENV/bin/python"
+  export PYTHONPATH="$ROOT/envs/newton/.venv/lib/python3.10/site-packages:$ROOT/external/newton:$ROOT/src:${PYTHONPATH:-}"
+else
+  export PYTHONPATH="$ROOT/src:${PYTHONPATH:-}"
+fi
 
 for asset_file in \
   "franka_emika_panda/urdf/fr3_franka_hand.urdf" \
@@ -75,6 +96,8 @@ echo "SLURM_JOB_ID=$SLURM_JOB_ID"
 echo "HOSTNAME=$(hostname)"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}"
 echo "NEWTON_VENV=$NEWTON_VENV"
+echo "TRAINER_VENV=$TRAINER_VENV"
+echo "EXPORT_PYTHON=$EXPORT_PYTHON"
 echo "NEWTON_CACHE_PATH=$NEWTON_CACHE_PATH"
 echo "SCENE=$SCENE"
 echo "TRACKED_OBJECT=$TRACKED_OBJECT"
@@ -98,6 +121,8 @@ echo "FEEDBACK_HOLD_HEIGHT_OFFSET_MAX=$FEEDBACK_HOLD_HEIGHT_OFFSET_MAX"
 echo "FEEDBACK_STABILIZATION_STEP=$FEEDBACK_STABILIZATION_STEP"
 echo "FEEDBACK_STABILIZATION_MAX=$FEEDBACK_STABILIZATION_MAX"
 echo "PRE_RECORD_WARMUP_STEPS=$PRE_RECORD_WARMUP_STEPS"
+echo "RESIDUAL_ADAPTER_CHECKPOINT=$RESIDUAL_ADAPTER_CHECKPOINT"
+echo "RESIDUAL_ADAPTER_ACTIVE_THRESHOLD=$RESIDUAL_ADAPTER_ACTIVE_THRESHOLD"
 echo "NUM_STEPS=$NUM_STEPS"
 echo "SAMPLE_STEPS=$SAMPLE_STEPS"
 echo "DEVICE=$DEVICE"
@@ -151,7 +176,14 @@ fi
 if [[ -n "$OBJECT_FRICTION_MU" ]]; then
   physics_args+=(--object-friction-mu "$OBJECT_FRICTION_MU")
 fi
-"$NEWTON_VENV/bin/python" experiments/configs/newton_panda_hydro_tiled_camera_export.py \
+residual_args=()
+if [[ "$CONTROLLER_MODE" == "lift_hold_learned_residual" ]]; then
+  residual_args+=(
+    --residual-adapter-checkpoint "$RESIDUAL_ADAPTER_CHECKPOINT"
+    --residual-adapter-active-threshold "$RESIDUAL_ADAPTER_ACTIVE_THRESHOLD"
+  )
+fi
+"$EXPORT_PYTHON" experiments/configs/newton_panda_hydro_tiled_camera_export.py \
   --output-dir "$visual_root" \
   --summary "$summary_json" \
   --npz "$npz_path" \
@@ -174,7 +206,8 @@ fi
   --feedback-stabilization-step "$FEEDBACK_STABILIZATION_STEP" \
   --feedback-stabilization-max "$FEEDBACK_STABILIZATION_MAX" \
   --pre-record-warmup-steps "$PRE_RECORD_WARMUP_STEPS" \
-  "${physics_args[@]}"
+  "${physics_args[@]}" \
+  "${residual_args[@]}"
 echo "=== NEWTON_CAMERA_EXPORT_END ==="
 
 "$NEWTON_VENV/bin/python" experiments/configs/validate_newton_visual_preview.py \
@@ -203,6 +236,7 @@ payload = {
     "scene": summary.get("scene"),
     "tracked_object": summary.get("tracked_object"),
     "controller_mode": summary.get("controller_mode"),
+    "controller_type": summary.get("controller_type"),
     "final_hold_duration": summary.get("final_hold_duration"),
     "physics_variant": summary.get("physics_variant"),
     "object_physics_adapter": summary.get("object_physics_adapter"),
@@ -215,7 +249,9 @@ payload = {
     "downstream_use": "blocked_until_manual_visual_inspection_pass",
     "generated_trex_fields": [],
     "schema_promotion": "blocked",
-    "no_model_or_training": True,
+    "no_model_or_training": summary.get("controller_mode") != "lift_hold_learned_residual",
+    "model_evaluation": summary.get("controller_mode") == "lift_hold_learned_residual",
+    "residual_adapter_checkpoint": summary.get("scripted_feedback", {}).get("residual_adapter_checkpoint"),
 }
 Path(out).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 print(json.dumps(payload, indent=2, sort_keys=True))

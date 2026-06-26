@@ -34,7 +34,10 @@ NUM_STEPS="${NUM_STEPS:-240}"
 SAMPLE_STEPS="${SAMPLE_STEPS:-0,60,120,180,239}"
 DEVICE="${DEVICE:-cuda:0}"
 NEWTON_VENV="${NEWTON_VENV:-$ROOT/envs/newton/.venv}"
+TRAINER_VENV="${TRAINER_VENV:-$ROOT/envs/residual_adapter/.venv}"
 NEWTON_CACHE_PATH="${NEWTON_CACHE_PATH:-$ROOT/external/newton-assets-cache}"
+RESIDUAL_ADAPTER_CHECKPOINT="${RESIDUAL_ADAPTER_CHECKPOINT:-}"
+RESIDUAL_ADAPTER_ACTIVE_THRESHOLD="${RESIDUAL_ADAPTER_ACTIVE_THRESHOLD:-0.5}"
 
 cd "$ROOT"
 mkdir -p logs/newton experiments/outputs experiments/visuals
@@ -54,6 +57,16 @@ fi
 if [[ ! -x "$NEWTON_VENV/bin/python" ]]; then
   echo "ERROR: missing local Newton venv; configure envs/ locally before compute use." >&2
   exit 4
+fi
+if [[ "$CONTROLLER_MODE" == "lift_hold_learned_residual" ]]; then
+  if [[ ! -x "$TRAINER_VENV/bin/python" ]]; then
+    echo "ERROR: missing local residual-adapter trainer venv; configure envs/residual_adapter locally before compute use." >&2
+    exit 7
+  fi
+  if [[ -z "$RESIDUAL_ADAPTER_CHECKPOINT" || ! -f "$RESIDUAL_ADAPTER_CHECKPOINT" ]]; then
+    echo "ERROR: CONTROLLER_MODE=lift_hold_learned_residual requires RESIDUAL_ADAPTER_CHECKPOINT." >&2
+    exit 8
+  fi
 fi
 
 bash -n "$ROOT/experiments/configs/run_newton_panda_hydro_camera_export_v2_in_alloc.sh"
@@ -76,7 +89,7 @@ fi
 rm -f /tmp/newton_panda_hydro_camera_export_running.$$
 
 log="$ROOT/logs/newton/${RUN_TAG}.log"
-remote_cmd="cd $(printf '%q' "$ROOT") && RUN_TAG=$(printf '%q' "$RUN_TAG") NEWTON_VENV=$(printf '%q' "$NEWTON_VENV") SCENE=$(printf '%q' "$SCENE") TRACKED_OBJECT=$(printf '%q' "$TRACKED_OBJECT") CONTROLLER_MODE=$(printf '%q' "$CONTROLLER_MODE") FINAL_HOLD_DURATION=$(printf '%q' "$FINAL_HOLD_DURATION") LIFT_HEIGHT_MIN=$(printf '%q' "$LIFT_HEIGHT_MIN") HOLD_DURATION_MIN=$(printf '%q' "$HOLD_DURATION_MIN") DROP_HEIGHT_LOSS=$(printf '%q' "$DROP_HEIGHT_LOSS") PHYSICS_VARIANT_LABEL=$(printf '%q' "$PHYSICS_VARIANT_LABEL") BODY_MASS_SCALE=$(printf '%q' "$BODY_MASS_SCALE") SHAPE_FRICTION_SCALE=$(printf '%q' "$SHAPE_FRICTION_SCALE") OBJECT_MASS_KG=$(printf '%q' "$OBJECT_MASS_KG") OBJECT_FRICTION_MU=$(printf '%q' "$OBJECT_FRICTION_MU") FEEDBACK_MIN_CONTACT_COUNT=$(printf '%q' "$FEEDBACK_MIN_CONTACT_COUNT") FEEDBACK_ACCEL_THRESHOLD=$(printf '%q' "$FEEDBACK_ACCEL_THRESHOLD") FEEDBACK_HEIGHT_DROP_THRESHOLD=$(printf '%q' "$FEEDBACK_HEIGHT_DROP_THRESHOLD") FEEDBACK_INITIAL_LIFT_DURATION_SCALE=$(printf '%q' "$FEEDBACK_INITIAL_LIFT_DURATION_SCALE") FEEDBACK_LIFT_DURATION_SCALE_MAX=$(printf '%q' "$FEEDBACK_LIFT_DURATION_SCALE_MAX") FEEDBACK_HOLD_HEIGHT_STEP=$(printf '%q' "$FEEDBACK_HOLD_HEIGHT_STEP") FEEDBACK_HOLD_HEIGHT_OFFSET_MAX=$(printf '%q' "$FEEDBACK_HOLD_HEIGHT_OFFSET_MAX") FEEDBACK_STABILIZATION_STEP=$(printf '%q' "$FEEDBACK_STABILIZATION_STEP") FEEDBACK_STABILIZATION_MAX=$(printf '%q' "$FEEDBACK_STABILIZATION_MAX") PRE_RECORD_WARMUP_STEPS=$(printf '%q' "$PRE_RECORD_WARMUP_STEPS") NUM_STEPS=$(printf '%q' "$NUM_STEPS") SAMPLE_STEPS=$(printf '%q' "$SAMPLE_STEPS") DEVICE=$(printf '%q' "$DEVICE") NEWTON_CACHE_PATH=$(printf '%q' "$NEWTON_CACHE_PATH") bash $(printf '%q' "$ROOT/experiments/configs/run_newton_panda_hydro_camera_export_v2_in_alloc.sh")"
+remote_cmd="cd $(printf '%q' "$ROOT") && RUN_TAG=$(printf '%q' "$RUN_TAG") NEWTON_VENV=$(printf '%q' "$NEWTON_VENV") TRAINER_VENV=$(printf '%q' "$TRAINER_VENV") SCENE=$(printf '%q' "$SCENE") TRACKED_OBJECT=$(printf '%q' "$TRACKED_OBJECT") CONTROLLER_MODE=$(printf '%q' "$CONTROLLER_MODE") FINAL_HOLD_DURATION=$(printf '%q' "$FINAL_HOLD_DURATION") LIFT_HEIGHT_MIN=$(printf '%q' "$LIFT_HEIGHT_MIN") HOLD_DURATION_MIN=$(printf '%q' "$HOLD_DURATION_MIN") DROP_HEIGHT_LOSS=$(printf '%q' "$DROP_HEIGHT_LOSS") PHYSICS_VARIANT_LABEL=$(printf '%q' "$PHYSICS_VARIANT_LABEL") BODY_MASS_SCALE=$(printf '%q' "$BODY_MASS_SCALE") SHAPE_FRICTION_SCALE=$(printf '%q' "$SHAPE_FRICTION_SCALE") OBJECT_MASS_KG=$(printf '%q' "$OBJECT_MASS_KG") OBJECT_FRICTION_MU=$(printf '%q' "$OBJECT_FRICTION_MU") FEEDBACK_MIN_CONTACT_COUNT=$(printf '%q' "$FEEDBACK_MIN_CONTACT_COUNT") FEEDBACK_ACCEL_THRESHOLD=$(printf '%q' "$FEEDBACK_ACCEL_THRESHOLD") FEEDBACK_HEIGHT_DROP_THRESHOLD=$(printf '%q' "$FEEDBACK_HEIGHT_DROP_THRESHOLD") FEEDBACK_INITIAL_LIFT_DURATION_SCALE=$(printf '%q' "$FEEDBACK_INITIAL_LIFT_DURATION_SCALE") FEEDBACK_LIFT_DURATION_SCALE_MAX=$(printf '%q' "$FEEDBACK_LIFT_DURATION_SCALE_MAX") FEEDBACK_HOLD_HEIGHT_STEP=$(printf '%q' "$FEEDBACK_HOLD_HEIGHT_STEP") FEEDBACK_HOLD_HEIGHT_OFFSET_MAX=$(printf '%q' "$FEEDBACK_HOLD_HEIGHT_OFFSET_MAX") FEEDBACK_STABILIZATION_STEP=$(printf '%q' "$FEEDBACK_STABILIZATION_STEP") FEEDBACK_STABILIZATION_MAX=$(printf '%q' "$FEEDBACK_STABILIZATION_MAX") PRE_RECORD_WARMUP_STEPS=$(printf '%q' "$PRE_RECORD_WARMUP_STEPS") RESIDUAL_ADAPTER_CHECKPOINT=$(printf '%q' "$RESIDUAL_ADAPTER_CHECKPOINT") RESIDUAL_ADAPTER_ACTIVE_THRESHOLD=$(printf '%q' "$RESIDUAL_ADAPTER_ACTIVE_THRESHOLD") NUM_STEPS=$(printf '%q' "$NUM_STEPS") SAMPLE_STEPS=$(printf '%q' "$SAMPLE_STEPS") DEVICE=$(printf '%q' "$DEVICE") NEWTON_CACHE_PATH=$(printf '%q' "$NEWTON_CACHE_PATH") bash $(printf '%q' "$ROOT/experiments/configs/run_newton_panda_hydro_camera_export_v2_in_alloc.sh")"
 cmd="cd $(printf '%q' "$ROOT") && srun --jobid=$(printf '%q' "$JOB_ID") --overlap --export=ALL --nodes=1 --ntasks=1 --cpus-per-task=8 --gres=gpu:1 bash -lc $(printf '%q' "$remote_cmd")"
 
 window="${WINDOW_NAME}_${RUN_TAG##*_}"
@@ -112,6 +125,8 @@ FEEDBACK_HOLD_HEIGHT_OFFSET_MAX=$FEEDBACK_HOLD_HEIGHT_OFFSET_MAX
 FEEDBACK_STABILIZATION_STEP=$FEEDBACK_STABILIZATION_STEP
 FEEDBACK_STABILIZATION_MAX=$FEEDBACK_STABILIZATION_MAX
 PRE_RECORD_WARMUP_STEPS=$PRE_RECORD_WARMUP_STEPS
+RESIDUAL_ADAPTER_CHECKPOINT=$RESIDUAL_ADAPTER_CHECKPOINT
+RESIDUAL_ADAPTER_ACTIVE_THRESHOLD=$RESIDUAL_ADAPTER_ACTIVE_THRESHOLD
 NUM_STEPS=$NUM_STEPS
 SAMPLE_STEPS=$SAMPLE_STEPS
 DEVICE=$DEVICE

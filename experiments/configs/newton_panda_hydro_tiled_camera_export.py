@@ -27,7 +27,7 @@ from newton.sensors import SensorTiledCamera
 
 CAMERA_NAMES = ("head_proxy", "right_wrist_proxy", "left_wrist_proxy")
 TRACKED_OBJECTS = ("official_object", "existing_cup_asset")
-CONTROLLER_MODES = ("official_pick_place", "lift_hold", "lift_hold_feedback")
+CONTROLLER_MODES = ("official_pick_place", "lift_hold", "lift_hold_feedback", "lift_hold_learned_residual")
 
 
 def _controller_phase(example: Example) -> tuple[int, str]:
@@ -583,6 +583,137 @@ def _feedback_state() -> dict:
         "trigger_count": 0,
         "active_reason": "none",
         "original_lift_duration_s": None,
+        "base_hold_duration_s": None,
+    }
+
+
+def _load_residual_adapter(checkpoint_path: Path, active_threshold: float):
+    try:
+        import torch
+        from torch import nn
+    except Exception as exc:  # pragma: no cover - depends on compute env
+        raise RuntimeError(
+            "learned residual adapter evaluation requires torch in the active export venv"
+        ) from exc
+
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    if checkpoint.get("classification") != "newton_native_residual_controller_adapter_v1_checkpoint":
+        raise ValueError(f"unexpected residual adapter checkpoint classification: {checkpoint.get('classification')}")
+    target_columns = list(checkpoint["target_columns"])
+    feature_columns = list(checkpoint["feature_columns"])
+    config = checkpoint["config"]
+    architecture = config["architecture"]
+
+    class ResidualControllerAdapter(nn.Module):
+        def __init__(self, input_dim: int, hidden_dim: int, gru_layers: int) -> None:
+            super().__init__()
+            self.input_norm = nn.LayerNorm(input_dim)
+            self.gru = nn.GRU(input_dim, hidden_dim, num_layers=gru_layers, batch_first=True)
+            self.active_head = nn.Linear(hidden_dim, 1)
+            self.continuous_head = nn.Linear(hidden_dim, len(target_columns) - 1)
+
+        def forward(self, features, hidden=None):
+            output, hidden = self.gru(self.input_norm(features), hidden)
+            return self.active_head(output), self.continuous_head(output), hidden
+
+    model = ResidualControllerAdapter(
+        input_dim=int(architecture["input_dim"]),
+        hidden_dim=int(architecture["hidden_dim"]),
+        gru_layers=int(architecture["gru_layers"]),
+    )
+    model.load_state_dict(checkpoint["model_state_dict"])
+    model.eval()
+
+    feature_mean = torch.tensor(checkpoint["feature_mean"], dtype=torch.float32)
+    feature_std = torch.tensor(checkpoint["feature_std"], dtype=torch.float32)
+    continuous_mean = torch.tensor(checkpoint["continuous_mean"], dtype=torch.float32)
+    continuous_std = torch.tensor(checkpoint["continuous_std"], dtype=torch.float32)
+
+    return {
+        "torch": torch,
+        "model": model,
+        "hidden": None,
+        "feature_columns": feature_columns,
+        "target_columns": target_columns,
+        "feature_mean": feature_mean,
+        "feature_std": feature_std,
+        "continuous_mean": continuous_mean,
+        "continuous_std": continuous_std,
+        "active_threshold": float(active_threshold),
+        "checkpoint_classification": checkpoint["classification"],
+        "checkpoint_config_method": config.get("method_name"),
+    }
+
+
+def _apply_learned_residual_adapter(
+    example: Example,
+    adapter: dict,
+    state: dict,
+    feature_values: dict[str, float],
+    lift_duration_scale_max: float,
+    hold_height_offset_max: float,
+    stabilization_max: float,
+) -> dict:
+    import warp as wp
+
+    torch = adapter["torch"]
+    ordered_features = [float(feature_values[column]) for column in adapter["feature_columns"]]
+    features = torch.tensor(ordered_features, dtype=torch.float32).view(1, 1, -1)
+    features = (features - adapter["feature_mean"].view(1, 1, -1)) / adapter["feature_std"].view(1, 1, -1)
+    with torch.no_grad():
+        active_logits, continuous_pred, adapter["hidden"] = adapter["model"](features, adapter["hidden"])
+        active_prob = float(torch.sigmoid(active_logits[0, 0, 0]).cpu())
+        continuous = continuous_pred[0, 0].cpu() * adapter["continuous_std"] + adapter["continuous_mean"]
+    values = [float(x) for x in continuous.tolist()]
+    active = active_prob >= float(adapter["active_threshold"])
+
+    lift_velocity_scale = float(np.clip(values[0], 0.35, 1.0))
+    hold_height_offset_m = float(np.clip(values[1], -abs(hold_height_offset_max), abs(hold_height_offset_max)))
+    stabilization_extension_s = float(np.clip(values[2], 0.0, abs(stabilization_max)))
+
+    if state["original_lift_duration_s"] is None:
+        state["original_lift_duration_s"] = float(example.waypoints[2][1])
+    if state["base_hold_duration_s"] is None:
+        state["base_hold_duration_s"] = float(example.waypoints[3][1])
+
+    reason = "none"
+    if active:
+        reason = "learned_residual_adapter_active"
+        state["trigger_count"] += 1
+        state["active_reason"] = reason
+        state["lift_velocity_scale"] = lift_velocity_scale
+        state["hold_height_offset_m"] = hold_height_offset_m
+        state["stabilization_extension_s"] = stabilization_extension_s
+
+        lift_duration = min(
+            float(state["original_lift_duration_s"]) / max(lift_velocity_scale, 1e-3),
+            float(state["original_lift_duration_s"]) * float(lift_duration_scale_max),
+        )
+        example.waypoints[2][1] = float(max(example.waypoints[2][1], lift_duration))
+        offset_delta = state["hold_height_offset_m"] - state["applied_hold_height_offset_m"]
+        for idx in (3, 4):
+            target_pos = list(example.waypoints[idx][0])
+            target_pos[2] = float(target_pos[2]) + offset_delta
+            example.waypoints[idx][0] = wp.vec3(target_pos)
+        state["applied_hold_height_offset_m"] = state["hold_height_offset_m"]
+        example.waypoints[3][1] = float(state["base_hold_duration_s"]) + stabilization_extension_s
+        example.capture_ik()
+    else:
+        state["active_reason"] = "none"
+
+    return {
+        "feedback_active": int(active),
+        "feedback_reason": reason,
+        "feedback_lift_velocity_scale": float(state["lift_velocity_scale"]),
+        "feedback_hold_height_offset_m": float(state["hold_height_offset_m"]),
+        "feedback_stabilization_extension_s": float(state["stabilization_extension_s"]),
+        "feedback_trigger_count": int(state["trigger_count"]),
+        "feedback_observed_object_vz_m_s": float(feature_values.get("_object_vz_m_s", 0.0)),
+        "feedback_observed_object_accel_m_s2": float(feature_values.get("_object_accel_m_s2", 0.0)),
+        "feedback_active_probability": active_prob,
+        "feedback_raw_lift_velocity_scale": values[0],
+        "feedback_raw_hold_height_offset_m": values[1],
+        "feedback_raw_stabilization_extension_s": values[2],
     }
 
 
@@ -712,6 +843,8 @@ def main() -> None:
     parser.add_argument("--feedback-stabilization-step", type=float, default=0.25)
     parser.add_argument("--feedback-stabilization-max", type=float, default=2.0)
     parser.add_argument("--pre-record-warmup-steps", type=int, default=0)
+    parser.add_argument("--residual-adapter-checkpoint", type=Path, default=None)
+    parser.add_argument("--residual-adapter-active-threshold", type=float, default=0.5)
     parser.add_argument("--width", type=int, default=192)
     parser.add_argument("--height", type=int, default=144)
     args_in = parser.parse_args()
@@ -765,13 +898,34 @@ def main() -> None:
     controller_adapter_meta = {"adapter": "official_panda_hydro_waypoints_unmodified"}
     if args_in.controller_mode == "lift_hold":
         controller_adapter_meta = _configure_lift_hold_waypoints(example, args_in.final_hold_duration)
-    if args_in.controller_mode == "lift_hold_feedback":
+    if args_in.controller_mode in {"lift_hold_feedback", "lift_hold_learned_residual"}:
         controller_adapter_meta = _configure_lift_hold_feedback_waypoints(
             example,
             args_in.final_hold_duration,
             args_in.feedback_initial_lift_duration_scale,
             args_in.feedback_stabilization_step,
         )
+    residual_adapter = None
+    if args_in.controller_mode == "lift_hold_learned_residual":
+        if args_in.residual_adapter_checkpoint is None:
+            raise ValueError("lift_hold_learned_residual requires --residual-adapter-checkpoint")
+        residual_adapter = _load_residual_adapter(
+            args_in.residual_adapter_checkpoint,
+            active_threshold=args_in.residual_adapter_active_threshold,
+        )
+        controller_adapter_meta = {
+            **controller_adapter_meta,
+            "adapter": "official_panda_hydro_waypoints_lift_hold_learned_residual",
+            "feedback_adaptation": True,
+            "feedback_type": "learned_newton_native_residual_controller_adapter",
+            "learned_policy": True,
+            "checkpoint": str(args_in.residual_adapter_checkpoint),
+            "checkpoint_classification": residual_adapter["checkpoint_classification"],
+            "checkpoint_config_method": residual_adapter["checkpoint_config_method"],
+            "active_threshold": float(args_in.residual_adapter_active_threshold),
+            "not_official_trex_method": True,
+            "not_trex_schema": True,
+        }
 
     sensor = SensorTiledCamera(model=example.model)
     sensor.utils.create_default_light(enable_shadows=True)
@@ -813,6 +967,10 @@ def main() -> None:
         "feedback_trigger_count": [],
         "feedback_observed_object_vz_m_s": [],
         "feedback_observed_object_accel_m_s2": [],
+        "feedback_active_probability": [],
+        "feedback_raw_lift_velocity_scale": [],
+        "feedback_raw_hold_height_offset_m": [],
+        "feedback_raw_stabilization_extension_s": [],
     }
     controller_phase_labels = {}
     feedback_state = _feedback_state()
@@ -826,6 +984,8 @@ def main() -> None:
         example.step()
         object_pose = _object_pose(example)
         contact_proxy = _as_np(example.contacts.rigid_contact_count)
+        phase_idx, phase_label = _controller_phase(example)
+        controller_phase_labels[str(phase_idx)] = phase_label
         if args_in.controller_mode == "lift_hold_feedback":
             feedback_record = _apply_scripted_feedback(
                 example=example,
@@ -842,6 +1002,33 @@ def main() -> None:
                 stabilization_step=args_in.feedback_stabilization_step,
                 stabilization_max=args_in.feedback_stabilization_max,
             )
+        elif args_in.controller_mode == "lift_hold_learned_residual":
+            object_z = float(object_pose[0, 2])
+            prev_z = feedback_state["prev_object_z"]
+            prev_vz = feedback_state["prev_object_vz"]
+            vz = 0.0 if prev_z is None else (object_z - float(prev_z)) / max(float(example.frame_dt), 1e-6)
+            accel = 0.0 if prev_vz is None else (vz - float(prev_vz)) / max(float(example.frame_dt), 1e-6)
+            feedback_state["prev_object_z"] = object_z
+            feedback_state["prev_object_vz"] = vz
+            assert residual_adapter is not None
+            feedback_record = _apply_learned_residual_adapter(
+                example=example,
+                adapter=residual_adapter,
+                state=feedback_state,
+                feature_values={
+                    "newton.panda.sim_time": float(example.sim_time),
+                    "newton.contact.rigid_contact_count": float(int(np.max(contact_proxy)) if np.size(contact_proxy) else 0),
+                    "newton.object.body_q.z": object_z,
+                    "candidate.controller.phase_index": float(phase_idx),
+                    "candidate.controller.commanded_gripper_target": float(_commanded_gripper_target(example)),
+                    "candidate.controller.commanded_lift_target": float(_commanded_lift_target(example)),
+                    "_object_vz_m_s": vz,
+                    "_object_accel_m_s2": accel,
+                },
+                lift_duration_scale_max=args_in.feedback_lift_duration_scale_max,
+                hold_height_offset_max=args_in.feedback_hold_height_offset_max,
+                stabilization_max=args_in.feedback_stabilization_max,
+            )
         else:
             feedback_record = {
                 "feedback_active": 0,
@@ -852,6 +1039,10 @@ def main() -> None:
                 "feedback_trigger_count": 0,
                 "feedback_observed_object_vz_m_s": 0.0,
                 "feedback_observed_object_accel_m_s2": 0.0,
+                "feedback_active_probability": 0.0,
+                "feedback_raw_lift_velocity_scale": 1.0,
+                "feedback_raw_hold_height_offset_m": 0.0,
+                "feedback_raw_stabilization_extension_s": 0.0,
             }
         reason = feedback_record["feedback_reason"]
         if reason not in feedback_reason_to_id:
@@ -859,8 +1050,6 @@ def main() -> None:
             feedback_reason_to_id[reason] = reason_id
             feedback_reason_labels[str(reason_id)] = reason
         reason_id = feedback_reason_to_id[reason]
-        phase_idx, phase_label = _controller_phase(example)
-        controller_phase_labels[str(phase_idx)] = phase_label
         rollout_records["step"].append(step + 1)
         rollout_records["sim_time"].append(float(example.sim_time))
         rollout_records["joint_q"].append(_as_np(example.state_0.joint_q))
@@ -885,6 +1074,19 @@ def main() -> None:
         )
         rollout_records["feedback_observed_object_accel_m_s2"].append(
             feedback_record["feedback_observed_object_accel_m_s2"]
+        )
+        rollout_records["feedback_active_probability"].append(feedback_record.get("feedback_active_probability", 0.0))
+        rollout_records["feedback_raw_lift_velocity_scale"].append(
+            feedback_record.get("feedback_raw_lift_velocity_scale", feedback_record["feedback_lift_velocity_scale"])
+        )
+        rollout_records["feedback_raw_hold_height_offset_m"].append(
+            feedback_record.get("feedback_raw_hold_height_offset_m", feedback_record["feedback_hold_height_offset_m"])
+        )
+        rollout_records["feedback_raw_stabilization_extension_s"].append(
+            feedback_record.get(
+                "feedback_raw_stabilization_extension_s",
+                feedback_record["feedback_stabilization_extension_s"],
+            )
         )
         if step not in requested:
             continue
@@ -953,6 +1155,18 @@ def main() -> None:
         "candidate.controller.feedback_observed_object_accel_m_s2": np.asarray(
             rollout_records["feedback_observed_object_accel_m_s2"], dtype=np.float32
         ),
+        "candidate.controller.feedback_active_probability": np.asarray(
+            rollout_records["feedback_active_probability"], dtype=np.float32
+        ),
+        "candidate.controller.feedback_raw_lift_velocity_scale": np.asarray(
+            rollout_records["feedback_raw_lift_velocity_scale"], dtype=np.float32
+        ),
+        "candidate.controller.feedback_raw_hold_height_offset_m": np.asarray(
+            rollout_records["feedback_raw_hold_height_offset_m"], dtype=np.float32
+        ),
+        "candidate.controller.feedback_raw_stabilization_extension_s": np.asarray(
+            rollout_records["feedback_raw_stabilization_extension_s"], dtype=np.float32
+        ),
         "candidate.physics.tracked_body_indices": np.asarray(
             []
             if object_physics_adapter_meta.get("body_index_local") is None
@@ -1003,12 +1217,16 @@ def main() -> None:
         "num_steps": args_in.num_steps,
         "pre_record_warmup_steps": args_in.pre_record_warmup_steps,
         "sample_steps": requested,
-        "controller_type": "official_newton_panda_hydro_scripted_no_adaptation",
+        "controller_type": (
+            "newton_native_residual_controller_adapter_evaluation"
+            if args_in.controller_mode == "lift_hold_learned_residual"
+            else "official_newton_panda_hydro_scripted_no_adaptation"
+        ),
         "controller_phase_labels": controller_phase_labels,
         "feedback_reason_labels": feedback_reason_labels,
         "scripted_feedback": {
-            "enabled": args_in.controller_mode == "lift_hold_feedback",
-            "learned_policy": False,
+            "enabled": args_in.controller_mode in {"lift_hold_feedback", "lift_hold_learned_residual"},
+            "learned_policy": args_in.controller_mode == "lift_hold_learned_residual",
             "curiosity_reward": "none",
             "min_contact_count": args_in.feedback_min_contact_count,
             "accel_threshold_m_s2": args_in.feedback_accel_threshold,
@@ -1021,6 +1239,10 @@ def main() -> None:
             "stabilization_max_s": args_in.feedback_stabilization_max,
             "final_trigger_count": int(feedback_state["trigger_count"]),
             "source": "candidate.controller.*",
+            "residual_adapter_checkpoint": str(args_in.residual_adapter_checkpoint)
+            if args_in.residual_adapter_checkpoint
+            else None,
+            "residual_adapter_active_threshold": float(args_in.residual_adapter_active_threshold),
         },
         "camera_names": list(CAMERA_NAMES),
         "width": args_in.width,
