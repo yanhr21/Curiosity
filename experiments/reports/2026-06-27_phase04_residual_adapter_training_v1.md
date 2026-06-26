@@ -101,14 +101,16 @@ The real-training gate is complete: the adapter trained for at least one GPU
 hour, wrote a checkpoint, passed fresh official Newton sanity, and satisfied
 the GPU utilization rule.
 
-This still does not prove learned closed-loop adaptation. The checkpoint has
-not yet been inserted into the Newton controller path, has not been evaluated
-on held-out `full_low` or `empty_high`, and has no trained-policy visual gate.
+Follow-up ordinary validation has now inserted the checkpoint into the Newton
+controller path and passed visual plus metric gates on `empty_medium`; see
+`experiments/reports/2026-06-27_phase04_residual_adapter_eval_empty_medium_validation_v1.md`.
+
+This still does not prove held-out generalization or policy improvement. The
+checkpoint has not been evaluated on held-out `full_low` or `empty_high`.
 
 ## Next Step
 
-Wire the checkpoint into the Newton residual-controller evaluation path and
-run visual plus metric gates. Start with a non-held-out validation rollout,
-then evaluate held-out `full_low` and `empty_high`. Only after that comparison
+Evaluate held-out `full_low` and `empty_high` with fresh official Newton
+sanity, visual/browser inspection, and metrics. Only after that comparison
 against no-adaptation and scripted-feedback baselines can the project make a
 learned-adaptation claim.

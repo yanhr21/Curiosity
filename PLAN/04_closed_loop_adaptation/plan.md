@@ -673,3 +673,35 @@ claim is valid yet. The checkpoint has not been inserted into the Newton
 closed-loop controller path, no trained-policy visual/browser output has been
 inspected, and held-out `full_low`/`empty_high` evaluation has not started.
 The next step is checkpoint evaluation, not more source gating.
+
+2026-06-27 eighth follow-up: the trained checkpoint was wired into the Newton
+closed-loop controller path and evaluated on ordinary validation cell
+`empty_medium`.
+
+- Evaluation config:
+  `experiments/configs/residual_adapter_evaluation_v1.json`.
+- Launcher:
+  `experiments/configs/launch_residual_adapter_evaluation_tmux.sh`.
+- Run tag:
+  `residual_adapter_eval_v1_empty_medium_validation_20260627_0605`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_eval_empty_medium_validation_v1.md`.
+- Checkpoint:
+  `checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt`.
+- Fresh official Newton sanity: pass.
+- Camera export and visual validation: pass.
+- Manual frame-browser inspection: `pass_nonblank_success_learned_residual`.
+- Metrics status: pass.
+- Learned residual trigger count: `240`.
+- Lift height: `0.16149283945560455` m.
+- Hold duration: `2.566664218902588` s.
+- Max slip: `0.0036941702785655258` m.
+- Contact-loss frames: `0`.
+- Max object acceleration: `0.6439671191529558` m/s^2.
+- Generated T-Rex fields: `[]`.
+- Schema promotion: `blocked`.
+
+Interpretation: ordinary checkpoint integration and visual/metric evaluation
+now pass. This is still not held-out generalization and not a policy
+improvement claim. The next step is held-out evaluation on `full_low` and
+`empty_high` with the same visual and metric gates.

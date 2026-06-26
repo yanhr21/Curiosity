@@ -62,15 +62,22 @@
       completed `32685` optimizer steps, reached validation loss
       `6.241170922294259e-05`, and passed GPU utilization monitoring with mean
       utilization `99.08333333333333%`.
-- [ ] Wire the trained residual adapter checkpoint into the Newton
+- [x] Wire the trained residual adapter checkpoint into the Newton
       closed-loop controller evaluation path.
       Use checkpoint:
       `checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt`.
-      Required gates: fresh official Newton sanity, camera export, visual
-      validation, browser/manual frame inspection, lift-hold metrics, direct
-      output paths, and comparison against no-adaptation/scripted-feedback
-      baselines. Start with an ordinary validation rollout before held-out
-      cells.
+      Ordinary validation rollout complete:
+      `residual_adapter_eval_v1_empty_medium_validation_20260627_0605`.
+      Evidence:
+      `experiments/reports/2026-06-27_phase04_residual_adapter_eval_empty_medium_validation_v1.md`.
+      This run passed fresh official Newton sanity, camera export, automated
+      visual validation, manual browser/frame inspection, and lift-hold
+      metrics on ordinary `empty_medium`. Metrics: lift height
+      `0.16149283945560455` m, hold duration `2.566664218902588` s,
+      max slip `0.0036941702785655258` m, contact-loss frames `0`,
+      max object acceleration `0.6439671191529558` m/s^2, status success.
+      This clears ordinary checkpoint integration only; held-out evaluation is
+      still pending.
 - [ ] Evaluate the trained residual adapter on held-out `full_low` and
       `empty_high`.
       These cells must remain evaluation-only. Do not use them for labels,
@@ -172,10 +179,10 @@
       Evidence: Phase 02/04 configs preserve `full_low` and `empty_high` as
       held-out cells.
 - [ ] Compare adaptation speed and failure modes.
-      Waiting on trained-checkpoint closed-loop evaluation. The checkpoint
-      exists, but current scripted feedback and curiosity/contact replay
-      diagnostics are still baselines only until trained-adapter rollout
-      metrics and visuals exist.
+      Waiting on held-out trained-checkpoint closed-loop evaluation and
+      comparison against no-adaptation/scripted-feedback baselines. Ordinary
+      validation now passes, but no held-out adaptation-improvement claim is
+      valid yet.
 - [x] Save direct visual paths for success and failure cases.
       Evidence: nominal scripted feedback report records contact sheet and
       frame browser paths; grid reports still pending.

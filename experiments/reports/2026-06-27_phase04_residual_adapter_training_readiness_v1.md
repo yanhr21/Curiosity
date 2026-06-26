@@ -70,23 +70,36 @@ GPU utilization monitor:
 
 ## Remaining Blocking Gaps
 
-- The checkpoint has not been wired into the Newton controller evaluation path.
-- No trained-adapter rollout has been visually inspected in the browser/frame
-  output.
 - No held-out adapter evaluation exists on `full_low` or `empty_high`.
 - No policy-improvement or learned-adaptation claim is valid yet.
 
+## Ordinary Evaluation Follow-Up
+
+The checkpoint has now been wired into the Newton controller evaluation path
+and passed ordinary validation on `empty_medium`.
+
+- Run tag: `residual_adapter_eval_v1_empty_medium_validation_20260627_0605`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_eval_empty_medium_validation_v1.md`.
+- Fresh official Newton sanity: pass.
+- Visual validation: pass.
+- Manual visual inspection: `pass_nonblank_success_learned_residual`.
+- Metrics status: pass.
+- Lift height: `0.16149283945560455` m.
+- Hold duration: `2.566664218902588` s.
+- Max slip: `0.0036941702785655258` m.
+- Max object acceleration: `0.6439671191529558` m/s^2.
+- Generated T-Rex fields: `[]`.
+- Schema promotion: `blocked`.
+
 ## Next Step
 
-Proceed to checkpoint evaluation, not more gating on source mismatch:
+Proceed to held-out checkpoint evaluation, not more gating on source mismatch:
 
-1. Wire
-   `checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt`
-   into the Newton residual-controller evaluation path.
-2. Run a non-held-out validation rollout first, with fresh official Newton
-   sanity, camera export, visual/browser inspection, and lift-hold metrics.
-3. Then evaluate held-out `full_low` and `empty_high` against no-adaptation and
-   scripted-feedback baselines.
+1. Evaluate held-out `full_low` with fresh official Newton sanity, camera
+   export, visual/browser inspection, and lift-hold metrics.
+2. Evaluate held-out `empty_high` with the same gates.
+3. Compare against no-adaptation and scripted-feedback baselines.
 
 Do not claim T-Rex compatibility, tactile F6, curiosity policy update, or
 policy improvement until those controller-evaluation gates pass.
