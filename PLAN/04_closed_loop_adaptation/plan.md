@@ -641,3 +641,35 @@ Next action: run real `RUN_MODE=train` only with a GPU-utilization plan that
 satisfies the one-GPU one-hour rule, then evaluate the checkpoint on held-out
 `full_low` and `empty_high` with visual and metric gates before making any
 learned-adaptation claim.
+
+2026-06-27 seventh follow-up: the real Newton-native residual-adapter training
+run completed inside the existing tmux-held allocation `154142`.
+
+- Trainer config:
+  `experiments/configs/residual_adapter_trainer_v1.json`.
+- Training report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_training_v1.md`.
+- Final train tag:
+  `residual_adapter_trainer_v1_train_20260627_0548`.
+- Summary:
+  `experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548_summary.json`.
+- Checkpoint:
+  `checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt`.
+- GPU utilization JSON:
+  `experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548_gpu_utilization.json`.
+- Fresh official Newton sanity: pass.
+- Device: NVIDIA H200, `cuda:0`.
+- Elapsed training time: `3600.0302035808563` seconds.
+- Optimizer steps: `32685`.
+- Validation loss: `6.241170922294259e-05`.
+- Validation active accuracy: `1.0`.
+- Mean GPU utilization: `99.08333333333333%`.
+- Generated T-Rex fields: `[]`.
+- Schema promotion: `blocked`.
+- Failures: `[]`.
+
+Interpretation: the real-training gate is complete, but no learned-adaptation
+claim is valid yet. The checkpoint has not been inserted into the Newton
+closed-loop controller path, no trained-policy visual/browser output has been
+inspected, and held-out `full_low`/`empty_high` evaluation has not started.
+The next step is checkpoint evaluation, not more source gating.

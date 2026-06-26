@@ -39,23 +39,44 @@
       This is diagnostic replay only: no model training, no policy update, no
       placeholder T-Rex/VQ-VAE/world model, and tactile source is
       `newton.contact_proxy_only`.
-- [ ] Train the first learned adapter as residual controller-parameter output,
+- [x] Train the first learned adapter as residual controller-parameter output,
       not full low-level torque control.
-      Current status: blocked, training not started. Five promoted source
-      candidates now exist, the formal residual-label source runner passes,
-      the residual-adapter training preflight passes, and the trainer smoke
-      passes. Real training has not started.
+      Current status: real one-GPU one-hour training completed. This is a
+      Newton-native residual controller adapter, not an official T-Rex method
+      and not a T-Rex schema result. It does not yet prove learned policy
+      improvement because the checkpoint has not been wired into closed-loop
+      Newton evaluation.
       Evidence:
       `experiments/configs/residual_adapter_training_readiness_v1.json`,
       `experiments/reports/2026-06-27_phase04_residual_adapter_training_readiness_v1.md`,
       `experiments/configs/residual_adapter_training_preflight_v1.json`, and
       `experiments/reports/2026-06-27_phase04_residual_adapter_training_preflight_v1.md`,
       `experiments/configs/residual_adapter_trainer_v1.json`, and
-      `experiments/reports/2026-06-27_phase04_residual_adapter_trainer_smoke_v1.md`.
-      Blocker: real training still needs a `RUN_MODE=train` run that satisfies
-      the one-GPU one-hour rule, monitors GPU utilization, writes a checkpoint,
-      and then runs held-out visual/metric evaluation. The smoke result is not
-      a learned-adaptation result.
+      `experiments/reports/2026-06-27_phase04_residual_adapter_trainer_smoke_v1.md`,
+      `experiments/reports/2026-06-27_phase04_residual_adapter_training_v1.md`.
+      Final training run:
+      `residual_adapter_trainer_v1_train_20260627_0548`. It passed fresh
+      official Newton sanity, trained for `3600.0302035808563` seconds on
+      NVIDIA H200, wrote
+      `checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt`,
+      completed `32685` optimizer steps, reached validation loss
+      `6.241170922294259e-05`, and passed GPU utilization monitoring with mean
+      utilization `99.08333333333333%`.
+- [ ] Wire the trained residual adapter checkpoint into the Newton
+      closed-loop controller evaluation path.
+      Use checkpoint:
+      `checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt`.
+      Required gates: fresh official Newton sanity, camera export, visual
+      validation, browser/manual frame inspection, lift-hold metrics, direct
+      output paths, and comparison against no-adaptation/scripted-feedback
+      baselines. Start with an ordinary validation rollout before held-out
+      cells.
+- [ ] Evaluate the trained residual adapter on held-out `full_low` and
+      `empty_high`.
+      These cells must remain evaluation-only. Do not use them for labels,
+      training, hyperparameter tuning, or threshold selection. No
+      learned-adaptation, curiosity-policy-update, or held-out-generalization
+      claim is valid until this passes visual and metric gates.
 - [x] Run first ordinary-cell diagnostic to verify whether the official Newton
       path can emit nonzero residual controller-parameter labels.
       Evidence:
@@ -151,8 +172,10 @@
       Evidence: Phase 02/04 configs preserve `full_low` and `empty_high` as
       held-out cells.
 - [ ] Compare adaptation speed and failure modes.
-      Waiting on a valid learned residual-adapter run. Current scripted
-      feedback and curiosity/contact replay diagnostics are baselines only.
+      Waiting on trained-checkpoint closed-loop evaluation. The checkpoint
+      exists, but current scripted feedback and curiosity/contact replay
+      diagnostics are still baselines only until trained-adapter rollout
+      metrics and visuals exist.
 - [x] Save direct visual paths for success and failure cases.
       Evidence: nominal scripted feedback report records contact sheet and
       frame browser paths; grid reports still pending.

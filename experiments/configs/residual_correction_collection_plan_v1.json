@@ -1,11 +1,27 @@
 {
   "classification": "residual_correction_collection_plan_v1",
   "phase": "04_closed_loop_adaptation",
-  "status": "residual_label_source_runner_passed_five_sources_training_not_started",
-  "purpose": "Plan the next diagnostic collection needed before residual-adapter training: collect nonzero residual controller-parameter corrections around the official Newton scripted infant prior.",
-  "training_started": false,
-  "no_model_created": true,
-  "source_blocker": "resolved_for_five_source_candidates_and_preflight: warmup15 contact58 gentle lift165 runs produced nonzero residual labels and passed strict metrics on ordinary half_low, empty_low, half_medium, full_high, and empty_medium. The formal source runner passed with 1800 records, and the residual-adapter training preflight passed with 1440 train records and 360 validation records. Remaining work is actual learned-adapter trainer implementation.",
+  "status": "residual_adapter_real_training_completed_evaluation_not_started",
+  "purpose": "Track nonzero residual controller-parameter correction sources around the official Newton scripted infant prior and, after real adapter training, direct the next step to checkpoint integration and evaluation.",
+  "training_started": true,
+  "no_model_created": false,
+  "checkpoint_created": true,
+  "source_blocker": "resolved_for_five_source_candidates_preflight_and_real_training: warmup15 contact58 gentle lift165 runs produced nonzero residual labels and passed strict metrics on ordinary half_low, empty_low, half_medium, full_high, and empty_medium. The formal source runner passed with 1800 records, the residual-adapter training preflight passed with 1440 train records and 360 validation records, and real training produced a checkpoint. Remaining work is checkpoint integration plus ordinary and held-out evaluation, not more source gating.",
+  "trained_checkpoint": {
+    "run_tag": "residual_adapter_trainer_v1_train_20260627_0548",
+    "summary": "experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548_summary.json",
+    "gpu_utilization": "experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548_gpu_utilization.json",
+    "checkpoint": "checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt",
+    "report": "experiments/reports/2026-06-27_phase04_residual_adapter_training_v1.md",
+    "elapsed_seconds": 3600.0302035808563,
+    "optimizer_steps": 32685,
+    "validation_loss": 6.241170922294259e-05,
+    "mean_gpu_utilization_percent": 99.08333333333333,
+    "fresh_official_newton_sanity": "pass",
+    "generated_trex_fields": [],
+    "schema_promotion": "blocked",
+    "policy_improvement_claim_valid": false
+  },
   "current_feedback_rule": {
     "source_file": "experiments/configs/newton_panda_hydro_tiled_camera_export.py",
     "function": "_apply_scripted_feedback",
@@ -95,9 +111,9 @@
     ]
   },
   "forbidden_claims": [
-    "learned_adapter_trained",
     "adaptation_improved",
     "curiosity_policy_updated",
+    "held_out_generalization",
     "tactile_f6_available",
     "trex_schema_compatible"
   ],
@@ -424,5 +440,5 @@
       "interpretation": "Pre-record warmup removes the phase-0 initial settling artifact from the recorded metrics while preserving nonzero feedback labels and strict lift-hold success. This is a source candidate, not a trained adapter."
     }
   ],
-  "next_action": "Implement the actual learned residual-adapter trainer using data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json as input. Additional ordinary-cell collection is optional and must use the same visual/manual/metrics/peak/source-runner gates. Do not use held-out full_low or empty_high for labels. Do not start learned adapter training until the trainer is implemented, reviewed, and preserves fresh official Newton sanity plus held-out split checks."
+  "next_action": "Wire checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt into the Newton residual-controller evaluation path. Start with an ordinary validation rollout, then evaluate held-out full_low and empty_high with fresh official Newton sanity, visual/browser inspection, and lift-hold metrics. Additional ordinary-cell collection is optional only if checkpoint evaluation exposes source coverage problems. Do not use held-out full_low or empty_high for labels, training, tuning, or threshold selection."
 }

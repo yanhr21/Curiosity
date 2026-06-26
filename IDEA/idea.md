@@ -764,3 +764,34 @@ Manual inspection of frames `0240`, `0360`, and `0419` confirmed that the cup
 remains elevated through the sampled hold window. This clears the Phase 01
 scripted cup lift-and-hold metric gate, but it still does not claim learned
 curiosity, policy adaptation, T-Rex compatibility, tactile F6, or training.
+
+## Phase 04 Real Residual Adapter Training Status
+
+The first Newton-native residual controller-parameter adapter has now been
+trained. This is deliberately not an official T-Rex method and not a T-Rex
+schema result. It is a residual controller adapter around the official Newton
+Panda hydro scripted infant prior, using the compute-verified residual-label
+split.
+
+Real training run:
+
+```text
+run_tag=residual_adapter_trainer_v1_train_20260627_0548
+checkpoint=checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt
+summary=experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548_summary.json
+report=experiments/reports/2026-06-27_phase04_residual_adapter_training_v1.md
+```
+
+The run reused the existing tmux-held Curiosity GPU allocation `154142`,
+passed fresh official Newton sanity, trained for `3600.0302035808563` seconds
+on an NVIDIA H200, wrote a checkpoint, completed `32685` optimizer steps, and
+passed GPU utilization monitoring with mean utilization
+`99.08333333333333%`. Validation loss was
+`6.241170922294259e-05` on ordinary validation cell `empty_medium`.
+
+This completes the training gate but not the science claim. The checkpoint has
+not yet been connected back into the Newton closed-loop controller, has not
+produced trained-policy visual/browser rollouts, and has not been evaluated on
+held-out `full_low` or `empty_high`. Therefore the next step is to evaluate
+the trained checkpoint, not to keep waiting for exact T-Rex data-schema
+alignment.

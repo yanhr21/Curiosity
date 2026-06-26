@@ -108,19 +108,37 @@ triggers without preserving task gates, or if it relies on held-out cells.
 
 Do not claim:
 
-- learned adapter training;
 - adaptation improvement;
 - policy update;
+- held-out generalization;
 - tactile F6;
 - T-Rex compatibility.
 
+## Training Follow-Up
+
+The formal residual-label source runner, residual-adapter training preflight,
+trainer smoke, and real one-GPU one-hour training run now pass.
+
+Real training evidence:
+
+- run tag: `residual_adapter_trainer_v1_train_20260627_0548`;
+- summary:
+  `experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548_summary.json`;
+- checkpoint:
+  `checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt`;
+- training report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_training_v1.md`;
+- elapsed seconds: `3600.0302035808563`;
+- optimizer steps: `32685`;
+- validation loss: `6.241170922294259e-05`;
+- mean GPU utilization: `99.08333333333333%`;
+- generated T-Rex fields: `[]`;
+- schema promotion: `blocked`.
+
 ## Next Step
 
-The formal residual-label source runner and residual-adapter training preflight
-now pass. The next step is to implement the actual learned residual-adapter
-trainer using
-`data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json`
-as input. Do not use held-out `full_low` or `empty_high` for labels or
-training, and do not start learned adapter training until the trainer is
-implemented, reviewed, and preserves fresh official Newton sanity plus held-out
-split checks.
+Do not continue treating source mismatch as the active gate. Wire the trained
+checkpoint into the Newton residual-controller evaluation path, run a
+non-held-out validation rollout with visual/browser and metric gates, then run
+held-out `full_low` and `empty_high` evaluation. Do not use held-out cells for
+labels, training, tuning, or threshold selection.

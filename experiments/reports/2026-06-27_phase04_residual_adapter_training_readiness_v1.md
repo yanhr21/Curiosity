@@ -2,125 +2,91 @@
 
 ## Scope
 
-This report audits whether the first learned residual controller-parameter
-adapter can be trained now. It does not start training and does not create a
-model.
+This report audits the first Newton-native residual controller-parameter
+adapter after real training. It is not an official T-Rex method, does not use
+T-Rex schema fields, and does not claim policy improvement before held-out
+controller evaluation.
 
-## Result
+## Current Result
 
-Status: residual-adapter trainer smoke passed, real learned-adapter training
-not started.
+Status: real one-GPU one-hour residual-adapter training completed; held-out
+adapter evaluation has not started.
 
-The original blocker was that every default scripted-feedback evaluation had
-`feedback_trigger_count=0`. Follow-up ordinary-cell diagnostics proved that
-the official Newton rollout path can emit nonzero `candidate.controller.*`
-residual fields, and the formal source runner now validates five ordinary
-source candidates:
+The previous active blocker was `real_training_not_started`. That blocker is
+resolved by:
 
-- `half_low`:
-  `residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006`;
-- `empty_low`:
-  `residual_label_sweep_empty_low_contact58_gentle_lift165_warmup15_20260627_0345`;
-- `half_medium`:
-  `residual_label_sweep_half_medium_contact58_gentle_lift165_warmup15_20260627_0352`.
-- `full_high`:
-  `residual_label_sweep_full_high_contact58_gentle_lift165_warmup15_20260627_0410`.
-- `empty_medium`:
-  `residual_label_sweep_empty_medium_contact58_gentle_lift165_warmup15_20260627_0425`.
+- run tag: `residual_adapter_trainer_v1_train_20260627_0548`;
+- command:
+  `ALLOW_REAL_TRAINING=1 RUN_TAG=residual_adapter_trainer_v1_train_20260627_0548 RUN_MODE=train WINDOW_NAME=residual_adapter_train_1h JOB_ID=154142 TMUX_SESSION=curiosity_residual_source_alloc_20260627_034021 bash experiments/configs/launch_residual_adapter_trainer_tmux.sh`;
+- Slurm allocation: `154142`, reused existing tmux-held Curiosity allocation;
+- node/device: NVIDIA H200, `cuda:0`;
+- elapsed seconds: `3600.0302035808563`;
+- optimizer steps: `32685`;
+- checkpoint:
+  `checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt`;
+- summary:
+  `experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548_summary.json`;
+- GPU utilization:
+  `experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548_gpu_utilization.json`;
+- report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_training_v1.md`.
 
-Final source-runner output:
+## Training Evidence
 
-- manifest:
-  `data/processed/residual_label_source_runner_v1_20260627/manifest.json`;
-- records:
-  `data/processed/residual_label_source_runner_v1_20260627/residual_label_records.csv`;
-- status: pass;
-- source run count: 5;
-- record count: 1800;
-- total feedback trigger count: 1203;
-- failures: [];
-- generated T-Rex fields: [];
-- schema promotion: blocked;
-- training started: false.
+- Fresh official Newton sanity: pass.
+- Train records: `1440`.
+- Validation records: `360`.
+- Train cells: `half_low`, `empty_low`, `half_medium`, `full_high`.
+- Validation cell: `empty_medium`.
+- Held-out cells excluded from source labels and training: `full_low`,
+  `empty_high`.
+- Validation loss: `6.241170922294259e-05`.
+- Validation active accuracy: `1.0`.
+- Validation active BCE: `1.1115849929410615e-06`.
+- Validation continuous MSE: `6.130012479843572e-05`.
+- Generated T-Rex fields: `[]`.
+- Schema promotion: `blocked`.
+- Failures: `[]`.
 
-Real training still has not started because no `RUN_MODE=train` run has
-completed the required one-GPU one-hour training, checkpoint writing, and
-held-out evaluation gates.
+GPU utilization monitor:
 
-## Ready Evidence
-
-- Official Newton Panda hydro scripted infant prior is available and visually
-  validated.
-- Real Newton mass/friction variants exist across nominal, ordinary, and
-  held-out cells.
-- Held-out `full_low` and `empty_high` remain reserved for generalization.
-- Phase 05 contact source manifest passed with `source_run_count=10`,
-  `record_count=3600`, `generated_trex_fields=[]`, and
-  `schema_promotion=blocked`.
-- Phase 03 curiosity replay diagnostic passed with `rollout_count=9`.
-- Residual adapter and forward-model target contract exists:
-  `experiments/configs/residual_adapter_forward_model_contract_v1.json`.
-- Source manifest exists:
-  `experiments/configs/residual_label_source_manifest_v1.json`.
-- Source runner report exists:
-  `experiments/reports/2026-06-27_phase04_residual_label_source_runner_v1.md`.
-- Training-input preflight exists:
-  `experiments/configs/residual_adapter_training_preflight_v1.json`.
-- Training-input preflight manifest passed:
-  `data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json`.
-- Training-input preflight report exists:
-  `experiments/reports/2026-06-27_phase04_residual_adapter_training_preflight_v1.md`.
-- Trainer config exists:
-  `experiments/configs/residual_adapter_trainer_v1.json`.
-- Trainer smoke summary passed:
-  `experiments/outputs/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_smoke_20260627_0539_summary.json`.
-- Trainer smoke report exists:
-  `experiments/reports/2026-06-27_phase04_residual_adapter_trainer_smoke_v1.md`.
+- sample count: `120`;
+- mean utilization: `99.08333333333333%`;
+- max utilization: `100.0%`;
+- max memory used: `30233.0` MiB;
+- samples below 30%: `1`;
+- status: pass.
 
 ## Resolved Blockers
 
-- The previous strict acceleration blocker was traced to a recorded initial
-  settling artifact and resolved by `PRE_RECORD_WARMUP_STEPS=15`.
-- The lack of a promoted nonzero residual-label source is resolved for five
-  ordinary cells.
-- The formal source-runner blocker is resolved: the runner passed after fresh
-  official Newton sanity and held-out split checks.
-- The training-input preflight blocker is resolved: the preflight runner passed
-  after fresh official Newton sanity with 1440 train records and 360 validation
-  records, while excluding held-out `full_low` and `empty_high`.
-- The trainer smoke blocker is resolved: the CUDA/PyTorch trainer path passed
-  after fresh official Newton sanity with optimizer steps and validation metrics
-  while writing no checkpoint and making no real-training claim.
+- No real training run: resolved.
+- No trained adapter checkpoint: resolved.
+- No formal source runner: resolved earlier by
+  `residual_label_source_runner_v1_20260627_0455`.
+- No training preflight: resolved earlier by
+  `residual_adapter_training_preflight_v1_20260627_0523`.
+- No trainer smoke: resolved earlier by
+  `residual_adapter_trainer_v1_smoke_20260627_0539`.
 
-## Blocking Gaps
+## Remaining Blocking Gaps
 
-- No real one-GPU one-hour adapter training run has completed.
-- No trained adapter checkpoint exists.
+- The checkpoint has not been wired into the Newton controller evaluation path.
+- No trained-adapter rollout has been visually inspected in the browser/frame
+  output.
 - No held-out adapter evaluation exists on `full_low` or `empty_high`.
-- Source coverage is five ordinary cells. This limits broad learned-adaptation
-  claims, but it is not a blocker for designing the learned residual-adapter
-  runner.
+- No policy-improvement or learned-adaptation claim is valid yet.
 
-## Allowed Next Routes
+## Next Step
 
-1. Run `RUN_MODE=train` only after confirming the GPU-utilization plan and
-   preserving the one-GPU one-hour rule.
-2. Optionally collect more ordinary-cell sources later, excluding held-out
-   `full_low` and `empty_high`, but do not treat this as the active gate.
-3. Only after runner review, start a real training run that follows the
-   no-placeholder-model and GPU-duration rules.
+Proceed to checkpoint evaluation, not more gating on source mismatch:
 
-## Forbidden Next Steps
+1. Wire
+   `checkpoints/residual_adapter_trainer_v1_20260627/residual_adapter_trainer_v1_train_20260627_0548.pt`
+   into the Newton residual-controller evaluation path.
+2. Run a non-held-out validation rollout first, with fresh official Newton
+   sanity, camera export, visual/browser inspection, and lift-hold metrics.
+3. Then evaluate held-out `full_low` and `empty_high` against no-adaptation and
+   scripted-feedback baselines.
 
-- Do not train a zero-residual no-op adapter and claim adaptation.
-- Do not introduce a placeholder MLP/policy and present it as official-method
-  progress.
-- Do not train on held-out `full_low` or `empty_high`.
-- Do not rename Newton contact proxy into T-Rex tactile F6.
-
-## Interpretation
-
-The project has moved past source-runner construction, training-input
-preflight, and trainer smoke. The next technical blocker is the real one-hour
-training run plus held-out evaluation, not source availability, split
-construction, or trainer import.
+Do not claim T-Rex compatibility, tactile F6, curiosity policy update, or
+policy improvement until those controller-evaluation gates pass.
