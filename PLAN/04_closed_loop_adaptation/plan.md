@@ -106,3 +106,24 @@ Interpretation: the feedback grid path is runnable on a real mass/friction
 variant. This cell still does not demonstrate adaptation because the current
 feedback thresholds did not trigger. Continue through the grid before drawing
 adaptation claims.
+
+2026-06-27: validated the second scripted feedback ordinary grid cell.
+
+- Cell: `empty_medium`.
+- Canonical run tag:
+  `lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635`.
+- Duplicate run kept as noncanonical output:
+  `lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1630`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_scripted_feedback_empty_medium_variant.md`.
+- Fresh official Newton sanity: pass.
+- Automated visual validation: pass.
+- Manual visual inspection: pass.
+- Applied object mass: `0.07999999821186066` kg observed.
+- Applied friction mu: `0.800000011920929` observed.
+- Strict metric status: fail, only `object_accel_above_threshold`.
+- Feedback trigger count: 0.
+
+Interpretation: this second ordinary cell remains visually valid and physically
+parameterized, but still does not demonstrate feedback adaptation because no
+feedback event was triggered.

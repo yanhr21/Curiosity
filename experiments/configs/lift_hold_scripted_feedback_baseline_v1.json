@@ -1,6 +1,6 @@
 {
   "classification": "newton_native_lift_hold_scripted_feedback_baseline_v1",
-  "status": "nominal_cup_gate_complete_with_acceleration_failure",
+  "status": "ordinary_grid_in_progress_empty_low_empty_medium_complete_with_acceleration_failures",
   "phase": "04_closed_loop_adaptation",
   "purpose": "Define the first scripted feedback adaptation baseline around the official Newton Panda hydro scripted infant prior. This is not a learned policy and not a pretrained checkpoint claim.",
   "infant_prior": {
@@ -153,6 +153,39 @@
         "observed_shape_material_mu": 0.3499999940395355,
         "feedback_trigger_count": 0,
         "interpretation": "Empty/low feedback ordinary grid cell is runnable and visually valid. Real Newton mass/friction values were applied. Strict metrics still fail only on object acceleration, and no feedback event was triggered."
+      },
+      "empty_medium": {
+        "run_tag": "lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635",
+        "tracked_object": "existing_cup_asset",
+        "physics_variant_label": "feedback_empty_medium_mass0p08_mu0p80",
+        "object_mass_kg": 0.08,
+        "object_friction_mu": 0.8,
+        "held_out_generalization_cell": false,
+        "fresh_newton_sensor_contact_sanity": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635_fresh_newton_sensor_contact_sanity.json",
+        "visual_validation": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635_visual_validation.json",
+        "manual_visual_inspection": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635_manual_visual_inspection.json",
+        "summary_json": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635_summary.json",
+        "npz": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635.npz",
+        "metrics_json": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635_metrics.json",
+        "metrics_csv": "experiments/outputs/lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635_metrics.csv",
+        "frame_browser": "experiments/visuals/lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635/frame_browser.html",
+        "contact_sheet": "experiments/visuals/lift_hold_scripted_feedback_baseline_v1_cup_empty_medium_prefinalize_20260627_1635/contact_sheet.png",
+        "status": "fail",
+        "failure_reasons": [
+          "object_accel_above_threshold"
+        ],
+        "lift_height_m": 0.160252645611763,
+        "hold_duration_s": 2.8333306312561035,
+        "max_slip_m": 0.0035626504907293466,
+        "object_not_dropped": true,
+        "drop_height_loss_m": 0.0,
+        "contact_loss_frames": 0,
+        "max_contact_proxy": 62.0,
+        "max_object_accel_m_s2": 8.308392358032673,
+        "observed_body_mass_kg": 0.07999999821186066,
+        "observed_shape_material_mu": 0.800000011920929,
+        "feedback_trigger_count": 0,
+        "interpretation": "Empty/medium feedback ordinary grid cell is runnable and visually valid. Real Newton mass/friction values were applied. Strict metrics still fail only on object acceleration, and no feedback event was triggered."
       }
     },
     "held_out_generalization_cells": [
