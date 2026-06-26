@@ -451,3 +451,85 @@ nonzero residual labels but did not recover the formal 2s hold gate. The next
 run should use a less disruptive ordinary-cell trigger strategy, preferably
 acceleration-sensitive or milder contact-sensitive, instead of starting
 adapter training.
+
+2026-06-27 follow-up: the less disruptive contact58 gentle route was tested.
+
+- Run tag: `residual_label_sweep_half_low_contact58_gentle_20260627_0345`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle.md`.
+- Cell: ordinary `half_low`, not held-out.
+- Fresh official Newton sanity: pass.
+- Automated visual validation: pass.
+- Manual visual inspection: `pass_nonblank_success_with_feedback`.
+- Feedback trigger count: `241`.
+- Feedback-active frames: `241`.
+- Lift height: `0.1518997997045517` m.
+- Hold duration: `2.7166640758514404` s.
+- Max slip: `0.002728142855700976` m.
+- Contact-loss frames: `0`.
+- Max object acceleration: `8.308707788010144` m/s^2.
+- Strict metrics status: fail, only `object_accel_above_threshold`.
+
+This is the best current residual-label candidate because it combines nonzero
+labels with preserved lift/hold/drop/contact/visual gates, but it is not fully
+promoted under the strict metrics gate.
+
+2026-06-27 second follow-up: increasing the initial lift duration scale was
+tested to reduce the repeated object-acceleration failure.
+
+- Run tag:
+  `residual_label_sweep_half_low_contact58_gentle_smooth_20260627_0355`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle_smooth.md`.
+- Initial lift duration scale: `1.8`.
+- Fresh official Newton sanity: pass.
+- Automated visual validation: pass.
+- Manual visual inspection: `pass_nonblank_success_with_feedback`.
+- Feedback trigger count: `241`.
+- Lift height: `0.1519654542207718` m.
+- Hold duration: `2.3499977588653564` s.
+- Max slip: `0.0026201330580321184` m.
+- Contact-loss frames: `0`.
+- Max object acceleration: `8.308972018193668` m/s^2.
+- Strict metrics status: fail, only `object_accel_above_threshold`.
+
+Interpretation at that point: the repeated acceleration blocker was not solved
+by simply reducing feedback amplitude or stretching the initial lift waypoint.
+The next diagnostic therefore analyzed peak timing instead of continuing blind
+threshold sweeps.
+
+2026-06-27 third follow-up: peak analysis identified the strict acceleration
+failure as a recorded initial settling artifact, and a pre-record warmup source
+candidate was tested.
+
+- Run tag:
+  `residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle_lift165_warmup15.md`.
+- Source manifest:
+  `experiments/configs/residual_label_source_manifest_v1.json`.
+- Cell: ordinary `half_low`, not held-out.
+- Pre-record warmup steps: `15`.
+- Fresh official Newton sanity: pass.
+- Automated visual validation: pass.
+- Manual visual inspection: `pass_nonblank_success_with_feedback`.
+- Feedback trigger count: `241`.
+- Feedback-active frames: `241`.
+- Lift height: `0.15815936028957367` m.
+- Hold duration: `2.5333309173583984` s.
+- Max slip: `0.0030417809728431086` m.
+- Contact-loss frames: `0`.
+- Max object acceleration: `0.5063306543767194` m/s^2.
+- Strict metrics status: pass.
+
+Peak analysis showed the earlier non-warmup acceleration maximum occurred at
+step 2, phase 0, before feedback was active. The warmup15 source candidate
+removes that artifact from the recorded metric window without changing to a
+toy model or starting training. This is now the first promoted residual-label
+source candidate for runner input.
+
+Next action: build the formal residual-label source runner and source-gate
+checks around `experiments/configs/residual_label_source_manifest_v1.json`,
+then collect additional ordinary cells. Learned residual-adapter training
+remains blocked until the runner exists and held-out split enforcement is
+present.

@@ -586,6 +586,19 @@ def _feedback_state() -> dict:
     }
 
 
+def _pre_record_warmup(example: Example, warmup_steps: int) -> None:
+    """Settle physics before recording without advancing scripted waypoints."""
+
+    for _ in range(max(0, int(warmup_steps))):
+        if example.graph:
+            import warp as wp
+
+            wp.capture_launch(example.graph)
+        else:
+            example.simulate()
+        example.sim_time += example.frame_dt
+
+
 def _apply_scripted_feedback(
     example: Example,
     state: dict,
@@ -698,6 +711,7 @@ def main() -> None:
     parser.add_argument("--feedback-hold-height-offset-max", type=float, default=0.03)
     parser.add_argument("--feedback-stabilization-step", type=float, default=0.25)
     parser.add_argument("--feedback-stabilization-max", type=float, default=2.0)
+    parser.add_argument("--pre-record-warmup-steps", type=int, default=0)
     parser.add_argument("--width", type=int, default=192)
     parser.add_argument("--height", type=int, default=144)
     args_in = parser.parse_args()
@@ -804,6 +818,9 @@ def main() -> None:
     feedback_state = _feedback_state()
     feedback_reason_labels = {"0": "none"}
     feedback_reason_to_id = {"none": 0}
+
+    if args_in.pre_record_warmup_steps > 0:
+        _pre_record_warmup(example, args_in.pre_record_warmup_steps)
 
     for step in range(args_in.num_steps):
         example.step()
@@ -984,6 +1001,7 @@ def main() -> None:
         "object_physics_adapter": object_physics_adapter_meta,
         "controller_adapter": controller_adapter_meta,
         "num_steps": args_in.num_steps,
+        "pre_record_warmup_steps": args_in.pre_record_warmup_steps,
         "sample_steps": requested,
         "controller_type": "official_newton_panda_hydro_scripted_no_adaptation",
         "controller_phase_labels": controller_phase_labels,

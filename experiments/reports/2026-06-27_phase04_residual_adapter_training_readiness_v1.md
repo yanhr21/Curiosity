@@ -8,64 +8,79 @@ model.
 
 ## Result
 
-Status: blocked, training not started. A best current residual-label candidate
-now exists, but it is not fully promoted because the strict object-acceleration
-gate still fails.
+Status: residual-label source candidate ready, training runner not started.
 
-The original blocker was that every scripted-feedback evaluation recorded
-`feedback_trigger_count=0`. A follow-up ordinary-cell diagnostic,
-`residual_label_source_sensitive_feedback_half_low_20260627_030145`, produced
-nonzero residual corrections with final `feedback_trigger_count=241`. It still
-cannot be used as a training source because metrics fail on
-`hold_duration_below_threshold` and `object_accel_above_threshold`.
+The original blocker was that every default scripted-feedback evaluation had
+`feedback_trigger_count=0`. Follow-up ordinary-cell diagnostics proved that
+the official Newton rollout path can emit nonzero `candidate.controller.*`
+residual fields. The first fully promoted source candidate is now:
 
-The best current follow-up candidate,
-`residual_label_sweep_half_low_contact58_gentle_20260627_0345`, preserves lift,
-hold, drop, contact-loss, visual, and manual gates while producing
-`feedback_trigger_count=241`, but strict metrics still fail on
-`object_accel_above_threshold`.
+```text
+residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006
+```
+
+This run uses ordinary `half_low`, not a held-out cell. It passed fresh
+official Newton sanity, automated visual validation, manual visual inspection,
+and strict lift-hold metrics while producing `feedback_trigger_count=241`.
+
+Training still has not started because the formal residual-label source runner
+and adapter-training runner are not implemented or reviewed yet.
 
 ## Ready Evidence
 
 - Official Newton Panda hydro scripted infant prior is available and visually
   validated.
-- Real Newton mass/friction grid exists across nominal, ordinary, and held-out
-  cells.
-- Held-out `full_low` and `empty_high` are preserved for generalization.
+- Real Newton mass/friction variants exist across nominal, ordinary, and
+  held-out cells.
+- Held-out `full_low` and `empty_high` remain reserved for generalization.
 - Phase 05 contact source manifest passed with `source_run_count=10`,
   `record_count=3600`, `generated_trex_fields=[]`, and
   `schema_promotion=blocked`.
 - Phase 03 curiosity replay diagnostic passed with `rollout_count=9`.
 - Residual adapter and forward-model target contract exists:
   `experiments/configs/residual_adapter_forward_model_contract_v1.json`.
-- First nonzero residual diagnostic exists:
-  `experiments/reports/2026-06-27_phase04_residual_label_source_sensitive_feedback_half_low.md`.
-- Best current residual-label candidate exists:
-  `experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle.md`.
+- First source manifest exists:
+  `experiments/configs/residual_label_source_manifest_v1.json`.
+- First promoted source candidate report exists:
+  `experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle_lift165_warmup15.md`.
+
+Key source metrics:
+
+- metrics status: pass;
+- feedback trigger count: 241;
+- lift height: 0.15815936028957367 m;
+- hold duration: 2.5333309173583984 s;
+- max slip: 0.0030417809728431086 m;
+- contact-loss frames: 0;
+- max object acceleration: 0.5063306543767194 m/s^2.
+
+## Resolved Blocker
+
+The previous strict acceleration blocker was traced to a recorded initial
+settling artifact. Peak analysis on the non-warmup diagnostic found the top
+acceleration event at step 2, phase 0, before feedback was active. The warmup15
+source candidate excludes that artifact from the recorded metric window and
+passes strict metrics.
 
 ## Blocking Gaps
 
-- No fully promoted nonzero residual demonstration:
-  the best current contact58-gentle diagnostic produces nonzero feedback labels
-  and preserves lift/hold/drop/contact gates, but still fails the strict
-  object-acceleration gate.
-- Training on the current promoted labels would still teach no valid
-  adaptation source.
-- No approved residual-adapter training implementation exists yet.
-- No compute-side residual-adapter training runner exists with source-gate
-  checks, held-out split enforcement, official Newton sanity, and report
+- No formal residual-label source runner exists yet.
+- No compute-side residual-adapter training runner exists with official Newton
+  sanity, source-gate checks, held-out split enforcement, and report
   generation.
+- Only one ordinary `half_low` source candidate is promoted, so no general
+  adaptation claim is valid yet.
+- No approved learned-adapter training implementation exists. A placeholder
+  MLP/policy must not be introduced as learned adaptation progress.
 
 ## Allowed Next Routes
 
-1. Reduce object acceleration around the `contact58_gentle` candidate with
-   documented rationale, then repeat the same sanity/visual/metrics gates.
-2. After nonzero residual labels or another approved objective exists, build a
-   formal residual-adapter training runner that preserves held-out cells and
-   reports all source gates.
-3. If switching to diffusion policy, ACT, OpenPI, or another serious policy
-   method, first audit official code/checkpoints and observation/action
-   contracts.
+1. Build the formal residual-label source runner around
+   `experiments/configs/residual_label_source_manifest_v1.json`.
+2. Collect additional ordinary-cell source candidates after the runner gates
+   are in place, still excluding held-out `full_low` and `empty_high`.
+3. Only after source gates and runner review, implement the learned residual
+   adapter runner with official Newton sanity and report generation.
 
 ## Forbidden Next Steps
 
@@ -77,7 +92,6 @@ hold, drop, contact-loss, visual, and manual gates while producing
 
 ## Interpretation
 
-The project is ready for one more focused residual-label diagnostic, not for a
-valid learned-adapter training run. The next concrete Phase 04 action should be
-to reduce object acceleration around `contact58_gentle` while preserving
-nonzero residual corrections.
+The project is no longer blocked on the first nonzero residual-label source.
+It is now blocked on formal runner construction and broader ordinary-cell
+collection before any learned residual-adapter training claim.

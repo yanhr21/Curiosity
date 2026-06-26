@@ -1,0 +1,72 @@
+{
+  "classification": "residual_label_source_manifest_v1",
+  "phase": "04_closed_loop_adaptation",
+  "status": "single_promoted_source_candidate_ready_runner_not_started",
+  "purpose": "Record residual controller-parameter label sources that passed official Newton sanity, visual checks, manual inspection, and strict lift-hold metrics before any learned adapter training.",
+  "training_started": false,
+  "no_model_created": true,
+  "no_placeholder_model": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "held_out_cells_reserved_for_evaluation": [
+    "full_low",
+    "empty_high"
+  ],
+  "source_candidates": [
+    {
+      "name": "contact58_gentle_lift165_warmup15_half_low_source_v1",
+      "status": "promoted_source_candidate",
+      "run_tag": "residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006",
+      "slurm_job_id": "154023",
+      "tmux_session": "curiosity_next_source_alloc_20260626_232937",
+      "cell": "half_low",
+      "held_out_generalization_cell": false,
+      "pre_record_warmup_steps": 15,
+      "parameter_overrides": {
+        "feedback_min_contact_count": 58,
+        "feedback_accel_threshold_m_s2": 6.5,
+        "feedback_height_drop_threshold_m": 0.015,
+        "feedback_initial_lift_duration_scale": 1.65,
+        "feedback_lift_duration_scale_max": 1.05,
+        "feedback_hold_height_step_m": 0.0005,
+        "feedback_hold_height_offset_max_m": 0.005,
+        "feedback_stabilization_step_s": 0.05,
+        "feedback_stabilization_max_s": 0.3
+      },
+      "outputs": {
+        "fresh_official_newton_sanity": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006_fresh_newton_sensor_contact_sanity.json",
+        "summary_json": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006_summary.json",
+        "visual_validation": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006_visual_validation.json",
+        "manual_visual_inspection": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006_manual_visual_inspection.json",
+        "metrics_json": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006_metrics.json",
+        "metrics_csv": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006_metrics.csv",
+        "accel_peak_analysis": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006_accel_peak_analysis.json",
+        "npz": "experiments/outputs/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006.npz",
+        "contact_sheet": "experiments/visuals/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006/contact_sheet.png",
+        "frame_browser": "experiments/visuals/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006/frame_browser.html",
+        "log": "logs/newton/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006.log",
+        "metrics_log": "logs/newton/residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006_metrics.log"
+      },
+      "observed": {
+        "fresh_official_newton_sanity": "pass",
+        "visual_validation": "pass",
+        "manual_visual_inspection": "pass_nonblank_success_with_feedback",
+        "metrics_status": "pass",
+        "feedback_reason": "low_contact_count",
+        "feedback_trigger_count_max": 241,
+        "feedback_active_nonzero_frames": 241,
+        "object_not_dropped": true,
+        "contact_loss_frames": 0,
+        "max_contact_proxy": 62,
+        "lift_height_m": 0.15815936028957367,
+        "hold_duration_s": 2.5333309173583984,
+        "max_slip_m": 0.0030417809728431086,
+        "max_object_accel_m_s2": 0.5063306543767194,
+        "success_per_contact_proxy_integral": 0.003121588742547919
+      },
+      "promotion_decision": "promoted_as_first_residual_label_source_candidate_for_runner_input",
+      "interpretation": "Pre-record warmup removes the initial settling artifact from the recorded metric window while preserving nonzero feedback labels and strict lift-hold success. This is a source candidate for a formal residual-label runner, not a trained adapter."
+    }
+  ],
+  "next_action": "Build the formal residual-label source runner and source-gate checks around this manifest, then collect additional ordinary cells. Do not start learned adapter training until the runner is reviewed and held-out split enforcement is present."
+}

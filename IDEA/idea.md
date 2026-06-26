@@ -300,6 +300,23 @@ hold-duration gate and therefore remain diagnostic-only. The next immediate
 step is a less disruptive ordinary-cell threshold sweep, not learned-adapter
 training.
 
+The less disruptive contact58 gentle sweeps then showed that nonzero feedback
+labels can preserve lift, hold, drop, contact-loss, automated visual
+validation, and manual visual inspection. The repeated strict acceleration
+failure was traced by peak analysis to an initial recorded settling artifact:
+the non-warmup top peak occurred at step 2, phase 0, before feedback was
+active. Adding `PRE_RECORD_WARMUP_STEPS=15` removes that artifact from the
+recorded metric window while preserving the official Newton rollout path and
+nonzero feedback labels. The first promoted source candidate is
+`residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006`,
+with metrics status pass, `feedback_trigger_count=241`, lift height
+`0.15815936028957367` m, hold duration `2.5333309173583984` s, and
+`max_object_accel_m_s2=0.5063306543767194`. The next step is no longer blind
+threshold sweeping; it is to build the formal residual-label source runner
+around `experiments/configs/residual_label_source_manifest_v1.json`, collect
+additional ordinary cells, and keep held-out `full_low` and `empty_high` for
+evaluation.
+
 The training path is:
 
 1. Start with the official Newton Panda hydro scripted grasp/lift path as the

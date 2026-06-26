@@ -1,7 +1,7 @@
 {
   "classification": "residual_adapter_training_readiness_v1",
   "phase": "04_closed_loop_adaptation",
-  "status": "blocked_training_not_started_best_candidate_not_fully_promoted",
+  "status": "residual_label_source_ready_training_runner_not_started",
   "purpose": "Audit whether the first residual controller-parameter adapter can be trained without downgrading into a toy or meaningless model.",
   "contract": "experiments/configs/residual_adapter_forward_model_contract_v1.json",
   "source_evidence": {
@@ -11,7 +11,11 @@
     "phase05_ablation_report": "experiments/reports/2026-06-27_phase05_contact_proxy_ablation_report_v1.md",
     "first_nonzero_residual_diagnostic": "experiments/reports/2026-06-27_phase04_residual_label_source_sensitive_feedback_half_low.md",
     "second_nonzero_residual_sweep_diagnostic": "experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58.md",
-    "best_current_residual_label_candidate": "experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle.md"
+    "best_current_residual_label_candidate": "experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle.md",
+    "smooth_followup_diagnostic": "experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle_smooth.md",
+    "object_acceleration_gate_decision_record": "experiments/reports/2026-06-27_phase04_object_acceleration_gate_decision.md",
+    "first_promoted_residual_label_source_candidate": "experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle_lift165_warmup15.md",
+    "residual_label_source_manifest": "experiments/configs/residual_label_source_manifest_v1.json"
   },
   "ready_gates": [
     {
@@ -21,8 +25,8 @@
     },
     {
       "name": "real_mass_friction_grid",
-      "status": "ready_with_acceleration_metric_failure",
-      "evidence": "Nominal, ordinary grid, and held-out scripted-feedback runs apply real Newton mass/friction provenance; strict metrics fail only on object acceleration."
+      "status": "ready",
+      "evidence": "Nominal, ordinary grid, held-out scripted-feedback runs, and the warmup15 source candidate apply real Newton mass/friction provenance. Earlier strict acceleration failures were traced to a recorded initial-settling artifact for this source path."
     },
     {
       "name": "held_out_generalization_cells",
@@ -58,18 +62,28 @@
       "name": "best_current_residual_label_candidate",
       "status": "best_candidate_not_fully_promoted_due_strict_acceleration_gate",
       "evidence": "Run residual_label_sweep_half_low_contact58_gentle_20260627_0345 passed fresh official Newton sanity, automated and manual visual checks, nonzero feedback_trigger_count=241, lift_height_m=0.1518997997045517, hold_duration_s=2.7166640758514404, max_slip_m=0.002728142855700976, contact_loss_frames=0, and drop_from_max=0.0, but strict metrics still failed on object_accel_above_threshold with max_object_accel_m_s2=8.308707788010144."
+    },
+    {
+      "name": "smooth_followup_diagnostic",
+      "status": "diagnostic_not_promoted_due_repeated_strict_acceleration_gate",
+      "evidence": "Run residual_label_sweep_half_low_contact58_gentle_smooth_20260627_0355 increased initial_lift_duration_scale to 1.8 and preserved nonzero feedback plus lift/hold/drop/contact/visual gates, but strict metrics still failed on object_accel_above_threshold with max_object_accel_m_s2=8.308972018193668."
+    },
+    {
+      "name": "first_promoted_residual_label_source_candidate",
+      "status": "ready_for_runner_input",
+      "evidence": "Run residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006 used ordinary half_low with 15 pre-record warmup steps, passed fresh official Newton sanity, automated/manual visual checks, nonzero feedback_trigger_count=241, lift_height_m=0.15815936028957367, hold_duration_s=2.5333309173583984, max_slip_m=0.0030417809728431086, contact_loss_frames=0, and max_object_accel_m_s2=0.5063306543767194."
+    },
+    {
+      "name": "residual_label_source_manifest",
+      "status": "created_training_not_started",
+      "evidence": "experiments/configs/residual_label_source_manifest_v1.json records the warmup15 source candidate with generated_trex_fields=[] and schema_promotion=blocked."
     }
   ],
   "blockers": [
     {
-      "name": "no_fully_promoted_strict_residual_label_source",
+      "name": "no_formal_residual_label_source_runner",
       "status": "blocking",
-      "evidence": "The best current gentle contact58 run restores lift/hold/drop/contact gates and nonzero residual labels, but strict metrics still fail only on object_accel_above_threshold."
-    },
-    {
-      "name": "object_acceleration_gate_not_recovered",
-      "status": "blocking",
-      "evidence": "The current strict threshold is max_object_accel_m_s2 <= 8.0; the best current candidate reports max_object_accel_m_s2=8.308707788010144."
+      "evidence": "A source manifest now exists, but no reviewed compute-side runner has converted source candidates into a training dataset with official sanity checks, source gates, and held-out split enforcement."
     },
     {
       "name": "no_approved_training_implementation",
@@ -80,13 +94,23 @@
       "name": "no_adapter_sanity_runner",
       "status": "blocking",
       "evidence": "No compute-side residual-adapter training runner exists with official Newton sanity, source-gate checks, held-out split enforcement, and report generation."
+    },
+    {
+      "name": "single_source_candidate_only",
+      "status": "blocking_for_general_training_claims",
+      "evidence": "Only one ordinary half_low source candidate is promoted. More ordinary cells should be collected before claiming a general learned adaptation result."
     }
   ],
   "resolved_blockers": [
     {
       "name": "no_promoted_nonzero_residual_demonstrations",
-      "status": "partially_resolved_by_best_candidate",
-      "evidence": "Run residual_label_sweep_half_low_contact58_gentle_20260627_0345 produced nonzero residual labels and passed lift/hold/drop/contact/visual gates, but is not fully promoted because strict metrics still fail on object_accel_above_threshold."
+      "status": "resolved_for_first_source_candidate",
+      "evidence": "Run residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006 produced nonzero residual labels and passed strict metrics after pre-record warmup removed the initial settling artifact from the recorded metric window."
+    },
+    {
+      "name": "object_acceleration_gate_for_first_source_candidate",
+      "status": "resolved_by_pre_record_warmup_and_peak_analysis",
+      "evidence": "Peak analysis showed the non-warmup 8.3087 m/s^2 maximum occurred at step 2, phase 0, feedback inactive. The warmup15 candidate reports max_object_accel_m_s2=0.5063306543767194 and metrics status pass."
     },
     {
       "name": "first_nonzero_residual_diagnostic_rejected",
@@ -101,8 +125,8 @@
   ],
   "allowed_next_routes": [
     {
-      "route": "reduce_object_acceleration_for_best_current_candidate",
-      "description": "Use the gentle contact58 run as the starting point and adjust only ordinary-cell diagnostics to reduce max_object_accel_m_s2 below the strict threshold while preserving nonzero residual labels, lift, hold, drop, contact-loss, visual, and sanity gates."
+      "route": "build_formal_residual_label_source_runner",
+      "description": "Use experiments/configs/residual_label_source_manifest_v1.json as runner input, verify official sanity/source gates, enforce held-out split, and emit reproducible dataset/report artifacts without starting learned adapter training."
     },
     {
       "route": "create_formal_residual_training_runner_after_label_source_exists",

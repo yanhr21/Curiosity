@@ -2,23 +2,21 @@
 
 ## Scope
 
-This plan defines the next data-collection step required before training the
-first residual controller-parameter adapter. It also records the first executed
-diagnostic after the plan was created. It does not train a model or claim
-adaptation.
+This plan records the residual-label collection route required before training
+the first residual controller-parameter adapter. It does not train a model or
+claim adaptation.
 
 ## Why This Is Needed
 
-The residual adapter training readiness audit is blocked because all
-scripted-feedback runs have `feedback_trigger_count=0`. Current data therefore
-contains no nonzero residual controller-parameter corrections.
-
-Training now would teach a no-op residual adapter.
+The learned adapter should output residual controller parameters around the
+official Newton scripted infant prior, not low-level torques and not a toy
+policy. Training requires source rollouts with nonzero residual labels,
+official sanity checks, visual evidence, strict metrics, and held-out split
+enforcement.
 
 ## Current Feedback Rule
 
-The current feedback function is
-`_apply_scripted_feedback` in
+The feedback function is `_apply_scripted_feedback` in
 `experiments/configs/newton_panda_hydro_tiled_camera_export.py`.
 
 It triggers on:
@@ -27,51 +25,35 @@ It triggers on:
 - online framewise object-z acceleration above threshold;
 - object height drop during hold.
 
-Observed evidence:
+Default scripted-feedback grid runs were visually valid but had
+`feedback_trigger_count=0`. Later ordinary-cell diagnostics produced nonzero
+labels. Aggressive contact thresholds failed hold; gentler thresholds preserved
+task behavior but exposed a recorded initial-settling acceleration artifact.
 
-- contact counts are high enough;
-- height drop is zero;
-- strict metrics fail only on object acceleration;
-- online feedback still never triggered.
+## Promoted Source Candidate
 
-## Proposed Diagnostic Collection
+The first promoted source candidate is:
 
-Plan file:
-`experiments/configs/residual_correction_collection_plan_v1.json`.
+```text
+residual_label_sweep_half_low_contact58_gentle_lift165_warmup15_20260627_032006
+```
 
-First diagnostic route:
-
-- name: `accel_sensitive_training_diagnostic_v1`;
-- purpose: collect nonzero residual corrections, not train;
-- candidate acceleration threshold: `5.5` m/s^2;
-- keep default contact/drop gates;
-- keep held-out `full_low` and `empty_high` untouched;
-- first ordinary diagnostic cells: `empty_low`, `half_medium`, `full_high`.
-
-Required outputs:
-
-- `candidate.controller.feedback_active > 0`;
-- `candidate.controller.feedback_trigger_count > 0`;
-- nonzero feedback residual fields;
-- fresh official Newton sanity;
-- visual validation;
-- manual visual inspection;
-- lift-hold metrics;
-- direct visual paths.
-
-## Executed Diagnostics
-
-Run tag:
-`residual_label_source_sensitive_feedback_half_low_20260627_030145`.
-
-This run used ordinary cell `half_low`, not a held-out cell. It executed inside
-allocation `154023` through tmux session
+It uses ordinary cell `half_low`, not a held-out cell, and ran inside allocation
+`154023` through tmux session
 `curiosity_next_source_alloc_20260626_232937`.
 
-Parameter change actually tested:
+Parameter setting:
 
-- `FEEDBACK_MIN_CONTACT_COUNT=64`;
+- `FEEDBACK_MIN_CONTACT_COUNT=58`;
 - `FEEDBACK_ACCEL_THRESHOLD=6.5`;
+- `FEEDBACK_INITIAL_LIFT_DURATION_SCALE=1.65`;
+- gentle correction caps:
+  `FEEDBACK_LIFT_DURATION_SCALE_MAX=1.05`,
+  `FEEDBACK_HOLD_HEIGHT_STEP=0.0005`,
+  `FEEDBACK_HOLD_HEIGHT_OFFSET_MAX=0.005`,
+  `FEEDBACK_STABILIZATION_STEP=0.05`,
+  `FEEDBACK_STABILIZATION_MAX=0.3`;
+- `PRE_RECORD_WARMUP_STEPS=15`;
 - `OBJECT_MASS_KG=0.20`;
 - `OBJECT_FRICTION_MU=0.35`.
 
@@ -79,59 +61,48 @@ Evidence:
 
 - official Newton sanity: pass;
 - automated visual validation: pass;
-- manual visual inspection: `pass_nonblank_but_task_failure`;
+- manual visual inspection: `pass_nonblank_success_with_feedback`;
+- metrics status: pass;
 - final feedback trigger count: 241;
 - feedback-active frames: 241;
-- feedback reason: `low_contact_count`;
 - object dropped: false;
 - contact-loss frames: 0;
-- metrics status: fail;
-- failure reasons: `hold_duration_below_threshold`,
-  `object_accel_above_threshold`.
+- lift height: 0.15815936028957367 m;
+- hold duration: 2.5333309173583984 s;
+- max slip: 0.0030417809728431086 m;
+- max object acceleration: 0.5063306543767194 m/s^2.
 
 Report:
-`experiments/reports/2026-06-27_phase04_residual_label_source_sensitive_feedback_half_low.md`.
+`experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle_lift165_warmup15.md`.
 
-Interpretation: this diagnostic proves nonzero residual labels can be produced
-through the official Newton rollout path, but the contact threshold is too
-aggressive to promote as a training-label source. The next step is a bounded
-ordinary-cell threshold sweep, not training.
+Manifest:
+`experiments/configs/residual_label_source_manifest_v1.json`.
 
-Additional sweep evidence now exists:
+## Historical Diagnostics
 
-- `residual_label_sweep_half_low_contact58_20260627_0310` lowered the contact
-  threshold from 64 to 58. It still produced nonzero labels
-  (`feedback_trigger_count=241`) but failed the 2s hold gate, so it is not
-  promoted.
-- `residual_label_source_accel_sensitive_half_low_20260627_030748` used
-  `FEEDBACK_ACCEL_THRESHOLD=5.5` and default contact threshold 20. It preserved
-  lift/hold/drop/contact behavior, but `feedback_trigger_count=0`, so it is
-  not a residual-label source.
-- Accel-sensitive report:
-  `experiments/reports/2026-06-27_phase04_residual_label_source_accel_sensitive_half_low.md`.
-- `residual_label_sweep_half_low_contact58_gentle_20260627_0345` keeps the
-  contact58 trigger but caps correction magnitude. It preserves lift, hold,
-  drop, contact-loss, visual, and manual gates while producing
-  `feedback_trigger_count=241`. Strict metrics still fail on
-  `object_accel_above_threshold`.
-- Gentle contact58 report:
-  `experiments/reports/2026-06-27_phase04_residual_label_sweep_half_low_contact58_gentle.md`.
+- `residual_label_source_sensitive_feedback_half_low_20260627_030145`
+  produced nonzero labels but failed hold and object-acceleration metrics.
+- `residual_label_sweep_half_low_contact58_20260627_0310` produced nonzero
+  labels but still failed the 2s hold gate.
+- `residual_label_source_accel_sensitive_half_low_20260627_030748` preserved
+  task behavior but had `feedback_trigger_count=0`.
+- `residual_label_sweep_half_low_contact58_gentle_20260627_0345` and
+  `residual_label_sweep_half_low_contact58_gentle_smooth_20260627_0355`
+  preserved task behavior and labels but still included the initial settling
+  acceleration artifact in the recorded metric window.
 
-Current interpretation: `contact58_gentle` is the best current residual-label
-candidate but is not fully promoted because the strict object-acceleration gate
-still fails.
+Peak analysis showed the non-warmup top acceleration event was at step 2,
+phase 0, before feedback was active. The warmup15 source candidate resolves
+that artifact without changing to a toy model or training anything.
 
 ## Promotion Rules
 
-The diagnostic can become a residual-label source only if it passes sanity,
-visual, manual, drop/contact gates and produces nonzero residual corrections on
-ordinary cells.
+A diagnostic can become a residual-label source only if it passes sanity,
+visual, manual, drop/contact gates, strict metrics, and produces nonzero
+residual corrections on ordinary cells.
 
-It must remain diagnostic if the threshold is intentionally aggressive or if it
-triggers without improving metrics.
-
-It must block if it still produces `feedback_trigger_count=0`, uses held-out
-cells for labels, fails visual/sanity gates, or drops the object.
+It must remain diagnostic if the threshold is intentionally aggressive, if it
+triggers without preserving task gates, or if it relies on held-out cells.
 
 ## Forbidden Claims
 
@@ -145,7 +116,8 @@ Do not claim:
 
 ## Next Step
 
-After these diagnostics, the next aligned action is to reduce object
-acceleration around the `contact58_gentle` candidate while preserving nonzero
-feedback, lift, hold, drop, contact, visual, and manual gates. Do not use
-held-out cells for label collection.
+Build a formal residual-label source runner around
+`experiments/configs/residual_label_source_manifest_v1.json`, then collect
+additional ordinary cells with the same source gates. Do not use held-out
+`full_low` or `empty_high` for label collection, and do not start learned
+adapter training until the runner and source gates are reviewed.
