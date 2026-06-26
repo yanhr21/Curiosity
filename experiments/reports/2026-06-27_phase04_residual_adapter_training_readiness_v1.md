@@ -8,8 +8,8 @@ model.
 
 ## Result
 
-Status: residual-label source runner passed, learned-adapter training runner
-not started.
+Status: residual-adapter training preflight passed, actual learned-adapter
+trainer not started.
 
 The original blocker was that every default scripted-feedback evaluation had
 `feedback_trigger_count=0`. Follow-up ordinary-cell diagnostics proved that
@@ -43,8 +43,8 @@ Final source-runner output:
 - schema promotion: blocked;
 - training started: false.
 
-Training still has not started because no learned residual-adapter training
-implementation or adapter sanity runner has been reviewed.
+Training still has not started because no actual learned residual-adapter
+trainer has been implemented or reviewed.
 
 ## Ready Evidence
 
@@ -63,6 +63,12 @@ implementation or adapter sanity runner has been reviewed.
   `experiments/configs/residual_label_source_manifest_v1.json`.
 - Source runner report exists:
   `experiments/reports/2026-06-27_phase04_residual_label_source_runner_v1.md`.
+- Training-input preflight exists:
+  `experiments/configs/residual_adapter_training_preflight_v1.json`.
+- Training-input preflight manifest passed:
+  `data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json`.
+- Training-input preflight report exists:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_training_preflight_v1.md`.
 
 ## Resolved Blockers
 
@@ -72,20 +78,24 @@ implementation or adapter sanity runner has been reviewed.
   ordinary cells.
 - The formal source-runner blocker is resolved: the runner passed after fresh
   official Newton sanity and held-out split checks.
+- The training-input preflight blocker is resolved: the preflight runner passed
+  after fresh official Newton sanity with 1440 train records and 360 validation
+  records, while excluding held-out `full_low` and `empty_high`.
 
 ## Blocking Gaps
 
 - No approved learned residual-adapter training implementation exists.
-- No compute-side adapter training runner exists with official Newton sanity,
-  source-gate checks, held-out split enforcement, and report generation.
+- No actual compute-side adapter trainer exists with official Newton sanity,
+  source/preflight checks, held-out split enforcement, checkpoint output, and
+  report generation.
 - Source coverage is five ordinary cells. This limits broad learned-adaptation
   claims, but it is not a blocker for designing the learned residual-adapter
   runner.
 
 ## Allowed Next Routes
 
-1. Design and review the learned residual-adapter runner using the source
-   manifest and runner output as inputs.
+1. Implement and review the actual learned residual-adapter trainer using the
+   preflight manifest as input.
 2. Optionally collect more ordinary-cell sources later, excluding held-out
    `full_low` and `empty_high`, but do not treat this as the active gate.
 3. Only after runner review, start a real training run that follows the
@@ -101,6 +111,7 @@ implementation or adapter sanity runner has been reviewed.
 
 ## Interpretation
 
-The project has moved past source-runner construction. The next technical
-blocker is the learned residual-adapter runner, not source availability for the
-first five ordinary cells.
+The project has moved past source-runner construction and training-input
+preflight. The next technical blocker is the actual learned residual-adapter
+trainer, not source availability or split construction for the first five
+ordinary cells.

@@ -6,6 +6,9 @@ This contract defines the first learned-adaptation target surface for the
 Newton lift-hold task. It is a training-preparation artifact, not a trained
 model and not a placeholder world model.
 
+Contract metadata is explicit: `training_started=false`,
+`schema_promotion=blocked`, and `generated_trex_fields=[]`.
+
 The learned policy must remain a residual controller-parameter adapter around
 the official Newton Panda hydro scripted infant prior. It must not replace the
 prior with full low-level torque control.

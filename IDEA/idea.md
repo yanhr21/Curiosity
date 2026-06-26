@@ -329,6 +329,19 @@ not create a learned adapter. Source availability should no longer be treated
 as the active gate; the main next step is a reviewed learned residual-adapter
 runner that consumes these sources while preserving held-out split enforcement.
 
+The residual-adapter training preflight now also exists and passed on compute
+run `residual_adapter_training_preflight_v1_20260627_0523`. It reran fresh
+official Newton sanity inside allocation `154142`, consumed the five-source
+runner output, and wrote
+`data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json`.
+The split is train=`1440` records from `half_low`, `empty_low`, `half_medium`,
+and `full_high`, validation=`360` records from `empty_medium`, with held-out
+`full_low` and `empty_high` still excluded. The preflight manifest has
+`failures=[]`, `generated_trex_fields=[]`, `schema_promotion=blocked`,
+`training_started=false`, and `no_model_created=true`. The active next gate is
+the actual residual-adapter trainer implementation and review, not source
+collection or split construction.
+
 The training path is:
 
 1. Start with the official Newton Panda hydro scripted grasp/lift path as the

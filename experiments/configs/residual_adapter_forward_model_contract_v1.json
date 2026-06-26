@@ -9,6 +9,8 @@
   "purpose": "Define the first learned residual controller-parameter adapter and forward-model target contract without implementing a placeholder model.",
   "not_a_model": true,
   "training_started": false,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
   "source_evidence": {
     "contact_source_manifest": "data/processed/newton_lift_hold_contact_source_manifest_v1_20260627/manifest.json",
     "curiosity_replay_output": "experiments/outputs/curiosity_reward_baseline_replay_v1_20260627.json",

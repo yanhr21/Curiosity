@@ -42,15 +42,18 @@
 - [ ] Train the first learned adapter as residual controller-parameter output,
       not full low-level torque control.
       Current status: blocked, training not started. Five promoted source
-      candidates now exist and the formal residual-label source runner passes;
-      the adapter-training runner still does not exist yet.
+      candidates now exist, the formal residual-label source runner passes,
+      and the residual-adapter training preflight passes; the actual trainer
+      still does not exist yet.
       Evidence:
-      `experiments/configs/residual_adapter_training_readiness_v1.json` and
-      `experiments/reports/2026-06-27_phase04_residual_adapter_training_readiness_v1.md`.
+      `experiments/configs/residual_adapter_training_readiness_v1.json`,
+      `experiments/reports/2026-06-27_phase04_residual_adapter_training_readiness_v1.md`,
+      `experiments/configs/residual_adapter_training_preflight_v1.json`, and
+      `experiments/reports/2026-06-27_phase04_residual_adapter_training_preflight_v1.md`.
       Blocker: training now would skip reviewed adapter-training code,
-      held-out split enforcement inside the trainer, and adapter-specific
-      sanity/report generation. Next step is the learned residual-adapter
-      runner design, not more source gating.
+      trainer-side held-out split enforcement, checkpoint output, metrics, and
+      visual/report generation. Next step is the actual learned
+      residual-adapter trainer, not more source or split gating.
 - [x] Run first ordinary-cell diagnostic to verify whether the official Newton
       path can emit nonzero residual controller-parameter labels.
       Evidence:

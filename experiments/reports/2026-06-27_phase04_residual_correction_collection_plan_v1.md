@@ -116,8 +116,11 @@ Do not claim:
 
 ## Next Step
 
-Build a formal residual-label source runner around
-`experiments/configs/residual_label_source_manifest_v1.json`, then collect
-additional ordinary cells with the same source gates. Do not use held-out
-`full_low` or `empty_high` for label collection, and do not start learned
-adapter training until the runner and source gates are reviewed.
+The formal residual-label source runner and residual-adapter training preflight
+now pass. The next step is to implement the actual learned residual-adapter
+trainer using
+`data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json`
+as input. Do not use held-out `full_low` or `empty_high` for labels or
+training, and do not start learned adapter training until the trainer is
+implemented, reviewed, and preserves fresh official Newton sanity plus held-out
+split checks.

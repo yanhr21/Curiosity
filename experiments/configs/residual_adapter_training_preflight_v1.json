@@ -1,0 +1,77 @@
+{
+  "classification": "residual_adapter_training_preflight_config_v1",
+  "phase": "04_closed_loop_adaptation",
+  "purpose": "Validate the first learned residual-controller adapter training input contract before any model training starts.",
+  "contract": "experiments/configs/residual_adapter_forward_model_contract_v1.json",
+  "source_runner_manifest": "data/processed/residual_label_source_runner_v1_20260627/manifest.json",
+  "source_manifest": "experiments/configs/residual_label_source_manifest_v1.json",
+  "source_runner_status_required": "pass",
+  "source_manifest_status_required": "five_promoted_source_candidates_runner_passed_training_not_started",
+  "output_dir": "data/processed/residual_adapter_training_preflight_v1_20260627",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "training_started": false,
+  "no_model_created": true,
+  "no_placeholder_model": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "train_cells": [
+    "half_low",
+    "empty_low",
+    "half_medium",
+    "full_high"
+  ],
+  "validation_cells": [
+    "empty_medium"
+  ],
+  "held_out_cells_reserved_for_evaluation": [
+    "full_low",
+    "empty_high"
+  ],
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.contact.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index"
+  ],
+  "teacher_context_columns": [
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target"
+  ],
+  "target_columns": [
+    "candidate.controller.feedback_active",
+    "candidate.controller.feedback_lift_velocity_scale",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s"
+  ],
+  "required_nonzero_target_columns": [
+    "candidate.controller.feedback_active",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s"
+  ],
+  "required_nonconstant_target_columns": [
+    "candidate.controller.feedback_lift_velocity_scale",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s"
+  ],
+  "forbidden_fields": [
+    "action",
+    "action_abs",
+    "observation.state",
+    "observation.images.*",
+    "observation.tactile_f6",
+    "observation.tactile_deform.*"
+  ],
+  "valid_use": [
+    "Reviewed input manifest for a future learned residual-controller adapter runner",
+    "Train/validation split audit using promoted ordinary Newton source cells",
+    "Held-out split leakage check before training"
+  ],
+  "not_valid_use": [
+    "Learned adapter training result",
+    "Model checkpoint",
+    "T-Rex training dataset",
+    "Exact T-Rex schema compatibility",
+    "Calibrated tactile F6 claim"
+  ]
+}

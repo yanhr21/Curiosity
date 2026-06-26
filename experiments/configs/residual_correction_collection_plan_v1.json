@@ -5,7 +5,7 @@
   "purpose": "Plan the next diagnostic collection needed before residual-adapter training: collect nonzero residual controller-parameter corrections around the official Newton scripted infant prior.",
   "training_started": false,
   "no_model_created": true,
-  "source_blocker": "resolved_for_five_source_candidates: warmup15 contact58 gentle lift165 runs produced nonzero residual labels and passed strict metrics on ordinary half_low, empty_low, half_medium, full_high, and empty_medium. The formal source runner passed with 1800 records; remaining work is broader ordinary-cell collection if needed and learned-adapter runner design.",
+  "source_blocker": "resolved_for_five_source_candidates_and_preflight: warmup15 contact58 gentle lift165 runs produced nonzero residual labels and passed strict metrics on ordinary half_low, empty_low, half_medium, full_high, and empty_medium. The formal source runner passed with 1800 records, and the residual-adapter training preflight passed with 1440 train records and 360 validation records. Remaining work is actual learned-adapter trainer implementation.",
   "current_feedback_rule": {
     "source_file": "experiments/configs/newton_panda_hydro_tiled_camera_export.py",
     "function": "_apply_scripted_feedback",
@@ -424,5 +424,5 @@
       "interpretation": "Pre-record warmup removes the phase-0 initial settling artifact from the recorded metrics while preserving nonzero feedback labels and strict lift-hold success. This is a source candidate, not a trained adapter."
     }
   ],
-  "next_action": "Start learned-adapter runner design using the five-source runner output as input. Additional ordinary-cell collection is optional and must use the same visual/manual/metrics/peak/source-runner gates. Do not use held-out full_low or empty_high for labels. Do not start learned adapter training until the learned-adapter runner is implemented and reviewed."
+  "next_action": "Implement the actual learned residual-adapter trainer using data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json as input. Additional ordinary-cell collection is optional and must use the same visual/manual/metrics/peak/source-runner gates. Do not use held-out full_low or empty_high for labels. Do not start learned adapter training until the trainer is implemented, reviewed, and preserves fresh official Newton sanity plus held-out split checks."
 }

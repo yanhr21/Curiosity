@@ -528,11 +528,10 @@ removes that artifact from the recorded metric window without changing to a
 toy model or starting training. This is now the first promoted residual-label
 source candidate for runner input.
 
-Next action: build the formal residual-label source runner and source-gate
-checks around `experiments/configs/residual_label_source_manifest_v1.json`,
-then collect additional ordinary cells. Learned residual-adapter training
-remains blocked until the runner exists and held-out split enforcement is
-present.
+Next action at that point was to build the formal residual-label source runner
+and source-gate checks around
+`experiments/configs/residual_label_source_manifest_v1.json`. That runner is
+recorded in the following follow-up.
 
 2026-06-27 fourth follow-up: the formal residual-label source runner was
 implemented and run inside tmux-held allocation `154142`.
@@ -567,6 +566,42 @@ Promoted source cells are ordinary `half_low`, `empty_low`, `half_medium`,
 `full_high`, and `empty_medium`. Held-out `full_low` and `empty_high` remain
 unused for label collection.
 
-Next action: continue any remaining ordinary source collection if useful, then
-implement a reviewed learned residual-adapter runner. No learned-adapter result
-exists yet.
+2026-06-27 fifth follow-up: the residual-adapter training preflight runner was
+implemented and run inside tmux-held allocation `154142`.
+
+- Config:
+  `experiments/configs/residual_adapter_training_preflight_v1.json`.
+- Builder:
+  `experiments/configs/build_residual_adapter_training_preflight.py`.
+- Launcher:
+  `experiments/configs/launch_residual_adapter_training_preflight_tmux.sh`.
+- Compute runner:
+  `experiments/configs/run_residual_adapter_training_preflight_in_alloc.sh`.
+- Report:
+  `experiments/reports/2026-06-27_phase04_residual_adapter_training_preflight_v1.md`.
+- Final preflight tag:
+  `residual_adapter_training_preflight_v1_20260627_0523`.
+- Output manifest:
+  `data/processed/residual_adapter_training_preflight_v1_20260627/manifest.json`.
+- Train split:
+  `data/processed/residual_adapter_training_preflight_v1_20260627/residual_adapter_train_records.csv`.
+- Validation split:
+  `data/processed/residual_adapter_training_preflight_v1_20260627/residual_adapter_validation_records.csv`.
+- Fresh official Newton sanity: pass.
+- Source record count: `1800`.
+- Train records: `1440`.
+- Validation records: `360`.
+- Failures: `[]`.
+- Generated T-Rex fields: `[]`.
+- Schema promotion: `blocked`.
+- Training started: `false`.
+- Model created: `false`.
+
+Train cells are ordinary `half_low`, `empty_low`, `half_medium`, and
+`full_high`. Validation cell is ordinary `empty_medium`. Held-out `full_low`
+and `empty_high` remain unused for labels and training.
+
+Next action: implement the actual learned residual-adapter trainer that
+consumes the preflight manifest, reruns fresh official Newton sanity, preserves
+held-out split checks, trains for the required GPU duration, and reports
+checkpoint/metrics/visual evidence. No learned-adapter result exists yet.
