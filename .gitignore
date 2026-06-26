@@ -1,0 +1,57 @@
+# Large/generated artifacts
+.cache/
+checkpoints/
+data/
+envs/
+external/
+/legacy/
+runs/
+
+# Runtime outputs. Keep only directory READMEs.
+logs/*
+!logs/README.md
+experiments/configs/*
+!experiments/configs/README.md
+experiments/outputs/*
+!experiments/outputs/README.md
+experiments/reports/*
+!experiments/reports/README.md
+experiments/visuals/*
+!experiments/visuals/README.md
+
+# Python/build/editor noise
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.DS_Store
+*.swp
+*.tmp
+
+# Model/data file extensions
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.parquet
+*.h5
+*.hdf5
+*.npz
+*.npy
+*.mp4
+*.avi
+*.mov
+*.usd
+*.usda
+*.ply
+*.vtk
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.gz
