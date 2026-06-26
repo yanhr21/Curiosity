@@ -80,7 +80,7 @@ Validation result:
 - `generated_trex_fields=[]`
 - `schema_promotion=blocked`
 - `no_model_or_training=true`
-- Visual gate status: `pending_compute_run`
+- Visual gate status: `first_official_gate_pass_cup_asset_gate_pending`
 
 Validation output:
 
@@ -120,9 +120,47 @@ Failure metrics:
 - unstable object acceleration above `8.0m/s^2`;
 - timeout at `8.0s`.
 
-## Next Compute Gate
+## First Visual Gate
 
-The first visual gate remains pending. It must:
+The first official-source visual gate completed in existing tmux-held allocation
+`154023`.
+
+Command:
+
+```bash
+RUN_TAG=lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021 \
+JOB_ID=154023 \
+TMUX_SESSION=curiosity_next_source_alloc_20260626_232937 \
+WINDOW_NAME=lift_hold_v1_gate \
+SCENE=cube \
+NUM_STEPS=240 \
+SAMPLE_STEPS=0,30,60,90,120,150,180,210,239 \
+DEVICE=cuda:0 \
+bash experiments/configs/launch_newton_panda_hydro_camera_export_tmux.sh
+```
+
+Result:
+
+- compute node: `server56`;
+- fresh official Newton `sensor_contact` sanity: pass;
+- visual validation: pass, `9` frames, `576x200`;
+- manual visual inspection: pass;
+- downstream gate: cleared for Phase 01 visual/task-spec evidence only;
+- `generated_trex_fields=[]`;
+- `schema_promotion=blocked`;
+- `no_model_or_training=true`.
+
+Inspected direct image paths:
+
+```text
+experiments/visuals/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021/contact_sheet.png
+experiments/visuals/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021/frame_0000.png
+experiments/visuals/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021/frame_0120.png
+experiments/visuals/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021/frame_0239.png
+```
+
+The next compute gate remains pending: replace or adapt the grasped object path
+to use the cup asset itself. That gate must:
 
 - run on a compute node;
 - reuse a tmux-held allocation if available;
@@ -139,3 +177,11 @@ experiments/visuals/<run_tag>/frame_0000.png
 experiments/visuals/<run_tag>/frame_0120.png
 experiments/visuals/<run_tag>/frame_0239.png
 ```
+
+## First Gate Evidence
+
+- `experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_fresh_newton_sensor_contact_sanity.json`
+- `experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_visual_validation.json`
+- `experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_manual_visual_inspection.json`
+- `experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_downstream_gate_cleared.json`
+- `experiments/outputs/lift_hold_variable_mass_cup_v1_validation.json`

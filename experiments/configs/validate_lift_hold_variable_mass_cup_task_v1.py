@@ -58,7 +58,11 @@ def main() -> int:
     else:
         spec = read_json(SPEC)
 
-    if spec.get("status") != "design_ready_visual_gate_pending":
+    allowed_statuses = {
+        "design_ready_visual_gate_pending",
+        "design_ready_first_official_visual_gate_pass",
+    }
+    if spec.get("status") not in allowed_statuses:
         failures.append(f"status:{spec.get('status')}")
     if spec.get("generated_trex_fields") != []:
         failures.append("generated_trex_fields_not_empty")
@@ -132,7 +136,11 @@ def main() -> int:
             failures.append(f"missing_curiosity_term:{term}")
 
     visual_gate = spec.get("visual_gate", {})
-    if visual_gate.get("status") != "pending_compute_run":
+    allowed_visual_statuses = {
+        "pending_compute_run",
+        "first_official_gate_pass_cup_asset_gate_pending",
+    }
+    if visual_gate.get("status") not in allowed_visual_statuses:
         failures.append(f"visual_gate_status:{visual_gate.get('status')}")
     if visual_gate.get("must_run_on_compute_node") is not True:
         failures.append("visual_gate_not_compute_node")
@@ -142,6 +150,39 @@ def main() -> int:
         failures.append("visual_gate_missing_manual_inspection")
     if len(visual_gate.get("direct_image_paths_required", [])) < 3:
         failures.append("direct_image_paths_lt_3")
+    completed_gate = visual_gate.get("completed_first_gate", {})
+    if visual_gate.get("status") == "first_official_gate_pass_cup_asset_gate_pending":
+        required_gate_files = [
+            "fresh_newton_sensor_contact_sanity",
+            "visual_validation",
+            "manual_visual_inspection",
+            "downstream_gate",
+            "frame_browser",
+            "contact_sheet",
+        ]
+        for key in required_gate_files:
+            path = resolve(str(completed_gate.get(key, "")))
+            if not path.exists() or path.stat().st_size <= 0:
+                failures.append(f"missing_completed_gate_file:{key}:{completed_gate.get(key)}")
+        for key, expected_status in [
+            ("fresh_newton_sensor_contact_sanity", "pass"),
+            ("visual_validation", "pass"),
+            ("manual_visual_inspection", "pass"),
+        ]:
+            path = resolve(str(completed_gate.get(key, "")))
+            if path.exists():
+                payload = read_json(path)
+                if payload.get("status") != expected_status:
+                    failures.append(f"completed_gate_{key}_status:{payload.get('status')}")
+        downstream_path = resolve(str(completed_gate.get("downstream_gate", "")))
+        if downstream_path.exists():
+            downstream = read_json(downstream_path)
+            if not str(downstream.get("status", "")).startswith("pass_phase01_visual_gate_cleared"):
+                failures.append(f"completed_gate_downstream_status:{downstream.get('status')}")
+            if downstream.get("generated_trex_fields") != []:
+                failures.append("completed_gate_downstream_generated_trex_fields_not_empty")
+            if downstream.get("schema_promotion") != "blocked":
+                failures.append(f"completed_gate_downstream_schema_promotion:{downstream.get('schema_promotion')}")
 
     forbidden_exact_found = sorted(FORBIDDEN_EXACT_KEYS & set(flatten_values(spec)))
     allowed_forbidden_list = set(observations.get("forbidden_promotions", []))
@@ -161,6 +202,7 @@ def main() -> int:
         "required_signal_count": len(observations.get("required_signals", [])),
         "curiosity_term_count": len(metrics.get("curiosity_diagnostic_terms", [])),
         "visual_gate_status": visual_gate.get("status"),
+        "completed_first_gate_run_tag": completed_gate.get("run_tag"),
         "generated_trex_fields": spec.get("generated_trex_fields"),
         "schema_promotion": spec.get("schema_promotion"),
         "no_model_or_training": spec.get("no_model_or_training"),

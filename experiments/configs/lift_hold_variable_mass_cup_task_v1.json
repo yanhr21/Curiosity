@@ -1,6 +1,6 @@
 {
   "classification": "newton_native_lift_hold_variable_mass_cup_task_v1",
-  "status": "design_ready_visual_gate_pending",
+  "status": "design_ready_first_official_visual_gate_pass",
   "scope": "phase_01_task_definition_no_training",
   "official_source_basis": {
     "newton_repository": "external/newton",
@@ -163,7 +163,7 @@
     ]
   },
   "visual_gate": {
-    "status": "pending_compute_run",
+    "status": "first_official_gate_pass_cup_asset_gate_pending",
     "must_run_on_compute_node": true,
     "requires_fresh_official_newton_sanity": true,
     "requires_manual_browser_inspection": true,
@@ -184,7 +184,16 @@
       "experiments/visuals/<run_tag>/frame_0000.png",
       "experiments/visuals/<run_tag>/frame_0120.png",
       "experiments/visuals/<run_tag>/frame_0239.png"
-    ]
+    ],
+    "completed_first_gate": {
+      "run_tag": "lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021",
+      "fresh_newton_sensor_contact_sanity": "experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_fresh_newton_sensor_contact_sanity.json",
+      "visual_validation": "experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_visual_validation.json",
+      "manual_visual_inspection": "experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_manual_visual_inspection.json",
+      "downstream_gate": "experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_downstream_gate_cleared.json",
+      "frame_browser": "experiments/visuals/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021/frame_browser.html",
+      "contact_sheet": "experiments/visuals/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021/contact_sheet.png"
+    }
   },
   "valid_claims": [
     "Phase 01 task definition",

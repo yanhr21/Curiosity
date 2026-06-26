@@ -234,3 +234,98 @@ legacy/2026-06-26_pre_pivot_archive/experiments/reports/2026-06-27_objective_v4_
 This is source prioritization and visual gating only. It does not claim learned
 ICM, world-model training, policy success, calibrated F6, T-Rex schema
 promotion, or physical Newton/Taccel synchronization.
+
+## Phase 01 Concrete Task: Variable-Mass Cup Lift-And-Hold
+
+The current concrete Newton task is a variable-mass cup lift-and-hold
+adaptation benchmark. This is the first executable task family for the
+Newton-native curiosity line.
+
+The task is defined in:
+
+```text
+docs/lift_hold_variable_mass_cup_task_spec.md
+experiments/configs/lift_hold_variable_mass_cup_task_v1.json
+experiments/configs/validate_lift_hold_variable_mass_cup_task_v1.py
+experiments/reports/2026-06-27_lift_hold_variable_mass_cup_task_spec.md
+TODO/01_newton_task_definition/todo.md
+```
+
+The task uses the official Newton Panda hydro example as the first scene
+entry point:
+
+```text
+external/newton/newton/examples/robot/example_robot_panda_hydro.py
+```
+
+The local official cup asset selected for the next gate is:
+
+```text
+external/newton-assets-cache/newton-assets_manipulation_objects_cup_f7f64ec3_8e8df07d/manipulation_objects/cup/model.usda
+```
+
+The experiment grid varies fill/mass proxy, friction, and initial pose. The
+first mass levels are empty, half, and full cup proxies. The first friction
+levels are low, medium, and high. Held-out combinations include a full
+low-friction cup and an empty high-friction cup. This is meant to test whether
+the policy can adapt to wrong expectations about object response, not merely
+memorize a single cup.
+
+Allowed observations remain Newton-native and explicitly namespaced:
+
+```text
+newton.panda.*
+newton.object.*
+newton.contact.*
+newton.camera.*
+candidate.controller.*
+```
+
+No T-Rex fields are promoted in this phase. The validator requires
+`generated_trex_fields=[]`, `schema_promotion=blocked`, and
+`no_model_or_training=true`.
+
+## Phase 01 First Visual Gate Result
+
+The first Phase 01 official visual gate has passed. It reused the existing
+tmux-held allocation `154023`, reran fresh official Newton `sensor_contact`
+sanity on the compute node, exported 9 SensorTiledCamera frames, and passed
+manual visual inspection.
+
+Run tag:
+
+```text
+lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021
+```
+
+Key evidence paths:
+
+```text
+logs/newton/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021.log
+logs/newton/phase01_lift_hold_task_validation_20260627_0021.log
+experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_summary.json
+experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_visual_validation.json
+experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_manual_visual_inspection.json
+experiments/outputs/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021_downstream_gate_cleared.json
+experiments/visuals/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021/frame_browser.html
+experiments/visuals/lift_hold_variable_mass_cup_v1_official_panda_gate_20260627_0021/contact_sheet.png
+```
+
+The inspected frames showed nonblank head, right-wrist, and left-wrist camera
+panels with the Panda robot, table, official grasped cube, and cup placement
+context visible. This clears only the official Panda hydro scene, camera
+export, validation, and reporting path. It does not claim cup grasp success,
+learned curiosity, policy adaptation, T-Rex compatibility, or tactile F6.
+
+## Immediate Next Step
+
+Do not wait for strict T-Rex schema compatibility before moving. The next
+step is to adapt the grasped object path from the official Panda hydro example
+to the local official cup asset, rerun fresh official Newton sanity, export
+camera frames, manually inspect the result, and record whether the cup asset
+gate passes.
+
+If cup geometry, collision, mass, or grasp initialization needs adjustment,
+record it as a Newton cup-asset adaptation issue and keep iterating inside the
+Phase 01 task definition. Do not substitute a toy model or pretend the result
+is T-Rex-style data.

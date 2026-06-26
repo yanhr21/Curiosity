@@ -10,12 +10,8 @@ runs/
 # Runtime outputs. Keep only directory READMEs.
 logs/*
 !logs/README.md
-experiments/configs/*
-!experiments/configs/README.md
 experiments/outputs/*
 !experiments/outputs/README.md
-experiments/reports/*
-!experiments/reports/README.md
 experiments/visuals/*
 !experiments/visuals/README.md
 
