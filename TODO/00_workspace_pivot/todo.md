@@ -8,10 +8,12 @@
 - [x] Update root AGENTS instructions so future work follows staged planning.
 - [x] Replace monolithic `PLAN/plan.md` with staged phase plan folders.
 - [x] Replace monolithic `TODO/todo.md` with staged phase todo folders.
-- [ ] Add repository ignore rules for large data, checkpoints, environments,
+- [x] Add repository ignore rules for large data, checkpoints, environments,
       external clones, caches, logs, and legacy artifacts.
-- [ ] Create initial cleaned repository commit.
-- [ ] Push initial cleaned repository to `https://github.com/yanhr21/Curiosity`.
+- [x] Create initial cleaned repository commit:
+      `43d63d2 Initialize post-pivot Newton curiosity workspace`.
+- [x] Push initial cleaned repository to `https://github.com/yanhr21/Curiosity`
+      on branch `master`.
 
 Do not start Phase 01 until this phase is complete or the user explicitly
 accepts a push/auth blocker.
