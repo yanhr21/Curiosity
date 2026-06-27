@@ -87,3 +87,4 @@ docs/_static/viser/
 /tactile_frames/
 /tactile_frames_test/
 /*.mp4
+/tactile_frame*.png
