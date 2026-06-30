@@ -106,3 +106,6 @@ docs/_static/viser/
 /soft_rod_frames/
 /soft_rod_frames_scene/
 /soft_rod_*.png
+
+# PixelDiT->TRELLIS.2 generation pipeline I/O (images, GLBs) — generated, not committed
+/pipeline_out/
