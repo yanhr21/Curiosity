@@ -86,5 +86,23 @@ docs/_static/viser/
 /memory/
 /tactile_frames/
 /tactile_frames_test/
+/tactile_frames_*/
 /*.mp4
 /tactile_frame*.png
+# FEM tactile multi-material study
+/fem_frames*/
+/fem_*.log
+/fem_check.png
+/fem_probe_scene.png
+/*_scene*.png
+/*_scene_*/
+# FEM Franka deformable-rod grasp (rod + cup scenes)
+/rodfr_frames/
+/rodcup_frames/
+/rod_frames/
+/rodfr.log
+/rodcup.log
+# Soft FEM pencil in panda_hydro (soft-rod) — generated frames/previews
+/soft_rod_frames/
+/soft_rod_frames_scene/
+/soft_rod_*.png
