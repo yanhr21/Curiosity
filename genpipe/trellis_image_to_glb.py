@@ -36,9 +36,12 @@ def main() -> None:
     ap.add_argument("--preview", default=None, help="Optional: save one rendered PNG frame here.")
     ap.add_argument("--video", default=None, help="Optional: save a turntable .mp4 here.")
     ap.add_argument("--model", default="microsoft/TRELLIS.2-4B", help="HF pipeline id.")
-    ap.add_argument("--rembg-model", default="ZhengPeng7/BiRefNet",
-                    help="Background-removal model. The 4B pipeline.json defaults to the gated "
-                         "briaai/RMBG-2.0; we redirect to this ungated BiRefNet (same interface).")
+    ap.add_argument(
+        "--rembg-model",
+        default="ZhengPeng7/BiRefNet",
+        help="Background-removal model. The 4B pipeline.json defaults to the gated "
+        "briaai/RMBG-2.0; we redirect to this ungated BiRefNet (same interface).",
+    )
     ap.add_argument("--texture-size", type=int, default=2048)
     ap.add_argument("--decimation-target", type=int, default=200000)
     args = ap.parse_args()
@@ -53,13 +56,17 @@ def main() -> None:
         args.video = os.path.abspath(args.video)
     os.chdir(_TRELLIS_ROOT)
 
+    import time
+
     import imageio
     import torch
     from PIL import Image
 
-    from trellis2.pipelines import Trellis2ImageTo3DPipeline
-    import trellis2.pipelines.rembg as _rembg_mod
+    _prof = {}
+
     import o_voxel
+    import trellis2.pipelines.rembg as _rembg_mod
+    from trellis2.pipelines import Trellis2ImageTo3DPipeline
 
     # The 4B pipeline.json sets rembg to the gated briaai/RMBG-2.0; redirect to an
     # ungated BiRefNet (the wrapper's own default, identical interface) so no extra
@@ -100,25 +107,34 @@ def main() -> None:
     _ife.DinoV3FeatureExtractor.extract_features = _extract_features_compat
 
     print(f"[trellis] loading pipeline {args.model} ...", flush=True)
+    _t = time.perf_counter()
     pipeline = Trellis2ImageTo3DPipeline.from_pretrained(args.model)
     pipeline.cuda()
+    torch.cuda.synchronize()
+    _prof["load_4B_model_s"] = time.perf_counter() - _t
 
     print(f"[trellis] running on {args.image} ...", flush=True)
+    _t = time.perf_counter()
     image = Image.open(args.image).convert("RGB")
     mesh = pipeline.run(image)[0]
     mesh.simplify(16777216)  # nvdiffrast limit
+    torch.cuda.synchronize()
+    _prof["reconstruct_s"] = time.perf_counter() - _t
 
     if args.preview or args.video:
         import cv2
-        from trellis2.utils import render_utils
         from trellis2.renderers import EnvMap
+        from trellis2.utils import render_utils
 
         # bundled HDRI from the TRELLIS.2 repo
         hdri = os.path.join(_TRELLIS_ROOT, "assets", "hdri", "forest.exr")
-        envmap = EnvMap(torch.tensor(
-            cv2.cvtColor(cv2.imread(hdri, cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB),
-            dtype=torch.float32, device="cuda",
-        ))
+        envmap = EnvMap(
+            torch.tensor(
+                cv2.cvtColor(cv2.imread(hdri, cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB),
+                dtype=torch.float32,
+                device="cuda",
+            )
+        )
         frames = render_utils.make_pbr_vis_frames(render_utils.render_video(mesh, envmap=envmap))
         if args.preview:
             os.makedirs(os.path.dirname(os.path.abspath(args.preview)), exist_ok=True)
@@ -130,6 +146,7 @@ def main() -> None:
             print(f"[trellis] turntable -> {os.path.abspath(args.video)}", flush=True)
 
     print("[trellis] exporting GLB ...", flush=True)
+    _t = time.perf_counter()
     glb = o_voxel.postprocess.to_glb(
         vertices=mesh.vertices,
         faces=mesh.faces,
@@ -147,7 +164,14 @@ def main() -> None:
     )
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     glb.export(args.out, extension_webp=True)
+    _prof["mesh_texture_export_s"] = time.perf_counter() - _t
     print(f"[trellis] GLB -> {os.path.abspath(args.out)}", flush=True)
+    print(
+        "[PROFILE trellis] "
+        + "  ".join(f"{k}={v:.2f}" for k, v in _prof.items())
+        + f"  total={sum(_prof.values()):.2f}s",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

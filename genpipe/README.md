@@ -107,6 +107,30 @@ clean run works, but they're recorded here for reproducing the envs from scratch
 9. **`trellis2` is a source package** (not pip-installed) — the script adds its repo root to
    `sys.path` and `chdir`s into it.
 
+## Performance & scaling (measured, RTX 6000 Ada, one GPU)
+
+Per-item compute with the model already resident (loads amortized over a batch):
+
+| Stage | Marginal per item | Notes |
+|---|---|---|
+| PixelDiT text→image (1024², 50 steps) | **~8–9 s / image** | one-time load ~12 s |
+| TRELLIS.2 image→3D (end-to-end incl. GLB export) | **~62 s / object** (range 46–84 s by mesh complexity) | one-time 4B load ~47 s + first-object JIT warmup ~64 s |
+| Newton grasp sim | ~5 s (8.6 ms/frame, 116 fps) | negligible |
+
+**One-GPU scaling — it's compute-bound, so packing more in gives no speedup:**
+- PixelDiT `--bs` 1→6: per-image stays ~8.6→9.6 s (flat), memory +~2 GB/image (12→22 GB). GPU already saturated at bs=1.
+- TRELLIS concurrent processes 1/2/3: each slows ∝ N (35 → 69 → ~100 s), GPU pinned at 100 % util; peak mem only ~5.6 GB/gen (of 48 GB) so memory is *not* the limit. (`num_samples>1` batching is broken in the 4B pipeline — shape bug.)
+- **Consequence:** N objects ≈ N × single-object time on one GPU. The only wins are (a) amortizing model load + JIT by looping all items in one long-lived process, and (b) **scaling out across GPUs** (1 stream/GPU is optimal). A run of N objects on one GPU ≈ `47 + 111 + 62·(N−1)` s.
+
+**Fleet estimate — 10k objects** (assume 8 GPUs/node; scales linearly with total GPUs; Ada numbers, A100/H100 ~1.5–2× faster):
+- Total generation ≈ **197 GPU-hours** (image 25 + 3D 172).
+- **8 nodes (64 GPU): ~3 h · 16 nodes (128 GPU): ~1.5 h.**
+- **Space:** GLB meshes 7.1 MB × 10k = **71 GB** (+ source images ~0.75 GB).
+- **+ Hydroelastic SDF for Newton:** build is **~0.3 s/object** (full mesh, res 64; hull ~0.01 s) → +~1 GPU-hr total (**<1 %**, ~+30–50 s of wall time) and ~0.5 MB/object → **~5 GB** (or 0 if rebuilt at sim-load, 0.3 s each).
+- **Grand total ≈ 3 h / 77 GB on 8 nodes; 1.5 h / 77 GB on 16 nodes.**
+
+Instrumentation: `trellis_image_to_glb.py` prints `[PROFILE trellis]` (load/reconstruct/export); `tactile_clock_metal.py` prints `[PROFILE tactile]` (pass1 sim+render / pass2 composite).
+
 ## Tips for sim-ready assets
 Prompt for a **single, centered object on a plain background, fully visible** — TRELLIS.2
 reconstructs one foreground object per image. The GLB is unit-scaled into the

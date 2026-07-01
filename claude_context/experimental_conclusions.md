@@ -97,3 +97,37 @@ the original example; composite `tactile_soft_rod_video.py`).
 - **Soft pencil, panda scene**: `tactile_material_rubber_soft.mp4` (720 frames, full composite with
   pad-centric compression panels) + `tactile_compare_metal_wood_softrubber.mp4` (3-way, FPS-labeled).
   **Done.** Code committed on `shengzew/fps-collision-benchmarks` (55958d82).
+
+## 8. Generation pipeline (PixelDiT→TRELLIS.2→Newton) — clock scene + profiling
+
+Generative asset pipeline vendored as submodules (see `genpipe/README.md`): PixelDiT text→image →
+TRELLIS.2 image→3D GLB → Newton rigid body. Verified end-to-end (brass alarm clock).
+
+- **Metal clock in the exact panda_hydro scene** (`example_panda_clock_metal.py`, fork of
+  `example_robot_panda_hydro.py`): the TRELLIS GLB loaded as a rigid body (convex-hull collision +
+  hydroelastic SDF + full mesh as visual overlay), metal material (μ=0.5, kh=1e12, **density derived
+  from mass/volume** = mass ÷ hull volume), gripped and released **from high above into the cup**
+  (`grip_dx=0.03` centers the jaws). At the default 2× scale (7.2 cm) the clock exceeds the ~5 cm cup
+  opening, so it perches on the rim (shrink to ~1× or enlarge the cup to seat it inside).
+- **Tactile measurement video** (`tactile_clock_metal.py`, adapted from `tactile_video.py`):
+  same composite as `tactile_material_wood.mp4` (scene + per-pad pressure heatmap + grip-force +
+  shear-on-object + material-signature). Two fixes for the clock: **auto-zoom the pad window to the
+  actual contact** (was a fixed ±2 cm box), and **compliant pads** (`pad_kh=1e10`) so they conform to
+  the rounded clock → broad ~100 mm² patch at realistic ~3 MPa (the rigid pad only touched the ~8.5 mm
+  dome → tiny 35 mm² patch; pressure proxy scaled by the pad, not the rigid clock kh). →
+  `tactile_material_clock_metal.mp4` (570 frames, 19 s).
+
+**Profiling (RTX 6000 Ada, one GPU, models resident):** image ~8–9 s; 3D object ~62 s end-to-end
+(range 46–84 s by complexity); Newton grasp sim ~5 s (8.6 ms/frame). Model loads: PixelDiT ~12 s,
+TRELLIS 4B ~47 s + ~64 s first-object JIT warmup. Tactile video cost is ~80 % matplotlib compositing
+(333 ms/frame), not physics.
+
+**Scaling (measured):** both stages are **compute-bound** — batching (PixelDiT `--bs`, flat 8.6→9.6
+s/img) or concurrency (TRELLIS 1/2/3 procs, each slows ∝ N; GPU 100 % util) gives **no throughput
+gain** on one GPU; memory is not the limit (~6–22 GB of 48 GB). N objects ≈ N × single-object time →
+scale out across GPUs (1 stream/GPU optimal), not up on one.
+
+**Fleet estimate — 10k objects** (8 GPU/node, linear in total GPUs; Ada, H100 ~1.5–2× faster):
+~197 GPU-hr generation → **8 nodes ~3 h, 16 nodes ~1.5 h**; **~71 GB** GLBs (+0.75 GB images).
+**Hydroelastic-SDF conversion is near-free**: ~0.3 s/object build (+~1 GPU-hr, <1 %) and ~0.5 MB/object
+(~5 GB, or 0 if rebuilt at sim-load). **Grand total ≈ 3 h / 77 GB (8 nodes), 1.5 h / 77 GB (16 nodes).**

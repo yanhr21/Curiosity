@@ -222,5 +222,12 @@ so whichever solver updated those poses drives the friction:
   (single-frame preview driver), `stitch_compare.sh` (metal|wood|soft side-by-side with FPS labels).
   Superseded reconstructions (NOT committed): `tactile_soft_rod.py`, `tactile_pen_soft.py`,
   `tactile_rod_{cup,panda}.py` (from-scratch rebuilds — wrong scene/colors).
+- Generation pipeline (submodules + `genpipe/`): PixelDiT (text→image) → TRELLIS.2 (image→3D GLB) →
+  Newton. `genpipe/{trellis_image_to_glb.py, run_pipeline.sh, README.md}`; submodules under
+  `third_party/{PixelDiT,TRELLIS.2}`. Newton clock scene: `example_panda_clock_metal.py` (fork of
+  `example_robot_panda_hydro.py` — rigid TRELLIS-generated clock, metal material, grip + release-from-
+  high into cup) and `tactile_clock_metal.py` (tactile measurement composite → `tactile_material_clock_metal.mp4`).
+  Profiling + fleet scaling (10k objects) in `claude_context/experimental_conclusions.md` §8 and `genpipe/README.md`.
 - Generated (gitignored): `*.usd`, `results_*.csv`, plot/diagnostic `*.png`, `*.mp4`,
-  `tactile_frames*/`, `fem_frames*/`, `rodfr_frames/`, `*.log`, `demo_logs/`.
+  `tactile_frames*/`, `fem_frames*/`, `rodfr_frames/`, `*.log`, `demo_logs/`, `pipeline_out/`,
+  `tactile_clock_frames/`.

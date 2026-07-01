@@ -109,3 +109,7 @@ docs/_static/viser/
 
 # PixelDiT->TRELLIS.2 generation pipeline I/O (images, GLBs) — generated, not committed
 /pipeline_out/
+
+# metal-clock tactile measurement video (generated)
+/tactile_clock_frames/
+/tactile_clock_frames_scene/

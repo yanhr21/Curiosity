@@ -14,6 +14,7 @@ deformable-grasp coupling, and the video-composite pipeline. Results live in
 | FEM indenter (`tactile_fem.py`) | soft block (`add_soft_grid`) | SolverVBD | prescribed sphere descent | Hertz `F=(4/3)E*√R d^1.5` from depth |
 | FEM grasp (`tactile_rod_franka.py`) | soft rod (`add_soft_grid`) | Featherstone (robot) + VBD (rod) | Franka IK keyframes | (panels TODO) |
 | FEM pencil, panda scene (`example_panda_soft_rod.py`) | round soft rod (`add_soft_mesh` cylinder) | **SolverMuJoCo (arm) + VBD (rod)** | original panda_hydro IK waypoints | VBD soft-contact compression [mm] |
+| Metal clock, panda scene (`example_panda_clock_metal.py` + `tactile_clock_metal.py`) | rigid **generated** clock (TRELLIS GLB → convex-hull collision + hydroelastic SDF, full mesh as visual) | SolverMuJoCo + hydroelastic SDF | panda_hydro waypoints (release from high) | `SensorContact` + hydroelastic pad pressure (**compliant pad** `pad_kh=1e10`) |
 
 ## 2. Rigid grasp pipeline (`tactile_video.py`)
 
