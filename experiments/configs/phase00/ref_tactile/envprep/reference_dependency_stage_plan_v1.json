@@ -1,0 +1,53 @@
+{
+  "schema_version": "phase00_reference_dependency_stage_plan_v1",
+  "date": "2026-07-01",
+  "classification": "official_dependency_stage_commands_dry_run_only_not_installed_not_sanity",
+  "scope": "command_staging_only",
+  "base_env_status": {
+    "univtac_python": "/public/home/yanhongru/Curiosity/envs/univtac/conda/bin/python",
+    "univtac_python_status": "present_python_3_10_20",
+    "tacauchy_python": "/public/home/yanhongru/Curiosity/envs/tacauchy/conda/bin/python",
+    "tacauchy_python_status": "present_python_3_11_15"
+  },
+  "univtac_staged_steps": [
+    "install_isaac",
+    "install_isaaclab",
+    "install_curobo_or_assets",
+    "install_tacex_core",
+    "build_uipc",
+    "setup_assets",
+    "official_sanity"
+  ],
+  "tacauchy_staged_steps": [
+    "install_isaac",
+    "install_isaaclab",
+    "install_curobo_or_assets",
+    "install_tacex_core",
+    "build_uipc",
+    "setup_assets",
+    "official_sanity"
+  ],
+  "status": {
+    "all_staged_steps": "dry_run_commands_generated",
+    "dependencies_installed": false,
+    "official_sanity_run": false,
+    "gate00f_ready": false,
+    "remaining_effective_failed_checks": [
+      "univtac_official_reference_sanity",
+      "tacauchy_official_reference_sanity"
+    ]
+  },
+  "evidence_roots": {
+    "univtac_outputs": "experiments/outputs/phase00/ref_tactile/envprep/univtac/",
+    "univtac_reports": "experiments/reports/phase00/ref_tactile/envprep/univtac/",
+    "tacauchy_outputs": "experiments/outputs/phase00/ref_tactile/envprep/tacauchy/",
+    "tacauchy_reports": "experiments/reports/phase00/ref_tactile/envprep/tacauchy/"
+  },
+  "not_claims": [
+    "not dependency installation",
+    "not official sanity",
+    "not Gate 00F completion",
+    "not curiosity readiness"
+  ],
+  "next_action": "Do not execute heavy official dependency installation silently on the login node. Either stage an approved local install path with explicit logs and resource guardrails, or document a blocker and move to a compute-side sanity only after dependencies are ready."
+}

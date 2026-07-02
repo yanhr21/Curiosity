@@ -1,0 +1,48 @@
+{
+  "schema_version": "phase00_newton_8c501_sanity_handoff_v1",
+  "date": "2026-07-01",
+  "classification": "compute_handoff_plan_only_not_executed",
+  "newton_root": "external/newton_8c501",
+  "newton_commit": "8c501b47847569fecdda97a9f7f01205c6f7964f",
+  "requires": [
+    "Curiosity-owned tmux session",
+    "running Slurm H200 allocation",
+    "prebuilt envs/newton/.venv",
+    "no dependency installation on compute node"
+  ],
+  "step_1_runtime_benchmark": {
+    "purpose": "Verify latest Newton 8c501 still runs official Panda hydro around the accepted 80 FPS continuation threshold on H200.",
+    "launcher": "experiments/configs/phase00/ref_tactile/launch_newton_hydro_benchmark_tmux.sh",
+    "run_script": "experiments/configs/phase00/ref_tactile/run_newton_hydro_benchmark_in_alloc.sh",
+    "example_command": "JOB_ID=<RUNNING_H200_JOB> WINDOW_NAME=p00_bench_8c501 RUN_TAG=p00_bench_8c501_hot_v1_20260701 NEWTON_ROOT=/public/home/yanhongru/Curiosity/external/newton_8c501 NEWTON_VENV=/public/home/yanhongru/Curiosity/envs/newton/.venv SCENE=cube WORLD_COUNT=1 NUM_FRAMES=2500 BENCHMARK_SECONDS=30 bash experiments/configs/phase00/ref_tactile/launch_newton_hydro_benchmark_tmux.sh",
+    "expected_summary": "experiments/outputs/phase00/ref_tactile/newton_hydro/p00_bench_8c501_hot_v1_20260701/newton_hydro_benchmark_summary.json",
+    "success_gate": "status pass and benchmark_fps >= 80.0; 82 FPS is historical reference only"
+  },
+  "step_2_dense_tactile_export": {
+    "purpose": "Export candidate dense Fn/Ft/normal/area/marker-style tactile mechanics from Newton 8c501 after runtime sanity.",
+    "launcher": "experiments/configs/phase00/ref_tactile/launch_mjw_direct_tactile_export_tmux.sh",
+    "run_script": "experiments/configs/phase00/ref_tactile/run_mjw_direct_tactile_export_in_alloc.sh",
+    "example_command": "JOB_ID=<RUNNING_H200_JOB> WINDOW_NAME=p00_mjw_8c501 RUN_TAG=p00_mjw_8c501_marker_v1_20260701 NEWTON_ROOT=/public/home/yanhongru/Curiosity/external/newton_8c501 NEWTON_VENV=/public/home/yanhongru/Curiosity/envs/newton/.venv NUM_FRAMES=240 MAP_SIZE=32 FPS=30 MATERIAL_LABEL=steel_candidate OVERRIDE_MU=0.3 OVERRIDE_KH=1000000000000 SCENE_CAMERA=1 bash experiments/configs/phase00/ref_tactile/launch_mjw_direct_tactile_export_tmux.sh",
+    "expected_summary": "experiments/outputs/phase00/ref_tactile/newton_hydro/p00_mjw_8c501_marker_v1_20260701/candidate_mjw_direct_tactile_summary.json",
+    "expected_video": "experiments/visuals/phase00/ref_tactile/newton_hydro/p00_mjw_8c501_marker_v1_20260701/candidate_mjw_direct_tactile.avi",
+    "success_gate": "nonblank synchronized output with direct_tactile_claim_allowed still treated according to summary"
+  },
+  "step_3_reference_compare": {
+    "launcher": "experiments/configs/phase00/ref_tactile/launch_reference_video_compare_tmux.sh",
+    "example_command": "JOB_ID=<RUNNING_H200_JOB> WINDOW_NAME=p00_refcmp_8c501 RUN_TAG=p00_refcmp_8c501_marker_v1_20260701 CANDIDATE_VIDEO=/public/home/yanhongru/Curiosity/experiments/visuals/phase00/ref_tactile/newton_hydro/p00_mjw_8c501_marker_v1_20260701/candidate_mjw_direct_tactile.avi CANDIDATE_SUMMARY=/public/home/yanhongru/Curiosity/experiments/outputs/phase00/ref_tactile/newton_hydro/p00_mjw_8c501_marker_v1_20260701/candidate_mjw_direct_tactile_summary.json bash experiments/configs/phase00/ref_tactile/launch_reference_video_compare_tmux.sh"
+  },
+  "step_4_channel_audit": {
+    "launcher": "experiments/configs/phase00/ref_tactile/launch_channel_semantic_audit_tmux.sh",
+    "example_command": "JOB_ID=<RUNNING_H200_JOB> WINDOW_NAME=p00_chan_8c501 RUN_TAG=p00_chan_8c501_marker_v1_20260701 CANDIDATE_VIDEO=/public/home/yanhongru/Curiosity/experiments/visuals/phase00/ref_tactile/newton_hydro/p00_mjw_8c501_marker_v1_20260701/candidate_mjw_direct_tactile.avi CANDIDATE_SUMMARY=/public/home/yanhongru/Curiosity/experiments/outputs/phase00/ref_tactile/newton_hydro/p00_mjw_8c501_marker_v1_20260701/candidate_mjw_direct_tactile_summary.json bash experiments/configs/phase00/ref_tactile/launch_channel_semantic_audit_tmux.sh"
+  },
+  "step_5_gate_review": {
+    "launcher": "experiments/configs/phase00/ref_tactile/launch_phase00_gate_review_tmux.sh",
+    "example_command": "JOB_ID=<RUNNING_H200_JOB> WINDOW_NAME=p00_gate_8c501 RUN_TAG=p00_gate_8c501_marker_v1_20260701 BENCHMARK_SUMMARY=/public/home/yanhongru/Curiosity/experiments/outputs/phase00/ref_tactile/newton_hydro/p00_bench_8c501_hot_v1_20260701/newton_hydro_benchmark_summary.json CANDIDATE_SUMMARY=/public/home/yanhongru/Curiosity/experiments/outputs/phase00/ref_tactile/newton_hydro/p00_mjw_8c501_marker_v1_20260701/candidate_mjw_direct_tactile_summary.json REFERENCE_COMPARE_SUMMARY=/public/home/yanhongru/Curiosity/experiments/outputs/phase00/ref_tactile/ref_compare/p00_refcmp_8c501_marker_v1_20260701/reference_video_compare_summary.json CHANNEL_AUDIT_SUMMARY=/public/home/yanhongru/Curiosity/experiments/outputs/phase00/ref_tactile/channel_audit/p00_chan_8c501_marker_v1_20260701/channel_semantic_audit_summary.json REFERENCE_ENV_AVAILABILITY_SUMMARY=/public/home/yanhongru/Curiosity/experiments/outputs/phase00/ref_tactile/envprep/availability/reference_env_availability_status.json REFERENCE_ASSET_AVAILABILITY_SUMMARY=/public/home/yanhongru/Curiosity/experiments/configs/phase00/ref_tactile/envprep/reference_asset_availability_v1.json REFERENCE_ASSET_REUSE_PLAN=/public/home/yanhongru/Curiosity/experiments/configs/phase00/ref_tactile/envprep/reference_asset_reuse_plan_v1.json bash experiments/configs/phase00/ref_tactile/launch_phase00_gate_review_tmux.sh"
+  },
+  "not_claims": [
+    "These commands have not been launched by this handoff.",
+    "Runtime benchmark is not tactile success.",
+    "Dense tactile export remains candidate evidence until reference semantics and Gate review pass.",
+    "Gate00F remains blocked until official UniVTAC/TaCauchy sanity passes or an accepted faithful blocker is recorded."
+  ]
+}

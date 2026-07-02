@@ -1,0 +1,25 @@
+{
+  "schema_version": "gate00f_bundle_acceptance_handoff_v1",
+  "created_at": "2026-07-01",
+  "classification": "acceptance_handoff_not_training_not_gate_completion",
+  "validator": "src/newton_tactile_curiosity/gate00f_bundle_acceptance.py",
+  "required_input": "experiments/outputs/phase00/ref_tactile/gate00f_bundle/<RUN_TAG>/gate00f_reference_bundle_summary.json",
+  "pass_status": "pass_gate00f_bundle_acceptance",
+  "required_bundle_statuses": {
+    "univtac_status": "pass_official_schema_probe",
+    "tacauchy_status": "pass_official_schema_probe",
+    "isaaclab_tacsl_status": "pass_official_isaaclab_tacsl_demo_exited_zero",
+    "gate00f_status": "pass_official_semantic_reference_sanity"
+  },
+  "additional_requirements": [
+    "ALLOW_BLOCKER_SANITY must not be enabled for acceptance",
+    "gate_review_summary.failed_checks must be empty",
+    "gate_review_summary.hard_blockers must be empty",
+    "gate review must not directly enable curiosity training"
+  ],
+  "not_claims": [
+    "not_training",
+    "not_curiosity_success",
+    "not_gate_completion_without_a_real_bundle_summary"
+  ]
+}

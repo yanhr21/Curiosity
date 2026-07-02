@@ -1,0 +1,61 @@
+{
+  "schema_version": "phase00_latest_reference_recheck_v3",
+  "date": "2026-07-01",
+  "classification": "source_acquisition_update_only_not_sanity_not_training",
+  "official_sources": {
+    "newton": "https://github.com/newton-physics/newton",
+    "taccel": "https://github.com/Taccel-Simulator/Taccel",
+    "trex": "https://github.com/ZhuoyangLiu2005/T-Rex",
+    "hydroshear": "https://github.com/MMintLab/hydroshear",
+    "univtac": "https://github.com/NotCras/UniVTac",
+    "tacauchy": "https://github.com/figsama/TaCauchy",
+    "tacex": "https://github.com/DH-Ng/TacEx",
+    "isaaclabtactile": "https://github.com/UM-ARM-Lab/IsaacLabTactile"
+  },
+  "local_sources": {
+    "newton_8c501": {
+      "path": "external/newton_8c501",
+      "commit": "8c501b47847569fecdda97a9f7f01205c6f7964f",
+      "status": "source_only_worktree_pending_compute_sanity"
+    },
+    "tacex": {
+      "path": "external/TacEx",
+      "commit": "adceed41afb7cb48f9ec1f66a662fb8e5a06627f",
+      "status": "source_cloned_not_official_sanity"
+    },
+    "isaaclabtactile": {
+      "path": "external/IsaacLabTactile",
+      "commit": "21bcb476b27ceedccccd63afef6bbd822adc2b2b",
+      "clone_command": "GIT_LFS_SKIP_SMUDGE=1 timeout 1200 git clone --filter=blob:none --single-branch https://github.com/UM-ARM-Lab/IsaacLabTactile.git external/IsaacLabTactile",
+      "local_size": "60M",
+      "status": "source_cloned_not_lfs_not_official_sanity"
+    }
+  },
+  "isaaclabtactile_notes": [
+    "Clone succeeded after the previous v2 fetch-pack disconnect by using GIT_LFS_SKIP_SMUDGE=1 and blob filtering.",
+    "git-lfs is not installed on the current PATH, so LFS asset completeness is not verified.",
+    "README reports Isaac Sim 5.0.0 badge and compatibility table for Isaac Sim 4.5 / 5.0 on main and v2.2.x.",
+    "Tags observed locally include v2.2.1, v2.2.0, v2.1.1, and older releases."
+  ],
+  "handoff": {
+    "newton_8c501_compute_handoff_config": "experiments/configs/phase00/ref_tactile/newton_8c501_sanity_handoff_v1.json",
+    "newton_8c501_compute_handoff_report": "experiments/reports/phase00/ref_tactile/newton_8c501_sanity_handoff.md"
+  },
+  "not_claims": [
+    "not Newton 8c501 runtime sanity",
+    "not dense tactile export",
+    "not reference-video comparison",
+    "not channel audit",
+    "not Gate review",
+    "not official TacEx sanity",
+    "not IsaacLabTactile official sanity",
+    "not UniVTAC/TaCauchy dependency readiness",
+    "not curiosity training"
+  ],
+  "next_actions": [
+    "Run Newton 8c501 runtime benchmark inside a Curiosity tmux-held H200 allocation.",
+    "If runtime passes, run candidate dense tactile export on Newton 8c501.",
+    "Then run reference-video comparison, channel audit, and Gate review with the new 8c501 evidence.",
+    "Keep Gate00F blocked until official UniVTAC/TaCauchy sanity passes or a faithful blocker is accepted."
+  ]
+}

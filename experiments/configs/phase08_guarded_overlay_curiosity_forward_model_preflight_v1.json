@@ -1,0 +1,96 @@
+{
+  "classification": "curiosity_forward_model_preflight_config_v1",
+  "phase": "08_harder_task_repair",
+  "purpose": "Build held-out-safe Phase08 transition records for Newton-native curiosity forward-model training from guarded-overlay failure-repair pen evidence.",
+  "source_runner_manifest": "data/processed/phase08_guarded_overlay_failure_repair_source_compat_v1_20260629/manifest.json",
+  "residual_adapter_preflight_manifest": "data/processed/phase08_guarded_overlay_failure_repair_preflight_v1_20260629/manifest.json",
+  "output_dir": "data/processed/phase08_guarded_overlay_curiosity_forward_model_preflight_v1_20260629",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "training_started": false,
+  "no_model_created": true,
+  "no_placeholder_model": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "train_cells": [
+    "pen_end_bias_train_c",
+    "pen_end_bias_overlay_train_c0",
+    "pen_end_bias_overlay_train_c2"
+  ],
+  "validation_cells": [
+    "pen_end_bias_overlay_val_c0"
+  ],
+  "held_out_cells_reserved_for_evaluation": [
+    "pen_end_bias_heldout_center",
+    "pen_end_bias_heldout_high_y",
+    "pen_end_bias_heldout_low_x"
+  ],
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.contact.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index",
+    "candidate.controller.feedback_active",
+    "candidate.controller.feedback_lift_velocity_scale",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s",
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target",
+    "candidate.task.object_mass_kg",
+    "candidate.task.object_friction_mu",
+    "candidate.task.nominal_visual_fill",
+    "candidate.task.grasp_offset_delta_x",
+    "candidate.task.grasp_offset_delta_y",
+    "candidate.task.grasp_offset_delta_z"
+  ],
+  "target_columns": [
+    "curiosity.object.delta_z_next",
+    "curiosity.object.velocity_z_next",
+    "curiosity.contact.rigid_contact_count_next",
+    "curiosity.contact.delta_count_next",
+    "curiosity.contact_loss_risk_next",
+    "curiosity.slip_risk_next",
+    "curiosity.lift_response_residual_next",
+    "curiosity.task.success_final"
+  ],
+  "risk_thresholds": {
+    "contact_loss_count": 12,
+    "slip_drop_z_m": 0.002,
+    "lift_target_tolerance_m": 0.02
+  },
+  "required_nonzero_target_columns": [
+    "curiosity.object.delta_z_next",
+    "curiosity.object.velocity_z_next",
+    "curiosity.contact.rigid_contact_count_next",
+    "curiosity.contact.delta_count_next",
+    "curiosity.lift_response_residual_next"
+  ],
+  "required_nonconstant_target_columns": [
+    "curiosity.object.delta_z_next",
+    "curiosity.object.velocity_z_next",
+    "curiosity.contact.rigid_contact_count_next",
+    "curiosity.contact.delta_count_next",
+    "curiosity.lift_response_residual_next"
+  ],
+  "forbidden_fields": [
+    "action",
+    "action_abs",
+    "observation.state",
+    "observation.images.*",
+    "observation.tactile_f6",
+    "observation.tactile_deform.*"
+  ],
+  "valid_use": [
+    "Held-out-safe Phase08 guarded-overlay repair transition records for Newton-native curiosity forward-model training",
+    "Forward-model target audit before Phase08 real curiosity training",
+    "Learning-progress input preparation"
+  ],
+  "not_valid_use": [
+    "Curiosity policy training result",
+    "Learned forward-model checkpoint",
+    "Official T-Rex world model",
+    "VQ-VAE model",
+    "Exact T-Rex schema compatibility",
+    "Calibrated tactile F6 claim"
+  ]
+}

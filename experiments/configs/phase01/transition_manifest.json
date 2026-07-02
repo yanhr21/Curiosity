@@ -1,0 +1,42 @@
+{
+  "classification": "phase01_transition_manifest_builder_config",
+  "phase": "phase01",
+  "status": "config_only_not_built",
+  "purpose": "Build train/validation transition CSVs from accepted Phase 00 Newton NPZ records without using held-out cells for training.",
+  "contract": "experiments/configs/phase01/contract.json",
+  "output_dir": "data/processed/phase01/core",
+  "report": "experiments/reports/phase01/core/transition_manifest.md",
+  "manifest": "data/processed/phase01/core/manifest.json",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "forbidden_claims": [
+    "training_result",
+    "curiosity_success",
+    "held_out_used_for_training",
+    "official_trex_schema"
+  ],
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.panda.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index",
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target",
+    "candidate.task.object_mass_kg",
+    "candidate.task.object_friction_mu",
+    "candidate.modality.vision_available_mask",
+    "candidate.modality.contact_available_mask"
+  ],
+  "target_columns": [
+    "target.object.delta_z_next",
+    "target.object.velocity_z_next",
+    "target.contact.count_next",
+    "target.contact.delta_count_next",
+    "target.contact_loss_risk_next",
+    "target.slip_risk_next"
+  ],
+  "risk_thresholds": {
+    "contact_loss_count": 1,
+    "slip_drop_z_m": 0.005
+  }
+}

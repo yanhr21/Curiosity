@@ -1,0 +1,54 @@
+{
+  "schema_version": "gate00f_container_path_audit_v1",
+  "date": "2026-07-01",
+  "classification": "static_container_path_audit_not_container_build_not_container_run_not_official_sanity",
+  "host": "mgmtserver02",
+  "commands": [
+    "rg for docker/apptainer/singularity/container/conda-pack/prebuilt references under UniVTAC/TaCauchy/TacEx/IsaacLabTactile docs",
+    "find official reference repos for docker, container, env yaml, and requirements files",
+    "command -v docker/singularity/apptainer/enroot/podman",
+    "find project tree for existing .sif/.sqsh/*isaac*.tar/*tacex*.tar/*tacauchy*.tar",
+    "docker images --format filtered for isaac/tacex/tacauchy/univtac"
+  ],
+  "tool_presence": {
+    "docker": "/usr/bin/docker",
+    "singularity": "not_found_on_current_path",
+    "apptainer": "not_found_on_current_path",
+    "enroot": "not_found_on_current_path",
+    "podman": "not_found_on_current_path"
+  },
+  "prebuilt_container_artifacts_found": [],
+  "docker_images_matching_reference_names": [],
+  "source_findings": {
+    "tacex_tacauchy_docker": [
+      "external/TacEx/docker/Dockerfile and external/TaCauchy/docker/Dockerfile exist.",
+      "The Dockerfile uses isaac-lab-base as the base image, apt installs build tools and git-lfs, copies CUDA 12.4 devel, downloads CMake 3.26.4, clones/builds vcpkg, and sets CMAKE_TOOLCHAIN_FILE.",
+      "TaCauchy/TacEx Docker docs require an Isaac Lab Docker base image with Isaac Sim and may require NVIDIA drivers, Docker, NVIDIA Container Toolkit, and NGC/API-key setup.",
+      "The documented container setup still requires build/install work and is not an already-approved prebuilt Curiosity environment."
+    ],
+    "isaaclabtactile_singularity": [
+      "external/IsaacLabTactile/docker/cluster/run_singularity.sh exists.",
+      "The script expects .env.cluster values for CLUSTER_ISAAC_SIM_CACHE_DIR, CLUSTER_ISAACLAB_DIR, CLUSTER_SIF_PATH, and a pre-existing tarred SIF profile.",
+      "The local .env.cluster uses placeholder paths such as /some/path/on/cluster.",
+      "No project-local SIF/tar artifact matching Isaac/TacEx/TaCauchy was found."
+    ],
+    "univtac": [
+      "No UniVTAC-specific prebuilt container artifact was found in the checked project tree.",
+      "UniVTAC still points to install scripts and Isaac/TacEx dependency setup rather than a ready Curiosity-owned container."
+    ]
+  },
+  "gate00f_implication": "Container source paths exist but do not currently clear Gate 00F. A compliant path would need an already-built, approved, Curiosity-owned image/SIF on shared storage, plus tmux-held Slurm official sanity. Building Docker images or installing dependencies is not performed by this audit. The current docker image list did not show Isaac/TacEx/TaCauchy/UniVTAC-related images.",
+  "not_claims": [
+    "This audit did not run docker build.",
+    "This audit did not run docker or singularity containers.",
+    "This audit did not install dependencies.",
+    "This audit did not run official UniVTAC or TaCauchy sanity.",
+    "This audit does not make IsaacLabTactile a semantic replacement for UniVTAC/TaCauchy."
+  ],
+  "next_faithful_actions": [
+    "continue treating Gate 00F as blocked",
+    "if the user/admin supplies a Curiosity-owned prebuilt SIF or Docker image tar, record its path and run only official sanity inside tmux-held Slurm",
+    "do not build Docker images on the login node",
+    "do not install dependencies on compute nodes"
+  ]
+}

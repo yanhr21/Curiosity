@@ -1,0 +1,43 @@
+{
+  "date": "2026-07-01",
+  "classification": "phase01_dense_closed_loop_real_training_attempt_config",
+  "attempt_id": "dense_clprobe_attempt_001_pen_mu002",
+  "status": "ready_to_run",
+  "task_cell": {
+    "scene": "pen",
+    "override_mu": 0.02,
+    "override_kh": 1000000000000.0,
+    "num_frames": 240,
+    "map_size": 16
+  },
+  "why_this_cell": "Harder-cell smoke p01_dense_hardcell_pen_mu002_eval_20260701_2111 showed base_zero_action max lift about 0.0268 m and zero hold frames, leaving measurable room for improvement.",
+  "training": {
+    "target_duration_s": 3600,
+    "min_duration_s": 3600,
+    "population_size": 2,
+    "elite_count": 1,
+    "configured_generations": 1,
+    "seed": 901
+  },
+  "validation": {
+    "compare_methods": [
+      "base_zero_action",
+      "checkpoint_policy"
+    ],
+    "scene": "pen",
+    "override_mu": 0.02,
+    "override_kh": 1000000000000.0,
+    "num_frames": 240,
+    "repetitions": 1
+  },
+  "counted_attempt_requirements": [
+    ">=3600 seconds real training",
+    "tmux-held Curiosity Slurm allocation",
+    "GPU utilization CSV",
+    "exact command and log",
+    "checkpoint or failure record",
+    "validation metrics against base_zero_action",
+    "no success claim without stronger held-out baseline/safety/video evidence"
+  ],
+  "not_curiosity_success_by_itself": true
+}

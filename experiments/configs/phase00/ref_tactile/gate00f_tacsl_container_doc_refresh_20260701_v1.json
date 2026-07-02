@@ -1,0 +1,36 @@
+{
+  "schema_version": "gate00f_tacsl_container_doc_refresh_v1",
+  "date": "2026-07-01",
+  "classification": "official_doc_refresh_not_runtime_not_gate_completion",
+  "sources_checked": {
+    "ngc_isaac_lab_container_catalog": "https://catalog.ngc.nvidia.com/orgs/nvidia/containers/isaac-lab",
+    "isaac_lab_visuotactile_sensor_docs": "https://isaac-sim.github.io/IsaacLab/main/source/overview/core-concepts/sensors/visuo_tactile_sensor.html",
+    "isaac_lab_docker_guide": "https://isaac-sim.github.io/IsaacLab/main/source/deployment/docker.html",
+    "isaac_lab_docker_example": "https://isaac-sim.github.io/IsaacLab/main/source/deployment/run_docker_example.html",
+    "isaaclab_tacsl_rgb_asset_issue": "https://github.com/isaac-sim/IsaacLab/issues/4528"
+  },
+  "local_static_checks": {
+    "tacsl_source_paths_present": [
+      "external/IsaacLab_official/scripts/demos/sensors/tacsl_sensor.py",
+      "external/IsaacLab_official/source/isaaclab_contrib/isaaclab_contrib/sensors/tacsl_sensor"
+    ],
+    "bg_jpg_found_under_external_isaaclab_official": false,
+    "obvious_gelsight_r15_asset_found_under_external_isaaclab_official": false
+  },
+  "findings": [
+    "official_docs_support_tacsl_camera_and_force_field_tactile_data",
+    "official_docs_and_ngc_catalog_support_isaac_lab_container_route",
+    "local_source_compatibility_for_candidate_nvcr_io_nvidia_isaac_lab_2_3_2_remains_positive",
+    "public_issue_reports_tacsl_use_tactile_rgb_missing_bg_jpg_failure",
+    "local_static_asset_check_found_no_bg_jpg_under_external_isaaclab_official"
+  ],
+  "runtime_risk": "dependency_complete_container_may_still_fail_use_tactile_rgb_official_sanity_if_required_gelsight_background_asset_is_missing",
+  "policy": "do_not_drop_tactile_rgb_silently; record_official_asset_or_runtime_failure_if_it_occurs",
+  "not_claims": [
+    "not_runtime",
+    "not_container_pull",
+    "not_module_import",
+    "not_simulation",
+    "not_gate00f_completion"
+  ]
+}

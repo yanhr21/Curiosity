@@ -1,0 +1,45 @@
+{
+  "date": "2026-07-01",
+  "classification": "baseline_evaluation_contract_not_training",
+  "status": "contract_ready_training_not_started",
+  "baseline_set": [
+    "no_adaptation_base",
+    "scripted_feedback",
+    "no_curiosity_residual_or_adaptation",
+    "closed_loop_curiosity",
+    "vision_only_ablation",
+    "tactile_only_masked_vision",
+    "noisy_delayed_shuffled_tactile",
+    "serious_official_reference_method_or_documented_blocker"
+  ],
+  "task_progression": {
+    "easy_base_gate": "basic grasp_lift_hold",
+    "harder_if_base_easy": [
+      "lower_friction",
+      "mass_or_fill_mismatch",
+      "off_center_grasp",
+      "shape_change",
+      "deformable_or_compliant_object",
+      "fragile_force_limit",
+      "held_out_material_or_stiffness"
+    ]
+  },
+  "metrics": [
+    "lift",
+    "hold_duration",
+    "slip",
+    "drop",
+    "contact_loss",
+    "object_acceleration",
+    "force_contact_cost",
+    "safety_regression",
+    "strongest_baseline_comparison"
+  ],
+  "success_claim_condition": "harder held-out tasks beat strongest baseline without safety regression",
+  "negative_result_condition": "curiosity fails strongest-baseline comparison or improves task score with safety regression",
+  "non_claims": [
+    "not training",
+    "not evaluation result",
+    "not curiosity success"
+  ]
+}

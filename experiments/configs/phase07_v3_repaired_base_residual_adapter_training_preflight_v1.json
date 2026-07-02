@@ -1,0 +1,84 @@
+{
+  "classification": "residual_adapter_training_preflight_config_v1",
+  "contract": "experiments/configs/phase07_hard_training_contract_v1.json",
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.contact.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index",
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target",
+    "candidate.task.object_mass_kg",
+    "candidate.task.object_friction_mu",
+    "candidate.task.nominal_visual_fill"
+  ],
+  "forbidden_fields": [
+    "action",
+    "action_abs",
+    "observation.state",
+    "observation.images.*",
+    "observation.tactile_f6",
+    "observation.tactile_deform.*"
+  ],
+  "generated_trex_fields": [],
+  "held_out_cells_reserved_for_evaluation": [
+    "empty_high_misleading",
+    "full_low_hidden",
+    "three_quarter_low_misleading"
+  ],
+  "no_model_created": true,
+  "no_placeholder_model": true,
+  "not_valid_use": [
+    "Learned adapter training result",
+    "Model checkpoint",
+    "Curiosity training result",
+    "T-Rex training dataset",
+    "Exact T-Rex schema compatibility",
+    "Calibrated tactile F6 claim"
+  ],
+  "output_dir": "data/processed/phase07_v3_repaired_base_residual_adapter_training_preflight_v1_20260628",
+  "phase": "07_harder_task_progression",
+  "purpose": "Validate Phase07 V3 repaired-base residual-controller adapter inputs before model training.",
+  "required_nonconstant_target_columns": [
+    "candidate.controller.feedback_lift_velocity_scale",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s"
+  ],
+  "required_nonzero_target_columns": [
+    "candidate.controller.feedback_active",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s"
+  ],
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "schema_promotion": "blocked",
+  "source_manifest": "experiments/configs/phase07_v3_repaired_base_source_manifest_v1.json",
+  "source_manifest_status_required": "phase07_v3_repaired_base_source_candidates_complete_training_not_started",
+  "source_runner_manifest": "data/processed/phase07_v3_repaired_base_residual_label_source_runner_v1_20260628/manifest.json",
+  "source_runner_status_required": "pass",
+  "target_columns": [
+    "candidate.controller.feedback_active",
+    "candidate.controller.feedback_lift_velocity_scale",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s"
+  ],
+  "teacher_context_columns": [],
+  "train_cells": [
+    "quarter_low_truthful",
+    "quarter_medium_hidden",
+    "half_low_hidden",
+    "half_medium_truthful",
+    "three_quarter_medium_misleading",
+    "three_quarter_high_truthful"
+  ],
+  "training_started": false,
+  "valid_use": [
+    "Phase07 V3 repaired-base residual-adapter train/validation split audit",
+    "Held-out leakage check before repaired-base harder-task baseline training",
+    "Input manifest for Phase07 V3 repaired-base no-curiosity residual baseline training"
+  ],
+  "validation_cells": [
+    "empty_medium_hidden",
+    "full_medium_misleading"
+  ]
+}

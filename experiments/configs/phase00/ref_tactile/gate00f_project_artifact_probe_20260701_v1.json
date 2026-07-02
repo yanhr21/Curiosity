@@ -1,0 +1,38 @@
+{
+  "schema_version": "gate00f_project_artifact_probe_v1",
+  "date": "2026-07-01",
+  "classification": "scoped_project_artifact_probe_not_runtime_not_gate_completion",
+  "scope": [
+    "envs",
+    "experiments/configs",
+    "experiments/outputs",
+    "external"
+  ],
+  "maxdepth": 5,
+  "container_artifact_patterns": [
+    "*.sif",
+    "*.sqsh",
+    "*.tar",
+    "*.tar.gz",
+    "*.img"
+  ],
+  "container_artifacts_found": [],
+  "env_tool_probe": {
+    "missing_under_envs_maxdepth4": [
+      "cmake",
+      "git-lfs",
+      "singularity",
+      "apptainer",
+      "docker"
+    ],
+    "found_under_envs_maxdepth4": [
+      "envs/taccel/cuda-toolkit/bin/nvcc"
+    ]
+  },
+  "observed_non_runtime_hits": [
+    "existing source trees for IsaacLab_official, IsaacLabTactile, UniVTAC, TaCauchy, TacEx, HydroShear",
+    "existing base env directories envs/univtac and envs/tacauchy",
+    "existing dry-run install command/status files under experiments/outputs/phase00/ref_tactile/envprep"
+  ],
+  "gate_effect": "no_dependency_complete_runtime_or_container_artifact_found"
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": "isaaclab_tacsl_env_blocker_refresh_v1",
+  "created_at": "2026-07-01 17:21:41 CST",
+  "classification": "blocker_refresh_not_training_not_sanity_success",
+  "target": "official_isaaclab_tacsl_gate00f_sanity",
+  "curiosity_training_allowed": false,
+  "checks": [
+    {
+      "name": "running_slurm_job_160860_resource_exclusion",
+      "status": "not_usable_for_curiosity",
+      "evidence": "scontrol show job 160860 reports WorkDir=/public/home/yanhongru/ICLR2027/Reflex",
+      "rule": "Do not touch, inspect, stop, reuse, attach to, or modify Reflex resources."
+    },
+    {
+      "name": "isaaclab_tacsl_env_prefix",
+      "status": "missing",
+      "checked_paths": [
+        "envs/isaaclab_tacsl",
+        "envs/isaaclab_tacsl/conda",
+        "envs/isaaclab_tacsl/.venv"
+      ]
+    },
+    {
+      "name": "existing_reference_envs",
+      "status": "base_envs_only",
+      "observed_paths": [
+        "envs/univtac",
+        "envs/tacauchy",
+        "envs/conda_pkgs/univtac",
+        "envs/conda_pkgs/univtac_classic",
+        "envs/conda_pkgs/univtac_no_lock",
+        "envs/conda_pkgs/tacauchy_no_lock"
+      ]
+    },
+    {
+      "name": "project_local_tacsl_container_archive",
+      "status": "not_found",
+      "search_scope": "/public/home/yanhongru/Curiosity maxdepth 4",
+      "patterns": [
+        "*.sif",
+        "*.sqsh",
+        "*.tar",
+        "*.tar.gz"
+      ],
+      "name_filter": "isaac|tacsl|tacex|tacauchy|univtac"
+    }
+  ],
+  "blocker": "No usable Curiosity-owned compute allocation and no dependency-complete IsaacLab/TacSL env or project-local prebuilt container were found. The only currently running Slurm job is Reflex-owned by WorkDir and must not be reused.",
+  "next_valid_actions": [
+    "provide_or_locate_a_curiosity_owned_dependency_complete_isaaclab_tacsl_env",
+    "provide_or_locate_a_curiosity_owned_prebuilt_container_archive",
+    "start_a_new_curiosity_tmux_held_slurm_allocation_only_after_an_env_or_container_can_make_the_sanity_meaningful",
+    "then_run_launch_isaaclab_tacsl_sanity_tmux_and_feed_ISAACLAB_TACSL_SANITY_SUMMARY_to_gate_review"
+  ]
+}

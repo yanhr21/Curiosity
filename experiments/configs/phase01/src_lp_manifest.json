@@ -1,0 +1,47 @@
+{
+  "classification": "phase01_source_matched_learning_progress_manifest_config_v1",
+  "phase": "phase01",
+  "purpose": "Build forward-model transition CSVs from the same train-only corrective source rollouts used by the residual-controller manifest, preserving run_tag/timestep keys for matched curiosity weighting.",
+  "source_manifest": "data/processed/phase01/src/manifest.json",
+  "output_dir": "data/processed/phase01/src_lp",
+  "manifest": "data/processed/phase01/src_lp/manifest.json",
+  "report": "experiments/reports/phase01/core/src_lp_manifest.md",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "not_training_result": true,
+  "no_curiosity_success_claim": true,
+  "risk_thresholds": {
+    "contact_loss_count": 0,
+    "slip_drop_z_m": 0.002
+  },
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.panda.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index",
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target",
+    "candidate.task.object_mass_kg",
+    "candidate.task.object_friction_mu",
+    "candidate.modality.vision_available_mask",
+    "candidate.modality.contact_available_mask"
+  ],
+  "target_columns": [
+    "target.object.delta_z_next",
+    "target.object.velocity_z_next",
+    "target.contact.count_next",
+    "target.contact.delta_count_next",
+    "target.contact_loss_risk_next",
+    "target.slip_risk_next"
+  ],
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "forbidden_claims": [
+    "curiosity_success",
+    "policy_training_result",
+    "held_out_used_for_training",
+    "official_trex_method",
+    "fake_or_fabricated_scores",
+    "source_rows_changed"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "schema_version": "isaaclab_tacsl_sanity_handoff_v1",
+  "date": "2026-07-01",
+  "classification": "handoff_only_not_run_not_training_not_gate_completion",
+  "official_source": {
+    "repo": "https://github.com/isaac-sim/IsaacLab.git",
+    "local_path": "external/IsaacLab_official",
+    "expected_commit": "b4c321024792976150ca55fddb26fa34480d974e",
+    "demo_entrypoint": "scripts/demos/sensors/tacsl_sensor.py"
+  },
+  "scripts": {
+    "run_in_alloc": "experiments/configs/phase00/ref_tactile/run_isaaclab_tacsl_sanity_in_alloc.sh",
+    "launch_tmux": "experiments/configs/phase00/ref_tactile/launch_isaaclab_tacsl_sanity_tmux.sh"
+  },
+  "required_environment": {
+    "python_env_var": "ISAACLAB_TACSL_PYTHON",
+    "fallback_paths": [
+      "envs/isaaclab_tacsl/conda/bin/python",
+      "envs/isaaclab_tacsl/.venv/bin/python"
+    ],
+    "current_status": "not_found_not_dependency_complete"
+  },
+  "official_demo_command": [
+    "scripts/demos/sensors/tacsl_sensor.py",
+    "--headless",
+    "--enable_cameras",
+    "--use_tactile_rgb",
+    "--use_tactile_ff",
+    "--normal_contact_stiffness",
+    "1.0",
+    "--tangential_stiffness",
+    "0.1",
+    "--friction_coefficient",
+    "2.0",
+    "--contact_object_type",
+    "nut",
+    "--num_envs",
+    "1",
+    "--save_viz"
+  ],
+  "required_outputs": [
+    "tactile_rgb_image",
+    "tactile_depth_image",
+    "penetration_depth",
+    "tactile_normal_force",
+    "tactile_shear_force"
+  ],
+  "launch_policy": [
+    "must run only inside Curiosity tmux-held Slurm allocation",
+    "launcher refuses missing environment unless ALLOW_MISSING_TACSL_ENV_BLOCKER_RUN=1 is explicitly set",
+    "do not install dependencies on compute nodes",
+    "do not run on login node",
+    "do not treat script existence as Gate 00F completion"
+  ],
+  "next_faithful_action": "locate or prepare approved dependency-complete IsaacLab/TacSL environment or prebuilt Curiosity-owned container, then run this handoff inside tmux-held Slurm"
+}

@@ -1,0 +1,84 @@
+{
+  "classification": "curiosity_forward_model_trainer_config_v1",
+  "phase": "phase01",
+  "purpose": "Train the Phase 01 Newton-native curiosity transition forward model from the accepted Phase 00 train/validation transition manifest.",
+  "method_name": "phase01_newton_native_curiosity_forward_model",
+  "not_official_trex_method": true,
+  "not_trex_schema": true,
+  "not_vqvae": true,
+  "preflight_manifest": "data/processed/phase01/core/manifest.json",
+  "output_dir": "experiments/outputs/phase01/core/fwd",
+  "checkpoint_dir": "checkpoints/phase01/core/fwd",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "held_out_cells_reserved_for_evaluation": [
+    "heldout_cup_full_low_hidden",
+    "heldout_cup_empty_high_misleading",
+    "heldout_box_heavy_low_large_offset",
+    "heldout_cylinder_heavy_low_masked_vision"
+  ],
+  "architecture": {
+    "type": "gru_curiosity_forward_sequence_model",
+    "input_dim": 10,
+    "hidden_dim": 512,
+    "gru_layers": 2,
+    "dropout": 0,
+    "head": "continuous_phase01_transition_targets"
+  },
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.panda.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index",
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target",
+    "candidate.task.object_mass_kg",
+    "candidate.task.object_friction_mu",
+    "candidate.modality.vision_available_mask",
+    "candidate.modality.contact_available_mask"
+  ],
+  "target_columns": [
+    "target.object.delta_z_next",
+    "target.object.velocity_z_next",
+    "target.contact.count_next",
+    "target.contact.delta_count_next",
+    "target.contact_loss_risk_next",
+    "target.slip_risk_next"
+  ],
+  "loss": {
+    "continuous_mse_weight": 1
+  },
+  "optimizer": {
+    "type": "adamw",
+    "learning_rate": 0.0003,
+    "weight_decay": 0.0001
+  },
+  "smoke": {
+    "epochs": 3,
+    "max_optimizer_steps": 12,
+    "checkpoint_written": false,
+    "valid_claim": "phase01_forward_model_smoke_only_not_real_training_result"
+  },
+  "real_training": {
+    "min_train_seconds": 3600,
+    "min_gpu_utilization_percent": 30,
+    "train_batch_repeat": 512,
+    "sequence_batch_size": 8,
+    "monitor_interval_seconds": 30,
+    "save_initial_snapshot": true,
+    "checkpoint_written": true,
+    "valid_claim": "phase01_forward_model_training_component_only_not_policy_success"
+  },
+  "attempt_ledger": "experiments/reports/phase01/core/training_attempts.json",
+  "forbidden_claims": [
+    "official_trex_method",
+    "trex_schema_compatible",
+    "vqvae_or_trex_world_model",
+    "tactile_f6_available",
+    "curiosity_policy_updated_before_policy_training",
+    "held_out_improvement_before_policy_eval",
+    "curiosity_success_from_forward_model_loss_only"
+  ]
+}

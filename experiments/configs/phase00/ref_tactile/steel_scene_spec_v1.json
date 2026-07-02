@@ -1,0 +1,78 @@
+{
+  "classification": "phase00_reference_video_steel_scene_spec_v1",
+  "phase": "phase00",
+  "family": "ref_tactile",
+  "purpose": "First dense tactile environment scene: rigid steel/metal contact with left/right tactile pads.",
+  "not_training_result": true,
+  "requires_compute_node_for_execution": true,
+  "official_code_first": true,
+  "source_code_targets": {
+    "newton_worktree": "external/newton_v1.3",
+    "taccel_worktree": "external/Taccel",
+    "reference_model_worktree": "external/T-Rex",
+    "shear_reference_worktree": "external/hydroshear"
+  },
+  "base_scene": {
+    "robot_candidate": "Newton official Panda hydro prior",
+    "newton_reference_example": "external/newton_v1.3/newton/examples/robot/example_robot_panda_hydro.py",
+    "taccel_reference_examples": [
+      "external/Taccel/examples/peg.py",
+      "external/Taccel/examples/grasp_soft_teddy.py"
+    ],
+    "initial_object_family": "rigid_steel_rod_or_cylinder",
+    "two_pad_contact": true,
+    "left_right_pad_required": true
+  },
+  "material": {
+    "name": "steel_rigid",
+    "density_kg_m3": 7800.0,
+    "friction_mu_initial": 0.3,
+    "contact_stiffness_kh_initial": 1000000000000.0,
+    "youngs_modulus_pa_reference": 200000000000.0,
+    "poisson_ratio_reference": 0.29,
+    "notes": "Use Newton hydroelastic stiffness/contact settings where available. Use Young's modulus only where the selected simulator path exposes elastic material parameters directly."
+  },
+  "timing": {
+    "target_rigid_diagnostic_fps": 82,
+    "minimum_accepted_rigid_diagnostic_fps": 60,
+    "soft_fem_low_rate_allowed_only_when_labeled": true,
+    "frame_aligned_visual_and_tactile": true
+  },
+  "required_mechanics": {
+    "contact_normal": true,
+    "normal_force_fn": true,
+    "tangential_force_ft": true,
+    "friction_vector": true,
+    "shear_direction": true,
+    "pressure_or_stress_map": true,
+    "contact_area": true,
+    "penetration_or_compression": true,
+    "left_right_force_balance": true,
+    "material_signature_timeseries": true
+  },
+  "first_success_gate": {
+    "official_newton_sanity": "pass",
+    "official_taccel_sanity_or_blocker": "pass_or_documented_blocker",
+    "dense_schema_coverage": "all required rigid steel fields present or explicitly blocked with source reason",
+    "nonzero_contact_fields": [
+      "tactile.left.force_normal_n",
+      "tactile.right.force_normal_n",
+      "tactile.left.force_tangent_n or tactile.left.friction_vector_n",
+      "tactile.right.force_tangent_n or tactile.right.friction_vector_n",
+      "candidate.contact.total_area_m2"
+    ],
+    "visual_evidence": [
+      "diagnostic_mp4",
+      "contact_sheet",
+      "manual_inspection"
+    ],
+    "no_login_node_compute": true
+  },
+  "output_layout": {
+    "configs": "experiments/configs/phase00/ref_tactile/",
+    "outputs": "experiments/outputs/phase00/ref_tactile/",
+    "visuals": "experiments/visuals/phase00/ref_tactile/",
+    "reports": "experiments/reports/phase00/ref_tactile/",
+    "logs": "logs/newton/phase00/ref_tactile/"
+  }
+}

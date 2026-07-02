@@ -1,0 +1,11 @@
+{
+  "schema_version": "gate00f_runtime_preflight_login_refuse_v1",
+  "date": "2026-07-01",
+  "classification": "launcher_safety_check_not_training_not_gate_completion",
+  "command": "bash experiments/configs/phase00/ref_tactile/run_gate00f_runtime_preflight_in_alloc.sh",
+  "expected_exit_code": 2,
+  "observed_exit_code": 2,
+  "observed_stderr": "ERROR: must run inside a Slurm allocation.",
+  "result": "pass_refused_login_node_execution",
+  "gate_effect": "does_not_clear_gate00f"
+}

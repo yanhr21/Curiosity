@@ -1,0 +1,64 @@
+{
+  "classification": "phase01_closed_loop_curiosity_contract",
+  "phase": "phase01",
+  "status": "setup_active_no_training_result",
+  "purpose": "Closed-loop curiosity training from the accepted Phase 00 Newton asset dataset.",
+  "not_training_result": true,
+  "no_curiosity_success_claim": true,
+  "requires_tmux_held_h200": true,
+  "requires_fresh_official_newton_sanity": true,
+  "short_grouped_paths": {
+    "configs": "experiments/configs/phase01/",
+    "processed": "data/processed/phase01/core/",
+    "outputs": "experiments/outputs/phase01/core/",
+    "reports": "experiments/reports/phase01/core/",
+    "visuals": "experiments/visuals/phase01/core/",
+    "checkpoints": "checkpoints/phase01/core/",
+    "logs": "logs/newton/phase01/core/"
+  },
+  "phase00_sources": {
+    "mp4_summary": "experiments/outputs/phase00_video_mp4_export_h200_20260629_203527_phase00_video_mp4_summary.json",
+    "row_files": [
+      "experiments/outputs/phase00_core_asset_generation_h200_long_20260629_182052_phase00_cell_rows.jsonl",
+      "experiments/outputs/phase00_core_asset_generation_h200_long_repair2_20260629_183216_phase00_cell_rows.jsonl"
+    ]
+  },
+  "splits": {
+    "train": [
+      "train_cup_quarter_low_hidden",
+      "train_cup_half_medium_truthful",
+      "train_cup_three_quarter_high_truthful",
+      "train_box_light_medium_center",
+      "train_box_heavy_low_offset",
+      "train_cylinder_light_medium",
+      "train_cylinder_heavy_low",
+      "train_cup_half_low_misleading"
+    ],
+    "validation": [
+      "val_cup_empty_medium_hidden",
+      "val_box_medium_high_offset",
+      "val_cylinder_medium_low"
+    ],
+    "held_out": [
+      "heldout_cup_full_low_hidden",
+      "heldout_cup_empty_high_misleading",
+      "heldout_box_heavy_low_large_offset",
+      "heldout_cylinder_heavy_low_masked_vision"
+    ]
+  },
+  "five_attempt_stop_gate": {
+    "max_negative_real_one_hour_attempts_before_stop": 5,
+    "min_seconds_per_counted_attempt": 3600,
+    "invalid_runs_do_not_count": true,
+    "positive_result_definition": "Improves over the declared strongest available baseline on held-out metrics without safety regression.",
+    "attempt_ledger": "experiments/reports/phase01/core/training_attempts.json"
+  },
+  "forbidden_claims": [
+    "curiosity_training_complete_before_heldout_eval",
+    "official_trex_method",
+    "vqvae_or_trex_world_model",
+    "held_out_used_for_training",
+    "positive_result_from_loss_only",
+    "positive_result_from_checkpoint_only"
+  ]
+}

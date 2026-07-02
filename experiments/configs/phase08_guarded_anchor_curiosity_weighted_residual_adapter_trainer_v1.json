@@ -1,0 +1,118 @@
+{
+  "classification": "curiosity_weighted_residual_adapter_trainer_config_v1",
+  "phase": "08_harder_task_repair",
+  "purpose": "Continue Phase08 after the negative held-out result with a stronger guarded-anchor curiosity repair. The training preserves stable no-residual hold behavior in contact-rich phases while allowing bounded curiosity weighting on corrective windows. This is Newton-native supervised residual policy training, not RL, not T-Rex, and not a success claim before held-out evaluation.",
+  "method_name": "phase08_newton_native_guarded_anchor_curiosity_weighted_residual_controller_adapter",
+  "checkpoint_classification": "newton_native_guarded_anchor_curiosity_weighted_residual_controller_adapter_v1_checkpoint",
+  "result_classification": "curiosity_weighted_residual_adapter_trainer_v1_result",
+  "ablation_name": "phase08_guarded_anchor_curiosity_repair",
+  "not_official_trex_method": true,
+  "not_trex_schema": true,
+  "not_rl_algorithm": true,
+  "preflight_manifest": "data/processed/phase08_advantage_gated_residual_preflight_v1_20260628/manifest.json",
+  "learning_progress_summary": "experiments/outputs/phase08_curiosity_learning_progress_v1_20260628/curiosity_learning_progress_summary.json",
+  "base_checkpoint": "checkpoints/phase08_curiosity_weighted_residual_adapter_trainer_v1_20260628/phase08_curiosity_weighted_residual_adapter_v1_train_20260628.pt",
+  "output_dir": "experiments/outputs/phase08_guarded_anchor_curiosity_weighted_residual_adapter_trainer_v1_20260629",
+  "checkpoint_dir": "checkpoints/phase08_guarded_anchor_curiosity_weighted_residual_adapter_trainer_v1_20260629",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "held_out_cells_reserved_for_evaluation": [
+    "pen_end_bias_heldout_center",
+    "pen_end_bias_heldout_high_y",
+    "pen_end_bias_heldout_low_x"
+  ],
+  "architecture": {
+    "type": "gru_residual_controller_sequence_model",
+    "input_dim": 12,
+    "hidden_dim": 512,
+    "gru_layers": 2,
+    "dropout": 0,
+    "active_head": "binary_feedback_active_logit",
+    "continuous_head": [
+      "candidate.controller.feedback_lift_velocity_scale",
+      "candidate.controller.feedback_hold_height_offset_m",
+      "candidate.controller.feedback_stabilization_extension_s"
+    ]
+  },
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.contact.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index",
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target",
+    "candidate.task.object_mass_kg",
+    "candidate.task.object_friction_mu",
+    "candidate.task.nominal_visual_fill",
+    "candidate.task.grasp_offset_delta_x",
+    "candidate.task.grasp_offset_delta_y",
+    "candidate.task.grasp_offset_delta_z"
+  ],
+  "target_columns": [
+    "candidate.controller.feedback_active",
+    "candidate.controller.feedback_lift_velocity_scale",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s"
+  ],
+  "curiosity_weighting": {
+    "score_column": "bounded_curiosity_reward",
+    "score_split_for_training": "train",
+    "score_split_for_validation": "validation",
+    "extrinsic_weight": 1,
+    "curiosity_weight_scale": 0.35,
+    "min_sample_weight": 0.5,
+    "max_sample_weight": 2,
+    "min_train_score_coverage": 0.95,
+    "baseline_preservation_anchor": {
+      "enabled": true,
+      "anchor_strength": 1.25,
+      "inverse_curiosity_power": 1,
+      "stable_phase_min": 1,
+      "min_contact_count": 40,
+      "active_loss_weight": 1.5,
+      "continuous_loss_weights": [
+        1,
+        1,
+        1
+      ],
+      "neutral_continuous_targets": [
+        1,
+        0,
+        0
+      ]
+    }
+  },
+  "loss": {
+    "feedback_active_bce_weight": 1,
+    "continuous_mse_weight": 1
+  },
+  "optimizer": {
+    "type": "adamw",
+    "learning_rate": 4e-05,
+    "weight_decay": 0.0001
+  },
+  "smoke": {
+    "epochs": 3,
+    "max_optimizer_steps": 12,
+    "checkpoint_written": false,
+    "valid_claim": "phase08_guarded_anchor_curiosity_repair_smoke_only_not_real_training_result"
+  },
+  "real_training": {
+    "min_train_seconds": 3600,
+    "min_gpu_utilization_percent": 30,
+    "train_batch_repeat": 1024,
+    "monitor_interval_seconds": 30,
+    "checkpoint_written": true,
+    "valid_claim": "phase08_guarded_anchor_curiosity_repair_training_only_after_duration_and_report_gates"
+  },
+  "forbidden_claims": [
+    "official_trex_method",
+    "trex_schema_compatible",
+    "tactile_f6_available",
+    "rl_policy_optimization",
+    "held_out_generalization_before_eval",
+    "curiosity_success_before_heldout_eval"
+  ]
+}

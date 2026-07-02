@@ -1,0 +1,76 @@
+{
+  "classification": "advantage_gated_residual_preflight_config_v1",
+  "phase": "08_harder_task_repair",
+  "purpose": "Only permit residual labels from paired train/validation cells where intervention beats no-adaptation. This prevents another dense-feedback imitation run from training on labels that empirically reduce hold/lift.",
+  "output_dir": "data/processed/phase08_advantage_gated_residual_preflight_v1_20260628",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.contact.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index",
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target",
+    "candidate.task.object_mass_kg",
+    "candidate.task.object_friction_mu",
+    "candidate.task.nominal_visual_fill",
+    "candidate.task.grasp_offset_delta_x",
+    "candidate.task.grasp_offset_delta_y",
+    "candidate.task.grasp_offset_delta_z"
+  ],
+  "target_columns": [
+    "candidate.controller.feedback_active",
+    "candidate.controller.feedback_lift_velocity_scale",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s"
+  ],
+  "advantage_gate": {
+    "min_hold_gain_s": 0.0,
+    "min_lift_gain_m": 0.0,
+    "min_accepted_cells": 1,
+    "require_validation_rows": true,
+    "reject_safety_regression": true
+  },
+  "paired_rollouts": [
+    {
+      "name": "pen_end_bias_train_a_source_selection_positive",
+      "split": "train",
+      "cell": "pen_end_bias_train_a",
+      "baseline_run_tag": "phase08_contact_patch_retry2_pen_end_bias_no_adaptation_20260628",
+      "intervention_run_tag": "phase08_contact_patch_retry2_pen_end_bias_guarded_feedback_20260628"
+    },
+    {
+      "name": "pen_end_bias_train_d_pair_collection_positive",
+      "split": "train",
+      "cell": "pen_end_bias_train_d",
+      "baseline_run_tag": "phase08_pen_end_bias_pair_pen_end_bias_train_d_no_adaptation_20260628",
+      "intervention_run_tag": "phase08_pen_end_bias_pair_pen_end_bias_train_d_guarded_feedback_20260628"
+    },
+    {
+      "name": "pen_end_bias_validation_c_refine_positive",
+      "split": "validation",
+      "cell": "pen_end_bias_val_c",
+      "baseline_run_tag": "phase08_pen_validation_refine_pen_end_bias_val_c_no_adaptation_20260628",
+      "intervention_run_tag": "phase08_pen_validation_refine_pen_end_bias_val_c_guarded_feedback_20260628"
+    },
+    {
+      "name": "pen_end_bias_validation_d_refine_negative_control",
+      "split": "validation",
+      "cell": "pen_end_bias_val_d",
+      "baseline_run_tag": "phase08_pen_validation_refine_pen_end_bias_val_d_no_adaptation_20260628",
+      "intervention_run_tag": "phase08_pen_validation_refine_pen_end_bias_val_d_guarded_feedback_20260628"
+    },
+    {
+      "name": "pen_end_bias_validation_e_refine_positive",
+      "split": "validation",
+      "cell": "pen_end_bias_val_e",
+      "baseline_run_tag": "phase08_pen_validation_refine_pen_end_bias_val_e_no_adaptation_20260628",
+      "intervention_run_tag": "phase08_pen_validation_refine_pen_end_bias_val_e_guarded_feedback_20260628"
+    }
+  ],
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "not_success_claim": true,
+  "training_started": false
+}

@@ -1,0 +1,97 @@
+{
+  "classification": "curiosity_forward_model_preflight_config_v1",
+  "phase": "07_harder_task_progression",
+  "purpose": "Build held-out-safe Phase07 V2 transition records for Newton-native curiosity forward-model training.",
+  "source_runner_manifest": "data/processed/phase07_v2_stabilization_residual_label_source_runner_v1_20260628/manifest.json",
+  "residual_adapter_preflight_manifest": "data/processed/phase07_v2_residual_adapter_training_preflight_v1_20260628/manifest.json",
+  "output_dir": "data/processed/phase07_v2_curiosity_forward_model_preflight_v1_20260628",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "training_started": false,
+  "no_model_created": true,
+  "no_placeholder_model": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "train_cells": [
+    "quarter_low_truthful",
+    "quarter_medium_hidden",
+    "half_low_hidden",
+    "half_medium_truthful",
+    "three_quarter_medium_misleading",
+    "three_quarter_high_truthful"
+  ],
+  "validation_cells": [
+    "empty_medium_hidden",
+    "full_medium_misleading"
+  ],
+  "held_out_cells_reserved_for_evaluation": [
+    "empty_high_misleading",
+    "full_low_hidden",
+    "three_quarter_low_misleading"
+  ],
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.contact.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index",
+    "candidate.controller.feedback_active",
+    "candidate.controller.feedback_lift_velocity_scale",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s",
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target",
+    "candidate.task.object_mass_kg",
+    "candidate.task.object_friction_mu",
+    "candidate.task.nominal_visual_fill"
+  ],
+  "target_columns": [
+    "curiosity.object.delta_z_next",
+    "curiosity.object.velocity_z_next",
+    "curiosity.contact.rigid_contact_count_next",
+    "curiosity.contact.delta_count_next",
+    "curiosity.contact_loss_risk_next",
+    "curiosity.slip_risk_next",
+    "curiosity.lift_response_residual_next",
+    "curiosity.task.success_final"
+  ],
+  "risk_thresholds": {
+    "contact_loss_count": 12,
+    "slip_drop_z_m": 0.002,
+    "lift_target_tolerance_m": 0.02
+  },
+  "required_nonzero_target_columns": [
+    "curiosity.object.delta_z_next",
+    "curiosity.object.velocity_z_next",
+    "curiosity.contact.rigid_contact_count_next",
+    "curiosity.contact.delta_count_next",
+    "curiosity.lift_response_residual_next"
+  ],
+  "required_nonconstant_target_columns": [
+    "curiosity.object.delta_z_next",
+    "curiosity.object.velocity_z_next",
+    "curiosity.contact.rigid_contact_count_next",
+    "curiosity.contact.delta_count_next",
+    "curiosity.lift_response_residual_next"
+  ],
+  "forbidden_fields": [
+    "action",
+    "action_abs",
+    "observation.state",
+    "observation.images.*",
+    "observation.tactile_f6",
+    "observation.tactile_deform.*"
+  ],
+  "valid_use": [
+    "Held-out-safe Phase07 V2 transition records for Newton-native curiosity forward-model training",
+    "Forward-model target audit before Phase07 V2 real training",
+    "Learning-progress input preparation"
+  ],
+  "not_valid_use": [
+    "Curiosity policy training result",
+    "Learned forward-model checkpoint",
+    "Official T-Rex world model",
+    "VQ-VAE model",
+    "Exact T-Rex schema compatibility",
+    "Calibrated tactile F6 claim"
+  ]
+}

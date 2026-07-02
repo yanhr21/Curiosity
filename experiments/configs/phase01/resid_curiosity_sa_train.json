@@ -1,0 +1,118 @@
+{
+  "classification": "phase01_safety_anchor_curiosity_weighted_residual_adapter_trainer_config_v1",
+  "phase": "phase01",
+  "purpose": "Second Phase 01 repair candidate: fine-tune from the no-curiosity residual baseline with weaker curiosity weights and an active safety-preservation anchor after the first curiosity candidate regressed held-out safety metrics.",
+  "method_name": "phase01_safety_anchor_curiosity_weighted_newton_native_residual_controller_adapter",
+  "checkpoint_classification": "phase01_newton_native_curiosity_weighted_residual_controller_adapter_v1_checkpoint",
+  "result_classification": "phase01_safety_anchor_curiosity_weighted_residual_adapter_trainer_v1_result",
+  "not_official_trex_method": true,
+  "not_trex_schema": true,
+  "not_rl_algorithm": true,
+  "preflight_manifest": "data/processed/phase01/src/manifest.json",
+  "learning_progress_summary": "experiments/outputs/phase01/core/src_lp/curiosity_learning_progress_summary.json",
+  "base_checkpoint": "checkpoints/phase01/core/resid/base/p01_resid_base_a1_20260630_0307.pt",
+  "output_dir": "experiments/outputs/phase01/core/resid/curiosity_sa",
+  "checkpoint_dir": "checkpoints/phase01/core/resid/curiosity_sa",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "repair_reason": "First curiosity candidate p01_resid_cur_a1_20260630_0407 had positive_curiosity_result=false and safety_regression_cell_count=4. This config reduces update aggressiveness and activates a preservation anchor.",
+  "held_out_cells_reserved_for_evaluation": [
+    "heldout_cup_full_low_hidden",
+    "heldout_cup_empty_high_misleading",
+    "heldout_box_heavy_low_large_offset",
+    "heldout_cylinder_heavy_low_masked_vision"
+  ],
+  "architecture": {
+    "type": "gru_residual_controller_sequence_model",
+    "input_dim": 10,
+    "hidden_dim": 512,
+    "gru_layers": 2,
+    "dropout": 0,
+    "active_head": "binary_feedback_active_logit",
+    "continuous_head": [
+      "candidate.controller.feedback_lift_velocity_scale",
+      "candidate.controller.feedback_hold_height_offset_m",
+      "candidate.controller.feedback_stabilization_extension_s"
+    ]
+  },
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.panda.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index",
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target",
+    "candidate.task.object_mass_kg",
+    "candidate.task.object_friction_mu",
+    "candidate.modality.vision_available_mask",
+    "candidate.modality.contact_available_mask"
+  ],
+  "target_columns": [
+    "candidate.controller.feedback_active",
+    "candidate.controller.feedback_lift_velocity_scale",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s"
+  ],
+  "curiosity_weighting": {
+    "score_column": "bounded_curiosity_reward",
+    "score_split_for_training": "train",
+    "score_split_for_validation": "validation",
+    "extrinsic_weight": 1,
+    "curiosity_weight_scale": 0.25,
+    "min_sample_weight": 0.5,
+    "max_sample_weight": 1.5,
+    "min_train_score_coverage": 0.99,
+    "baseline_preservation_anchor": {
+      "enabled": true,
+      "anchor_strength": 0.8,
+      "inverse_curiosity_power": 2,
+      "stable_phase_min": 1,
+      "min_contact_count": 1,
+      "active_loss_weight": 1,
+      "continuous_loss_weights": [
+        0.2,
+        1,
+        1
+      ],
+      "neutral_continuous_targets": [
+        1,
+        0,
+        0
+      ]
+    }
+  },
+  "loss": {
+    "feedback_active_bce_weight": 1,
+    "continuous_mse_weight": 1
+  },
+  "optimizer": {
+    "type": "adamw",
+    "learning_rate": 0.00003,
+    "weight_decay": 0.0001
+  },
+  "smoke": {
+    "epochs": 3,
+    "max_optimizer_steps": 12,
+    "checkpoint_written": false,
+    "valid_claim": "phase01_safety_anchor_curiosity_weighted_residual_adapter_smoke_only_not_real_training_result"
+  },
+  "real_training": {
+    "min_train_seconds": 3600,
+    "min_gpu_utilization_percent": 30,
+    "train_batch_repeat": 128,
+    "monitor_interval_seconds": 30,
+    "checkpoint_written": true,
+    "valid_claim": "phase01_safety_anchor_curiosity_weighted_residual_adapter_training_component_not_success_until_heldout_eval"
+  },
+  "attempt_ledger": "experiments/reports/phase01/core/training_attempts.json",
+  "forbidden_claims": [
+    "official_trex_method",
+    "trex_schema_compatible",
+    "tactile_f6_available",
+    "rl_policy_optimization",
+    "held_out_generalization_before_eval",
+    "curiosity_success_before_heldout_eval"
+  ]
+}

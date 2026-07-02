@@ -1,0 +1,22 @@
+{
+  "schema_version": "gate00f_runtime_preflight_login_refuse_after_container_support_v1",
+  "date": "2026-07-01",
+  "classification": "login_refuse_check_not_runtime_not_gate_completion",
+  "script": "experiments/configs/phase00/ref_tactile/run_gate00f_runtime_preflight_in_alloc.sh",
+  "command": "RUN_TAG=p00_runtime_preflight_login_refuse_after_container_support_20260701 bash experiments/configs/phase00/ref_tactile/run_gate00f_runtime_preflight_in_alloc.sh",
+  "exit_code": 2,
+  "stderr": "ERROR: must run inside a Slurm allocation.",
+  "checks": {
+    "slurm_allocation_required": true,
+    "login_node_refused": true,
+    "registry_validation_reached": false,
+    "container_command_reached": false,
+    "module_import_reached": false
+  },
+  "not_claims": [
+    "not_runtime",
+    "not_gate00f_completion",
+    "not_official_sanity",
+    "not_training"
+  ]
+}

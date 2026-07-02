@@ -1,0 +1,34 @@
+{
+  "schema_version": "phase00_newton_d58_allocation_request_v1",
+  "date": "2026-07-01",
+  "classification": "slurm_allocation_used_for_d58_evidence_not_training",
+  "curiosity_training_allowed": false,
+  "tmux_session": "curiosity_phase00_ref_tactile",
+  "tmux_window": "alloc_d58",
+  "job_name": "curiosity_p00_d58_1gpu_1day",
+  "observed_job_id": "160467",
+  "observed_state": "granted_used_then_cancel_requested_after_evidence_runs",
+  "resource_request": {
+    "partition": "gpu",
+    "gres": "gpu:NVIDIAH200:1",
+    "time_limit": "1-00:00:00",
+    "cpus_per_task": 8,
+    "memory": "64G"
+  },
+  "log_path": "logs/newton/phase00/ref_tactile/allocation/curiosity_p00_d58_1gpu_1day_20260701_070340.log",
+  "runs_completed": [
+    "p00_bench_d58_v1_20260701_070459",
+    "p00_bench_d58_hot_v1_20260701_070611",
+    "p00_mjw_d58_marker_v1_20260701_071248",
+    "p00_refcmp_d58_marker_v1_20260701_071521",
+    "p00_chan_d58_marker_v1_20260701_071757",
+    "p00_gate_d58_marker_v1_20260701_071843"
+  ],
+  "not_claimed": [
+    "training",
+    "curiosity success",
+    "Gate 00D completion",
+    "Gate 00E completion",
+    "Gate 00F completion"
+  ]
+}

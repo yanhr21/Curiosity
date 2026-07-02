@@ -1,0 +1,230 @@
+{
+  "schema_version": "phase00_semantic_validation_reference_matrix_v1",
+  "date": "2026-07-01",
+  "login_node_policy": "source_and_text_audit_only_no_compute",
+  "active_status": "gate_00d_00e_open_semantic_validation_required",
+  "references": [
+    {
+      "name": "OfficialIsaacLabTacSL",
+      "official_repo": "https://github.com/isaac-sim/IsaacLab",
+      "official_docs": "https://isaac-sim.github.io/IsaacLab/main/source/overview/core-concepts/sensors/visuo_tactile_sensor.html",
+      "local_path": "external/IsaacLab_official",
+      "local_commit": "b4c321024792976150ca55fddb26fa34480d974e",
+      "role": "official_isaaclab_tacsl_visuotactile_force_field_reference",
+      "platform": ["IsaacLab_main", "TacSL", "Taxim"],
+      "sensors": ["GelSight R1.5 demo", "GelSight Mini config support"],
+      "observed_schema_fields": [
+        "VisuoTactileSensorData.tactile_depth_image",
+        "VisuoTactileSensorData.tactile_rgb_image",
+        "VisuoTactileSensorData.tactile_points_pos_w",
+        "VisuoTactileSensorData.tactile_points_quat_w",
+        "VisuoTactileSensorData.penetration_depth",
+        "VisuoTactileSensorData.tactile_normal_force",
+        "VisuoTactileSensorData.tactile_shear_force"
+      ],
+      "observed_config_fields": [
+        "VisuoTactileSensorCfg.normal_contact_stiffness",
+        "VisuoTactileSensorCfg.friction_coefficient",
+        "VisuoTactileSensorCfg.tangential_stiffness",
+        "VisuoTactileSensorCfg.tactile_array_size",
+        "VisuoTactileSensorCfg.tactile_margin",
+        "VisuoTactileSensorCfg.contact_object_prim_path_expr"
+      ],
+      "phase00_use": [
+        "official_tacsl_rgb_depth_force_field_schema_reference",
+        "candidate_fn_ft_penetration_shear_validation_reference",
+        "future_isaaclab_tactile_demo_sanity_reference"
+      ],
+      "must_not_claim": [
+        "not_gate_completion_without_official_environment_and_sanity",
+        "not_newton_native_infant_checkpoint",
+        "not_curiosity_success",
+        "not_replacement_for_univtac_tacauchy_until_sanity_passes_or_blocker_is_accepted"
+      ],
+      "next_gate": "official_compute_sanity_and_tacsl_schema_bridge"
+    },
+    {
+      "name": "UniVTAC",
+      "official_repo": "https://github.com/univtac/UniVTAC",
+      "local_path": "external/UniVTAC",
+      "local_commit": "05bcd3edb92237107efa40105292a24f1a9fd761",
+      "role": "official_visuotactile_manipulation_benchmark_policy_reference",
+      "platform": ["IsaacLab", "TacEx", "UIPC"],
+      "sensors": ["GelSight Mini", "ViTai GF225", "XenseWS"],
+      "tasks": [
+        "collect",
+        "lift_bottle",
+        "lift_can",
+        "insert_HDMI",
+        "insert_hole",
+        "insert_tube",
+        "pull_out_key",
+        "put_bottle_in_shelf",
+        "grasp_classify"
+      ],
+      "observed_schema_fields": [
+        "observation.head.rgb",
+        "observation.wrist.rgb",
+        "tactile.left_tactile.rgb",
+        "tactile.left_tactile.rgb_marker",
+        "tactile.left_tactile.depth",
+        "tactile.left_tactile.marker",
+        "tactile.left_tactile.pose",
+        "tactile.right_tactile.rgb",
+        "tactile.right_tactile.rgb_marker",
+        "tactile.right_tactile.depth",
+        "tactile.right_tactile.marker",
+        "tactile.right_tactile.pose",
+        "embodiment.ee",
+        "embodiment.joint"
+      ],
+      "phase00_use": [
+        "dense_tactile_dataset_schema_reference",
+        "future_visuotactile_policy_baseline_reference",
+        "ablation_reference_for_vision_tactile_tactile_only_vision_only"
+      ],
+      "must_not_claim": [
+        "not_newton_native_infant_checkpoint",
+        "not_gate_completion_without_compute_sanity",
+        "not_curiosity_success"
+      ],
+      "next_gate": "official_compute_sanity_and_schema_bridge"
+    },
+    {
+      "name": "TaCauchy",
+      "official_repo": "https://github.com/figsama/TaCauchy",
+      "local_path": "external/TaCauchy",
+      "local_commit": "c228cfe9050904cd5d71d64f6eb5104768d4cbda",
+      "role": "official_fem_vision_based_tactile_semantic_reference",
+      "platform": ["IsaacSim_5_0", "IsaacLab_2_2_1", "UIPC", "TacEx"],
+      "sensors": ["GelSight Mini", "DIGIT", "9DTact"],
+      "observed_semantic_fields": [
+        "cauchy_stress",
+        "normal_pressure",
+        "tangential_traction",
+        "adaptive_mesh_refinement",
+        "force_field_visualization",
+        "tactile_rgb_image"
+      ],
+      "phase00_use": [
+        "pressure_and_traction_semantic_reference",
+        "contact_area_semantic_reference",
+        "candidate_fn_ft_marker_validation_reference"
+      ],
+      "must_not_claim": [
+        "not_grasp_policy_checkpoint",
+        "not_newton_native",
+        "not_gate_completion_without_compute_sanity"
+      ],
+      "next_gate": "official_compute_sanity_and_force_field_schema_bridge"
+    },
+    {
+      "name": "Tacmap",
+      "paper_or_project": "https://arxiv.org/abs/2602.21625",
+      "local_path": null,
+      "local_commit": null,
+      "role": "geometry_consistent_penetration_deform_map_reference",
+      "status": "official_code_not_found_in_current_audit",
+      "next_gate": "find_official_code_or_record_comparison_gap"
+    },
+    {
+      "name": "ControlTac",
+      "paper_or_project": "https://dongyuluo.github.io/controltac/",
+      "paper": "https://arxiv.org/abs/2505.20498",
+      "local_path": null,
+      "local_commit": null,
+      "role": "force_or_pose_conditioned_tactile_image_generation_reference",
+      "status": "official_code_not_found_in_current_audit",
+      "next_gate": "find_official_code_or_record_comparison_gap"
+    },
+    {
+      "name": "FreeTacMan",
+      "official_repo": "https://github.com/OpenDriveLab/FreeTacMan",
+      "local_path": "external/FreeTacMan",
+      "local_commit": "9285740a5d33385d3a9cf5ccdb185e3387b547bd",
+      "role": "secondary_real_visuotactile_data_and_pretraining_reference",
+      "platform": ["real_data_collection", "tactile_pretraining", "ACT_policy_training"],
+      "observed_paths": [
+        "pretrain/clip_pretraining_resnet.py",
+        "pretrain/clip_pretraining_vit.py",
+        "policy/act/train.py",
+        "data_collection/start_collect.py",
+        "pretrain/tactile_data.json"
+      ],
+      "phase00_use": [
+        "future_real_data_tactile_representation_reference",
+        "future_tactile_encoder_pretraining_reference",
+        "future_policy_baseline_design_reference"
+      ],
+      "must_not_claim": [
+        "not_simulator",
+        "not_newton_native_infant_checkpoint",
+        "not_gate_00f_replacement_for_univtac_tacauchy"
+      ],
+      "next_gate": "optional_source_audit_only_after_mandatory_gate_00f_envs"
+    },
+    {
+      "name": "DiffTactile",
+      "official_repo": "https://github.com/Genesis-Embodied-AI/DiffTactile",
+      "local_path": "external/DiffTactile",
+      "remote_head": "c4bf43d44071758aea68a5c7ae125fc8257bb8e1",
+      "local_commit": "c4bf43d44071758aea68a5c7ae125fc8257bb8e1",
+      "role": "secondary_differentiable_tactile_simulator_reference",
+      "status": "cloned_source_audit_only",
+      "observed_paths": [
+        "difftactile/sensor_model/fem_sensor.py",
+        "difftactile/sensor_model/gripper_fem.py",
+        "difftactile/tasks/grasp_elastic.py",
+        "difftactile/tasks/object_repose.py",
+        "difftactile/tasks/surface_follow.py",
+        "difftactile/baseline/tactile_env.py"
+      ],
+      "must_not_claim": [
+        "not_gate_00f_replacement_for_univtac_tacauchy",
+        "not_newton_native_grasp_infant_checkpoint",
+        "not_current_curiosity_success",
+        "not_official_sanity_pass"
+      ],
+      "next_gate": "optional_official_sanity_only_after_environment_plan_and_gate_00f_priorities"
+    },
+    {
+      "name": "TactileDiffusion",
+      "official_repo": "https://github.com/carolinahiguera/Tactile-Diffusion",
+      "local_path": "external/Tactile-Diffusion",
+      "local_commit": "16868fb96d19d93dc5837600c26b48415632e4f6",
+      "role": "secondary_photometric_tactile_image_generation_reference",
+      "observed_paths": [
+        "tacto_diffusion/model/diffusion_model.py",
+        "tacto_diffusion/train_ycb.py",
+        "tacto_diffusion/test_ycb.py",
+        "tacto_diffusion/train_braille.py",
+        "ycb_slide_sim/touch_simulator.py",
+        "ycb_slide_sim/render/digit_render.py"
+      ],
+      "must_not_claim": [
+        "not_gate_00f_replacement_for_univtac_tacauchy",
+        "not_dense_mechanics_validation",
+        "not_grasp_lift_hold_controller",
+        "not_current_curiosity_success"
+      ],
+      "next_gate": "optional_photometric_gap_reference_after_mandatory_gate_00f"
+    }
+  ],
+  "active_candidate_to_reference_bridge": {
+    "candidate.newton_mjw.Fn": ["TaCauchy.normal_pressure", "UniVTAC.tactile.depth", "OfficialIsaacLabTacSL.tactile_normal_force"],
+    "candidate.newton_mjw.Ft": ["TaCauchy.tangential_traction", "OfficialIsaacLabTacSL.tactile_shear_force"],
+    "candidate.newton_mjw.normal": ["TaCauchy.surface_normal_or_mesh_frame", "OfficialIsaacLabTacSL.tactile_points_quat_w"],
+    "candidate.newton_mjw.penetration_or_compression": ["OfficialIsaacLabTacSL.penetration_depth", "UniVTAC.tactile.depth"],
+    "candidate.newton_mjw.area_proxy": ["TaCauchy.mesh_surface_contact_area"],
+    "candidate.newton_mjw.marker_flow": [
+      "UniVTAC.tactile.rgb_marker",
+      "UniVTAC.tactile.marker"
+    ],
+    "candidate.newton_mjw.scene_rgb": [
+      "UniVTAC.observation.head.rgb",
+      "UniVTAC.observation.wrist.rgb"
+    ]
+  },
+  "curiosity_training_allowed": false,
+  "blocking_reason": "Gate_00D_00E_need_official_tactile_semantic_validation_or_faithful_blocker"
+}

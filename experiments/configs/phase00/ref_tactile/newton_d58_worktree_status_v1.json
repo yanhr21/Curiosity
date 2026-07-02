@@ -1,0 +1,45 @@
+{
+  "schema_version": "phase00_newton_d58_worktree_status_v1",
+  "date": "2026-07-01",
+  "classification": "latest_newton_code_prepared_and_compute_checked_gate_open",
+  "curiosity_training_allowed": false,
+  "worktrees": {
+    "active_evidence": {
+      "path": "external/newton_main",
+      "commit": "a217e55fab3d373a08fba374cc5cafc1826cf27f",
+      "status": "preserved_existing_phase00_evidence_base"
+    },
+    "latest_upstream_prepared": {
+      "path": "external/newton_d58",
+      "commit": "d58e70266be0db803261f3e46a2f7d923a43db37",
+      "status": "prepared_detached_worktree_compute_checked_gate_open",
+      "upstream_message": "Add multi-world soft contact filtering (#3118)"
+    },
+    "stable_tag": {
+      "path": "external/newton_v1.3",
+      "commit": "ce11136b3a28390944f7fe5a32801b31d8aa5670",
+      "status": "stable_reference_worktree"
+    }
+  },
+  "actions_taken": [
+    "git -C external/newton fetch origin main",
+    "git -C external/newton worktree add --detach ../newton_d58 d58e70266be0db803261f3e46a2f7d923a43db37",
+    "ran d58 runtime benchmark in Curiosity Slurm job 160467",
+    "ran d58 candidate tactile export in Curiosity Slurm job 160467",
+    "ran d58 reference comparison, channel audit, and Gate review"
+  ],
+  "actions_not_taken": [
+    "did not modify external/newton_main",
+    "did not train curiosity",
+    "did not claim Gate 00D/00E/00F completion",
+    "did not promote d58 to validated tactile/base gate success"
+  ],
+  "compute_side_evidence": {
+    "benchmark_summary": "experiments/outputs/phase00/ref_tactile/newton_hydro/p00_bench_d58_hot_v1_20260701_070611/newton_hydro_benchmark_summary.json",
+    "tactile_summary": "experiments/outputs/phase00/ref_tactile/newton_hydro/p00_mjw_d58_marker_v1_20260701_071248/candidate_mjw_direct_tactile_summary.json",
+    "reference_compare_summary": "experiments/outputs/phase00/ref_tactile/ref_compare/p00_refcmp_d58_marker_v1_20260701_071521/reference_video_compare_summary.json",
+    "channel_audit_summary": "experiments/outputs/phase00/ref_tactile/channel_audit/p00_chan_d58_marker_v1_20260701_071757/channel_semantic_audit_summary.json",
+    "gate_review_summary": "experiments/outputs/phase00/ref_tactile/gate_review/p00_gate_d58_marker_v1_20260701_071843/phase00_gate_review_summary.json"
+  },
+  "next_faithful_action": "Resolve or faithfully document Gate 00F official reference environment/assets blockers before any curiosity training."
+}

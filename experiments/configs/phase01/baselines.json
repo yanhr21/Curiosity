@@ -1,0 +1,131 @@
+{
+  "classification": "phase01_closed_loop_curiosity_baseline_set_v1",
+  "phase": "phase01",
+  "status": "declared_not_yet_run",
+  "purpose": "Declare the strongest available Phase 01 baseline set before claiming any curiosity improvement.",
+  "not_training_result": true,
+  "no_curiosity_success_claim": true,
+  "dataset_basis": "accepted_phase00_15_cell_newton_asset_dataset",
+  "train_cells": [
+    "train_cup_quarter_low_hidden",
+    "train_cup_half_medium_truthful",
+    "train_cup_three_quarter_high_truthful",
+    "train_box_light_medium_center",
+    "train_box_heavy_low_offset",
+    "train_cylinder_light_medium",
+    "train_cylinder_heavy_low",
+    "train_cup_half_low_misleading"
+  ],
+  "validation_cells": [
+    "val_cup_empty_medium_hidden",
+    "val_box_medium_high_offset",
+    "val_cylinder_medium_low"
+  ],
+  "held_out_cells": [
+    "heldout_cup_full_low_hidden",
+    "heldout_cup_empty_high_misleading",
+    "heldout_box_heavy_low_large_offset",
+    "heldout_cylinder_heavy_low_masked_vision"
+  ],
+  "held_out_usage": {
+    "training": "forbidden",
+    "threshold_tuning": "forbidden",
+    "hyperparameter_selection": "forbidden",
+    "label_construction": "forbidden",
+    "source_selection": "forbidden",
+    "final_evaluation": "required"
+  },
+  "baseline_methods": [
+    {
+      "name": "no_adaptation",
+      "description": "Official Newton Panda hydro scripted grasp/lift/hold prior with no feedback, no learned residual, and no curiosity reward.",
+      "learned_policy": false,
+      "curiosity_reward": "none",
+      "required_outputs": [
+        "held_out_rollout_npz",
+        "held_out_summary_json",
+        "held_out_metrics_json",
+        "held_out_rollout_video_mp4",
+        "manual_visual_inspection"
+      ]
+    },
+    {
+      "name": "scripted_feedback",
+      "description": "Official Newton Panda hydro scripted prior with observation-triggered feedback transitions, but no learned policy and no curiosity reward.",
+      "learned_policy": false,
+      "curiosity_reward": "none",
+      "required_outputs": [
+        "held_out_rollout_npz",
+        "held_out_summary_json",
+        "held_out_metrics_json",
+        "held_out_rollout_video_mp4",
+        "manual_visual_inspection"
+      ]
+    },
+    {
+      "name": "no_curiosity_residual",
+      "description": "Residual controller adaptation trained without curiosity or learning-progress weighting. Required as the learned non-curiosity comparison.",
+      "learned_policy": true,
+      "curiosity_reward": "none",
+      "required_outputs": [
+        "training_log",
+        "checkpoint",
+        "held_out_rollout_npz",
+        "held_out_summary_json",
+        "held_out_metrics_json",
+        "held_out_rollout_video_mp4",
+        "manual_visual_inspection"
+      ]
+    },
+    {
+      "name": "curiosity_weighted_residual",
+      "description": "Candidate method: residual controller adaptation weighted by bounded learning progress from the Phase 01 Newton-native forward model.",
+      "learned_policy": true,
+      "curiosity_reward": "bounded_learning_progress",
+      "required_outputs": [
+        "forward_model_training_summary",
+        "learning_progress_scores",
+        "training_log",
+        "checkpoint",
+        "held_out_rollout_npz",
+        "held_out_summary_json",
+        "held_out_metrics_json",
+        "held_out_rollout_video_mp4",
+        "manual_visual_inspection"
+      ]
+    }
+  ],
+  "strongest_baseline_rule": {
+    "per_cell": "Compare the candidate against the best valid non-curiosity method available on the same held-out cell.",
+    "aggregate": "The candidate must beat the strongest declared non-curiosity baseline without safety regression before any positive curiosity claim.",
+    "mainstream_method_gap": "If a compatible serious/mainstream method cannot be run faithfully, document it as a blocker or comparison gap; do not replace it with a toy method."
+  },
+  "primary_metrics": [
+    "object_not_dropped",
+    "hold_duration_s",
+    "lift_height_m",
+    "max_slip_m",
+    "contact_loss_frames",
+    "drop_height_loss_m",
+    "max_object_accel_m_s2",
+    "max_contact_proxy",
+    "feedback_trigger_count",
+    "residual_active_fraction"
+  ],
+  "success_gate": {
+    "requires_all_held_out_cells": true,
+    "requires_full_mp4_video_evidence": true,
+    "requires_manual_visual_inspection": true,
+    "requires_no_safety_regression": true,
+    "requires_beating_strongest_non_curiosity_baseline": true,
+    "loss_only_is_positive": false,
+    "checkpoint_only_is_positive": false
+  },
+  "path_contract": {
+    "outputs": "experiments/outputs/phase01/core/baselines/",
+    "visuals": "experiments/visuals/phase01/core/baselines/",
+    "reports": "experiments/reports/phase01/core/baselines/",
+    "logs": "logs/newton/phase01/core/baselines/",
+    "checkpoints": "checkpoints/phase01/core/"
+  }
+}

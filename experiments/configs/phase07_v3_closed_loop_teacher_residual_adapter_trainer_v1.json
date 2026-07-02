@@ -1,0 +1,79 @@
+{
+  "classification": "residual_adapter_trainer_config_v1",
+  "phase": "07_harder_task_progression",
+  "purpose": "Train a Newton-native residual adapter on closed-loop DAgger-style teacher labels collected from policy-induced states. This is a real policy update after closed-loop source collection, not offline curiosity-score reweighting and not a success claim before held-out evaluation.",
+  "method_name": "phase07_v3_closed_loop_teacher_residual_controller_adapter",
+  "preflight_manifest": "data/processed/phase07_v3_closed_loop_teacher_preflight_v1_20260628/manifest.json",
+  "output_dir": "experiments/outputs/phase07_v3_closed_loop_teacher_residual_adapter_trainer_v1_20260628",
+  "checkpoint_dir": "checkpoints/phase07_v3_closed_loop_teacher_residual_adapter_trainer_v1_20260628",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "held_out_cells_reserved_for_evaluation": [
+    "empty_high_misleading",
+    "full_low_hidden",
+    "three_quarter_low_misleading"
+  ],
+  "architecture": {
+    "type": "gru_residual_controller_sequence_model",
+    "input_dim": 9,
+    "hidden_dim": 512,
+    "gru_layers": 2,
+    "dropout": 0,
+    "active_head": "binary_feedback_active_logit",
+    "continuous_head": [
+      "candidate.teacher.feedback_lift_velocity_scale",
+      "candidate.teacher.feedback_hold_height_offset_m",
+      "candidate.teacher.feedback_stabilization_extension_s"
+    ]
+  },
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.contact.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index",
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target",
+    "candidate.task.object_mass_kg",
+    "candidate.task.object_friction_mu",
+    "candidate.task.nominal_visual_fill"
+  ],
+  "target_columns": [
+    "candidate.teacher.feedback_active",
+    "candidate.teacher.feedback_lift_velocity_scale",
+    "candidate.teacher.feedback_hold_height_offset_m",
+    "candidate.teacher.feedback_stabilization_extension_s"
+  ],
+  "loss": {
+    "feedback_active_bce_weight": 1.5,
+    "continuous_mse_weight": 1
+  },
+  "optimizer": {
+    "type": "adamw",
+    "learning_rate": 8e-05,
+    "weight_decay": 0.0001
+  },
+  "smoke": {
+    "epochs": 3,
+    "max_optimizer_steps": 12,
+    "checkpoint_written": false,
+    "valid_claim": "phase07_v3_closed_loop_teacher_trainer_smoke_only_not_real_training_result"
+  },
+  "real_training": {
+    "min_train_seconds": 3600,
+    "min_gpu_utilization_percent": 30,
+    "train_batch_repeat": 512,
+    "monitor_interval_seconds": 30,
+    "checkpoint_written": true,
+    "valid_claim": "phase07_v3_closed_loop_teacher_residual_adapter_training_only_after_duration_and_report_gates"
+  },
+  "forbidden_claims": [
+    "official_trex_method",
+    "trex_schema_compatible",
+    "tactile_f6_available",
+    "mainstream_method_beaten_before_official_comparison",
+    "held_out_generalization_before_eval",
+    "curiosity_success_before_heldout_eval"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "schema_version": "phase00_newton_d58_benchmark_status_v1",
+  "date": "2026-07-01",
+  "classification": "latest_newton_runtime_sanity_tactile_export_followed_gate_open",
+  "curiosity_training_allowed": false,
+  "newton_root": "external/newton_d58",
+  "newton_commit": "d58e70266be0db803261f3e46a2f7d923a43db37",
+  "slurm_job_id": "160467",
+  "host": "server02",
+  "gpu": "NVIDIA H200",
+  "runs": [
+    {
+      "run_tag": "p00_bench_d58_v1_20260701_070459",
+      "summary": "experiments/outputs/phase00/ref_tactile/newton_hydro/p00_bench_d58_v1_20260701_070459/newton_hydro_benchmark_summary.json",
+      "report": "experiments/reports/phase00/ref_tactile/newton_hydro/p00_bench_d58_v1_20260701_070459/newton_hydro_benchmark.md",
+      "status": "pass",
+      "benchmark_fps": 70.8,
+      "benchmark_frames": 717,
+      "benchmark_elapsed_s": 10.13,
+      "meets_target_82_fps": false,
+      "note": "first d58 benchmark passed execution and 60 FPS minimum but did not meet 82 FPS target"
+    },
+    {
+      "run_tag": "p00_bench_d58_hot_v1_20260701_070611",
+      "summary": "experiments/outputs/phase00/ref_tactile/newton_hydro/p00_bench_d58_hot_v1_20260701_070611/newton_hydro_benchmark_summary.json",
+      "report": "experiments/reports/phase00/ref_tactile/newton_hydro/p00_bench_d58_hot_v1_20260701_070611/newton_hydro_benchmark.md",
+      "status": "pass",
+      "benchmark_fps": 82.7,
+      "benchmark_frames": 2482,
+      "benchmark_elapsed_s": 30.01,
+      "meets_target_82_fps": true,
+      "note": "hot/longer d58 benchmark met 82 FPS target"
+    }
+  ],
+  "best_runtime_evidence": {
+    "run_tag": "p00_bench_d58_hot_v1_20260701_070611",
+    "benchmark_fps": 82.7,
+    "meets_target_82_fps": true
+  },
+  "limitations": [
+    "runtime benchmark alone is not tactile/base Gate completion",
+    "d58 tactile export and Gate review have now run, but Gate remains open_not_curiosity_ready",
+    "Gate 00F remains blocked by missing target reference environments and incomplete TaCauchy assets"
+  ],
+  "followup_evidence": {
+    "tactile_summary": "experiments/outputs/phase00/ref_tactile/newton_hydro/p00_mjw_d58_marker_v1_20260701_071248/candidate_mjw_direct_tactile_summary.json",
+    "reference_compare_summary": "experiments/outputs/phase00/ref_tactile/ref_compare/p00_refcmp_d58_marker_v1_20260701_071521/reference_video_compare_summary.json",
+    "channel_audit_summary": "experiments/outputs/phase00/ref_tactile/channel_audit/p00_chan_d58_marker_v1_20260701_071757/channel_semantic_audit_summary.json",
+    "gate_review_summary": "experiments/outputs/phase00/ref_tactile/gate_review/p00_gate_d58_marker_v1_20260701_071843/phase00_gate_review_summary.json"
+  }
+}

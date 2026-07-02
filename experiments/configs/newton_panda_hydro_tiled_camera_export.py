@@ -27,7 +27,19 @@ from newton.sensors import SensorTiledCamera
 
 CAMERA_NAMES = ("head_proxy", "right_wrist_proxy", "left_wrist_proxy")
 TRACKED_OBJECTS = ("official_object", "existing_cup_asset")
-CONTROLLER_MODES = ("official_pick_place", "lift_hold", "lift_hold_feedback", "lift_hold_learned_residual")
+CONTROLLER_MODES = (
+    "official_pick_place",
+    "lift_hold",
+    "lift_hold_feedback",
+    "lift_hold_learned_residual",
+    "lift_hold_feedback_residual_overlay",
+)
+VISUAL_FILL_CUE_IDS = {
+    "not_specified": 0,
+    "truthful_fill_cue": 1,
+    "hidden_fill_cue": 2,
+    "misleading_fill_cue": 3,
+}
 
 
 def _controller_phase(example: Example) -> tuple[int, str]:
@@ -105,7 +117,7 @@ def _wp_camera_array(transforms: list[tuple[np.ndarray, np.ndarray]], world_coun
     return wp.array(rows, dtype=wp.transformf)
 
 
-def _save_triptych(images: np.ndarray, names: tuple[str, ...], output: Path, title: str) -> None:
+def _triptych_image(images: np.ndarray, names: tuple[str, ...], title: str) -> Image.Image:
     panels = []
     for image, name in zip(images, names, strict=True):
         rgb = image[..., :3]
@@ -124,6 +136,11 @@ def _save_triptych(images: np.ndarray, names: tuple[str, ...], output: Path, tit
     for panel in panels:
         sheet.paste(panel, (x, 32))
         x += panel.width
+    return sheet
+
+
+def _save_triptych(images: np.ndarray, names: tuple[str, ...], output: Path, title: str) -> None:
+    sheet = _triptych_image(images, names, title)
     sheet.save(output)
 
 
@@ -186,6 +203,37 @@ def _write_contact_sheet(frame_paths: list[Path], output: Path, cols: int = 3) -
     sheet.save(output)
 
 
+def _write_rollout_gif(frame_paths: list[Path], output: Path, fps: float) -> dict:
+    if not frame_paths:
+        return {
+            "status": "disabled_no_frames",
+            "path": str(output),
+            "frame_count": 0,
+            "fps": float(fps),
+        }
+    duration_ms = max(1, int(round(1000.0 / max(float(fps), 1e-6))))
+    frames = [Image.open(path).convert("RGB") for path in frame_paths]
+    output.parent.mkdir(parents=True, exist_ok=True)
+    frames[0].save(
+        output,
+        save_all=True,
+        append_images=frames[1:],
+        duration=duration_ms,
+        loop=0,
+        optimize=False,
+    )
+    for frame in frames:
+        frame.close()
+    return {
+        "status": "pass",
+        "path": str(output),
+        "frame_count": len(frame_paths),
+        "fps": float(fps),
+        "duration_ms_per_frame": duration_ms,
+        "format": "gif",
+    }
+
+
 def _summary(arr: np.ndarray) -> dict:
     return {
         "shape": list(arr.shape),
@@ -196,6 +244,20 @@ def _summary(arr: np.ndarray) -> dict:
         "std": float(arr.std()) if arr.size else None,
         "nonzero": int(np.count_nonzero(arr)) if arr.size else 0,
     }
+
+
+def _parse_xyz_csv(value: str, name: str) -> tuple[float, float, float]:
+    parts = [part.strip() for part in value.split(",")]
+    if len(parts) != 3:
+        raise ValueError(f"{name} must be comma-separated xyz with three values, got {value!r}")
+    try:
+        return tuple(float(part) for part in parts)
+    except ValueError as exc:
+        raise ValueError(f"{name} must contain finite float values, got {value!r}") from exc
+
+
+def _vec3_to_float_list(value) -> list[float]:
+    return [float(value[0]), float(value[1]), float(value[2])]
 
 
 def _longest_true_run(mask: np.ndarray) -> int:
@@ -298,6 +360,41 @@ def _ee_pose(example: Example) -> np.ndarray:
     return np.asarray(poses, dtype=np.float32)
 
 
+def _relative_eef_action_bridge(ee_body_q: np.ndarray, gripper_target: np.ndarray) -> dict[str, np.ndarray]:
+    """Build a provenance-preserving relative EEF/gripper action bridge.
+
+    Newton body poses are stored as xyz + quaternion xyzw. Actions are the
+    current-to-next relative EEF delta; the final frame has no next command and
+    is set to zero for deltas while keeping the current gripper target.
+    """
+    if ee_body_q.ndim != 3 or ee_body_q.shape[-1] != 7:
+        raise ValueError(f"expected ee_body_q with shape (T, W, 7), got {ee_body_q.shape}")
+    gripper = np.asarray(gripper_target, dtype=np.float32)
+    if gripper.ndim == 1:
+        gripper = gripper[:, None]
+    if gripper.shape[0] != ee_body_q.shape[0]:
+        raise ValueError("gripper target time dimension does not match ee_body_q")
+
+    action = np.zeros((ee_body_q.shape[0], ee_body_q.shape[1], 7), dtype=np.float32)
+    if ee_body_q.shape[0] > 1:
+        action[:-1, :, :3] = ee_body_q[1:, :, :3] - ee_body_q[:-1, :, :3]
+        current_quat = ee_body_q[:-1, :, 3:7].reshape(-1, 4)
+        next_quat = ee_body_q[1:, :, 3:7].reshape(-1, 4)
+        delta_rot = Rotation.from_quat(next_quat) * Rotation.from_quat(current_quat).inv()
+        action[:-1, :, 3:6] = delta_rot.as_euler("xyz", degrees=False).reshape(ee_body_q.shape[0] - 1, ee_body_q.shape[1], 3)
+    action[:, :, 6] = gripper if gripper.shape[1] == ee_body_q.shape[1] else gripper[:, :1]
+    return {
+        "candidate.action.eef_delta_x": action[:, :, 0],
+        "candidate.action.eef_delta_y": action[:, :, 1],
+        "candidate.action.eef_delta_z": action[:, :, 2],
+        "candidate.action.eef_delta_roll": action[:, :, 3],
+        "candidate.action.eef_delta_pitch": action[:, :, 4],
+        "candidate.action.eef_delta_yaw": action[:, :, 5],
+        "candidate.action.gripper": action[:, :, 6],
+        "candidate.action.eef_delta_xyzrpy_gripper": action,
+    }
+
+
 def _find_local_body_index(example: Example, label_suffix: str) -> int:
     for idx, label in enumerate(example.model_single.body_label):
         if label == label_suffix or label.endswith(f"/{label_suffix}"):
@@ -340,6 +437,7 @@ def _apply_builder_physics_variant(
     shape_friction_scale: float,
     object_mass_kg: float | None,
     object_friction_mu: float | None,
+    object_com_offset_xyz: tuple[float, float, float],
 ) -> dict:
     if body_mass_scale <= 0.0:
         raise ValueError(f"body_mass_scale must be positive, got {body_mass_scale}")
@@ -354,6 +452,7 @@ def _apply_builder_physics_variant(
     shape_indices = list(builder.body_shapes.get(body_idx, []))
     original_body_mass = float(builder.body_mass[body_idx])
     original_body_inv_mass = float(builder.body_inv_mass[body_idx])
+    original_body_com = _vec3_to_float_list(builder.body_com[body_idx])
     original_shape_mu = {str(idx): float(builder.shape_material_mu[idx]) for idx in shape_indices}
     requested = {
         "physics_variant_label": physics_variant_label,
@@ -362,10 +461,12 @@ def _apply_builder_physics_variant(
         "shape_friction_scale": float(shape_friction_scale),
         "object_mass_kg": None if object_mass_kg is None else float(object_mass_kg),
         "object_friction_mu": None if object_friction_mu is None else float(object_friction_mu),
+        "object_com_offset_xyz": [float(x) for x in object_com_offset_xyz],
     }
 
     should_update_mass = object_mass_kg is not None or not np.isclose(body_mass_scale, 1.0)
     should_update_friction = object_friction_mu is not None or not np.isclose(shape_friction_scale, 1.0)
+    should_update_com = any(abs(float(value)) > 1e-12 for value in object_com_offset_xyz)
     if should_update_mass:
         if original_body_mass <= 0.0:
             raise ValueError(f"cannot scale non-dynamic body {body_idx} with mass {original_body_mass}")
@@ -375,6 +476,13 @@ def _apply_builder_physics_variant(
         builder.body_inv_mass[body_idx] = 1.0 / new_mass
         builder.body_inertia[body_idx] = _scale_mat33(builder.body_inertia[body_idx], mass_ratio)
         builder.body_inv_inertia[body_idx] = _inv_mat33_or_zero(builder.body_inertia[body_idx])
+
+    if should_update_com:
+        if original_body_mass <= 0.0:
+            raise ValueError(f"cannot offset COM for non-dynamic body {body_idx} with mass {original_body_mass}")
+        import warp as wp
+
+        builder.body_com[body_idx] = wp.vec3(*[float(value) for value in object_com_offset_xyz])
 
     if should_update_friction:
         for shape_idx in shape_indices:
@@ -386,7 +494,7 @@ def _apply_builder_physics_variant(
 
     return {
         "adapter": "pre_finalize_builder_body_mass_inertia_and_shape_friction",
-        "applied": bool(should_update_mass or should_update_friction),
+        "applied": bool(should_update_mass or should_update_friction or should_update_com),
         "builder_stage": "before_scene_replicate_and_before_final_model_finalize",
         "requested": requested,
         "body_label": builder.body_label[body_idx],
@@ -394,8 +502,10 @@ def _apply_builder_physics_variant(
         "shape_indices_local": [int(idx) for idx in shape_indices],
         "original_body_mass_kg": original_body_mass,
         "original_body_inv_mass": original_body_inv_mass,
+        "original_body_com_xyz_m": original_body_com,
         "updated_body_mass_kg": float(builder.body_mass[body_idx]),
         "updated_body_inv_mass": float(builder.body_inv_mass[body_idx]),
+        "updated_body_com_xyz_m": _vec3_to_float_list(builder.body_com[body_idx]),
         "original_shape_material_mu": original_shape_mu,
         "updated_shape_material_mu": {str(idx): float(builder.shape_material_mu[idx]) for idx in shape_indices},
         "source_namespace": "candidate.physics.*",
@@ -414,12 +524,14 @@ def _pre_finalize_physics_variant_context(
     shape_friction_scale: float,
     object_mass_kg: float | None,
     object_friction_mu: float | None,
+    object_com_offset_xyz: tuple[float, float, float],
 ):
     should_apply = (
         object_mass_kg is not None
         or object_friction_mu is not None
         or not np.isclose(body_mass_scale, 1.0)
         or not np.isclose(shape_friction_scale, 1.0)
+        or any(abs(float(value)) > 1e-12 for value in object_com_offset_xyz)
     )
     target_label_suffix = "cup" if tracked_object == "existing_cup_asset" else "object"
     meta = {
@@ -433,6 +545,7 @@ def _pre_finalize_physics_variant_context(
             "shape_friction_scale": float(shape_friction_scale),
             "object_mass_kg": None if object_mass_kg is None else float(object_mass_kg),
             "object_friction_mu": None if object_friction_mu is None else float(object_friction_mu),
+            "object_com_offset_xyz": [float(x) for x in object_com_offset_xyz],
         },
         "body_index_local": None,
         "shape_indices_local": [],
@@ -458,6 +571,7 @@ def _pre_finalize_physics_variant_context(
                 shape_friction_scale=shape_friction_scale,
                 object_mass_kg=object_mass_kg,
                 object_friction_mu=object_friction_mu,
+                object_com_offset_xyz=object_com_offset_xyz,
             )
         return original_replicate(scene_builder, template_builder, *args, **kwargs)
 
@@ -476,12 +590,14 @@ def _observed_physics_from_model(example: Example, adapter_meta: dict) -> dict:
     shape_indices = list(example.model.body_shapes.get(int(body_idx), []))
     body_mass = example.model.body_mass.numpy().copy()
     body_inv_mass = example.model.body_inv_mass.numpy().copy()
+    body_com = example.model.body_com.numpy().copy()
     shape_mu = example.model.shape_material_mu.numpy().copy()
     return {
         "observed_body_index_final_model": int(body_idx),
         "observed_shape_indices_final_model": [int(idx) for idx in shape_indices],
         "observed_body_mass_kg": {str(body_idx): float(body_mass[int(body_idx)])},
         "observed_body_inv_mass": {str(body_idx): float(body_inv_mass[int(body_idx)])},
+        "observed_body_com_xyz_m": {str(body_idx): [float(x) for x in body_com[int(body_idx)].tolist()]},
         "observed_shape_material_mu": {str(idx): float(shape_mu[int(idx)]) for idx in shape_indices},
     }
 
@@ -522,6 +638,31 @@ def _retarget_existing_cup_as_object(example: Example, final_hold_duration: floa
     }
 
 
+def _apply_grasp_offset_delta(example: Example, delta_xyz: tuple[float, float, float]) -> dict:
+    """Perturb the official grasp target before lift/hold waypoint capture."""
+
+    import warp as wp
+
+    original = [float(x) for x in example.grasping_offset]
+    delta = [float(x) for x in delta_xyz]
+    updated = [original[i] + delta[i] for i in range(3)]
+    example.grasping_offset = updated
+    example.setup_ik()
+    example.capture_ik()
+    grasp_target = wp.vec3(example.object_pos) + wp.vec3(example.grasping_offset)
+    return {
+        "adapter": "official_panda_hydro_grasp_offset_delta_pre_ik",
+        "source": "candidate.task.grasp_offset_delta_xyz",
+        "object_body_state_changed": False,
+        "official_object_geometry_changed": False,
+        "original_grasping_offset": original,
+        "grasp_offset_delta_xyz": delta,
+        "updated_grasping_offset": updated,
+        "object_pos": [float(x) for x in example.object_pos],
+        "updated_grasp_target": [float(grasp_target[i]) for i in range(3)],
+    }
+
+
 def _configure_lift_hold_waypoints(example: Example, hold_duration: float) -> dict:
     """Keep the official approach/grasp/lift prior but hold instead of placing."""
 
@@ -551,15 +692,17 @@ def _configure_lift_hold_feedback_waypoints(
     hold_duration: float,
     lift_duration_scale: float,
     stabilization_duration: float,
+    apply_initial_waypoint_adjustment: bool = True,
 ) -> dict:
     meta = _configure_lift_hold_waypoints(example, hold_duration)
     if lift_duration_scale <= 0.0:
         raise ValueError("feedback lift duration scale must be positive")
     if stabilization_duration < 0.0:
         raise ValueError("feedback stabilization duration must be nonnegative")
-    example.waypoints[2][1] = float(example.waypoints[2][1]) * float(lift_duration_scale)
-    example.waypoints[3][1] = float(hold_duration) + float(stabilization_duration)
-    example.capture_ik()
+    if apply_initial_waypoint_adjustment:
+        example.waypoints[2][1] = float(example.waypoints[2][1]) * float(lift_duration_scale)
+        example.waypoints[3][1] = float(hold_duration) + float(stabilization_duration)
+        example.capture_ik()
     return {
         **meta,
         "adapter": "official_panda_hydro_waypoints_lift_hold_scripted_feedback",
@@ -567,6 +710,7 @@ def _configure_lift_hold_feedback_waypoints(
         "feedback_type": "scripted_contact_object_motion_controller",
         "initial_lift_duration_scale": float(lift_duration_scale),
         "initial_stabilization_duration_s": float(stabilization_duration),
+        "initial_waypoint_adjustment_applied": bool(apply_initial_waypoint_adjustment),
         "learned_policy": False,
         "curiosity_reward": "none",
     }
@@ -597,7 +741,22 @@ def _load_residual_adapter(checkpoint_path: Path, active_threshold: float):
         ) from exc
 
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
-    if checkpoint.get("classification") != "newton_native_residual_controller_adapter_v1_checkpoint":
+    accepted_classifications = {
+        "newton_native_residual_controller_adapter_v1_checkpoint",
+        "newton_native_curiosity_weighted_residual_controller_adapter_v1_checkpoint",
+        "newton_native_curiosity_weighted_residual_controller_adapter_v2_checkpoint",
+        "phase01_newton_native_curiosity_weighted_residual_controller_adapter_v1_checkpoint",
+        "newton_native_guarded_anchor_curiosity_weighted_residual_controller_adapter_v1_checkpoint",
+        "newton_native_selective_anchor_curiosity_weighted_residual_controller_adapter_v1_checkpoint",
+        "newton_native_rank_calibrated_curiosity_weighted_residual_controller_adapter_v1_checkpoint",
+        "newton_native_random_intrinsic_residual_controller_adapter_ablation_v1_checkpoint",
+        "newton_native_object_only_residual_controller_adapter_ablation_v1_checkpoint",
+        "newton_native_contact_only_residual_controller_adapter_ablation_v1_checkpoint",
+        "newton_native_shuffled_contact_residual_controller_adapter_ablation_v1_checkpoint",
+        "newton_native_delayed_contact_residual_controller_adapter_ablation_v1_checkpoint",
+        "newton_native_no_learning_progress_residual_controller_adapter_ablation_v1_checkpoint",
+    }
+    if checkpoint.get("classification") not in accepted_classifications:
         raise ValueError(f"unexpected residual adapter checkpoint classification: {checkpoint.get('classification')}")
     target_columns = list(checkpoint["target_columns"])
     feature_columns = list(checkpoint["feature_columns"])
@@ -717,6 +876,72 @@ def _apply_learned_residual_adapter(
     }
 
 
+def _apply_learned_residual_overlay_adapter(
+    example: Example,
+    adapter: dict,
+    state: dict,
+    feature_values: dict[str, float],
+    base_feedback_record: dict,
+    hold_height_offset_max: float,
+    stabilization_max: float,
+) -> dict:
+    import warp as wp
+
+    torch = adapter["torch"]
+    ordered_features = [float(feature_values[column]) for column in adapter["feature_columns"]]
+    features = torch.tensor(ordered_features, dtype=torch.float32).view(1, 1, -1)
+    features = (features - adapter["feature_mean"].view(1, 1, -1)) / adapter["feature_std"].view(1, 1, -1)
+    with torch.no_grad():
+        active_logits, continuous_pred, adapter["hidden"] = adapter["model"](features, adapter["hidden"])
+        active_prob = float(torch.sigmoid(active_logits[0, 0, 0]).cpu())
+        continuous = continuous_pred[0, 0].cpu() * adapter["continuous_std"] + adapter["continuous_mean"]
+    values = [float(x) for x in continuous.tolist()]
+
+    scripted_active = bool(base_feedback_record.get("feedback_active", 0))
+    active = scripted_active and active_prob >= float(adapter["active_threshold"])
+
+    hold_height_offset_m = float(np.clip(values[1], -0.35 * abs(hold_height_offset_max), 0.35 * abs(hold_height_offset_max)))
+    stabilization_extension_s = float(np.clip(values[2], 0.0, 0.35 * abs(stabilization_max)))
+
+    if state["base_hold_duration_s"] is None:
+        state["base_hold_duration_s"] = float(example.waypoints[3][1])
+
+    reason = "none"
+    if active:
+        reason = "learned_residual_overlay_active"
+        state["trigger_count"] += 1
+        state["active_reason"] = reason
+        state["lift_velocity_scale"] = 1.0
+        state["hold_height_offset_m"] = hold_height_offset_m
+        state["stabilization_extension_s"] = stabilization_extension_s
+
+        offset_delta = state["hold_height_offset_m"] - state["applied_hold_height_offset_m"]
+        for idx in (3, 4):
+            target_pos = list(example.waypoints[idx][0])
+            target_pos[2] = float(target_pos[2]) + offset_delta
+            example.waypoints[idx][0] = wp.vec3(target_pos)
+        state["applied_hold_height_offset_m"] = state["hold_height_offset_m"]
+        example.waypoints[3][1] = float(max(example.waypoints[3][1], state["base_hold_duration_s"] + stabilization_extension_s))
+        example.capture_ik()
+    else:
+        state["active_reason"] = "none"
+
+    return {
+        "feedback_active": int(active),
+        "feedback_reason": reason,
+        "feedback_lift_velocity_scale": 1.0,
+        "feedback_hold_height_offset_m": float(state["hold_height_offset_m"]),
+        "feedback_stabilization_extension_s": float(state["stabilization_extension_s"]),
+        "feedback_trigger_count": int(state["trigger_count"]),
+        "feedback_observed_object_vz_m_s": float(feature_values.get("_object_vz_m_s", 0.0)),
+        "feedback_observed_object_accel_m_s2": float(feature_values.get("_object_accel_m_s2", 0.0)),
+        "feedback_active_probability": active_prob,
+        "feedback_raw_lift_velocity_scale": values[0],
+        "feedback_raw_hold_height_offset_m": values[1],
+        "feedback_raw_stabilization_extension_s": values[2],
+    }
+
+
 def _pre_record_warmup(example: Example, warmup_steps: int) -> None:
     """Settle physics before recording without advancing scripted waypoints."""
 
@@ -744,6 +969,7 @@ def _apply_scripted_feedback(
     hold_height_offset_max: float,
     stabilization_step: float,
     stabilization_max: float,
+    apply_to_controller: bool = True,
 ) -> dict:
     import warp as wp
 
@@ -784,19 +1010,20 @@ def _apply_scripted_feedback(
             state["stabilization_extension_s"] + stabilization_step,
         )
 
-        lift_duration = min(
-            float(example.waypoints[2][1]) / 0.92,
-            float(state["original_lift_duration_s"]) * lift_duration_scale_max,
-        )
-        example.waypoints[2][1] = float(max(example.waypoints[2][1], lift_duration))
-        offset_delta = state["hold_height_offset_m"] - state["applied_hold_height_offset_m"]
-        for idx in (3, 4):
-            target_pos = list(example.waypoints[idx][0])
-            target_pos[2] = float(target_pos[2]) + offset_delta
-            example.waypoints[idx][0] = wp.vec3(target_pos)
-        state["applied_hold_height_offset_m"] = state["hold_height_offset_m"]
-        example.waypoints[3][1] = float(example.waypoints[3][1]) + stabilization_step
-        example.capture_ik()
+        if apply_to_controller:
+            lift_duration = min(
+                float(example.waypoints[2][1]) / 0.92,
+                float(state["original_lift_duration_s"]) * lift_duration_scale_max,
+            )
+            example.waypoints[2][1] = float(max(example.waypoints[2][1], lift_duration))
+            offset_delta = state["hold_height_offset_m"] - state["applied_hold_height_offset_m"]
+            for idx in (3, 4):
+                target_pos = list(example.waypoints[idx][0])
+                target_pos[2] = float(target_pos[2]) + offset_delta
+                example.waypoints[idx][0] = wp.vec3(target_pos)
+            state["applied_hold_height_offset_m"] = state["hold_height_offset_m"]
+            example.waypoints[3][1] = float(example.waypoints[3][1]) + stabilization_step
+            example.capture_ik()
     else:
         state["active_reason"] = "none"
 
@@ -811,7 +1038,18 @@ def _apply_scripted_feedback(
         "feedback_trigger_count": int(state["trigger_count"]),
         "feedback_observed_object_vz_m_s": float(vz),
         "feedback_observed_object_accel_m_s2": float(accel),
+        "feedback_applied_to_controller": int(apply_to_controller),
     }
+
+
+def _controller_modality_masks(mask_mode: str, step: int) -> tuple[float, float]:
+    if mask_mode == "contact_only_masked_vision":
+        return 0.0, 1.0
+    if mask_mode == "vision_only_masked_contact":
+        return 1.0, 0.0
+    if mask_mode == "alternating_mask":
+        return (0.0 if step % 2 == 1 else 1.0, 0.0 if step % 2 == 0 else 1.0)
+    return 1.0, 1.0
 
 
 def main() -> None:
@@ -833,6 +1071,18 @@ def main() -> None:
     parser.add_argument("--shape-friction-scale", type=float, default=1.0)
     parser.add_argument("--object-mass-kg", type=float, default=None)
     parser.add_argument("--object-friction-mu", type=float, default=None)
+    parser.add_argument("--object-com-offset-xyz", type=str, default="0,0,0")
+    parser.add_argument("--grasp-offset-delta-xyz", type=str, default="0,0,0")
+    parser.add_argument("--fill-label", type=str, default="not_specified")
+    parser.add_argument("--nominal-visual-fill", type=float, default=-1.0)
+    parser.add_argument("--visual-fill-cue", choices=tuple(VISUAL_FILL_CUE_IDS), default="not_specified")
+    parser.add_argument("--visual-fill-cue-rendered", action="store_true")
+    parser.add_argument(
+        "--controller-modality-mask-mode",
+        choices=("vision_contact", "contact_only_masked_vision", "vision_only_masked_contact", "alternating_mask"),
+        default="vision_contact",
+        help="Controller-side modality availability features for learned residual adapters.",
+    )
     parser.add_argument("--feedback-min-contact-count", type=int, default=20)
     parser.add_argument("--feedback-accel-threshold", type=float, default=6.5)
     parser.add_argument("--feedback-height-drop-threshold", type=float, default=0.015)
@@ -842,12 +1092,42 @@ def main() -> None:
     parser.add_argument("--feedback-hold-height-offset-max", type=float, default=0.03)
     parser.add_argument("--feedback-stabilization-step", type=float, default=0.25)
     parser.add_argument("--feedback-stabilization-max", type=float, default=2.0)
+    parser.add_argument(
+        "--feedback-apply-initial-waypoint-adjustment",
+        dest="feedback_apply_initial_waypoint_adjustment",
+        action="store_true",
+        default=True,
+    )
+    parser.add_argument(
+        "--no-feedback-apply-initial-waypoint-adjustment",
+        dest="feedback_apply_initial_waypoint_adjustment",
+        action="store_false",
+    )
     parser.add_argument("--pre-record-warmup-steps", type=int, default=0)
     parser.add_argument("--residual-adapter-checkpoint", type=Path, default=None)
     parser.add_argument("--residual-adapter-active-threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--record-scripted-teacher-labels",
+        action="store_true",
+        help=(
+            "During learned-residual control, also record a scripted corrective "
+            "teacher on the policy-induced state distribution under candidate.teacher.*."
+        ),
+    )
     parser.add_argument("--width", type=int, default=192)
     parser.add_argument("--height", type=int, default=144)
+    parser.add_argument(
+        "--video-frame-stride",
+        type=int,
+        default=0,
+        help="Render every Nth step to a rollout GIF; 0 disables video export, 1 exports every step.",
+    )
+    parser.add_argument("--video-fps", type=float, default=12.0)
     args_in = parser.parse_args()
+    if args_in.video_frame_stride < 0:
+        raise ValueError("--video-frame-stride must be nonnegative")
+    if args_in.video_fps <= 0.0:
+        raise ValueError("--video-fps must be positive")
 
     import warp as wp
 
@@ -871,6 +1151,7 @@ def main() -> None:
         world_count=1,
         scene=args_in.scene,
     )
+    object_com_offset_xyz = _parse_xyz_csv(args_in.object_com_offset_xyz, "--object-com-offset-xyz")
     with _pre_finalize_physics_variant_context(
         tracked_object=args_in.tracked_object,
         physics_variant_label=args_in.physics_variant_label,
@@ -878,6 +1159,7 @@ def main() -> None:
         shape_friction_scale=args_in.shape_friction_scale,
         object_mass_kg=args_in.object_mass_kg,
         object_friction_mu=args_in.object_friction_mu,
+        object_com_offset_xyz=object_com_offset_xyz,
     ) as object_physics_adapter_holder:
         example = Example(viewer, example_args)
     object_physics_adapter_meta = object_physics_adapter_holder.get("meta", object_physics_adapter_holder)
@@ -895,29 +1177,53 @@ def main() -> None:
         if args_in.scene != "cube":
             raise ValueError("existing_cup_asset gate currently requires --scene cube so the official cup asset is loaded")
         object_adapter_meta = _retarget_existing_cup_as_object(example, args_in.final_hold_duration)
+    grasp_offset_delta_xyz = _parse_xyz_csv(args_in.grasp_offset_delta_xyz, "--grasp-offset-delta-xyz")
+    grasp_adapter_meta = {
+        "adapter": "official_panda_hydro_grasp_offset_delta_pre_ik",
+        "source": "candidate.task.grasp_offset_delta_xyz",
+        "object_body_state_changed": False,
+        "official_object_geometry_changed": False,
+        "original_grasping_offset": [float(x) for x in example.grasping_offset],
+        "grasp_offset_delta_xyz": [float(x) for x in grasp_offset_delta_xyz],
+        "updated_grasping_offset": [float(x) for x in example.grasping_offset],
+        "object_pos": [float(x) for x in example.object_pos],
+        "updated_grasp_target": [
+            float(example.object_pos[i] + example.grasping_offset[i]) for i in range(3)
+        ],
+    }
+    if any(abs(value) > 1e-12 for value in grasp_offset_delta_xyz):
+        grasp_adapter_meta = _apply_grasp_offset_delta(example, grasp_offset_delta_xyz)
     controller_adapter_meta = {"adapter": "official_panda_hydro_waypoints_unmodified"}
     if args_in.controller_mode == "lift_hold":
         controller_adapter_meta = _configure_lift_hold_waypoints(example, args_in.final_hold_duration)
-    if args_in.controller_mode in {"lift_hold_feedback", "lift_hold_learned_residual"}:
+    if args_in.controller_mode in {"lift_hold_feedback", "lift_hold_feedback_residual_overlay"}:
         controller_adapter_meta = _configure_lift_hold_feedback_waypoints(
             example,
             args_in.final_hold_duration,
             args_in.feedback_initial_lift_duration_scale,
             args_in.feedback_stabilization_step,
+            apply_initial_waypoint_adjustment=args_in.feedback_apply_initial_waypoint_adjustment,
         )
-    residual_adapter = None
     if args_in.controller_mode == "lift_hold_learned_residual":
+        controller_adapter_meta = _configure_lift_hold_waypoints(example, args_in.final_hold_duration)
+    residual_adapter = None
+    if args_in.controller_mode in {"lift_hold_learned_residual", "lift_hold_feedback_residual_overlay"}:
         if args_in.residual_adapter_checkpoint is None:
-            raise ValueError("lift_hold_learned_residual requires --residual-adapter-checkpoint")
+            raise ValueError(f"{args_in.controller_mode} requires --residual-adapter-checkpoint")
         residual_adapter = _load_residual_adapter(
             args_in.residual_adapter_checkpoint,
             active_threshold=args_in.residual_adapter_active_threshold,
         )
+        feedback_type = "learned_newton_native_residual_controller_adapter"
+        adapter_name = "official_panda_hydro_waypoints_lift_hold_learned_residual"
+        if args_in.controller_mode == "lift_hold_feedback_residual_overlay":
+            feedback_type = "scripted_guarded_feedback_with_local_learned_residual_overlay"
+            adapter_name = "official_panda_hydro_waypoints_lift_hold_feedback_residual_overlay"
         controller_adapter_meta = {
             **controller_adapter_meta,
-            "adapter": "official_panda_hydro_waypoints_lift_hold_learned_residual",
+            "adapter": adapter_name,
             "feedback_adaptation": True,
-            "feedback_type": "learned_newton_native_residual_controller_adapter",
+            "feedback_type": feedback_type,
             "learned_policy": True,
             "checkpoint": str(args_in.residual_adapter_checkpoint),
             "checkpoint_classification": residual_adapter["checkpoint_classification"],
@@ -940,9 +1246,19 @@ def main() -> None:
 
     requested = sorted({int(x) for x in args_in.sample_steps.split(",") if x.strip()})
     requested = [min(max(step, 0), args_in.num_steps - 1) for step in requested]
+    requested_set = set(requested)
+    video_enabled = args_in.video_frame_stride > 0
+    video_steps = set()
+    if video_enabled:
+        video_steps = set(range(0, args_in.num_steps, args_in.video_frame_stride))
+        video_steps.add(args_in.num_steps - 1)
 
     args_in.output_dir.mkdir(parents=True, exist_ok=True)
+    video_frames_dir = args_in.output_dir / "video_frames"
+    if video_enabled:
+        video_frames_dir.mkdir(parents=True, exist_ok=True)
     frame_paths = []
+    video_frame_paths = []
     color_records = []
     depth_records = []
     camera_meta_records = []
@@ -971,11 +1287,23 @@ def main() -> None:
         "feedback_raw_lift_velocity_scale": [],
         "feedback_raw_hold_height_offset_m": [],
         "feedback_raw_stabilization_extension_s": [],
+        "teacher_feedback_active": [],
+        "teacher_feedback_reason_id": [],
+        "teacher_feedback_lift_velocity_scale": [],
+        "teacher_feedback_hold_height_offset_m": [],
+        "teacher_feedback_stabilization_extension_s": [],
+        "teacher_feedback_trigger_count": [],
+        "teacher_feedback_observed_object_vz_m_s": [],
+        "teacher_feedback_observed_object_accel_m_s2": [],
     }
     controller_phase_labels = {}
     feedback_state = _feedback_state()
+    overlay_feedback_state = _feedback_state()
+    teacher_feedback_state = _feedback_state()
     feedback_reason_labels = {"0": "none"}
     feedback_reason_to_id = {"none": 0}
+    teacher_feedback_reason_labels = {"0": "none"}
+    teacher_feedback_reason_to_id = {"none": 0}
 
     if args_in.pre_record_warmup_steps > 0:
         _pre_record_warmup(example, args_in.pre_record_warmup_steps)
@@ -1001,7 +1329,78 @@ def main() -> None:
                 hold_height_offset_max=args_in.feedback_hold_height_offset_max,
                 stabilization_step=args_in.feedback_stabilization_step,
                 stabilization_max=args_in.feedback_stabilization_max,
+                apply_to_controller=True,
             )
+        elif args_in.controller_mode == "lift_hold_feedback_residual_overlay":
+            scripted_record = _apply_scripted_feedback(
+                example=example,
+                state=feedback_state,
+                object_pose=object_pose,
+                contact_proxy=contact_proxy,
+                frame_dt=float(example.frame_dt),
+                min_contact_count=args_in.feedback_min_contact_count,
+                accel_threshold=args_in.feedback_accel_threshold,
+                height_drop_threshold=args_in.feedback_height_drop_threshold,
+                lift_duration_scale_max=args_in.feedback_lift_duration_scale_max,
+                hold_height_step=args_in.feedback_hold_height_step,
+                hold_height_offset_max=args_in.feedback_hold_height_offset_max,
+                stabilization_step=args_in.feedback_stabilization_step,
+                stabilization_max=args_in.feedback_stabilization_max,
+                apply_to_controller=True,
+            )
+            object_z = float(object_pose[0, 2])
+            contact_count = float(int(np.max(contact_proxy)) if np.size(contact_proxy) else 0)
+            vision_available, contact_available = _controller_modality_masks(args_in.controller_modality_mask_mode, step)
+            assert residual_adapter is not None
+            overlay_record = _apply_learned_residual_overlay_adapter(
+                example=example,
+                adapter=residual_adapter,
+                state=overlay_feedback_state,
+                base_feedback_record=scripted_record,
+                feature_values={
+                    "newton.panda.sim_time": float(example.sim_time),
+                    "newton.panda.rigid_contact_count": contact_count,
+                    "newton.contact.rigid_contact_count": contact_count,
+                    "newton.object.body_q.z": object_z,
+                    "candidate.controller.phase_index": float(phase_idx),
+                    "candidate.controller.commanded_gripper_target": float(_commanded_gripper_target(example)),
+                    "candidate.controller.commanded_lift_target": float(_commanded_lift_target(example)),
+                    "candidate.task.object_mass_kg": float(args_in.object_mass_kg)
+                    if args_in.object_mass_kg is not None
+                    else 0.0,
+                    "candidate.task.object_friction_mu": float(args_in.object_friction_mu)
+                    if args_in.object_friction_mu is not None
+                    else 0.0,
+                    "candidate.task.nominal_visual_fill": float(args_in.nominal_visual_fill),
+                    "candidate.task.grasp_offset_delta_x": float(grasp_offset_delta_xyz[0]),
+                    "candidate.task.grasp_offset_delta_y": float(grasp_offset_delta_xyz[1]),
+                    "candidate.task.grasp_offset_delta_z": float(grasp_offset_delta_xyz[2]),
+                    "candidate.modality.vision_available_mask": vision_available,
+                    "candidate.modality.contact_available_mask": contact_available,
+                    "_object_vz_m_s": scripted_record["feedback_observed_object_vz_m_s"],
+                    "_object_accel_m_s2": scripted_record["feedback_observed_object_accel_m_s2"],
+                },
+                hold_height_offset_max=args_in.feedback_hold_height_offset_max,
+                stabilization_max=args_in.feedback_stabilization_max,
+            )
+            if overlay_record["feedback_active"]:
+                feedback_record = {
+                    **overlay_record,
+                    "feedback_reason": f"{scripted_record['feedback_reason']}+{overlay_record['feedback_reason']}",
+                    "feedback_trigger_count": int(scripted_record["feedback_trigger_count"])
+                    + int(overlay_record["feedback_trigger_count"]),
+                }
+            else:
+                feedback_record = {
+                    **scripted_record,
+                    "feedback_active_probability": overlay_record["feedback_active_probability"],
+                    "feedback_raw_lift_velocity_scale": overlay_record["feedback_raw_lift_velocity_scale"],
+                    "feedback_raw_hold_height_offset_m": overlay_record["feedback_raw_hold_height_offset_m"],
+                    "feedback_raw_stabilization_extension_s": overlay_record[
+                        "feedback_raw_stabilization_extension_s"
+                    ],
+                }
+            teacher_feedback_record = None
         elif args_in.controller_mode == "lift_hold_learned_residual":
             object_z = float(object_pose[0, 2])
             prev_z = feedback_state["prev_object_z"]
@@ -1010,6 +1409,8 @@ def main() -> None:
             accel = 0.0 if prev_vz is None else (vz - float(prev_vz)) / max(float(example.frame_dt), 1e-6)
             feedback_state["prev_object_z"] = object_z
             feedback_state["prev_object_vz"] = vz
+            contact_count = float(int(np.max(contact_proxy)) if np.size(contact_proxy) else 0)
+            vision_available, contact_available = _controller_modality_masks(args_in.controller_modality_mask_mode, step)
             assert residual_adapter is not None
             feedback_record = _apply_learned_residual_adapter(
                 example=example,
@@ -1017,11 +1418,24 @@ def main() -> None:
                 state=feedback_state,
                 feature_values={
                     "newton.panda.sim_time": float(example.sim_time),
-                    "newton.contact.rigid_contact_count": float(int(np.max(contact_proxy)) if np.size(contact_proxy) else 0),
+                    "newton.panda.rigid_contact_count": contact_count,
+                    "newton.contact.rigid_contact_count": contact_count,
                     "newton.object.body_q.z": object_z,
                     "candidate.controller.phase_index": float(phase_idx),
                     "candidate.controller.commanded_gripper_target": float(_commanded_gripper_target(example)),
                     "candidate.controller.commanded_lift_target": float(_commanded_lift_target(example)),
+                    "candidate.task.object_mass_kg": float(args_in.object_mass_kg)
+                    if args_in.object_mass_kg is not None
+                    else 0.0,
+                    "candidate.task.object_friction_mu": float(args_in.object_friction_mu)
+                    if args_in.object_friction_mu is not None
+                    else 0.0,
+                    "candidate.task.nominal_visual_fill": float(args_in.nominal_visual_fill),
+                    "candidate.task.grasp_offset_delta_x": float(grasp_offset_delta_xyz[0]),
+                    "candidate.task.grasp_offset_delta_y": float(grasp_offset_delta_xyz[1]),
+                    "candidate.task.grasp_offset_delta_z": float(grasp_offset_delta_xyz[2]),
+                    "candidate.modality.vision_available_mask": vision_available,
+                    "candidate.modality.contact_available_mask": contact_available,
                     "_object_vz_m_s": vz,
                     "_object_accel_m_s2": accel,
                 },
@@ -1029,6 +1443,25 @@ def main() -> None:
                 hold_height_offset_max=args_in.feedback_hold_height_offset_max,
                 stabilization_max=args_in.feedback_stabilization_max,
             )
+            if args_in.record_scripted_teacher_labels:
+                teacher_feedback_record = _apply_scripted_feedback(
+                    example=example,
+                    state=teacher_feedback_state,
+                    object_pose=object_pose,
+                    contact_proxy=contact_proxy,
+                    frame_dt=float(example.frame_dt),
+                    min_contact_count=args_in.feedback_min_contact_count,
+                    accel_threshold=args_in.feedback_accel_threshold,
+                    height_drop_threshold=args_in.feedback_height_drop_threshold,
+                    lift_duration_scale_max=args_in.feedback_lift_duration_scale_max,
+                    hold_height_step=args_in.feedback_hold_height_step,
+                    hold_height_offset_max=args_in.feedback_hold_height_offset_max,
+                    stabilization_step=args_in.feedback_stabilization_step,
+                    stabilization_max=args_in.feedback_stabilization_max,
+                    apply_to_controller=False,
+                )
+            else:
+                teacher_feedback_record = None
         else:
             feedback_record = {
                 "feedback_active": 0,
@@ -1044,12 +1477,25 @@ def main() -> None:
                 "feedback_raw_hold_height_offset_m": 0.0,
                 "feedback_raw_stabilization_extension_s": 0.0,
             }
+            teacher_feedback_record = None
+        if args_in.controller_mode != "lift_hold_learned_residual":
+            teacher_feedback_record = None
         reason = feedback_record["feedback_reason"]
         if reason not in feedback_reason_to_id:
             reason_id = len(feedback_reason_to_id)
             feedback_reason_to_id[reason] = reason_id
             feedback_reason_labels[str(reason_id)] = reason
         reason_id = feedback_reason_to_id[reason]
+        if teacher_feedback_record is None:
+            teacher_reason = "none"
+            teacher_reason_id = 0
+        else:
+            teacher_reason = teacher_feedback_record["feedback_reason"]
+            if teacher_reason not in teacher_feedback_reason_to_id:
+                teacher_reason_id = len(teacher_feedback_reason_to_id)
+                teacher_feedback_reason_to_id[teacher_reason] = teacher_reason_id
+                teacher_feedback_reason_labels[str(teacher_reason_id)] = teacher_reason
+            teacher_reason_id = teacher_feedback_reason_to_id[teacher_reason]
         rollout_records["step"].append(step + 1)
         rollout_records["sim_time"].append(float(example.sim_time))
         rollout_records["joint_q"].append(_as_np(example.state_0.joint_q))
@@ -1088,7 +1534,30 @@ def main() -> None:
                 feedback_record["feedback_stabilization_extension_s"],
             )
         )
-        if step not in requested:
+        rollout_records["teacher_feedback_active"].append(
+            0 if teacher_feedback_record is None else teacher_feedback_record["feedback_active"]
+        )
+        rollout_records["teacher_feedback_reason_id"].append(teacher_reason_id)
+        rollout_records["teacher_feedback_lift_velocity_scale"].append(
+            1.0 if teacher_feedback_record is None else teacher_feedback_record["feedback_lift_velocity_scale"]
+        )
+        rollout_records["teacher_feedback_hold_height_offset_m"].append(
+            0.0 if teacher_feedback_record is None else teacher_feedback_record["feedback_hold_height_offset_m"]
+        )
+        rollout_records["teacher_feedback_stabilization_extension_s"].append(
+            0.0 if teacher_feedback_record is None else teacher_feedback_record["feedback_stabilization_extension_s"]
+        )
+        rollout_records["teacher_feedback_trigger_count"].append(
+            0 if teacher_feedback_record is None else teacher_feedback_record["feedback_trigger_count"]
+        )
+        rollout_records["teacher_feedback_observed_object_vz_m_s"].append(
+            0.0 if teacher_feedback_record is None else teacher_feedback_record["feedback_observed_object_vz_m_s"]
+        )
+        rollout_records["teacher_feedback_observed_object_accel_m_s2"].append(
+            0.0 if teacher_feedback_record is None else teacher_feedback_record["feedback_observed_object_accel_m_s2"]
+        )
+        needs_visual = step in requested_set or step in video_steps
+        if not needs_visual:
             continue
         example.model.bvh_refit_shapes(example.state_0)
         example.model.bvh_refit_particles(example.state_0)
@@ -1103,22 +1572,31 @@ def main() -> None:
         )
         rgba = sensor.utils.to_rgba_from_color(color).numpy().copy()
         depth_np = depth.numpy().copy()
-        png = args_in.output_dir / f"frame_{step:04d}.png"
-        _save_triptych(rgba, CAMERA_NAMES, png, title=f"step {step}")
-        frame_paths.append(png)
-        color_records.append(rgba)
-        depth_records.append(depth_np)
-        camera_meta_records.append({"step": step, "cameras": camera_meta})
-        body_q = example.state_0.body_q.numpy()
-        object_body_idx = example.object_body_local
-        object_z_records.append(float(body_q[object_body_idx][2]))
+        if step in requested_set:
+            png = args_in.output_dir / f"frame_{step:04d}.png"
+            _save_triptych(rgba, CAMERA_NAMES, png, title=f"step {step}")
+            frame_paths.append(png)
+            color_records.append(rgba)
+            depth_records.append(depth_np)
+            camera_meta_records.append({"step": step, "cameras": camera_meta})
+            body_q = example.state_0.body_q.numpy()
+            object_body_idx = example.object_body_local
+            object_z_records.append(float(body_q[object_body_idx][2]))
+        if step in video_steps:
+            video_png = video_frames_dir / f"video_frame_{step:04d}.png"
+            _save_triptych(rgba, CAMERA_NAMES, video_png, title=f"step {step}")
+            video_frame_paths.append(video_png)
 
     _write_browser(frame_paths, args_in.output_dir / "frame_browser.html")
     _write_contact_sheet(frame_paths, args_in.output_dir / "contact_sheet.png")
+    rollout_video = _write_rollout_gif(video_frame_paths, args_in.output_dir / "rollout_video.gif", args_in.video_fps)
 
     color_arr = np.asarray(color_records, dtype=np.uint8)
     depth_arr = np.asarray(depth_records, dtype=np.float32)
     object_z_arr = np.asarray(object_z_records, dtype=np.float32)
+    ee_body_q_arr = np.asarray(rollout_records["ee_body_q"], dtype=np.float32)
+    commanded_gripper_arr = np.asarray(rollout_records["commanded_gripper_target"], dtype=np.float32)
+    action_bridge_arrays = _relative_eef_action_bridge(ee_body_q_arr, commanded_gripper_arr)
     rollout_arrays = {
         "newton.panda.step": np.asarray(rollout_records["step"], dtype=np.int32),
         "newton.panda.sim_time": np.asarray(rollout_records["sim_time"], dtype=np.float32),
@@ -1126,12 +1604,10 @@ def main() -> None:
         "newton.panda.joint_qd": np.asarray(rollout_records["joint_qd"], dtype=np.float32),
         "newton.panda.joint_target_q": np.asarray(rollout_records["joint_target_q"], dtype=np.float32),
         "newton.panda.object_body_q": np.asarray(rollout_records["object_body_q"], dtype=np.float32),
-        "newton.panda.ee_body_q": np.asarray(rollout_records["ee_body_q"], dtype=np.float32),
+        "newton.panda.ee_body_q": ee_body_q_arr,
         "newton.panda.rigid_contact_count": np.asarray(rollout_records["rigid_contact_count"], dtype=np.int32),
         "candidate.controller.phase_index": np.asarray(rollout_records["controller_phase_index"], dtype=np.int32),
-        "candidate.controller.commanded_gripper_target": np.asarray(
-            rollout_records["commanded_gripper_target"], dtype=np.float32
-        ),
+        "candidate.controller.commanded_gripper_target": commanded_gripper_arr,
         "candidate.controller.commanded_lift_target": np.asarray(
             rollout_records["commanded_lift_target"], dtype=np.float32
         ),
@@ -1167,6 +1643,28 @@ def main() -> None:
         "candidate.controller.feedback_raw_stabilization_extension_s": np.asarray(
             rollout_records["feedback_raw_stabilization_extension_s"], dtype=np.float32
         ),
+        "candidate.teacher.feedback_active": np.asarray(rollout_records["teacher_feedback_active"], dtype=np.int32),
+        "candidate.teacher.feedback_reason_id": np.asarray(
+            rollout_records["teacher_feedback_reason_id"], dtype=np.int32
+        ),
+        "candidate.teacher.feedback_lift_velocity_scale": np.asarray(
+            rollout_records["teacher_feedback_lift_velocity_scale"], dtype=np.float32
+        ),
+        "candidate.teacher.feedback_hold_height_offset_m": np.asarray(
+            rollout_records["teacher_feedback_hold_height_offset_m"], dtype=np.float32
+        ),
+        "candidate.teacher.feedback_stabilization_extension_s": np.asarray(
+            rollout_records["teacher_feedback_stabilization_extension_s"], dtype=np.float32
+        ),
+        "candidate.teacher.feedback_trigger_count": np.asarray(
+            rollout_records["teacher_feedback_trigger_count"], dtype=np.int32
+        ),
+        "candidate.teacher.feedback_observed_object_vz_m_s": np.asarray(
+            rollout_records["teacher_feedback_observed_object_vz_m_s"], dtype=np.float32
+        ),
+        "candidate.teacher.feedback_observed_object_accel_m_s2": np.asarray(
+            rollout_records["teacher_feedback_observed_object_accel_m_s2"], dtype=np.float32
+        ),
         "candidate.physics.tracked_body_indices": np.asarray(
             []
             if object_physics_adapter_meta.get("body_index_local") is None
@@ -1178,7 +1676,26 @@ def main() -> None:
         ),
         "candidate.physics.body_mass_scale": np.asarray([args_in.body_mass_scale], dtype=np.float32),
         "candidate.physics.shape_friction_scale": np.asarray([args_in.shape_friction_scale], dtype=np.float32),
+        "candidate.task.object_mass_kg": np.asarray(
+            [-1.0 if args_in.object_mass_kg is None else args_in.object_mass_kg], dtype=np.float32
+        ),
+        "candidate.task.object_friction_mu": np.asarray(
+            [-1.0 if args_in.object_friction_mu is None else args_in.object_friction_mu], dtype=np.float32
+        ),
+        "candidate.physics.object_com_offset_xyz": np.asarray([object_com_offset_xyz], dtype=np.float32),
+        "candidate.task.nominal_visual_fill": np.asarray([args_in.nominal_visual_fill], dtype=np.float32),
+        "candidate.task.visual_fill_cue_id": np.asarray(
+            [VISUAL_FILL_CUE_IDS[args_in.visual_fill_cue]], dtype=np.int32
+        ),
+        "candidate.task.visual_fill_cue_rendered": np.asarray(
+            [int(args_in.visual_fill_cue_rendered)], dtype=np.int32
+        ),
+        "candidate.task.grasp_offset_delta_xyz": np.asarray([grasp_offset_delta_xyz], dtype=np.float32),
+        "candidate.task.grasp_offset_delta_x": np.asarray([grasp_offset_delta_xyz[0]], dtype=np.float32),
+        "candidate.task.grasp_offset_delta_y": np.asarray([grasp_offset_delta_xyz[1]], dtype=np.float32),
+        "candidate.task.grasp_offset_delta_z": np.asarray([grasp_offset_delta_xyz[2]], dtype=np.float32),
     }
+    rollout_arrays.update(action_bridge_arrays)
     args_in.npz.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         args_in.npz,
@@ -1213,20 +1730,70 @@ def main() -> None:
         "physics_variant": object_physics_adapter_meta["requested"],
         "object_adapter": object_adapter_meta,
         "object_physics_adapter": object_physics_adapter_meta,
+        "grasp_perturbation_adapter": grasp_adapter_meta,
+        "phase07_task_provenance": {
+            "fill_label": args_in.fill_label,
+            "object_mass_kg": args_in.object_mass_kg,
+            "object_friction_mu": args_in.object_friction_mu,
+            "object_com_offset_xyz": [float(x) for x in object_com_offset_xyz],
+            "nominal_visual_fill": args_in.nominal_visual_fill,
+            "visual_fill_cue": args_in.visual_fill_cue,
+            "visual_fill_cue_rendered": bool(args_in.visual_fill_cue_rendered),
+            "visual_fill_cue_rendering_status": (
+                "rendered" if args_in.visual_fill_cue_rendered else "metadata_only_not_rendered"
+            ),
+            "grasp_offset_delta_xyz": [float(x) for x in grasp_offset_delta_xyz],
+            "source": "candidate.task.*",
+        },
         "controller_adapter": controller_adapter_meta,
+        "candidate_action_bridge": {
+            "status": "available_for_future_mainstream_adapter_conversion",
+            "not_mainstream_baseline_result": True,
+            "source": "newton.panda.ee_body_q finite difference plus candidate.controller.commanded_gripper_target",
+            "pose_convention": "xyz + quaternion xyzw",
+            "action_convention": "current_to_next_relative_eef_delta_xyz_euler_rpy_radians_plus_absolute_gripper_target",
+            "final_timestep_delta": "zero_xyzrpy_delta_with_current_gripper_target",
+            "fields": [
+                "candidate.action.eef_delta_x",
+                "candidate.action.eef_delta_y",
+                "candidate.action.eef_delta_z",
+                "candidate.action.eef_delta_roll",
+                "candidate.action.eef_delta_pitch",
+                "candidate.action.eef_delta_yaw",
+                "candidate.action.gripper",
+                "candidate.action.eef_delta_xyzrpy_gripper",
+            ],
+        },
         "num_steps": args_in.num_steps,
         "pre_record_warmup_steps": args_in.pre_record_warmup_steps,
         "sample_steps": requested,
+        "video_export": {
+            **rollout_video,
+            "enabled": bool(video_enabled),
+            "frame_stride": int(args_in.video_frame_stride),
+            "video_frames_dir": str(video_frames_dir) if video_enabled else None,
+        },
         "controller_type": (
             "newton_native_residual_controller_adapter_evaluation"
-            if args_in.controller_mode == "lift_hold_learned_residual"
+            if args_in.controller_mode in {"lift_hold_learned_residual", "lift_hold_feedback_residual_overlay"}
             else "official_newton_panda_hydro_scripted_no_adaptation"
         ),
         "controller_phase_labels": controller_phase_labels,
         "feedback_reason_labels": feedback_reason_labels,
+        "teacher_feedback_reason_labels": teacher_feedback_reason_labels,
+        "scripted_teacher_labels": {
+            "enabled": bool(args_in.record_scripted_teacher_labels),
+            "valid_only_for_controller_mode": "lift_hold_learned_residual",
+            "applied_to_controller": False,
+            "purpose": "closed_loop_dagger_style_corrective_labels_on_policy_induced_states",
+            "source": "candidate.teacher.*",
+            "final_trigger_count": int(teacher_feedback_state["trigger_count"]),
+            "not_success_claim": True,
+        },
         "scripted_feedback": {
             "enabled": args_in.controller_mode in {"lift_hold_feedback", "lift_hold_learned_residual"},
-            "learned_policy": args_in.controller_mode == "lift_hold_learned_residual",
+            "learned_policy": args_in.controller_mode
+            in {"lift_hold_learned_residual", "lift_hold_feedback_residual_overlay"},
             "curiosity_reward": "none",
             "min_contact_count": args_in.feedback_min_contact_count,
             "accel_threshold_m_s2": args_in.feedback_accel_threshold,
@@ -1250,6 +1817,7 @@ def main() -> None:
         "output_dir": str(args_in.output_dir),
         "frame_browser": str(args_in.output_dir / "frame_browser.html"),
         "contact_sheet": str(args_in.output_dir / "contact_sheet.png"),
+        "rollout_video": rollout_video.get("path") if rollout_video.get("status") == "pass" else None,
         "npz": str(args_in.npz),
         "camera_meta": camera_meta_records,
         "array_summaries": {

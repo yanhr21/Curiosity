@@ -1,0 +1,89 @@
+{
+  "classification": "phase01_local_advantage_segment_preflight_config_v1",
+  "phase": "phase01",
+  "purpose": "Build fixed-length local-advantage residual segments from train-only source rollouts after source-level gates failed. This masks harmful full-rollout supervision while preserving strict held-out exclusion and safety/lift/hold non-regression.",
+  "not_training_result": true,
+  "no_curiosity_success_claim": true,
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "source_manifests": [
+    "data/processed/phase01/src_bal/manifest.json",
+    "data/processed/phase01/src_box/manifest.json"
+  ],
+  "processed_dir": "data/processed/phase01/local_adv",
+  "manifest": "data/processed/phase01/local_adv/manifest.json",
+  "report": "experiments/reports/phase01/core/local_adv_segments.md",
+  "segment": {
+    "run_tag_prefix": "p01_local_adv",
+    "length": 192,
+    "min_active_frames": 8,
+    "validation_cells": [
+      "train_cylinder_light_medium"
+    ]
+  },
+  "gate": {
+    "min_train_segments": 2,
+    "min_validation_segments": 1,
+    "min_train_active_frames": 16,
+    "min_validation_active_frames": 8
+  },
+  "eligibility": {
+    "allowed_failure_prefixes": [
+      "active_feedback_frames_below_min"
+    ],
+    "min_improvement_count": 1,
+    "paired_delta_tolerances": {
+      "lift_regression_tolerance_m": 0.001,
+      "hold_regression_tolerance_s": 0.1,
+      "slip_regression_tolerance_m": 0,
+      "accel_regression_tolerance_m_s2": 0,
+      "contact_loss_regression_tolerance_frames": 0
+    }
+  },
+  "risk_thresholds": {
+    "contact_loss_count": 0,
+    "slip_drop_z_m": 0.002
+  },
+  "feature_columns": [
+    "newton.panda.sim_time",
+    "newton.panda.rigid_contact_count",
+    "newton.object.body_q.z",
+    "candidate.controller.phase_index",
+    "candidate.controller.commanded_gripper_target",
+    "candidate.controller.commanded_lift_target",
+    "candidate.task.object_mass_kg",
+    "candidate.task.object_friction_mu",
+    "candidate.modality.vision_available_mask",
+    "candidate.modality.contact_available_mask"
+  ],
+  "residual_target_columns": [
+    "candidate.controller.feedback_active",
+    "candidate.controller.feedback_lift_velocity_scale",
+    "candidate.controller.feedback_hold_height_offset_m",
+    "candidate.controller.feedback_stabilization_extension_s"
+  ],
+  "lp_target_columns": [
+    "target.object.delta_z_next",
+    "target.object.velocity_z_next",
+    "target.contact.count_next",
+    "target.contact.delta_count_next",
+    "target.contact_loss_risk_next",
+    "target.slip_risk_next"
+  ],
+  "held_out_cells_reserved_for_evaluation": [
+    "heldout_cup_full_low_hidden",
+    "heldout_cup_empty_high_misleading",
+    "heldout_box_heavy_low_large_offset",
+    "heldout_cylinder_heavy_low_masked_vision"
+  ],
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "forbidden_claims": [
+    "curiosity_success",
+    "policy_training_result",
+    "held_out_used_for_training",
+    "official_trex_method",
+    "fake_or_fabricated_feedback_labels",
+    "fake_or_fabricated_scores"
+  ]
+}

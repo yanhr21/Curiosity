@@ -1,0 +1,66 @@
+{
+  "schema_version": "phase00_latest_reference_recheck_20260701_v2",
+  "date": "2026-07-01",
+  "classification": "latest_web_and_git_remote_recheck_not_training_not_sanity",
+  "scope": "web search, official page review, git remote HEAD checks, lightweight clone/worktree acquisition",
+  "sources": {
+    "newton": "https://github.com/newton-physics/newton",
+    "univtac": "https://github.com/univtac/UniVTAC",
+    "trex_project": "https://tactile-reactive-dexterous.github.io/",
+    "isaaclab_tacsl_docs": "https://isaac-sim.github.io/IsaacLab/main/source/overview/core-concepts/sensors/visuo_tactile_sensor.html",
+    "isaaclabtactile": "https://github.com/UM-ARM-Lab/IsaacLabTactile",
+    "tacex": "https://github.com/DH-Ng/TacEx"
+  },
+  "remote_heads": {
+    "newton_main": "8c501b47847569fecdda97a9f7f01205c6f7964f",
+    "taccel_main": "cb23bc251b531ba6908a3788c2f91423cd543149",
+    "trex_main": "43ff632259d76f08373c085c53111825060d029b",
+    "hydroshear_master": "a53a51cb74f0608ca53839415d7f1964a99f1db0",
+    "univtac_main": "05bcd3edb92237107efa40105292a24f1a9fd761",
+    "tacauchy_main": "c228cfe9050904cd5d71d64f6eb5104768d4cbda",
+    "tacex_main": "adceed41afb7cb48f9ec1f66a662fb8e5a06627f",
+    "isaaclab_main": "b4c321024792976150ca55fddb26fa34480d974e",
+    "isaaclabtactile_main": "21bcb476b27ceedccccd63afef6bbd822adc2b2b"
+  },
+  "local_acquisition": {
+    "newton_latest_worktree": {
+      "path": "external/newton_8c501",
+      "commit": "8c501b47847569fecdda97a9f7f01205c6f7964f",
+      "status": "created_not_sanity_checked"
+    },
+    "tacex": {
+      "path": "external/TacEx",
+      "commit": "adceed41afb7cb48f9ec1f66a662fb8e5a06627f",
+      "status": "cloned_not_installed_not_sanity_checked"
+    },
+    "isaaclabtactile": {
+      "path": "external/IsaacLabTactile",
+      "remote_head": "21bcb476b27ceedccccd63afef6bbd822adc2b2b",
+      "status": "clone_failed_partial_removed",
+      "observed_issue": "fetch-pack: unexpected disconnect while reading sideband packet"
+    }
+  },
+  "url_corrections": [
+    "Correct Taccel remote is https://github.com/Taccel-Simulator/Taccel.git, not limingchong/Taccel.",
+    "Correct TaCauchy remote is https://github.com/figsama/TaCauchy.git, not DH-Ng/TaCauchy.",
+    "Correct IsaacLabTactile remote is https://github.com/UM-ARM-Lab/IsaacLabTactile.git; the earlier yanglh14 probe was wrong.",
+    "Correct HydroShear remote for the local source is https://github.com/MMintLab/hydroshear.git."
+  ],
+  "gate_effect": {
+    "newton_8c501": "latest code path prepared but not compute-sanity checked; do not replace d58 evidence yet",
+    "tacex": "official source cloned for reference; not a substitute for UniVTAC/TaCauchy official sanity",
+    "isaaclabtactile": "valid official URL confirmed, acquisition still blocked by network disconnect",
+    "gate00f_ready": false,
+    "remaining_effective_failed_checks": [
+      "univtac_official_reference_sanity",
+      "tacauchy_official_reference_sanity"
+    ]
+  },
+  "not_claims": [
+    "not Newton 8c501 runtime sanity",
+    "not official TacEx sanity",
+    "not IsaacLabTactile acquired source evidence",
+    "not Gate 00F completion",
+    "not curiosity readiness"
+  ]
+}

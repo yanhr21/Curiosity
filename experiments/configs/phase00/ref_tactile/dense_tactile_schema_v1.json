@@ -1,0 +1,100 @@
+{
+  "classification": "phase00_reference_video_dense_tactile_schema_v1",
+  "phase": "phase00",
+  "family": "ref_tactile",
+  "purpose": "Dense tactile/mechanics schema required before restarting curiosity training.",
+  "reference_video": "0780e5ec3fdb26b63ae63de0f49f07c4.mp4",
+  "not_trex_schema": true,
+  "not_training_result": true,
+  "scalar_contact_proxy_not_sufficient": true,
+  "required_streams": {
+    "time": {
+      "newton.sim_time_s": "float scalar per frame",
+      "candidate.frame_index": "int scalar per frame",
+      "candidate.physics_dt_s": "float scalar or metadata",
+      "candidate.render_dt_s": "float scalar or metadata"
+    },
+    "visual": {
+      "newton.camera.rgb": "uint8 [camera, H, W, 3] or encoded frame path",
+      "newton.camera.depth_m": "float [camera, H, W] optional but preferred",
+      "candidate.visual.overlay.contact_patch": "rendered overlay path or array when available"
+    },
+    "left_pad": {
+      "tactile.left.pressure_pa": "float [H, W], rigid hydroelastic pressure or pressure proxy",
+      "tactile.left.compression_m": "float [H, W], required for soft/compliant sensor variants",
+      "tactile.left.contact_mask": "bool [H, W]",
+      "tactile.left.shear_u_m": "float [H, W] or sparse vector field",
+      "tactile.left.shear_v_m": "float [H, W] or sparse vector field",
+      "tactile.left.force_normal_n": "float scalar Fn",
+      "tactile.left.force_tangent_n": "float scalar Ft",
+      "tactile.left.force_vector_n": "float [3]",
+      "tactile.left.friction_vector_n": "float [3]",
+      "tactile.left.contact_area_m2": "float scalar",
+      "tactile.left.center_of_pressure_uv_m": "float [2]",
+      "tactile.left.mean_penetration_m": "float scalar",
+      "tactile.left.max_penetration_m": "float scalar"
+    },
+    "right_pad": {
+      "tactile.right.pressure_pa": "float [H, W], rigid hydroelastic pressure or pressure proxy",
+      "tactile.right.compression_m": "float [H, W], required for soft/compliant sensor variants",
+      "tactile.right.contact_mask": "bool [H, W]",
+      "tactile.right.shear_u_m": "float [H, W] or sparse vector field",
+      "tactile.right.shear_v_m": "float [H, W] or sparse vector field",
+      "tactile.right.force_normal_n": "float scalar Fn",
+      "tactile.right.force_tangent_n": "float scalar Ft",
+      "tactile.right.force_vector_n": "float [3]",
+      "tactile.right.friction_vector_n": "float [3]",
+      "tactile.right.contact_area_m2": "float scalar",
+      "tactile.right.center_of_pressure_uv_m": "float [2]",
+      "tactile.right.mean_penetration_m": "float scalar",
+      "tactile.right.max_penetration_m": "float scalar"
+    },
+    "object_state": {
+      "newton.object.body_q": "float [7], position xyz + quaternion",
+      "newton.object.body_qd": "float [6], spatial velocity",
+      "candidate.object.material_family": "string enum",
+      "candidate.object.density_kg_m3": "float scalar",
+      "candidate.object.mass_kg": "float scalar",
+      "candidate.object.friction_mu": "float scalar",
+      "candidate.object.contact_stiffness_kh": "float scalar when applicable",
+      "candidate.object.youngs_modulus_pa": "float scalar when applicable"
+    },
+    "controller": {
+      "candidate.controller.command": "structured control target",
+      "candidate.controller.phase": "string or int phase",
+      "candidate.controller.gripper_target_m": "float scalar",
+      "candidate.controller.eef_target_pose": "float [7]"
+    },
+    "diagnostics": {
+      "candidate.grip.force_left_n": "float scalar per frame",
+      "candidate.grip.force_right_n": "float scalar per frame",
+      "candidate.grip.force_balance_n": "float scalar per frame",
+      "candidate.shear.net_on_object_n": "float scalar per frame",
+      "candidate.shear.left_right_cosine": "float scalar per frame",
+      "candidate.contact.total_area_m2": "float scalar per frame",
+      "candidate.contact.total_normal_force_n": "float scalar per frame",
+      "candidate.contact.total_tangent_force_n": "float scalar per frame"
+    }
+  },
+  "required_artifacts": {
+    "npz_or_zarr": "dense frame-aligned arrays",
+    "summary_json": "schema coverage, min/max/nonzero checks, material parameters",
+    "diagnostic_mp4": "reference-style multi-panel video",
+    "contact_sheet": "sampled frame diagnostic sheet",
+    "manual_inspection_md": "human inspection pass/fail",
+    "official_sanity_json": "Newton/Taccel official sanity evidence"
+  },
+  "balance_gates_for_later_training": {
+    "vision_tactile": "required",
+    "tactile_only_masked_vision": "required",
+    "vision_only_ablation": "required",
+    "noisy_or_mismatched_tactile_ablation": "required"
+  },
+  "forbidden_success_claims": [
+    "curiosity_success",
+    "trex_schema_compatible",
+    "tactile_available_from_contact_count_only",
+    "base_model_ready_without_dense_tactile_video",
+    "training_ready_before_official_sanity"
+  ]
+}

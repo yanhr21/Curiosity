@@ -1,0 +1,110 @@
+{
+  "classification": "phase07_hard_training_contract_v1",
+  "status": "phase07_hard_training_contract_ready_training_not_started",
+  "phase": "07_harder_task_progression",
+  "task_family": "variable_water_cup_weight_fill_v1",
+  "purpose": "Define the non-downgradable training and evaluation contract for the first harder-task curiosity run.",
+  "training_started": false,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "no_placeholder_model": true,
+  "source_inputs": {
+    "task_config": "experiments/configs/variable_water_cup_harder_task_v1.json",
+    "source_manifest": "experiments/configs/phase07_residual_label_source_manifest_v1.json",
+    "source_runner_config": "experiments/configs/phase07_residual_label_source_runner_v1.json",
+    "source_runner_manifest": "data/processed/phase07_residual_label_source_runner_v1_20260627/manifest.json",
+    "source_records_csv": "data/processed/phase07_residual_label_source_runner_v1_20260627/residual_label_records.csv"
+  },
+  "train_cells": [
+    "quarter_low_truthful",
+    "quarter_medium_hidden",
+    "half_low_hidden",
+    "half_medium_truthful",
+    "three_quarter_medium_misleading",
+    "three_quarter_high_truthful"
+  ],
+  "validation_cells": [
+    "empty_medium_hidden",
+    "full_medium_misleading"
+  ],
+  "held_out_cells_reserved_for_evaluation": [
+    "empty_high_misleading",
+    "full_low_hidden",
+    "three_quarter_low_misleading"
+  ],
+  "minimum_training_sequence": [
+    "Build Phase07 residual-adapter preflight from the 8-source runner output.",
+    "Train a no-curiosity Phase07 residual adapter for at least one GPU-hour as the harder-task learned baseline.",
+    "Build Phase07 curiosity-forward preflight from the same train/validation source split without held-out leakage.",
+    "Train the Phase07 curiosity forward model for at least one GPU-hour and save initial and final checkpoints.",
+    "Compute learning-progress curiosity from initial versus trained forward-model checkpoints.",
+    "Train a Phase07 curiosity-weighted residual adapter for at least one GPU-hour from the Phase07 source split.",
+    "Evaluate no-adaptation, scripted feedback, no-curiosity residual, curiosity-weighted residual, and ablations on held-out cells with complete rollout videos."
+  ],
+  "baselines_required": [
+    "no_adaptation_scripted_prior",
+    "scripted_feedback",
+    "phase07_no_curiosity_residual_adapter",
+    "random_intrinsic_reward_ablation",
+    "object_only_curiosity_ablation",
+    "contact_only_curiosity_ablation",
+    "vision_contact_curiosity_ablation",
+    "serious_mainstream_or_official_checkpoint_comparison_or_blocker"
+  ],
+  "success_metrics": [
+    "lift_height_m",
+    "hold_duration_s",
+    "object_not_dropped",
+    "max_slip_m",
+    "contact_loss_frames",
+    "max_object_accel_m_s2",
+    "success_per_contact_proxy_integral",
+    "held_out_success_rate"
+  ],
+  "safety_metrics": [
+    "drop_height_loss_m",
+    "contact_loss_frames",
+    "max_contact_proxy",
+    "max_object_accel_m_s2",
+    "obvious_visual_drop_or_render_failure"
+  ],
+  "video_requirements": {
+    "complete_rollout_video_required": true,
+    "dense_video_frame_count_min": 360,
+    "sampled_contact_sheet_required": true,
+    "manual_visual_inspection_required": true
+  },
+  "minimum_real_training": {
+    "per_train_run_min_gpu_seconds": 3600,
+    "min_gpu_utilization_percent": 30,
+    "requires_fresh_official_newton_sanity": true,
+    "requires_tmux_held_allocation": true
+  },
+  "forbidden_success_claims": [
+    "completed_curiosity_training_before_heldout_eval",
+    "success_from_source_collection_only",
+    "success_from_offline_replay_only",
+    "success_from_supervised_reweighting_only",
+    "success_without_complete_rollout_videos",
+    "success_without_baseline_comparison",
+    "success_without_mainstream_comparison_or_blocker",
+    "rendered_visual_fill_cue_success_while_metadata_only"
+  ],
+  "known_limitations_before_training": [
+    "Visual fill cue is currently metadata-only under candidate.task.* and is not rendered as liquid, hidden occlusion, or misleading evidence.",
+    "Current tactile evidence is Newton contact proxy, not calibrated tactile F6 or real tactile-marker deformation.",
+    "Curiosity-weighted residual adaptation is an intermediate supervised policy-update path, not a full RL algorithm; it cannot alone close the final user objective without held-out closed-loop evaluation and stronger ablations."
+  ],
+  "valid_use": [
+    "Pre-training contract for Phase07 harder-task runs",
+    "No-downgrade gate before Phase07 training and evaluation",
+    "Audit trail for train/validation/held-out split preservation"
+  ],
+  "not_valid_use": [
+    "Training result",
+    "Policy checkpoint",
+    "Curiosity success claim",
+    "Rendered visual fill-cue proof",
+    "Official T-Rex schema compatibility"
+  ]
+}

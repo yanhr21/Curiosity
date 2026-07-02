@@ -1,0 +1,57 @@
+{
+  "schema_version": "dense_tactile_infant_pad_schema_v1",
+  "date": "2026-07-01",
+  "purpose": "Active dense pad-resolved representation required before closed-loop curiosity training.",
+  "not_training_result": true,
+  "not_trex_schema": true,
+  "canonical_fields": {
+    "left_pad": {
+      "pressure": "[T,H,W] float32",
+      "compression": "[T,H,W] float32",
+      "shear_u": "[T,H,W] float32",
+      "shear_v": "[T,H,W] float32",
+      "contact_mask": "[T,H,W] bool",
+      "Fn": "[T] or [T,H,W] float32",
+      "Ft": "[T] or [T,H,W] float32"
+    },
+    "right_pad": {
+      "pressure": "[T,H,W] float32",
+      "compression": "[T,H,W] float32",
+      "shear_u": "[T,H,W] float32",
+      "shear_v": "[T,H,W] float32",
+      "contact_mask": "[T,H,W] bool",
+      "Fn": "[T] or [T,H,W] float32",
+      "Ft": "[T] or [T,H,W] float32"
+    },
+    "mechanics": {
+      "contact_area": "[T] or [T,H,W] float32",
+      "center_of_pressure": "[T,2] float32 per pad when available",
+      "penetration": "[T] or [T,H,W] float32",
+      "grip_force": "[T] float32",
+      "shear_force": "[T] float32",
+      "object_pose": "[T,7] float32",
+      "object_velocity": "[T,6] float32"
+    }
+  },
+  "candidate_provenance_fields": {
+    "candidate.newton_mjw.Fn": "candidate direct normal force from Newton/MJWarp bridge",
+    "candidate.newton_mjw.Ft": "candidate direct tangential/shear force from Newton/MJWarp bridge",
+    "candidate.newton_mjw.area_proxy": "point-contact-density proxy, not validated real contact area",
+    "candidate.newton_mjw.marker_flow": "candidate render derived from force/proxy fields, not photometric GelSight output",
+    "candidate.newton_mjw.contact_normal": "candidate contact normal from Newton/MJWarp contact frame"
+  },
+  "forbidden_promotions": {
+    "area_proxy": "real contact area",
+    "marker_flow_render": "photometric GelSight marker output",
+    "contact_count": "tactile map",
+    "candidate_Fn_Ft": "validated official tactile force field"
+  },
+  "required_artifacts": [
+    "npz_or_zarr_with_dense_arrays",
+    "summary_json_with_shape_nonzero_and_provenance_checks",
+    "multi_panel_diagnostic_video",
+    "contact_sheet",
+    "manual_inspection_report",
+    "official_or_candidate_sanity_record"
+  ]
+}

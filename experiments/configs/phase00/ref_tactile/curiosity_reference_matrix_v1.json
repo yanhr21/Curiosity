@@ -1,0 +1,151 @@
+{
+  "schema_version": "phase00_curiosity_reference_matrix_v1",
+  "date": "2026-07-01",
+  "login_node_policy": "source_and_text_audit_only_no_compute",
+  "active_status": "gate_00g_design_reference_only_curiosity_training_disallowed",
+  "references": [
+    {
+      "name": "APPLE",
+      "official_repo": "https://github.com/TimSchneider42/apple",
+      "project_page": "https://timschneider42.github.io/apple/",
+      "local_path": "external/APPLE",
+      "local_commit": "4b1d71fadb786d865d4ee29a184ab408b9605083",
+      "role": "secondary_active_tactile_perception_and_rl_reference",
+      "observed_algorithms": [
+        "APPLE-SAC",
+        "APPLE-CrossQ",
+        "APPLE-PPO",
+        "random_action_baseline",
+        "grid_policy_baseline",
+        "HAM_reference"
+      ],
+      "observed_model_components": [
+        "vision_transformer_image_encoder",
+        "multi_modal_sequence_encoder",
+        "lstm_sequence_encoder",
+        "actor_critic_agent",
+        "action_conditioned_critic"
+      ],
+      "phase00_use": [
+        "future_gate_00g_active_probing_design",
+        "future_curiosity_rl_baseline_design",
+        "future_sequence_memory_reference",
+        "future_random_and_grid_exploration_baselines"
+      ],
+      "must_not_claim": [
+        "not_newton_native_grasp_infant_checkpoint",
+        "not_gate_00d_00e_00f_completion",
+        "not_current_curiosity_success",
+        "not_official_sanity_pass_until_run_in_compute"
+      ],
+      "next_gate": "source_audit_only_until_dense_tactile_base_and_semantic_validation_pass"
+    },
+    {
+      "name": "TactileMNIST",
+      "official_repo": "https://github.com/TimSchneider42/tactile-mnist",
+      "project_page": "https://timschneider42.github.io/tactile-mnist/",
+      "local_path": "external/tactile-mnist",
+      "local_commit": "9e4e59139e9349ab361a3b9297f4815724ad6387",
+      "role": "secondary_active_tactile_benchmark_and_dataset_reference",
+      "observed_tasks": [
+        "TactileMNIST-v0",
+        "Starstruck-v0",
+        "Toolbox-v0",
+        "ABCCenterOfMass-v0",
+        "TactileMNISTVolume-v0",
+        "ABCVolume-v0"
+      ],
+      "observed_observation_fields": [
+        "sensor_img",
+        "sensor_pos",
+        "sensor_rot_optional",
+        "time_step"
+      ],
+      "observed_action_fields": [
+        "sensor_target_pos_rel",
+        "sensor_target_rot_rel_optional"
+      ],
+      "observed_data_types": [
+        "3d_mesh_train_test_holdout_splits",
+        "real_tactile_image_sequences",
+        "real_tactile_single_images",
+        "synthetic_taxim_tactile_images"
+      ],
+      "phase00_use": [
+        "future_tactile_only_mask_protocol_reference",
+        "future_active_touch_task_split_reference",
+        "future_tactile_image_representation_reference",
+        "future_holdout_leakage_guard_reference"
+      ],
+      "must_not_claim": [
+        "not_grasp_lift_hold_base_controller",
+        "not_reference_video_mechanics_equivalent",
+        "not_gate_00f_semantic_replacement",
+        "not_current_curiosity_success"
+      ],
+      "next_gate": "optional_official_example_sanity_after_prebuilt_environment_exists"
+    },
+    {
+      "name": "ReactiveDiffusionPolicy",
+      "official_repo": "https://github.com/xiaoxiaoxh/reactive_diffusion_policy",
+      "local_path": "external/reactive_diffusion_policy",
+      "local_commit": "824c5e8de1fd1811106907a04b5f0186e0138c0b",
+      "role": "secondary_serious_visual_tactile_policy_reference",
+      "observed_components": [
+        "diffusion_unet_image_policy",
+        "latent_diffusion_unet_image_policy",
+        "real_image_tactile_dataset",
+        "gelsight_marker_motion_extraction",
+        "mctac_marker_motion_extraction",
+        "pca_tactile_marker_embedding",
+        "official_huggingface_dataset_and_checkpoints_links"
+      ],
+      "phase00_use": [
+        "future_gate_00g_policy_baseline_reference",
+        "future_slow_fast_visual_tactile_policy_reference",
+        "future_tactile_marker_embedding_reference"
+      ],
+      "must_not_claim": [
+        "not_newton_native_grasp_infant_checkpoint",
+        "not_gate_00d_00e_00f_completion",
+        "not_current_curiosity_success",
+        "not_official_sanity_pass"
+      ],
+      "next_gate": "optional_checkpoint_and_schema_sanity_after_phase00_gates"
+    },
+    {
+      "name": "ImplicitRDP",
+      "official_repo": "https://github.com/Chen-Wendi/ImplicitRDP",
+      "local_path": "external/ImplicitRDP",
+      "local_commit": "4c90646df17787e31c88838106c4a0323ddefb4a",
+      "role": "secondary_visual_force_diffusion_policy_reference",
+      "observed_components": [
+        "diffusion_transformer_image_policy",
+        "implicitrdp_training_script",
+        "force_rnn",
+        "vision_transformer_obs_encoder",
+        "official_huggingface_dataset_and_checkpoints_links"
+      ],
+      "phase00_use": [
+        "future_visual_force_policy_baseline_reference",
+        "future_force_prediction_ablation_reference"
+      ],
+      "must_not_claim": [
+        "not_dense_tactile_semantic_validator",
+        "not_newton_native_grasp_infant_checkpoint",
+        "not_current_curiosity_success",
+        "not_official_sanity_pass"
+      ],
+      "next_gate": "optional_checkpoint_and_schema_sanity_after_phase00_gates"
+    }
+  ],
+  "active_curiosity_design_constraints": [
+    "closed_loop_active_probing_only_after_gate_00d_00e_00f",
+    "dense_tactile_prediction_not_scalar_contact_count",
+    "bounded_learning_progress_intrinsic_reward",
+    "vision_tactile_tactile_only_vision_only_corrupted_tactile_ablations",
+    "random_grid_scripted_no_curiosity_and_serious_reference_baselines"
+  ],
+  "curiosity_training_allowed": false,
+  "blocking_reason": "Gate_00D_00E_00F_open_reference_tactile_base_and_semantic_validation_not_complete"
+}

@@ -1,0 +1,117 @@
+{
+  "schema_version": "phase00_latest_source_remote_refresh_v1",
+  "date": "2026-07-01",
+  "scope": "lightweight_web_search_and_git_ls_remote_only",
+  "classification": "source_refresh_not_code_update_not_training_not_gate_completion",
+  "curiosity_training_allowed": false,
+  "official_web_sources_checked": [
+    "https://github.com/newton-physics/newton",
+    "https://taccel-simulator.github.io/index.html",
+    "https://github.com/univtac/UniVTAC",
+    "https://github.com/figsama/TaCauchy",
+    "https://univtac.github.io/",
+    "https://github.com/Taccel-Simulator/Taccel",
+    "https://arxiv.org/abs/2602.10093",
+    "https://github.com/figsama/TaCauchy/blob/main/REPRODUCTION.md",
+    "https://github.com/figsama/TaCauchy/blob/main/ASSETS.md"
+  ],
+  "remote_heads": {
+    "newton": {
+      "remote": "https://github.com/newton-physics/newton.git",
+      "main": "d58e70266be0db803261f3e46a2f7d923a43db37",
+      "tag_v1.3.0": "ce11136b3a28390944f7fe5a32801b31d8aa5670",
+      "local_active_external_newton_main": "a217e55fab3d373a08fba374cc5cafc1826cf27f",
+      "status": "upstream_main_ahead_of_active_evidence_worktree",
+      "required_action": "Do not keep calling a217e55 the latest upstream main. Prepare a fresh latest-main Newton sanity/update path in compute before using d58e702 for evidence claims."
+    },
+    "taccel": {
+      "remote": "https://github.com/Taccel-Simulator/Taccel.git",
+      "main": "cb23bc251b531ba6908a3788c2f91423cd543149",
+      "local": "cb23bc251b531ba6908a3788c2f91423cd543149",
+      "status": "local_matches_remote_head"
+    },
+    "univtac": {
+      "remote": "https://github.com/univtac/UniVTAC.git",
+      "main": "05bcd3edb92237107efa40105292a24f1a9fd761",
+      "local": "05bcd3edb92237107efa40105292a24f1a9fd761",
+      "status": "local_matches_remote_head"
+    },
+    "tacauchy": {
+      "remote": "https://github.com/figsama/TaCauchy.git",
+      "main": "c228cfe9050904cd5d71d64f6eb5104768d4cbda",
+      "local": "c228cfe9050904cd5d71d64f6eb5104768d4cbda",
+      "status": "local_matches_remote_head"
+    },
+    "trex": {
+      "remote": "https://github.com/ZhuoyangLiu2005/T-Rex.git",
+      "main": "43ff632259d76f08373c085c53111825060d029b",
+      "local": "db7a02992504ad9be53a7e764f7b05d81d86c767",
+      "status": "local_not_at_remote_head_and_has_existing_dirty_state_to_respect"
+    },
+    "hydroshear": {
+      "remote": "https://github.com/MMintLab/hydroshear.git",
+      "master": "a53a51cb74f0608ca53839415d7f1964a99f1db0",
+      "local": "a53a51cb74f0608ca53839415d7f1964a99f1db0",
+      "status": "local_matches_remote_head"
+    },
+    "isaaclab": {
+      "remote": "https://github.com/isaac-sim/IsaacLab.git",
+      "main": "b4c321024792976150ca55fddb26fa34480d974e",
+      "tag_v2.1.1": "90b79bb2d44feb8d833f260f2bf37da3487180ba",
+      "tag_v2.2.1": "0f00ca2b4b2d54d5f90006a92abb1b00a72b2f20",
+      "status": "reference_tags_available_for_univtac_and_tacauchy_env_plans"
+    },
+    "isaaclabtactile_probe": {
+      "remote": "https://github.com/yanglh14/IsaacLabTactile.git",
+      "status": "repository_not_found_in_probe"
+    },
+    "freetacman": {
+      "remote": "https://github.com/OpenDriveLab/FreeTacMan.git",
+      "main": "9285740a5d33385d3a9cf5ccdb185e3387b547bd",
+      "local": "9285740a5d33385d3a9cf5ccdb185e3387b547bd",
+      "status": "local_matches_remote_head"
+    },
+    "difftactile": {
+      "remote": "https://github.com/Genesis-Embodied-AI/DiffTactile.git",
+      "main": "c4bf43d44071758aea68a5c7ae125fc8257bb8e1",
+      "local": "c4bf43d44071758aea68a5c7ae125fc8257bb8e1",
+      "status": "local_matches_remote_head"
+    },
+    "apple": {
+      "remote": "https://github.com/TimSchneider42/apple.git",
+      "master": "4b1d71fadb786d865d4ee29a184ab408b9605083",
+      "local": "4b1d71fadb786d865d4ee29a184ab408b9605083",
+      "status": "local_matches_remote_head"
+    },
+    "tactile_mnist": {
+      "remote": "https://github.com/TimSchneider42/tactile-mnist.git",
+      "main": "9e4e59139e9349ab361a3b9297f4815724ad6387",
+      "local": "9e4e59139e9349ab361a3b9297f4815724ad6387",
+      "status": "local_matches_remote_head"
+    },
+    "reactive_diffusion_policy": {
+      "remote": "https://github.com/xiaoxiaoxh/reactive_diffusion_policy.git",
+      "main": "824c5e8de1fd1811106907a04b5f0186e0138c0b",
+      "local": "824c5e8de1fd1811106907a04b5f0186e0138c0b",
+      "status": "local_matches_remote_head"
+    },
+    "implicit_rdp": {
+      "remote": "https://github.com/Chen-Wendi/ImplicitRDP.git",
+      "main": "4c90646df17787e31c88838106c4a0323ddefb4a",
+      "local": "4c90646df17787e31c88838106c4a0323ddefb4a",
+      "status": "local_matches_remote_head"
+    },
+    "tactile_diffusion": {
+      "remote": "https://github.com/carolinahiguera/Tactile-Diffusion.git",
+      "main": "16868fb96d19d93dc5837600c26b48415632e4f6",
+      "local": "16868fb96d19d93dc5837600c26b48415632e4f6",
+      "status": "local_matches_remote_head"
+    }
+  },
+  "next_faithful_actions": [
+    "record that Newton upstream main moved beyond the current active evidence worktree",
+    "do not overwrite external/newton_main without preserving existing evidence provenance",
+    "prepare a fresh Newton latest-main update/sanity path for compute-side validation",
+    "keep Gate 00F blocked until target envs and TaCauchy assets are resolved"
+  ]
+}

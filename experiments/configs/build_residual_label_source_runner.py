@@ -90,6 +90,15 @@ def _path_from_source(root: Path, source: dict[str, Any], key: str) -> Path:
     return root / value
 
 
+def _nested_get(payload: dict[str, Any], dotted_key: str, default: Any = "") -> Any:
+    current: Any = payload
+    for part in dotted_key.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return default
+        current = current[part]
+    return current
+
+
 def build(config_path: Path, root: Path, fresh_sanity_json: Path) -> dict[str, Any]:
     config = _load_json(config_path)
     source_manifest_path = root / config["source_manifest"]
@@ -125,6 +134,11 @@ def build(config_path: Path, root: Path, fresh_sanity_json: Path) -> dict[str, A
     for source in source_manifest.get("source_candidates", []):
         run_tag = source.get("run_tag", "unknown")
         cell = str(source.get("cell", ""))
+        source_static_values: dict[str, Any] = {}
+        for field in config.get("source_static_fields", []):
+            output_name = field["name"]
+            source_key = field["source_key"]
+            source_static_values[output_name] = _nested_get(source, source_key, field.get("default", ""))
         if cell in held_out or source.get("held_out_generalization_cell"):
             failures.append(f"held_out_source_candidate_used:{run_tag}:{cell}")
         if source.get("status") != config["required_source_status"]:
@@ -247,6 +261,7 @@ def build(config_path: Path, root: Path, fresh_sanity_json: Path) -> dict[str, A
                         "candidate.controller.commanded_lift_target": _first_scalar(
                             arrays["commanded_lift_target"], idx
                         ),
+                        **source_static_values,
                     }
                 )
 
@@ -268,6 +283,7 @@ def build(config_path: Path, root: Path, fresh_sanity_json: Path) -> dict[str, A
                     "frame_browser": source.get("outputs", {}).get("frame_browser", ""),
                     "metrics_observed": metrics,
                     "observed": source.get("observed", {}),
+                    "source_static_values": source_static_values,
                     "array_summaries": {
                         field: _array_summary(np.asarray(data[field])) for field in config["required_npz_fields"]
                     },
@@ -280,6 +296,8 @@ def build(config_path: Path, root: Path, fresh_sanity_json: Path) -> dict[str, A
             )
 
     dataset_fields = list(config["dataset_fields"])
+    static_dataset_fields = [field["name"] for field in config.get("source_static_fields", [])]
+    dataset_fields.extend(static_dataset_fields)
     failures.extend(_forbidden_fields(dataset_fields))
     if not rows:
         failures.append("no_records_written")

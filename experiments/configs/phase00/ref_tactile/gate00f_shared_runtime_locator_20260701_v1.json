@@ -1,0 +1,42 @@
+{
+  "schema_version": "gate00f_shared_runtime_locator_v1",
+  "date": "2026-07-01",
+  "classification": "lightweight_shared_runtime_locator_not_training_not_gate_completion",
+  "scope": [
+    "top-level and maxdepth-2 shared software/container paths only",
+    "read-only docker image name query",
+    "interrupted project-local maxdepth-5 artifact search after it exceeded the intended lightweight window"
+  ],
+  "searched_shared_paths": [
+    "/public/software",
+    "/public/apps",
+    "/public/share",
+    "/public/container",
+    "/public/containers",
+    "/public/home/yanhongru/software",
+    "/public/home/yanhongru/Software",
+    "/public/home/yanhongru/containers",
+    "/public/home/yanhongru/Images",
+    "/opt",
+    "/usr/local"
+  ],
+  "existing_paths_observed": [
+    "/public/share",
+    "/opt",
+    "/usr/local"
+  ],
+  "shared_path_name_hits": [],
+  "command_observations": {
+    "docker": "/usr/bin/docker",
+    "module_or_ml": "missing_in_refreshed_shell",
+    "docker_images_matching_isaac_tacex_tacauchy_univtac_tacsl_uipc": []
+  },
+  "project_local_artifact_search": {
+    "command": "find /public/home/yanhongru/Curiosity -maxdepth 5 for sif/sqsh/tar/isaac/tacex yaml artifacts",
+    "status": "interrupted_to_avoid_login_node_waste",
+    "observed_hits_before_interrupt": []
+  },
+  "result": "no_existing_shared_dependency_complete_runtime_or_container_found",
+  "gate_effect": "does_not_clear_gate00f",
+  "next_action": "use_allowed_dependency_resolution_path_then_run_runtime_preflight_and_gate00f_bundle_acceptance"
+}

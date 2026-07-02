@@ -1,0 +1,31 @@
+{
+  "date": "2026-07-01",
+  "classification": "phase01_dense_closed_loop_probe_smoke_config",
+  "status": "ready_to_run",
+  "purpose": "Short compute-node smoke for Newton-native dense closed-loop controller probing. This validates that dense tactile/mechanics feedback changes later actions inside rollout before any one-hour real training attempt.",
+  "not_training_attempt": true,
+  "not_curiosity_success": true,
+  "script": "src/newton_tactile_curiosity/phase01_dense_closed_loop_probe.py",
+  "default_args": {
+    "scene": "cube",
+    "num_frames": 90,
+    "map_size": 16,
+    "generations": 1,
+    "population_size": 2,
+    "elite_count": 1,
+    "seed": 123,
+    "smoke": true
+  },
+  "required_evidence": [
+    "closed_loop_action_changed_any=true",
+    "dense_feature_names include force, shear, contact-area, center-of-pressure and slip proxy features",
+    "sample_reweighting_only=false",
+    "intrinsic_reward_affects_policy_selection=true"
+  ],
+  "forbidden_claims": [
+    "T-Rex implementation",
+    "official tactile semantic validation",
+    "curiosity success",
+    "real one-hour training attempt"
+  ]
+}

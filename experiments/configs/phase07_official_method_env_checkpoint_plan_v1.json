@@ -1,0 +1,74 @@
+{
+  "classification": "phase07_official_method_env_checkpoint_plan_v1",
+  "status": "plan_ready_envs_and_checkpoints_not_prepared",
+  "as_of_date": "2026-06-27",
+  "not_env_install": true,
+  "not_checkpoint_download": true,
+  "not_training": true,
+  "not_inference": true,
+  "not_success_claim": true,
+  "cluster_policy": {
+    "env_creation_location": "envs/ on shared filesystem before compute allocation",
+    "forbidden_on_compute_node": [
+      "pip dependency resolution",
+      "venv creation",
+      "package builds",
+      "normal environment setup"
+    ],
+    "compute_node_allowed_after_env_ready": [
+      "official sanity checks",
+      "dataset materialization using prepared env",
+      "inference",
+      "training or fine-tuning",
+      "closed-loop evaluation",
+      "video rendering"
+    ]
+  },
+  "local_prepare_script": "experiments/configs/prepare_phase07_official_method_envs_local.sh",
+  "checkpoint_blocker_template_script": "experiments/configs/build_phase07_official_checkpoint_blocker_templates_v1.py",
+  "checkpoint_access_probe_script": "experiments/configs/audit_phase07_official_checkpoint_access_v1.py",
+  "methods": {
+    "openpi_pi0": {
+      "official_repo": "external/openpi",
+      "target_env": "envs/openpi/.venv",
+      "checkpoint_requirement": "official OpenPI checkpoint such as pi0_base/pi05_base/pi0_droid/pi05_droid, or a documented faithful access/incompatibility blocker",
+      "dataset_requirement": "Phase07 LeRobot dataset converted from stage-1 index without held-out leakage",
+      "comparison_requirement": "official OpenPI policy adapter/inference or fine-tune followed by Newton Phase07 held-out closed-loop evaluation with metrics and full videos",
+      "current_status": "not_ready"
+    },
+    "gr00t": {
+      "official_repo": "external/Isaac-GR00T",
+      "target_env": "envs/gr00t/.venv",
+      "checkpoint_requirement": "official Isaac GR00T checkpoint/weights or a documented faithful access/incompatibility blocker",
+      "dataset_requirement": "GR00T-flavored LeRobot v2 dataset with meta/modality.json from Phase07 stage-1 index",
+      "comparison_requirement": "official GR00T policy/fine-tune path followed by Newton Phase07 held-out closed-loop evaluation with metrics and full videos",
+      "current_status": "not_ready"
+    },
+    "diffusion_policy": {
+      "official_repo": "external/diffusion_policy",
+      "target_env": "envs/diffusion_policy/.venv",
+      "checkpoint_requirement": "official Diffusion Policy checkpoint when applicable, or faithful training/comparison using official code and a documented checkpoint limitation",
+      "dataset_requirement": "official Dataset/shape_meta/replay-buffer path from Phase07 stage-1 index without held-out leakage",
+      "comparison_requirement": "official Diffusion Policy Dataset plus EnvRunner that runs Newton Phase07 held-out closed-loop evaluation with metrics and full videos",
+      "current_status": "not_ready"
+    },
+    "rtx": {
+      "official_repo": "external/open_x_embodiment",
+      "target_env": "envs/rtx/.venv",
+      "checkpoint_requirement": "official RT-1-X checkpoint such as the Open X-Embodiment RT-1-X release, or a documented faithful access/incompatibility blocker",
+      "dataset_requirement": "RGB workspace frame plus task string plus 7D action mapping from Phase07 stage-1 index",
+      "comparison_requirement": "official RT-X inference/fine-tune path or documented incompatibility, followed by Newton Phase07 held-out closed-loop evaluation where executable",
+      "current_status": "not_ready"
+    }
+  },
+  "required_order": [
+    "Run Phase07 action-bridge backfill inside allocation.",
+    "Run Phase07 mainstream stage-1 dataset index inside allocation.",
+    "Prepare method environments locally under envs/ on shared filesystem.",
+    "Obtain official checkpoints or write faithful blocker reports.",
+    "Materialize official method datasets without held-out leakage.",
+    "Run official-method sanity checks.",
+    "Run closed-loop Phase07 held-out evaluations with metrics and full videos.",
+    "Only then compare curiosity against official methods."
+  ]
+}

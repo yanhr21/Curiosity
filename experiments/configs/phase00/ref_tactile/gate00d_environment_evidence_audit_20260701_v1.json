@@ -1,0 +1,97 @@
+{
+  "schema_version": "gate00d_environment_evidence_audit_v1",
+  "date": "2026-07-01",
+  "classification": "gate00d_environment_evidence_audit_not_runtime_not_training_not_gate_completion",
+  "current_candidate": {
+    "newton_root": "external/newton_d58",
+    "newton_commit": "d58e70266be0db803261f3e46a2f7d923a43db37",
+    "tactile_summary": "experiments/outputs/phase00/ref_tactile/newton_hydro/p00_mjw_d58_marker_v1_20260701_071248/candidate_mjw_direct_tactile_summary.json",
+    "reference_compare": "experiments/outputs/phase00/ref_tactile/ref_compare/p00_refcmp_d58_marker_v1_20260701_071521/reference_video_compare_summary.json",
+    "channel_audit": "experiments/outputs/phase00/ref_tactile/channel_audit/p00_chan_d58_marker_v1_20260701_071757/channel_semantic_audit_summary.json",
+    "gate_review": "experiments/outputs/phase00/ref_tactile/gate_review/p00_gate_d58_marker_v1_20260701_071843/phase00_gate_review_summary.json"
+  },
+  "status": "partial_positive_environment_candidate_reference_semantics_blocked",
+  "curiosity_training_allowed": false,
+  "evidence_checks": [
+    {
+      "requirement": "visual scene frames",
+      "status": "partial_positive",
+      "evidence": "real Newton SensorTiledCamera head/right-wrist/left-wrist scene views are present in d58 candidate video",
+      "remaining_gap": "not accepted as final reference-video semantic match"
+    },
+    {
+      "requirement": "left/right tactile pad fields",
+      "status": "partial_positive",
+      "evidence": "left/right candidate Fn/Ft/marker/area panels are nonblank and synchronized",
+      "remaining_gap": "force-derived candidate fields are not official TacSL/TaCauchy validated tactile fields"
+    },
+    {
+      "requirement": "pressure or compression heatmaps",
+      "status": "partial_positive_for_force_pressure_proxy",
+      "evidence": "candidate Fn maps exist for left/right pads",
+      "remaining_gap": "dense penetration/compression semantics are not validated"
+    },
+    {
+      "requirement": "Fn normal force",
+      "status": "partial_positive_candidate",
+      "evidence": "max_pad_object_candidate_fn_sum=40.08497619628906",
+      "remaining_gap": "official reference semantic validation still blocked"
+    },
+    {
+      "requirement": "Ft tangential/shear force",
+      "status": "partial_positive_candidate",
+      "evidence": "max_pad_object_candidate_ft_sum=12.025492668151855",
+      "remaining_gap": "official reference semantic validation still blocked"
+    },
+    {
+      "requirement": "shear direction vectors",
+      "status": "partial_positive_candidate",
+      "evidence": "left/right shear arrows in pad-local plane are rendered",
+      "remaining_gap": "not validated against TacSL/TaCauchy or hardware marker flow"
+    },
+    {
+      "requirement": "contact normal",
+      "status": "partial_positive_candidate",
+      "evidence": "candidate contact-normal overlay from MJWarp contact.frame",
+      "remaining_gap": "semantic validation still blocked"
+    },
+    {
+      "requirement": "contact area",
+      "status": "proxy_only",
+      "evidence": "point-contact-density area proxy with left/right max cell ratios 0.279296875 and 0.2880859375",
+      "remaining_gap": "real contact-area semantics are not validated"
+    },
+    {
+      "requirement": "penetration or compression",
+      "status": "blocked_or_missing_validation",
+      "evidence": "bridge/reference planning requires penetration/compression, but current d58 candidate audit does not validate dense penetration/compression semantics",
+      "remaining_gap": "needs official TacSL/TaCauchy comparison or faithful accepted blocker"
+    },
+    {
+      "requirement": "steel/metal material response",
+      "status": "partial_positive_candidate",
+      "evidence": "observed mu=[0.30000001192092896], kh=[999999995904.0], material_notify_status=pass",
+      "remaining_gap": "not validated against official tactile mechanics references"
+    },
+    {
+      "requirement": "time-series mechanics",
+      "status": "partial_positive_candidate",
+      "evidence": "candidate video includes object_z and candidate force time-series curves; source NPZ exists",
+      "remaining_gap": "not final reference-video semantic match"
+    },
+    {
+      "requirement": "reference-video comparison assets",
+      "status": "partial_positive_assets",
+      "evidence": "reference_vs_candidate_sheet and nonblank candidate/reference metrics exist",
+      "remaining_gap": "layout/frame asset comparison is not semantic validation"
+    }
+  ],
+  "remaining_gate00d_blockers": [
+    "validated gel/marker photometric semantics comparable to the reference video",
+    "validated photometric/deformation marker tracking on the pad surface",
+    "validated real contact-area semantics beyond point-contact-density proxy",
+    "validated dense penetration/compression semantics",
+    "official UniVTAC/TaCauchy/IsaacLab TacSL semantic sanity"
+  ],
+  "gate_effect": "Gate 00D remains open; this audit prevents proxy fields from being treated as final tactile environment completion."
+}

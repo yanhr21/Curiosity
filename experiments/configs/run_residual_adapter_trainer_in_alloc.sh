@@ -94,7 +94,16 @@ PY
 echo "=== OFFICIAL_NEWTON_SANITY_END ==="
 
 util_csv="$ROOT/logs/newton/${RUN_TAG}_gpu_utilization.csv"
-util_json="$ROOT/experiments/outputs/residual_adapter_trainer_v1_20260627/${RUN_TAG}_gpu_utilization.json"
+trainer_output_dir="$("$TRAINER_VENV/bin/python" - "$CONFIG" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+config = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+print(config.get("output_dir", "experiments/outputs/residual_adapter_trainer_v1_20260627"))
+PY
+)"
+util_json="$ROOT/${trainer_output_dir}/${RUN_TAG}_gpu_utilization.json"
 monitor_pid=""
 if [[ "$RUN_MODE" == "train" ]]; then
   mkdir -p "$(dirname "$util_json")"
@@ -134,8 +143,8 @@ util_csv = Path(sys.argv[3])
 util_json = Path(sys.argv[4])
 config_path = Path(sys.argv[5])
 trainer_exit = int(sys.argv[6])
-summary_path = root / "experiments/outputs/residual_adapter_trainer_v1_20260627" / f"{run_tag}_summary.json"
 config = json.loads(config_path.read_text(encoding="utf-8"))
+summary_path = root / config.get("output_dir", "experiments/outputs/residual_adapter_trainer_v1_20260627") / f"{run_tag}_summary.json"
 threshold = float(config["real_training"]["min_gpu_utilization_percent"])
 values = []
 memory_values = []

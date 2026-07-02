@@ -1,0 +1,92 @@
+{
+  "schema_version": "gate00f_reference_runtime_registry_v1",
+  "date": "2026-07-01",
+  "classification": "runtime_registry_not_training_not_gate_completion",
+  "root": "/public/home/yanhongru/Curiosity",
+  "targets": {
+    "univtac": {
+      "kind": "python_env",
+      "status": "base_python_only_not_dependency_complete",
+      "path": "/public/home/yanhongru/Curiosity/envs/univtac/conda/bin/python",
+      "resolution_path": "base_env_placeholder",
+      "official_source": "/public/home/yanhongru/Curiosity/external/UniVTAC",
+      "expected_modules": [
+        "isaacsim",
+        "isaaclab",
+        "tacex",
+        "tacex_uipc"
+      ],
+      "provenance": [
+        "experiments/reports/phase00/ref_tactile/envprep/reference_env_create_execution.md",
+        "experiments/reports/phase00/ref_tactile/gate00f_dependency_resolution_packet.md"
+      ],
+      "notes": "Base Python exists, but Isaac Sim/Lab, TacEx, cuRobo, and UIPC readiness are not validated."
+    },
+    "tacauchy": {
+      "kind": "python_env",
+      "status": "base_python_only_not_dependency_complete",
+      "path": "/public/home/yanhongru/Curiosity/envs/tacauchy/conda/bin/python",
+      "resolution_path": "base_env_placeholder",
+      "official_source": "/public/home/yanhongru/Curiosity/external/TaCauchy",
+      "expected_modules": [
+        "isaacsim",
+        "isaaclab",
+        "tacex",
+        "tacex_uipc"
+      ],
+      "provenance": [
+        "experiments/reports/phase00/ref_tactile/envprep/reference_env_create_execution.md",
+        "experiments/reports/phase00/ref_tactile/envprep/approved_asset_reuse_execution.md",
+        "experiments/reports/phase00/ref_tactile/gate00f_dependency_resolution_packet.md"
+      ],
+      "notes": "Base Python and copied assets exist, but Isaac Sim/Lab and UIPC/libuipc readiness are not validated."
+    },
+    "isaaclab_tacsl": {
+      "kind": "missing",
+      "status": "missing_dependency_complete_runtime",
+      "path": "",
+      "resolution_path": "not_resolved",
+      "official_source": "/public/home/yanhongru/Curiosity/external/IsaacLab_official",
+      "expected_modules": [
+        "isaacsim",
+        "isaaclab",
+        "isaaclab_contrib"
+      ],
+      "provenance": [
+        "experiments/reports/phase00/ref_tactile/isaaclab_tacsl_env_blocker_refresh_20260701.md",
+        "experiments/reports/phase00/ref_tactile/gate00f_dependency_resolution_packet.md"
+      ],
+      "notes": "No approved envs/isaaclab_tacsl python or prebuilt container exists."
+    }
+  },
+  "accepted_status_for_gate00f_preflight": "dependency_complete_registered",
+  "allowed_resolution_paths": [
+    "reuse_existing_dependency_complete_env",
+    "reuse_existing_prebuilt_container",
+    "compliant_external_env_prep_then_register"
+  ],
+  "container_registration_contract": {
+    "kind": "container",
+    "required_status": "dependency_complete_registered",
+    "required_fields": [
+      "container_runtime",
+      "artifact_path or local image_id",
+      "expected_modules",
+      "provenance",
+      "resolution_path"
+    ],
+    "optional_source_fields": [
+      "image_ref"
+    ],
+    "note": "Remote image_ref alone is acquisition evidence only; it is not a registered runtime until a local image ID or shared artifact path is recorded."
+  },
+  "excluded_path_fragments": [
+    "/public/home/yanhongru/ICLR2027/Reflex",
+    "/public/home/yanhongru/ICLR2027/OpenPI",
+    "/public/home/yanhongru/ICLR2027/Cosmos",
+    "/public/home/yanhongru/reflex",
+    "/public/home/yanhongru/OpenPI",
+    "/public/home/yanhongru/Cosmos"
+  ],
+  "gate_effect": "current_registry_does_not_clear_gate00f"
+}

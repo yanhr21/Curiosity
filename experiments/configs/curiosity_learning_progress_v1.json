@@ -1,0 +1,27 @@
+{
+  "classification": "curiosity_learning_progress_config_v1",
+  "phase": "03_curiosity_reward",
+  "purpose": "Compute learning-progress curiosity scores from initial and trained Newton-native forward-model checkpoints.",
+  "trainer_summary": "experiments/outputs/curiosity_forward_model_v1_20260627/curiosity_forward_model_v1_train_20260627_summary.json",
+  "preflight_manifest": "data/processed/curiosity_forward_model_preflight_v1_20260627/manifest.json",
+  "output_dir": "experiments/outputs/curiosity_learning_progress_v1_20260627",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "score": {
+    "learning_progress_clip": 1.0,
+    "useful_change_weight": 0.2,
+    "safety_penalty_weight": 1.0,
+    "no_op_penalty_weight": 0.2,
+    "contact_loss_penalty_weight": 1.0,
+    "slip_penalty_weight": 1.0
+  },
+  "forbidden_claims": [
+    "curiosity_policy_updated",
+    "held_out_improvement_before_policy_eval",
+    "official_trex_method",
+    "trex_schema_compatible",
+    "vqvae_or_trex_world_model"
+  ]
+}

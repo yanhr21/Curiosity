@@ -1,0 +1,39 @@
+{
+  "schema_version": "phase00_newton_8c501_cont_allocation_request_v1",
+  "date": "2026-07-01",
+  "classification": "slurm_allocation_requested_not_experiment_result",
+  "tmux_session": "curiosity_phase00_ref_tactile",
+  "tmux_window": "alloc_8c501_cont",
+  "job_name": "curiosity_p00_8c501_cont_1gpu_1day",
+  "job_id": "160924",
+  "partition": "gpu",
+  "gres": "gpu:NVIDIAH200:1",
+  "time_limit": "1-00:00:00",
+  "cpus_per_task": 8,
+  "memory": "64G",
+  "log_path": "logs/newton/phase00/ref_tactile/allocation/curiosity_p00_8c501_cont_1gpu_1day_20260701_192127.log",
+  "initial_squeue_state": "PENDING",
+  "initial_squeue_reason": "Priority",
+  "release_status": {
+    "release_requested": true,
+    "final_observed_state": "COMPLETING",
+    "observed_end_time": "2026-07-01T19:27:36",
+    "observed_exit_code": "0:9",
+    "reason": "downstream_8c501_chain_completed_release_idle_gpu"
+  },
+  "intended_use": [
+    "newton_8c501_dense_tactile_export",
+    "newton_8c501_reference_compare",
+    "newton_8c501_channel_audit",
+    "newton_8c501_gate_review"
+  ],
+  "runtime_gate_policy": "82 FPS is historical reference only; 80.1/80.8 FPS is acceptable for continuation.",
+  "not_claims": [
+    "not tactile export",
+    "not reference comparison",
+    "not channel audit",
+    "not Gate review",
+    "not training",
+    "not curiosity success"
+  ]
+}

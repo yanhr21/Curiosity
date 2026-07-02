@@ -1,0 +1,28 @@
+{
+  "schema_version": "gate00f_isaaclab_upstream_freshness_v1",
+  "date": "2026-07-01",
+  "classification": "source_freshness_not_runtime_not_gate_completion",
+  "local": {
+    "path": "external/IsaacLab_official",
+    "remote": "https://github.com/isaac-sim/IsaacLab.git",
+    "head": "b4c321024792976150ca55fddb26fa34480d974e",
+    "version_file": "2.3.2",
+    "head_date": "2026-06-12T03:12:35-07:00",
+    "head_subject": "Fix beta2 docs deploy selection (#6164)"
+  },
+  "upstream_refs": {
+    "HEAD": "b4c321024792976150ca55fddb26fa34480d974e",
+    "refs/heads/main": "b4c321024792976150ca55fddb26fa34480d974e",
+    "refs/tags/v2.3.2": "37ddf626871758333d6ed89cf64ad702aef127d0",
+    "refs/tags/v3.0.0-beta": "a4a7602f29e755e2673fe0022ea35566df6dd7d5",
+    "refs/tags/v3.0.0-beta2": "28a37cecdd433c22d9eabd6a5954add9f13a8951"
+  },
+  "decision": "local_isaaclab_official_matches_upstream_main_head; v3_beta_tags_are_visible_release_context_not_staleness_for_main_checkout",
+  "not_claims": [
+    "not_runtime",
+    "not_container_pull",
+    "not_module_import",
+    "not_tacsl_sanity",
+    "not_gate00f_completion"
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "schema_version": "phase00_reference_env_manifest_v1",
+  "date": "2026-07-01",
+  "purpose": "Prepare approved local shared-filesystem environments for official UniVTAC and TaCauchy sanity without installing dependencies on compute nodes.",
+  "global_rules": {
+    "do_not_run_on_compute_node": true,
+    "do_not_run_official_all_in_one_installers_blindly": true,
+    "dry_run_first": true,
+    "record_each_stage": true,
+    "curiosity_training_allowed_before_gate_00f": false
+  },
+  "targets": {
+    "univtac": {
+      "official_repo": "https://github.com/univtac/UniVTAC",
+      "local_path": "external/UniVTAC",
+      "expected_commit": "05bcd3edb92237107efa40105292a24f1a9fd761",
+      "env_prefix": "envs/univtac/conda",
+      "python_executable": "envs/univtac/conda/bin/python",
+      "python_version": "3.10",
+      "isaac_sim": "4.5.0",
+      "isaac_lab": "v2.1.1",
+      "special_dependencies": [
+        "PyTorch 2.5.1 CUDA 12.4",
+        "Isaac Sim 4.5.0",
+        "Isaac Lab 2.1.1",
+        "cuRobo commit 0a50de1ba72db304195d59d9d0b1ed269696047f",
+        "modified bundled TacEx under external/UniVTAC/third_party/TacEx",
+        "TacEx UIPC/libuipc build",
+        "torch_scatter 2.1.2 for torch 2.5.1+cu124"
+      ],
+      "official_sanity_command": "bash collect_data.sh grasp_classify demo 0",
+      "phase00_minimal_schema_probe": "policy/task_settings.json plus ACT tactile/full and vision configs",
+      "current_blocker": "blocked_missing_prebuilt_environment"
+    },
+    "tacauchy": {
+      "official_repo": "https://github.com/figsama/TaCauchy",
+      "local_path": "external/TaCauchy",
+      "expected_commit": "c228cfe9050904cd5d71d64f6eb5104768d4cbda",
+      "env_prefix": "envs/tacauchy/conda",
+      "python_executable": "envs/tacauchy/conda/bin/python",
+      "python_version": "3.11",
+      "isaac_sim": "5.0.0",
+      "isaac_lab": "v2.2.1",
+      "special_dependencies": [
+        "PyTorch CUDA 12.8 path per upstream README",
+        "Isaac Sim 5.0.0",
+        "Isaac Lab 2.2.1",
+        "TacEx packages",
+        "TacEx UIPC/libuipc build",
+        "GCC 11.4+",
+        "CMake 3.26+",
+        "TacEx sensor USD/calibration assets"
+      ],
+      "official_sanity_command": "python scripts/demos/shape_touch/simple_tactile_demo.py --sensor gelsight",
+      "phase00_minimal_schema_probe": "README/REPRODUCTION/TACTILE_VISUALIZATION docs plus Cauchy stress, normal pressure, tangential traction terms",
+      "current_blocker": "blocked_missing_prebuilt_environment"
+    }
+  },
+  "stages": [
+    "preflight",
+    "create_env",
+    "install_isaac",
+    "install_isaaclab",
+    "install_curobo_or_assets",
+    "install_tacex_core",
+    "build_uipc",
+    "setup_assets",
+    "official_sanity"
+  ],
+  "evidence_outputs": {
+    "logs": "logs/newton/phase00/ref_tactile/envprep/<target>/<stage>.log",
+    "reports": "experiments/reports/phase00/ref_tactile/envprep/<target>/<stage>.md",
+    "status": "experiments/outputs/phase00/ref_tactile/envprep/<target>/<stage>_status.json"
+  }
+}

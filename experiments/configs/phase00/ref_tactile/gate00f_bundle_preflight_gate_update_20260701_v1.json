@@ -1,0 +1,29 @@
+{
+  "schema_version": "gate00f_bundle_preflight_gate_update_v1",
+  "date": "2026-07-01",
+  "classification": "bundle_guard_update_not_training_not_gate_completion",
+  "updated_files": [
+    "experiments/configs/phase00/ref_tactile/run_gate00f_reference_bundle_in_alloc.sh",
+    "experiments/configs/phase00/ref_tactile/launch_gate00f_reference_bundle_tmux.sh",
+    "experiments/configs/phase00/ref_tactile/gate00f_reference_bundle_handoff_v1.json",
+    "experiments/reports/phase00/ref_tactile/gate00f_reference_bundle_handoff.md"
+  ],
+  "new_execution_order": [
+    "runtime_registry_validation",
+    "runtime_preflight",
+    "univtac_official_reference_sanity",
+    "tacauchy_official_reference_sanity",
+    "isaaclab_tacsl_official_demo_sanity",
+    "gate00f_review",
+    "gate00f_bundle_acceptance"
+  ],
+  "default_behavior": "run_gate00f_reference_bundle_in_alloc.sh runs runtime preflight first and exits with fail_gate00f_bundle_runtime_preflight_not_passed unless preflight status is pass_gate00f_runtime_preflight",
+  "diagnostic_escape_hatch": "REQUIRE_RUNTIME_PREFLIGHT=0 exists but must be treated as a documented diagnostic path, not Gate00F acceptance evidence",
+  "launcher_updates": [
+    "passes REQUIRE_RUNTIME_PREFLIGHT when explicitly set",
+    "passes RUNTIME_REGISTRY when explicitly set",
+    "passes REGISTRY_VALIDATOR when explicitly set",
+    "passes GATE00F_RUNTIME_PREFLIGHT_SUMMARY when explicitly set"
+  ],
+  "gate_effect": "does_not_clear_gate00f_but_prevents_direct_bundle_execution_without_registry_gated_preflight"
+}

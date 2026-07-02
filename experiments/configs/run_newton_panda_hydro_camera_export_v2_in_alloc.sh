@@ -20,6 +20,13 @@ BODY_MASS_SCALE="${BODY_MASS_SCALE:-1.0}"
 SHAPE_FRICTION_SCALE="${SHAPE_FRICTION_SCALE:-1.0}"
 OBJECT_MASS_KG="${OBJECT_MASS_KG:-}"
 OBJECT_FRICTION_MU="${OBJECT_FRICTION_MU:-}"
+OBJECT_COM_OFFSET_XYZ="${OBJECT_COM_OFFSET_XYZ:-0,0,0}"
+GRASP_OFFSET_DELTA_XYZ="${GRASP_OFFSET_DELTA_XYZ:-0,0,0}"
+FILL_LABEL="${FILL_LABEL:-not_specified}"
+NOMINAL_VISUAL_FILL="${NOMINAL_VISUAL_FILL:--1.0}"
+VISUAL_FILL_CUE="${VISUAL_FILL_CUE:-not_specified}"
+VISUAL_FILL_CUE_RENDERED="${VISUAL_FILL_CUE_RENDERED:-0}"
+CONTROLLER_MODALITY_MASK_MODE="${CONTROLLER_MODALITY_MASK_MODE:-vision_contact}"
 FEEDBACK_MIN_CONTACT_COUNT="${FEEDBACK_MIN_CONTACT_COUNT:-20}"
 FEEDBACK_ACCEL_THRESHOLD="${FEEDBACK_ACCEL_THRESHOLD:-6.5}"
 FEEDBACK_HEIGHT_DROP_THRESHOLD="${FEEDBACK_HEIGHT_DROP_THRESHOLD:-0.015}"
@@ -29,13 +36,36 @@ FEEDBACK_HOLD_HEIGHT_STEP="${FEEDBACK_HOLD_HEIGHT_STEP:-0.003}"
 FEEDBACK_HOLD_HEIGHT_OFFSET_MAX="${FEEDBACK_HOLD_HEIGHT_OFFSET_MAX:-0.03}"
 FEEDBACK_STABILIZATION_STEP="${FEEDBACK_STABILIZATION_STEP:-0.25}"
 FEEDBACK_STABILIZATION_MAX="${FEEDBACK_STABILIZATION_MAX:-2.0}"
+FEEDBACK_APPLY_INITIAL_WAYPOINT_ADJUSTMENT="${FEEDBACK_APPLY_INITIAL_WAYPOINT_ADJUSTMENT:-1}"
 PRE_RECORD_WARMUP_STEPS="${PRE_RECORD_WARMUP_STEPS:-0}"
 RESIDUAL_ADAPTER_CHECKPOINT="${RESIDUAL_ADAPTER_CHECKPOINT:-}"
 RESIDUAL_ADAPTER_ACTIVE_THRESHOLD="${RESIDUAL_ADAPTER_ACTIVE_THRESHOLD:-0.5}"
+RECORD_SCRIPTED_TEACHER_LABELS="${RECORD_SCRIPTED_TEACHER_LABELS:-0}"
 NUM_STEPS="${NUM_STEPS:-240}"
 SAMPLE_STEPS="${SAMPLE_STEPS:-0,60,120,180,239}"
+VIDEO_FRAME_STRIDE="${VIDEO_FRAME_STRIDE:-0}"
+VIDEO_FPS="${VIDEO_FPS:-12}"
 DEVICE="${DEVICE:-cuda:0}"
 NEWTON_CACHE_PATH="${NEWTON_CACHE_PATH:-$ROOT/external/newton-assets-cache}"
+OUTPUT_SUBDIR="${OUTPUT_SUBDIR:-}"
+LOG_SUBDIR="${LOG_SUBDIR:-}"
+VISUAL_PHASE_DIR="${VISUAL_PHASE_DIR:-}"
+if [[ -z "$VISUAL_PHASE_DIR" ]]; then
+  if [[ "$RUN_TAG" =~ (phase[0-9][0-9]) ]]; then
+    VISUAL_PHASE_DIR="${BASH_REMATCH[1]}"
+  else
+    VISUAL_PHASE_DIR="unphased"
+  fi
+fi
+
+output_root="$ROOT/experiments/outputs"
+if [[ -n "$OUTPUT_SUBDIR" ]]; then
+  output_root="$output_root/$OUTPUT_SUBDIR"
+fi
+log_root="$ROOT/logs/newton"
+if [[ -n "$LOG_SUBDIR" ]]; then
+  log_root="$log_root/$LOG_SUBDIR"
+fi
 
 if [[ -z "${SLURM_JOB_ID:-}" ]]; then
   echo "ERROR: must run inside a Slurm allocation." >&2
@@ -43,13 +73,23 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
 fi
 
 cd "$ROOT"
-mkdir -p logs/newton experiments/outputs experiments/visuals
+mkdir -p "$log_root" "$output_root" "experiments/visuals/$VISUAL_PHASE_DIR"
+
+RESIDUAL_CONTROLLER_MODE=0
+case "$CONTROLLER_MODE" in
+  lift_hold_learned_residual|lift_hold_feedback_residual_overlay)
+    RESIDUAL_CONTROLLER_MODE=1
+    ;;
+esac
+if [[ "$CONTROLLER_MODE" == *residual* ]]; then
+  RESIDUAL_CONTROLLER_MODE=1
+fi
 
 if [[ ! -x "$NEWTON_VENV/bin/python" ]]; then
   echo "ERROR: missing local Newton venv python at $NEWTON_VENV/bin/python" >&2
   exit 3
 fi
-if [[ "$CONTROLLER_MODE" == "lift_hold_learned_residual" ]]; then
+if [[ "$RESIDUAL_CONTROLLER_MODE" == "1" ]]; then
   if [[ ! -x "$TRAINER_VENV/bin/python" ]]; then
     echo "ERROR: learned residual evaluation requires local trainer venv at $TRAINER_VENV/bin/python" >&2
     exit 5
@@ -65,7 +105,7 @@ export NEWTON_CACHE_PATH
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy
 
 EXPORT_PYTHON="$NEWTON_VENV/bin/python"
-if [[ "$CONTROLLER_MODE" == "lift_hold_learned_residual" ]]; then
+if [[ "$RESIDUAL_CONTROLLER_MODE" == "1" ]]; then
   EXPORT_PYTHON="$TRAINER_VENV/bin/python"
   export PYTHONPATH="$ROOT/envs/newton/.venv/lib/python3.10/site-packages:$ROOT/external/newton:$ROOT/src:${PYTHONPATH:-}"
 else
@@ -82,13 +122,13 @@ for asset_file in \
   fi
 done
 
-sanity_log="$ROOT/logs/newton/${RUN_TAG}_official_sensor_contact_sanity.log"
-sanity_json="$ROOT/experiments/outputs/${RUN_TAG}_fresh_newton_sensor_contact_sanity.json"
-summary_json="$ROOT/experiments/outputs/${RUN_TAG}_summary.json"
-npz_path="$ROOT/experiments/outputs/${RUN_TAG}.npz"
-visual_root="$ROOT/experiments/visuals/${RUN_TAG}"
-visual_validation="$ROOT/experiments/outputs/${RUN_TAG}_visual_validation.json"
-run_status="$ROOT/experiments/outputs/${RUN_TAG}_run_status.json"
+sanity_log="$log_root/${RUN_TAG}_official_sensor_contact_sanity.log"
+sanity_json="$output_root/${RUN_TAG}_fresh_newton_sensor_contact_sanity.json"
+summary_json="$output_root/${RUN_TAG}_summary.json"
+npz_path="$output_root/${RUN_TAG}.npz"
+visual_root="$ROOT/experiments/visuals/${VISUAL_PHASE_DIR}/${RUN_TAG}"
+visual_validation="$output_root/${RUN_TAG}_visual_validation.json"
+run_status="$output_root/${RUN_TAG}_run_status.json"
 
 echo "RUN_TAG=$RUN_TAG"
 echo "RUNNER_VERSION=20260627_v2_controller_mode_metrics"
@@ -99,9 +139,16 @@ echo "NEWTON_VENV=$NEWTON_VENV"
 echo "TRAINER_VENV=$TRAINER_VENV"
 echo "EXPORT_PYTHON=$EXPORT_PYTHON"
 echo "NEWTON_CACHE_PATH=$NEWTON_CACHE_PATH"
+echo "OUTPUT_SUBDIR=$OUTPUT_SUBDIR"
+echo "OUTPUT_ROOT=$output_root"
+echo "LOG_SUBDIR=$LOG_SUBDIR"
+echo "LOG_ROOT=$log_root"
+echo "VISUAL_PHASE_DIR=$VISUAL_PHASE_DIR"
+echo "VISUAL_ROOT=$visual_root"
 echo "SCENE=$SCENE"
 echo "TRACKED_OBJECT=$TRACKED_OBJECT"
 echo "CONTROLLER_MODE=$CONTROLLER_MODE"
+echo "RESIDUAL_CONTROLLER_MODE=$RESIDUAL_CONTROLLER_MODE"
 echo "FINAL_HOLD_DURATION=$FINAL_HOLD_DURATION"
 echo "LIFT_HEIGHT_MIN=$LIFT_HEIGHT_MIN"
 echo "HOLD_DURATION_MIN=$HOLD_DURATION_MIN"
@@ -111,6 +158,13 @@ echo "BODY_MASS_SCALE=$BODY_MASS_SCALE"
 echo "SHAPE_FRICTION_SCALE=$SHAPE_FRICTION_SCALE"
 echo "OBJECT_MASS_KG=$OBJECT_MASS_KG"
 echo "OBJECT_FRICTION_MU=$OBJECT_FRICTION_MU"
+echo "OBJECT_COM_OFFSET_XYZ=$OBJECT_COM_OFFSET_XYZ"
+echo "GRASP_OFFSET_DELTA_XYZ=$GRASP_OFFSET_DELTA_XYZ"
+echo "FILL_LABEL=$FILL_LABEL"
+echo "NOMINAL_VISUAL_FILL=$NOMINAL_VISUAL_FILL"
+echo "VISUAL_FILL_CUE=$VISUAL_FILL_CUE"
+echo "VISUAL_FILL_CUE_RENDERED=$VISUAL_FILL_CUE_RENDERED"
+echo "CONTROLLER_MODALITY_MASK_MODE=$CONTROLLER_MODALITY_MASK_MODE"
 echo "FEEDBACK_MIN_CONTACT_COUNT=$FEEDBACK_MIN_CONTACT_COUNT"
 echo "FEEDBACK_ACCEL_THRESHOLD=$FEEDBACK_ACCEL_THRESHOLD"
 echo "FEEDBACK_HEIGHT_DROP_THRESHOLD=$FEEDBACK_HEIGHT_DROP_THRESHOLD"
@@ -120,11 +174,15 @@ echo "FEEDBACK_HOLD_HEIGHT_STEP=$FEEDBACK_HOLD_HEIGHT_STEP"
 echo "FEEDBACK_HOLD_HEIGHT_OFFSET_MAX=$FEEDBACK_HOLD_HEIGHT_OFFSET_MAX"
 echo "FEEDBACK_STABILIZATION_STEP=$FEEDBACK_STABILIZATION_STEP"
 echo "FEEDBACK_STABILIZATION_MAX=$FEEDBACK_STABILIZATION_MAX"
+echo "FEEDBACK_APPLY_INITIAL_WAYPOINT_ADJUSTMENT=$FEEDBACK_APPLY_INITIAL_WAYPOINT_ADJUSTMENT"
 echo "PRE_RECORD_WARMUP_STEPS=$PRE_RECORD_WARMUP_STEPS"
 echo "RESIDUAL_ADAPTER_CHECKPOINT=$RESIDUAL_ADAPTER_CHECKPOINT"
 echo "RESIDUAL_ADAPTER_ACTIVE_THRESHOLD=$RESIDUAL_ADAPTER_ACTIVE_THRESHOLD"
+echo "RECORD_SCRIPTED_TEACHER_LABELS=$RECORD_SCRIPTED_TEACHER_LABELS"
 echo "NUM_STEPS=$NUM_STEPS"
 echo "SAMPLE_STEPS=$SAMPLE_STEPS"
+echo "VIDEO_FRAME_STRIDE=$VIDEO_FRAME_STRIDE"
+echo "VIDEO_FPS=$VIDEO_FPS"
 echo "DEVICE=$DEVICE"
 
 echo "=== AGENTS_REREAD_HEAD ==="
@@ -176,12 +234,32 @@ fi
 if [[ -n "$OBJECT_FRICTION_MU" ]]; then
   physics_args+=(--object-friction-mu "$OBJECT_FRICTION_MU")
 fi
+if [[ -n "$OBJECT_COM_OFFSET_XYZ" ]]; then
+  physics_args+=(--object-com-offset-xyz "$OBJECT_COM_OFFSET_XYZ")
+fi
+task_args=(
+  --fill-label "$FILL_LABEL"
+  --nominal-visual-fill "$NOMINAL_VISUAL_FILL"
+  --visual-fill-cue "$VISUAL_FILL_CUE"
+  --controller-modality-mask-mode "$CONTROLLER_MODALITY_MASK_MODE"
+)
+if [[ "$VISUAL_FILL_CUE_RENDERED" == "1" || "$VISUAL_FILL_CUE_RENDERED" == "true" ]]; then
+  task_args+=(--visual-fill-cue-rendered)
+fi
 residual_args=()
-if [[ "$CONTROLLER_MODE" == "lift_hold_learned_residual" ]]; then
+if [[ -n "$RESIDUAL_ADAPTER_CHECKPOINT" ]]; then
   residual_args+=(
     --residual-adapter-checkpoint "$RESIDUAL_ADAPTER_CHECKPOINT"
     --residual-adapter-active-threshold "$RESIDUAL_ADAPTER_ACTIVE_THRESHOLD"
   )
+fi
+teacher_args=()
+if [[ "$RECORD_SCRIPTED_TEACHER_LABELS" == "1" || "$RECORD_SCRIPTED_TEACHER_LABELS" == "true" ]]; then
+  teacher_args+=(--record-scripted-teacher-labels)
+fi
+feedback_initial_args=(--feedback-apply-initial-waypoint-adjustment)
+if [[ "$FEEDBACK_APPLY_INITIAL_WAYPOINT_ADJUSTMENT" == "0" ]]; then
+  feedback_initial_args=(--no-feedback-apply-initial-waypoint-adjustment)
 fi
 "$EXPORT_PYTHON" experiments/configs/newton_panda_hydro_tiled_camera_export.py \
   --output-dir "$visual_root" \
@@ -189,6 +267,8 @@ fi
   --npz "$npz_path" \
   --num-steps "$NUM_STEPS" \
   --sample-steps "$SAMPLE_STEPS" \
+  --video-frame-stride "$VIDEO_FRAME_STRIDE" \
+  --video-fps "$VIDEO_FPS" \
   --scene "$SCENE" \
   --tracked-object "$TRACKED_OBJECT" \
   --controller-mode "$CONTROLLER_MODE" \
@@ -196,6 +276,8 @@ fi
   --lift-height-min "$LIFT_HEIGHT_MIN" \
   --hold-duration-min "$HOLD_DURATION_MIN" \
   --drop-height-loss "$DROP_HEIGHT_LOSS" \
+  --grasp-offset-delta-xyz="$GRASP_OFFSET_DELTA_XYZ" \
+  "${task_args[@]}" \
   --feedback-min-contact-count "$FEEDBACK_MIN_CONTACT_COUNT" \
   --feedback-accel-threshold "$FEEDBACK_ACCEL_THRESHOLD" \
   --feedback-height-drop-threshold "$FEEDBACK_HEIGHT_DROP_THRESHOLD" \
@@ -205,9 +287,11 @@ fi
   --feedback-hold-height-offset-max "$FEEDBACK_HOLD_HEIGHT_OFFSET_MAX" \
   --feedback-stabilization-step "$FEEDBACK_STABILIZATION_STEP" \
   --feedback-stabilization-max "$FEEDBACK_STABILIZATION_MAX" \
+  "${feedback_initial_args[@]}" \
   --pre-record-warmup-steps "$PRE_RECORD_WARMUP_STEPS" \
   "${physics_args[@]}" \
-  "${residual_args[@]}"
+  "${residual_args[@]}" \
+  "${teacher_args[@]}"
 echo "=== NEWTON_CAMERA_EXPORT_END ==="
 
 "$NEWTON_VENV/bin/python" experiments/configs/validate_newton_visual_preview.py \
@@ -246,11 +330,14 @@ payload = {
     "frame_browser": summary.get("frame_browser"),
     "contact_sheet": summary.get("contact_sheet"),
     "npz": summary.get("npz"),
+    "rollout_video": summary.get("rollout_video"),
+    "video_export": summary.get("video_export"),
+    "scripted_teacher_labels": summary.get("scripted_teacher_labels"),
     "downstream_use": "blocked_until_manual_visual_inspection_pass",
     "generated_trex_fields": [],
     "schema_promotion": "blocked",
-    "no_model_or_training": summary.get("controller_mode") != "lift_hold_learned_residual",
-    "model_evaluation": summary.get("controller_mode") == "lift_hold_learned_residual",
+    "no_model_or_training": summary.get("controller_mode") not in {"lift_hold_learned_residual", "lift_hold_feedback_residual_overlay"},
+    "model_evaluation": summary.get("controller_mode") in {"lift_hold_learned_residual", "lift_hold_feedback_residual_overlay"},
     "residual_adapter_checkpoint": summary.get("scripted_feedback", {}).get("residual_adapter_checkpoint"),
 }
 Path(out).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

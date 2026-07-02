@@ -1,0 +1,225 @@
+{
+  "classification": "variable_water_cup_harder_task_spec_v1",
+  "phase": "07_harder_task_progression",
+  "status": "spec_ready_training_not_complete",
+  "purpose": "Harder closed-loop curiosity training/evaluation family for water-cup mass, friction, fill-cue, and safety adaptation.",
+  "not_toy_completion_gate": true,
+  "not_training_result": true,
+  "generated_trex_fields": [],
+  "schema_promotion": "blocked",
+  "source_namespaces": [
+    "newton.*",
+    "candidate.*",
+    "taccel.marker.* when real tactile evidence exists"
+  ],
+  "task_family": {
+    "name": "variable_water_cup_weight_fill",
+    "base_embodiment": "official Newton Panda hydro scripted grasp/lift prior with approved adapters",
+    "core_challenge": "Infer physical response from lift/contact/tactile evidence when visual fill cues and actual mass/friction can mismatch, then adapt grip, lift speed, stabilization, or regrasp timing.",
+    "harder_than_phase03_v1": [
+      "five fill/mass levels instead of the earlier three-cell mass/friction diagnostic grid",
+      "explicit visual-cue condition including misleading and hidden fill cues",
+      "held-out mass/friction/fill combinations reserved from training and threshold tuning",
+      "complete rollout video evidence required, not only sparse contact sheets",
+      "success requires improvement over no-curiosity residual baseline and serious/mainstream reference comparison or a documented faithful blocker"
+    ]
+  },
+  "fill_levels": [
+    {
+      "label": "empty",
+      "object_mass_kg": 0.08,
+      "nominal_visual_fill": 0.0
+    },
+    {
+      "label": "quarter",
+      "object_mass_kg": 0.15,
+      "nominal_visual_fill": 0.25
+    },
+    {
+      "label": "half",
+      "object_mass_kg": 0.22,
+      "nominal_visual_fill": 0.5
+    },
+    {
+      "label": "three_quarter",
+      "object_mass_kg": 0.29,
+      "nominal_visual_fill": 0.75
+    },
+    {
+      "label": "full",
+      "object_mass_kg": 0.35,
+      "nominal_visual_fill": 1.0
+    }
+  ],
+  "friction_levels": [
+    {
+      "label": "low",
+      "object_friction_mu": 0.35
+    },
+    {
+      "label": "medium",
+      "object_friction_mu": 0.7
+    },
+    {
+      "label": "high",
+      "object_friction_mu": 1.2
+    }
+  ],
+  "visual_cue_conditions": [
+    {
+      "label": "truthful_fill_cue",
+      "description": "visual fill proxy matches physical mass label when the renderer supports it"
+    },
+    {
+      "label": "hidden_fill_cue",
+      "description": "visual fill proxy is unavailable or occluded; policy must rely on response evidence"
+    },
+    {
+      "label": "misleading_fill_cue",
+      "description": "visual fill proxy intentionally mismatches physical mass; policy must correct from contact/lift response"
+    }
+  ],
+  "splits": {
+    "train": [
+      {
+        "cell": "quarter_low_truthful",
+        "fill": "quarter",
+        "friction": "low",
+        "visual_cue": "truthful_fill_cue"
+      },
+      {
+        "cell": "quarter_medium_hidden",
+        "fill": "quarter",
+        "friction": "medium",
+        "visual_cue": "hidden_fill_cue"
+      },
+      {
+        "cell": "half_low_hidden",
+        "fill": "half",
+        "friction": "low",
+        "visual_cue": "hidden_fill_cue"
+      },
+      {
+        "cell": "half_medium_truthful",
+        "fill": "half",
+        "friction": "medium",
+        "visual_cue": "truthful_fill_cue"
+      },
+      {
+        "cell": "three_quarter_medium_misleading",
+        "fill": "three_quarter",
+        "friction": "medium",
+        "visual_cue": "misleading_fill_cue"
+      },
+      {
+        "cell": "three_quarter_high_truthful",
+        "fill": "three_quarter",
+        "friction": "high",
+        "visual_cue": "truthful_fill_cue"
+      }
+    ],
+    "validation": [
+      {
+        "cell": "empty_medium_hidden",
+        "fill": "empty",
+        "friction": "medium",
+        "visual_cue": "hidden_fill_cue"
+      },
+      {
+        "cell": "full_medium_misleading",
+        "fill": "full",
+        "friction": "medium",
+        "visual_cue": "misleading_fill_cue"
+      }
+    ],
+    "held_out": [
+      {
+        "cell": "empty_high_misleading",
+        "fill": "empty",
+        "friction": "high",
+        "visual_cue": "misleading_fill_cue",
+        "must_not_use_for": [
+          "label construction",
+          "training",
+          "hyperparameter selection",
+          "threshold tuning",
+          "controller gate tuning"
+        ]
+      },
+      {
+        "cell": "full_low_hidden",
+        "fill": "full",
+        "friction": "low",
+        "visual_cue": "hidden_fill_cue",
+        "must_not_use_for": [
+          "label construction",
+          "training",
+          "hyperparameter selection",
+          "threshold tuning",
+          "controller gate tuning"
+        ]
+      },
+      {
+        "cell": "three_quarter_low_misleading",
+        "fill": "three_quarter",
+        "friction": "low",
+        "visual_cue": "misleading_fill_cue",
+        "must_not_use_for": [
+          "label construction",
+          "training",
+          "hyperparameter selection",
+          "threshold tuning",
+          "controller gate tuning"
+        ]
+      }
+    ]
+  },
+  "required_policies": [
+    "no_adaptation_scripted_prior",
+    "scripted_feedback",
+    "residual_adapter_without_curiosity",
+    "curiosity_trained_policy",
+    "random_intrinsic_reward",
+    "object_only_curiosity",
+    "contact_only_curiosity",
+    "vision_contact_curiosity",
+    "shuffled_contact",
+    "delayed_contact",
+    "no_learning_progress",
+    "serious_mainstream_reference_or_documented_faithful_blocker"
+  ],
+  "required_metrics": [
+    "success_all_worlds",
+    "lift_height_m",
+    "hold_duration_s",
+    "drop_from_max_m",
+    "max_xy_drift_m",
+    "rigid_contact_count_mean",
+    "contact_loss_frames",
+    "feedback_trigger_count",
+    "adaptation_time_s",
+    "object_acceleration_proxy_max",
+    "excessive_force_or_contact_proxy_cost",
+    "manual_visual_inspection_status",
+    "automated_visual_validation_status",
+    "rollout_video_status"
+  ],
+  "completion_gate": {
+    "fresh_official_sanity_required": true,
+    "complete_closed_loop_training_required": true,
+    "held_out_leakage_allowed": false,
+    "full_rollout_video_required": true,
+    "manual_visual_inspection_required": true,
+    "must_beat_baseline": true,
+    "baseline_for_first_claim": "residual_adapter_without_curiosity",
+    "mainstream_reference_required_or_blocked": true,
+    "no_success_claim_if": [
+      "only the pipeline runs",
+      "only sparse contact sheets exist",
+      "only supervised reweighting was used without closed-loop interaction evidence",
+      "curiosity matches but does not beat the residual baseline",
+      "safety metrics regress",
+      "mainstream reference comparison is missing without a documented faithful blocker"
+    ]
+  }
+}

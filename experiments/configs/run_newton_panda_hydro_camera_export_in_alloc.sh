@@ -17,6 +17,14 @@ NUM_STEPS="${NUM_STEPS:-240}"
 SAMPLE_STEPS="${SAMPLE_STEPS:-0,60,120,180,239}"
 DEVICE="${DEVICE:-cuda:0}"
 NEWTON_CACHE_PATH="${NEWTON_CACHE_PATH:-$ROOT/external/newton-assets-cache}"
+VISUAL_PHASE_DIR="${VISUAL_PHASE_DIR:-}"
+if [[ -z "$VISUAL_PHASE_DIR" ]]; then
+  if [[ "$RUN_TAG" =~ (phase[0-9][0-9]) ]]; then
+    VISUAL_PHASE_DIR="${BASH_REMATCH[1]}"
+  else
+    VISUAL_PHASE_DIR="unphased"
+  fi
+fi
 
 if [[ -z "${SLURM_JOB_ID:-}" ]]; then
   echo "ERROR: must run inside a Slurm allocation." >&2
@@ -24,7 +32,7 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
 fi
 
 cd "$ROOT"
-mkdir -p logs/newton experiments/outputs experiments/visuals
+mkdir -p logs/newton experiments/outputs "experiments/visuals/$VISUAL_PHASE_DIR"
 
 if [[ ! -x "$NEWTON_VENV/bin/python" ]]; then
   echo "ERROR: missing local Newton venv python at $NEWTON_VENV/bin/python" >&2
@@ -49,7 +57,7 @@ sanity_log="$ROOT/logs/newton/${RUN_TAG}_official_sensor_contact_sanity.log"
 sanity_json="$ROOT/experiments/outputs/${RUN_TAG}_fresh_newton_sensor_contact_sanity.json"
 summary_json="$ROOT/experiments/outputs/${RUN_TAG}_summary.json"
 npz_path="$ROOT/experiments/outputs/${RUN_TAG}.npz"
-visual_root="$ROOT/experiments/visuals/${RUN_TAG}"
+visual_root="$ROOT/experiments/visuals/${VISUAL_PHASE_DIR}/${RUN_TAG}"
 visual_validation="$ROOT/experiments/outputs/${RUN_TAG}_visual_validation.json"
 run_status="$ROOT/experiments/outputs/${RUN_TAG}_run_status.json"
 
@@ -59,6 +67,8 @@ echo "HOSTNAME=$(hostname)"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}"
 echo "NEWTON_VENV=$NEWTON_VENV"
 echo "NEWTON_CACHE_PATH=$NEWTON_CACHE_PATH"
+echo "VISUAL_PHASE_DIR=$VISUAL_PHASE_DIR"
+echo "VISUAL_ROOT=$visual_root"
 echo "SCENE=$SCENE"
 echo "TRACKED_OBJECT=$TRACKED_OBJECT"
 echo "CONTROLLER_MODE=$CONTROLLER_MODE"

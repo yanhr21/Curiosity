@@ -1,0 +1,13 @@
+{
+  "classification": "phase08_advantage_source_compat_config_v1",
+  "phase": "08_harder_task_repair",
+  "purpose": "Build a source-runner-compatible manifest from strict Phase08 advantage-gated split CSVs so the existing Newton-native curiosity forward-model preflight can be reused without changing held-out splits.",
+  "advantage_preflight_manifest": "data/processed/phase08_advantage_gated_residual_preflight_v1_20260628/manifest.json",
+  "output_dir": "data/processed/phase08_advantage_source_compat_v1_20260628",
+  "requires_compute_node": true,
+  "requires_fresh_official_newton_sanity": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "not_training": true,
+  "not_success_claim": true
+}

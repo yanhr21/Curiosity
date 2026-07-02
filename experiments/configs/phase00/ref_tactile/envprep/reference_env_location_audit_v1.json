@@ -1,0 +1,71 @@
+{
+  "schema_version": "phase00_reference_env_location_audit_v1",
+  "date": "2026-07-01",
+  "scope": "lightweight_login_node_file_location_checks_only",
+  "classification": "gate_00f_blocker_evidence_not_environment_setup_not_training",
+  "policy": {
+    "no_login_compute": true,
+    "no_compute_node_dependency_install": true,
+    "no_slurm_allocation_consumed": true,
+    "curiosity_training_allowed": false
+  },
+  "project_env_python_candidates_found": [
+    "envs/curiosity/.venv/bin/python",
+    "envs/newton/.venv_broken_uv_20260626_1805/bin/python",
+    "envs/newton/.venv_failed_uv_install_killed_20260626_1806/bin/python",
+    "envs/newton/.venv_failed_venv_noensurepip_20260626_1806/bin/python",
+    "envs/newton/.venv_py310_sys_20260626/bin/python",
+    "envs/residual_adapter/.venv/bin/python",
+    "envs/taccel/.venv/bin/python",
+    "envs/taccel/.venv_py312_failed_20260625_122346/bin/python",
+    "envs/taccel/.venv_system_noensurepip_20260625_122150/bin/python",
+    "envs/taccel/.venv_uv_bad_20260625_122114/bin/python",
+    "envs/taccel/.venv_virtualenv_hung_20260625_122810/bin/python",
+    "envs/taccel/.venv_virtualenv_lockhung_20260625_123022/bin/python",
+    "envs/taccel/miniforge/bin/python",
+    "envs/trex/.venv/bin/python",
+    "envs/trex_dataset/.venv/bin/python"
+  ],
+  "target_envs_found": {
+    "envs/univtac/conda/bin/python": "missing",
+    "envs/univtac/.venv/bin/python": "missing",
+    "envs/tacauchy/conda/bin/python": "missing",
+    "envs/tacauchy/.venv/bin/python": "missing"
+  },
+  "narrow_home_candidates_found": [
+    "/public/home/yanhongru/tmp-autoresearch/.venv/bin/python",
+    "/public/home/yanhongru/tmp-ood-autoresearch/.venv/bin/python"
+  ],
+  "common_conda_env_locations_checked": [
+    "/public/home/yanhongru/.conda/envs",
+    "/public/home/yanhongru/miniconda3/envs",
+    "/public/home/yanhongru/anaconda3/envs",
+    "/public/home/yanhongru/miniforge3/envs",
+    "/public/home/yanhongru/mambaforge/envs",
+    "/public/home/yanhongru/envs"
+  ],
+  "common_conda_env_target_hits": [],
+  "tools_on_current_path": {
+    "conda": "missing",
+    "mamba": "missing",
+    "micromamba": "missing",
+    "module": "missing",
+    "cmake": "missing",
+    "git_lfs": "missing",
+    "nvcc": "missing"
+  },
+  "project_env_creator_candidates": {
+    "envs/taccel/miniforge/bin/conda": {
+      "status": "present",
+      "version": "conda 26.3.2",
+      "base": "/public/home/yanhongru/Curiosity/envs/taccel/miniforge",
+      "note": "Available as a project-local env creator candidate, but target UniVTAC/TaCauchy envs have not been created and heavy environment construction is not allowed as an untracked login-node or compute-node shortcut."
+    }
+  },
+  "source_repositories_present": {
+    "univtac": "external/UniVTAC",
+    "tacauchy": "external/TaCauchy"
+  },
+  "current_blocker": "Official UniVTAC and TaCauchy source trees exist, and a project-local Miniforge conda executable exists, but no approved prebuilt local shared-filesystem Python environments were found for either target. Toolchain, assets, and heavy install execution remain controlled blockers.",
+  "next_faithful_action": "Provide or prepare approved local shared-filesystem UniVTAC and TaCauchy environments outside compute-node dependency-install time, then rerun reference_env_availability and compute-side official sanity."
+}

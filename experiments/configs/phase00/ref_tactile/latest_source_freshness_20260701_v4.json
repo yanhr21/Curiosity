@@ -1,0 +1,130 @@
+{
+  "schema_version": "latest_source_freshness_v4",
+  "date": "2026-07-01",
+  "classification": "source_freshness_audit_not_training_not_runtime_not_gate_completion",
+  "method": "lightweight git ls-remote plus local git rev-parse only",
+  "not_claims": [
+    "no_repository_checkout_was_modified",
+    "no_dependency_installation",
+    "no_simulation",
+    "no_rendering",
+    "no_model_loading",
+    "no_training",
+    "no_gate_completion"
+  ],
+  "tracked_sources": [
+    {
+      "name": "Newton",
+      "remote": "https://github.com/newton-physics/newton.git",
+      "remote_head": "8c501b47847569fecdda97a9f7f01205c6f7964f",
+      "remote_main": "8c501b47847569fecdda97a9f7f01205c6f7964f",
+      "remote_tag_v1_3_0": "ce11136b3a28390944f7fe5a32801b31d8aa5670",
+      "local_source_worktree": "external/newton_8c501",
+      "local_source_commit": "8c501b47847569fecdda97a9f7f01205c6f7964f",
+      "local_best_runtime_worktree": "external/newton_d58",
+      "local_best_runtime_commit": "d58e70266be0db803261f3e46a2f7d923a43db37",
+      "freshness_status": "source_matches_remote_main_and_runtime_around80fps_acceptable_for_continuation",
+      "gate_effect": "8c501 is latest source and is not blocked by FPS; continue dense tactile export when compute is available."
+    },
+    {
+      "name": "Taccel",
+      "remote": "https://github.com/Taccel-Simulator/Taccel.git",
+      "remote_head": "cb23bc251b531ba6908a3788c2f91423cd543149",
+      "remote_main": "cb23bc251b531ba6908a3788c2f91423cd543149",
+      "local_path": "external/Taccel",
+      "local_commit": "cb23bc251b531ba6908a3788c2f91423cd543149",
+      "freshness_status": "local_matches_remote_main"
+    },
+    {
+      "name": "T-Rex main",
+      "remote": "https://github.com/ZhuoyangLiu2005/T-Rex.git",
+      "remote_head": "43ff632259d76f08373c085c53111825060d029b",
+      "remote_main": "43ff632259d76f08373c085c53111825060d029b",
+      "local_path": "external/T-Rex_43ff",
+      "local_commit": "43ff632259d76f08373c085c53111825060d029b",
+      "freshness_status": "local_matches_remote_main"
+    },
+    {
+      "name": "T-Rex full-pipeline",
+      "remote": "https://github.com/ZhuoyangLiu2005/T-Rex.git",
+      "remote_branch": "full-pipeline",
+      "remote_commit": "b23eafe564a1457cd4eacb889aaf6fbf29a29034",
+      "local_path": "external/T-Rex_full_b23",
+      "local_commit": "b23eafe564a1457cd4eacb889aaf6fbf29a29034",
+      "freshness_status": "local_matches_remote_full_pipeline"
+    },
+    {
+      "name": "IsaacLab official",
+      "remote": "https://github.com/isaac-sim/IsaacLab.git",
+      "remote_head": "b4c321024792976150ca55fddb26fa34480d974e",
+      "remote_main": "b4c321024792976150ca55fddb26fa34480d974e",
+      "remote_tag_v2_1_1": "90b79bb2d44feb8d833f260f2bf37da3487180ba",
+      "remote_tag_v2_2_1": "0f00ca2b4b2d54d5f90006a92abb1b00a72b2f20",
+      "remote_tag_v2_3_2": "37ddf626871758333d6ed89cf64ad702aef127d0",
+      "local_path": "external/IsaacLab_official",
+      "local_commit": "b4c321024792976150ca55fddb26fa34480d974e",
+      "observed_version_file": "2.3.2",
+      "freshness_status": "local_matches_remote_main"
+    },
+    {
+      "name": "TacEx",
+      "remote": "https://github.com/DH-Ng/TacEx.git",
+      "remote_head": "adceed41afb7cb48f9ec1f66a662fb8e5a06627f",
+      "remote_main": "adceed41afb7cb48f9ec1f66a662fb8e5a06627f",
+      "local_path": "external/TacEx",
+      "local_commit": "adceed41afb7cb48f9ec1f66a662fb8e5a06627f",
+      "freshness_status": "local_matches_remote_main"
+    },
+    {
+      "name": "TaCauchy",
+      "remote": "https://github.com/figsama/TaCauchy.git",
+      "remote_head": "c228cfe9050904cd5d71d64f6eb5104768d4cbda",
+      "remote_main": "c228cfe9050904cd5d71d64f6eb5104768d4cbda",
+      "local_path": "external/TaCauchy",
+      "local_commit": "c228cfe9050904cd5d71d64f6eb5104768d4cbda",
+      "freshness_status": "local_matches_remote_main"
+    },
+    {
+      "name": "UniVTAC",
+      "remote": "https://github.com/univtac/UniVTAC.git",
+      "remote_head": "05bcd3edb92237107efa40105292a24f1a9fd761",
+      "remote_main": "05bcd3edb92237107efa40105292a24f1a9fd761",
+      "local_path": "external/UniVTAC",
+      "local_commit": "05bcd3edb92237107efa40105292a24f1a9fd761",
+      "freshness_status": "local_matches_remote_main"
+    },
+    {
+      "name": "FTP-1",
+      "remote": "https://github.com/michaelyuancb/ftp1-policy.git",
+      "remote_head": "dd7cda66c7e97a170e0435fc6c4428b350cbdcc0",
+      "remote_main": "dd7cda66c7e97a170e0435fc6c4428b350cbdcc0",
+      "local_path": "external/ftp1-policy",
+      "local_commit": "dd7cda66c7e97a170e0435fc6c4428b350cbdcc0",
+      "freshness_status": "local_matches_remote_main"
+    },
+    {
+      "name": "AnyTouch2",
+      "remote": "https://github.com/GeWu-Lab/AnyTouch2.git",
+      "remote_head": "82c5677d9cf0176d97a1fe04745f63cd02dd6f54",
+      "remote_main": "82c5677d9cf0176d97a1fe04745f63cd02dd6f54",
+      "local_path": "external/AnyTouch2",
+      "local_commit": "82c5677d9cf0176d97a1fe04745f63cd02dd6f54",
+      "freshness_status": "local_matches_remote_main"
+    },
+    {
+      "name": "HydroShear",
+      "remote": "https://github.com/MMintLab/hydroshear.git",
+      "remote_head": "a53a51cb74f0608ca53839415d7f1964a99f1db0",
+      "local_path": "external/hydroshear",
+      "local_commit": "a53a51cb74f0608ca53839415d7f1964a99f1db0",
+      "freshness_status": "local_matches_remote_head"
+    }
+  ],
+  "summary": {
+    "changed_remote_since_last_record": false,
+    "stale_local_sources": [],
+    "current_strongest_newton_runtime_candidate": "external/newton_d58 at d58e70266be0db803261f3e46a2f7d923a43db37",
+    "latest_newton_source_status": "external/newton_8c501 matches remote main and has acceptable around-80-FPS runtime evidence at 80.1 and 80.8 FPS",
+    "curiosity_training_allowed": false
+  }
+}

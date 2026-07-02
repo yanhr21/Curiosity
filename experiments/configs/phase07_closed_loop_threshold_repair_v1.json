@@ -1,0 +1,79 @@
+{
+  "classification": "phase07_closed_loop_threshold_repair_config_v1",
+  "phase": "07_harder_task_progression",
+  "purpose": "Run a validation-only closed-loop repair sweep for the current Phase07 curiosity-weighted residual checkpoint. This uses Newton interaction rollouts, not held-out tuning, to choose a safer active threshold before any later held-out evaluation.",
+  "not_training_result": true,
+  "not_success_claim": true,
+  "not_official_trex_method": true,
+  "not_trex_schema": true,
+  "schema_promotion": "blocked",
+  "generated_trex_fields": [],
+  "current_checkpoint": "checkpoints/phase07_curiosity_weighted_residual_adapter_trainer_v1_20260627/phase07_curiosity_weighted_residual_adapter_v1_train_20260627.pt",
+  "baseline_for_diagnosis": "no_adaptation",
+  "validation_only_for_threshold_selection": true,
+  "held_out_cells_forbidden_for_threshold_selection": [
+    "empty_high_misleading",
+    "full_low_hidden",
+    "three_quarter_low_misleading"
+  ],
+  "validation_cells": [
+    {
+      "cell": "empty_medium_hidden",
+      "fill": "empty",
+      "friction": "medium",
+      "visual_cue": "hidden_fill_cue",
+      "object_mass_kg": 0.08,
+      "object_friction_mu": 0.7,
+      "nominal_visual_fill": 0.0
+    },
+    {
+      "cell": "full_medium_misleading",
+      "fill": "full",
+      "friction": "medium",
+      "visual_cue": "misleading_fill_cue",
+      "object_mass_kg": 0.35,
+      "object_friction_mu": 0.7,
+      "nominal_visual_fill": 1.0
+    }
+  ],
+  "thresholds": [
+    0.5,
+    0.65,
+    0.8,
+    0.95
+  ],
+  "rollout": {
+    "num_steps": 360,
+    "sample_steps": "0,90,180,270,359",
+    "video_frame_stride": 1,
+    "video_fps": 12,
+    "scene": "cube",
+    "tracked_object": "existing_cup_asset",
+    "controller_mode": "lift_hold_learned_residual",
+    "final_hold_duration": 3.0,
+    "lift_height_min": 0.12,
+    "hold_duration_min": 2.0,
+    "drop_height_loss": 0.05,
+    "feedback_min_contact_count": 58,
+    "feedback_accel_threshold": 6.5,
+    "feedback_height_drop_threshold": 0.015,
+    "feedback_initial_lift_duration_scale": 1.65,
+    "feedback_lift_duration_scale_max": 1.05,
+    "feedback_hold_height_step": 0.0005,
+    "feedback_hold_height_offset_max": 0.005,
+    "feedback_stabilization_step": 0.05,
+    "feedback_stabilization_max": 0.3,
+    "pre_record_warmup_steps": 15
+  },
+  "selection": {
+    "primary": "maximize_success_then_hold_duration_then_lift_height",
+    "safety_first": true,
+    "penalize_max_object_accel_m_s2": true,
+    "forbidden_if_visual_validation_fails": true,
+    "forbidden_if_rollout_video_missing": true
+  },
+  "outputs": {
+    "summary": "experiments/outputs/phase07_closed_loop_threshold_repair_v1_20260628_summary.json",
+    "report": "experiments/reports/2026-06-28_phase07_closed_loop_threshold_repair_v1.md"
+  }
+}

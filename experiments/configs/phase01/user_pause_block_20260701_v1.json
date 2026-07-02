@@ -1,0 +1,21 @@
+{
+  "schema_version": "phase01_user_pause_block_v1",
+  "date": "2026-07-01",
+  "classification": "user_pause_block_not_training_not_gate_completion",
+  "gate00f_priority": "low_priority_final_validation_comparison_gap_only",
+  "current_status": "blocked_by_user_pause_waiting_next_instruction",
+  "do_not_start": [
+    "allocations",
+    "training",
+    "evaluation",
+    "data_conversion",
+    "simulation",
+    "rendering",
+    "further_implementation"
+  ],
+  "boundaries": [
+    "newton_only_phase01_remains_next_training_track_when_resumed",
+    "gate00f_remains_open_not_passed",
+    "phase01_results_are_not_final_reference_video_tactile_validation"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "date": "2026-07-01",
+  "reset_name": "dense_tactile_infant",
+  "active_plan": "PLAN/00_dense_tactile_infant/plan.md",
+  "active_todo": "TODO/00_dense_tactile_infant/todo.md",
+  "legacy_archives": {
+    "plan": [
+      "PLAN/legacy_20260701_pre_dense_tactile_reset/00_ref_tactile_env",
+      "PLAN/legacy_20260701_pre_dense_tactile_reset/01_newton_only_curiosity"
+    ],
+    "todo": [
+      "TODO/legacy_20260701_pre_dense_tactile_reset/00_ref_tactile_env",
+      "TODO/legacy_20260701_pre_dense_tactile_reset/01_newton_only_curiosity"
+    ]
+  },
+  "legacy_negative_evidence": {
+    "old_pipeline": "newton_native_contact_count_curiosity",
+    "positive_curiosity_result": false,
+    "safety_regression_cell_count": 4,
+    "old_style_sixth_run_allowed_without_user_reset": false,
+    "reason": "offline learning-progress sample reweighting over scalar contact proxies, not closed-loop curiosity"
+  },
+  "active_target": {
+    "name": "reference_video_aligned_dense_tactile_infant",
+    "requires_base_grasp_lift_hold": true,
+    "requires_dense_tactile_mechanics_before_curiosity": true,
+    "gate00f_priority": "low_priority_final_semantic_validation_comparison_gap"
+  },
+  "required_channels": [
+    "visual_scene",
+    "left_right_tactile_pad_maps",
+    "pressure_compression_heatmaps",
+    "Fn_normal_force",
+    "Ft_tangential_shear_force",
+    "shear_direction",
+    "contact_area",
+    "center_of_pressure",
+    "penetration_compression",
+    "material_friction_stiffness_statistics",
+    "grip_shear_contact_time_series"
+  ],
+  "success_claim_condition": "harder held-out tasks beat strongest baseline without safety regression"
+}

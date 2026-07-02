@@ -1,0 +1,39 @@
+{
+  "schema_version": "runtime_gate_correction_20260701_v1",
+  "date": "2026-07-01",
+  "classification": "active_gate_correction_not_training_not_gate_completion",
+  "curiosity_training_allowed": false,
+  "correction": {
+    "historical_reference_fps": 82.0,
+    "runtime_continuation_fps": 80.0,
+    "policy": "82 FPS is historical reference only; around 80 FPS is acceptable for continuing dense tactile export and Gate checks."
+  },
+  "newton_8c501_runtime_status": {
+    "commit": "8c501b47847569fecdda97a9f7f01205c6f7964f",
+    "runs": [
+      {
+        "run_tag": "p00_bench_8c501_hot_v1_20260701_162700",
+        "benchmark_fps": 80.1,
+        "runtime_decision": "acceptable_continue"
+      },
+      {
+        "run_tag": "p00_bench_8c501_hot_r2_v1_20260701_162800",
+        "benchmark_fps": 80.8,
+        "runtime_decision": "acceptable_continue"
+      }
+    ],
+    "decision": "do_not_block_8c501_dense_tactile_export_on_fps"
+  },
+  "hard_gates": [
+    "login_node_no_heavy_compute",
+    "curiosity_tmux_held_slurm_for_compute",
+    "do_not_touch_non_curiosity_resources",
+    "no_commit_without_user_request",
+    "no_degraded_placeholder_models",
+    "gate00d_dense_tactile_mechanics_environment",
+    "gate00e_base_grasp_lift_hold_with_tactile_mechanics_evidence",
+    "gate00f_official_semantic_validation_or_faithful_blocker",
+    "gate00g_curiosity_disallowed_until_gate00d_00e_00f_ready"
+  ],
+  "next_action": "run_8c501_dense_tactile_export_reference_compare_channel_audit_gate_review_when_curiosity_tmux_held_slurm_allocation_available"
+}

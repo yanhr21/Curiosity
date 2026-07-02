@@ -1,0 +1,118 @@
+{
+  "schema_version": "latest_20260701_web_codebase_refresh_v1",
+  "date": "2026-07-01",
+  "classification": "latest_web_and_source_refresh_not_training_not_official_sanity",
+  "objective": "refresh latest official tactile simulation, tactile policy, and tactile representation sources for the reference-video tactile infant goal",
+  "web_sources_used": [
+    {
+      "name": "Newton official GitHub",
+      "url": "https://github.com/newton-physics/newton",
+      "role": "primary Newton physics/runtime source"
+    },
+    {
+      "name": "UniVTAC official GitHub",
+      "url": "https://github.com/univtac/UniVTAC",
+      "role": "official visuo-tactile manipulation benchmark and UniVTAC encoder/source"
+    },
+    {
+      "name": "TaCauchy official GitHub",
+      "url": "https://github.com/figsama/TaCauchy",
+      "role": "official 2026 FEM tactile mechanics source"
+    },
+    {
+      "name": "TacEx official GitHub",
+      "url": "https://github.com/DH-Ng/TacEx",
+      "role": "official Isaac Sim/Lab GelSight tactile extension source"
+    },
+    {
+      "name": "Isaac Lab official TacSL documentation",
+      "url": "https://isaac-sim.github.io/IsaacLab/main/source/overview/core-concepts/sensors/visuo_tactile_sensor.html",
+      "role": "official Isaac Lab visuo-tactile sensor documentation"
+    },
+    {
+      "name": "FTP-1 official GitHub",
+      "url": "https://github.com/michaelyuancb/ftp1-policy",
+      "role": "2026 generalist foundation tactile policy source"
+    },
+    {
+      "name": "AnyTouch2 official GitHub",
+      "url": "https://github.com/GeWu-Lab/AnyTouch2",
+      "role": "ICLR 2026 optical tactile representation source"
+    }
+  ],
+  "new_local_sources": [
+    {
+      "name": "FTP-1",
+      "path": "external/ftp1-policy",
+      "remote": "https://github.com/michaelyuancb/ftp1-policy.git",
+      "commit": "dd7cda66c7e97a170e0435fc6c4428b350cbdcc0",
+      "checkout_mode": "blobless_sparse",
+      "role": "future serious tactile policy/checkpoint reference",
+      "key_findings": [
+        "README describes FTP-1 as a generalist foundation tactile policy across sensors and embodiments.",
+        "README links model checkpoints for ftp1_pretrain_v0426_50kstep and ftp1_univtac_finetune on HuggingFace and ModelScope.",
+        "README says FTP-1 is based on OpenPI and uses zarr data for fine-tuning, with UniVTAC as an example domain.",
+        "README inference API expects tactile inputs shaped as time x function areas x image tensors plus tactile sensor labels such as GelSightMini."
+      ],
+      "gate_effect": "Not a Newton-native infant checkpoint and not Gate 00F evidence. It is a serious future policy/checkpoint baseline after dense tactile semantics and environment gates pass."
+    },
+    {
+      "name": "AnyTouch2",
+      "path": "external/AnyTouch2",
+      "remote": "https://github.com/GeWu-Lab/AnyTouch2.git",
+      "commit": "82c5677d9cf0176d97a1fe04745f63cd02dd6f54",
+      "checkout_mode": "blobless_sparse",
+      "role": "future tactile representation/checkpoint reference",
+      "key_findings": [
+        "README describes AnyTouch 2 as ICLR 2026 general optical tactile representation learning for dynamic tactile perception.",
+        "README links an AnyTouch2 model checkpoint on HuggingFace and ToucHD/Sparsh evaluation datasets.",
+        "README notes checkpoint/data access may require completing HuggingFace forms.",
+        "Quick start script is still marked coming soon."
+      ],
+      "gate_effect": "Not a controller and not Gate 00F official simulation sanity. It is a future tactile encoder/comparison reference after official tactile channels are validated."
+    },
+    {
+      "name": "Official IsaacLab main sparse TacSL source",
+      "path": "external/IsaacLab_official",
+      "remote": "https://github.com/isaac-sim/IsaacLab.git",
+      "commit": "b4c321024792976150ca55fddb26fa34480d974e",
+      "checkout_mode": "blobless_sparse_with_tacsl_paths",
+      "role": "official Isaac Lab TacSL visuo-tactile sensor source",
+      "key_paths": [
+        "external/IsaacLab_official/docs/source/overview/core-concepts/sensors/visuo_tactile_sensor.rst",
+        "external/IsaacLab_official/scripts/demos/sensors/tacsl_sensor.py",
+        "external/IsaacLab_official/source/isaaclab_contrib/isaaclab_contrib/sensors/tacsl_sensor/visuotactile_sensor.py",
+        "external/IsaacLab_official/source/isaaclab_contrib/isaaclab_contrib/sensors/tacsl_sensor/visuotactile_sensor_cfg.py",
+        "external/IsaacLab_official/source/isaaclab_contrib/isaaclab_contrib/sensors/tacsl_sensor/visuotactile_sensor_data.py",
+        "external/IsaacLab_official/source/isaaclab_contrib/isaaclab_contrib/sensors/tacsl_sensor/visuotactile_render.py"
+      ],
+      "key_findings": [
+        "Official docs describe a TacSL-integrated visuo-tactile sensor that outputs tactile RGB images, force field distributions, and intermediate tactile measurements.",
+        "The demo entrypoint is scripts/demos/sensors/tacsl_sensor.py with --use_tactile_rgb, --use_tactile_ff, --normal_contact_stiffness, --tangential_stiffness, --friction_coefficient, and --save_viz.",
+        "VisuoTactileSensorData exposes tactile_depth_image, tactile_rgb_image, tactile_points_pos_w, tactile_points_quat_w, penetration_depth, tactile_normal_force, and tactile_shear_force.",
+        "VisuoTactileSensorCfg includes normal_contact_stiffness, friction_coefficient, tangential_stiffness, contact_object_prim_path_expr, tactile_array_size, and tactile_margin.",
+        "The force field path computes normal force from penetration depth and shear force from tangential velocity/stiffness/friction, then writes tactile_normal_force and tactile_shear_force."
+      ],
+      "gate_effect": "This is a stronger official TacSL semantic reference than the earlier generic UM-ARM-Lab/IsaacLabTactile clone, but it still requires official Isaac Lab environment/assets and compute-side sanity before it can clear Gate 00F."
+    }
+  ],
+  "current_decisions": [
+    "Keep Newton d58 as current strongest complete runtime/tactile evidence chain until latest 8c501 downstream tactile evidence exists; 8c501 is not blocked by FPS because 80.1/80.8 FPS is acceptable around the current 80 FPS continuation threshold.",
+    "Promote official IsaacLab main TacSL source to the Gate 00F reference shortlist alongside UniVTAC and TaCauchy.",
+    "Keep UM-ARM-Lab/IsaacLabTactile as source-gap evidence only because the local clone did not expose TacSL/GelSight/TacEx paths in static audit.",
+    "Add FTP-1 and AnyTouch2 to future model/representation comparison references, not current base-model completion evidence.",
+    "Do not download checkpoints, load models, run demos, or train on the login node."
+  ],
+  "not_claims": [
+    "No official IsaacLab TacSL demo was run.",
+    "No FTP-1 checkpoint was downloaded or loaded.",
+    "No AnyTouch2 checkpoint was downloaded or loaded.",
+    "No simulation, rendering, data conversion, training, or evaluation was run.",
+    "This refresh does not allow curiosity training."
+  ],
+  "next_faithful_actions": [
+    "record official IsaacLab TacSL as an official semantic-validation candidate in IDEA, AGENTS, PLAN, TODO, and active evidence",
+    "prepare a future Gate 00F official sanity path for IsaacLab TacSL only if a dependency-complete approved IsaacLab environment or prebuilt container appears",
+    "after Gate 00D/00E/00F pass, evaluate FTP-1 and AnyTouch2 as serious policy/encoder baselines rather than inventing a toy model"
+  ]
+}

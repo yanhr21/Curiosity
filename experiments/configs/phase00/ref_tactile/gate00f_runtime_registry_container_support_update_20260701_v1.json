@@ -1,0 +1,40 @@
+{
+  "schema_version": "gate00f_runtime_registry_container_support_update_v1",
+  "date": "2026-07-01",
+  "classification": "registry_validator_update_not_training_not_gate_completion",
+  "updated_files": [
+    "src/newton_tactile_curiosity/gate00f_runtime_registry_validate.py",
+    "src/newton_tactile_curiosity/gate00f_container_provenance_validate.py",
+    "src/newton_tactile_curiosity/gate00f_runtime_register.py",
+    "experiments/configs/phase00/ref_tactile/gate00f_reference_runtime_registry_v1.json",
+    "experiments/configs/phase00/ref_tactile/gate00f_runtime_registry_handoff_v1.json",
+    "experiments/reports/phase00/ref_tactile/gate00f_runtime_registry_handoff.md",
+    "experiments/configs/phase00/ref_tactile/gate00f_container_runtime_registration_examples_v1.json",
+    "experiments/reports/phase00/ref_tactile/gate00f_container_runtime_registration_examples.md"
+  ],
+  "new_container_contract": {
+    "allowed_container_runtimes": [
+      "docker",
+      "singularity",
+      "apptainer",
+      "enroot",
+      "sif",
+      "sqsh",
+      "tar"
+    ],
+    "required_local_runtime_reference": "artifact_path or local image_id",
+    "image_id_format": "sha256:<hex> or at least 12 hexadecimal characters",
+    "image_id_must_not_equal_image_ref": true,
+    "artifact_path_must_exist": true,
+    "artifact_path_must_be_file": true,
+    "allowed_artifact_suffixes": [
+      ".sif",
+      ".sqsh",
+      ".tar",
+      ".tar.gz",
+      ".img"
+    ],
+    "image_ref_policy": "image_ref alone is acquisition evidence only"
+  },
+  "gate_effect": "does_not_clear_gate00f_but_prevents_remote_image_tags_from_counting_as_registered_runtimes"
+}

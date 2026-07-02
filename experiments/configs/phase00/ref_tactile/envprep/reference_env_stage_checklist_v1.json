@@ -1,0 +1,162 @@
+{
+  "schema_version": "phase00_reference_env_stage_checklist_v1",
+  "date": "2026-07-01",
+  "classification": "planned_environment_preparation_checklist_not_executed",
+  "curiosity_training_allowed": false,
+  "global_blockers": [
+    "No approved envs/univtac or envs/tacauchy Python executable exists.",
+    "Current login shell does not expose conda, mamba, micromamba, module, cmake, git-lfs, or nvcc.",
+    "A project-local envs/taccel/miniforge/bin/conda exists, but target environments have not been created and heavy construction remains controlled.",
+    "Dependency installation and package builds must not run on compute nodes.",
+    "Simulation, official demos, rendering, training, model loading, and dataset conversion must not run on the login node."
+  ],
+  "env_creator_candidates": {
+    "envs/taccel/miniforge/bin/conda": {
+      "status": "present",
+      "version": "conda 26.3.2",
+      "base": "/public/home/yanhongru/Curiosity/envs/taccel/miniforge"
+    }
+  },
+  "targets": {
+    "univtac": {
+      "source": "external/UniVTAC",
+      "expected_commit": "05bcd3edb92237107efa40105292a24f1a9fd761",
+      "planned_env": "envs/univtac/conda",
+      "python_version": "3.10",
+      "isaac_sim": "4.5.0",
+      "isaac_lab": "v2.1.1",
+      "official_modified_tacex": "external/UniVTAC/third_party/TacEx",
+      "other_pins": [
+        "torch==2.5.1 + CUDA 12.4 path from install.sh",
+        "torchvision==0.20.1",
+        "cuRobo commit 0a50de1ba72db304195d59d9d0b1ed269696047f",
+        "torch_scatter==2.1.2 for torch 2.5.1+cu124",
+        "warp-lang==1.0.0"
+      ],
+      "must_not_run_blindly": [
+        "external/UniVTAC/scripts/install.sh",
+        "sudo apt install cmake build-essential",
+        "sudo apt install git-lfs",
+        "python3 -m pytest . in cuRobo",
+        "TacEx RL train smoke with 512 envs",
+        "bash collect_data.sh grasp_classify demo 0"
+      ],
+      "official_minimal_sanity_after_env_exists": "bash collect_data.sh grasp_classify demo 0",
+      "schema_probe_inputs": [
+        "external/UniVTAC/policy/task_settings.json",
+        "external/UniVTAC/policy/ACT/train_config_tactile_full.yml",
+        "external/UniVTAC/policy/ACT/train_config_vision.yml",
+        "external/UniVTAC/task_config/contact.yml"
+      ]
+    },
+    "tacauchy": {
+      "source": "external/TaCauchy",
+      "expected_commit": "c228cfe9050904cd5d71d64f6eb5104768d4cbda",
+      "planned_env": "envs/tacauchy/conda",
+      "python_version": "3.11",
+      "isaac_sim": "5.0.0",
+      "isaac_lab": "v2.2.1",
+      "required_assets": [
+        "source/tacex_assets/tacex_assets/data/Sensors/GelSight_Mini",
+        "source/tacex_assets/tacex_assets/data/Sensors/digit",
+        "source/tacex_assets/tacex_assets/data/Sensors/9dtact",
+        "source/tacex_assets/tacex_assets/data/Robots/Franka",
+        "source/tacex_assets/tacex_assets/data/Props/tactile_test_shapes"
+      ],
+      "required_toolchain": [
+        "git-lfs",
+        "GCC 11.4+",
+        "CMake >= 3.26",
+        "vcpkg",
+        "CUDA toolkit visible to build libuipc",
+        "CMAKE_TOOLCHAIN_FILE",
+        "CMAKE_CUDA_ARCHITECTURES"
+      ],
+      "must_not_run_blindly": [
+        "external/TaCauchy/scripts/setup_assets.sh",
+        "git lfs install",
+        "git clone --recurse-submodules for asset recovery",
+        "sudo apt install cmake build-essential",
+        "conda env update -n env_isaaclab --file source/tacex_uipc/libuipc/conda/env.yaml",
+        "pip install -e source/tacex_uipc -v",
+        "python scripts/demos/shape_touch/simple_tactile_demo.py --sensor gelsight"
+      ],
+      "official_minimal_sanity_after_env_exists": "python scripts/demos/shape_touch/simple_tactile_demo.py --sensor gelsight",
+      "semantic_outputs_to_validate": [
+        "Cauchy stress",
+        "normal pressure",
+        "tangential traction",
+        "20x20 interpolated force grid",
+        "tactile RGB image",
+        "multi-sensor GelSight/DIGIT/9DTact compatibility"
+      ]
+    }
+  },
+  "stages": [
+    {
+      "name": "toolchain_and_env_access_preflight",
+      "status": "partial_project_conda_present_but_target_envs_and_toolchain_missing",
+      "required_evidence": [
+        "conda or equivalent local env creator path",
+        "git-lfs path or accepted asset-copy alternative",
+        "cmake path",
+        "nvcc or CUDA toolkit path for UIPC build",
+        "GCC/G++ version"
+      ]
+    },
+    {
+      "name": "create_local_env_prefixes",
+      "status": "pending_controlled_heavy_env_creation_not_started",
+      "required_evidence": [
+        "envs/univtac/conda/bin/python --version",
+        "envs/tacauchy/conda/bin/python --version"
+      ]
+    },
+    {
+      "name": "install_isaac_and_isaaclab",
+      "status": "pending",
+      "required_evidence": [
+        "Isaac Sim version check",
+        "Isaac Lab checkout commit/tag",
+        "install logs under logs/newton/phase00/ref_tactile/envprep"
+      ]
+    },
+    {
+      "name": "install_modified_tacex_and_tacex_core",
+      "status": "pending",
+      "required_evidence": [
+        "editable install logs",
+        "source path provenance",
+        "no public TacEx substituted for UniVTAC modified TacEx"
+      ]
+    },
+    {
+      "name": "build_or_validate_uipc",
+      "status": "pending",
+      "required_evidence": [
+        "libuipc build log",
+        "tacex_uipc import or official extension check in approved environment",
+        "compiler and CUDA architecture record"
+      ]
+    },
+    {
+      "name": "asset_setup",
+      "status": "pending",
+      "required_evidence": [
+        "asset source provenance",
+        "GelSight/DIGIT/9DTact calibration files present",
+        "large USD files present or blocker recorded"
+      ]
+    },
+    {
+      "name": "compute_side_official_sanity",
+      "status": "pending_until_envs_exist",
+      "required_evidence": [
+        "Curiosity tmux-held Slurm job id and host",
+        "official command and log",
+        "pass/fail summary",
+        "no dependency installation on compute node"
+      ]
+    }
+  ]
+}

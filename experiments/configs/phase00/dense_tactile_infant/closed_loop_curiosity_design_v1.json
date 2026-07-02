@@ -1,0 +1,87 @@
+{
+  "date": "2026-07-01",
+  "classification": "closed_loop_curiosity_design_not_training",
+  "prerequisite_evidence": "experiments/configs/phase00/dense_tactile_infant/active_evidence_manifest_20260701_v1.json",
+  "status": "design_ready_training_not_started",
+  "forward_model_targets": {
+    "object": [
+      "object_pose_delta",
+      "object_velocity",
+      "lift_height",
+      "drop_or_slip_precursor",
+      "object_acceleration"
+    ],
+    "dense_tactile": [
+      "left_pad.pressure_or_Fn_map",
+      "right_pad.pressure_or_Fn_map",
+      "left_pad.compression_or_deform_proxy_map",
+      "right_pad.compression_or_deform_proxy_map",
+      "left_pad.shear_u_v",
+      "right_pad.shear_u_v",
+      "left_pad.contact_mask",
+      "right_pad.contact_mask",
+      "candidate.newton_mjw.Ft",
+      "candidate.newton_mjw.area_proxy",
+      "candidate.center_of_pressure_proxy"
+    ],
+    "mechanics": [
+      "grip_force_balance",
+      "shear_force_or_shear_motion_proxy",
+      "contact_area_proxy",
+      "stress_proxy",
+      "force_contact_cost"
+    ]
+  },
+  "policy_action_space": {
+    "residual_actions": [
+      "grip_force_delta",
+      "gripper_width_delta",
+      "lift_velocity_scale",
+      "hold_height_delta",
+      "wrist_pose_micro_probe_delta",
+      "pressure_balance_delta_left_right",
+      "regrasp_trigger",
+      "shear_minimizing_lateral_adjustment"
+    ],
+    "safety_limits": [
+      "max_force_contact_cost",
+      "max_object_acceleration",
+      "max_allowed_slip",
+      "drop_abort",
+      "contact_loss_abort",
+      "workspace_limits"
+    ]
+  },
+  "intrinsic_reward": {
+    "type": "online_learning_progress_dense_visuotactile",
+    "must_affect_policy_optimization": true,
+    "sample_reweighting_only_allowed": false,
+    "terms": [
+      "learning_progress_dense_tactile_prediction",
+      "learning_progress_object_mechanics_prediction",
+      "bounded_novel_contact_state",
+      "controllable_disagreement",
+      "minus_drop_slip_contact_loss_penalty",
+      "minus_force_contact_cost",
+      "minus_noop_penalty"
+    ]
+  },
+  "modality_mask_training": {
+    "required": true,
+    "ablations": [
+      "vision_plus_tactile",
+      "tactile_only_masked_vision_after_contact",
+      "vision_only",
+      "noisy_tactile",
+      "delayed_tactile",
+      "shuffled_or_mismatched_tactile"
+    ],
+    "success_requirement": "vision+tactile beats vision-only and tactile corruption hurts without safety regression"
+  },
+  "non_claims": [
+    "not training",
+    "not checkpoint",
+    "not curiosity success",
+    "not official tactile semantic validation"
+  ]
+}
