@@ -1,171 +1,92 @@
-# Dense Tactile Infant Curiosity
+# Video-Guided Active Carrying
 
-This file is the active research idea. It must stay short, current, and free of
-legacy experiment narratives that could mislead future training decisions.
-Historical or wrong-path evidence belongs in `IDEA/legacy/` or
-`experiments/reports/`, not in this file.
+## Core Claim
 
-## Active Goal
-
-Build a reference-video-aligned dense tactile infant:
-
-1. A base controller or model can complete basic grasp, lift, and hold.
-2. The same rollout exports dense visual and tactile mechanics comparable to
-   the user reference video `0780e5ec3fdb26b63ae63de0f49f07c4.mp4`.
-3. Only after dense tactile/base evidence exists, restart curiosity as true
-   closed-loop active probing over dense visuo-tactile prediction.
-4. Final success requires harder held-out tasks beating the strongest baseline
-   without safety regression.
-
-The project is not trying to prove that a script runs, a checkpoint exists, or
-a video is nonblank. The scientific claim is that curiosity improves a basic
-grasping infant on harder manipulation settings.
-
-## Required Dense Tactile Evidence
-
-Before curiosity training can be claimed, the environment/base evidence must
-include synchronized:
-
-- visual scene;
-- left/right tactile pad maps;
-- pressure and compression heatmaps;
-- normal force `Fn`;
-- tangential/shear force `Ft`;
-- shear direction;
-- contact area;
-- center of pressure;
-- penetration/compression;
-- material, friction, and stiffness statistics;
-- grip, shear, contact, and safety time-series.
-
-The target representation is pad-resolved:
+As of 2026-07-02, the target is not solved by existing robotics systems:
 
 ```text
-left_pad.pressure:      [T, H, W]
-left_pad.compression:   [T, H, W]
-left_pad.shear_u/v:     [T, H, W]
-left_pad.contact_mask:  [T, H, W]
-left_pad.Fn/Ft:         [T] or [T, H, W]
-right_pad.*:            same contract
+A bipedal or humanoid robot with its own body proportions, mass, torque limits,
+arm reach, and carrying capacity faces a box of unknown weight and shape,
+actively probes it, chooses a stable low-cost posture for its own body, carries
+it for a long duration, and learns with human/robot/simulation video as a
+non-retargeting reference signal for RL.
 ```
 
-Candidate Newton/MJWarp outputs must preserve provenance:
+The research gap is:
 
 ```text
-candidate.newton_mjw.Fn
-candidate.newton_mjw.Ft
-candidate.newton_mjw.area_proxy
-candidate.newton_mjw.marker_flow
-candidate.newton_mjw.contact_normal
+video reference + active probing of unknown object dynamics
++ morphology-aware whole-body posture selection
++ harder held-out carrying evaluation
 ```
 
-Do not promote proxy fields into official tactile semantics:
+## Working Title
 
-```text
-area_proxy != real contact area
-marker_flow render != photometric GelSight marker output
-contact_count != tactile map
-candidate Fn/Ft != validated official tactile force field
-```
+Video-guided, embodiment-aware active loco-manipulation for unknown-load
+carrying.
 
-## Closed-Loop Curiosity Requirement
+## Key Principle
 
-Future curiosity must be closed-loop, active, and tactile-rich:
+Video is a weak prior, not a motion target.
 
-- the forward/world model predicts tactile/contact/mechanics, not just object
-  height or contact count;
-- intrinsic reward affects policy optimization and therefore changes future
-  rollout data;
-- the policy can choose meaningful exploration actions: probing, regrasping,
-  grip-force adjustment, pressure balancing, and shear-minimizing behavior;
-- exploration is safety constrained, with penalties or hard guards for drop,
-  slip, contact loss, excessive acceleration, and excessive force;
-- sample reweighting alone is not closed-loop curiosity.
+Allowed video information:
 
-The training and evaluation must include tactile-mask evidence:
+- task semantics;
+- phase progress;
+- object motion;
+- coarse contact affordances;
+- visual success/failure cues.
 
-- vision+tactile;
-- tactile-only with vision masked after contact;
-- vision-only;
-- noisy, delayed, shuffled, or mismatched tactile.
+Forbidden use:
 
-The policy must not collapse to pure vision or pure tactile. Multimodal
-vision+touch should outperform ablations, and corrupted tactile should hurt if
-touch is genuinely online and causal.
+- human joint retargeting;
+- robot joint retargeting;
+- end-effector trajectory cloning;
+- teleoperation replay;
+- posture copying as the main claim.
 
-## Baselines And Metrics
+## Why Active Probing Is Required
 
-Do not let an easy or strong base controller hide the research question. If
-base grasp/lift/hold already succeeds, move to harder tasks or finer metrics.
+RGB or RGB-D video cannot reliably reveal mass, center of mass, friction,
+internal fill, stiffness, or required grip force. Therefore video conditioning
+must be paired with probing actions such as micro-lift, push-pull, grip ramp,
+stance adjustment, hold-height adjustment, regrasp, contact redistribution, and
+slow one-step carry tests.
 
-Required comparisons:
+## What The Policy Must Learn
 
-- no-adaptation base;
-- scripted feedback;
-- no-curiosity residual/adaptation baseline;
-- curiosity ablations;
-- serious official/reference methods when available, or documented blockers.
+The policy must choose carrying strategies that fit the robot's own body:
 
-Required metrics:
+- front carry;
+- low carry;
+- chest or torso support;
+- forearm support;
+- asymmetric carry;
+- squat-depth adjustment;
+- stance widening;
+- walking-speed reduction;
+- regrasp before walking;
+- abort when unsafe.
 
-- lift;
-- hold duration;
-- slip;
-- drop;
-- contact loss;
-- object acceleration;
-- force/contact cost;
-- safety regression;
-- held-out improvement over the strongest baseline.
+The same reference video should be allowed to produce different robot postures
+for different morphologies and loads.
 
-Success claim condition:
+## Success Gate
 
-```text
-harder held-out tasks beat strongest baseline without safety regression
-```
+No success claim is allowed unless the method:
 
-## Official Methods And Checkpoints
+- beats the strongest baseline on harder held-out objects and robot bodies;
+- improves carry distance, carry duration, and efficiency;
+- avoids safety regression in falls, drops, slip, contact loss, excessive
+  torque, and object acceleration;
+- proves video helps beyond no-video RL;
+- proves active probing helps beyond video-only reward;
+- proves it is not merely retargeting or behavior cloning.
 
-Use serious source code and official checkpoints when claiming an official
-method. Do not hand-roll toy substitutes and present them as T-Rex, VQ-VAE,
-Transformer, tactile encoder, or world-model progress.
+## Active References
 
-T-Rex remains a future model/reference path. Use official repository,
-released checkpoints, embedded tactile VQ-VAE path, and faithful adapters only.
-If an official checkpoint, config, schema, or runtime is missing or
-incompatible, record it as a blocker or comparison gap.
-
-Newton/Taccel are the main simulator path. UniVTAC, TaCauchy, HydroShear, and
-IsaacLab TacSL/IsaacLabTactile are final semantic/reference comparison paths.
-Gate 00F is low-priority final semantic validation and must not block current
-dense tactile infant/base-evidence work.
-
-## Active Records
-
-Active plan:
-
-```text
-PLAN/00_dense_tactile_infant/plan.md
-```
-
-Active TODO:
-
-```text
-TODO/00_dense_tactile_infant/todo.md
-```
-
-Legacy pre-reset records:
-
-```text
-IDEA/legacy/
-PLAN/legacy_*/
-TODO/legacy_*/
-```
-
-Current execution rule:
-
-```text
-current target = reference-video-aligned dense tactile environment + base grasp/lift/hold
-curiosity restart condition = dense tactile/base evidence and closed-loop training contract are ready
-success claim condition = harder held-out tasks beat strongest baseline without safety regression
-```
+- Main survey: `docs/2026-07-02_research_overview.md`
+- Robot carrying review: `docs/robot_carrying_capability_review.md`
+- Video-conditioned learning review:
+  `docs/video_conditioned_rl_review.md`
+- Research program design: `docs/research_program_design.md`
