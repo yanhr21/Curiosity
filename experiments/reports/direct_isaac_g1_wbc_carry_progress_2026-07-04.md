@@ -797,3 +797,140 @@ re-initialize it
 
 This is a negative joint-control diagnostic only. It produced no walking,
 balance, joint-motion, or carrying evidence.
+
+## Velocity/Force Dynamic Rigid-Body Probe
+
+To avoid the broken Articulation/RigidObject tensor paths and the ineffective
+USD joint-drive path, a dynamic rigid-body control probe was added:
+
+```text
+script: scripts/isaac/build_velocity_controlled_dynamic_carry_scene.py
+launcher: scripts/isaac/run_velocity_controlled_dynamic_carry_scene.sh
+scene: dynamic torso rigid body, dynamic fixed-joint payload, visual gait legs
+claim level: control-path diagnostic only
+```
+
+Velocity-attribute GPU smoke:
+
+```text
+tmux: curiosity_velocity_carry_0704
+job: 165133
+node: server10
+command:
+STAMP=20260704_velocity_dynamic_carry_smoke1 STEPS=360 PAYLOAD_MASS=5.0 \
+TARGET_X=1.2 TARGET_SPEED=0.34 TARGET_HEIGHT=0.58 DEVICE=cuda:0 RENDER=0 \
+bash scripts/isaac/run_velocity_controlled_dynamic_carry_scene.sh
+```
+
+Result:
+
+```json
+{
+  "completed_steps": 360,
+  "fall_events": 0,
+  "box_drop_events": 0,
+  "max_torso_travel_xy_m": 0.0,
+  "max_box_travel_xy_m": 0.0,
+  "final_box_target_distance_xy_m": 0.899999988079071
+}
+```
+
+PhysX also reported:
+
+```text
+PxRigidDynamic::setLinearVelocity(): it is illegal to call this method if
+PxSceneFlag::eENABLE_DIRECT_GPU_API is enabled
+```
+
+Velocity-attribute CPU smoke:
+
+```text
+tmux: curiosity_velocity_carry_cpu_0704
+job: 165134
+node: server44
+command:
+STAMP=20260704_velocity_dynamic_carry_cpu_smoke1 STEPS=240 \
+PAYLOAD_MASS=5.0 TARGET_X=0.9 TARGET_SPEED=0.30 TARGET_HEIGHT=0.58 \
+DEVICE=cpu RENDER=0 bash scripts/isaac/run_velocity_controlled_dynamic_carry_scene.sh
+```
+
+Result: completed 240/240 with falls 0 and drops 0, but torso and box travel
+were still 0.0. Interpretation: runtime USD `RigidBodyAPI.velocity` writes are
+not an effective control path in this scene. The script now includes
+`CONTROL_MODE=physx_force`, which uses
+`omni.physx.get_physx_simulation_interface().apply_force_at_pos`; this is the
+next smoke to validate before returning to dynamic carrying claims.
+
+PhysX-force dynamic rigid-body smokes:
+
+```text
+outputs:
+experiments/outputs/velocity_controlled_dynamic_carry_scene/20260704_force_dynamic_carry_cpu_smoke1/velocity_controlled_dynamic_carry_summary.json
+experiments/outputs/velocity_controlled_dynamic_carry_scene/20260704_force_dynamic_carry_gpu_smoke1/velocity_controlled_dynamic_carry_summary.json
+experiments/outputs/velocity_controlled_dynamic_carry_scene/20260704_force_direct_step_cpu_smoke1/velocity_controlled_dynamic_carry_summary.json
+experiments/outputs/velocity_controlled_dynamic_carry_scene/20260704_force_direct_step_gpualloc_cpu_smoke1/velocity_controlled_dynamic_carry_summary.json
+```
+
+Result: all completed diagnostics reported 0.0 torso travel and 0.0 box
+travel. GPU force mode additionally emitted PhysX direct-GPU errors for
+runtime `addForce()`/`addTorque()`. Interpretation: this is not a viable
+dynamic carrying control path in its current form.
+
+Bare cube force/fall isolation:
+
+```text
+scripts:
+scripts/isaac/build_physx_force_cube_smoke.py
+scripts/isaac/run_physx_force_cube_smoke.sh
+outputs:
+experiments/outputs/physx_force_cube_smoke/20260704_physx_force_cube_cpu_smoke1/physx_force_cube_summary.json
+experiments/outputs/physx_force_cube_smoke/20260704_physx_force_cube_simstep_cpu_smoke2/physx_force_cube_summary.json
+```
+
+Result: both direct-step and normal `sim.step()` variants kept the cube at
+`[0, 0, 0.75]` with 0 x travel and no observed gravity drop. This rules out
+the current direct `CuboidCfg.func` route as dynamic evidence.
+
+RigidObject cube isolation:
+
+```text
+scripts:
+scripts/isaac/build_physx_force_rigidobject_cube_smoke.py
+scripts/isaac/run_physx_force_rigidobject_cube_smoke.sh
+outputs:
+experiments/outputs/physx_force_rigidobject_cube_smoke/20260704_physx_force_rigidobject_cube_cpu_smoke1/physx_force_rigidobject_cube_summary.json
+experiments/outputs/physx_force_rigidobject_cube_smoke/20260704_physx_force_rigidobject_cube_newstage_cpu_smoke3/physx_force_rigidobject_cube_summary.json
+```
+
+Result: USD-only readout stayed fixed. Root-state readout with a new stage
+failed at step 0 with:
+
+```text
+Failed to get rigid body transforms from backend
+```
+
+Interpretation: the current IsaacLab RigidObject tensor path is unusable for
+active dynamic carry work until the backend invalidation is fixed.
+
+Isaac Sim core `DynamicCuboid` isolation:
+
+```text
+scripts:
+scripts/isaac/build_core_world_dynamic_cube_smoke.py
+scripts/isaac/run_core_world_dynamic_cube_smoke.sh
+logs:
+logs/core_world_dynamic_cube_smoke/core_world_dynamic_cube_smoke_20260704_core_world_dynamic_cube_velocity_cpu_smoke1.log
+logs/core_world_dynamic_cube_smoke/core_world_dynamic_cube_smoke_20260704_core_world_dynamic_cube_velocity_localground_cpu_smoke2.log
+```
+
+Result: the first run stalled in `add_default_ground_plane()` while checking
+Nucleus asset root. The local-ground rerun passed core World creation and
+local ground creation, then stalled before `world.reset()`, likely while
+adding the core dynamic object wrapper. This route remains a blocked
+diagnostic, not a dynamic-object success.
+
+Current execution conclusion: do not wait on downloaded models, but also do
+not keep tuning failed Isaac control paths. The next useful Isaac step is to
+port a known-good installed Isaac dynamic-body example exactly, or enter an
+official Arena task path whose object/joint state changes are verified before
+adding the unknown-box carrying logic.

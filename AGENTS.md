@@ -100,6 +100,15 @@ These rules override all other project instructions.
   `SingleArticulation` expected `SimulationManager._get_backend_utils`, which
   is absent under the current IsaacLab `PhysxManager` context. Do not rerun
   these unchanged.
+- 2026-07-04 dynamic rigid-body control probes are also negative so far:
+  runtime USD `RigidBodyAPI.velocity` writes produced 0 travel on CPU/GPU;
+  `omni.physx.get_physx_simulation_interface().apply_force_at_pos` produced 0
+  travel on CPU/direct-step smokes and direct-GPU `addForce()`/`addTorque()`
+  errors on GPU; bare `CuboidCfg.func` cubes showed no observed gravity drop;
+  `RigidObjectCfg` root-state reads failed with
+  `Failed to get rigid body transforms from backend`; Isaac Sim core
+  `DynamicCuboid` wrappers stalled before a completed reset. Do not rerun these
+  unchanged or tune parameters on them.
 
 ## 2026-07-04 Active Execution Objective
 
@@ -215,14 +224,15 @@ produces verified walking, balance, and carry metrics in a compute-node run.
 Even if it passes, it still does not solve unknown free-object grasping or
 video-conditioned active carry.
 
-After the 2026-07-04 USD dynamic negative smokes, the next Isaac dynamic-control
-step must change the runtime control mechanism, not just gait parameters. Valid
-next directions are: repair `SingleArticulation`/`SimulationManager`
-compatibility in the IsaacLab context, use the correct non-deprecated
-`isaacsim.core.experimental.prims.Articulation` API, or locate an available
-dynamic-control interface that can set articulation targets without the broken
-IsaacLab tensor path. Do not keep changing hip/knee amplitudes while travel is
-exactly zero.
+After the 2026-07-04 USD dynamic and rigid-body negative smokes, the next Isaac
+dynamic-control step must change the runtime control mechanism, not just gait
+parameters. Valid next directions are: repair `SingleArticulation`/
+`SimulationManager` compatibility in the IsaacLab context, find a known-good
+official Isaac Sim dynamic-body example in the installed distribution and port
+it faithfully, use the correct non-deprecated
+`isaacsim.core.experimental.prims.Articulation` API, or use an official Arena
+task entry point whose body/joint state changes are verified before adding the
+box. Do not keep changing hip/knee amplitudes while travel is exactly zero.
 
 Current direct control-path repair script:
 `scripts/isaac/build_core_world_dynamic_quadruped_carry_scene.py` with launcher
@@ -270,6 +280,21 @@ counts were `front_carry: 1`, `low_front_carry: 1`,
 morphology/load-dependent posture-selection plumbing only. It is still a
 kinematic proxy with box pose following, not dynamic robot walking, balance,
 contact grasping, or learned carrying.
+
+2026-07-04 velocity-controlled dynamic rigid-body Isaac probe:
+`scripts/isaac/build_velocity_controlled_dynamic_carry_scene.py` with launcher
+`scripts/isaac/run_velocity_controlled_dynamic_carry_scene.sh` tests a dynamic
+torso rigid body with a fixed-joint dynamic payload while avoiding IsaacLab
+Articulation/RigidObject tensors. Completed negative smokes:
+`20260704_velocity_dynamic_carry_smoke1` on GPU and
+`20260704_velocity_dynamic_carry_cpu_smoke1` on CPU both completed, but torso
+and box travel stayed 0.0. GPU additionally logged
+`PxRigidDynamic::setLinearVelocity(): it is illegal to call this method if
+PxSceneFlag::eENABLE_DIRECT_GPU_API is enabled`. CPU produced no travel either,
+showing that runtime writes to USD `RigidBodyAPI.velocity` are not an effective
+control path. `CONTROL_MODE=physx_force` was also tested and is negative so
+far: CPU/direct-step smokes showed 0 travel, and GPU force mode hit direct-GPU
+`addForce()`/`addTorque()` restrictions.
 
 `SKIP_EXPLICIT_STATE_RESET=1` is diagnostic-only. It may be used to isolate
 Articulation/RigidObject reset-write failures, but any result with that switch

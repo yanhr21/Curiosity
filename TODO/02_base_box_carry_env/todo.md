@@ -214,6 +214,63 @@
 - [ ] Replace the adaptive scaffold's pose-follow carry with real dynamic
   contact or a controller-backed articulated carrier before making any robot
   carrying success claim.
+- [x] Add velocity/force-controlled dynamic rigid-body Isaac carry probe:
+  `scripts/isaac/build_velocity_controlled_dynamic_carry_scene.py` and
+  `scripts/isaac/run_velocity_controlled_dynamic_carry_scene.sh`. This is a
+  diagnostic only: dynamic torso rigid body, fixed-joint dynamic payload, and
+  visual gait legs. It is not legged articulation control or learned carrying.
+- [x] Run `CONTROL_MODE=velocity_attr` dynamic rigid-body probe on GPU:
+  `experiments/outputs/velocity_controlled_dynamic_carry_scene/20260704_velocity_dynamic_carry_smoke1/velocity_controlled_dynamic_carry_summary.json`.
+  Command:
+  `STAMP=20260704_velocity_dynamic_carry_smoke1 STEPS=360 PAYLOAD_MASS=5.0 TARGET_X=1.2 TARGET_SPEED=0.34 TARGET_HEIGHT=0.58 DEVICE=cuda:0 RENDER=0 bash scripts/isaac/run_velocity_controlled_dynamic_carry_scene.sh`.
+  Result: completed 360/360, falls 0, drops 0, but torso and box travel were
+  0.0. PhysX direct-GPU rejected runtime linear velocity writes with
+  `PxRigidDynamic::setLinearVelocity()` direct-GPU API errors.
+- [x] Run `CONTROL_MODE=velocity_attr` dynamic rigid-body probe on CPU:
+  `experiments/outputs/velocity_controlled_dynamic_carry_scene/20260704_velocity_dynamic_carry_cpu_smoke1/velocity_controlled_dynamic_carry_summary.json`.
+  Command:
+  `STAMP=20260704_velocity_dynamic_carry_cpu_smoke1 STEPS=240 PAYLOAD_MASS=5.0 TARGET_X=0.9 TARGET_SPEED=0.30 TARGET_HEIGHT=0.58 DEVICE=cpu RENDER=0 bash scripts/isaac/run_velocity_controlled_dynamic_carry_scene.sh`.
+  Result: completed 240/240, falls 0, drops 0, but torso and box travel were
+  still 0.0. Runtime USD `RigidBodyAPI.velocity` writes are not an effective
+  control path in this scene.
+- [x] Run `CONTROL_MODE=physx_force` dynamic rigid-body probe through
+  `omni.physx.get_physx_simulation_interface().apply_force_at_pos` on compute.
+  CPU, GPU, and direct-step CPU smokes all completed without torso/box travel:
+  `20260704_force_dynamic_carry_cpu_smoke1`,
+  `20260704_force_dynamic_carry_gpu_smoke1`,
+  `20260704_force_direct_step_cpu_smoke1`, and
+  `20260704_force_direct_step_gpualloc_cpu_smoke1`. GPU also rejected runtime
+  `addForce()`/`addTorque()` under direct GPU API. Do not tune gains on this
+  route while travel remains exactly zero.
+- [x] Add and run a bare non-tensor `CuboidCfg.func` force/fall isolation:
+  `scripts/isaac/build_physx_force_cube_smoke.py` and
+  `scripts/isaac/run_physx_force_cube_smoke.sh`. Results
+  `20260704_physx_force_cube_cpu_smoke1` and
+  `20260704_physx_force_cube_simstep_cpu_smoke2` both kept the cube at
+  `[0, 0, 0.75]` with 0 x travel and no gravity drop. Treat direct
+  `CuboidCfg.func` rigid-body creation as non-evidence until a separate
+  observable dynamics path is found.
+- [x] Add and run `RigidObjectCfg` force/fall isolation:
+  `scripts/isaac/build_physx_force_rigidobject_cube_smoke.py` and
+  `scripts/isaac/run_physx_force_rigidobject_cube_smoke.sh`. USD-only pose
+  smoke stayed at 0 travel; root-state smoke with new stage failed at step 0
+  with `Failed to get rigid body transforms from backend`. This confirms the
+  current IsaacLab RigidObject tensor path is not usable as the active dynamic
+  carry route.
+- [x] Add Isaac Sim core `DynamicCuboid` smoke:
+  `scripts/isaac/build_core_world_dynamic_cube_smoke.py` and
+  `scripts/isaac/run_core_world_dynamic_cube_smoke.sh`. Initial run with
+  `add_default_ground_plane()` stalled while checking Nucleus assets root.
+  Local-ground run progressed to adding core objects but then stalled before
+  `world.reset()`. Do not use core object wrappers as the main route unless
+  this initialization stall is fixed.
+- [ ] Next dynamic Isaac attempt must avoid all currently failed routes:
+  IsaacLab Articulation tensors, IsaacLab RigidObject tensors, direct
+  `CuboidCfg.func` pose-read dynamics, USD velocity attributes, runtime PhysX
+  force on the current direct-spawn bodies, and core object wrappers that stall
+  before reset. Prefer a known-good official task entry point, a minimal
+  Isaac/PhysX example copied faithfully from installed tests, or a pure USD
+  scene whose dynamic body motion is verified before adding a carrier.
 - [ ] Run `WBC_MODE=walk` direct-scene smoke in compute allocation.
 - [ ] Add basic contact/drop/fall metrics to the direct scene.
 - [ ] Add box parameter sweep for mass, size, initial pose, and friction.

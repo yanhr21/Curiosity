@@ -307,6 +307,35 @@ bin. It uses PhysX at 200 Hz with 50 Hz control.
   completion, drop cases, target-threshold hits, support-margin proxy, and
   strategy counts.
 
+- `build_velocity_controlled_dynamic_carry_scene.py`
+  Dynamic rigid-body carry control-path diagnostic. It creates a dynamic torso,
+  dynamic fixed-joint payload, and visual walking legs. `CONTROL_MODE=velocity_attr`
+  has been tested on CPU and GPU and is negative: travel remains 0.0.
+  `CONTROL_MODE=physx_force` has also been tested on CPU, GPU, and direct-step
+  CPU paths and is negative: travel remains 0.0. GPU force mode also hits
+  PhysX direct-GPU `addForce()`/`addTorque()` restrictions.
+
+- `run_velocity_controlled_dynamic_carry_scene.sh`
+  Compute-node launcher for the dynamic rigid-body diagnostic. Key variables:
+  `CONTROL_MODE`, `STEPS`, `PAYLOAD_MASS`, `TARGET_X`, `TARGET_SPEED`,
+  `TARGET_HEIGHT`, `DEVICE`, and `RENDER`.
+
+- `build_physx_force_cube_smoke.py`
+  Bare non-tensor `CuboidCfg.func` force/fall isolation. CPU smokes with
+  direct PhysX stepping and normal `sim.step()` both showed 0 travel and no
+  gravity drop, so this route is not evidence of active rigid-body dynamics.
+
+- `build_physx_force_rigidobject_cube_smoke.py`
+  `RigidObjectCfg` force/fall isolation. USD-only reads stayed fixed; tensor
+  root-state reads failed with `Failed to get rigid body transforms from
+  backend`, matching the broader RigidObject tensor blocker.
+
+- `build_core_world_dynamic_cube_smoke.py`
+  Isaac Sim core `DynamicCuboid` isolation. The default-ground run stalled on
+  Nucleus asset-root lookup; the local-ground run progressed to object
+  creation but stalled before `world.reset()`. Treat this as a blocked core API
+  diagnostic, not a validated dynamic route.
+
 - `run_anymal_payload_carry.py`
   Official ANYmal-C RSL-RL locomotion payload diagnostic. Current manager-based
   PhysX smokes fail before rollout with `Failed to get DOF velocities from
