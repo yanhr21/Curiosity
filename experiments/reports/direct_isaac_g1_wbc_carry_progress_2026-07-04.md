@@ -173,6 +173,145 @@ Additional Slurm checks:
 Incomplete. No robot walking, balancing, or box-carrying evidence exists yet in
 the direct Isaac scene.
 
+## Official Isaac Policy Route
+
+After the custom G1/ANYmal tensor routes and hand-authored USD drive routes
+failed to produce usable dynamic locomotion, the current Isaac-native route is
+to start from NVIDIA's installed policy examples:
+
+```text
+script: scripts/isaac/run_official_policy_locomotion_smoke.py
+launcher: scripts/isaac/run_official_policy_locomotion_smoke.sh
+source: installed isaacsim.robot.policy.examples Go2/H1 flat-terrain wrappers
+assets: /public/home/yanhongru/isaac_asset_mirror/Assets/Isaac/6.0
+```
+
+Implemented changes:
+
+- Manually exposed the installed extension namespace paths for
+  `isaacsim.robot.policy.examples`, `isaacsim.core.experimental.prims`, and
+  `isaacsim.core.experimental.utils`.
+- Downloaded local official Go2/H1 USD, policy checkpoint, and environment
+  config assets so compute nodes do not need network access.
+- Replaced blocking standalone `new_stage()` and `next_update_async()` calls
+  with reuse of the AppLauncher-created stage plus synchronous
+  `simulation_app.update()`.
+- Added `PAYLOAD_MODE=fixed_base`, which creates a physical rigid Go2 carry
+  box and a fixed joint to `/World/Go2/Geometry/base`.
+
+No-GPU-allocation diagnostic status:
+
+```text
+stamp: 20260704_official_go2_policy_sync_smoke7
+job: 165202
+node: server05
+command:
+STAMP=20260704_official_go2_policy_sync_smoke7 ROBOT=go2 STEPS=160 \
+COMMAND_X=1.0 COMMAND_Y=0.0 COMMAND_YAW=0.0 DEVICE=cpu RENDER=0 \
+bash scripts/isaac/run_official_policy_locomotion_smoke.sh
+```
+
+The run passed the previous `new_stage()` blocker and reached:
+
+```text
+[PROGRESS] Reusing current USD stage
+```
+
+It then stalled before local ground creation. Additional progress points were
+added around `SimulationManager.set_backend`, `set_physics_sim_device`,
+`set_physics_dt`, `PhysicsScene` authoring, and ground creation. This is still
+a running diagnostic path, not walking or carrying evidence. If the no-payload
+Go2 run passes, the immediate next run is the same launcher with:
+
+Follow-up diagnostics in the server05 no-GPU allocation:
+
+```text
+diag13:
+  error: AttributeError: type object 'PhysxManager' has no attribute
+         'get_active_physics_engine'
+  fix: add a local compatibility shim returning "physx"
+
+diag14:
+  error: ValueError: Invalid device identifier: cuda:0
+  cause: AppLauncher/Articulation default still tried to use cuda:0 even
+         though the run requested DEVICE=cpu and the allocation had no GPU
+  fix: force IsaacLab PhysicsManager device to cpu in CPU diagnostics
+
+diag15:
+  progress: Go2 policy object was created
+  blocker: articulation physics simulation view was invalid before
+           `robot.initialize()`
+  log line:
+    Invalid physics simulation view. Articulation
+    (['/World/Go2/Geometry/base']) will not be initialized
+  fix: add a pre-initialize validity check so the script writes a failure
+       summary instead of hanging
+```
+
+Conclusion: CPU/no-GPU-allocation can validate local assets and policy wrapper
+construction, but it is not enough to initialize the Go2 articulation physics
+view. The next active run requests a real GPU:
+
+```text
+stamp: 20260704_official_go2_policy_real_gpu_diag16
+job: 165252
+request: srun -p gpu --gres=gpu:1 --time=00:25:00
+command:
+STAMP=20260704_official_go2_policy_real_gpu_diag16 ROBOT=go2 STEPS=160 \
+COMMAND_X=1.0 COMMAND_Y=0.0 COMMAND_YAW=0.0 DEVICE=cuda:0 RENDER=0 \
+bash scripts/isaac/run_official_policy_locomotion_smoke.sh
+status when recorded: pending, reason `(Priority)`
+```
+
+If the real-GPU no-payload Go2 run passes, the immediate next run is the same
+launcher with:
+
+```bash
+PAYLOAD_MODE=fixed_base PAYLOAD_MASS=2.0 ROBOT=go2 COMMAND_X=0.6
+```
+
+That next run can only be claimed as fixed-payload balance-under-load evidence
+if robot and payload travel are nonzero and fall/drop events remain zero.
+
+Actual real-GPU result:
+
+```text
+stamp: 20260704_official_go2_policy_real_gpu_diag16
+node: server10
+gpu: NVIDIA H200
+result: negative
+```
+
+The Go2 policy object was created on CUDA, but before policy initialization the
+articulation physics view was invalid:
+
+```text
+[PROGRESS] Policy robot object created: go2
+[PROGRESS] Pre-initialize physics view: valid=False initialized=False
+[ERROR] Articulation physics tensor entity invalid before initialize
+```
+
+Enabling explicit `SimulationManager.set_backend("torch")` in
+`20260704_official_go2_policy_real_gpu_configsm_diag17` exited before rollout,
+the same as the CPU/no-GPU diagnostics. This is not walking evidence.
+
+Pure `SimulationApp` follow-up:
+
+```text
+script: scripts/isaac/run_official_policy_locomotion_simapp_smoke.py
+launcher: scripts/isaac/run_official_policy_locomotion_simapp_smoke.sh
+```
+
+The default pure Isaac Sim base experience failed because the local registry
+mirror does not include `isaacsim.anim.robot.schema`. Using the local
+IsaacLab headless experience starts successfully and creates the Go2 policy
+object on H200, but `simapp_diag5` through `simapp_diag8` still report
+`physics_tensor_entity_invalid` before initialization. Explicit warmup/view
+creation and explicit stage-context binding do not make the tensor entity
+valid. `simapp_diag9` with explicit `SimulationManager.set_backend` again
+exits before rollout. This route is therefore still a negative diagnostic, not
+a locomotion or carrying result.
+
 ## GPU Allocation Results
 
 GPU allocation:

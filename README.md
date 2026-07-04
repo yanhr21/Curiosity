@@ -53,6 +53,11 @@ morphology-aware posture selection.
 - `scripts/isaac/`: strict Isaac Lab-Arena execution scripts for the real G1
   brown-box loco-manipulation path plus the current direct carrying-task scene
   diagnostic.
+- `scripts/isaac/run_official_policy_locomotion_smoke.py`: current
+  Isaac-native robot-control route using NVIDIA's installed Go2/H1 locomotion
+  policy examples and local official assets. It supports an optional Go2
+  `PAYLOAD_MODE=fixed_base` diagnostic for walking with a rigid box fixed to
+  the base link; this is not unknown-box grasping or final carrying success.
 - `scripts/isaac/build_adaptive_probe_carry_scene.py`: current direct Isaac
   scaffold for active probing and morphology-dependent posture selection.
 - `scripts/isaac/run_adaptive_probe_carry_sweep.sh`: current direct Isaac

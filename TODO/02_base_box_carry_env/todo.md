@@ -214,6 +214,65 @@
 - [ ] Replace the adaptive scaffold's pose-follow carry with real dynamic
   contact or a controller-backed articulated carrier before making any robot
   carrying success claim.
+- [x] Add official Isaac robot policy standalone smoke:
+  `scripts/isaac/run_official_policy_locomotion_smoke.py` and
+  `scripts/isaac/run_official_policy_locomotion_smoke.sh`. It ports the
+  installed NVIDIA Go2/H1 flat-terrain policy examples into a compute-node
+  diagnostic using local mirrored USD/policy/config assets. This is not a box
+  carrying claim.
+- [x] Download the local official Go2/H1 assets needed for that smoke under
+  `/public/home/yanhongru/isaac_asset_mirror/Assets/Isaac/6.0/`, including
+  Go2 USD payload files and Go2/H1 PhysX policy checkpoints/configs.
+- [x] Add `PAYLOAD_MODE=fixed_base` to the official-policy smoke. For Go2 it
+  authors a physical rigid carry box and a fixed joint to
+  `/World/Go2/Geometry/base`, then logs payload pose, payload travel, payload
+  drops, robot travel, and falls. This is fixed-payload balance-under-load
+  evidence only if a compute-node run verifies nonzero locomotion and no
+  safety failure.
+- [x] Fix two standalone Isaac integration blockers in the official-policy
+  smoke: expose the extension namespace paths for
+  `isaacsim.robot.policy.examples`, and avoid blocking `new_stage()`/
+  `next_update_async()` calls by reusing the AppLauncher stage and stepping
+  through synchronous `simulation_app.update()`.
+- [x] Run no-GPU-allocation CPU official Go2 diagnostics in the held
+  server05 allocation. Results: `diag13` failed before construction because
+  the current IsaacLab `PhysxManager` lacked
+  `get_active_physics_engine`; a compatibility shim fixed that. `diag14`
+  reached policy construction but failed with `Invalid device identifier:
+  cuda:0`; forcing `PhysicsManager._device = "cpu"` fixed construction.
+  `diag15` created the Go2 policy object but reported
+  `Invalid physics simulation view. Articulation (['/World/Go2/Geometry/base'])
+  will not be initialized` and hung at `robot.initialize()`. The script now
+  checks `is_physics_tensor_entity_valid()` before initialization and writes a
+  failure summary instead of hanging.
+- [ ] Run and verify real-GPU official Go2 diagnostic
+  `20260704_official_go2_policy_real_gpu_diag16`. Current Slurm state when
+  submitted: job `165252`, partition `gpu`, request `--gres=gpu:1`, reason
+  `(Priority)`. Passing criterion: completed steps, Go2 travel greater than
+  0.5 m under command `[1, 0, 0]`, fall events 0, and no policy/asset error.
+- [x] Run real-GPU official Go2 AppLauncher diagnostic
+  `20260704_official_go2_policy_real_gpu_diag16` on server10. Result:
+  official Go2 policy object was created on H200/CUDA, but the articulation
+  physics tensor entity was invalid before initialization:
+  `Invalid physics simulation view. Articulation (['/World/Go2/Geometry/base'])
+  will not be initialized`. Enabling explicit `SimulationManager.set_backend`
+  in `diag17` still exited before rollout. No walking evidence.
+- [x] Add pure Isaac Sim `SimulationApp` official Go2 diagnostic:
+  `scripts/isaac/run_official_policy_locomotion_simapp_smoke.py` and
+  `scripts/isaac/run_official_policy_locomotion_simapp_smoke.sh`. The default
+  base experience failed because the local registry mirror lacks
+  `isaacsim.anim.robot.schema`; using the local IsaacLab headless experience
+  started successfully.
+- [x] Run pure SimulationApp Go2 diagnostics `simapp_diag3` through
+  `simapp_diag9` on real GPU. Result: local Go2 assets and policy wrapper load,
+  but the articulation physics tensor entity remains invalid before
+  initialization. Explicit warmup/view creation does not fix it; explicit
+  `SimulationManager.set_backend` still exits before rollout. No walking
+  evidence and no carrying evidence.
+- [ ] If the no-payload Go2 smoke passes, immediately run:
+  `PAYLOAD_MODE=fixed_base PAYLOAD_MASS=2.0 ROBOT=go2 COMMAND_X=0.6` through
+  the same launcher. Passing criterion: nonzero robot and payload travel,
+  fall events 0, payload drop events 0. Do not label it unknown-box carrying.
 - [x] Add velocity/force-controlled dynamic rigid-body Isaac carry probe:
   `scripts/isaac/build_velocity_controlled_dynamic_carry_scene.py` and
   `scripts/isaac/run_velocity_controlled_dynamic_carry_scene.sh`. This is a

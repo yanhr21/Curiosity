@@ -109,6 +109,32 @@ These rules override all other project instructions.
   `Failed to get rigid body transforms from backend`; Isaac Sim core
   `DynamicCuboid` wrappers stalled before a completed reset. Do not rerun these
   unchanged or tune parameters on them.
+- Current 2026-07-04 official-policy route:
+  `scripts/isaac/run_official_policy_locomotion_smoke.py` with launcher
+  `scripts/isaac/run_official_policy_locomotion_smoke.sh`. This route uses the
+  installed NVIDIA `isaacsim.robot.policy.examples` Go2/H1 flat-terrain policy
+  wrappers and locally mirrored official USD/policy/config assets. It is the
+  active robot-control path for "make a real Isaac robot walk first, then add
+  the box"; it should not be blocked on unrelated external model downloads.
+  The script also supports `PAYLOAD_MODE=fixed_base` for a Go2 rigid box fixed
+  to the base link. That mode is only a fixed-payload balance diagnostic until
+  a compute-node run verifies nonzero robot/payload travel, zero falls, and
+  zero payload drops.
+- 2026-07-04 official-policy integration fixes already applied: extension
+  namespace paths are added manually for `isaacsim.robot.policy.examples`, the
+  script reuses the AppLauncher-created USD stage instead of calling
+  `new_stage()`, and the standalone loop uses synchronous
+  `simulation_app.update()` instead of `next_update_async()`. Do not revert to
+  the previously hanging `new_stage()`/async-update path without a concrete
+  reason.
+- 2026-07-04 official Go2 policy diagnostics are negative so far. AppLauncher
+  and pure `SimulationApp` variants can load local Go2 assets and create the
+  policy object on real H200 GPU, but the articulation physics tensor entity is
+  invalid before initialization:
+  `Invalid physics simulation view. Articulation (['/World/Go2/Geometry/base'])
+  will not be initialized`. Explicit `SimulationManager.set_backend(...)`
+  exits before rollout in this environment. Do not report these runs as
+  walking, balancing, or carrying evidence.
 
 ## 2026-07-04 Active Execution Objective
 
@@ -162,6 +188,9 @@ but continue building the direct Isaac task.
 - Non-tensor USD/PhysX dynamic quadruped carry diagnostic:
   `scripts/isaac/build_usd_dynamic_quadruped_carry_scene.py` and
   `scripts/isaac/run_usd_dynamic_quadruped_carry_scene.sh`.
+- Official Isaac policy locomotion and fixed-payload diagnostic:
+  `scripts/isaac/run_official_policy_locomotion_smoke.py` and
+  `scripts/isaac/run_official_policy_locomotion_smoke.sh`.
 - Local WBC asset checker:
   `scripts/isaac/check_g1_wbc_local_assets.py`.
 - Smoke summary checker:
