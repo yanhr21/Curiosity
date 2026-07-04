@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="520" viewBox="0 0 1400 520" role="img" aria-labelledby="title desc">
+  <title id="title">Active carrying posture adjustment diagnostic storyboard</title>
+  <desc id="desc">A five panel diagnostic visualization showing approach, probing, posture adjustment, lift, and carry for a simplified humanoid carrying a box.</desc>
+  <defs>
+    <style>
+      .bg { fill: #111318; }
+      .panel { fill: #1b2028; stroke: #37404c; stroke-width: 2; }
+      .floor { stroke: #56616f; stroke-width: 5; stroke-linecap: round; }
+      .table { fill: #37404c; }
+      .robot { stroke: #e8edf2; stroke-width: 8; stroke-linecap: round; fill: none; }
+      .leg { stroke: #7fb3d5; stroke-width: 8; stroke-linecap: round; fill: none; }
+      .head { fill: #f2d0a7; }
+      .box { fill: #b78345; stroke: #f0c27a; stroke-width: 3; }
+      .com { fill: #df6b5f; }
+      .cue { stroke: #e8b94f; stroke-width: 5; stroke-linecap: round; fill: none; }
+      .support { fill: rgba(98, 199, 123, 0.22); }
+      .label { fill: #f2f5f7; font: 700 22px system-ui, sans-serif; }
+      .note { fill: #aab4bf; font: 16px system-ui, sans-serif; }
+      .metric { fill: #62c77b; font: 15px system-ui, sans-serif; }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1400" height="520"/>
+
+  <g transform="translate(24,24)">
+    <rect class="panel" x="0" y="0" width="252" height="472" rx="8"/>
+    <text class="label" x="22" y="42">1. approach</text>
+    <text class="note" x="22" y="70">walk toward unknown box</text>
+    <line class="floor" x1="22" y1="395" x2="230" y2="395"/>
+    <rect class="table" x="164" y="292" width="56" height="12"/>
+    <rect class="table" x="171" y="304" width="8" height="91"/>
+    <rect class="table" x="211" y="304" width="8" height="91"/>
+    <rect class="box" x="160" y="248" width="64" height="44"/>
+    <circle class="com" cx="194" cy="270" r="6"/>
+    <circle class="head" cx="74" cy="170" r="18"/>
+    <path class="robot" d="M74 188 L70 266 L94 310"/>
+    <path class="leg" d="M70 266 L48 330 L38 395"/>
+    <path class="leg" d="M70 266 L88 330 L108 395"/>
+    <path class="robot" d="M76 212 L116 246 L142 266"/>
+    <text class="metric" x="22" y="440">strategy: not chosen</text>
+  </g>
+
+  <g transform="translate(296,24)">
+    <rect class="panel" x="0" y="0" width="252" height="472" rx="8"/>
+    <text class="label" x="22" y="42">2. probe</text>
+    <text class="note" x="22" y="70">push-pull and micro-lift</text>
+    <line class="floor" x1="22" y1="395" x2="230" y2="395"/>
+    <rect class="table" x="158" y="292" width="58" height="12"/>
+    <rect class="table" x="166" y="304" width="8" height="91"/>
+    <rect class="table" x="206" y="304" width="8" height="91"/>
+    <rect class="box" x="154" y="246" width="72" height="46"/>
+    <circle class="com" cx="195" cy="269" r="6"/>
+    <circle class="head" cx="94" cy="166" r="18"/>
+    <path class="robot" d="M94 184 L90 266 L112 312"/>
+    <path class="leg" d="M90 266 L63 330 L50 395"/>
+    <path class="leg" d="M90 266 L106 330 L128 395"/>
+    <path class="robot" d="M96 212 L132 244 L158 264"/>
+    <path class="cue" d="M142 252 C154 238 164 236 176 250"/>
+    <path class="cue" d="M178 253 L192 253"/>
+    <text class="metric" x="22" y="440">belief: heavy, moderate slip</text>
+  </g>
+
+  <g transform="translate(568,24)">
+    <rect class="panel" x="0" y="0" width="252" height="472" rx="8"/>
+    <text class="label" x="22" y="42">3. repose</text>
+    <text class="note" x="22" y="70">widen stance, lean, lower hold</text>
+    <line class="floor" x1="22" y1="395" x2="230" y2="395"/>
+    <rect class="table" x="155" y="292" width="58" height="12"/>
+    <rect class="table" x="163" y="304" width="8" height="91"/>
+    <rect class="table" x="203" y="304" width="8" height="91"/>
+    <rect class="box" x="151" y="246" width="76" height="46"/>
+    <circle class="com" cx="197" cy="269" r="6"/>
+    <circle class="head" cx="111" cy="168" r="18"/>
+    <path class="robot" d="M111 186 L100 266 L128 314"/>
+    <path class="leg" d="M100 266 L58 326 L35 395"/>
+    <path class="leg" d="M100 266 L130 326 L160 395"/>
+    <path class="robot" d="M110 214 L143 249 L166 270"/>
+    <rect class="support" x="122" y="222" width="46" height="64"/>
+    <text class="metric" x="22" y="440">strategy: chest support</text>
+  </g>
+
+  <g transform="translate(840,24)">
+    <rect class="panel" x="0" y="0" width="252" height="472" rx="8"/>
+    <text class="label" x="22" y="42">4. lift</text>
+    <text class="note" x="22" y="70">raise box close to torso</text>
+    <line class="floor" x1="22" y1="395" x2="230" y2="395"/>
+    <rect class="box" x="132" y="218" width="82" height="50" transform="rotate(-4 173 243)"/>
+    <circle class="com" cx="184" cy="244" r="6"/>
+    <circle class="head" cx="103" cy="164" r="18"/>
+    <path class="robot" d="M103 182 L92 266 L122 316"/>
+    <path class="leg" d="M92 266 L50 326 L30 395"/>
+    <path class="leg" d="M92 266 L126 326 L164 395"/>
+    <path class="robot" d="M103 214 L136 232 L151 252"/>
+    <path class="robot" d="M103 216 L136 262 L151 267"/>
+    <rect class="support" x="114" y="220" width="48" height="64"/>
+    <text class="metric" x="22" y="440">balance: guarded</text>
+  </g>
+
+  <g transform="translate(1112,24)">
+    <rect class="panel" x="0" y="0" width="252" height="472" rx="8"/>
+    <text class="label" x="22" y="42">5. carry</text>
+    <text class="note" x="22" y="70">slow gait with adjusted posture</text>
+    <line class="floor" x1="22" y1="395" x2="230" y2="395"/>
+    <rect class="box" x="123" y="220" width="82" height="50" transform="rotate(-3 164 245)"/>
+    <circle class="com" cx="176" cy="246" r="6"/>
+    <circle class="head" cx="96" cy="164" r="18"/>
+    <path class="robot" d="M96 182 L86 266 L116 316"/>
+    <path class="leg" d="M86 266 L48 330 L42 395"/>
+    <path class="leg" d="M86 266 L122 326 L152 395"/>
+    <path class="robot" d="M96 214 L128 232 L146 252"/>
+    <path class="robot" d="M96 216 L126 260 L146 268"/>
+    <rect class="support" x="105" y="220" width="48" height="64"/>
+    <path class="cue" d="M34 356 C58 344 79 344 104 356"/>
+    <text class="metric" x="22" y="440">gait: slower, wider stance</text>
+  </g>
+</svg>

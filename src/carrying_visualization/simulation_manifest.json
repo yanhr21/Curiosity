@@ -1,0 +1,53 @@
+{
+  "name": "active-carrying-kinematic-visualization",
+  "date": "2026-07-02",
+  "scope": "browser kinematic simulation for approach, probing, posture adjustment, lift, and carry",
+  "not_claimed": [
+    "physics-accurate simulator",
+    "Isaac Lab or MuJoCo experiment",
+    "reinforcement learning result",
+    "real robot result"
+  ],
+  "entrypoint": "index.html",
+  "static_visual": "diagnostic_storyboard.svg",
+  "phases": [
+    "approach",
+    "probe",
+    "repose",
+    "lift",
+    "carry"
+  ],
+  "robot_controls": [
+    "height",
+    "arm reach",
+    "torque capacity"
+  ],
+  "box_controls": [
+    "mass",
+    "width",
+    "center-of-mass offset",
+    "friction"
+  ],
+  "posture_outputs": [
+    "carry strategy",
+    "stance width",
+    "torso lean",
+    "hold height",
+    "gait speed",
+    "effort",
+    "balance margin",
+    "slip risk"
+  ],
+  "strategies": [
+    "front carry",
+    "low carry",
+    "chest support",
+    "asymmetric carry",
+    "abort posture"
+  ],
+  "verification": [
+    "node --check src/carrying_visualization/app.js",
+    "file presence checks for index.html, app.js, styles.css, diagnostic_storyboard.svg, simulation_manifest.json"
+  ]
+}
+

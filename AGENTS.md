@@ -68,6 +68,212 @@ These rules override all other project instructions.
   cross-morphology humanoid box carrying with unknown weight/shape, active
   self-selected posture, long-duration carrying, and non-retargeting
   video-conditioned RL.
+- Current runnable Isaac scaffold: `scripts/isaac/build_adaptive_probe_carry_scene.py`
+  with launcher `scripts/isaac/run_adaptive_probe_carry_scene.sh`.
+  It builds approach, active-probe, posture-adjust, lift, and carry phases in
+  Isaac; estimates load from probing proxies; chooses posture from morphology
+  and load; and logs belief, support-margin proxy, effort proxy, drops, and
+  target distance.
+- The validated 2026-07-04 adaptive Isaac smokes are diagnostic only:
+  `20260704_adaptive_probe_carry_scene_smoke2_clean` selected
+  `low_front_carry` for an 8 kg box and completed 300/300 steps with drop 0;
+  `20260704_adaptive_probe_carry_scene_smoke3_chest` selected
+  `chest_supported_slow` for a short-arm robot carrying an 11 kg larger box
+  and completed 260/260 steps with drop 0.
+- Do not report the adaptive scaffold as dynamic humanoid locomotion, learned
+  balance, learned grasping, true contact carrying, or video-conditioned RL.
+  It is the current Isaac task-construction baseline for making progress while
+  the official G1/ANYmal articulation tensor path is broken.
+- New direct dynamic Isaac route under test:
+  `scripts/isaac/build_usd_dynamic_quadruped_carry_scene.py` with launcher
+  `scripts/isaac/run_usd_dynamic_quadruped_carry_scene.sh`. This route avoids
+  IsaacLab Articulation/RigidObject tensors and instead uses USD/PhysX rigid
+  bodies, revolute joints, fixed joints, and drive target attributes. Its
+  first target is dynamic robot walking with a physical box payload fixed to
+  the torso.
+- 2026-07-04 USD dynamic quadruped results are negative so far:
+  `smoke1` with articulation root on GPU completed but travel stayed 0 and
+  PhysX emitted `setDriveTarget()` direct-GPU errors;
+  `smoke2_noartroot` on GPU and `smoke3_cpu` on CPU completed with no falls
+  or drops but still had torso/box travel 0;
+  `smoke4_core_cpu` failed before rollout because Isaac Sim
+  `SingleArticulation` expected `SimulationManager._get_backend_utils`, which
+  is absent under the current IsaacLab `PhysxManager` context. Do not rerun
+  these unchanged.
+
+## 2026-07-04 Active Execution Objective
+
+The active implementation objective is a real Isaac physics simulation of a
+robot carrying a box. Do not redefine this as a visualization, static scene, or
+box-only smoke test.
+
+Required final behavior:
+
+- Create or integrate a robot in Isaac that can walk and maintain balance in
+  simulation.
+- The robot must complete a box-carrying task in simulation.
+- While carrying the box in any claimed carrying posture, the robot must keep
+  balance and continue walking.
+
+Current acceptable intermediate milestones:
+
+- Isaac scene construction smoke tests.
+- Box-only rigid-body gravity/collision validation.
+- Robot asset loading and standing diagnostics.
+- Locomotion policy or controller integration diagnostics.
+- Contact and carry-object attachment/contact diagnostics.
+
+These intermediate milestones are not completion. The goal is incomplete until
+there is Isaac physics evidence of a robot walking while carrying a box and
+remaining balanced.
+
+Do not wait on external models or official demos if they block scene
+construction. Use relevant official work and code as references or baselines,
+but continue building the direct Isaac task.
+
+### Current Direct Isaac Execution Path
+
+- Main scene script: `scripts/isaac/build_minimal_carry_scene.py`.
+- Compute launcher: `scripts/isaac/run_minimal_carry_scene.sh`.
+- Stand/walk/payload sequence:
+  `scripts/isaac/run_g1_wbc_smoke_sequence.sh`.
+- Diagnostic proxy scene:
+  `scripts/isaac/build_proxy_carry_scene.py`.
+- Direct carrying-task scene diagnostic:
+  `scripts/isaac/build_direct_carry_task_scene.py` and
+  `scripts/isaac/run_direct_carry_task_scene.sh`.
+- Low-level contact-carry diagnostics:
+  `scripts/isaac/build_contact_carry_scene.py`,
+  `scripts/isaac/run_contact_carry_scene.sh`,
+  `scripts/isaac/build_contact_carry_rigid_scene.py`, and
+  `scripts/isaac/run_contact_carry_rigid_scene.sh`.
+- MuJoCo fallback dynamic payload diagnostic:
+  `scripts/mujoco/run_quadruped_payload_carry.py` and
+  `scripts/mujoco/run_quadruped_payload_carry.sh`.
+- Non-tensor USD/PhysX dynamic quadruped carry diagnostic:
+  `scripts/isaac/build_usd_dynamic_quadruped_carry_scene.py` and
+  `scripts/isaac/run_usd_dynamic_quadruped_carry_scene.sh`.
+- Local WBC asset checker:
+  `scripts/isaac/check_g1_wbc_local_assets.py`.
+- Smoke summary checker:
+  `scripts/isaac/check_carry_smoke_summary.py`.
+- Current local WBC asset root:
+  `/public/home/yanhongru/isaac_asset_mirror/Assets/Isaac/6.0/Isaac/IsaacLab/Arena/wbc_policy/`.
+
+Historical first GPU validation command:
+
+```bash
+RUN_PAYLOAD=0 DEVICE=cuda:0 bash scripts/isaac/run_g1_wbc_smoke_sequence.sh
+```
+
+It has already been tried on job `164814` and failed before stepping with
+`Failed to get DOF positions from backend`. Do not repeat the same G1 smoke
+without a concrete tensor-backend fix or a different official Arena entry path.
+
+If a future fix makes stand and walk pass, run payload diagnostics with:
+
+```bash
+RUN_PAYLOAD=1 DEVICE=cuda:0 bash scripts/isaac/run_g1_wbc_smoke_sequence.sh
+```
+
+CPU-only and direct GPU G1 articulation smokes are not valid paths yet on this
+cluster: repeated compute-node diagnostics failed before stepping with
+`Failed to get DOF positions from backend`, including after `InteractiveScene`,
+`SKIP_EXPLICIT_STATE_RESET=1`, and `DISABLE_USD_PHYSICS_UPDATES=1`.
+CPU may still be used for box-only rigid-body smoke, but not for robot
+locomotion or carrying claims.
+
+The proxy scene is allowed only as an Isaac scene/output skeleton diagnostic.
+Its `kinematic_proxy_carrier_pose-follow_payload` output must not be reported as
+humanoid walking, balancing, grasping, or carrying success.
+
+The direct carrying-task scene is the current fastest runnable Isaac task
+construction path. Its validated smoke
+`20260704_direct_carry_task_scene_smoke4` reached the carry phase and target
+with a kinematic humanoid proxy and massed box, but it is still diagnostic-only:
+it must not be reported as learned balance, contact-rich grasping, autonomous
+posture selection, or true robot carrying success.
+
+The first low-level contact-carry smoke
+`20260704_contact_carry_smoke1` is a negative result: the dynamic box did not
+move or lift when palms were moved by USD xform edits. The RigidObject-driven
+contact scene also failed on GPU and CPU with
+`Failed to set rigid body transforms in backend`. The next contact route should
+use a pure Omni/PhysX non-tensor kinematic-target API or repair the current
+IsaacLab/PhysX tensor invalidation. Do not rerun the same RigidObject contact
+smoke without a concrete backend change.
+
+The MuJoCo quadruped payload script is allowed as a fallback dynamic physics
+baseline while IsaacLab tensor paths are broken. It uses an assistive stabilizer
+and a welded payload, so it must not be reported as unknown-box grasping,
+active probing, or final Isaac robot-carrying success.
+
+The USD dynamic quadruped script is the preferred next dynamic Isaac attempt
+because it stays in Isaac while avoiding the broken tensor path. Its fixed-box
+payload can count only as a dynamic fixed-payload carrying diagnostic unless it
+produces verified walking, balance, and carry metrics in a compute-node run.
+Even if it passes, it still does not solve unknown free-object grasping or
+video-conditioned active carry.
+
+After the 2026-07-04 USD dynamic negative smokes, the next Isaac dynamic-control
+step must change the runtime control mechanism, not just gait parameters. Valid
+next directions are: repair `SingleArticulation`/`SimulationManager`
+compatibility in the IsaacLab context, use the correct non-deprecated
+`isaacsim.core.experimental.prims.Articulation` API, or locate an available
+dynamic-control interface that can set articulation targets without the broken
+IsaacLab tensor path. Do not keep changing hip/knee amplitudes while travel is
+exactly zero.
+
+Current direct control-path repair script:
+`scripts/isaac/build_core_world_dynamic_quadruped_carry_scene.py` with launcher
+`scripts/isaac/run_core_world_dynamic_quadruped_carry_scene.sh`. This route
+avoids IsaacLab `SimulationContext` and tensor APIs entirely, creates a custom
+USD articulated quadruped plus fixed physical payload in Isaac Sim core
+`World`, and drives it through `SingleArticulation.apply_action()`. Passing
+criterion for this diagnostic is initialized expected DOFs plus nonzero
+measured joint motion in a compute-node run. Do not report it as walking,
+balancing, carrying, unknown-object handling, or learned control unless later
+runs also prove those properties. Current 2026-07-04 result is negative:
+direct `SimulationApp` needed the local IsaacLab headless experience to start,
+then the custom articulation path stopped around `SingleArticulation`
+registration/wrapper and produced no summary; the AppLauncher variant reached
+`Creating SingleArticulation wrapper` and also produced no summary. Do not
+rerun unchanged.
+
+2026-07-04 allocation `curiosity_core_world_0704`, job `165036`, node
+`server10`, also tested the missed USD/PhysX combination
+`ARTICULATION_ROOT=1 CONTROL_MODE=usd_drive_attr DEVICE=cpu` under stamp
+`20260704_usd_dynamic_quad_payload_smoke5_cpu_artroot`. It completed 300/300
+steps with falls 0 and drops 0, but torso and box travel stayed 0.0. This is a
+negative result, not carrying evidence. Next dynamic-control work must avoid
+repeating custom USD drive-target-only actuation and custom core
+`SingleArticulation` wrapping unchanged.
+
+2026-07-04 official-asset experimental ANYmal articulation probe:
+`scripts/isaac/run_anymal_experimental_articulation_smoke.py` with launcher
+`scripts/isaac/run_anymal_experimental_articulation_smoke.sh` loaded the local
+ANYmal-C USD and exposed 12 DOFs, but smoke9 failed because the physics tensor
+entity stayed invalid after warmup:
+`Instance's physics tensor entity is not valid`. This is a negative
+joint-control diagnostic, not walking or carrying evidence. Do not keep waiting
+on this route before building the direct Isaac task.
+
+2026-07-04 direct adaptive Isaac sweep:
+`scripts/isaac/run_adaptive_probe_carry_sweep.sh` ran 5 scaffold cases in
+compute allocation `165112` on `server10` under stamp
+`20260704_adaptive_direct_sweep1`. Aggregate output:
+`experiments/outputs/adaptive_probe_carry_scene_sweeps/adaptive_probe_sweep_20260704_adaptive_direct_sweep1/adaptive_probe_sweep_summary.json`.
+Result: 5/5 cases completed, 0 drop cases, 5/5 reached the target threshold
+of 0.08 m, minimum support-margin proxy over cases was 0.0769 m, and strategy
+counts were `front_carry: 1`, `low_front_carry: 1`,
+`chest_supported_slow: 3`. This validates parameterized scene execution and
+morphology/load-dependent posture-selection plumbing only. It is still a
+kinematic proxy with box pose following, not dynamic robot walking, balance,
+contact grasping, or learned carrying.
+
+`SKIP_EXPLICIT_STATE_RESET=1` is diagnostic-only. It may be used to isolate
+Articulation/RigidObject reset-write failures, but any result with that switch
+must not be reported as carrying success.
 
 ## Non-Retargeting Rule
 

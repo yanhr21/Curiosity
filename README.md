@@ -33,6 +33,10 @@ morphology-aware posture selection.
 ## Documents
 
 - `IDEA/idea.md`: concise active idea and success gate.
+- `docs/execution_path_2026-07-02.md`: concrete executable path, source
+  inventory, platform choice, and phase gates.
+- `docs/reference_clone_inventory_2026-07-02.md`: reference code/model clones
+  for Digit/MuJoCo and mc_rtc loco-manipulation lineage.
 - `docs/2026-07-02_research_overview.md`: main survey and conclusion.
 - `docs/robot_carrying_capability_review.md`: humanoid carrying capability
   review.
@@ -40,6 +44,29 @@ morphology-aware posture selection.
   learning review.
 - `docs/research_program_design.md`: proposed experiment and evaluation
   design.
+- `PLAN/`: staged execution plans.
+- `TODO/`: staged task lists.
+- `src/carrying_visualization/`: browser diagnostic visualization for
+  box-carrying posture adjustment.
+- `experiments/reports/carrying_visualization_completion_audit_2026-07-02.md`:
+  requirement-by-requirement audit for the first kinematic visualization step.
+- `scripts/isaac/`: strict Isaac Lab-Arena execution scripts for the real G1
+  brown-box loco-manipulation path plus the current direct carrying-task scene
+  diagnostic.
+- `scripts/isaac/build_adaptive_probe_carry_scene.py`: current direct Isaac
+  scaffold for active probing and morphology-dependent posture selection.
+- `scripts/isaac/run_adaptive_probe_carry_sweep.sh`: current direct Isaac
+  sweep runner. The 2026-07-04 sweep
+  `adaptive_probe_sweep_20260704_adaptive_direct_sweep1` completed 5/5
+  diagnostic scaffold cases with 0 drops and strategy diversity across
+  `front_carry`, `low_front_carry`, and `chest_supported_slow`. This is not a
+  dynamic robot-carrying success claim.
+- `experiments/reports/isaac_arena_g1_locomanip_preflight_2026-07-02.md`:
+  Isaac preflight status and current blockers.
+- `experiments/reports/direct_isaac_g1_wbc_carry_progress_2026-07-04.md`:
+  latest Isaac execution status, including the runnable
+  `direct_carry_task_scene` diagnostic and the still-blocked G1 articulation
+  path.
 - `AGENTS.md`: active project rules for future agents.
 
 ## Non-Goal

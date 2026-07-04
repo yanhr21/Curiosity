@@ -85,6 +85,9 @@ No success claim is allowed unless the method:
 
 ## Active References
 
+- Execution path: `docs/execution_path_2026-07-02.md`
+- Reference clone inventory:
+  `docs/reference_clone_inventory_2026-07-02.md`
 - Main survey: `docs/2026-07-02_research_overview.md`
 - Robot carrying review: `docs/robot_carrying_capability_review.md`
 - Video-conditioned learning review:
