@@ -55,6 +55,7 @@ print("[PROGRESS] AppLauncher started", flush=True)
 import numpy as np  # noqa: E402
 from isaacsim.core.api import World  # noqa: E402
 from isaacsim.core.prims import SingleArticulation  # noqa: E402
+from isaacsim.core.simulation_manager import SimulationManager  # noqa: E402
 from isaacsim.core.utils.stage import create_new_stage, get_current_stage  # noqa: E402
 from isaacsim.core.utils.types import ArticulationAction  # noqa: E402
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics  # noqa: E402
@@ -70,6 +71,35 @@ LEG_PHASES = {
     "rl": math.pi,
     "rr": 0.0,
 }
+
+
+def _patch_core_api_simulation_manager_compat() -> None:
+    if not hasattr(SimulationManager, "_backend"):
+        SimulationManager._backend = "numpy"
+    if not hasattr(SimulationManager, "get_backend"):
+        SimulationManager.get_backend = classmethod(lambda cls: getattr(cls, "_backend", "numpy"))
+    if not hasattr(SimulationManager, "_get_backend_utils"):
+        def _get_backend_utils(cls):
+            backend = getattr(cls, "_backend", "numpy")
+            if backend == "numpy":
+                import isaacsim.core.utils.numpy as np_utils
+
+                return np_utils
+            if backend == "torch":
+                import isaacsim.core.utils.torch as torch_utils
+
+                return torch_utils
+            if backend == "warp":
+                import isaacsim.core.utils.warp as warp_utils
+
+                return warp_utils
+            raise RuntimeError(f"Unsupported backend for compatibility shim: {backend}")
+
+        SimulationManager._get_backend_utils = classmethod(_get_backend_utils)
+    if not hasattr(SimulationManager, "get_physics_sim_device"):
+        SimulationManager.get_physics_sim_device = classmethod(lambda cls: args_cli.device)
+    if not hasattr(SimulationManager, "get_physics_dt"):
+        SimulationManager.get_physics_dt = classmethod(lambda cls: 0.005)
 
 
 def _set_xform(prim: Usd.Prim, translation: tuple[float, float, float], scale: tuple[float, float, float]) -> None:
@@ -281,6 +311,8 @@ def run_scene() -> Path:
     csv_path = args_cli.output_dir / "core_world_dynamic_quadruped_carry_state.csv"
     summary_path = args_cli.output_dir / "core_world_dynamic_quadruped_carry_summary.json"
 
+    _patch_core_api_simulation_manager_compat()
+    SimulationManager._backend = "numpy"
     print("[PROGRESS] Creating USD stage", flush=True)
     create_new_stage()
     stage = get_current_stage()

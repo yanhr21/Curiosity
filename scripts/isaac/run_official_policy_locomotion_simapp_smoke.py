@@ -31,6 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--asset-root", type=Path, default=Path("/public/home/yanhongru/isaac_asset_mirror/Assets/Isaac/6.0"))
     parser.add_argument("--output-dir", type=Path, default=Path("experiments/outputs/official_policy_locomotion_simapp_smoke"))
     parser.add_argument("--configure-simulation-manager", action="store_true")
+    parser.add_argument("--reuse-stage", action="store_true")
     return parser.parse_args()
 
 
@@ -94,6 +95,7 @@ from isaacsim.core.experimental.utils import stage as stage_utils  # noqa: E402
 from isaacsim.core.simulation_manager import SimulationManager  # noqa: E402
 from isaacsim.robot.policy.examples.robots.go2 import Go2FlatTerrainPolicy  # noqa: E402
 import isaacsim.robot.policy.examples.robots.go2 as go2_policy_module  # noqa: E402
+from isaaclab.physics import PhysicsManager  # noqa: E402
 import isaaclab.sim.utils.stage as lab_stage_utils  # noqa: E402
 from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdShade  # noqa: E402
 
@@ -161,9 +163,16 @@ def run() -> Path:
     policy_path = _require(f"{asset_root}/Isaac/Samples/Policies/go2/physx_policy.pt")
     env_path = _require(f"{asset_root}/Isaac/Samples/Policies/go2/physx_env.yaml")
 
-    stage = omni.usd.get_context().get_stage()
-    if stage is None:
-        raise RuntimeError("No USD stage attached to pure SimulationApp context.")
+    if args_cli.reuse_stage:
+        stage = omni.usd.get_context().get_stage()
+        if stage is None:
+            raise RuntimeError("No USD stage attached to pure SimulationApp context.")
+        print("[PROGRESS] Reusing current USD stage", flush=True)
+    else:
+        print("[PROGRESS] Creating a fresh USD stage", flush=True)
+        stage = stage_utils.create_new_stage(template="empty")
+        _update_app(steps=2)
+        print("[PROGRESS] Fresh USD stage created", flush=True)
     if not stage.GetPrimAtPath("/World").IsValid():
         stage.DefinePrim("/World", "Xform")
     if not stage.GetPrimAtPath("/World/PhysicsScene").IsValid():
@@ -180,6 +189,13 @@ def run() -> Path:
         print(f"[PROGRESS] SimulationManager configured: backend={backend} device={args_cli.device}", flush=True)
     else:
         print("[PROGRESS] Skipping explicit SimulationManager configuration", flush=True)
+        PhysicsManager._device = str(args_cli.device)
+        print(f"[PROGRESS] IsaacLab PhysicsManager device forced to {args_cli.device}", flush=True)
+        try:
+            SimulationManager.set_physics_sim_device(str(args_cli.device))
+            print(f"[PROGRESS] SimulationManager physics device set without backend: {args_cli.device}", flush=True)
+        except Exception as exc:
+            print(f"[WARN] Could not set SimulationManager physics device without backend: {exc}", flush=True)
 
     print("[PROGRESS] Importing torch", flush=True)
     torch = import_module("torch")

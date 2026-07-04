@@ -269,6 +269,16 @@
   initialization. Explicit warmup/view creation does not fix it; explicit
   `SimulationManager.set_backend` still exits before rollout. No walking
   evidence and no carrying evidence.
+- [x] Run pure SimulationApp Go2 diagnostic
+  `20260704_go2_simapp_fresh_stage_diag10` with a freshly created USD stage,
+  local IsaacLab headless experience, H200 GPU, explicit IsaacLab
+  `PhysicsManager._device` sync, and a best-effort
+  `SimulationManager.set_physics_sim_device` call without `set_backend`.
+  Result: still negative. The Go2 policy object was created, but
+  `is_physics_tensor_entity_valid()` was false before initialization:
+  `Invalid physics simulation view. Articulation (['/World/Go2/Geometry/base'])
+  will not be initialized`. Fresh stage and device sync did not fix the
+  official-policy tensor-articulation path.
 - [ ] If the no-payload Go2 smoke passes, immediately run:
   `PAYLOAD_MODE=fixed_base PAYLOAD_MASS=2.0 ROBOT=go2 COMMAND_X=0.6` through
   the same launcher. Passing criterion: nonzero robot and payload travel,
@@ -318,18 +328,38 @@
   carry route.
 - [x] Add Isaac Sim core `DynamicCuboid` smoke:
   `scripts/isaac/build_core_world_dynamic_cube_smoke.py` and
-  `scripts/isaac/run_core_world_dynamic_cube_smoke.sh`. Initial run with
-  `add_default_ground_plane()` stalled while checking Nucleus assets root.
-  Local-ground run progressed to adding core objects but then stalled before
-  `world.reset()`. Do not use core object wrappers as the main route unless
-  this initialization stall is fixed.
-- [ ] Next dynamic Isaac attempt must avoid all currently failed routes:
-  IsaacLab Articulation tensors, IsaacLab RigidObject tensors, direct
-  `CuboidCfg.func` pose-read dynamics, USD velocity attributes, runtime PhysX
-  force on the current direct-spawn bodies, and core object wrappers that stall
-  before reset. Prefer a known-good official task entry point, a minimal
-  Isaac/PhysX example copied faithfully from installed tests, or a pure USD
-  scene whose dynamic body motion is verified before adding a carrier.
+  `scripts/isaac/run_core_world_simapp_dynamic_cube_smoke.sh`. The working
+  route is pure `SimulationApp` plus Isaac Sim core `World`, local ground, and
+  CPU PhysX. Run
+  `20260704_core_world_simapp_cube_velocity_cpu_diag3` completed 180/180 steps
+  with cube x travel 0.315 m and no script error. This is the first verified
+  non-tensor dynamic-body motion path in the current environment.
+- [x] Add pure core-World fixed-payload dynamic carrier:
+  `scripts/isaac/build_core_world_simapp_fixed_payload_carry.py` and
+  `scripts/isaac/run_core_world_simapp_fixed_payload_carry.sh`. Run
+  `20260704_core_world_simapp_fixed_payload_centerweld_diag2` completed
+  240/240 steps with carrier and payload both traveling 0.3596 m, relative
+  payload error 0.0 m, fall events 0, and payload drop events 0. This is real
+  Isaac dynamic rigid-body fixed-load motion, not legged walking, unknown-box
+  grasping, or learned carrying.
+- [x] Record negative fixed-payload offset result:
+  `20260704_core_world_simapp_fixed_payload_carry_diag1` moved the carrier but
+  a front-offset fixed joint snapped/oscillated, ending with payload relative
+  error about 0.495 m. Use center-weld only as the current stable physical-load
+  diagnostic until the offset joint is repaired.
+- [x] Re-run standalone core-World custom articulated quadruped after adding
+  the `SimulationManager` compatibility shim:
+  `20260704_core_world_quad_payload_shim_diag7`. Result: `SingleArticulation`
+  initialized and exposed 8 DOFs, and joint positions responded to commands,
+  but torso and payload travel stayed 0.0 m. Around step 200, PhysX produced
+  non-finite broadphase bounds and joint states became NaN. This proves partial
+  articulation-control plumbing only; it is not a walking or carrying path.
+- [ ] Next dynamic Isaac attempt should build on the verified pure
+  `SimulationApp` core-World dynamic-body path, not the broken tensor-policy
+  routes. Immediate valid work: add morphology/probing/task metrics around the
+  stable dynamic fixed-payload carrier, then replace the velocity-commanded
+  carrier with a controller-backed articulated base only after the articulation
+  instability is fixed.
 - [ ] Run `WBC_MODE=walk` direct-scene smoke in compute allocation.
 - [ ] Add basic contact/drop/fall metrics to the direct scene.
 - [ ] Add box parameter sweep for mass, size, initial pose, and friction.
