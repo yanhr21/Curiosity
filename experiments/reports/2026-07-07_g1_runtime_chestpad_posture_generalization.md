@@ -379,6 +379,34 @@ zero forward command.
 - Cases:
   `rescue040_lat_unscaled`, `rescue040_lat_unscaled_signneg`,
   `rescue040_milder_crouch`, and `rescue045_mid_crouch`.
+- Result:
+  `fail`, 0/4 cases passed. Slurm job `169944` (`g1_cflat`) ran on
+  `server63` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_rescue_lateral_refine/20260707_g1_lowcarry_close_front_rescue_lateral_refine/close_front_rescue_lateral_refine_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | --- |
+| `rescue040_lat_unscaled` | fail | 489/468 | 811/832 | 84 | Unscaled final-hold lateral correction causes runaway over-travel. |
+| `rescue040_lat_unscaled_signneg` | fail | 674/590 | 626/647 | 0 | Opposite lateral sign is immediately worse. |
+| `rescue040_milder_crouch` | fail | 489/468 | 811/832 | 84 | Milder crouch does not repair the unscaled-lateral failure. |
+| `rescue045_mid_crouch` | fail | 489/468 | 811/832 | 84 | Mid-threshold crouch also matches the runaway failure. |
+
+This rules out unscaled final-hold box-lateral correction. The best
+close-front branch remains `rescue_crouch_abs040`, which keeps the box but
+under-travels at the end. The next narrow test should keep that rescue and
+sweep moderate final-latch thresholds between the current early `1.20 m` latch
+and the too-late `1.80 m` latch.
+
+## Close-Front Rescue Final-Latch Sweep
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_final_latch_sweep.sh`
+- Purpose:
+  retain the useful `rescue_crouch_abs040` and test whether a moderate final
+  latch fixes end-window retention without causing the late-latch collapse.
+- Cases:
+  `final135`, `final145`, and `final155`.
 
 ## Next Step
 
@@ -402,5 +430,7 @@ implementation should add an explicit posture-conditioned controller gate:
   could latch,
 - do not continue lateral roll-target for close-front; rescue crouch is the
   useful controller hook, and its next issue is final lateral retention,
+- do not unscale final-hold box-lateral correction; it causes runaway
+  over-travel and box drops,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

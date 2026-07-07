@@ -8887,7 +8887,15 @@
   error `-0.775/-0.845 m` and no end streak. `rescue_crouch_abs055` gave
   longer target-window dwell (`142`, longest `90`) but dropped the box.
   Lateral roll-target signs both worsened collapse and should not continue.
-- [ ] Run close-front rescue-lateral refine suite:
+- [x] Record close-front rescue-lateral refine suite:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_lateral_refine_suite.sh`.
-  It keeps `rescue_crouch_abs040`, disables final-hold scaling for box lateral
-  correction, checks lateral sign, and tests milder/mid-threshold crouch.
+  Slurm job `169944` (`g1_cflat`) ran on `server63` and failed `0/4`.
+  Unscaled final-hold box-lateral correction was worse: best unscaled cases
+  fell/dropped at `811/832` and over-traveled to about `8.75 m`; opposite
+  sign fell/dropped at `626/647` with no window dwell. Do not continue
+  unscaled lateral correction.
+- [ ] Run close-front rescue final-latch sweep:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_final_latch_sweep.sh`.
+  It keeps `rescue_crouch_abs040` and tests final latch thresholds `1.35`,
+  `1.45`, and `1.55 m`, between the current under-traveling `1.20 m` latch
+  and the too-late `1.80 m` latch.

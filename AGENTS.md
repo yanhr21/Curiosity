@@ -12615,7 +12615,21 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_lateral_refine_suite.sh`.
   It keeps the useful `rescue_crouch_abs040` baseline and tests unscaled
   final-hold box-lateral correction, opposite lateral sign, milder crouch, and
-  a mid-threshold crouch. This remains diagnostic only until strict gates pass.
+  a mid-threshold crouch. Slurm job `169944` (`g1_cflat`) ran on `server63`
+  and failed `0/4`. All unscaled-lateral variants were worse than
+  `rescue_crouch_abs040`: `rescue040_lat_unscaled` fell/dropped at
+  `811/832` and ran away to robot/box travel `8.748/8.771 m`;
+  `rescue040_lat_unscaled_signneg` fell/dropped at `626/647` with
+  target-window stable steps `0`; milder and mid-threshold crouch variants
+  matched the runaway failure. Conclusion: do not unscale box-lateral
+  correction during final hold. The best close-front branch remains
+  `rescue_crouch_abs040`.
+- 2026-07-07 close-front rescue final-latch sweep entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_final_latch_sweep.sh`.
+  It keeps `rescue_crouch_abs040` and tests moderate final-latch thresholds
+  (`1.35`, `1.45`, `1.55 m`) after the `1.20 m` latch under-traveled and the
+  `1.80 m` latch collapsed before activation. This is diagnostic only until
+  strict gates pass.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
