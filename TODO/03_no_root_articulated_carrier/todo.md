@@ -75,8 +75,9 @@
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_chestpad_tilt_support_suite.sh`.
   It starts from the useful early-escape boundary, extends to `1200` steps, and
   tests earlier box-tilt chest-pad triggering plus thicker/higher pad and
-  lower lid geometry under the same strict gates. Record
-  `close_front_chestpad_tilt_support_summary.json` before interpreting.
+  lower lid geometry under the same strict gates. Submitted through tmux
+  `curiosity_g1_chestpad_tilt_0707` as Slurm job `170370` / `g1_chestpad`.
+  Record `close_front_chestpad_tilt_support_summary.json` before interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`

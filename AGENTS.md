@@ -208,7 +208,10 @@ These rules override all other project instructions.
   enables chest-pad collision on earlier box-tilt/target-window triggers, and
   tests thicker/higher chest-pad plus lower top-lid geometry while preserving
   strict fall/drop, target-window, lateral, tilt, and no-rollout-write gates.
-  This is an experiment entrypoint only until
+  Submitted through tmux `curiosity_g1_chestpad_tilt_0707` as Slurm job
+  `170370` / `g1_chestpad`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_chestpad_tilt_support`. This is an
+  experiment entrypoint only until
   `close_front_chestpad_tilt_support_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
