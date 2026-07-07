@@ -186,9 +186,30 @@ These rules override all other project instructions.
   before rollout with a shell syntax error and only wrote a status TSV; it is
   not experiment evidence. Replacement Slurm job `170361` / `g1_tiltearly2`
   was submitted through tmux `curiosity_g1_tilt_escape_early2_0707`, suite
-  stamp prefix `20260707_g1_lowcarry_close_front_tilt_escape_early2`. Do not
-  interpret until `close_front_tilt_escape_summary.json` exists under the
-  early2 output root.
+  stamp prefix `20260707_g1_lowcarry_close_front_tilt_escape_early2`.
+  Result: aggregate `fail`, 0/2 strict cases passed. Both cases had
+  fall/drop `0/0` and rollout writes `0/0/0`. `escape_robot022_box030_scale015`
+  traveled robot/box about `1.963/2.014 m` but failed robot/box tilt
+  `0.610/0.500 rad`, target-window stable `77 < 80`, and final-hold active
+  `268 < 399`; escape was active for `34` steps from step `887`.
+  `escape_robot018_box024_scale020` is the useful boundary: robot/box travel
+  about `2.118/2.130 m`, final lateral error about `0.013/0.150 m`, target
+  stable/longest/end `81/80/80`, robot tilt `0.267 rad`, but box tilt
+  `0.544 rad` still exceeded the `0.45 rad` gate and final-hold active
+  remained `268 < 399`; escape was active for `83` steps from step `792`.
+  Interpretation: early tilt escape can recover the close-front target-window
+  dwell without falls/drops, but it does not provide enough box attitude
+  support or long enough terminal hold. Next close-front test should target
+  physical box pitch support and 1200-step hold, not lateral sign/gain scans.
+- 2026-07-07 close-front chest-pad tilt-support entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_chestpad_tilt_support_suite.sh`.
+  It starts from the useful `escape_robot018_box024_scale020` boundary,
+  extends runs to `1200` steps so the `399` final-hold gate is meaningful,
+  enables chest-pad collision on earlier box-tilt/target-window triggers, and
+  tests thicker/higher chest-pad plus lower top-lid geometry while preserving
+  strict fall/drop, target-window, lateral, tilt, and no-rollout-write gates.
+  This is an experiment entrypoint only until
+  `close_front_chestpad_tilt_support_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

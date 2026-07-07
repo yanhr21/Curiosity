@@ -61,6 +61,22 @@
   stayed pending with an estimated start around `2026-07-07T17:00:00`, so it
   was cancelled before running. There is no result yet; rerun this script when
   GPU priority is available.
+- [x] Add and run final-hold tilt-escape probes for the close-front near-miss.
+  Default thresholds were too late: aggregate `fail`, 0/2, fall/drop `0/0`,
+  writes `0/0/0`, target-window stable/end `76/73`, but tilt and stable-step
+  gates still failed. Early thresholds improved the boundary but still failed:
+  `escape_robot018_box024_scale020` reached robot/box travel about
+  `2.118/2.130 m`, final lateral error about `0.013/0.150 m`, and
+  target-window stable/longest/end `81/80/80` with fall/drop `0/0` and writes
+  `0/0/0`, but box tilt reached `0.544 rad > 0.45` and final-hold active
+  stayed `268 < 399`. Treat this as evidence for a box-attitude-support
+  follow-up, not as a pass.
+- [ ] Run close-front chest-pad tilt-support follow-up:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_chestpad_tilt_support_suite.sh`.
+  It starts from the useful early-escape boundary, extends to `1200` steps, and
+  tests earlier box-tilt chest-pad triggering plus thicker/higher pad and
+  lower lid geometry under the same strict gates. Record
+  `close_front_chestpad_tilt_support_summary.json` before interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`
