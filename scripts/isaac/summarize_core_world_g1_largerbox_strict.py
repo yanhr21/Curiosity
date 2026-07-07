@@ -479,6 +479,60 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "agile_command_hold_lateral_suppressed_by_tilt_steps": summary.get(
             "agile_command_hold_lateral_suppressed_by_tilt_steps"
         ),
+        "agile_command_terminal_support_controller_enabled": summary.get(
+            "agile_command_terminal_support_controller_enabled"
+        ),
+        "agile_command_terminal_support_start_box_target_travel_m": summary.get(
+            "agile_command_terminal_support_start_box_target_travel_m"
+        ),
+        "agile_command_terminal_support_target_m": summary.get(
+            "agile_command_terminal_support_target_m"
+        ),
+        "agile_command_terminal_support_active_steps": summary.get(
+            "agile_command_terminal_support_active_steps"
+        ),
+        "agile_command_terminal_support_first_active_step": summary.get(
+            "agile_command_terminal_support_first_active_step"
+        ),
+        "agile_command_terminal_support_tilt_suppressed_steps": summary.get(
+            "agile_command_terminal_support_tilt_suppressed_steps"
+        ),
+        "agile_command_terminal_support_final_zeroed_steps": summary.get(
+            "agile_command_terminal_support_final_zeroed_steps"
+        ),
+        "agile_command_terminal_support_last_progress_error_m": summary.get(
+            "agile_command_terminal_support_last_progress_error_m"
+        ),
+        "agile_command_terminal_support_last_lateral_error_m": summary.get(
+            "agile_command_terminal_support_last_lateral_error_m"
+        ),
+        "agile_command_terminal_support_last_command_xyz_yaw": summary.get(
+            "agile_command_terminal_support_last_command_xyz_yaw"
+        ),
+        "agile_command_terminal_support_max_abs_command_x": summary.get(
+            "agile_command_terminal_support_max_abs_command_x"
+        ),
+        "agile_command_terminal_support_max_abs_command_y": summary.get(
+            "agile_command_terminal_support_max_abs_command_y"
+        ),
+        "agile_command_terminal_support_max_abs_command_yaw": summary.get(
+            "agile_command_terminal_support_max_abs_command_yaw"
+        ),
+        "terminal_support_posture_controller_enabled": summary.get(
+            "terminal_support_posture_controller_enabled"
+        ),
+        "terminal_support_posture_active_steps": summary.get(
+            "terminal_support_posture_active_steps"
+        ),
+        "terminal_support_posture_first_active_step": summary.get(
+            "terminal_support_posture_first_active_step"
+        ),
+        "terminal_support_posture_last_risk": summary.get(
+            "terminal_support_posture_last_risk"
+        ),
+        "terminal_support_posture_max_risk": summary.get(
+            "terminal_support_posture_max_risk"
+        ),
         "agile_command_stop_target_window_enabled": summary.get(
             "agile_command_stop_target_window_enabled"
         ),

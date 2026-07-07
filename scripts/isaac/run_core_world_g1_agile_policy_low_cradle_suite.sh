@@ -25,7 +25,7 @@ AGILE_HEIGHT_COMMAND="${AGILE_HEIGHT_COMMAND:-0.72}"
 cd "${ROOT_DIR}"
 mkdir -p "${SUITE_DIR}"
 
-env | sort | grep -E '^(AGILE_|APPROACH_|ARM_|BALANCE_|CAPTURE_|CRADLE_|FREE_|G1_|GENERATE_|LARGERBOX_|MIN_|RECORD_|RUN_|STRICT|SUITE_|TARGET_)' \
+env | sort | grep -E '^(AGILE_|APPROACH_|ARM_|BALANCE_|CAPTURE_|CRADLE_|FREE_|G1_|GENERATE_|LARGERBOX_|MIN_|RECORD_|RUN_|STRICT|SUITE_|TARGET_|TERMINAL_)' \
   > "${SUITE_DIR}/agile_policy_low_cradle_env_snapshot.txt"
 
 sleep "${COMPUTE_SIDE_STARTUP_SLEEP}"
@@ -128,6 +128,36 @@ base_python=(
   --agile-command-box-lateral-gain "${AGILE_COMMAND_BOX_LATERAL_GAIN:-0.02}"
   --agile-command-box-lateral-limit "${AGILE_COMMAND_BOX_LATERAL_LIMIT:-0.004}"
   --agile-command-box-lateral-sign "${AGILE_COMMAND_BOX_LATERAL_SIGN:-1.0}"
+  --agile-command-terminal-support-start-box-target-travel "${AGILE_COMMAND_TERMINAL_SUPPORT_START_BOX_TARGET_TRAVEL:--1.0}"
+  --agile-command-terminal-support-target "${AGILE_COMMAND_TERMINAL_SUPPORT_TARGET:--1.0}"
+  --agile-command-terminal-support-deadband "${AGILE_COMMAND_TERMINAL_SUPPORT_DEADBAND:-0.08}"
+  --agile-command-terminal-support-gain "${AGILE_COMMAND_TERMINAL_SUPPORT_GAIN:-0.05}"
+  --agile-command-terminal-support-max-forward "${AGILE_COMMAND_TERMINAL_SUPPORT_MAX_FORWARD:-0.04}"
+  --agile-command-terminal-support-max-reverse "${AGILE_COMMAND_TERMINAL_SUPPORT_MAX_REVERSE:-0.02}"
+  --agile-command-terminal-support-lateral-source "${AGILE_COMMAND_TERMINAL_SUPPORT_LATERAL_SOURCE:-average}"
+  --agile-command-terminal-support-lateral-deadband "${AGILE_COMMAND_TERMINAL_SUPPORT_LATERAL_DEADBAND:-0.10}"
+  --agile-command-terminal-support-lateral-gain "${AGILE_COMMAND_TERMINAL_SUPPORT_LATERAL_GAIN:-0.02}"
+  --agile-command-terminal-support-lateral-limit "${AGILE_COMMAND_TERMINAL_SUPPORT_LATERAL_LIMIT:-0.004}"
+  --agile-command-terminal-support-lateral-sign "${AGILE_COMMAND_TERMINAL_SUPPORT_LATERAL_SIGN:-1.0}"
+  --agile-command-terminal-support-yaw-gain "${AGILE_COMMAND_TERMINAL_SUPPORT_YAW_GAIN:-0.02}"
+  --agile-command-terminal-support-yaw-limit "${AGILE_COMMAND_TERMINAL_SUPPORT_YAW_LIMIT:-0.02}"
+  --agile-command-terminal-support-yaw-sign "${AGILE_COMMAND_TERMINAL_SUPPORT_YAW_SIGN:-1.0}"
+  --agile-command-terminal-support-max-tilt "${AGILE_COMMAND_TERMINAL_SUPPORT_MAX_TILT:-999.0}"
+  --agile-command-terminal-support-max-box-tilt "${AGILE_COMMAND_TERMINAL_SUPPORT_MAX_BOX_TILT:-999.0}"
+  --terminal-support-posture-blend-rate "${TERMINAL_SUPPORT_POSTURE_BLEND_RATE:-0.02}"
+  --terminal-support-posture-progress-start "${TERMINAL_SUPPORT_POSTURE_PROGRESS_START:-1.60}"
+  --terminal-support-posture-progress-full "${TERMINAL_SUPPORT_POSTURE_PROGRESS_FULL:-2.00}"
+  --terminal-support-posture-rel-start "${TERMINAL_SUPPORT_POSTURE_REL_START:-0.16}"
+  --terminal-support-posture-rel-stop "${TERMINAL_SUPPORT_POSTURE_REL_STOP:-0.32}"
+  --terminal-support-posture-tilt-start "${TERMINAL_SUPPORT_POSTURE_TILT_START:-0.18}"
+  --terminal-support-posture-tilt-stop "${TERMINAL_SUPPORT_POSTURE_TILT_STOP:-0.50}"
+  --terminal-support-posture-hip-pitch-offset "${TERMINAL_SUPPORT_POSTURE_HIP_PITCH_OFFSET:--0.02}"
+  --terminal-support-posture-knee-offset "${TERMINAL_SUPPORT_POSTURE_KNEE_OFFSET:-0.05}"
+  --terminal-support-posture-ankle-pitch-offset "${TERMINAL_SUPPORT_POSTURE_ANKLE_PITCH_OFFSET:--0.025}"
+  --terminal-support-posture-waist-pitch-offset "${TERMINAL_SUPPORT_POSTURE_WAIST_PITCH_OFFSET:--0.015}"
+  --terminal-support-posture-shoulder-pitch-offset "${TERMINAL_SUPPORT_POSTURE_SHOULDER_PITCH_OFFSET:--0.06}"
+  --terminal-support-posture-elbow-offset "${TERMINAL_SUPPORT_POSTURE_ELBOW_OFFSET:-0.10}"
+  --terminal-support-posture-wrist-pitch-offset "${TERMINAL_SUPPORT_POSTURE_WRIST_PITCH_OFFSET:--0.025}"
   --agile-command-hold-terminal-box-target-travel "${AGILE_COMMAND_HOLD_TERMINAL_BOX_TARGET_TRAVEL:--1.0}"
   --agile-command-hold-terminal-min-robot-target-travel "${AGILE_COMMAND_HOLD_TERMINAL_MIN_ROBOT_TARGET_TRAVEL:--1.0}"
   --agile-command-hold-terminal-min-step "${AGILE_COMMAND_HOLD_TERMINAL_MIN_STEP:--1}"
@@ -268,6 +298,15 @@ if [[ "${AGILE_COMMAND_BOX_LATERAL_CONTROLLER:-0}" == "1" ]]; then
 fi
 if [[ "${AGILE_COMMAND_BOX_LATERAL_SCALE_ON_HOLD:-0}" == "1" ]]; then
   base_python+=(--agile-command-box-lateral-scale-on-hold)
+fi
+if [[ "${AGILE_COMMAND_TERMINAL_SUPPORT_CONTROLLER:-0}" == "1" ]]; then
+  base_python+=(--agile-command-terminal-support-controller)
+fi
+if [[ "${AGILE_COMMAND_TERMINAL_SUPPORT_FINAL_ZERO_COMMAND:-0}" == "1" ]]; then
+  base_python+=(--agile-command-terminal-support-final-zero-command)
+fi
+if [[ "${TERMINAL_SUPPORT_POSTURE_CONTROLLER:-0}" == "1" ]]; then
+  base_python+=(--terminal-support-posture-controller)
 fi
 if [[ "${AGILE_COMMAND_HOLD_TERMINAL_LATCH:-0}" == "1" ]]; then
   base_python+=(--agile-command-hold-terminal-latch)

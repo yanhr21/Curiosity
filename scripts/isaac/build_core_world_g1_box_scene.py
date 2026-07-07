@@ -272,6 +272,39 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--agile-command-box-lateral-limit", type=float, default=0.004)
     parser.add_argument("--agile-command-box-lateral-sign", type=float, default=1.0)
     parser.add_argument("--agile-command-box-lateral-scale-on-hold", action="store_true")
+    parser.add_argument("--agile-command-terminal-support-controller", action="store_true")
+    parser.add_argument("--agile-command-terminal-support-start-box-target-travel", type=float, default=-1.0)
+    parser.add_argument("--agile-command-terminal-support-target", type=float, default=-1.0)
+    parser.add_argument("--agile-command-terminal-support-deadband", type=float, default=0.08)
+    parser.add_argument("--agile-command-terminal-support-gain", type=float, default=0.05)
+    parser.add_argument("--agile-command-terminal-support-max-forward", type=float, default=0.04)
+    parser.add_argument("--agile-command-terminal-support-max-reverse", type=float, default=0.02)
+    parser.add_argument("--agile-command-terminal-support-final-zero-command", action="store_true")
+    parser.add_argument("--agile-command-terminal-support-lateral-source", choices=("robot", "box", "average"), default="average")
+    parser.add_argument("--agile-command-terminal-support-lateral-deadband", type=float, default=0.10)
+    parser.add_argument("--agile-command-terminal-support-lateral-gain", type=float, default=0.02)
+    parser.add_argument("--agile-command-terminal-support-lateral-limit", type=float, default=0.004)
+    parser.add_argument("--agile-command-terminal-support-lateral-sign", type=float, default=1.0)
+    parser.add_argument("--agile-command-terminal-support-yaw-gain", type=float, default=0.02)
+    parser.add_argument("--agile-command-terminal-support-yaw-limit", type=float, default=0.02)
+    parser.add_argument("--agile-command-terminal-support-yaw-sign", type=float, default=1.0)
+    parser.add_argument("--agile-command-terminal-support-max-tilt", type=float, default=999.0)
+    parser.add_argument("--agile-command-terminal-support-max-box-tilt", type=float, default=999.0)
+    parser.add_argument("--terminal-support-posture-controller", action="store_true")
+    parser.add_argument("--terminal-support-posture-blend-rate", type=float, default=0.02)
+    parser.add_argument("--terminal-support-posture-progress-start", type=float, default=1.60)
+    parser.add_argument("--terminal-support-posture-progress-full", type=float, default=2.00)
+    parser.add_argument("--terminal-support-posture-rel-start", type=float, default=0.16)
+    parser.add_argument("--terminal-support-posture-rel-stop", type=float, default=0.32)
+    parser.add_argument("--terminal-support-posture-tilt-start", type=float, default=0.18)
+    parser.add_argument("--terminal-support-posture-tilt-stop", type=float, default=0.50)
+    parser.add_argument("--terminal-support-posture-hip-pitch-offset", type=float, default=-0.02)
+    parser.add_argument("--terminal-support-posture-knee-offset", type=float, default=0.05)
+    parser.add_argument("--terminal-support-posture-ankle-pitch-offset", type=float, default=-0.025)
+    parser.add_argument("--terminal-support-posture-waist-pitch-offset", type=float, default=-0.015)
+    parser.add_argument("--terminal-support-posture-shoulder-pitch-offset", type=float, default=-0.06)
+    parser.add_argument("--terminal-support-posture-elbow-offset", type=float, default=0.10)
+    parser.add_argument("--terminal-support-posture-wrist-pitch-offset", type=float, default=-0.025)
     parser.add_argument("--agile-command-hold-terminal-box-target-travel", type=float, default=-1.0)
     parser.add_argument("--agile-command-hold-terminal-min-robot-target-travel", type=float, default=-1.0)
     parser.add_argument("--agile-command-hold-terminal-min-step", type=int, default=-1)
@@ -1629,6 +1662,107 @@ def _apply_approach_support_posture(
     return float(scale)
 
 
+def _apply_terminal_support_posture(
+    command: np.ndarray,
+    joint_names: list[str],
+    robot_target_directed: float,
+    box_target_directed: float,
+    box_tilt: float,
+    box_robot_rel_error: float,
+) -> float:
+    if not bool(args_cli.terminal_support_posture_controller):
+        return 0.0
+    progress = min(float(robot_target_directed), float(box_target_directed))
+    progress_risk = _ramp01(
+        float(progress),
+        float(args_cli.terminal_support_posture_progress_start),
+        float(args_cli.terminal_support_posture_progress_full),
+    )
+    rel_risk = _ramp01(
+        float(box_robot_rel_error),
+        float(args_cli.terminal_support_posture_rel_start),
+        float(args_cli.terminal_support_posture_rel_stop),
+    )
+    tilt_risk = _ramp01(
+        float(box_tilt),
+        float(args_cli.terminal_support_posture_tilt_start),
+        float(args_cli.terminal_support_posture_tilt_stop),
+    )
+    risk = max(float(progress_risk), float(rel_risk), float(tilt_risk))
+    if risk <= 0.0:
+        return 0.0
+    blend_rate = max(0.0, min(1.0, float(args_cli.terminal_support_posture_blend_rate))) * risk
+    if blend_rate <= 0.0:
+        return 0.0
+    stand_targets = _stand_joint_targets()
+    for side in ("left", "right"):
+        shoulder_roll_bias = 0.015 if side == "left" else -0.015
+        _blend_command_joint_position(
+            command,
+            joint_names,
+            f"{side}_hip_pitch_joint",
+            stand_targets.get(f"{side}_hip_pitch_joint", -0.10)
+            + risk * float(args_cli.terminal_support_posture_hip_pitch_offset),
+            blend_rate,
+        )
+        _blend_command_joint_position(
+            command,
+            joint_names,
+            f"{side}_knee_joint",
+            stand_targets.get(f"{side}_knee_joint", 0.30)
+            + risk * float(args_cli.terminal_support_posture_knee_offset),
+            blend_rate,
+        )
+        _blend_command_joint_position(
+            command,
+            joint_names,
+            f"{side}_ankle_pitch_joint",
+            stand_targets.get(f"{side}_ankle_pitch_joint", -0.20)
+            + risk * float(args_cli.terminal_support_posture_ankle_pitch_offset),
+            blend_rate,
+        )
+        _blend_command_joint_position(
+            command,
+            joint_names,
+            f"{side}_shoulder_pitch_joint",
+            stand_targets.get(f"{side}_shoulder_pitch_joint", 0.0)
+            + risk * float(args_cli.terminal_support_posture_shoulder_pitch_offset),
+            blend_rate,
+        )
+        _blend_command_joint_position(
+            command,
+            joint_names,
+            f"{side}_shoulder_roll_joint",
+            stand_targets.get(f"{side}_shoulder_roll_joint", 0.0) + risk * shoulder_roll_bias,
+            blend_rate,
+        )
+        _blend_command_joint_position(
+            command,
+            joint_names,
+            f"{side}_elbow_joint",
+            stand_targets.get(f"{side}_elbow_joint", 0.0)
+            + risk * float(args_cli.terminal_support_posture_elbow_offset),
+            blend_rate,
+        )
+        _blend_command_joint_position(
+            command,
+            joint_names,
+            f"{side}_wrist_pitch_joint",
+            stand_targets.get(f"{side}_wrist_pitch_joint", 0.0)
+            + risk * float(args_cli.terminal_support_posture_wrist_pitch_offset),
+            blend_rate,
+        )
+    _blend_command_joint_position(
+        command,
+        joint_names,
+        "waist_pitch_joint",
+        stand_targets.get("waist_pitch_joint", 0.0)
+        + risk * float(args_cli.terminal_support_posture_waist_pitch_offset),
+        blend_rate,
+    )
+    return float(risk)
+
+
 def _apply_symmetric_pitch_offsets(
     command: np.ndarray,
     joint_names: list[str],
@@ -2817,6 +2951,82 @@ def run_scene() -> Path:
         "agile_command_box_lateral_last_command_y": 0.0,
         "agile_command_box_lateral_max_abs_command_y": 0.0,
         "agile_command_box_lateral_hold_scaled_steps": 0,
+        "agile_command_terminal_support_controller_enabled": bool(
+            args_cli.agile_command_terminal_support_controller
+        ),
+        "agile_command_terminal_support_start_box_target_travel_m": float(
+            args_cli.agile_command_terminal_support_start_box_target_travel
+        ),
+        "agile_command_terminal_support_target_m": float(args_cli.agile_command_terminal_support_target),
+        "agile_command_terminal_support_deadband_m": float(
+            args_cli.agile_command_terminal_support_deadband
+        ),
+        "agile_command_terminal_support_gain": float(args_cli.agile_command_terminal_support_gain),
+        "agile_command_terminal_support_max_forward": float(
+            args_cli.agile_command_terminal_support_max_forward
+        ),
+        "agile_command_terminal_support_max_reverse": float(
+            args_cli.agile_command_terminal_support_max_reverse
+        ),
+        "agile_command_terminal_support_final_zero_command": bool(
+            args_cli.agile_command_terminal_support_final_zero_command
+        ),
+        "agile_command_terminal_support_lateral_source": str(
+            args_cli.agile_command_terminal_support_lateral_source
+        ),
+        "agile_command_terminal_support_lateral_deadband_m": float(
+            args_cli.agile_command_terminal_support_lateral_deadband
+        ),
+        "agile_command_terminal_support_lateral_gain": float(
+            args_cli.agile_command_terminal_support_lateral_gain
+        ),
+        "agile_command_terminal_support_lateral_limit": float(
+            args_cli.agile_command_terminal_support_lateral_limit
+        ),
+        "agile_command_terminal_support_lateral_sign": float(
+            args_cli.agile_command_terminal_support_lateral_sign
+        ),
+        "agile_command_terminal_support_yaw_gain": float(
+            args_cli.agile_command_terminal_support_yaw_gain
+        ),
+        "agile_command_terminal_support_yaw_limit": float(
+            args_cli.agile_command_terminal_support_yaw_limit
+        ),
+        "agile_command_terminal_support_yaw_sign": float(
+            args_cli.agile_command_terminal_support_yaw_sign
+        ),
+        "agile_command_terminal_support_max_tilt_rad": float(
+            args_cli.agile_command_terminal_support_max_tilt
+        ),
+        "agile_command_terminal_support_max_box_tilt_rad": float(
+            args_cli.agile_command_terminal_support_max_box_tilt
+        ),
+        "agile_command_terminal_support_active_steps": 0,
+        "agile_command_terminal_support_first_active_step": None,
+        "agile_command_terminal_support_tilt_suppressed_steps": 0,
+        "agile_command_terminal_support_final_zeroed_steps": 0,
+        "agile_command_terminal_support_last_progress_error_m": 0.0,
+        "agile_command_terminal_support_last_lateral_error_m": 0.0,
+        "agile_command_terminal_support_last_command_xyz_yaw": [0.0, 0.0, 0.0],
+        "agile_command_terminal_support_max_abs_command_x": 0.0,
+        "agile_command_terminal_support_max_abs_command_y": 0.0,
+        "agile_command_terminal_support_max_abs_command_yaw": 0.0,
+        "terminal_support_posture_controller_enabled": bool(args_cli.terminal_support_posture_controller),
+        "terminal_support_posture_blend_rate": float(args_cli.terminal_support_posture_blend_rate),
+        "terminal_support_posture_progress_start_m": float(
+            args_cli.terminal_support_posture_progress_start
+        ),
+        "terminal_support_posture_progress_full_m": float(
+            args_cli.terminal_support_posture_progress_full
+        ),
+        "terminal_support_posture_rel_start_m": float(args_cli.terminal_support_posture_rel_start),
+        "terminal_support_posture_rel_stop_m": float(args_cli.terminal_support_posture_rel_stop),
+        "terminal_support_posture_tilt_start_rad": float(args_cli.terminal_support_posture_tilt_start),
+        "terminal_support_posture_tilt_stop_rad": float(args_cli.terminal_support_posture_tilt_stop),
+        "terminal_support_posture_active_steps": 0,
+        "terminal_support_posture_first_active_step": None,
+        "terminal_support_posture_last_risk": 0.0,
+        "terminal_support_posture_max_risk": 0.0,
         "agile_command_hold_mode": str(args_cli.agile_command_hold_mode),
         "agile_command_hold_stand_blend_rate": float(args_cli.agile_command_hold_stand_blend_rate),
         "agile_command_hold_policy_then_stand_delay_steps": int(
@@ -4156,6 +4366,146 @@ def run_scene() -> Path:
                                 float(summary["agile_command_hold_final_brake_max_abs_command_x"]),
                                 abs(float(brake_command_x)),
                             )
+                        if (
+                            bool(args_cli.agile_command_terminal_support_controller)
+                            and box_pose_for_feedback is not None
+                            and initial_box is not None
+                        ):
+                            terminal_support_start = float(
+                                args_cli.agile_command_terminal_support_start_box_target_travel
+                            )
+                            terminal_support_active = (
+                                bool(terminal_hold_scale_active)
+                                or bool(final_hold_scale_active)
+                                or (
+                                    terminal_support_start >= 0.0
+                                    and float(prev_box_target_directed) >= terminal_support_start
+                                )
+                            )
+                            if terminal_support_active:
+                                support_tilt_allowed = (
+                                    max(abs(float(feedback_roll)), abs(float(feedback_pitch)))
+                                    <= max(0.0, float(args_cli.agile_command_terminal_support_max_tilt))
+                                    and float(box_feedback_tilt)
+                                    <= max(0.0, float(args_cli.agile_command_terminal_support_max_box_tilt))
+                                )
+                                support_target = (
+                                    float(args_cli.agile_command_terminal_support_target)
+                                    if float(args_cli.agile_command_terminal_support_target) >= 0.0
+                                    else float(args_cli.target_window_center)
+                                )
+                                if support_target >= 0.0 and support_tilt_allowed:
+                                    support_progress = 0.5 * (
+                                        float(prev_robot_target_directed) + float(prev_box_target_directed)
+                                    )
+                                    support_error = float(support_target) - float(support_progress)
+                                    support_abs_error = max(
+                                        0.0,
+                                        abs(float(support_error))
+                                        - max(0.0, float(args_cli.agile_command_terminal_support_deadband)),
+                                    )
+                                    support_command_x = math.copysign(
+                                        support_abs_error
+                                        * float(args_cli.agile_command_terminal_support_gain),
+                                        float(support_error),
+                                    )
+                                    support_command_x = max(
+                                        -abs(float(args_cli.agile_command_terminal_support_max_reverse)),
+                                        min(
+                                            abs(float(args_cli.agile_command_terminal_support_max_forward)),
+                                            float(support_command_x),
+                                        ),
+                                    )
+                                    robot_lateral_error = _lateral_xy_delta(
+                                        list(pose_for_feedback),
+                                        list(initial_robot),
+                                        robot_target_direction_xy,
+                                    )
+                                    box_lateral_error = _lateral_xy_delta(
+                                        list(box_pose_for_feedback),
+                                        list(initial_box),
+                                        box_target_direction_xy,
+                                    )
+                                    lateral_source = str(args_cli.agile_command_terminal_support_lateral_source)
+                                    if lateral_source == "robot":
+                                        support_lateral_error = float(robot_lateral_error)
+                                    elif lateral_source == "box":
+                                        support_lateral_error = float(box_lateral_error)
+                                    else:
+                                        support_lateral_error = 0.5 * (
+                                            float(robot_lateral_error) + float(box_lateral_error)
+                                        )
+                                    support_lateral_abs_error = max(
+                                        0.0,
+                                        abs(float(support_lateral_error))
+                                        - max(0.0, float(args_cli.agile_command_terminal_support_lateral_deadband)),
+                                    )
+                                    support_command_y = max(
+                                        -abs(float(args_cli.agile_command_terminal_support_lateral_limit)),
+                                        min(
+                                            abs(float(args_cli.agile_command_terminal_support_lateral_limit)),
+                                            -float(args_cli.agile_command_terminal_support_lateral_sign)
+                                            * float(args_cli.agile_command_terminal_support_lateral_gain)
+                                            * math.copysign(
+                                                float(support_lateral_abs_error),
+                                                float(support_lateral_error),
+                                            ),
+                                        ),
+                                    )
+                                    support_command_yaw = max(
+                                        -abs(float(args_cli.agile_command_terminal_support_yaw_limit)),
+                                        min(
+                                            abs(float(args_cli.agile_command_terminal_support_yaw_limit)),
+                                            -float(args_cli.agile_command_terminal_support_yaw_sign)
+                                            * float(args_cli.agile_command_terminal_support_yaw_gain)
+                                            * float(support_lateral_error),
+                                        ),
+                                    )
+                                    if (
+                                        bool(final_hold_scale_active)
+                                        and bool(args_cli.agile_command_terminal_support_final_zero_command)
+                                    ):
+                                        support_command_x = 0.0
+                                        support_command_y = 0.0
+                                        support_command_yaw = 0.0
+                                        summary["agile_command_terminal_support_final_zeroed_steps"] = (
+                                            int(summary["agile_command_terminal_support_final_zeroed_steps"]) + 1
+                                        )
+                                    applied_agile_command_list[0] = float(support_command_x)
+                                    applied_agile_command_list[1] = float(support_command_y)
+                                    applied_agile_command_list[2] = float(support_command_yaw)
+                                    summary["agile_command_terminal_support_active_steps"] = (
+                                        int(summary["agile_command_terminal_support_active_steps"]) + 1
+                                    )
+                                    if summary["agile_command_terminal_support_first_active_step"] is None:
+                                        summary["agile_command_terminal_support_first_active_step"] = int(step)
+                                    summary["agile_command_terminal_support_last_progress_error_m"] = float(
+                                        support_error
+                                    )
+                                    summary["agile_command_terminal_support_last_lateral_error_m"] = float(
+                                        support_lateral_error
+                                    )
+                                    summary["agile_command_terminal_support_last_command_xyz_yaw"] = [
+                                        float(support_command_x),
+                                        float(support_command_y),
+                                        float(support_command_yaw),
+                                    ]
+                                    summary["agile_command_terminal_support_max_abs_command_x"] = max(
+                                        float(summary["agile_command_terminal_support_max_abs_command_x"]),
+                                        abs(float(support_command_x)),
+                                    )
+                                    summary["agile_command_terminal_support_max_abs_command_y"] = max(
+                                        float(summary["agile_command_terminal_support_max_abs_command_y"]),
+                                        abs(float(support_command_y)),
+                                    )
+                                    summary["agile_command_terminal_support_max_abs_command_yaw"] = max(
+                                        float(summary["agile_command_terminal_support_max_abs_command_yaw"]),
+                                        abs(float(support_command_yaw)),
+                                    )
+                                elif not support_tilt_allowed:
+                                    summary["agile_command_terminal_support_tilt_suppressed_steps"] = (
+                                        int(summary["agile_command_terminal_support_tilt_suppressed_steps"]) + 1
+                                    )
                         applied_agile_command = tuple(applied_agile_command_list)
                         summary["agile_last_command_xyz_yaw"] = [float(v) for v in applied_agile_command]
                         if bool(final_hold_scale_active):
@@ -4510,6 +4860,25 @@ def run_scene() -> Path:
                                 + (feedback_rel_now[1] - initial_box_robot_rel[1]) ** 2
                                 + (feedback_rel_now[2] - initial_box_robot_rel[2]) ** 2
                             )
+                        )
+                    terminal_support_risk = _apply_terminal_support_posture(
+                        command_positions,
+                        joint_names,
+                        float(prev_robot_target_directed),
+                        float(prev_box_target_directed),
+                        float(box_feedback_tilt),
+                        float(feedback_box_robot_rel_error),
+                    )
+                    if terminal_support_risk > 0.0:
+                        summary["terminal_support_posture_active_steps"] = (
+                            int(summary["terminal_support_posture_active_steps"]) + 1
+                        )
+                        if summary["terminal_support_posture_first_active_step"] is None:
+                            summary["terminal_support_posture_first_active_step"] = int(step)
+                        summary["terminal_support_posture_last_risk"] = float(terminal_support_risk)
+                        summary["terminal_support_posture_max_risk"] = max(
+                            float(summary["terminal_support_posture_max_risk"]),
+                            float(terminal_support_risk),
                         )
                     retention_risk = _apply_box_retention_posture_feedback(
                         command_positions,

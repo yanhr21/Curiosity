@@ -834,6 +834,21 @@ These rules override all other project instructions.
   failure mode remains terminal support/retention quality; a blended rescue
   posture after freeze does not provide enough controlled braking or box
   attitude retention for held-out shapes.
+- 2026-07-07 G1 terminal-support controller entrypoint added:
+  `scripts/isaac/build_core_world_g1_box_scene.py` now has opt-in
+  `--agile-command-terminal-support-controller` for a unified target-window
+  terminal command layer and opt-in `--terminal-support-posture-controller`
+  for simultaneous lower-body/torso/arm retention posture blending. The
+  command layer activates near terminal progress, computes x braking/drive
+  from average robot/box target-directed error, computes lateral/yaw command
+  from robot/box lateral error, and can force zero command during final hold
+  while posture support remains active. Launcher forwarding and aggregate
+  summary fields were added. Focused held-out geometry gate:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_terminal_support_suite.sh`.
+  It tests the failed `wide_y012` and `tall_z009` close-front held-out shapes
+  under the same strict fall/drop/no-rollout-write/target-window/tilt/lateral/
+  relative-offset/final-command gates. This is an experiment entrypoint only
+  until `closefront_heldout_geometry_terminal_support_summary.json` exists.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

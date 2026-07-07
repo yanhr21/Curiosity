@@ -10173,3 +10173,19 @@
   formulation that jointly handles commanded braking, support posture, and
   box attitude/relative-pose retention before roll exceeds the rescue
   threshold.
+- [x] Add unified G1 terminal-support controller:
+  `--agile-command-terminal-support-controller` plus
+  `--terminal-support-posture-controller` in
+  `scripts/isaac/build_core_world_g1_box_scene.py`, launcher env forwarding,
+  and aggregate summary fields. This is opt-in and does not change default
+  behavior. It targets the held-out shape failure by combining terminal
+  progress braking, lateral/yaw correction, and posture/box-retention blending
+  before final target-window dwell is lost.
+- [x] Add close-front held-out geometry terminal-support diagnostic:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_terminal_support_suite.sh`.
+  It runs `wide_y012` and `tall_z009` with the new controller and the same
+  strict gates.
+- [ ] Run and record the terminal-support diagnostic through tmux plus
+  persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_terminal_support/<stamp>/closefront_heldout_geometry_terminal_support_summary.json`
+  exists.
