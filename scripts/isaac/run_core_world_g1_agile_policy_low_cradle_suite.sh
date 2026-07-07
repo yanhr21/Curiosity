@@ -499,6 +499,12 @@ run_case() {
     if [[ -n "${MIN_AGILE_COMMAND_HOLD_FINAL_ACTIVE_STEPS:-}" ]]; then
       check_args+=(--min-agile-command-hold-final-active-steps "${MIN_AGILE_COMMAND_HOLD_FINAL_ACTIVE_STEPS}")
     fi
+    if [[ -n "${MIN_AGILE_COMMAND_HOLD_ACTIVE_STEPS:-}" ]]; then
+      check_args+=(--min-agile-command-hold-active-steps "${MIN_AGILE_COMMAND_HOLD_ACTIVE_STEPS}")
+    fi
+    if [[ "${REQUIRE_AGILE_COMMAND_STOP_TARGET_WINDOW_LATCHED:-0}" == "1" ]]; then
+      check_args+=(--require-agile-command-stop-target-window-latched)
+    fi
     if [[ -n "${MIN_AGILE_COMMAND_HOLD_FINAL_STAND_ACTIVE_STEPS:-}" ]]; then
       check_args+=(
         --min-agile-command-hold-final-stand-active-steps \

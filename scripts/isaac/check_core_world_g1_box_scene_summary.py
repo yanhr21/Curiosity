@@ -87,6 +87,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect-diagnostic-root-drive", default=None)
     parser.add_argument("--min-diagnostic-root-drive-active-steps", type=int, default=None)
     parser.add_argument("--min-balance-target-active-steps", type=int, default=None)
+    parser.add_argument("--min-agile-command-hold-active-steps", type=int, default=None)
+    parser.add_argument("--require-agile-command-stop-target-window-latched", action="store_true")
     parser.add_argument("--min-agile-command-hold-final-active-steps", type=int, default=None)
     parser.add_argument("--min-agile-command-hold-final-stand-active-steps", type=int, default=None)
     parser.add_argument("--max-final-hold-command-x", type=float, default=None)
@@ -422,6 +424,17 @@ def main() -> int:
         value = int(summary.get("balance_target_active_steps") or 0)
         if value < int(args.min_balance_target_active_steps):
             failures.append(f"balance_target_active_steps {value} < {args.min_balance_target_active_steps}")
+    if args.min_agile_command_hold_active_steps is not None:
+        value = int(summary.get("agile_command_hold_active_steps") or 0)
+        if value < int(args.min_agile_command_hold_active_steps):
+            failures.append(
+                "agile_command_hold_active_steps "
+                f"{value} < {args.min_agile_command_hold_active_steps}"
+            )
+    if args.require_agile_command_stop_target_window_latched and summary.get(
+        "agile_command_stop_target_window_latched_step"
+    ) is None:
+        failures.append("agile_command_stop_target_window_latched_step is null")
     if args.min_agile_command_hold_final_active_steps is not None:
         value = int(summary.get("agile_command_hold_final_active_steps") or 0)
         if value < int(args.min_agile_command_hold_final_active_steps):
