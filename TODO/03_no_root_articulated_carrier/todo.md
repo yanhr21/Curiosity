@@ -9506,8 +9506,24 @@
   steps `130 < 399`. Interpretation: weak support avoids the collapse seen in
   the strong run, but with the old `final=1.20` latch it arrests too early and
   still leaves box roll above the `0.45 rad` gate.
-- [ ] Run a weak-support later-latch probe: keep the micro offsets and move
+- [x] Run a weak-support later-latch probe: keep the micro offsets and move
   terminal/final latch later so the robot can reach the `2.0 m` target window
   before final hold. This should be treated as a diagnostic of timing/support
   interaction, not as solved posture generalization unless all strict gates
   pass.
+- [x] Record weak-support later-latch result:
+  `20260707_g1_lowcarry_close_front_approach_support_later_latch_direct`.
+  It kept micro offsets, moved final/terminal latch to `1.80/1.85 m`, and ran
+  `1600` steps. Support was active for `600` steps and the run briefly entered
+  the target window (`target_window_both_stable_steps=58`, longest streak
+  `56`), but strict status was fail: fall/drop `283/224`, first fall/drop
+  steps `1313/1376`, max robot/box tilt `3.122/2.948 rad`, final robot/box
+  travel regressed to about `1.012/0.959 m`, final-hold active
+  `355 < 399`, writes `0/0/0`. Conclusion: later latch recovers target-window
+  entry but destabilizes the final hold; this is only a boundary diagnostic.
+- [ ] Stop the current approach-support sweep unless a new mechanism is added.
+  The three active results now bracket the behavior: strong/early support
+  collapses, weak support with old latch arrests too early, and weak support
+  with later latch reaches the window but falls late. Next close-front work
+  should change the final-hold/contact/support mechanism rather than continue
+  scalar tuning of approach-support start/full/latch values.

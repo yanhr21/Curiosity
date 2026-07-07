@@ -206,6 +206,19 @@ These rules override all other project instructions.
   but combined with the old `final=1.20` latch it arrests too early and still
   leaves box roll above the `0.45 rad` gate. Next probe should keep support
   weak and move terminal/final latch later rather than increasing support.
+  Later-latch follow-up
+  `20260707_g1_lowcarry_close_front_approach_support_later_latch_direct`
+  kept the weak offsets but moved final/terminal latch to `1.80/1.85 m` and
+  ran `1600` steps. It activated support for `600` steps, reached max
+  robot/box target-directed travel about `1.762/1.809 m`, and briefly entered
+  the target window (`target_window_both_stable_steps=58`, longest streak
+  `56`), but failed badly after final hold: fall/drop `283/224`, first
+  fall/drop steps `1313/1376`, max robot/box tilt `3.122/2.948 rad`, final
+  robot/box travel regressed to about `1.012/0.959 m`, final-hold active
+  `355 < 399`, and writes `0/0/0`. Interpretation: moving the latch later can
+  recover target-window entry, but the current weak support plus late final
+  hold is not stable. Do not claim this branch as progress beyond a boundary
+  diagnostic.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
