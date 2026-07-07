@@ -578,8 +578,29 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "agile_command_stop_target_window_min_step": summary.get(
             "agile_command_stop_target_window_min_step"
         ),
+        "agile_command_stop_tilt_threshold_rad": summary.get(
+            "agile_command_stop_tilt_threshold_rad"
+        ),
+        "agile_command_stop_box_tilt_threshold_rad": summary.get(
+            "agile_command_stop_box_tilt_threshold_rad"
+        ),
+        "agile_command_stop_tilt_min_step": summary.get(
+            "agile_command_stop_tilt_min_step"
+        ),
+        "agile_command_stop_tilt_min_box_target_travel_m": summary.get(
+            "agile_command_stop_tilt_min_box_target_travel_m"
+        ),
         "agile_command_stop_target_window_latched_step": summary.get(
             "agile_command_stop_target_window_latched_step"
+        ),
+        "agile_command_hold_active": summary.get("agile_command_hold_active"),
+        "agile_command_hold_first_active_step": summary.get(
+            "agile_command_hold_first_active_step"
+        ),
+        "agile_command_hold_first_reason": summary.get("agile_command_hold_first_reason"),
+        "agile_command_hold_active_steps": summary.get("agile_command_hold_active_steps"),
+        "agile_command_hold_stand_target_active_steps": summary.get(
+            "agile_command_hold_stand_target_active_steps"
         ),
         "agile_command_hold_terminal_latch_enabled": summary.get(
             "agile_command_hold_terminal_latch_enabled"

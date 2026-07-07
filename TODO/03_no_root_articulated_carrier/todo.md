@@ -10287,3 +10287,14 @@
   too late. If staying on AGILE, trigger the strong support transition from
   impending instability before the fall, or switch to a support backend that
   explicitly controls stance/contact before terminal instability develops.
+- [x] Add instability-triggered planted diagnostic:
+  `--agile-command-stop-tilt-threshold`,
+  `--agile-command-stop-box-tilt-threshold`, minimum step/travel guards,
+  launcher forwarding, aggregate summary fields, and
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_instability_planted_suite.sh`.
+  This triggers `policy_then_stand` from robot/box tilt before the earlier
+  travel-threshold planted trigger would fire.
+- [ ] Run and record instability-triggered planted diagnostic through tmux plus
+  persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_instability_planted/<stamp>/closefront_heldout_geometry_instability_planted_summary.json`
+  exists.

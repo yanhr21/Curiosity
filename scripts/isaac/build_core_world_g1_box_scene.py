@@ -259,6 +259,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--agile-command-stop-robot-target-travel", type=float, default=-1.0)
     parser.add_argument("--agile-command-stop-target-window", action="store_true")
     parser.add_argument("--agile-command-stop-target-window-min-step", type=int, default=-1)
+    parser.add_argument("--agile-command-stop-tilt-threshold", type=float, default=999.0)
+    parser.add_argument("--agile-command-stop-box-tilt-threshold", type=float, default=999.0)
+    parser.add_argument("--agile-command-stop-tilt-min-step", type=int, default=-1)
+    parser.add_argument("--agile-command-stop-tilt-min-box-target-travel", type=float, default=-1.0)
     parser.add_argument("--agile-command-hold-scale", type=float, default=0.0)
     parser.add_argument("--agile-command-hold-adaptive-scale", action="store_true")
     parser.add_argument("--agile-command-hold-adaptive-min-scale", type=float, default=0.0)
@@ -2970,6 +2974,14 @@ def run_scene() -> Path:
         "agile_command_stop_target_window_min_step": int(
             args_cli.agile_command_stop_target_window_min_step
         ),
+        "agile_command_stop_tilt_threshold_rad": float(args_cli.agile_command_stop_tilt_threshold),
+        "agile_command_stop_box_tilt_threshold_rad": float(
+            args_cli.agile_command_stop_box_tilt_threshold
+        ),
+        "agile_command_stop_tilt_min_step": int(args_cli.agile_command_stop_tilt_min_step),
+        "agile_command_stop_tilt_min_box_target_travel_m": float(
+            args_cli.agile_command_stop_tilt_min_box_target_travel
+        ),
         "agile_command_stop_target_window_latched_step": None,
         "agile_command_hold_scale": float(args_cli.agile_command_hold_scale),
         "agile_command_hold_adaptive_scale_enabled": bool(args_cli.agile_command_hold_adaptive_scale),
@@ -3826,6 +3838,26 @@ def run_scene() -> Path:
                                     and abs(float(prev_box_target_directed) - target_center) <= target_halfwidth
                                 ):
                                     agile_hold_reasons.append("target_window")
+                            tilt_stop_allowed = (
+                                (
+                                    int(args_cli.agile_command_stop_tilt_min_step) < 0
+                                    or int(step) >= int(args_cli.agile_command_stop_tilt_min_step)
+                                )
+                                and (
+                                    float(args_cli.agile_command_stop_tilt_min_box_target_travel) < 0.0
+                                    or float(prev_box_target_directed)
+                                    >= float(args_cli.agile_command_stop_tilt_min_box_target_travel)
+                                )
+                            )
+                            if tilt_stop_allowed:
+                                robot_hold_tilt = max(abs(float(feedback_roll)), abs(float(feedback_pitch)))
+                                if robot_hold_tilt >= max(0.0, float(args_cli.agile_command_stop_tilt_threshold)):
+                                    agile_hold_reasons.append("robot_tilt")
+                                if float(box_feedback_tilt) >= max(
+                                    0.0,
+                                    float(args_cli.agile_command_stop_box_tilt_threshold),
+                                ):
+                                    agile_hold_reasons.append("box_tilt")
                             if agile_hold_reasons:
                                 agile_command_hold_active = True
                                 agile_command_hold_first_reason = ",".join(agile_hold_reasons)

@@ -135,6 +135,15 @@ These rules override all other project instructions.
   these held-out shapes; the next diagnostic must trigger from impending
   instability or change the support backend before the fall, not after
   reaching a travel threshold.
+- 2026-07-07 held-out G1 instability-triggered planted entrypoint added:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_instability_planted_suite.sh`.
+  It adds opt-in hold triggers in `scripts/isaac/build_core_world_g1_box_scene.py`
+  for robot tilt and box tilt after a minimum step and minimum box travel, then
+  uses `AGILE_COMMAND_HOLD_MODE=policy_then_stand` to blend toward a crouched
+  planted stance. Launcher forwarding and aggregate summary fields for the new
+  tilt-stop thresholds plus hold first-step/reason were added. This is an
+  experiment entrypoint only until
+  `closefront_heldout_geometry_instability_planted_summary.json` exists.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with
