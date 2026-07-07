@@ -10397,7 +10397,25 @@
   `scripts/isaac/run_core_world_g1_tall_preintegrated_mild_command_suite.sh`.
   It keeps the stable tall contact cradle and tests only
   `terminal_forward025`, `command_y_neg010`, and `command_y_pos010`.
-- [ ] Run and record tall preintegrated mild-command diagnostic through tmux
+- [x] Run and record tall preintegrated mild-command diagnostic through tmux
   plus persistent `srun`. Do not interpret it until
   `experiments/outputs/core_world_g1_tall_preintegrated_mild_command/<stamp>/g1_tall_preintegrated_mild_command_summary.json`
   exists.
+- [x] Tall preintegrated mild-command result:
+  CPU Slurm job `170675` on `server01` completed
+  `20260708_g1_tall_preintegrated_mild_command_cpu`, aggregate `fail`, 0/3.
+  `terminal_forward025` first fall/drop `827/857`, final robot/box travel
+  `1.544/1.347 m`, final lateral `0.838/0.800 m`, relative offset
+  `0.410 m`, max robot/box tilt `3.141/3.139 rad`, target-window `0/0/0`.
+  `command_y_neg010` failed early with first fall/drop `182/202`, final travel
+  `0.769/0.427 m`, final lateral `-0.491/-0.313 m`, relative offset
+  `0.408 m`, target-window `0/0/0`. `command_y_pos010` reached near the
+  target but was unstable: first fall/drop `526/629`, final travel
+  `3.070/3.056 m`, final lateral `0.014/-0.145 m`, robot target-window
+  stable steps `68`, box/both target-window `0/0`, relative offset
+  `0.186 m`, and max robot/box tilt `3.138/2.938 rad`. Rollout root/
+  velocity/box pose writes stayed `0/0/0` in all cases.
+- [ ] Next tall step: stop scanning scalar `AGILE_COMMAND_Y` and terminal
+  forward tweaks on the current open-loop path. Design posture-conditioned
+  support/contact control that changes support stance, cradle pressure, and
+  command damping together while preserving the no-rollout-write strict gates.

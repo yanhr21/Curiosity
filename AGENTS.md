@@ -260,6 +260,26 @@ These rules override all other project instructions.
   `AGILE_COMMAND_Y=-0.010`, and `AGILE_COMMAND_Y=0.010`. It is an experiment
   entrypoint only until `g1_tall_preintegrated_mild_command_summary.json`
   exists.
+- 2026-07-08 G1 tall preintegrated mild-command result:
+  CPU Slurm job `170675` on `server01` completed
+  `20260708_g1_tall_preintegrated_mild_command_cpu`, aggregate `fail`, 0/3.
+  `terminal_forward025` still missed the target window and later failed with
+  first fall/drop `827/857`, final robot/box travel `1.544/1.347 m`, final
+  lateral `0.838/0.800 m`, relative offset `0.410 m`, max robot/box tilt
+  `3.141/3.139 rad`, and no rollout root/velocity/box pose writes.
+  `command_y_neg010` was worse, with first fall/drop `182/202`, final travel
+  `0.769/0.427 m`, final lateral `-0.491/-0.313 m`, relative offset
+  `0.408 m`, max robot/box tilt `1.151/0.992 rad`, and target-window
+  `0/0/0`. `command_y_pos010` reached the neighborhood of the target but was
+  unstable: first fall/drop `526/629`, final robot/box travel
+  `3.070/3.056 m`, final lateral `0.014/-0.145 m`, robot target-window
+  stable steps `68`, box/both target-window `0/0`, relative offset
+  `0.186 m`, max robot/box tilt `3.138/2.938 rad`, and no rollout writes.
+  Conclusion: mild global command changes do not preserve the stable tall
+  preintegrated-cradle boundary. Do not keep scanning scalar
+  `AGILE_COMMAND_Y` or terminal-forward tweaks on this path; the next valid
+  tall step needs posture-conditioned support/contact control, not another
+  small open-loop command offset.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with
