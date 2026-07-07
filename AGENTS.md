@@ -12873,6 +12873,15 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   this early `policy_then_stand` handoff is worse than the previous
   `stand_delay_160_soft` boundary; do not continue this handoff branch without
   a materially different support/terminal-control formulation.
+- 2026-07-07 posture-conditioned gate rerun submitted: Slurm job `170282`
+  (`g1_postgate`) was submitted through tmux `curiosity_g1_posture_gate_0707`
+  with `SUITE_STAMP_PREFIX=20260707_g1_posture_conditioned_gate_rerun`.
+  It runs the existing two-case gate: known `low_front_060` reproduction plus
+  `close_front_060_conditioned`, both under strict target-window, fall/drop,
+  tilt, lateral, and no-shortcut checks. As of submission it was still
+  `PENDING (Priority)` with no start time. Do not report any result until
+  `experiments/outputs/core_world_g1_posture_conditioned_gate/20260707_g1_posture_conditioned_gate_rerun/posture_conditioned_gate_summary.json`
+  exists.
 - 2026-07-07 G1 showcase capture job: Slurm job `170209` (`g1_showviz`) was
   submitted through tmux `curiosity_g1_showcase_capture_0707` to run
   `scripts/isaac/run_core_world_g1_showcase_lowcarry_capture.sh` with

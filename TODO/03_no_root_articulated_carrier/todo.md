@@ -9053,6 +9053,15 @@
   tilt `1.284/1.397 rad`. This early `policy_then_stand` handoff is worse
   than the earlier `stand_delay_160_soft` boundary; do not continue this
   exact branch without a materially different support/terminal-control design.
+- [ ] Monitor posture-conditioned gate rerun. Slurm job `170282`
+  (`g1_postgate`) was submitted through tmux `curiosity_g1_posture_gate_0707`
+  with `SUITE_STAMP_PREFIX=20260707_g1_posture_conditioned_gate_rerun`. It
+  runs the existing two-case gate, known `low_front_060` reproduction plus
+  `close_front_060_conditioned`, under strict target-window/fall/drop/tilt/
+  lateral/no-shortcut checks. It was `PENDING (Priority)` with no start time
+  at submission. Record the result only after
+  `experiments/outputs/core_world_g1_posture_conditioned_gate/20260707_g1_posture_conditioned_gate_rerun/posture_conditioned_gate_summary.json`
+  exists.
 - [x] Monitor G1 showcase RGB capture job `170209` (`g1_showviz`) submitted
   through tmux `curiosity_g1_showcase_capture_0707`. It runs
   `scripts/isaac/run_core_world_g1_showcase_lowcarry_capture.sh` with
