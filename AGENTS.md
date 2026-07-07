@@ -744,6 +744,36 @@ These rules override all other project instructions.
   end streak `0`, and max robot/box tilt `1.601/1.602 rad`. Next shape-robust
   work should use earlier geometry-adaptive path/support selection rather than
   final-only stand or side-guard timing.
+- 2026-07-07 close-front held-out geometry early-support entrypoint added:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_early_support_suite.sh`.
+  It tests two earlier interventions under unchanged strict gates. For
+  `wide_y012`, low-mass side guards are spawned on hold with half-spacing
+  `0.13 m` and mass scale `0.15`, because terminal-trigger guards never
+  became active before wide-box drift/fall. For `tall_z009`, final stand
+  handoff delay is reduced from `120` to `40` steps, because delayed stand
+  improved retention but started too late to prevent over-travel and fall.
+  This is an experiment entrypoint only until
+  `closefront_heldout_geometry_early_support_summary.json` exists.
+- 2026-07-07 close-front held-out geometry early-support result:
+  `20260707_g1_closefront_heldout_geometry_early_support`, submitted through
+  tmux `curiosity_g1_heldout_early_support_0707` as Slurm job `170617`, ran
+  on `server44` and produced aggregate `fail`, 0/2 strict cases passed.
+  `wide_y012_hold_guard` confirmed early contact can change the failure
+  boundary: hold-trigger side guards enabled at step `100`, target-window
+  stable/longest improved from `0/0` to `93/93`, relative offset was within
+  gate at `0.230 m`, and rollout writes stayed `0`; however it over-traveled
+  badly (`3.879/3.803 m`), first fall/drop moved earlier to `773/829`,
+  fall/drop rose to `227/171`, final lateral was `0.671/0.886 m`, and max
+  robot/box tilt was `3.064/3.065 rad`. Interpretation: early support helps
+  reach the window but needs a window-latched speed/retention controller; hold
+  guards alone create a late runaway/drop failure. `tall_z009_early_stand40`
+  also failed: final stand activated at step `787` for `213` steps and kept
+  final travel in the allowed window (`2.234/2.315 m`), but was worse than the
+  later stand for stability, with first fall/drop `877/920`, fall/drop
+  `123/80`, target-window end streak `0`, final box lateral `0.609 m`, and
+  max robot/box tilt `1.566/1.578 rad`. Do not continue simply moving stand
+  earlier; the next step should add target-window-latched velocity/retention
+  logic after early support, not another final-only handoff.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

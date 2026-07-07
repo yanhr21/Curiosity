@@ -10091,3 +10091,28 @@
   case, the support/path change must happen before terminal hold; for the tall
   case, stand handoff needs earlier target-window speed/position arrest or a
   geometry-aware command controller, not just delayed final stand.
+- [x] Add close-front held-out geometry early-support diagnostic:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_early_support_suite.sh`.
+  It tests hold-trigger low-mass side guards for the wide box and earlier
+  final-stand handoff for the tall box, preserving the same strict gates.
+- [x] Run and record the early-support diagnostic through tmux plus persistent
+  `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_early_support/<stamp>/closefront_heldout_geometry_early_support_summary.json`
+  exists.
+- [x] Record early-support diagnostic result:
+  `20260707_g1_closefront_heldout_geometry_early_support`, tmux
+  `curiosity_g1_heldout_early_support_0707`, Slurm job `170617`, aggregate
+  `fail`, 0/2. `wide_y012_hold_guard` enabled side guards at hold step `100`
+  and changed the failure boundary: target-window stable/longest improved
+  from `0/0` to `93/93`, relative offset was in gate at `0.230 m`, and writes
+  stayed `0`, but it over-traveled `3.879/3.803 m`, fell/dropped at
+  `773/829`, had fall/drop `227/171`, final lateral `0.671/0.886 m`, and max
+  robot/box tilt `3.064/3.065 rad`. `tall_z009_early_stand40` activated final
+  stand at step `787` for `213` steps and kept final travel in window
+  (`2.234/2.315 m`), but failed worse than delayed stand: first fall/drop
+  `877/920`, fall/drop `123/80`, target-window end streak `0`, final box
+  lateral `0.609 m`, and max robot/box tilt `1.566/1.578 rad`.
+- [ ] Next controller step: combine the useful part of early wide-box support
+  with a target-window-latched speed/retention controller. Do not keep moving
+  stand earlier. The tall-box branch needs roll/tilt retention while braking,
+  not a pure stand handoff.
