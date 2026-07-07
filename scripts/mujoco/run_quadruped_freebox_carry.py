@@ -79,7 +79,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stride-clip", type=float, default=0.20)
     parser.add_argument(
         "--support-controller-mode",
-        choices=("none", "stance_force", "centroidal_stance_force"),
+        choices=(
+            "none",
+            "stance_force",
+            "centroidal_stance_force",
+            "lqr_stance_force",
+            "lqr_additive_stance_force",
+        ),
         default="none",
     )
     parser.add_argument("--support-force-scale", type=float, default=1.0)
@@ -122,6 +128,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--support-min-foot-fz", type=float, default=10.0)
     parser.add_argument("--support-max-foot-fz", type=float, default=260.0)
     parser.add_argument("--support-max-joint-torque", type=float, default=220.0)
+    parser.add_argument("--support-lqr-horizon-steps", type=int, default=80)
+    parser.add_argument("--support-lqr-q-pos", type=float, default=80.0)
+    parser.add_argument("--support-lqr-q-vel", type=float, default=8.0)
+    parser.add_argument("--support-lqr-r", type=float, default=1.0)
+    parser.add_argument("--support-lqr-max-fx", type=float, default=120.0)
+    parser.add_argument("--support-lqr-max-fy", type=float, default=120.0)
+    parser.add_argument("--support-lqr-post-latch-only", action="store_true")
     parser.add_argument("--tray-half-length", type=float, default=0.38)
     parser.add_argument("--tray-half-width", type=float, default=0.24)
     parser.add_argument("--wall-height", type=float, default=0.16)
@@ -240,6 +253,29 @@ def _leg_ik(x: float, z_down: float) -> tuple[float, float]:
     hip = max(-1.15, min(1.15, hip))
     knee = max(-1.55, min(0.15, knee))
     return hip, knee
+
+
+def _finite_horizon_double_integrator_lqr_gain(
+    dt: float,
+    horizon_steps: int,
+    q_pos: float,
+    q_vel: float,
+    r: float,
+) -> tuple[float, float]:
+    """Return K for u = -K [pos_error, vel_error] on a 1D double integrator."""
+    import numpy as np
+
+    a = np.array([[1.0, dt], [0.0, 1.0]], dtype=float)
+    b = np.array([[0.5 * dt * dt], [dt]], dtype=float)
+    q = np.diag([max(0.0, q_pos), max(0.0, q_vel)])
+    r_mat = np.array([[max(1e-6, r)]], dtype=float)
+    p = q.copy()
+    for _ in range(max(1, int(horizon_steps))):
+        bt_p = b.T @ p
+        gain = np.linalg.solve(r_mat + bt_p @ b, bt_p @ a)
+        p = q + a.T @ p @ (a - b @ gain)
+    gain = np.linalg.solve(r_mat + b.T @ p @ b, b.T @ p @ a)
+    return float(gain[0, 0]), float(gain[0, 1])
 
 
 def _xml(args: argparse.Namespace) -> str:
@@ -396,6 +432,18 @@ def main() -> None:
         "support_min_foot_fz_n": float(args.support_min_foot_fz),
         "support_max_foot_fz_n": float(args.support_max_foot_fz),
         "support_max_joint_torque_nm": float(args.support_max_joint_torque),
+        "support_lqr_horizon_steps": int(args.support_lqr_horizon_steps),
+        "support_lqr_q_pos": float(args.support_lqr_q_pos),
+        "support_lqr_q_vel": float(args.support_lqr_q_vel),
+        "support_lqr_r": float(args.support_lqr_r),
+        "support_lqr_max_fx_n": float(args.support_lqr_max_fx),
+        "support_lqr_max_fy_n": float(args.support_lqr_max_fy),
+        "support_lqr_post_latch_only": bool(args.support_lqr_post_latch_only),
+        "support_lqr_active_steps": 0,
+        "support_lqr_k_pos": 0.0,
+        "support_lqr_k_vel": 0.0,
+        "max_abs_support_lqr_fx_n": 0.0,
+        "max_abs_support_lqr_fy_n": 0.0,
         "max_assist_force_x_n": float(args.max_assist_force_x),
         "max_assist_force_z_n": float(args.max_assist_force_z),
         "max_assist_torque_nm": float(args.max_assist_torque),
@@ -439,6 +487,15 @@ def main() -> None:
         if i != box_id and float(model.body(i).mass[0]) > 0.0
     ]
     robot_mass_kg = sum(float(model.body(i).mass[0]) for i in robot_body_ids)
+    support_lqr_k_pos, support_lqr_k_vel = _finite_horizon_double_integrator_lqr_gain(
+        dt=dt,
+        horizon_steps=int(args.support_lqr_horizon_steps),
+        q_pos=float(args.support_lqr_q_pos),
+        q_vel=float(args.support_lqr_q_vel),
+        r=float(args.support_lqr_r),
+    )
+    summary["support_lqr_k_pos"] = float(support_lqr_k_pos)
+    summary["support_lqr_k_vel"] = float(support_lqr_k_vel)
 
     with csv_path.open("w", newline="") as f:
         writer = csv.writer(f)
@@ -612,7 +669,12 @@ def main() -> None:
 
             data.qfrc_applied[:] = 0.0
             data.xfrc_applied[:] = 0.0
-            if args.support_controller_mode in ("stance_force", "centroidal_stance_force") and stance_feet:
+            if args.support_controller_mode in (
+                "stance_force",
+                "centroidal_stance_force",
+                "lqr_stance_force",
+                "lqr_additive_stance_force",
+            ) and stance_feet:
                 target_height_cmd = float(args.target_height)
                 support_kd_z = float(args.support_kd_z)
                 support_kd_roll = float(args.support_kd_roll)
@@ -665,6 +727,36 @@ def main() -> None:
                 stance_center_y = sum(float(data.xpos[foot_body_id, 1]) for foot_body_id, _, _ in stance_feet) / len(stance_feet)
                 com_x_error = float(robot_com[0] - (stance_center_x + float(args.support_com_target_x_offset)))
                 com_y_error = float(robot_com[1] - (stance_center_y + float(args.support_com_target_y_offset)))
+                support_lqr_fx = 0.0
+                support_lqr_fy = 0.0
+                support_lqr_active = (
+                    args.support_controller_mode in ("lqr_stance_force", "lqr_additive_stance_force")
+                    and (target_stop_latched or not bool(args.support_lqr_post_latch_only))
+                )
+                if support_lqr_active and robot_mass_kg > 1e-6:
+                    lqr_vx_error = float(data.qvel[6] - target_speed_cmd)
+                    lqr_vy_error = float(data.qvel[7])
+                    lqr_ax = -support_lqr_k_pos * com_x_error - support_lqr_k_vel * lqr_vx_error
+                    lqr_ay = -support_lqr_k_pos * com_y_error - support_lqr_k_vel * lqr_vy_error
+                    support_lqr_fx = float(robot_mass_kg * lqr_ax)
+                    support_lqr_fy = float(robot_mass_kg * lqr_ay)
+                    support_lqr_fx = max(
+                        -float(args.support_lqr_max_fx),
+                        min(float(args.support_lqr_max_fx), support_lqr_fx),
+                    )
+                    support_lqr_fy = max(
+                        -float(args.support_lqr_max_fy),
+                        min(float(args.support_lqr_max_fy), support_lqr_fy),
+                    )
+                    summary["support_lqr_active_steps"] = int(summary["support_lqr_active_steps"]) + 1
+                    summary["max_abs_support_lqr_fx_n"] = max(
+                        float(summary["max_abs_support_lqr_fx_n"]),
+                        abs(support_lqr_fx),
+                    )
+                    summary["max_abs_support_lqr_fy_n"] = max(
+                        float(summary["max_abs_support_lqr_fy_n"]),
+                        abs(support_lqr_fy),
+                    )
                 com_shift_x = support_com_scale * (
                     float(args.support_com_x_gain) * com_x_error
                     + float(args.support_com_vx_gain) * float(data.qvel[6])
@@ -710,12 +802,17 @@ def main() -> None:
                 if float(args.support_max_total_fy) > 0.0:
                     limit_fy = float(args.support_max_total_fy)
                     total_fy = max(-limit_fy, min(limit_fy, total_fy))
+                total_fy_with_lqr = total_fy + support_lqr_fy
                 summary["max_abs_support_fy_n"] = max(
-                    float(summary["max_abs_support_fy_n"]), abs(total_fy)
+                    float(summary["max_abs_support_fy_n"]), abs(total_fy_with_lqr)
                 )
                 jacp = np.zeros((3, model.nv))
                 foot_forces: list[np.ndarray] = []
-                if args.support_controller_mode == "centroidal_stance_force":
+                use_centroidal_allocation = (
+                    args.support_controller_mode == "centroidal_stance_force"
+                    or (args.support_controller_mode == "lqr_stance_force" and support_lqr_active)
+                )
+                if use_centroidal_allocation:
                     wrench_matrix = np.zeros((6, 3 * len(stance_feet)), dtype=float)
                     wrench_center = robot_com if robot_mass_kg > 1e-6 else data.xpos[torso_id]
                     for foot_index, (foot_body_id, _, _) in enumerate(stance_feet):
@@ -733,8 +830,8 @@ def main() -> None:
                         )
                     desired_wrench = np.array(
                         [
-                            support_fx_scale * total_fx,
-                            total_fy,
+                            support_fx_scale * total_fx + support_lqr_fx,
+                            total_fy_with_lqr,
                             float(args.support_force_scale) * total_fz,
                             roll_term,
                             pitch_term,
@@ -743,10 +840,15 @@ def main() -> None:
                         dtype=float,
                     )
                     solution, *_ = np.linalg.lstsq(wrench_matrix, desired_wrench, rcond=None)
+                    max_lateral_force = max(
+                        0.0,
+                        float(args.support_max_total_fy),
+                        float(args.support_lqr_max_fy) if support_lqr_active else 0.0,
+                    )
                     for foot_index in range(len(stance_feet)):
                         force = solution[3 * foot_index:3 * foot_index + 3].astype(float)
                         force[0] = float(np.clip(force[0], -support_max_total_fx, support_max_total_fx))
-                        force[1] = float(np.clip(force[1], -max(0.0, float(args.support_max_total_fy)), max(0.0, float(args.support_max_total_fy))))
+                        force[1] = float(np.clip(force[1], -max_lateral_force, max_lateral_force))
                         force[2] = float(np.clip(force[2], -abs(float(args.support_force_scale)) * support_max_foot_fz, abs(float(args.support_force_scale)) * support_max_foot_fz))
                         foot_forces.append(force)
                 else:
@@ -760,8 +862,8 @@ def main() -> None:
                         foot_forces.append(
                             np.array(
                                 [
-                                    support_fx_scale * total_fx / len(stance_feet),
-                                    total_fy / len(stance_feet),
+                                    (support_fx_scale * total_fx + support_lqr_fx) / len(stance_feet),
+                                    total_fy_with_lqr / len(stance_feet),
                                     float(args.support_force_scale) * foot_fz,
                                 ],
                                 dtype=float,

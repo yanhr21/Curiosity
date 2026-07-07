@@ -11170,6 +11170,65 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   sweeps; the next credible path needs a real controller-backed locomotion
   backend, MPC/whole-body balance controller, or a materially different
   support optimizer, not more scalar gain variants on this same model.
+- 2026-07-07 MuJoCo LQR/centroidal support route added:
+  `scripts/mujoco/run_quadruped_freebox_carry.py` now supports
+  `SUPPORT_CONTROLLER_MODE=lqr_stance_force`. This is an opt-in replacement
+  support backend, not another scalar stance-force sweep. It computes a
+  finite-horizon double-integrator LQR gain for COM x/y state feedback,
+  applies the resulting desired horizontal wrench through the existing
+  stance-foot centroidal least-squares allocation, and then maps foot forces
+  through foot Jacobians to actuated joint generalized forces. It records
+  `support_lqr_active_steps`, `support_lqr_k_pos`, `support_lqr_k_vel`,
+  `max_abs_support_lqr_fx_n`, and `max_abs_support_lqr_fy_n`; it does not
+  write root pose/velocity or box pose/velocity. Launcher and checker support
+  were added, plus
+  `scripts/mujoco/run_quadruped_freebox_lqr_stance_hold_suite.sh`. Slurm job
+  `169618` (`mj_lqrhold`) was submitted through tmux
+  `curiosity_mujoco_lqr_stance_hold_0707` with GPU allocation. Treat this as
+  a diagnostic backend test only until all strict free-box gates are parsed.
+- 2026-07-07 first LQR support run `169618` (`mj_lqrhold`) is an invalid
+  activation diagnostic, not a valid LQR result. It completed on `server39`
+  with four strict failures, but all cases had `target_stop_latched=false`
+  and `support_lqr_active_steps=0`. Root/box pose writes remained `0`, but
+  the pre-latch behavior used the centroidal allocation path before LQR could
+  activate, so the known stance-force approach/latch behavior was not
+  preserved. The code was corrected so
+  `SUPPORT_CONTROLLER_MODE=lqr_stance_force` with
+  `SUPPORT_LQR_POST_LATCH_ONLY=1` uses the original stance-force allocation
+  before latch and switches to LQR/centroidal allocation only after latch.
+  Corrected retry Slurm job `169619` (`mj_lqrh2`) was submitted through tmux
+  `curiosity_mujoco_lqr_stance_hold_retry_0707` with suite suffix
+  `lqr_stance_hold_lqr2`.
+- 2026-07-07 corrected LQR/centroidal support result: Slurm job `169619`
+  (`mj_lqrh2`) completed on `server39`. The corrected mode was valid:
+  all four cases latched target-stop and had `support_lqr_active_steps=1797`,
+  target-stop hold `1797`, support joint torque writes `3000`, and root/box
+  pose/velocity writes all `0`. Strict result was still `fail`, `0/4` cases
+  passed. Fall/drop were `78/75` for all cases; max tilt stayed high
+  (`1.612-1.754 rad`), min box height was low (`0.318-0.370 m`), and final
+  box travel was only `0.050-0.100 m`. Conclusion: switching post-latch to
+  the centroidal LQR allocation activates the new controller but does not
+  solve the collapse and can reduce final travel. Added a more conservative
+  `lqr_additive_stance_force` mode that preserves the original stance-force
+  allocation and only adds LQR horizontal corrections after latch. Slurm job
+  `169621` (`mj_lqradd`) was submitted through tmux
+  `curiosity_mujoco_lqr_additive_hold_0707` with suite suffix
+  `lqr_additive_hold_add1`.
+- 2026-07-07 additive LQR support result: Slurm job `169621`
+  (`mj_lqradd`) completed on `server39`. Strict result was `fail`, `0/4`
+  cases passed. The additive mode was active in all cases:
+  `target_stop_latched=true`, target-stop hold `1797`, LQR active steps
+  `1797`, support joint torque writes `3000`, and root/box pose/velocity
+  writes all `0`. Compared with centroidal LQR, additive LQR preserved the
+  useful forward travel and retention better: final box travel was
+  `0.253-0.272 m`, max box travel `0.285-0.301 m`, final relative error
+  `0.099-0.116 m`, and max relative error `0.166-0.208 m`. It still failed
+  the real carrying gates with `77` falls / `73` box drops in every case,
+  max tilt about `1.674-1.682 rad`, and minimum box height
+  `0.331-0.374 m`. Conclusion: additive LQR is a better integration form
+  than switching entirely to centroidal allocation, but it still does not
+  solve post-latch balance. The remaining failure is not target progress or
+  retention; it is whole-body fall/tilt after latch.
 - 2026-07-07 route switch after MuJoCo hand-controller exhaustion: current
   best credible locomotion/carry evidence is the G1 AGILE policy path in
   `scripts/isaac/build_core_world_g1_box_scene.py` and

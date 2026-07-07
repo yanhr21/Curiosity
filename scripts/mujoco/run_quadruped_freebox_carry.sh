@@ -104,6 +104,13 @@ SUPPORT_MAX_TOTAL_FX="${SUPPORT_MAX_TOTAL_FX:-260.0}"
 SUPPORT_MIN_FOOT_FZ="${SUPPORT_MIN_FOOT_FZ:-10.0}"
 SUPPORT_MAX_FOOT_FZ="${SUPPORT_MAX_FOOT_FZ:-260.0}"
 SUPPORT_MAX_JOINT_TORQUE="${SUPPORT_MAX_JOINT_TORQUE:-220.0}"
+SUPPORT_LQR_HORIZON_STEPS="${SUPPORT_LQR_HORIZON_STEPS:-80}"
+SUPPORT_LQR_Q_POS="${SUPPORT_LQR_Q_POS:-80.0}"
+SUPPORT_LQR_Q_VEL="${SUPPORT_LQR_Q_VEL:-8.0}"
+SUPPORT_LQR_R="${SUPPORT_LQR_R:-1.0}"
+SUPPORT_LQR_MAX_FX="${SUPPORT_LQR_MAX_FX:-120.0}"
+SUPPORT_LQR_MAX_FY="${SUPPORT_LQR_MAX_FY:-120.0}"
+SUPPORT_LQR_POST_LATCH_ONLY="${SUPPORT_LQR_POST_LATCH_ONLY:-0}"
 
 EXTRA_ARGS=()
 if [[ -n "${STOP_AFTER_BOX_TRAVEL}" ]]; then
@@ -138,6 +145,9 @@ if [[ -n "${SUPPORT_FX_SCALE}" ]]; then
 fi
 if [[ -n "${HOLD_SUPPORT_FX_SCALE}" ]]; then
   EXTRA_ARGS+=(--hold-support-fx-scale "${HOLD_SUPPORT_FX_SCALE}")
+fi
+if [[ "${SUPPORT_LQR_POST_LATCH_ONLY}" == "1" ]]; then
+  EXTRA_ARGS+=(--support-lqr-post-latch-only)
 fi
 
 mkdir -p "${LOG_DIR}" "${OUTPUT_DIR}"
@@ -228,6 +238,12 @@ cd "${ROOT_DIR}"
   --support-min-foot-fz "${SUPPORT_MIN_FOOT_FZ}" \
   --support-max-foot-fz "${SUPPORT_MAX_FOOT_FZ}" \
   --support-max-joint-torque "${SUPPORT_MAX_JOINT_TORQUE}" \
+  --support-lqr-horizon-steps "${SUPPORT_LQR_HORIZON_STEPS}" \
+  --support-lqr-q-pos "${SUPPORT_LQR_Q_POS}" \
+  --support-lqr-q-vel "${SUPPORT_LQR_Q_VEL}" \
+  --support-lqr-r "${SUPPORT_LQR_R}" \
+  --support-lqr-max-fx "${SUPPORT_LQR_MAX_FX}" \
+  --support-lqr-max-fy "${SUPPORT_LQR_MAX_FY}" \
   --output-dir "${OUTPUT_DIR}" \
   "${EXTRA_ARGS[@]}" \
   2>&1 | tee "${LOG_PATH}"

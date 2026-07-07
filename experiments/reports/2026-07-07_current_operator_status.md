@@ -149,6 +149,42 @@ This is a status snapshot only. It is not a carrying-success claim.
   but this simplified MuJoCo hand-controller still collapses during the hold;
   stop this controller family unless the next change is a materially different
   controller/backend.
+- New materially different MuJoCo support backend added and submitted:
+  `SUPPORT_CONTROLLER_MODE=lqr_stance_force` computes finite-horizon COM x/y
+  LQR feedback, allocates the desired wrench through stance feet, and maps
+  forces to actuated joint generalized forces. It records LQR active steps and
+  max x/y LQR forces. Slurm job `169618` / `mj_lqrhold` is running or queued
+  through tmux `curiosity_mujoco_lqr_stance_hold_0707`; output log:
+  `experiments/outputs/mujoco_quadruped_freebox_lqr_stance_hold/20260707_mujoco_lqr_stance_hold/tmux_srun.log`.
+  It is not evidence until summaries are parsed against the strict free-box
+  gates.
+- `169618` / `mj_lqrhold` completed on `server39`, but it is an invalid LQR
+  activation diagnostic: all four cases failed before target-stop latch and
+  had `support_lqr_active_steps=0`. The code was corrected so post-latch-only
+  LQR uses the previous stance-force approach before latch, then switches to
+  LQR/centroidal support after latch. Corrected retry `169619` / `mj_lqrh2`
+  is queued/running through tmux
+  `curiosity_mujoco_lqr_stance_hold_retry_0707`; log:
+  `experiments/outputs/mujoco_quadruped_freebox_lqr_stance_hold/20260707_mujoco_lqr_stance_hold_retry/tmux_srun.log`.
+- `169619` / `mj_lqrh2` completed on `server39` and is a valid LQR activation
+  result, but strict `fail`, `0/4` cases passed. All cases had target-stop
+  latch, LQR active `1797` steps, root/box pose and velocity writes `0`, and
+  support joint torque writes `3000`; all still failed with `78/75`
+  fall/drop, excessive tilt, low box height, and final box travel only
+  `0.050-0.100 m`. Added a conservative additive LQR mode that keeps the
+  original stance-force allocation and only adds LQR x/y horizontal
+  corrections. `169621` / `mj_lqradd` is queued/running through tmux
+  `curiosity_mujoco_lqr_additive_hold_0707`; log:
+  `experiments/outputs/mujoco_quadruped_freebox_lqr_additive_hold/20260707_mujoco_lqr_additive_hold/tmux_srun.log`.
+- `169621` / `mj_lqradd` completed on `server39`. Result: strict `fail`,
+  `0/4` cases passed. It is a valid additive LQR activation result:
+  target-stop and LQR active `1797` steps, support joint torque writes
+  `3000`, root/box pose and velocity writes `0`. Compared with centroidal
+  LQR it preserved final box travel (`0.253-0.272 m`) and final relative
+  error (`0.099-0.116 m`), but every case still failed with `77/73`
+  fall/drop, max tilt about `1.68 rad`, and low box height. Current takeaway:
+  progress/retention is not the limiter in this branch; post-latch whole-body
+  upright recovery is.
 - `169316` / `any_payload` completed on `server36` with no rollout and no
   summary. The policy-backed ANYmal payload wrapper failed during IsaacLab
   `gym.make` initialization with `Failed to get DOF velocities from backend`.

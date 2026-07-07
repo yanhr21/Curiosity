@@ -453,6 +453,49 @@
   was nonzero, but every case still had `77` falls, `73-74` drops, excessive
   tilt, and low box height. Stop treating this hand-controller family as a
   credible route to stable carrying.
+- [x] Add a materially different MuJoCo support backend:
+  `SUPPORT_CONTROLLER_MODE=lqr_stance_force` in
+  `scripts/mujoco/run_quadruped_freebox_carry.py`, launcher exposure, checker
+  fields, and
+  `scripts/mujoco/run_quadruped_freebox_lqr_stance_hold_suite.sh`. This uses
+  finite-horizon COM x/y LQR feedback plus centroidal stance-foot force
+  allocation, not another scalar stance-force sweep.
+- [ ] Monitor Slurm job `169618` / tmux
+  `curiosity_mujoco_lqr_stance_hold_0707`. It must be judged by the same
+  strict free-box gates: no root/box pose or velocity writes, no torso
+  body-force assist, LQR active steps >= 600, target-stop hold >= 600, final
+  box travel >= `0.12 m`, final relative error <= `0.20 m`, and fall/drop 0.
+- [x] Record Slurm job `169618` first LQR attempt as invalid activation
+  diagnostic. It completed, but target-stop never latched and
+  `support_lqr_active_steps=0` for all cases, because the initial
+  implementation used centroidal allocation even before post-latch LQR was
+  allowed to activate.
+- [ ] Monitor corrected Slurm job `169619` / tmux
+  `curiosity_mujoco_lqr_stance_hold_retry_0707`. The corrected mode must
+  preserve pre-latch stance-force approach and only switch to LQR/centroidal
+  support after target latch.
+- [x] Record corrected Slurm job `169619` LQR/centroidal result. It was a
+  valid activation diagnostic, but strict `fail`, `0/4` cases passed:
+  target-stop and LQR were active for all cases, root/box writes stayed `0`,
+  but post-latch fall/drop remained `78/75`, tilt was excessive, box height
+  dropped, and final box travel stayed below the strict threshold.
+- [x] Add conservative `lqr_additive_stance_force` mode and
+  `scripts/mujoco/run_quadruped_freebox_lqr_additive_hold_suite.sh`. This
+  preserves the original stance-force allocation and adds LQR x/y corrections
+  after latch instead of switching the whole allocator.
+- [ ] Monitor Slurm job `169621` / tmux
+  `curiosity_mujoco_lqr_additive_hold_0707`, then compare against `169619`
+  and the earlier hold-capture result.
+- [x] Record Slurm job `169621` additive LQR result. Strict `fail`, `0/4`
+  cases passed. Additive LQR preserved final box travel and relative error
+  better than the centroidal-switching LQR (`0.253-0.272 m` final box travel,
+  `0.099-0.116 m` final relative error), with LQR active and no root/box
+  writes, but every case still had `77/73` fall/drop and excessive tilt.
+- [ ] Next meaningful MuJoCo controller step, if continuing this branch:
+  target the post-latch whole-body fall directly. Add a pitch/roll recovery
+  objective that changes support geometry or upright torque before collapse,
+  not more x/y LQR or retention tuning; target progress and box retention are
+  no longer the limiting errors in the additive LQR result.
 - [x] Switch active implementation focus back to the G1 AGILE policy path.
   Historical best low-carry run completed 819 steps with fall/drop `0/0`,
   free box, G1 USD, AGILE ONNX policy, no rollout root/box pose writes, and
