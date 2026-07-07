@@ -174,10 +174,18 @@ These rules override all other project instructions.
   conditioned, not box-risk conditioned, and can be disabled on final-hold.
   Launcher forwarding and aggregate fields were added, plus entrypoint
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_approach_support_suite.sh`.
-  This is an experiment entrypoint only until
-  `close_front_approach_support_summary.json` exists; do not claim it as
-  carrying success before strict fall/drop/target-window/tilt/lateral/no-write
-  gates pass.
+  First quick run `20260707_g1_lowcarry_close_front_approach_support_quick`
+  completed but failed strict gates and did not actually test the controller:
+  `approach_support_posture_active_steps=0`, because the original activation
+  window started at `1.35 m` while final-hold latched at `1.20 m` and disabled
+  the controller. Metrics matched the earlier near miss: fall/drop `0/0`,
+  final robot/box travel about `2.026/2.103 m`, max robot/box tilt
+  `0.486/0.493 rad`, target-window stable steps `76`, final-hold active
+  steps `268`, and writes `0/0/0`. Treat this as a parameter-gating mistake,
+  not evidence that the support-posture mechanism works or fails. The suite
+  was corrected to `soft1050_active` / `support1200_active` with activation
+  starting at `0.65 m`; do not interpret the mechanism until a fresh summary
+  shows nonzero `approach_support_posture_active_steps`.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

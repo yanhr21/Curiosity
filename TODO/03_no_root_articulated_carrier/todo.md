@@ -9459,9 +9459,23 @@
   pre-final-hold support posture in `soft1050`, plus a 1200-step strict
   `support1200` case in the default case set, under the same fall/drop,
   target-window, final-hold, tilt, lateral, and no-rollout-write gates.
-- [ ] Run and record close-front approach-support suite. Use tmux plus
+- [x] Record first close-front approach-support quick run:
+  `20260707_g1_lowcarry_close_front_approach_support_quick`. It completed but
+  failed strict gates and had `approach_support_posture_active_steps=0`
+  because the original activation window began at `1.35 m`, after final-hold
+  latched at `1.20 m` and disabled the controller. Metrics were fall/drop
+  `0/0`, final robot/box travel about `2.026/2.103 m`, max robot/box tilt
+  `0.486/0.493 rad`, target-window stable steps `76`, final-hold active
+  steps `268`, and writes `0/0/0`. Do not interpret this as controller
+  success or failure; it was a parameter-gating mistake.
+- [x] Correct close-front approach-support suite activation:
+  `soft1050_active` now blends from `0.65 m` to `1.15 m`, and
+  `support1200_active` from `0.65 m` to `1.20 m`, so the support posture can
+  become active before final-hold disables it.
+- [ ] Rerun and record active close-front approach-support suite. Use tmux plus
   persistent `srun` on a compute node. Do not interpret results until
   `experiments/outputs/core_world_g1_lowcarry_close_front_approach_support/<stamp>/close_front_approach_support_summary.json`
-  exists. A pass still must satisfy the original strict gates and cannot be
-  claimed as arbitrary-posture or learned carrying unless broader posture
-  generalization also passes.
+  exists and reports nonzero `approach_support_posture_active_steps`. A pass
+  still must satisfy the original strict gates and cannot be claimed as
+  arbitrary-posture or learned carrying unless broader posture generalization
+  also passes.

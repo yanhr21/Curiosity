@@ -113,11 +113,11 @@ overall_status=0
 
 case "${CASE_SET}" in
   quick)
-    run_case soft1050 1050 1.25 1.20 1.35 1.95 0.015 -0.03 0.06 -0.03 -0.015 || overall_status=1
+    run_case soft1050_active 1050 1.25 1.20 0.65 1.15 0.015 -0.03 0.06 -0.03 -0.015 || overall_status=1
     ;;
   default)
-    run_case soft1050 1050 1.25 1.20 1.35 1.95 0.015 -0.03 0.06 -0.03 -0.015 || overall_status=1
-    run_case support1200 1200 1.25 1.20 1.35 2.00 0.020 -0.04 0.08 -0.04 -0.020 || overall_status=1
+    run_case soft1050_active 1050 1.25 1.20 0.65 1.15 0.015 -0.03 0.06 -0.03 -0.015 || overall_status=1
+    run_case support1200_active 1200 1.25 1.20 0.65 1.20 0.020 -0.04 0.08 -0.04 -0.020 || overall_status=1
     ;;
   *)
     echo "Unknown APPROACH_SUPPORT_CASE_SET=${CASE_SET}; expected default or quick" >&2
