@@ -9994,7 +9994,9 @@
   `20260707_g1_closefront_mass0525_terminal_cross_brace_terminal_cross_brace_x19_z135`.
   It keeps terminal side guards, `0.525 kg`, final command zero, and adds a
   terminal cross-brace at local x/z `-0.19/0.135` with size
-  `0.07 x 0.30 x 0.04 m`. Interpret only after the strict summary exists.
+  `0.07 x 0.30 x 0.04 m`. Slurm job `170605` (`g1_xbrace`) was submitted
+  through tmux `curiosity_g1_closefront_m0525_crossbrace_0707`; interpret only
+  after the strict summary exists.
 - [x] Monitor checker-compatible terminal freeze follow-up:
   `20260707_g1_closefront_mass0525_terminal_freeze`, tmux
   `curiosity_g1_closefront_m0525_terminal_freeze_0707`, Slurm job `170593`.
