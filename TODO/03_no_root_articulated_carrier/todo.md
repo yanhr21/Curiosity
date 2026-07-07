@@ -8919,9 +8919,16 @@
   roll collapse around steps `730-790`. Slurm job `170003` (`g1_cfbal`) failed
   `0/3`; stronger roll/balance feedback shortened or destroyed window dwell.
   Do not continue balance-gain increases.
-- [ ] Run close-front freeze-stand transition suite. Keep `freeze_strict` and
+- [x] Record close-front freeze-stand transition suite. Keep `freeze_strict` and
   default balance, then transition to delayed low-COM stand targets after
   freeze to see whether symmetric low-COM posture prevents the `780`-step
-  collapse. Slurm job `170016` (`g1_cfstand2`) was submitted through tmux
-  `curiosity_g1_close_front_freeze_stand_transition_0707`; it is pending on
-  GPU priority as of `2026-07-07 15:22 CST`.
+  collapse. Slurm job `170016` (`g1_cfstand2`) ran on `server20` and failed
+  `0/3`. The best case, `stand_delay_160_soft`, reproduced the prior
+  `freeze_strict` near miss with `106` stable target-window steps,
+  longest/end streak `68/0`, final robot/box travel `2.176/2.119 m`, and
+  fall/drop at `782/804`; shorter stand delays were worse. Do not continue
+  stand-delay or stand-target tuning unchanged.
+- [ ] Run close-front freeze-rescue timing suite. Keep `freeze_strict` and
+  default balance/stand disabled, then compare rescue disabled, rescue delayed,
+  and softened rescue targets to test whether the post-freeze rescue posture
+  causes the `780`-step collapse.

@@ -496,6 +496,30 @@ This rules out simply increasing balance gains. The next close-front test
 should preserve default balance and use a delayed low-COM stand/hold transition
 after target-window freeze.
 
+## Close-Front Freeze-Stand Transition
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_transition_suite.sh`
+- Purpose:
+  retain `freeze_strict`, default balance, and test whether delayed low-COM
+  stand targets prevent the roll collapse after target-window freeze.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `170016` (`g1_cfstand2`) ran on
+  `server20` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_freeze_stand_transition/20260707_g1_lowcarry_close_front_freeze_stand_transition/close_front_freeze_stand_transition_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Longest/End Streak | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `stand_delay_80` | fail | 585/546 | 715/741 | 68 | 68/0 | Too early/aggressive stand transition over-travels to about `3.7 m` and drops. |
+| `stand_delay_120` | fail | 612/520 | 688/727 | 28 | 28/0 | Worse target-window retention and early fall/drop. |
+| `stand_delay_160_soft` | fail | 518/496 | 782/804 | 106 | 68/0 | Reproduces the `freeze_strict` near miss; stand transition does not fix collapse. |
+
+This rules out delayed stand target tuning for the current close-front branch.
+The next useful isolation is freeze plus rescue timing: disable or delay the
+post-freeze rescue posture to test whether rescue is causing the `780`-step
+collapse rather than preventing it.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next
@@ -529,5 +553,9 @@ implementation should add an explicit posture-conditioned controller gate:
   progress,
 - do not continue stronger balance-gain tuning; it shortened useful
   target-window dwell,
+- do not continue delayed stand target tuning unchanged; the best delayed
+  stand case reproduced the same `freeze_strict` fall/drop boundary,
+- isolate post-freeze rescue timing next; compare rescue disabled, delayed
+  rescue, and softened rescue targets under the same strict gates,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

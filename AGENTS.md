@@ -12677,10 +12677,26 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_transition_suite.sh`.
   It keeps `freeze_strict`, default balance feedback, and tests delayed
   low-COM stand targets at delays `80`, `120`, and a softer `160` steps after
-  final hold. Slurm job `170016` (`g1_cfstand2`) was submitted through tmux
-  `curiosity_g1_close_front_freeze_stand_transition_0707`; as of
-  `2026-07-07 15:22 CST`, it was pending on GPU priority with no compute-node
-  summary yet.
+  final hold. Slurm job `170016` (`g1_cfstand2`) ran on `server20` and failed
+  `0/3`. `stand_delay_80` over-traveled to robot/box travel
+  `3.703/3.719 m`, had only `68` target-window stable steps, and fell/dropped
+  at `715/741`. `stand_delay_120` reached only `28` stable steps and
+  fell/dropped at `688/727`. `stand_delay_160_soft` matched the earlier
+  `freeze_strict` boundary with target-window stable steps `106`,
+  longest/end streak `68/0`, final robot/box travel `2.176/2.119 m`,
+  final lateral error `-0.105/0.084 m`, and fall/drop at `782/804` with
+  max robot/box tilt `1.202/1.516 rad`. Conclusion: delayed low-COM stand
+  transition does not fix close-front freeze collapse; do not continue stand
+  delay/stand target tuning unchanged. The next valid close-front test should
+  isolate whether post-freeze rescue activation is helping or causing the
+  collapse.
+- 2026-07-07 close-front freeze-rescue timing entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_rescue_timing_suite.sh`.
+  It keeps `freeze_strict`, disables delayed stand targets, preserves default
+  balance, and compares `freeze_no_rescue`, `freeze_rescue_late055`, and
+  `freeze_rescue_soft035` under the same strict target-window, fall/drop,
+  tilt, lateral, and no-rollout-write gates. This is an experiment entrypoint
+  only until `close_front_freeze_rescue_timing_summary.json` exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
