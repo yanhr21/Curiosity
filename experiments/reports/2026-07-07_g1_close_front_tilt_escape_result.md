@@ -217,3 +217,10 @@ branch has produced useful boundaries but not a strict close-front pass. The
 next meaningful step is not more scalar tuning on lateral sign/gain, brake
 magnitude, or escape threshold. It should be a materially different terminal
 support policy or a support-backend replacement under the same strict gates.
+
+Active next suite:
+`scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_stand_lowstance_suite.sh`
+
+It keeps the `suppress60_stand240_blend002` timing but changes the final stand
+posture with sagittal hip/knee/ankle/waist overrides to test a lower terminal
+support policy.

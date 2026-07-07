@@ -359,6 +359,15 @@ These rules override all other project instructions.
   close-front pass. The next meaningful step is support/backend replacement or
   a materially different terminal support policy, while keeping the same
   strict gates.
+- 2026-07-07 close-front low-stance terminal support entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_stand_lowstance_suite.sh`.
+  It starts from the best `suppress60_stand240_blend002` boundary but changes
+  the terminal support posture rather than small command scalars: final stand
+  uses paired sagittal overrides for hip pitch, knee, ankle pitch, and waist
+  pitch to create lower, more crouched terminal support. It tests
+  `lowstance_soft` and `lowstance_deeper` under the same strict gates. This is
+  an experiment entrypoint only until
+  `close_front_escape_stand_lowstance_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

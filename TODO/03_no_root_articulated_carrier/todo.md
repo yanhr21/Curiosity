@@ -168,6 +168,12 @@
   roll target produced useful boundaries but no strict pass. The next
   meaningful step is a materially different terminal support policy or support
   backend replacement while preserving the same strict gates.
+- [ ] Run close-front low-stance terminal support follow-up:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_stand_lowstance_suite.sh`.
+  It starts from `suppress60_stand240_blend002` but changes the final support
+  posture with paired sagittal hip/knee/ankle/waist stand overrides instead of
+  further tuning command scalars. Record
+  `close_front_escape_stand_lowstance_summary.json` before interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`
