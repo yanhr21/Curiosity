@@ -8691,3 +8691,10 @@
   through tmux `curiosity_g1_060_late_chestpad_fix_0707` after commit
   `4994ed8` fixed the actual spawn-time collision gating. Interpret only the
   `20260707_g1_lowcarry_060_late_chestpad_fix1` outputs.
+- [x] Cancel replacement job `169678` after discovering the suite still used
+  non-baseline top-lid geometry (`z=0.145`, thickness `0.018`). The true
+  0.60 kg baseline uses top-lid `z=0.13`, thickness `0.014`; `fix1` therefore
+  tested the wrong geometry and should not be interpreted as late-trigger
+  evidence.
+- [ ] Rerun the late chest-pad suite with baseline 0.60 kg top-lid geometry
+  and a fresh output prefix such as `fix2`.

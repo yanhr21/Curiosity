@@ -1223,6 +1223,14 @@ This is a status snapshot only. It is not a carrying-success claim.
   replacement job `169678` (`g1_060late2`) was submitted through tmux
   `curiosity_g1_060_late_chestpad_fix_0707` with prefix
   `20260707_g1_lowcarry_060_late_chestpad_fix1`.
+- `169678` was also cancelled after the first two cases showed it was testing
+  the wrong top-lid geometry. The 0.60 kg near-miss baseline used top-lid
+  `z=0.13`, thickness `0.014`, side rail `0.10`, and end stop `0.11`, while
+  the late chest-pad suite still carried over repair geometry `z=0.145`,
+  thickness `0.018`. `fix1_target_window_min700` failed early with first fall
+  at step `628`, `191` falls, and `180` drops, so it is a geometry mismatch,
+  not valid late-trigger evidence. The suite has been corrected back to the
+  baseline top-lid geometry for a fresh `fix2` run.
 
 ## Next Decision
 

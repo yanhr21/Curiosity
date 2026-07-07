@@ -12324,6 +12324,17 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `curiosity_g1_060_late_chestpad_fix_0707` with prefix
   `20260707_g1_lowcarry_060_late_chestpad_fix1`; only the replacement job can
   be interpreted as the late-trigger test.
+- 2026-07-07 late chest-pad geometry correction: replacement job `169678`
+  was also invalid and cancelled because the suite still used the previous
+  repair geometry `CRADLE_TOP_LID_LOCAL_Z=0.145` and
+  `CRADLE_TOP_LID_THICKNESS=0.018`. The actual 0.60 kg near-miss baseline
+  used `CRADLE_TOP_LID_LOCAL_Z=0.13`,
+  `CRADLE_TOP_LID_THICKNESS=0.014`, side rail `0.10`, and end stop `0.11`.
+  The invalid `fix1_target_window_min700` case fell at step `628` with
+  `191` falls and `180` drops, so it tested the wrong geometry rather than
+  late chest-pad activation. The suite was corrected back to the baseline
+  top-lid geometry; only a later `fix2` or newer prefix should be used for
+  the true baseline-geometry late-trigger test.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
