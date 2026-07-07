@@ -12806,6 +12806,10 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `stand_delay_220_ultrasoft` under the same strict gates. This is the next
   valid close-front branch because `stand_delay_160_soft` improved dwell but
   still failed from excessive tilt/drop.
+- 2026-07-07 close-front stand-over-freeze refinement job: Slurm job `170185`
+  (`g1_cfstandref`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_stand_refine_0707`; as of
+  `2026-07-07 17:49 CST`, it was pending on GPU priority.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,

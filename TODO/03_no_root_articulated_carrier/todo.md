@@ -9001,6 +9001,10 @@
   `stand_delay_160_microblend`, `stand_delay_180_ultrasoft`, and
   `stand_delay_220_ultrasoft` with stand-over-freeze enabled and rescue
   disabled.
+- [ ] Run close-front later/softer stand-over-freeze refinement suite. Slurm
+  job `170185` (`g1_cfstandref`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_stand_refine_0707`; it is pending on GPU
+  priority as of `2026-07-07 17:49 CST`.
 - [x] Add a read-only close-front freeze-rescue override parser:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case
