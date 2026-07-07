@@ -10185,7 +10185,35 @@
   `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_terminal_support_suite.sh`.
   It runs `wide_y012` and `tall_z009` with the new controller and the same
   strict gates.
-- [ ] Run and record the terminal-support diagnostic through tmux plus
+- [x] Run and record the terminal-support diagnostic through tmux plus
   persistent `srun`. Do not interpret it until
   `experiments/outputs/core_world_g1_closefront_heldout_geometry_terminal_support/<stamp>/closefront_heldout_geometry_terminal_support_summary.json`
+  exists.
+- [x] Record first terminal-support diagnostic result:
+  `20260707_g1_closefront_heldout_geometry_terminal_support`, tmux
+  `curiosity_g1_heldout_terminal_support_0707`, Slurm job `170636`, aggregate
+  `fail`, 0/2. `wide_y012_terminal_support` activated command for `232`
+  steps from step `540`, but posture support activated at step `105`, far too
+  early, with max risk `1`; it failed with first fall/drop `757/778`,
+  fall/drop `243/222`, target-window `84/84/0`, over-travel
+  `4.884/4.467 m`, final lateral `-1.375/-1.529 m`, relative offset
+  `0.474 m`, and max robot/box tilt `3.138/3.136 rad`. `tall_z009_terminal_support`
+  activated command for `153` steps from step `609` and posture for `357`
+  steps from step `643`, but still failed with first fall/drop `776/822`,
+  fall/drop `224/107`, target-window `45/45/0`, final travel
+  `1.876/1.874 m`, relative offset `0.267 m`, and max robot/box tilt
+  `1.908/1.951 rad`.
+- [ ] Next terminal-support probe: delay posture support until terminal
+  progress and lower forward command authority. The first run shows the new
+  controller is wired, but early posture-risk activation is destabilizing
+  wide boxes and terminal support remains insufficient for tall boxes.
+- [x] Add close-front held-out geometry terminal-support late-posture
+  diagnostic:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_terminal_support_lateposture_suite.sh`.
+  It delays posture support until terminal progress, disables rel/tilt
+  posture-risk triggers for this diagnostic, lowers max forward command, and
+  reruns the same `wide_y012` / `tall_z009` strict gates.
+- [ ] Run and record the terminal-support late-posture diagnostic through
+  tmux plus persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_terminal_support_lateposture/<stamp>/closefront_heldout_geometry_terminal_support_lateposture_summary.json`
   exists.

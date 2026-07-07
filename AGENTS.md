@@ -849,6 +849,37 @@ These rules override all other project instructions.
   under the same strict fall/drop/no-rollout-write/target-window/tilt/lateral/
   relative-offset/final-command gates. This is an experiment entrypoint only
   until `closefront_heldout_geometry_terminal_support_summary.json` exists.
+- 2026-07-07 first G1 terminal-support result:
+  `20260707_g1_closefront_heldout_geometry_terminal_support`, submitted
+  through tmux `curiosity_g1_heldout_terminal_support_0707` as Slurm job
+  `170636`, ran on `server44` and produced aggregate `fail`, 0/2 strict
+  cases passed. The controller did activate, so this is not a wiring miss.
+  `wide_y012_terminal_support` had terminal command active for `232` steps
+  from step `540` and final-zeroed command for `124` steps, but posture
+  support activated much too early at step `105` and saturated risk to `1`.
+  It failed with first fall/drop `757/778`, fall/drop `243/222`,
+  target-window stable/longest/end `84/84/0`, severe over-travel
+  `4.884/4.467 m`, final lateral `-1.375/-1.529 m`, relative offset
+  `0.474 m`, and max robot/box tilt `3.138/3.136 rad`. `tall_z009_terminal_support`
+  had command active for `153` steps from step `609` and posture active for
+  `357` steps from step `643`, but still failed with first fall/drop
+  `776/822`, fall/drop `224/107`, target-window stable/longest/end
+  `45/45/0`, final travel `1.876/1.874 m`, relative offset `0.267 m`, and
+  max robot/box tilt `1.908/1.951 rad`. Interpretation: the first unified
+  controller is structurally wired but too aggressive/early. The next valid
+  probe should delay posture support until terminal progress and reduce
+  forward command authority, rather than layering freeze/rescue again.
+- 2026-07-07 G1 terminal-support late-posture entrypoint added:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_terminal_support_lateposture_suite.sh`.
+  It reuses the same `wide_y012` and `tall_z009` held-out shape gates, but
+  delays posture support until terminal progress by setting posture rel/tilt
+  triggers out of range, starts terminal command later (`box_target=1.55 m`),
+  lowers max forward command to `0.018`, and uses weaker posture offsets. The
+  purpose is to test the concrete failure found in the first terminal-support
+  run: early posture-risk activation destabilized the wide box before the
+  terminal phase. This is an experiment entrypoint only until
+  `closefront_heldout_geometry_terminal_support_lateposture_summary.json`
+  exists.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
