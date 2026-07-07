@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>G1 Isaac Carry Scaffold Showcase</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #202833;
+      --muted: #5f6b78;
+      --line: #c9d0d6;
+      --panel: #f2f4f5;
+      --accent: #b43d36;
+      --good: #2e7a4f;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      color: var(--ink);
+      background: #e8ecef;
+    }
+    main {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 16px;
+      padding: 28px 36px 24px;
+    }
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 56px);
+      line-height: 1.03;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 980px;
+    }
+    .badge {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--accent);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 18px;
+      align-items: stretch;
+      min-height: 0;
+    }
+    .visual {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+    }
+    .visual video,
+    .visual img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #eef1f3;
+    }
+    aside {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    section {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 15px 16px;
+    }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+    .metric {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 7px 0;
+      border-top: 1px solid #e4e8eb;
+      font-size: 15px;
+    }
+    .metric:first-of-type {
+      border-top: 0;
+    }
+    .metric span:first-child {
+      color: var(--muted);
+    }
+    .metric strong {
+      font-variant-numeric: tabular-nums;
+    }
+    ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.4;
+      font-size: 15px;
+    }
+    li + li {
+      margin-top: 6px;
+    }
+    footer {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: #38424c;
+    }
+    @media (max-width: 980px) {
+      main {
+        padding: 18px;
+      }
+      header,
+      .stage,
+      footer {
+        grid-template-columns: 1fr;
+      }
+      .badge {
+        white-space: normal;
+      }
+      .visual {
+        min-height: 56vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>G1 Runtime-Support Carry Scaffold</h1>
+        <p class="subtitle">Best current G1/AGILE free-box carry diagnostic as of 2026-07-07: the robot uses the official-style G1 articulation and policy-backed walking command, carries a free dynamic box in a low front cradle, and spawns a runtime chest support after entering the target window.</p>
+      </div>
+      <div class="badge">Scaffold evidence only</div>
+    </header>
+
+    <div class="stage">
+      <div class="visual">
+        <video controls loop muted playsinline poster="../experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_dense_fallback_min700/g1_lowcarry_replay_fallback_poster.png">
+          <source src="../experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_dense_fallback_min700/g1_lowcarry_runtime_chestpad_fallback_annotated.mp4" type="video/mp4">
+          <img src="../experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_dense_fallback_min700/g1_lowcarry_replay_fallback_poster.png" alt="G1 low-front runtime chest-pad carry scaffold replay">
+        </video>
+      </div>
+      <aside>
+        <section>
+          <h2>What It Shows</h2>
+          <div class="metric"><span>robot</span><strong>Unitree G1 USD</strong></div>
+          <div class="metric"><span>controller</span><strong>AGILE policy path</strong></div>
+          <div class="metric"><span>payload</span><strong>0.60 kg free box</strong></div>
+          <div class="metric"><span>posture</span><strong>low front cradle</strong></div>
+          <div class="metric"><span>runtime support</span><strong>step 712</strong></div>
+          <div class="metric"><span>fall/drop</span><strong>0 / 0</strong></div>
+          <div class="metric"><span>rollout root/box writes</span><strong>0 / 0 / 0</strong></div>
+          <div class="metric"><span>robot/box travel</span><strong>2.051 / 2.032 m</strong></div>
+          <div class="metric"><span>target-window dwell</span><strong>105 steps</strong></div>
+          <div class="metric"><span>end streak</span><strong>102 steps</strong></div>
+          <div class="metric"><span>max robot/box tilt</span><strong>0.309 / 0.428 rad</strong></div>
+        </section>
+        <section>
+          <h2>Do Not Claim</h2>
+          <ul>
+            <li>Not an Isaac RGB camera render; it is a state-CSV replay visualization.</li>
+            <li>Not posture-general; adjacent close-front and heavier-box cases still fail.</li>
+            <li>Not learned carrying.</li>
+            <li>Not final unknown-load box carrying success.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+
+    <footer>
+      <div>
+        Summary: <code>experiments/reports/2026-07-07_g1_runtime_chestpad_showcase_status.md</code>
+      </div>
+      <div>
+        Follow-up pending: <code>169793/g1_postgate</code>, <code>169822/g1_cfstand</code>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>
