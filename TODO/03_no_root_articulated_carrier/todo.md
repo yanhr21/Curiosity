@@ -9003,8 +9003,19 @@
   disabled.
 - [ ] Run close-front later/softer stand-over-freeze refinement suite. Slurm
   job `170185` (`g1_cfstandref`) was submitted through tmux
-  `curiosity_g1_close_front_freeze_stand_refine_0707`; it is pending on GPU
-  priority as of `2026-07-07 17:49 CST`.
+  `curiosity_g1_close_front_freeze_stand_refine_0707`; it ran on `server44`
+  and failed `0/3`. `stand_delay_160_microblend` had stable steps `127`,
+  fall/drop `803/834`; `stand_delay_180_ultrasoft` had stable steps `124`,
+  fall/drop `800/826`; `stand_delay_220_ultrasoft` lowered max tilt but
+  worsened stable steps to `108` and fall/drop to `784/807`.
+- [ ] Add and run a close-front stand-over-freeze balance-coupling suite.
+  Keep the best `stand_delay_160_soft` timing/target and vary balance feedback
+  base/gains during stand override.
+- [x] Add close-front stand-over-freeze balance-coupling entrypoint:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_override_balance_suite.sh`.
+  It uses `STAND_TRANSITION_CASE_SET=balance_coupling` and compares
+  `stand160_balance_base_stand`, `stand160_balance_half_gain`, and
+  `stand160_balance_off`.
 - [x] Add a read-only close-front freeze-rescue override parser:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case

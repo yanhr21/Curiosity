@@ -12809,7 +12809,25 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
 - 2026-07-07 close-front stand-over-freeze refinement job: Slurm job `170185`
   (`g1_cfstandref`) was submitted through tmux
   `curiosity_g1_close_front_freeze_stand_refine_0707`; as of
-  `2026-07-07 17:49 CST`, it was pending on GPU priority.
+  `2026-07-07 17:49 CST`, it was pending on GPU priority. It later ran on
+  `server44` and failed `0/3`. `stand_delay_160_microblend` reached target-
+  window stable steps `127`, longest/end `89/0`, first fall/drop `803/834`,
+  and max robot/box tilt `1.475/1.588 rad`. `stand_delay_180_ultrasoft`
+  reached stable steps `124`, longest/end `86/0`, first fall/drop `800/826`,
+  and max tilt `1.451/1.544 rad`. `stand_delay_220_ultrasoft` reduced max
+  tilt to `1.357/1.394 rad` but worsened stable steps to `108` and first
+  fall/drop to `784/807`. All had stand-over-freeze active. Conclusion:
+  later/softer stand targets did not beat `stand_delay_160_soft`; next tests
+  should keep that timing/target family and change balance-feedback coupling
+  during the stand override.
+- 2026-07-07 close-front stand-over-freeze balance-coupling entrypoint: added
+  `STAND_TRANSITION_CASE_SET=balance_coupling` to
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_transition_suite.sh`
+  and wrapper
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_override_balance_suite.sh`.
+  It keeps the best `stand_delay_160_soft` timing/target and compares
+  `BALANCE_FEEDBACK_BASE=stand`, half balance gains, and balance disabled
+  under the same strict gates.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,
