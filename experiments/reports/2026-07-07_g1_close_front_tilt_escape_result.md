@@ -199,3 +199,21 @@ Active next suite:
 
 It starts from `suppress60_stand240_blend002` and compares the two signs of an
 existing lateral-error-driven balance roll target.
+
+## Escape-Stand Lateral Follow-Up
+
+Suite:
+`20260707_g1_lowcarry_close_front_escape_stand_lateral`
+
+Result: aggregate `fail`, `0/2` strict cases passed.
+
+| Case | fall/drop | first fall/drop | target stable/longest/end | final-stand stable/longest | robot/box travel m | lateral robot/box m | max tilt robot/box rad |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `stand240_lateral_sign_neg` | `57/34` | `1143/1166` | `145/144/0` | `92/92` | `2.735/2.491` | `0.745/0.877` | `3.130/2.462` |
+| `stand240_lateral_sign_pos` | `56/33` | `1144/1167` | `145/144/0` | `92/92` | `2.766/2.517` | `0.755/0.860` | `3.122/2.280` |
+
+The lateral roll target did not materially change the failure. The terminal
+branch has produced useful boundaries but not a strict close-front pass. The
+next meaningful step is not more scalar tuning on lateral sign/gain, brake
+magnitude, or escape threshold. It should be a materially different terminal
+support policy or a support-backend replacement under the same strict gates.

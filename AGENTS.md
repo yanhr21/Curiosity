@@ -343,7 +343,22 @@ These rules override all other project instructions.
   only until `close_front_escape_stand_lateral_summary.json` exists.
   Submitted through tmux `curiosity_g1_escape_lateral_0707` as Slurm job
   `170405` / `g1_esclat`, suite stamp prefix
-  `20260707_g1_lowcarry_close_front_escape_stand_lateral`.
+  `20260707_g1_lowcarry_close_front_escape_stand_lateral`. Result: aggregate
+  `fail`, 0/2 strict cases passed. Both lateral signs were materially similar:
+  sign `-1` had fall/drop `57/34`, first fall/drop `1143/1166`,
+  target-window stable/longest/end `145/144/0`, final-stand stable/longest
+  `92/92`, final travel `2.735/2.491 m`, lateral `0.745/0.877 m`, max
+  robot/box tilt `3.130/2.462 rad`, roll-target active `71` steps from
+  `1062`, writes `0/0/0`; sign `+1` had fall/drop `56/33`, first fall/drop
+  `1144/1167`, target-window `145/144/0`, final-stand `92/92`, final travel
+  `2.766/2.517 m`, lateral `0.755/0.860 m`, tilt `3.122/2.280 rad`,
+  roll-target active `72` steps from `1062`, writes `0/0/0`. Interpretation:
+  lateral roll target did not solve terminal lateral/tilt collapse; do not
+  keep scalar-tuning lateral sign/gain on this branch. The current
+  terminal-control stack has produced useful failure boundaries but not a
+  close-front pass. The next meaningful step is support/backend replacement or
+  a materially different terminal support policy, while keeping the same
+  strict gates.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

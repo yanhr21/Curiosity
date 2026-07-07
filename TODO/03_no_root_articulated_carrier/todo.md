@@ -151,13 +151,23 @@
   handoff with lateral/roll stabilization or replace the support backend. Do
   not claim close-front pass from the stand-handoff result; it still has
   fall/drop events and target-window streak at end `0`.
-- [ ] Run close-front escape-stand lateral follow-up:
+- [x] Run close-front escape-stand lateral follow-up:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_stand_lateral_suite.sh`.
   It starts from `stand240_blend002` and activates lateral-error-driven balance
   roll target around target-window entry, comparing signs `-1` and `+1` under
   the same strict gates. Submitted through tmux
   `curiosity_g1_escape_lateral_0707` as Slurm job `170405` / `g1_esclat`.
   Record `close_front_escape_stand_lateral_summary.json` before interpreting.
+  Result: aggregate `fail`, 0/2. Both signs were materially similar:
+  fall/drop about `56-57/33-34`, first fall/drop about `1143-1144/1166-1167`,
+  target-window stable/longest/end `145/144/0`, final-stand stable/longest
+  `92/92`, final travel around `2.74-2.77/2.49-2.52 m`, lateral still about
+  `0.75/0.86-0.88 m`, and writes `0/0/0`.
+- [ ] Stop scalar-tuning the current close-front terminal-control branch.
+  Results from early escape, suppression, brake, stand handoff, and lateral
+  roll target produced useful boundaries but no strict pass. The next
+  meaningful step is a materially different terminal support policy or support
+  backend replacement while preserving the same strict gates.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`
