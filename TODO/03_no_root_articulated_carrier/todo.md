@@ -8962,6 +8962,10 @@
   It uses `--agile-command-hold-stand-overrides-final-freeze`, disables rescue,
   and reuses the delayed low-COM stand cases with a distinct
   `close_front_freeze_stand_override_summary.json`.
+- [ ] Run close-front stand-over-freeze suite. Slurm job `170159`
+  (`g1_cfstandovr`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_stand_override_0707`; it is pending on GPU
+  priority as of `2026-07-07 17:32 CST`.
 - [x] Add a read-only close-front freeze-rescue override parser:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case

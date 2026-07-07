@@ -12748,7 +12748,11 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   The wrapper reuses the delayed low-COM stand cases, explicitly lets final
   stand targets override frozen policy targets, and disables rescue so the
   stand target is not masked. This is an experiment entrypoint only until
-  `close_front_freeze_stand_override_summary.json` exists.
+  `close_front_freeze_stand_override_summary.json` exists. Slurm job `170159`
+  (`g1_cfstandovr`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_stand_override_0707`; as of
+  `2026-07-07 17:32 CST`, it was pending on GPU priority with unknown
+  estimated start time.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,
