@@ -12958,9 +12958,13 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `curiosity_g1_final_stabilize_quick_0707` with
   `FINAL_STABILIZE_CASE_SET=quick` and
   `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_final_stabilize_quick`.
-  As of submission it was `PENDING (Priority)`. Do not interpret this branch
-  until
-  `experiments/outputs/core_world_g1_lowcarry_close_front_final_stabilize/20260707_g1_lowcarry_close_front_final_stabilize_quick/close_front_final_stabilize_summary.json`
+  It was cancelled while pending after Slurm estimated a late start. The
+  replacement 45-minute job `170306` (`g1_finstab45`) was submitted through
+  tmux `curiosity_g1_final_stabilize_quick45_0707` with
+  `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_final_stabilize_quick45`.
+  As of submission it was `PENDING (Priority)` with no start estimate. Do not
+  interpret this branch until
+  `experiments/outputs/core_world_g1_lowcarry_close_front_final_stabilize/20260707_g1_lowcarry_close_front_final_stabilize_quick45/close_front_final_stabilize_summary.json`
   exists.
 - 2026-07-07 blended retention-posture smoke job: Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux

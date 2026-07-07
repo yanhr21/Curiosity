@@ -9123,8 +9123,13 @@
   `curiosity_g1_final_stabilize_quick_0707` with
   `FINAL_STABILIZE_CASE_SET=quick` and suite stamp prefix
   `20260707_g1_lowcarry_close_front_final_stabilize_quick`. It was
-  `PENDING (Priority)` at submission. Record the result only after
-  `experiments/outputs/core_world_g1_lowcarry_close_front_final_stabilize/20260707_g1_lowcarry_close_front_final_stabilize_quick/close_front_final_stabilize_summary.json`
+  cancelled while pending after Slurm estimated a late start. Replacement
+  45-minute job `170306` (`g1_finstab45`) was submitted through tmux
+  `curiosity_g1_final_stabilize_quick45_0707` with suite stamp prefix
+  `20260707_g1_lowcarry_close_front_final_stabilize_quick45`. It was
+  `PENDING (Priority)` with no start estimate at submission. Record the
+  result only after
+  `experiments/outputs/core_world_g1_lowcarry_close_front_final_stabilize/20260707_g1_lowcarry_close_front_final_stabilize_quick45/close_front_final_stabilize_summary.json`
   exists.
 - [x] Monitor blended retention-posture smoke job. Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
