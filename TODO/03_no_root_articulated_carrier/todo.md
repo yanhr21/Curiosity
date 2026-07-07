@@ -8899,7 +8899,14 @@
   Slurm job `169964` (`g1_cffinal`) ran on `server39` and failed `0/3`.
   `final135`, `final145`, and `final155` all fell/dropped earlier than
   `rescue_crouch_abs040`; moderate final-latch thresholds should not continue.
-- [ ] Run close-front rescue tiny-final-scale suite. Keep
+- [x] Record close-front rescue tiny-final-scale suite. Keep
   `rescue_crouch_abs040` and early final latch, but set final-hold scale to a
   very small nonzero value so existing progress/lateral controllers can oppose
-  drift without unscaled runaway.
+  drift without unscaled runaway. Slurm job `169995` (`g1_cftiny`) failed
+  `0/3`: `0.003` and `0.006` collapsed around steps `634-658`, while `0.010`
+  reached only `49` stable steps and still dropped. Do not continue nonzero
+  final scale for this branch.
+- [ ] Run close-front rescue target-window freeze suite. Keep
+  `rescue_crouch_abs040`, final scale `0.0`, and no runtime chest support;
+  add target-window policy-joint freeze to test whether drift after first
+  window dwell can be arrested without lateral command or support geometry.

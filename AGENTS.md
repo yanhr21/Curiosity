@@ -12640,8 +12640,18 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   should keep `rescue_crouch_abs040` and the early final latch, but use a very
   small nonzero final-hold command scale so the existing box-progress/lateral
   controllers can counter drift without the runaway caused by unscaled lateral
-  correction. This is a diagnostic bridge between the too-passive final scale
-  `0.0` and the unstable unscaled lateral correction.
+  correction. Slurm job `169995` (`g1_cftiny`) ran on `server39` and failed
+  `0/3`. `final_scale_003` fell/dropped at `634/651` with target-window stable
+  steps `0`; `final_scale_006` fell/dropped at `643/658` with stable steps
+  `7`; `final_scale_010` improved to stable steps `49` but still fell/dropped
+  at `723/752`. Conclusion: even tiny nonzero final-hold scale destabilizes
+  this close-front branch and should not continue. The best branch remains
+  `rescue_crouch_abs040` with final scale `0.0`.
+- 2026-07-07 close-front rescue target-window freeze direction: next valid
+  test should keep `rescue_crouch_abs040`, final scale `0.0`, no runtime chest
+  support, and add target-window joint-target freeze with strict/loose
+  thresholds. This tests whether the drift after the first target-window dwell
+  can be arrested without adding lateral command or chest-pad geometry.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

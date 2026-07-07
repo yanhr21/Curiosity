@@ -425,6 +425,30 @@ branch. The next useful bridge is to keep the early `1.20 m` final latch from
 existing progress/lateral controllers can oppose drift without the runaway of
 unscaled lateral correction.
 
+## Close-Front Rescue Tiny-Final-Scale
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_tiny_final_scale_suite.sh`
+- Purpose:
+  keep `rescue_crouch_abs040` and the early final latch, then test very small
+  final-hold command scales.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `169995` (`g1_cftiny`) ran on
+  `server39` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_rescue_tiny_final_scale/20260707_g1_lowcarry_close_front_rescue_tiny_final_scale/close_front_rescue_tiny_final_scale_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | --- |
+| `final_scale_003` | fail | 666/606 | 634/651 | 0 | Tiny command still destabilizes before useful dwell. |
+| `final_scale_006` | fail | 657/642 | 643/658 | 7 | Slightly larger scale is still early collapse. |
+| `final_scale_010` | fail | 577/548 | 723/752 | 49 | Best of the nonzero-scale cases but still drops and fails dwell. |
+
+This rules out nonzero final-hold scale for the current close-front branch.
+The best branch remains `rescue_crouch_abs040` with final scale `0.0`. The next
+valid test is target-window joint-target freeze on top of that branch, because
+the remaining failure is drift after the first target-window dwell.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next
@@ -451,5 +475,7 @@ implementation should add an explicit posture-conditioned controller gate:
   over-travel and box drops,
 - do not continue final-latch threshold sweeps; moderate thresholds worsened
   fall/drop timing,
+- do not use nonzero final-hold scale for this branch; tiny scales still
+  caused early drop/collapse,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.
