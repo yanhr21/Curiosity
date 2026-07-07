@@ -607,7 +607,9 @@ These rules override all other project instructions.
   currently configured for one focused case
   `prefinal_brake_soft_f180` with terminal side guards, `0.525 kg` box,
   brake x `-0.003`, delay `170`, steps `160`, and final box target `1.80 m`.
-  This is an experiment entrypoint only until a fresh summary exists.
+  Slurm job `170599` (`g1_prefbrk`) was submitted through tmux
+  `curiosity_g1_closefront_m0525_prefinal_brake_0707`; this is an experiment
+  entrypoint only until a fresh summary exists.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

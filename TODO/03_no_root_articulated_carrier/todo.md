@@ -9957,7 +9957,9 @@
 - [ ] Run and record terminal pre-final brake single case:
   `20260707_g1_closefront_mass0525_terminal_prefinal_brake_prefinal_brake_soft_f180`.
   It uses terminal side guards, `0.525 kg`, terminal brake x `-0.003`, delay
-  `170`, steps `160`, and final box target `1.80 m`. Interpret only after
+  `170`, steps `160`, and final box target `1.80 m`. Slurm job `170599`
+  (`g1_prefbrk`) was submitted through tmux
+  `curiosity_g1_closefront_m0525_prefinal_brake_0707`; interpret only after
   `core_world_g1_box_scene_summary.json` exists.
 - [x] Monitor checker-compatible terminal freeze follow-up:
   `20260707_g1_closefront_mass0525_terminal_freeze`, tmux
