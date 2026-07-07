@@ -9851,6 +9851,45 @@
   steps `8`. Interpretation: increasing close-front mass from `0.50 kg` to
   `0.525 kg` already causes severe lateral drift and fall/drop before a valid
   target-window hold.
+- [x] Add close-front `0.525 kg` side-guard timing entrypoint:
+  `scripts/isaac/run_core_world_g1_closefront_mass0525_side_guard_timing_suite.sh`.
+  It keeps the `lowmass_lx19` geometry and strict gates, then compares
+  terminal-hold side-guard activation against hold-time activation. This tests
+  whether the `0.525 kg` failure is mainly caused by final-hold side guards
+  appearing too late.
+- [x] Run close-front `0.525 kg` side-guard timing suite:
+  `20260707_g1_closefront_mass0525_side_guard_timing` through tmux
+  `curiosity_g1_closefront_m0525_guard_timing_0707`, Slurm job `170559`.
+  Result: aggregate `fail`, 0/2. `terminal_guard_lx19` is a useful boundary:
+  side guards enabled at terminal-hold step `461`, fall/drop `0/0`,
+  target-window stable/longest/end `277/277/277`, final robot/box travel about
+  `2.269/2.234 m`, final relative offset `0.160 m`, and writes `0/0/0`; it
+  still failed box tilt `0.491 rad > 0.45` and final robot/box lateral
+  `0.909/0.758 m > 0.6`. `hold_guard_lx19` kept fall/drop `0/0` but
+  under-traveled: final robot/box travel about `1.643/1.539 m`,
+  target-window stable steps `0`, max robot tilt `0.394 rad`, final relative
+  offset `0.244 m`, and writes `0/0/0`. Interpretation: earlier physical
+  side support helps load robustness, but terminal activation needs lateral
+  path correction and tilt reduction; hold activation is too restrictive.
+- [ ] Follow up the useful `terminal_guard_lx19` boundary with a targeted
+  lateral/path correction. Do not keep using `hold_guard_lx19` as the active
+  direction unless the under-travel problem is addressed.
+- [x] Run first targeted lateral/path correction probe for the useful
+  `terminal_guard_lx19` boundary: single case
+  `20260707_g1_closefront_mass0525_terminal_latsign_neg`, tmux
+  `curiosity_g1_closefront_m0525_terminal_latsign_neg_0707`, Slurm job
+  `170560`. It kept terminal side-guard geometry but set
+  `AGILE_COMMAND_HOLD_LATERAL_SIGN=-1.0`. Result: strict `fail`, first
+  fall/drop `483/498`, fall/drop totals `517/477`, side guards never triggered
+  because terminal hold was not reached, max robot/box tilt
+  `2.499/2.666 rad`, final robot/box target-directed travel
+  `-2.438/-2.576 m`, final robot/box lateral `6.366/6.477 m`, writes
+  `0/0/0`. Negative lateral sign is the wrong direction for this boundary.
+- [ ] Next terminal-guard follow-up should preserve default lateral sign and
+  reduce the remaining positive lateral error without destabilizing early
+  approach. Candidate knobs: lower lateral limit/gain after terminal trigger,
+  earlier terminal stop/hold, or a path/heading offset. Do not repeat
+  `AGILE_COMMAND_HOLD_LATERAL_SIGN=-1.0` for this `0.525 kg` case unchanged.
 - [ ] Next G1 validation: expand the strict gate beyond these two engineered
   postures. At minimum add held-out box mass/geometry or a third posture
   without changing the strict fall/drop, target-window, tilt, lateral,

@@ -489,6 +489,39 @@ These rules override all other project instructions.
   active steps were `8`. This places the current close-front side-guard pass
   boundary very close to the tuned `0.50 kg` case; `0.525 kg` already loses
   lateral stability and falls before a valid target-window hold.
+- 2026-07-07 close-front `0.525 kg` side-guard timing suite added:
+  `scripts/isaac/run_core_world_g1_closefront_mass0525_side_guard_timing_suite.sh`.
+  It compares the same `lowmass_lx19` side-guard geometry with earlier
+  collision activation, because final-hold activation was too late for the
+  `0.525 kg` failure. Suite
+  `20260707_g1_closefront_mass0525_side_guard_timing`, submitted through tmux
+  `curiosity_g1_closefront_m0525_guard_timing_0707` as Slurm job `170559`,
+  failed aggregate `0/2`, but the failure modes are informative. The
+  `terminal_guard_lx19` case enabled side guards at terminal-hold step `461`
+  and removed the previous fall/drop: fall/drop `0/0`, target-window
+  stable/longest/end `277/277/277`, final robot/box travel about
+  `2.269/2.234 m`, final relative offset `0.160 m`, and writes `0/0/0`.
+  It still failed strict gates due box tilt `0.491 rad > 0.45` and final
+  robot/box lateral `0.909/0.758 m > 0.6`. The `hold_guard_lx19` case enabled
+  side guards at hold step `104` and also kept fall/drop `0/0`, but
+  under-traveled: final robot/box travel about `1.643/1.539 m`, target-window
+  stable steps `0`, max tilt `0.394 rad`, final relative offset `0.244 m`,
+  and writes `0/0/0`. Interpretation: earlier physical support is a real
+  improvement over final-hold-only for `0.525 kg`, but terminal support still
+  needs lateral/path correction and box-tilt reduction; hold-time support is
+  too restrictive for target travel.
+- 2026-07-07 close-front `0.525 kg` terminal-guard lateral-sign probe:
+  single case `20260707_g1_closefront_mass0525_terminal_latsign_neg` was
+  submitted through tmux
+  `curiosity_g1_closefront_m0525_terminal_latsign_neg_0707` as Slurm job
+  `170560`, keeping terminal side-guard geometry but setting
+  `AGILE_COMMAND_HOLD_LATERAL_SIGN=-1.0`. It failed much worse than the
+  default-sign terminal boundary: first fall/drop at steps `483/498`,
+  fall/drop totals `517/477`, side guards never triggered because terminal
+  hold was not reached, max robot/box tilt `2.499/2.666 rad`, final
+  robot/box target-directed travel `-2.438/-2.576 m`, final robot/box lateral
+  `6.366/6.477 m`, and writes `0/0/0`. Do not continue the negative lateral
+  sign branch for this terminal-guard boundary.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
