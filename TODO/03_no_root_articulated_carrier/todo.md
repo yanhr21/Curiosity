@@ -9213,12 +9213,20 @@
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_tilt_escape_suite.sh`.
   It runs `escape_robot022_box030_scale015` and
   `escape_robot018_box024_scale020`.
-- [ ] Monitor early tilt-escape job. Slurm job `170356` (`g1_tiltearly`) was
+- [x] Monitor early tilt-escape job. Slurm job `170356` (`g1_tiltearly`) was
   submitted through tmux `curiosity_g1_tilt_escape_early_0707`, suite stamp
   prefix `20260707_g1_lowcarry_close_front_tilt_escape_early`, log
-  `logs/g1_tilt_escape_early_0707_srun.log`. Record only after
+  `logs/g1_tilt_escape_early_0707_srun.log`. It failed before rollout with
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_tilt_escape_suite.sh:
+  line 126: syntax error: unexpected end of file`, producing only a status
+  TSV and no valid summary. Do not interpret it as a physics/control result.
+- [ ] Monitor replacement early tilt-escape job. Slurm job `170361`
+  (`g1_tiltearly2`) was submitted through tmux
+  `curiosity_g1_tilt_escape_early2_0707`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_tilt_escape_early2`, log
+  `logs/g1_tilt_escape_early2_0707_srun.log`. Record only after
   `experiments/outputs/core_world_g1_lowcarry_close_front_tilt_escape/20260707_g1_lowcarry_close_front_tilt_escape_early/close_front_tilt_escape_summary.json`
-  exists.
+  or the early2 replacement summary exists.
 - [x] Monitor blended retention-posture smoke job. Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
   `curiosity_g1_retention_blend_smoke_0707` with suite stamp

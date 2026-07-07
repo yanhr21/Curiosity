@@ -182,8 +182,13 @@ These rules override all other project instructions.
   triggering final-hold escape earlier. Submitted through tmux
   `curiosity_g1_tilt_escape_early_0707` as Slurm job `170356` /
   `g1_tiltearly`, suite stamp prefix
-  `20260707_g1_lowcarry_close_front_tilt_escape_early`. Do not interpret until
-  `close_front_tilt_escape_summary.json` exists under the early output root.
+  `20260707_g1_lowcarry_close_front_tilt_escape_early`. Job `170356` failed
+  before rollout with a shell syntax error and only wrote a status TSV; it is
+  not experiment evidence. Replacement Slurm job `170361` / `g1_tiltearly2`
+  was submitted through tmux `curiosity_g1_tilt_escape_early2_0707`, suite
+  stamp prefix `20260707_g1_lowcarry_close_front_tilt_escape_early2`. Do not
+  interpret until `close_front_tilt_escape_summary.json` exists under the
+  early2 output root.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate
