@@ -8386,7 +8386,33 @@
   `184` steps and final-hold dwell `166` steps, but then falling/dropping
   `304/290` times with end streak `0`. Interpretation: longer horizons and
   simple final stop/zero commands do not solve selected-branch robustness.
-- [ ] Next credible route: stop repeating command-layer lateral/yaw/final-stand
+- [x] Expose the existing box-progress and box-lateral closed-loop command
+  controllers through
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`. Before
+  this, the scene builder accepted `--agile-command-box-progress-controller`
+  and `--agile-command-box-lateral-controller`, but the launcher only passed
+  numeric gains and never enabled the controller flags.
+- [x] Add
+  `scripts/isaac/run_core_world_g1_boxtilt_box_progress_controller_suite.sh`.
+  This is a focused 0.75 kg boxtilt diagnostic for a materially different
+  target-window controller: box projected progress directly sets forward
+  AGILE command, with two one-bit lateral sign checks. It is not another
+  final-yaw/final-stand scalar sweep.
+- [x] Await box-progress controller diagnostic job `169547` (`g1_bxprog`)
+  running on `server43` through tmux
+  `curiosity_g1_boxtilt_box_progress_gpu43_0707`.
+- [x] Mark `169547` (`g1_bxprog`) CUDA-device run as invalid infrastructure
+  evidence. It used `DEVICE=cuda:0`, reached Isaac wrapper initialization,
+  then exited `0` without writing per-case summaries. All three checks report
+  `summary missing`, and aggregate `case_count` is `0`. This is not a
+  controller result.
+- [ ] Await replacement box-progress controller diagnostic job `169548`
+  (`g1_bxprogc`) submitted through tmux
+  `curiosity_g1_boxtilt_box_progress_gpualloc_cpu_0707`. It requests GPU
+  resources only to get scheduled, but runs the previously validated Isaac CPU
+  device path with `DEVICE=cpu`. Expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_box_progress_controller/20260707_g1_boxtilt_box_progress_controller_gpualloc_cpu/boxtilt_box_progress_controller_summary.json`.
+- [ ] Next credible route after `169548`: stop repeating command-layer lateral/yaw/final-stand
   scalar sweeps and small passive cradle-geometry tweaks for the heavy
   boxtilt branch. Move to a materially different support/contact controller
   or locomotion/balance backend that can address side drift and roll without

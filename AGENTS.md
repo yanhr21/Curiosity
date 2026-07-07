@@ -11855,6 +11855,30 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   unchanged or claim a true Isaac camera render is available; use the
   schematic replay fallback for immediate presentation until a different
   installed render path or fixed Kit extension set is available.
+- 2026-07-07 dormant box-progress controller exposure: the G1 box scene
+  already implemented `--agile-command-box-progress-controller` and
+  `--agile-command-box-lateral-controller`, but
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh` only
+  forwarded their numeric gains and not the boolean activation flags. Exposed
+  `AGILE_COMMAND_BOX_PROGRESS_CONTROLLER=1` and
+  `AGILE_COMMAND_BOX_LATERAL_CONTROLLER=1`, then added
+  `scripts/isaac/run_core_world_g1_boxtilt_box_progress_controller_suite.sh`
+  as the next focused diagnostic. This route uses box projected progress as a
+  closed-loop AGILE forward command rather than extending horizons or tuning
+  final-yaw/final-stand scalars. GPU job `169547` (`g1_bxprog`) was submitted
+  on `server43` and then superseded by the CPU-device replacement below after
+  it produced no summaries. Original expected summary path was:
+  `experiments/outputs/core_world_g1_boxtilt_box_progress_controller/20260707_g1_boxtilt_box_progress_controller_gpu43/boxtilt_box_progress_controller_summary.json`.
+- 2026-07-07 box-progress CUDA-device attempt is not valid control evidence:
+  first job `169547` (`g1_bxprog`) used `DEVICE=cuda:0` on `server43`. Each
+  case reached wrapper initialization, then exited with build status `0` but
+  wrote no `core_world_g1_box_scene_summary.json`; per-case `check.json`
+  reported `summary missing`, and the aggregate summary had `case_count: 0`.
+  Treat this as a GPU-pipeline/output failure, not a pass/fail result for the
+  controller. A replacement job `169548` (`g1_bxprogc`) was submitted through
+  tmux `curiosity_g1_boxtilt_box_progress_gpualloc_cpu_0707` using a GPU
+  allocation but `DEVICE=cpu`, to preserve the previously validated CPU Isaac
+  execution path while avoiding CPU-only Slurm reservation blocking.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

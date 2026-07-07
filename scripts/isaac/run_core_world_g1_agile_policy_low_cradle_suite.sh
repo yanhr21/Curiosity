@@ -232,6 +232,12 @@ fi
 if [[ "${AGILE_COMMAND_HOLD_YAW_CORRECTION:-0}" == "1" ]]; then
   base_python+=(--agile-command-hold-yaw-correction)
 fi
+if [[ "${AGILE_COMMAND_BOX_PROGRESS_CONTROLLER:-0}" == "1" ]]; then
+  base_python+=(--agile-command-box-progress-controller)
+fi
+if [[ "${AGILE_COMMAND_BOX_LATERAL_CONTROLLER:-0}" == "1" ]]; then
+  base_python+=(--agile-command-box-lateral-controller)
+fi
 if [[ "${AGILE_COMMAND_HOLD_TERMINAL_LATCH:-0}" == "1" ]]; then
   base_python+=(--agile-command-hold-terminal-latch)
 fi
