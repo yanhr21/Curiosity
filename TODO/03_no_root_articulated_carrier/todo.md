@@ -8879,7 +8879,15 @@
   All three cases fell/dropped at steps `632/640`, had target-window stable
   steps `0`, and did not final-latch until step `790`. Late final latch at
   `1.80 m` is too late and should not be continued.
-- [ ] Run close-front rescue/balance suite:
+- [x] Record close-front rescue/balance suite:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_balance_suite.sh`.
-  It returns to the `no_runtime_pad` early-final-latch baseline and tests
-  crouch rescue plus lateral roll-target signs for the late roll collapse.
+  Slurm job `169935` (`g1_cfresc`) ran on `server63` and failed `0/4`.
+  `rescue_crouch_abs040` is useful: no box drops, first fall step `1081`,
+  target-window stable steps `81`, longest streak `52`, but final lateral
+  error `-0.775/-0.845 m` and no end streak. `rescue_crouch_abs055` gave
+  longer target-window dwell (`142`, longest `90`) but dropped the box.
+  Lateral roll-target signs both worsened collapse and should not continue.
+- [ ] Run close-front rescue-lateral refine suite:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_lateral_refine_suite.sh`.
+  It keeps `rescue_crouch_abs040`, disables final-hold scaling for box lateral
+  correction, checks lateral sign, and tests milder/mid-threshold crouch.

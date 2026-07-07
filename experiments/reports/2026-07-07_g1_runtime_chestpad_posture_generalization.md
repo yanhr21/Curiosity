@@ -349,6 +349,36 @@ late roll-collapse problem, not a missing late command stop.
 - Gate:
   unchanged strict fall/drop, target-window, final-hold, tilt,
   lateral-error, and no rollout root/box writes checks.
+- Result:
+  `fail`, 0/4 cases passed. Slurm job `169935` (`g1_cfresc`) ran on
+  `server63` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_rescue_balance/20260707_g1_lowcarry_close_front_rescue_balance/close_front_rescue_balance_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Longest/End Streak | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `rescue_crouch_abs040` | fail | 219/0 | 1081/- | 81 | 52/0 | Best current close-front repair: no drops and fall delayed, but final lateral drift exits the window. |
+| `rescue_crouch_abs055` | fail | 386/344 | 914/956 | 142 | 90/0 | Longer window dwell but loses the box. |
+| `balance_roll_avg_pos` | fail | 634/587 | 666/680 | 16 | 16/0 | Lateral roll-target positive sign destabilizes early. |
+| `balance_roll_avg_neg` | fail | 481/463 | 819/837 | 86 | 86/0 | Negative sign gets dwell but over-travels and drops. |
+
+The useful direction is not lateral roll-target. `rescue_crouch_abs040`
+changes the failure from early roll collapse to late lateral drift with no box
+drop. Its box-lateral command was effectively suppressed during final hold
+(`agile_command_box_lateral_max_abs_command_y` about `4.5e-05`), so the next
+small test should allow lateral correction during final hold while preserving
+zero forward command.
+
+## Close-Front Rescue-Lateral Refine Entrypoint
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_lateral_refine_suite.sh`
+- Purpose:
+  refine `rescue_crouch_abs040` by allowing final-hold box-lateral correction
+  and checking whether the rescue is too strong or triggers too early.
+- Cases:
+  `rescue040_lat_unscaled`, `rescue040_lat_unscaled_signneg`,
+  `rescue040_milder_crouch`, and `rescue045_mid_crouch`.
 
 ## Next Step
 
@@ -370,5 +400,7 @@ implementation should add an explicit posture-conditioned controller gate:
   stable window and support-timing showed no-pad was least bad,
 - do not move final latch later to `1.80 m`; late-hold collapsed before it
   could latch,
+- do not continue lateral roll-target for close-front; rescue crouch is the
+  useful controller hook, and its next issue is final lateral retention,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

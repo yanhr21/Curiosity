@@ -12599,10 +12599,23 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   It returns to the `no_runtime_pad` early-final-latch baseline and tests
   crouch rescue triggered by absolute roll (`rescue_crouch_abs040`,
   `rescue_crouch_abs055`) plus lateral-error-derived roll targets with both
-  signs (`balance_roll_avg_pos`, `balance_roll_avg_neg`). This is a diagnostic
-  for the late roll-collapse seen around steps `780-910`; it must not be
-  claimed as final carrying unless strict fall/drop, target-window, tilt, and
-  no-shortcut gates pass.
+  signs (`balance_roll_avg_pos`, `balance_roll_avg_neg`). Slurm job `169935`
+  (`g1_cfresc`) ran on `server63` and failed `0/4`, but `rescue_crouch_abs040`
+  is a useful improvement: fall/drop `219/0`, first fall `1081`, target-window
+  stable steps `81`, longest/end streak `52/0`, final robot/box travel
+  `1.500/1.471 m`, final robot/box lateral error `-0.775/-0.845 m`, and no
+  rollout root/velocity/box pose writes. `rescue_crouch_abs055` had longer
+  target-window dwell (`142` stable, longest `90`) but dropped the box at step
+  `956`. Both lateral roll-target signs were worse (`first fall 666` and
+  `819`, both with box drops). Conclusion: do not continue lateral roll-target
+  for close-front. Continue from `rescue_crouch_abs040`, focusing on final
+  lateral retention and rescue strength while keeping runtime chest support
+  disabled.
+- 2026-07-07 close-front rescue-lateral refine entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_lateral_refine_suite.sh`.
+  It keeps the useful `rescue_crouch_abs040` baseline and tests unscaled
+  final-hold box-lateral correction, opposite lateral sign, milder crouch, and
+  a mid-threshold crouch. This remains diagnostic only until strict gates pass.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
