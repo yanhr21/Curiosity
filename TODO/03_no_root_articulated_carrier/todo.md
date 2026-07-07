@@ -8808,3 +8808,14 @@
 - [ ] Generate a replay/visual artifact for the current best 0.60 kg runtime
   chest-pad pass, without claiming it is learned or final unknown-load
   carrying.
+- [ ] Await posture-conditioned gate job `169793` (`g1_postgate`) submitted
+  through tmux `curiosity_g1_posture_gate_0707`. It runs the known passing
+  `low_front_060` and the current best close-front conditioned hypothesis
+  under the unchanged strict gates. As of `2026-07-07 13:22 CST`, it was still
+  pending on GPU priority and had not produced evidence.
+- [ ] Await close-front final-stand job `169822` (`g1_cfstand`) submitted
+  through tmux `curiosity_g1_close_front_final_stand_0707`. This suite tests
+  whether late final-stand/freeze stabilization can fix the `steps1050_final120`
+  failure, where target-window entry happened around step `968` but robot/box
+  tilt exceeded gates around step `1040+`. Do not interpret it until its
+  summary JSON exists.

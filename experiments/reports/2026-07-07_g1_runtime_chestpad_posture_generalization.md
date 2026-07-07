@@ -137,11 +137,37 @@ slot, but it must not be reported as evidence until a summary exists.
   unchanged strict fall/drop, no rollout root/box writes, target-window,
   final-hold, tilt, and lateral-error checks.
 - Status:
-  added, not yet run.
+  submitted as Slurm job `169793` (`g1_postgate`) through tmux
+  `curiosity_g1_posture_gate_0707`; pending on GPU priority as of
+  `2026-07-07 13:22 CST`.
 
 This is the next clean experiment entrypoint. It packages the known passing
 low-front command and the best current close-front conditioned hypothesis into
 one reproducible gate. It is not evidence until its summary JSON exists.
+
+## Close-Front Final-Stand Follow-Up
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_stand_suite.sh`
+- Hypothesis:
+  the `steps1050_final120` close-front case reaches the target window at step
+  `968`, spawns the runtime chest pad at step `969`, and only exceeds the
+  robot/box tilt gates around step `1040+`; therefore the next repair should
+  stabilize after final-hold/target-window entry rather than add more forward
+  drive.
+- Cases:
+  late crouched final-stand blend, target-window freeze then final stand, and
+  policy-then-stand blend. All keep the same close-front `x=0.10,y=-0.04`
+  command, runtime chest-pad trigger, strict fall/drop, target-window,
+  final-hold, final-stand, tilt, lateral-error, and no-shortcut gates.
+- Slurm job:
+  `169822` (`g1_cfstand`) through tmux
+  `curiosity_g1_close_front_final_stand_0707`.
+- Status:
+  pending on GPU priority as of `2026-07-07 13:22 CST`.
+
+This is not evidence yet. It is the next targeted test for the late-tilt
+failure mode after close-front already reaches the target region.
 
 ## Next Step
 

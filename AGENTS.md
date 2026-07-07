@@ -12482,6 +12482,25 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   conclusion: trigger the runtime support as soon as both robot and box enter
   the target window after roughly step `680-700`; waiting until `720+` is not
   stable.
+- 2026-07-07 posture-conditioned gate status: added
+  `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`, which
+  packages the known passing `low_front_060` case and the best current
+  close-front conditioned hypothesis under the same strict fall/drop,
+  target-window, final-hold, tilt, lateral-error, and no-shortcut gates. Slurm
+  job `169793` (`g1_postgate`) was submitted through tmux
+  `curiosity_g1_posture_gate_0707`; as of `2026-07-07 13:22 CST`, it was
+  still pending on GPU priority. It is not evidence until the summary exists.
+- 2026-07-07 close-front final-stand follow-up: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_stand_suite.sh`
+  to target the late-tilt failure from
+  `20260707_g1_lowcarry_close_front_hold_delay_steps1050_final120`. That case
+  reached the target window at step `968` and did not exceed the tilt gates
+  until roughly step `1040+`, so the new suite tests late crouched
+  final-stand, target-window freeze then final-stand, and policy-then-stand
+  without relaxing gates. Slurm job `169822` (`g1_cfstand`) was submitted
+  through tmux `curiosity_g1_close_front_final_stand_0707`; as of
+  `2026-07-07 13:22 CST`, it was still pending on GPU priority. It is not
+  evidence until its summary JSON exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
