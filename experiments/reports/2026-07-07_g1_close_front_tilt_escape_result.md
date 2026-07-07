@@ -1,0 +1,65 @@
+# G1 Close-Front Tilt-Escape Result - 2026-07-07
+
+This report records the strict result of the close-front final-hold
+tilt-escape probes. These are Isaac diagnostics only. They are not learned
+unknown-load carrying and not arbitrary-posture humanoid carrying.
+
+## Baseline Boundary
+
+The prior useful close-front near-miss was `steps1050_final120`:
+
+- fall/drop: `0/0`
+- final robot/box target-directed travel: about `2.026/2.103 m`
+- final robot/box lateral error: about `0.081/0.095 m`
+- max robot/box tilt: about `0.486/0.493 rad`
+- target-window stable steps: `76 < 80`
+- final-hold active steps: `268 < 399`
+
+The blocker was not gross locomotion collapse; it was terminal hold, box/robot
+tilt margin, and slightly insufficient target-window dwell.
+
+## Late Tilt-Escape Probe
+
+Entrypoint:
+`scripts/isaac/run_core_world_g1_lowcarry_close_front_tilt_escape_suite.sh`
+
+Suite:
+`20260707_g1_lowcarry_close_front_tilt_escape`
+
+Result: aggregate `fail`, `0/2` strict cases passed.
+
+Both cases preserved fall/drop `0/0`, rollout writes `0/0/0`, and final
+robot/box travel about `2.026/2.103 m`, but did not improve target-window dwell
+or terminal tilt enough. The late thresholds only activated escape in the last
+`11-18` steps, too late to arrest the final tilt.
+
+## Early Tilt-Escape Probe
+
+Suite:
+`20260707_g1_lowcarry_close_front_tilt_escape_early2`
+
+Result: aggregate `fail`, `0/2` strict cases passed.
+
+| Case | fall/drop | robot/box travel m | lateral robot/box m | max tilt robot/box rad | target stable/longest/end | escape active | Main failure |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `escape_robot022_box030_scale015` | `0/0` | `1.963/2.014` | `-0.118/-0.207` | `0.610/0.500` | `77/75/75` | `34` from step `887` | robot tilt, box tilt, target dwell, final-hold length |
+| `escape_robot018_box024_scale020` | `0/0` | `2.118/2.130` | `0.013/0.150` | `0.267/0.544` | `81/80/80` | `83` from step `792` | box tilt and final-hold length |
+
+## Interpretation
+
+Early tilt escape is a useful mechanism because it recovered the close-front
+target-window dwell without falls, drops, or rollout root/velocity/box pose
+writes. It is still not a pass because the box pitched past the strict
+`0.45 rad` gate and the 1050-step run cannot satisfy the `399` final-hold
+active-step requirement.
+
+The next valid close-front probe is therefore not another lateral sign/gain
+scan. It should test physical box attitude support and a longer 1200-step
+terminal hold while preserving the same strict gates. The active follow-up is:
+
+`scripts/isaac/run_core_world_g1_lowcarry_close_front_chestpad_tilt_support_suite.sh`
+
+Pending jobs:
+
+- full two-case suite: Slurm `170370` / `g1_chestpad`
+- one-case quick/backfill suite: Slurm `170372` / `g1_chestquick`
