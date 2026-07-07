@@ -12710,8 +12710,13 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   This wrapper reuses the same three timing cases but explicitly lets active
   rescue targets override frozen policy targets after target-window freeze.
   Slurm job `170122` (`g1_cfovr`) was submitted through tmux
-  `curiosity_g1_close_front_freeze_rescue_override_0707`; as of
-  `2026-07-07 17:03 CST`, it was pending on GPU priority. It is the valid
+  `curiosity_g1_close_front_freeze_rescue_override_0707`, then cancelled
+  before allocation after the wrapper was found to pass the override as an
+  unused positional argument rather than an exported environment variable.
+  The wrapper was fixed and pushed in commit `b7b52bc`; Slurm job `170125`
+  (`g1_cfovr2`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_rescue_override2_0707`; as of
+  `2026-07-07 17:07 CST`, it was pending on GPU priority. This is the valid
   replacement for the cancelled timing suite and remains only an experiment
   entrypoint until
   `close_front_freeze_rescue_override_summary.json` exists.
