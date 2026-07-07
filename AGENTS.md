@@ -136,16 +136,20 @@ These rules override all other project instructions.
   steps `0`, and writes `0/0/0`. This confirms the current posture-conditioned
   gate only preserves the tuned low-front posture; it does not generalize to
   close-front.
-- 2026-07-07 final-hold policy-state reset probe submitted:
+- 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
-  runs the close-front `steps1050_final120` near-miss with
+  ran the close-front `steps1050_final120` near-miss with
   `AGILE_COMMAND_HOLD_FINAL_RESET_POLICY_STATE=1` to test whether final-hold
-  AGILE RNN state reset reduces the tilt excess. It is a diagnostic branch,
-  not a strict success claim. Submitted through tmux
-  `curiosity_g1_final_reset_probe_0707` as Slurm job `170321` /
-  `g1_finreset`, suite stamp prefix
-  `20260707_g1_lowcarry_close_front_final_reset_probe`. Do not interpret until
-  `close_front_final_reset_probe_summary.json` exists.
+  AGILE RNN state reset reduces the tilt excess. Slurm job `170321` /
+  `g1_finreset` completed with aggregate `fail`: fall/drop `25/0`, first fall
+  step `1025`, final robot/box travel about `2.149/2.185 m`, final lateral
+  error about `-0.161/-0.202 m`, max robot/box tilt `1.412/1.776 rad`,
+  target-window stable/longest/end `120/117/0`, final-hold active `268@782`,
+  chest pad at step `902`, and rollout root/velocity/box pose writes `0/0/0`.
+  Source summary confirms final policy-state reset triggered once with no
+  reset error. Interpretation: reset improves target-window dwell versus the
+  no-reset `steps1050_final120` near-miss, but destabilizes the final hold and
+  greatly worsens tilt, so it is not the close-front fix.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

@@ -37,6 +37,15 @@ The unified posture-conditioned gate confirms the same boundary:
 same fall/travel/target-window profile as this quick45 case. The current gate
 therefore preserves one tuned posture but does not generalize to close-front.
 
+Final-hold policy-state reset was also tested in
+`20260707_g1_lowcarry_close_front_final_reset_probe_steps1050_final120_reset`.
+It failed with fall/drop `25/0`, first fall step `1025`, final robot/box travel
+about `2.149/2.185 m`, max robot/box tilt `1.412/1.776 rad`, and
+target-window stable/longest/end `120/117/0`. The source summary confirms the
+reset triggered once without error. This improves target-window dwell versus
+the no-reset near-miss, but it makes final-hold stability much worse, so
+policy-state reset alone is not the fix.
+
 Do not repeat the unchanged quick45 chest-pad/final-stabilize scalar branch.
 The useful close-front boundaries remain:
 

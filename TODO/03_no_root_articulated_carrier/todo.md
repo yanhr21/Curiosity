@@ -9162,12 +9162,20 @@
   `AGILE_COMMAND_HOLD_FINAL_RESET_POLICY_STATE=1` to test whether resetting
   AGILE's recurrent state at final-hold entry reduces the tilt excess. This is
   a diagnostic mechanism check, not a relaxed success gate.
-- [ ] Monitor final-reset probe job. Slurm job `170321` (`g1_finreset`) was
+- [x] Monitor final-reset probe job. Slurm job `170321` (`g1_finreset`) was
   submitted through tmux `curiosity_g1_final_reset_probe_0707`, suite stamp
   prefix `20260707_g1_lowcarry_close_front_final_reset_probe`, log
-  `logs/g1_final_reset_probe_0707_srun.log`. Record only after
+  `logs/g1_final_reset_probe_0707_srun.log`. It completed with aggregate
+  `fail`: fall/drop `25/0`, first fall step `1025`, final robot/box travel
+  about `2.149/2.185 m`, final lateral error about `-0.161/-0.202 m`, max
+  robot/box tilt `1.412/1.776 rad`, target-window stable/longest/end
+  `120/117/0`, final-hold active `268@782`, chest pad at step `902`, and
+  rollout root/velocity/box pose writes `0/0/0`. Source summary confirms
+  `agile_command_hold_final_policy_state_reset_count=1` and no reset error.
+  Reset improved target-window dwell versus no-reset `steps1050_final120`
+  (`120` vs `76`) but caused late fall and much worse tilt, so do not keep
+  pursuing final policy-state reset alone. Summary:
   `experiments/outputs/core_world_g1_lowcarry_close_front_final_reset_probe/20260707_g1_lowcarry_close_front_final_reset_probe/close_front_final_reset_probe_summary.json`
-  exists.
 - [x] Monitor blended retention-posture smoke job. Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
   `curiosity_g1_retention_blend_smoke_0707` with suite stamp
