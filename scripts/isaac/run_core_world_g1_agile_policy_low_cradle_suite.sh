@@ -367,6 +367,9 @@ fi
 if [[ "${CRADLE_CHEST_PAD_ENABLED:-0}" == "1" ]]; then
   free_cradle_extra_args+=(--cradle-chest-pad)
 fi
+if [[ "${CRADLE_CHEST_PAD_SPAWN_ON_TRIGGER:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-chest-pad-spawn-on-trigger)
+fi
 if [[ "${CRADLE_CHEST_PAD_ENABLE_ON_HOLD:-0}" == "1" ]]; then
   free_cradle_extra_args+=(--cradle-chest-pad-enable-on-hold)
 fi

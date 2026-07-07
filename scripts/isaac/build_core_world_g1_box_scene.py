@@ -351,6 +351,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cradle-chest-pad-local-pos0", type=float, nargs=3, default=(0.10, 0.0, 0.08))
     parser.add_argument("--cradle-chest-pad-size", type=float, nargs=3, default=(0.035, 0.34, 0.20))
     parser.add_argument("--cradle-chest-pad-mass-scale", type=float, default=1.0)
+    parser.add_argument("--cradle-chest-pad-spawn-on-trigger", action="store_true")
     parser.add_argument("--cradle-chest-pad-enable-on-hold", action="store_true")
     parser.add_argument("--cradle-chest-pad-enable-on-terminal-hold", action="store_true")
     parser.add_argument("--cradle-chest-pad-enable-on-final-hold", action="store_true")
@@ -818,6 +819,45 @@ def _spawn_fixed_torso_box(
     return joint_path
 
 
+def _spawn_front_cradle_chest_pad(
+    stage: Usd.Stage,
+    material: UsdShade.Material | None,
+    *,
+    collision: bool,
+) -> str:
+    if stage.GetPrimAtPath("/World/G1FrontCradle_chest_pad").IsValid():
+        return "/World/G1FrontCradle_chest_pad/FixedJointToG1"
+    if not stage.GetPrimAtPath(args_cli.attach_body_path).IsValid():
+        raise RuntimeError(f"Attach body path not found after G1 reference: {args_cli.attach_body_path}")
+    attach_pose = _usd_world_pose_wxyz(stage, str(args_cli.attach_body_path))
+    attach_world = (0.0, 0.0, 0.8) if attach_pose is None else (
+        float(attach_pose[0]),
+        float(attach_pose[1]),
+        float(attach_pose[2]),
+    )
+    chest_pad_local = tuple(float(v) for v in args_cli.cradle_chest_pad_local_pos0)
+    chest_pad_size = tuple(max(0.001, float(v)) for v in args_cli.cradle_chest_pad_size)
+    initial_world = (
+        attach_world[0] + chest_pad_local[0],
+        attach_world[1] + chest_pad_local[1],
+        attach_world[2] + chest_pad_local[2],
+    )
+    mass_scale = max(0.0, float(args_cli.cradle_mass_scale))
+    chest_mass_scale = max(0.0, float(args_cli.cradle_chest_pad_mass_scale))
+    return _spawn_fixed_torso_box(
+        stage,
+        "/World/G1FrontCradle_chest_pad",
+        chest_pad_size,
+        0.20 * mass_scale * chest_mass_scale,
+        (0.30, 0.30, 0.30),
+        str(args_cli.attach_body_path),
+        chest_pad_local,
+        material,
+        initial_world,
+        collision,
+    )
+
+
 def _spawn_front_torso_cradle(stage: Usd.Stage, material: UsdShade.Material | None) -> dict[str, str]:
     if not stage.GetPrimAtPath(args_cli.attach_body_path).IsValid():
         raise RuntimeError(f"Attach body path not found after G1 reference: {args_cli.attach_body_path}")
@@ -899,22 +939,9 @@ def _spawn_front_torso_cradle(stage: Usd.Stage, material: UsdShade.Material | No
         )
         if bool(args_cli.cradle_top_lid_enable_on_hold):
             _set_collision_enabled(stage, lid_path, False)
-    if bool(args_cli.cradle_chest_pad):
+    if bool(args_cli.cradle_chest_pad) and not bool(args_cli.cradle_chest_pad_spawn_on_trigger):
         chest_pad_path = "/World/G1FrontCradle_chest_pad"
-        chest_pad_local = tuple(float(v) for v in args_cli.cradle_chest_pad_local_pos0)
-        chest_pad_size = tuple(max(0.001, float(v)) for v in args_cli.cradle_chest_pad_size)
-        pieces["chest_pad"] = _spawn_fixed_torso_box(
-            stage,
-            chest_pad_path,
-            chest_pad_size,
-            0.20 * mass_scale * max(0.0, float(args_cli.cradle_chest_pad_mass_scale)),
-            (0.30, 0.30, 0.30),
-            str(args_cli.attach_body_path),
-            chest_pad_local,
-            material,
-            approx_world(chest_pad_local),
-            collision,
-        )
+        pieces["chest_pad"] = _spawn_front_cradle_chest_pad(stage, material, collision=collision)
         if (
             bool(args_cli.cradle_chest_pad_enable_on_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_terminal_hold)
@@ -2599,6 +2626,7 @@ def run_scene() -> Path:
         "cradle_chest_pad_local_pos0_m": [float(v) for v in args_cli.cradle_chest_pad_local_pos0],
         "cradle_chest_pad_size_m": [float(v) for v in args_cli.cradle_chest_pad_size],
         "cradle_chest_pad_mass_scale": float(args_cli.cradle_chest_pad_mass_scale),
+        "cradle_chest_pad_spawn_on_trigger": bool(args_cli.cradle_chest_pad_spawn_on_trigger),
         "cradle_chest_pad_enable_on_hold": bool(args_cli.cradle_chest_pad_enable_on_hold),
         "cradle_chest_pad_enable_on_terminal_hold": bool(args_cli.cradle_chest_pad_enable_on_terminal_hold),
         "cradle_chest_pad_enable_on_final_hold": bool(args_cli.cradle_chest_pad_enable_on_final_hold),
@@ -2609,7 +2637,8 @@ def run_scene() -> Path:
         "cradle_chest_pad_box_tilt_min_step": int(args_cli.cradle_chest_pad_box_tilt_min_step),
         "cradle_chest_pad_collision_enabled_initial": bool(args_cli.cradle_chest_pad)
         and not (
-            bool(args_cli.cradle_chest_pad_enable_on_hold)
+            bool(args_cli.cradle_chest_pad_spawn_on_trigger)
+            or bool(args_cli.cradle_chest_pad_enable_on_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_terminal_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_final_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_target_window)
@@ -2617,6 +2646,8 @@ def run_scene() -> Path:
         ),
         "cradle_chest_pad_collision_enabled_step": None,
         "cradle_chest_pad_collision_enabled_reason": None,
+        "cradle_chest_pad_spawned_step": None,
+        "cradle_chest_pad_spawn_error": None,
         "cradle_chest_pad_collision_update_count": 0,
         "cradle_chest_pad_collision_update_error": None,
         "cradle_collision_enabled": not bool(args_cli.disable_cradle_collision),
@@ -2794,7 +2825,8 @@ def run_scene() -> Path:
         final_frozen_policy_joint_targets = None
         top_lid_hold_collision_enabled = bool(args_cli.cradle_top_lid) and not bool(args_cli.cradle_top_lid_enable_on_hold)
         chest_pad_hold_collision_enabled = bool(args_cli.cradle_chest_pad) and not (
-            bool(args_cli.cradle_chest_pad_enable_on_hold)
+            bool(args_cli.cradle_chest_pad_spawn_on_trigger)
+            or bool(args_cli.cradle_chest_pad_enable_on_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_terminal_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_final_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_target_window)
@@ -3016,7 +3048,13 @@ def run_scene() -> Path:
                                 chest_pad_reasons.append("box_tilt")
                             if chest_pad_reasons:
                                 try:
-                                    if not _set_collision_enabled(stage, "/World/G1FrontCradle_chest_pad", True):
+                                    if (
+                                        bool(args_cli.cradle_chest_pad_spawn_on_trigger)
+                                        and not stage.GetPrimAtPath("/World/G1FrontCradle_chest_pad").IsValid()
+                                    ):
+                                        _spawn_front_cradle_chest_pad(stage, None, collision=True)
+                                        summary["cradle_chest_pad_spawned_step"] = int(step)
+                                    elif not _set_collision_enabled(stage, "/World/G1FrontCradle_chest_pad", True):
                                         raise RuntimeError("chest pad prim not found")
                                     summary["cradle_chest_pad_collision_enabled_step"] = int(step)
                                     summary["cradle_chest_pad_collision_enabled_reason"] = ",".join(chest_pad_reasons)
@@ -3025,7 +3063,10 @@ def run_scene() -> Path:
                                     )
                                     chest_pad_hold_collision_enabled = True
                                 except Exception as exc:
-                                    summary["cradle_chest_pad_collision_update_error"] = f"{type(exc).__name__}: {exc}"
+                                    error_text = f"{type(exc).__name__}: {exc}"
+                                    summary["cradle_chest_pad_collision_update_error"] = error_text
+                                    if bool(args_cli.cradle_chest_pad_spawn_on_trigger):
+                                        summary["cradle_chest_pad_spawn_error"] = error_text
                         command_scale = float(args_cli.agile_command_hold_scale) if agile_command_hold_active else 1.0
                         adaptive_risk = 0.0
                         if agile_command_hold_active and bool(args_cli.agile_command_hold_adaptive_scale):
