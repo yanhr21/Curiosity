@@ -103,7 +103,7 @@
   and writes `0/0/0`. This restores the late near-boundary but shows
   continuous final tilt escape over-drives the system after target-window
   dwell.
-- [ ] Run close-front escape-suppression follow-up:
+- [x] Run close-front escape-suppression follow-up:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_suite.sh`.
   It adds
   `--agile-command-hold-final-tilt-escape-suppress-after-target-window-streak`
@@ -112,7 +112,23 @@
   continued escape-command over-travel after the target window has already been
   reached. Submitted through tmux `curiosity_g1_escape_suppression_0707` as
   Slurm job `170384` / `g1_escsup`. Record
-  `close_front_escape_suppression_summary.json` before interpreting.
+  `close_front_escape_suppression_summary.json` before interpreting. Result:
+  aggregate `fail`, 0/2. `suppress_after_streak60` improved the late boundary
+  but did not pass: fall/drop `64/46`, first fall/drop `1136/1154`,
+  target-window stable/longest/end `114/113/0`, final-hold `418@782`, final
+  robot/box travel `3.200/3.140 m`, final lateral `0.923/0.879 m`, tilt
+  `2.734/2.592 rad`, escape active/suppressed `167/54`, writes `0/0/0`.
+  `suppress_after_streak80` was weaker. Next step should add a window-latched
+  brake or stand handoff after sufficient dwell, not more forward escape or
+  lower-lid contact.
+- [ ] Run close-front escape-suppression brake follow-up:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_brake_suite.sh`.
+  It starts from the better `suppress_after_streak60` boundary, keeps original
+  support geometry, suppresses final tilt escape after a `60`-step target
+  window streak, and applies a negative final brake command after `240`
+  final-hold steps for `120` steps. Cases test `-0.004` and `-0.008` command
+  x. Record `close_front_escape_suppression_brake_summary.json` before
+  interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`

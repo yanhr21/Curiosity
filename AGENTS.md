@@ -269,7 +269,29 @@ These rules override all other project instructions.
   entrypoint only until `close_front_escape_suppression_summary.json` exists.
   Submitted through tmux `curiosity_g1_escape_suppression_0707` as Slurm job
   `170384` / `g1_escsup`, suite stamp prefix
-  `20260707_g1_lowcarry_close_front_escape_suppression`.
+  `20260707_g1_lowcarry_close_front_escape_suppression`. Result: aggregate
+  `fail`, 0/2 strict cases passed. `suppress_after_streak60` improved the late
+  boundary but did not pass: fall/drop `64/46`, first fall/drop `1136/1154`,
+  target-window stable/longest/end `114/113/0`, final-hold `418@782`,
+  final robot/box travel `3.200/3.140 m`, final lateral error
+  `0.923/0.879 m`, max robot/box tilt `2.734/2.592 rad`, tilt escape
+  active/suppressed `167/54`, and writes `0/0/0`. `suppress_after_streak80`
+  was weaker: fall/drop `102/80`, first fall/drop `1098/1120`, target-window
+  `108/107/0`, final travel `3.117/2.891 m`, final lateral
+  `0.738/0.582 m`, tilt `3.139/3.132 rad`, escape active/suppressed `189/28`,
+  writes `0/0/0`. Interpretation: target-window suppression helps but does
+  not stop post-window over-travel and late terminal collapse; the next valid
+  step is a window-latched brake or stand handoff after sufficient dwell, not
+  more forward escape or lower-lid contact.
+- 2026-07-07 close-front escape-suppression brake entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_brake_suite.sh`.
+  It reuses the existing final-brake mechanism after the better
+  `suppress_after_streak60` boundary: final tilt escape is suppressed after a
+  `60`-step target-window streak, then a negative final brake command starts
+  after `240` final-hold steps for `120` steps. Cases test brake command
+  `-0.004` and `-0.008`, with original support geometry and the same strict
+  gates. This is an experiment entrypoint only until
+  `close_front_escape_suppression_brake_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

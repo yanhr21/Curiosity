@@ -319,6 +319,27 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "agile_command_hold_final_tilt_escape_suppressed_by_target_window_steps": summary.get(
             "agile_command_hold_final_tilt_escape_suppressed_by_target_window_steps"
         ),
+        "agile_command_hold_final_brake_command_x": summary.get(
+            "agile_command_hold_final_brake_command_x"
+        ),
+        "agile_command_hold_final_brake_delay_steps": summary.get(
+            "agile_command_hold_final_brake_delay_steps"
+        ),
+        "agile_command_hold_final_brake_steps": summary.get(
+            "agile_command_hold_final_brake_steps"
+        ),
+        "agile_command_hold_final_brake_active_steps": summary.get(
+            "agile_command_hold_final_brake_active_steps"
+        ),
+        "agile_command_hold_final_brake_first_active_step": summary.get(
+            "agile_command_hold_final_brake_first_active_step"
+        ),
+        "agile_command_hold_final_brake_last_active_step": summary.get(
+            "agile_command_hold_final_brake_last_active_step"
+        ),
+        "agile_command_hold_final_brake_max_abs_command_x": summary.get(
+            "agile_command_hold_final_brake_max_abs_command_x"
+        ),
         "agile_command_hold_adaptive_scale_enabled": summary.get(
             "agile_command_hold_adaptive_scale_enabled"
         ),

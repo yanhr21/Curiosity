@@ -118,3 +118,32 @@ Next valid test:
 
 That suite suppresses final tilt escape after target-window streaks of `60` or
 `80` steps while keeping the same original support geometry and strict gates.
+
+## Escape-Suppression Follow-Up
+
+Suite:
+`20260707_g1_lowcarry_close_front_escape_suppression`
+
+Result: aggregate `fail`, `0/2` strict cases passed.
+
+| Case | fall/drop | first fall/drop | target stable/longest/end | final hold | robot/box travel m | lateral robot/box m | max tilt robot/box rad | escape active/suppressed |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `suppress_after_streak60` | `64/46` | `1136/1154` | `114/113/0` | `418@782` | `3.200/3.140` | `0.923/0.879` | `2.734/2.592` | `167/54` |
+| `suppress_after_streak80` | `102/80` | `1098/1120` | `108/107/0` | `418@782` | `3.117/2.891` | `0.738/0.582` | `3.139/3.132` | `189/28` |
+
+Suppressing final tilt escape after target-window dwell helps but is still not
+sufficient. The `60`-step suppression delayed first fall by about `39` steps
+relative to the unsuppressed 1200-step run and reduced fall/drop counts, but
+the robot still left the window, over-traveled, drifted laterally, and collapsed
+late.
+
+The next terminal-control test should add a window-latched brake or stand
+handoff after sufficient target-window dwell. Continuing to increase forward
+escape, lower top-lid contact, or pad thickness is not supported by these
+results.
+
+Active next suite:
+`scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_brake_suite.sh`
+
+It keeps the better `suppress_after_streak60` setup and applies a negative
+final brake command after `240` final-hold steps for `120` steps.
