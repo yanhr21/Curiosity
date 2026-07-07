@@ -255,6 +255,110 @@ These rules override all other project instructions.
   This is useful negative evidence: side guards can correct lateral drift, but
   half-spacing `0.09 m` destabilizes final hold. The next side-guard probe
   should loosen spacing rather than increase contact authority.
+- 2026-07-07 side-guard spacing/geometry boundary: looser spacing improved
+  stability but exposed a lateral/relative-offset tradeoff. Run
+  `20260707_g1_chestpad_finalstop_side_guard_hs130` used spawn-on-trigger
+  final-hold guards with half-spacing `0.13 m`; it had fall/drop `0/0`, max
+  robot/box tilt `0.308/0.385 rad`, target-window stable/longest/end
+  `118/117/117`, final relative offset `0.229 m`, writes `0/0/0`, and failed
+  only final box lateral `0.633 m > 0.6`. Run
+  `20260707_g1_chestpad_finalstop_side_guard_hs120` used half-spacing
+  `0.12 m`; it had fall/drop `0/0`, max robot/box tilt `0.308/0.385 rad`,
+  target-window stable/longest/end `120/119/119`, final robot/box lateral
+  about `0.365/0.590 m`, writes `0/0/0`, and failed only final box/robot
+  relative offset `0.279 m > 0.25`. The first `hs120_x10` attempt was invalid
+  as a geometry test because the suite still hardcoded side-guard X size to
+  `0.18 m`; the suite was then fixed to honor geometry environment overrides.
+  True rerun
+  `20260707_g1_chestpad_finalstop_side_guard_hs120_x10b` used X size
+  `0.10 m` and half-spacing `0.12 m`; it had fall/drop `0/0`, max robot/box
+  tilt `0.308/0.385 rad`, target-window stable/longest/end `119/118/118`,
+  final relative offset `0.183 m`, writes `0/0/0`, and failed only final box
+  lateral `0.693 m > 0.6`. This shows shorter guards reduce fore-aft relative
+  error but weaken lateral correction. Follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_hs110_x10` tested X size
+  `0.10 m` with tighter half-spacing `0.11 m` and failed badly after
+  final-hold guard spawn: fall/drop `57/39`, max robot/box tilt
+  `0.799/0.806 rad`, target-window stable/longest/end `62/61/0`, final
+  relative offset `0.282 m`, final box lateral `0.621 m`, writes `0/0/0`.
+  Intermediate follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_hs115_x10` also failed with
+  fall/drop `69/51`, max robot/box tilt `1.052/0.801 rad`, target-window
+  stable/longest/end `50/49/0`, final relative offset `0.286 m`, final box
+  lateral `0.662 m`, writes `0/0/0`. This shows simply tightening the short-X
+  side guards makes contact too impulsive and does not solve the lateral gate.
+  A compute-node single-case follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_hs120_lx22` was submitted through
+  tmux session `curiosity_g1_side_guard_hs120_lx22_0707` as Slurm job `170480`
+  to return to stable half-spacing `0.12 m` and X size `0.18 m` while moving
+  local guard X from `-0.18` to `-0.22`. It ran and produced a stable
+  near-miss: fall/drop `0/0`, max robot/box tilt `0.314/0.385 rad`,
+  target-window stable/longest/end `122/121/121`, final-hold active `132`,
+  final relative offset `0.202 m`, final robot/box lateral
+  `0.437/0.634 m`, writes `0/0/0`, and failed only final box lateral
+  `0.634 m > 0.6`. This is better than `hs120` on relative offset but worse
+  on lateral. Interpolation follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_hs118_lx20` tested local X
+  `-0.20`, X size `0.18 m`, and tighter half-spacing `0.118 m`; it had
+  fall/drop `0/0`, target-window stable/longest/end `125/124/124`, final
+  relative offset `0.210 m`, final robot/box lateral `0.566/0.765 m`, writes
+  `0/0/0`, and failed tilt slightly plus final box lateral. Do not continue
+  combined spacing/local-X interpolation from that result. A compute-node
+  single-factor follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_hs120_lx21` was submitted through
+  tmux session `curiosity_g1_side_guard_hs120_lx21_0707` as Slurm job `170485`
+  to keep half-spacing `0.12 m`, X size `0.18 m`, and test local X `-0.21`;
+  it ran with fall/drop `0/0`, target-window stable/longest/end `122/121/121`,
+  max robot/box tilt `0.308/0.385 rad`, final relative offset `0.270 m`,
+  final robot/box lateral `0.407/0.635 m`, writes `0/0/0`, and failed both
+  relative-offset and lateral gates. The best side-guard boundary remains
+  `hs120`, which passes lateral but fails relative offset. A compute-node
+  follow-up `20260707_g1_chestpad_finalstop_side_guard_hs120_brake001` was
+  submitted through tmux session `curiosity_g1_side_guard_hs120_brake001_0707`
+  as Slurm job `170487`; it returns to `hs120` geometry and adds only a
+  final-hold brake command `x=-0.001` within the existing final-command gate to
+  test whether reducing robot over-travel lowers box/robot relative offset. It
+  ran with fall/drop `0/0`, target-window stable/longest/end `120/119/119`,
+  final command max `x/y/yaw=0.001/0/0`, final robot/box lateral
+  `0.299/0.552 m`, writes `0/0/0`, and failed only relative offset
+  `0.309 m > 0.25`. The brake improved lateral but worsened box/robot
+  relative offset, so do not continue final-brake tuning on `hs120`. A
+  compute-node follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_hs119_lx22` was submitted through
+  tmux session `curiosity_g1_side_guard_hs119_lx22_0707` as Slurm job `170493`
+  to return to the `lx22` relative-offset-pass branch and only tighten
+  half-spacing from `0.12` to `0.119`. It ran with fall/drop `0/0`,
+  target-window stable/longest/end `122/121/121`, max robot/box tilt
+  `0.308/0.385 rad`, final relative offset `0.246 m`, final robot/box
+  lateral `0.498/0.729 m`, writes `0/0/0`, and failed only final box lateral.
+  It passes relative offset but worsens lateral, so do not continue spacing
+  tightening on `lx22`. The side-guard suite now supports
+  `SIDE_GUARD_QUICK_ENABLE_MODE=terminal` and terminal-hold side-guard
+  activation. A compute-node follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_hs120_lx22_terminal` was
+  submitted through tmux session
+  `curiosity_g1_side_guard_hs120_lx22_terminal_0707` as Slurm job `170495` to
+  test whether earlier terminal-hold side-guard contact fixes the lateral
+  drift of `lx22`. It triggered at step `590` and strongly corrected
+  lateral/relative pose, but too early: fall/drop `0/0`, final relative offset
+  `0.172 m`, final robot/box lateral `-0.030/-0.192 m`, max robot/box tilt
+  `0.308/0.449 rad`, writes `0/0/0`, but box/robot target-directed travel
+  only `1.428/1.470 m`, target-window stable steps `0`, and final-hold active
+  steps `0`. This proves earlier side-guard contact has authority but can
+  stop progress. The side-guard suite now lets
+  `AGILE_COMMAND_HOLD_TERMINAL_BOX_TARGET_TRAVEL` and
+  `AGILE_COMMAND_HOLD_TERMINAL_SCALE` be overridden. Follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_hs120_lx22_terminal145` was
+  submitted through tmux session
+  `curiosity_g1_side_guard_hs120_lx22_terminal145_0707` as Slurm job `170497`
+  to trigger the same terminal side guards later at box target travel `1.45 m`.
+  It triggered at step `698` and failed badly: fall/drop `208/8`, max
+  robot/box tilt `3.141/2.957 rad`, final relative offset `0.368 m`, final
+  robot/box target-directed travel `0.949/0.677 m`, final robot/box lateral
+  `-1.632/-1.838 m`, target-window stable steps `0`, final-hold active
+  steps `0`, writes `0/0/0`. Do not continue terminal-trigger side guards
+  without a materially softer/controlled contact formulation; final-only
+  `hs120` and `lx22` remain the useful near-miss boundaries.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

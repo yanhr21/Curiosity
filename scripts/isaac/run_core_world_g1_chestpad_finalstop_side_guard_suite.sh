@@ -27,10 +27,12 @@ run_case() {
 
   local guard_hold=0
   local guard_final=0
+  local guard_terminal=0
   local guard_target=0
   case "${enable_mode}" in
     hold) guard_hold=1 ;;
     final) guard_final=1 ;;
+    terminal) guard_terminal=1 ;;
     target_window) guard_target=1 ;;
     *)
       echo "Unknown side-guard enable mode: ${enable_mode}" >&2
@@ -60,17 +62,18 @@ run_case() {
     AGILE_COMMAND_HOLD_YAW_GAIN=0.04 \
     AGILE_COMMAND_HOLD_YAW_LIMIT=0.08 \
     AGILE_COMMAND_HOLD_YAW_SIGN=-1.0 \
-    AGILE_COMMAND_HOLD_TERMINAL_BOX_TARGET_TRAVEL=1.05 \
-    AGILE_COMMAND_HOLD_TERMINAL_SCALE=0.015 \
+    AGILE_COMMAND_HOLD_TERMINAL_BOX_TARGET_TRAVEL="${AGILE_COMMAND_HOLD_TERMINAL_BOX_TARGET_TRAVEL:-1.05}" \
+    AGILE_COMMAND_HOLD_TERMINAL_SCALE="${AGILE_COMMAND_HOLD_TERMINAL_SCALE:-0.015}" \
     AGILE_COMMAND_HOLD_TERMINAL_LATCH=1 \
     AGILE_COMMAND_HOLD_FINAL_BOX_TARGET_TRAVEL=1.65 \
-    AGILE_COMMAND_HOLD_FINAL_SCALE=0.0 \
+    AGILE_COMMAND_HOLD_FINAL_SCALE="${AGILE_COMMAND_HOLD_FINAL_SCALE:-0.0}" \
     AGILE_COMMAND_HOLD_FINAL_LATCH=1 \
-    AGILE_COMMAND_HOLD_FINAL_ZERO_CORRECTIONS=1 \
+    AGILE_COMMAND_HOLD_FINAL_ZERO_CORRECTIONS="${AGILE_COMMAND_HOLD_FINAL_ZERO_CORRECTIONS:-1}" \
     CRADLE_FINAL_SIDE_GUARDS=1 \
     CRADLE_FINAL_SIDE_GUARD_SPAWN_ON_TRIGGER=1 \
     CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_HOLD="${guard_hold}" \
     CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_FINAL_HOLD="${guard_final}" \
+    CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_TERMINAL_HOLD="${guard_terminal}" \
     CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_TARGET_WINDOW="${guard_target}" \
     CRADLE_FINAL_SIDE_GUARD_TARGET_WINDOW_MIN_STEP=700 \
     CRADLE_FINAL_SIDE_GUARD_LOCAL_X="${CRADLE_FINAL_SIDE_GUARD_LOCAL_X:--0.18}" \
@@ -92,7 +95,10 @@ overall_status=0
 
 case "${CASE_SET}" in
   quick)
-    run_case "${SIDE_GUARD_QUICK_CASE_NAME:-final_guard_hs090}" final "${SIDE_GUARD_QUICK_HALF_SPACING:-0.09}" || overall_status=1
+    run_case \
+      "${SIDE_GUARD_QUICK_CASE_NAME:-final_guard_hs090}" \
+      "${SIDE_GUARD_QUICK_ENABLE_MODE:-final}" \
+      "${SIDE_GUARD_QUICK_HALF_SPACING:-0.09}" || overall_status=1
     ;;
   default)
     run_case final_guard_hs090 final 0.09 || overall_status=1
