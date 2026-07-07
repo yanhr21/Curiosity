@@ -10424,7 +10424,25 @@
   It keeps the same tall preintegrated cradle and tests `centroidal_cautious`,
   `retention_posture`, and `combined_conservative` under the same strict
   target-window, tilt, fall/drop, and no-rollout-write gates.
-- [ ] Run and record tall preintegrated support/contact diagnostic through
+- [x] Run and record tall preintegrated support/contact diagnostic through
   tmux plus persistent `srun`. Do not interpret it until
   `experiments/outputs/core_world_g1_tall_preintegrated_support_contact/<stamp>/g1_tall_preintegrated_support_contact_summary.json`
   exists.
+- [x] Tall preintegrated support/contact result:
+  CPU Slurm job `170676` on `server01` completed
+  `20260708_g1_tall_preintegrated_support_contact_cpu`, aggregate `fail`,
+  0/3. `centroidal_cautious` had fall/drop `24/0`, first fall `976`, final
+  travel `0.359/0.130 m`, relative offset `0.382 m`, max robot/box tilt
+  `0.971/1.029 rad`, and centroidal active `189` steps with max risk
+  `0.117`. `retention_posture` had fall/drop `191/1`, first fall/drop
+  `809/850`, final travel `2.182/1.925 m`, final lateral `1.220/1.357 m`,
+  relative offset `0.295 m`, max tilt `2.275/2.224 rad`, retention active
+  `530` steps with max risk `1.0`. `combined_conservative` had fall/drop
+  `0/0`, but retreated with final travel `-0.528/-0.727 m`, max travel only
+  `0.878/0.877 m`, relative offset `0.258 m`, max tilt `0.458/0.936 rad`,
+  retention active `401` steps with max risk `1.0`, and centroidal inactive.
+  Rollout root/velocity/box pose writes were `0/0/0` in all cases.
+- [ ] Next tall support/contact step: do not reuse full-risk retention. Add a
+  limited-retention diagnostic that delays/weakens box-retention activation
+  and starts centroidal support earlier, with an explicit goal of preserving
+  the no-fall/no-drop boundary before optimizing target-window dwell.

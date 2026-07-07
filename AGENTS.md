@@ -289,6 +289,28 @@ These rules override all other project instructions.
   the stable tall boundary while improving target/lateral behavior. It is an
   experiment entrypoint only until
   `g1_tall_preintegrated_support_contact_summary.json` exists.
+- 2026-07-08 G1 tall preintegrated support/contact result:
+  CPU Slurm job `170676` on `server01` completed
+  `20260708_g1_tall_preintegrated_support_contact_cpu`, aggregate `fail`,
+  0/3. `centroidal_cautious` activated terminal centroidal support for
+  `189` steps with max risk `0.117`, but still failed late: fall/drop
+  `24/0`, first fall `976`, final robot/box travel `0.359/0.130 m`, final
+  lateral `0.488/0.281 m`, relative offset `0.382 m`, max robot/box tilt
+  `0.971/1.029 rad`, and target-window `0/0/0`. `retention_posture`
+  activated retention for `530` steps with max risk `1.0` and drove progress
+  closer to the target, but destabilized laterally and physically:
+  fall/drop `191/1`, first fall/drop `809/850`, final travel
+  `2.182/1.925 m`, final lateral `1.220/1.357 m`, relative offset
+  `0.295 m`, max robot/box tilt `2.275/2.224 rad`. `combined_conservative`
+  had fall/drop `0/0` and no rollout writes, but retention activated for
+  `401` steps, centroidal never activated, and the run retreated:
+  final travel `-0.528/-0.727 m`, max travel only `0.878/0.877 m`, relative
+  offset `0.258 m`, max robot/box tilt `0.458/0.936 rad`, target-window
+  `0/0/0`. Conclusion: current retention posture offsets are too strong when
+  active, and current centroidal gating is too late/weak to recover target
+  progress. The next tall attempt should cap retention influence by delaying
+  and weakening its activation, while starting centroidal progress support
+  earlier; do not reuse full-risk retention settings unchanged.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with
