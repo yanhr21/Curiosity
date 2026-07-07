@@ -10346,3 +10346,11 @@
   backend from the start of the gait, or the backend must be replaced. Do not
   keep adding trigger thresholds for side guards, cross braces, hold, or
   planted stance on this AGILE wrapper path.
+- [x] Add preintegrated contact-cradle diagnostic:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_preintegrated_contact_cradle_suite.sh`.
+  It keeps chest pad, final side guards, and final cross brace enabled from
+  scene start while AGILE propulsion continues and hold/stand stays disabled.
+- [ ] Run and record preintegrated contact-cradle held-out diagnostic through
+  tmux plus persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_preintegrated_contact_cradle/<stamp>/closefront_heldout_geometry_preintegrated_contact_cradle_summary.json`
+  exists.

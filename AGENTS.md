@@ -196,6 +196,16 @@ These rules override all other project instructions.
   meaningful step is not another trigger-threshold variant. Replace the
   support/contact backend with a controller that plans contact from the start
   of the gait, or move to a different locomotion/support formulation.
+- 2026-07-08 held-out G1 preintegrated contact-cradle entrypoint added:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_preintegrated_contact_cradle_suite.sh`.
+  It removes runtime contact insertion: chest pad, final side guards, and
+  final cross brace are present with collision enabled from scene start while
+  AGILE propulsion continues and hold/stand remains disabled. This tests
+  whether contact support integrated into the initial carrier geometry is less
+  destabilizing than box-tilt-triggered runtime insertion. It is an experiment
+  entrypoint only until
+  `closefront_heldout_geometry_preintegrated_contact_cradle_summary.json`
+  exists.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with
