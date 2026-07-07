@@ -367,7 +367,10 @@ These rules override all other project instructions.
   pitch to create lower, more crouched terminal support. It tests
   `lowstance_soft` and `lowstance_deeper` under the same strict gates. This is
   an experiment entrypoint only until
-  `close_front_escape_stand_lowstance_summary.json` exists.
+  `close_front_escape_stand_lowstance_summary.json` exists. Submitted through
+  tmux `curiosity_g1_lowstance_0707` as Slurm job `170412` / `g1_lowstance`,
+  suite stamp prefix
+  `20260707_g1_lowcarry_close_front_escape_stand_lowstance`.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

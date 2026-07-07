@@ -174,6 +174,8 @@
   posture with paired sagittal hip/knee/ankle/waist stand overrides instead of
   further tuning command scalars. Record
   `close_front_escape_stand_lowstance_summary.json` before interpreting.
+  Submitted through tmux `curiosity_g1_lowstance_0707` as Slurm job `170412` /
+  `g1_lowstance`.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`
