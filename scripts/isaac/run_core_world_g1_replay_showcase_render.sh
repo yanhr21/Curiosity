@@ -11,6 +11,15 @@ ISAAC_VENV="${ISAAC_VENV:-/public/home/yanhongru/envs/isaac_arena_py312}"
 OV_REGISTRY_MIRROR="${OV_REGISTRY_MIRROR:-/public/home/yanhongru/ov_registry_mirror}"
 EXPERIENCE="${EXPERIENCE:-}"
 KIT_ARGS="${KIT_ARGS:---/exts/omni.kit.registry.nucleus/registries/0/name=local_default --/exts/omni.kit.registry.nucleus/registries/0/url=file://${OV_REGISTRY_MIRROR}/kit_prod_default --/exts/omni.kit.registry.nucleus/registries/1/name=local_sdk --/exts/omni.kit.registry.nucleus/registries/1/url=file://${OV_REGISTRY_MIRROR}/kit_prod_sdk}"
+ISAAC_SIM_ROOT="${ISAAC_SIM_ROOT:-${ISAAC_VENV}/lib/python3.12/site-packages/isaacsim}"
+KIT_EXT_FOLDERS="${KIT_EXT_FOLDERS:-${ISAAC_SIM_ROOT}/exts:${ISAAC_SIM_ROOT}/extscache:${ISAAC_SIM_ROOT}/extsPhysics:${ISAAC_SIM_ROOT}/extsDeprecated:${ISAAC_SIM_ROOT}/kit/exts:${ISAAC_SIM_ROOT}/kit/extscore:${ISAAC_SIM_ROOT}/isaacsim/exts:${ISAAC_SIM_ROOT}/isaacsim/extscache:${ISAAC_SIM_ROOT}/isaacsim/extsPhysics:${ISAAC_SIM_ROOT}/isaacsim/extsDeprecated}"
+
+IFS=':' read -r -a kit_ext_folder_array <<< "${KIT_EXT_FOLDERS}"
+for ext_folder in "${kit_ext_folder_array[@]}"; do
+  if [[ -d "${ext_folder}" ]]; then
+    KIT_ARGS="${KIT_ARGS} --ext-folder=${ext_folder}"
+  fi
+done
 
 REPLAY_CSV="${REPLAY_CSV:?Set REPLAY_CSV to core_world_g1_box_scene_replay.csv}"
 OUTPUT_DIR="${OUTPUT_DIR:-${ROOT_DIR}/experiments/visuals/g1_replay_showcase/$(date +%Y%m%d_%H%M%S)}"

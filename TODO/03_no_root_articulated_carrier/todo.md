@@ -9429,3 +9429,19 @@
   Use only with the explicit caveat that it is a schematic replay, not an
   Isaac camera render, not new control evidence, and not generalized carrying
   success.
+- [x] Test whether adding local Isaac Sim extension folders fixes true replay
+  rendering. `scripts/isaac/run_core_world_g1_replay_showcase_render.sh` now
+  forwards local `exts`, `extscache`, `extsPhysics`, `extsDeprecated`,
+  `kit/exts`, and `kit/extscore` directories as Kit `--ext-folder` entries.
+  Slurm job `170422` (`g1_extsmk`) ran on `server44` with `MAX_FRAMES=1`.
+  Result: still negative. It produced only
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_extfolder_true_render_smoke/render_debug_trace.json`
+  and reproduced the same missing registry dependencies:
+  `omni.kit.pip_archive` and `omni.kit.viewport.window`. The ext-folder fix
+  is not sufficient because those dependencies are not available as unpacked
+  local extension folders. Do not rerun unchanged.
+- [ ] Next true-render path: inspect or repair the local Kit registry mirror
+  package availability for `omni.kit.pip_archive` and
+  `omni.kit.viewport.window`, or switch to a Kit experience/launcher that can
+  resolve those registry packages before spending more GPU time on replay
+  render-product/capture tests.

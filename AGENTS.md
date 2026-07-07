@@ -102,6 +102,19 @@ These rules override all other project instructions.
   This is the best current shareable visual, but it is explicitly a schematic
   replay, not an Isaac camera render, not new control evidence, and not
   generalized or learned unknown-load carrying.
+- 2026-07-07 true-render ext-folder smoke result: after the dense replay
+  fallback, `scripts/isaac/run_core_world_g1_replay_showcase_render.sh` was
+  updated to pass local Isaac Sim `exts`, `extscache`, `extsPhysics`,
+  `extsDeprecated`, `kit/exts`, and `kit/extscore` as Kit `--ext-folder`
+  entries. Minimal smoke job `170422` (`g1_extsmk`) ran on `server44` with
+  `MAX_FRAMES=1`, but still reproduced the same local registry dependency
+  failure: Kit could not resolve `omni.kit.pip_archive` for
+  `omni.replicator.core`/telemetry and could not resolve
+  `omni.kit.viewport.window` for `isaacsim.core.rendering_manager`; only
+  `render_debug_trace.json` was produced. The ext-folder path alone is
+  insufficient because the missing dependencies are registry package entries,
+  not present unpacked extension folders. Do not rerun this ext-folder smoke
+  unchanged.
 - 2026-07-07 G1 posture-generalization boundary: suite
   `scripts/isaac/run_core_world_g1_lowcarry_runtime_chestpad_posture_generalization_suite.sh`
   produced aggregate `fail`, 1/5 strict cases passed. Only `low_front_060`

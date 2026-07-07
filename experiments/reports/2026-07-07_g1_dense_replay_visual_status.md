@@ -59,6 +59,23 @@ registry dependency failures involving `omni.kit.pip_archive`,
 `omni.replicator.core`, `isaacsim.core.rendering_manager`, and viewport-related
 dependencies. The job was cancelled after the render path stalled.
 
+Follow-up job `170422` (`g1_extsmk`) added local Isaac Sim extension folders to
+the launcher and ran a one-frame true-render smoke on `server44`. It still
+produced only:
+
+```text
+experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_extfolder_true_render_smoke/render_debug_trace.json
+```
+
+The same missing registry dependencies remained:
+
+- `omni.kit.pip_archive` for `omni.replicator.core` / telemetry
+- `omni.kit.viewport.window` for `isaacsim.core.rendering_manager`
+
+The ext-folder path alone is therefore insufficient. The next true-render
+repair needs the local Kit registry mirror or launcher experience to resolve
+those registry packages before more render-product/capture debugging.
+
 ## Fallback Visual
 
 Job `170419` (`g1_fallback`) ran on `server02` through tmux and produced:
