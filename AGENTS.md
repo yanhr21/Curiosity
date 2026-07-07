@@ -628,12 +628,20 @@ These rules override all other project instructions.
   large lateral roll collapse. The wrapper has been corrected to forward the
   outer `SUITE_STAMP_PREFIX` and to allow one-case parameter overrides.
 - 2026-07-07 close-front `0.525 kg` terminal pre-final brake late-tiny
-  follow-up submitted: Slurm job `170601` (`g1_preftiny`) through tmux
-  `curiosity_g1_closefront_m0525_prefinal_tiny_0707`, stamp prefix
+  follow-up: Slurm job `170601` (`g1_preftiny`) ran on `server02` through
+  tmux `curiosity_g1_closefront_m0525_prefinal_tiny_0707`, stamp prefix
   `20260707_g1_closefront_mass0525_terminal_prefinal_brake_late_tiny`, case
-  `prefinal_brake_tiny_late_f165`. It uses the corrected wrapper, terminal
-  brake x `-0.0015`, delay `220`, steps `80`, and final box target `1.65 m`.
-  Interpret only after the summary exists.
+  `prefinal_brake_tiny_late_f165`. Result: strict `fail`. The corrected
+  wrapper wrote the intended stamp. Terminal brake x `-0.0015` was active
+  only for steps `681-710` (`30` steps) before final hold latched at step
+  `711`; final command max x/y/yaw stayed `0/0/0`, fall/drop stayed `0/0`,
+  final robot/box travel was `2.090/2.001 m`, target-window stable/longest/end
+  was `277/277/277`, final relative offset was `0.193 m`, and writes stayed
+  `0/0/0`. Remaining strict failures were worse than `terminal_guard_lx19`:
+  max robot/box tilt `0.408/0.537 rad` and final robot/box lateral
+  `1.081/0.913 m`. Interpretation: a very small pre-final brake is
+  checker-compatible but does not reduce lateral drift and worsens tilt; do
+  not keep scalar-scanning pre-final brake.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
