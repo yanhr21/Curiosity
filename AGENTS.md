@@ -238,7 +238,10 @@ These rules override all other project instructions.
   `1200` steps for the `399` final-hold gate, and compares target-window-only
   chest-pad trigger against original-size box-tilt-triggered chest pad. This
   isolates terminal-duration behavior from the failed lower-lid geometry. It
-  is an experiment entrypoint only until
+  was submitted through tmux `curiosity_g1_early_escape_1200_0707` as Slurm
+  job `170382` / `g1_escape1200`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_early_escape_1200`. It is an experiment
+  entrypoint only until
   `close_front_early_escape_1200_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly

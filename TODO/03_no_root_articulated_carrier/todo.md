@@ -92,8 +92,9 @@
   It preserves the original lid/pad geometry from the no-fall 1050-step
   near-miss, extends to `1200` steps for the final-hold gate, and compares
   target-window-only chest-pad trigger against original-size box-tilt-triggered
-  chest pad. Record `close_front_early_escape_1200_summary.json` before
-  interpreting.
+  chest pad. Submitted through tmux `curiosity_g1_early_escape_1200_0707` as
+  Slurm job `170382` / `g1_escape1200`. Record
+  `close_front_early_escape_1200_summary.json` before interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`
