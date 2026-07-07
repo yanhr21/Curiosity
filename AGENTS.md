@@ -686,6 +686,35 @@ These rules override all other project instructions.
   relative offset but injects too much disturbance; do not continue hard
   cross-brace geometry/timing micro-scans without a softer contact or
   posture-conditioned support controller.
+- 2026-07-07 held-out geometry gate entrypoint added:
+  `scripts/isaac/run_core_world_g1_lowfront_closefront_heldout_geometry_gate.sh`.
+  It extends the current two-posture gate with close-front held-out shape
+  checks while preserving the same strict no-fall/no-drop/no-rollout-write,
+  target-window, tilt, lateral, relative-offset, and final-command gates.
+  Default cases are the known `low_front_060` pass, the reproduced
+  `close_front_060_lowmass_lx19` pass, and two untuned close-front geometry
+  perturbations: `FREE_BOX_SIZE_Y=0.12` and `FREE_BOX_SIZE_Z=0.09`, both at
+  `0.50 kg` with the same lowmass-lx19 side-guard strategy. This is a
+  validation/overfit-boundary suite, not a new controller and not evidence of
+  arbitrary posture or unknown-load robustness until a fresh aggregate summary
+  exists.
+- 2026-07-07 held-out geometry gate result:
+  `20260707_g1_lowfront_closefront_heldout_geometry_gate`, submitted through
+  tmux session `curiosity_g1_heldout_geometry_gate_0707` as Slurm job
+  `170612`, ran on `server44` and produced aggregate `fail`, 2/4 strict cases
+  passed. The known `low_front_060` and `close_front_060_lowmass_lx19`
+  baselines reproduced their passes with fall/drop `0/0` and rollout
+  root/velocity/box pose writes `0/0/0`. The untuned close-front held-out
+  geometry cases both failed: `wide_y012` (`box_size=[0.14,0.12,0.08]`) had
+  first fall/drop `942/966`, fall/drop `53/15`, target-window stable steps
+  `0`, final robot/box target travel about `0.995/0.784 m`, final robot/box
+  lateral about `2.135/1.904 m`, relative offset `0.324 m`, and max robot/box
+  tilt `1.298/1.163 rad`; `tall_z009` (`box_size=[0.14,0.10,0.09]`) had
+  first fall/drop `938/989`, fall/drop `62/11`, target-window stable/longest
+  `152/152` but end streak `0`, over-travel `3.063/2.754 m`, relative offset
+  `0.364 m`, and max robot/box tilt `2.388/2.074 rad`. This confirms the
+  current two-posture result is narrow and geometry-sensitive, not a general
+  shape-robust carrying solution.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

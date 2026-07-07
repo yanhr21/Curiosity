@@ -10032,3 +10032,35 @@
   without changing the strict fall/drop, target-window, tilt, lateral,
   relative-offset, and no-rollout-write gates. Do not continue treating the
   final side-guard parameters as a general posture selector.
+- [x] Add held-out geometry validation entrypoint:
+  `scripts/isaac/run_core_world_g1_lowfront_closefront_heldout_geometry_gate.sh`.
+  It keeps the known `low_front_060` and reproduced
+  `close_front_060_lowmass_lx19` checks, then adds untuned close-front shape
+  perturbations `FREE_BOX_SIZE_Y=0.12` and `FREE_BOX_SIZE_Z=0.09` under the
+  same strict gates. This is a validation/overfit-boundary suite, not a new
+  controller.
+- [x] Run and record the held-out geometry gate through tmux plus persistent
+  `srun` on a compute node. Do not interpret it until
+  `experiments/outputs/core_world_g1_lowfront_closefront_heldout_geometry_gate/<stamp>/lowfront_closefront_heldout_geometry_gate_summary.json`
+  exists. A fail on held-out Y/Z should be reported as narrow geometry
+  overfitting, not as a regression of the already reproduced two-posture pass.
+- [x] Record held-out geometry gate result:
+  `20260707_g1_lowfront_closefront_heldout_geometry_gate`, tmux
+  `curiosity_g1_heldout_geometry_gate_0707`, Slurm job `170612` on
+  `server44`, aggregate `fail`, 2/4 strict cases passed. The two known
+  baselines reproduced: `low_front_060` and
+  `close_front_060_lowmass_lx19` both had fall/drop `0/0` and rollout
+  writes `0/0/0`. The two untuned held-out close-front shape cases failed:
+  `wide_y012` had first fall/drop `942/966`, fall/drop `53/15`, target-window
+  stable `0`, final robot/box travel about `0.995/0.784 m`, final lateral
+  `2.135/1.904 m`, relative offset `0.324 m`, and max robot/box tilt
+  `1.298/1.163 rad`; `tall_z009` had first fall/drop `938/989`, fall/drop
+  `62/11`, target-window stable/longest `152/152` but end streak `0`,
+  over-travel `3.063/2.754 m`, relative offset `0.364 m`, and max robot/box
+  tilt `2.388/2.074 rad`. Conclusion: the current two-posture result is a
+  narrow engineered gate, not shape-robust carrying.
+- [ ] Next mechanism step: stop reporting the side-guard two-posture gate as
+  generalization. The next valid improvement needs either geometry-adaptive
+  contact/support selection from measured box response, or a controller that
+  changes final retention based on box dimensions while preserving the same
+  strict gates.
