@@ -277,6 +277,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--agile-command-hold-terminal-min-step", type=int, default=-1)
     parser.add_argument("--agile-command-hold-terminal-scale", type=float, default=0.0)
     parser.add_argument("--agile-command-hold-terminal-latch", action="store_true")
+    parser.add_argument("--agile-command-hold-terminal-brake-command-x", type=float, default=0.0)
+    parser.add_argument("--agile-command-hold-terminal-brake-delay-steps", type=int, default=0)
+    parser.add_argument("--agile-command-hold-terminal-brake-steps", type=int, default=0)
     parser.add_argument("--agile-command-hold-final-box-target-travel", type=float, default=-1.0)
     parser.add_argument("--agile-command-hold-final-min-robot-target-travel", type=float, default=-1.0)
     parser.add_argument("--agile-command-hold-final-min-step", type=int, default=-1)
@@ -2613,6 +2616,17 @@ def run_scene() -> Path:
         "agile_command_hold_terminal_active_steps": 0,
         "agile_command_hold_terminal_first_active_step": None,
         "agile_command_hold_terminal_last_reason": None,
+        "agile_command_hold_terminal_brake_command_x": float(
+            args_cli.agile_command_hold_terminal_brake_command_x
+        ),
+        "agile_command_hold_terminal_brake_delay_steps": int(
+            args_cli.agile_command_hold_terminal_brake_delay_steps
+        ),
+        "agile_command_hold_terminal_brake_steps": int(args_cli.agile_command_hold_terminal_brake_steps),
+        "agile_command_hold_terminal_brake_active_steps": 0,
+        "agile_command_hold_terminal_brake_first_active_step": None,
+        "agile_command_hold_terminal_brake_last_active_step": None,
+        "agile_command_hold_terminal_brake_max_abs_command_x": 0.0,
         "agile_command_hold_final_box_target_travel_m": float(
             args_cli.agile_command_hold_final_box_target_travel
         ),
@@ -3900,6 +3914,43 @@ def run_scene() -> Path:
                                 abs(float(yaw_command)),
                             )
                             summary["agile_command_hold_yaw_last_error_m"] = float(yaw_error)
+                        terminal_brake_active = False
+                        terminal_hold_age_for_brake = None
+                        if (
+                            terminal_hold_scale_active
+                            and not final_hold_scale_active
+                            and summary["agile_command_hold_terminal_first_active_step"] is not None
+                        ):
+                            terminal_hold_age_for_brake = (
+                                int(step) - int(summary["agile_command_hold_terminal_first_active_step"])
+                            )
+                        if (
+                            agile_command_hold_active
+                            and terminal_hold_scale_active
+                            and not final_hold_scale_active
+                            and terminal_hold_age_for_brake is not None
+                            and int(args_cli.agile_command_hold_terminal_brake_steps) > 0
+                            and abs(float(args_cli.agile_command_hold_terminal_brake_command_x)) > 0.0
+                        ):
+                            brake_delay = max(0, int(args_cli.agile_command_hold_terminal_brake_delay_steps))
+                            brake_steps = max(0, int(args_cli.agile_command_hold_terminal_brake_steps))
+                            terminal_brake_active = (
+                                int(terminal_hold_age_for_brake) >= brake_delay
+                                and int(terminal_hold_age_for_brake) < brake_delay + brake_steps
+                            )
+                        if terminal_brake_active:
+                            brake_command_x = float(args_cli.agile_command_hold_terminal_brake_command_x)
+                            applied_agile_command_list[0] += brake_command_x
+                            summary["agile_command_hold_terminal_brake_active_steps"] = (
+                                int(summary["agile_command_hold_terminal_brake_active_steps"]) + 1
+                            )
+                            if summary["agile_command_hold_terminal_brake_first_active_step"] is None:
+                                summary["agile_command_hold_terminal_brake_first_active_step"] = int(step)
+                            summary["agile_command_hold_terminal_brake_last_active_step"] = int(step)
+                            summary["agile_command_hold_terminal_brake_max_abs_command_x"] = max(
+                                float(summary["agile_command_hold_terminal_brake_max_abs_command_x"]),
+                                abs(float(brake_command_x)),
+                            )
                         final_brake_active = False
                         final_hold_age_for_brake = None
                         if final_hold_scale_active and summary["agile_command_hold_final_first_active_step"] is not None:

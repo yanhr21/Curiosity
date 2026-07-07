@@ -9948,6 +9948,17 @@
   but fix box attitude and relative offset with a checker-compatible terminal
   support policy. Do not present brake as a pass while the final command gate,
   box tilt, and relative-offset gates fail.
+- [x] Add checker-compatible terminal pre-final brake entrypoint. Added AGILE
+  terminal-brake args and
+  `scripts/isaac/run_core_world_g1_closefront_mass0525_terminal_prefinal_brake_suite.sh`.
+  It moves a small reverse command into terminal hold before final hold, so
+  the final-hold command gate can remain zero if the trajectory reaches the
+  final latch.
+- [ ] Run and record terminal pre-final brake single case:
+  `20260707_g1_closefront_mass0525_terminal_prefinal_brake_prefinal_brake_soft_f180`.
+  It uses terminal side guards, `0.525 kg`, terminal brake x `-0.003`, delay
+  `170`, steps `160`, and final box target `1.80 m`. Interpret only after
+  `core_world_g1_box_scene_summary.json` exists.
 - [x] Monitor checker-compatible terminal freeze follow-up:
   `20260707_g1_closefront_mass0525_terminal_freeze`, tmux
   `curiosity_g1_closefront_m0525_terminal_freeze_0707`, Slurm job `170593`.

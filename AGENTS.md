@@ -596,6 +596,18 @@ These rules override all other project instructions.
   freezing satisfies the final-command gate but destroys late stability and
   box retention, so it is worse than the final-brake boundary for carrying and
   should not be reused unchanged.
+- 2026-07-07 close-front `0.525 kg` terminal pre-final brake entrypoint:
+  added `AGILE_COMMAND_HOLD_TERMINAL_BRAKE_COMMAND_X`,
+  `AGILE_COMMAND_HOLD_TERMINAL_BRAKE_DELAY_STEPS`, and
+  `AGILE_COMMAND_HOLD_TERMINAL_BRAKE_STEPS` to the AGILE command path. This
+  brake is only allowed during terminal hold and before final hold, so it can
+  test whether the useful final-brake lateral/travel effect can be moved
+  outside the strict final-command gate. Added launcher
+  `scripts/isaac/run_core_world_g1_closefront_mass0525_terminal_prefinal_brake_suite.sh`,
+  currently configured for one focused case
+  `prefinal_brake_soft_f180` with terminal side guards, `0.525 kg` box,
+  brake x `-0.003`, delay `170`, steps `160`, and final box target `1.80 m`.
+  This is an experiment entrypoint only until a fresh summary exists.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
