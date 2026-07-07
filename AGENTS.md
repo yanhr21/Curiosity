@@ -11938,7 +11938,13 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   diagnostic response to the `clean_slow_lateral_pos` failure mode: it entered
   the target window for `91` steps, then over-traveled and fell/dropped. The
   new trigger must still be validated on a compute node before it is treated
-  as evidence.
+  as evidence. Slurm job `169585` (`g1_bxwinhold`) was submitted through tmux
+  `curiosity_g1_boxtilt_window_hold_after_0707` with
+  `--dependency=afterany:169580`, GPU allocation, and `DEVICE=cpu`. Expected
+  aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_window_hold/20260707_g1_boxtilt_window_hold_after_scaled_terminal/boxtilt_window_hold_summary.json`.
+  It should not be interpreted until `169580` completes and `169585` writes a
+  summary.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

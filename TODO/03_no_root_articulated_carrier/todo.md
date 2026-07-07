@@ -30,7 +30,9 @@
 - [ ] Run and record
   `scripts/isaac/run_core_world_g1_boxtilt_window_hold_suite.sh` after a GPU
   compute slot is available. This tests whether directly latching hold on
-  target-window entry is better than box-travel threshold latching.
+  target-window entry is better than box-travel threshold latching. Submitted
+  as Slurm job `169585` with `--dependency=afterany:169580`, so it will not
+  compete with the scaled-terminal diagnostic.
 - [x] Run and record the MuJoCo robot-like welded-payload bracket after the
   prismatic scaffold pass. `v022_fx130` and `v024_fx115` passed the diagnostic
   no-fall/no-root-write/travel gate; `v026_fx105` failed late with falls.

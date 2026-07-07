@@ -102,6 +102,12 @@ This is a status snapshot only. It is not a carrying-success claim.
   `scripts/isaac/run_core_world_g1_boxtilt_scaled_terminal_suite.sh`.
   Expected aggregate:
   `experiments/outputs/core_world_g1_boxtilt_scaled_terminal/20260707_g1_boxtilt_scaled_terminal_gpualloc_cpu/boxtilt_scaled_terminal_summary.json`.
+- `169585` / `g1_bxwinhold` is queued through tmux
+  `curiosity_g1_boxtilt_window_hold_after_0707` with
+  `--dependency=afterany:169580`, GPU allocation, and `DEVICE=cpu`. It runs
+  `scripts/isaac/run_core_world_g1_boxtilt_window_hold_suite.sh` after the
+  scaled-terminal diagnostic. Expected aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_window_hold/20260707_g1_boxtilt_window_hold_after_scaled_terminal/boxtilt_window_hold_summary.json`.
   No Curiosity simulation/render job is running on the login node.
 - `169316` / `any_payload` completed on `server36` with no rollout and no
   summary. The policy-backed ANYmal payload wrapper failed during IsaacLab
