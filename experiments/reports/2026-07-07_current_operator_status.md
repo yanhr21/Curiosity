@@ -102,12 +102,30 @@ This is a status snapshot only. It is not a carrying-success claim.
   `scripts/isaac/run_core_world_g1_boxtilt_scaled_terminal_suite.sh`.
   Expected aggregate:
   `experiments/outputs/core_world_g1_boxtilt_scaled_terminal/20260707_g1_boxtilt_scaled_terminal_gpualloc_cpu/boxtilt_scaled_terminal_summary.json`.
+- `169580` / `g1_bxterm` completed its summaries on `server43` and was then
+  cancelled during script-end sleep to release the node. Aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_scaled_terminal/20260707_g1_boxtilt_scaled_terminal_gpualloc_cpu/boxtilt_scaled_terminal_summary.json`.
+  Result: strict `fail`, `0/3` cases passed. All cases entered the target
+  window for about `96-100` steps but failed to hold to the end; the least bad
+  brake case delayed first fall/drop to `987/1010` but still failed with
+  `213/190` fall/drop and large over-travel.
 - `169585` / `g1_bxwinhold` is queued through tmux
   `curiosity_g1_boxtilt_window_hold_after_0707` with
   `--dependency=afterany:169580`, GPU allocation, and `DEVICE=cpu`. It runs
   `scripts/isaac/run_core_world_g1_boxtilt_window_hold_suite.sh` after the
   scaled-terminal diagnostic. Expected aggregate:
   `experiments/outputs/core_world_g1_boxtilt_window_hold/20260707_g1_boxtilt_window_hold_after_scaled_terminal/boxtilt_window_hold_summary.json`.
+- `169585` / `g1_bxwinhold` completed its summaries on `server43` and was
+  then cancelled during script-end sleep to release the node. Aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_window_hold/20260707_g1_boxtilt_window_hold_after_scaled_terminal/boxtilt_window_hold_summary.json`.
+  Result: strict `fail`, `0/3` cases passed. All three cases latched direct
+  target-window hold at step `748`, but none held to the end. `window_zero`
+  reached a `98`-step target-window streak before failing with `237/200`
+  fall/drop; `window_freeze` reduced final lateral error but failed with
+  `384/370`; `window_brake` failed with `289/268` and large over-travel.
+  Interpretation: the target-window trigger is active, but the current
+  command-level stop/freeze/brake layer is not a stable post-window carrying
+  controller.
 - MuJoCo hold-capture controller code has been added but not yet run:
   `scripts/mujoco/run_quadruped_freebox_carry.py` now has post-latch
   capture-point foot placement/hip/foot-height terms, launcher exposure, and
@@ -115,6 +133,10 @@ This is a status snapshot only. It is not a carrying-success claim.
   `scripts/mujoco/run_quadruped_freebox_stance_force_hold_capture_suite.sh`.
   This is a new post-latch balance formulation, not a continuation of the
   exhausted stance-force scalar sweeps.
+- `169609` / `mj_holdcap` is queued through tmux
+  `curiosity_mujoco_hold_capture_after_g1_0707` with
+  `--dependency=afterany:169585`. It will run the MuJoCo hold-capture suite
+  after the G1 window-hold diagnostic.
   No Curiosity simulation/render job is running on the login node.
 - `169316` / `any_payload` completed on `server36` with no rollout and no
   summary. The policy-backed ANYmal payload wrapper failed during IsaacLab

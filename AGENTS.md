@@ -11143,7 +11143,11 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   tests this against the same strict free-box gates. This is intended to
   address the post-latch lateral/roll collapse by changing foot placement,
   not by repeating scalar stance-force sweeps. It still requires compute-node
-  validation before being treated as evidence.
+  validation before being treated as evidence. Slurm job `169609`
+  (`mj_holdcap`) was submitted through tmux
+  `curiosity_mujoco_hold_capture_after_g1_0707` with
+  `--dependency=afterany:169585`, GPU allocation, and the suite suffix
+  `stance_force_holdcapture_after_g1`.
 - 2026-07-07 route switch after MuJoCo hand-controller exhaustion: current
   best credible locomotion/carry evidence is the G1 AGILE policy path in
   `scripts/isaac/build_core_world_g1_box_scene.py` and
@@ -11957,6 +11961,40 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `experiments/outputs/core_world_g1_boxtilt_window_hold/20260707_g1_boxtilt_window_hold_after_scaled_terminal/boxtilt_window_hold_summary.json`.
   It should not be interpreted until `169580` completes and `169585` writes a
   summary.
+- 2026-07-07 scaled-terminal result: Slurm job `169580` (`g1_bxterm`) ran on
+  `server43`; summary:
+  `experiments/outputs/core_world_g1_boxtilt_scaled_terminal/20260707_g1_boxtilt_scaled_terminal_gpualloc_cpu/boxtilt_scaled_terminal_summary.json`.
+  Strict result was `fail`, `0/3` cases passed. All cases entered the target
+  window near step `747` and achieved target-window longest streaks of
+  `96-100` steps, but none held to the end. `early_terminal_finalzero`
+  failed with `354` falls / `312` drops, first fall/drop `846/888`, final
+  travel near the window (`2.298/2.328 m`) but excessive tilt
+  `1.817/1.818 rad` and lateral error. `later_terminal_finalzero` failed
+  with `337/317` fall/drop and severe over-travel `4.249/4.174 m`.
+  `later_terminal_brake` delayed failure most, first fall/drop `987/1010`
+  and fall/drop `213/190`, but still over-traveled to `4.776/4.756 m`.
+  Conclusion: terminal scaling/zero/brake is active enough to create a
+  transient target-window dwell, but it does not solve post-window hold or
+  lateral/tilt stability. Do not present this as success.
+- 2026-07-07 target-window hold result: Slurm job `169585` (`g1_bxwinhold`)
+  ran on `server43`; summary:
+  `experiments/outputs/core_world_g1_boxtilt_window_hold/20260707_g1_boxtilt_window_hold_after_scaled_terminal/boxtilt_window_hold_summary.json`.
+  The rollout summaries were written, then the Slurm job was cancelled during
+  script-end sleep to release the node. Strict result was `fail`, `0/3` cases
+  passed. The target-window latch fired for all three cases at step `748`, but
+  none preserved a final target-window hold. `window_zero` failed with
+  `237` falls / `200` drops, first fall/drop `963/1000`, target-window
+  longest streak `98`, and severe over-travel/lateral error by the end.
+  `window_freeze` reduced final lateral error but failed earlier with
+  `384/370` fall/drop, first fall/drop `816/830`, longest target-window
+  streak `69`, and max robot/box tilt about `3.13/3.14 rad`. `window_brake`
+  had `289/268` fall/drop, first fall/drop `911/932`, longest target-window
+  streak `86`, and final robot/box travel `5.094/5.111 m`. Conclusion:
+  direct target-window hold latching works as a trigger, but the current
+  command-level stop/freeze/brake layer still cannot convert transient window
+  entry into stable post-window carrying. Do not keep treating this scalar
+  command layer as the missing stabilizer; move to a materially stronger
+  support/locomotion/post-latch balance formulation.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

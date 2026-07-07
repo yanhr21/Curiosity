@@ -20,19 +20,30 @@
   `--agile-command-stop-target-window` and
   `--agile-command-stop-target-window-min-step`, plus
   `scripts/isaac/run_core_world_g1_boxtilt_window_hold_suite.sh`.
-- [ ] Await and record
+- [x] Await and record
   `scripts/isaac/run_core_world_g1_boxtilt_scaled_terminal_suite.sh` /
   Slurm job `169580`. It tests whether slow box-progress plus lateral
   correction can enter the target window and then stop/hold without
   over-travel. If it fails, do not keep scalar-tuning this same command layer;
   move to support/locomotion backend replacement or a materially stronger
   terminal balance controller.
-- [ ] Run and record
+- [x] Record Slurm job `169580` scaled-terminal result. Strict `fail`,
+  `0/3` cases passed. All cases reached a transient target window
+  (`96-100` longest streak) but failed to hold to the end. The best delayed
+  failure was `later_terminal_brake`, first fall/drop `987/1010`, but it
+  still ended with `213/190` fall/drop and severe over-travel.
+- [x] Run and record
   `scripts/isaac/run_core_world_g1_boxtilt_window_hold_suite.sh` after a GPU
   compute slot is available. This tests whether directly latching hold on
   target-window entry is better than box-travel threshold latching. Submitted
   as Slurm job `169585` with `--dependency=afterany:169580`, so it will not
   compete with the scaled-terminal diagnostic.
+- [x] Record Slurm job `169585` target-window hold result. Strict `fail`,
+  `0/3` cases passed. The target-window latch fired at step `748` in all
+  cases, but none held to the end; `window_zero`, `window_freeze`, and
+  `window_brake` all later fell/dropped. Treat this as evidence that the
+  current command-level stop/freeze/brake layer is exhausted, not as progress
+  toward stable heavy boxtilt carrying.
 - [x] Run and record the MuJoCo robot-like welded-payload bracket after the
   prismatic scaffold pass. `v022_fx130` and `v024_fx115` passed the diagnostic
   no-fall/no-root-write/travel gate; `v026_fx105` failed late with falls.
@@ -435,6 +446,7 @@
   only through actuated joints, retention force audited, fall/drop 0, final
   box travel >= `0.12 m`, target hold >= 600 steps, no root/box pose or
   velocity writes, and final relative error <= `0.20 m`.
+  Submitted as Slurm job `169609` with `--dependency=afterany:169585`.
 - [x] Switch active implementation focus back to the G1 AGILE policy path.
   Historical best low-carry run completed 819 steps with fall/drop `0/0`,
   free box, G1 USD, AGILE ONNX policy, no rollout root/box pose writes, and
