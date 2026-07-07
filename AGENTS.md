@@ -144,6 +144,24 @@ These rules override all other project instructions.
   tilt-stop thresholds plus hold first-step/reason were added. This is an
   experiment entrypoint only until
   `closefront_heldout_geometry_instability_planted_summary.json` exists.
+- 2026-07-07 held-out G1 instability-triggered planted result:
+  CPU Slurm job `170660` on `server01` completed
+  `20260707_g1_closefront_heldout_geometry_instability_planted_cpu`,
+  aggregate `fail`, 0/2. The new trigger did fire before the travel-triggered
+  planted stance: `wide_y012_instability_planted` held at step `516` from
+  `box_tilt`, and `tall_z009_instability_planted` held at step `728` from
+  `box_tilt`. However, policy-then-stand did not solve carrying. Wide failed
+  with fall/drop `39/162`, first fall/drop `961/838`, target-window `0/0/0`,
+  final robot/box travel `0.503/1.331 m`, final lateral `-0.613/-0.049 m`,
+  relative offset `1.098 m`, and max robot/box tilt `1.253/3.136 rad`. Tall
+  failed with fall/drop `64/107`, first fall/drop `936/893`, target-window
+  `0/0/0`, final travel `1.512/1.317 m`, final lateral `-0.480/-0.042 m`,
+  relative offset `0.616 m`, and max robot/box tilt `1.327/3.141 rad`.
+  Rollout root/velocity/box pose writes stayed `0/0/0`. Conclusion:
+  tilt-triggered AGILE hold/stand can delay body falls but loses box retention
+  and target progress; the next step should not be another hold-threshold
+  variant. It needs a support/contact formulation that keeps propulsion and
+  box retention coupled, or a different locomotion backend.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with

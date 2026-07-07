@@ -10298,3 +10298,21 @@
   persistent `srun`. Do not interpret it until
   `experiments/outputs/core_world_g1_closefront_heldout_geometry_instability_planted/<stamp>/closefront_heldout_geometry_instability_planted_summary.json`
   exists.
+- [x] Run and record instability-triggered planted diagnostic:
+  CPU Slurm job `170660` on `server01` completed
+  `20260707_g1_closefront_heldout_geometry_instability_planted_cpu`, aggregate
+  `fail`, 0/2. `wide_y012_instability_planted` held at step `516` from
+  `box_tilt`, then failed with fall/drop `39/162`, first fall/drop `961/838`,
+  target-window `0/0/0`, final travel `0.503/1.331 m`, final lateral
+  `-0.613/-0.049 m`, relative offset `1.098 m`, max robot/box tilt
+  `1.253/3.136 rad`, and no rollout root/velocity/box pose writes.
+  `tall_z009_instability_planted` held at step `728` from `box_tilt`, then
+  failed with fall/drop `64/107`, first fall/drop `936/893`, target-window
+  `0/0/0`, final travel `1.512/1.317 m`, final lateral `-0.480/-0.042 m`,
+  relative offset `0.616 m`, max robot/box tilt `1.327/3.141 rad`, and no
+  rollout root/velocity/box pose writes.
+- [ ] Next G1 held-out shape step: stop hold-threshold variants on the AGILE
+  backend. Tilt-triggered hold can delay body falls but loses box retention
+  and target progress. Replace it with a coupled support/contact formulation
+  that preserves propulsion while retaining the free box, or move to a
+  different locomotion/support backend.
