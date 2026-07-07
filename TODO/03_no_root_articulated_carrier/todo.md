@@ -9890,6 +9890,22 @@
   approach. Candidate knobs: lower lateral limit/gain after terminal trigger,
   earlier terminal stop/hold, or a path/heading offset. Do not repeat
   `AGILE_COMMAND_HOLD_LATERAL_SIGN=-1.0` for this `0.525 kg` case unchanged.
+- [x] Run reduced lateral-limit probe for the useful `terminal_guard_lx19`
+  boundary: single case
+  `20260707_g1_closefront_mass0525_terminal_latlimit020`, tmux
+  `curiosity_g1_closefront_m0525_terminal_latlimit020_0707`, Slurm job
+  `170564`. It kept default lateral sign but reduced
+  `AGILE_COMMAND_HOLD_LATERAL_LIMIT` from `0.035` to `0.020`. Result: strict
+  `fail`, first fall/drop `833/853`, fall/drop totals `167/147`,
+  target-window stable/longest/end `105/105/0`, final robot/box
+  target-directed travel `2.956/2.501 m`, final robot/box lateral
+  `1.490/1.466 m`, max robot/box tilt `3.135/3.134 rad`, final relative
+  offset `0.500 m`, writes `0/0/0`. Reducing lateral limit alone is worse
+  than the default terminal-guard boundary.
+- [ ] Next terminal-guard follow-up: do not continue scalar sign/limit scans.
+  Add or test target-window braking, path/heading offset, or a genuinely
+  posture-conditioned support selection that preserves the useful default
+  terminal side-guard stability while reducing lateral error and box tilt.
 - [ ] Next G1 validation: expand the strict gate beyond these two engineered
   postures. At minimum add held-out box mass/geometry or a third posture
   without changing the strict fall/drop, target-window, tilt, lateral,

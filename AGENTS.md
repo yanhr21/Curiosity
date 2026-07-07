@@ -522,6 +522,21 @@ These rules override all other project instructions.
   robot/box target-directed travel `-2.438/-2.576 m`, final robot/box lateral
   `6.366/6.477 m`, and writes `0/0/0`. Do not continue the negative lateral
   sign branch for this terminal-guard boundary.
+- 2026-07-07 close-front `0.525 kg` terminal-guard lateral-limit probe:
+  single case `20260707_g1_closefront_mass0525_terminal_latlimit020` was
+  submitted through tmux
+  `curiosity_g1_closefront_m0525_terminal_latlimit020_0707` as Slurm job
+  `170564`, keeping default lateral sign but reducing
+  `AGILE_COMMAND_HOLD_LATERAL_LIMIT` from `0.035` to `0.020`. It failed and
+  was worse than the default terminal boundary: first fall/drop at steps
+  `833/853`, fall/drop totals `167/147`, target-window stable/longest
+  `105/105` but streak at end `0`, final robot/box target-directed travel
+  `2.956/2.501 m`, final robot/box lateral `1.490/1.466 m`, max robot/box
+  tilt `3.135/3.134 rad`, final relative offset `0.500 m`, and writes
+  `0/0/0`. Do not continue reducing lateral limit alone for this boundary;
+  the next meaningful terminal-guard step needs target-window braking,
+  path/heading offset, or posture-conditioned support rather than scalar sign/
+  limit scanning.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
