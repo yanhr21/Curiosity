@@ -9967,12 +9967,14 @@
   never latched, first fall/drop `859/959`, fall/drop `141/41`, target-window
   stable/longest/end `91/91/0`, max robot/box tilt `2.249/2.253 rad`, and
   final lateral `1.722/1.451 m`.
-- [ ] Run only one later/weaker terminal pre-final brake follow-up after the
+- [ ] Run and record one later/weaker terminal pre-final brake follow-up after the
   wrapper fix. Use a much smaller late brake, e.g.
   `PREFINAL_BRAKE_CASE_NAME=prefinal_brake_tiny_late_f165`,
   `PREFINAL_BRAKE_COMMAND_X=-0.0015`, delay `220`, steps `80`, and final box
   target `1.65`, to test whether a short pre-final correction can reduce
   lateral drift without destroying the stable `terminal_guard_lx19` behavior.
+  Slurm job `170601` (`g1_preftiny`) was submitted through tmux
+  `curiosity_g1_closefront_m0525_prefinal_tiny_0707`.
 - [x] Monitor checker-compatible terminal freeze follow-up:
   `20260707_g1_closefront_mass0525_terminal_freeze`, tmux
   `curiosity_g1_closefront_m0525_terminal_freeze_0707`, Slurm job `170593`.

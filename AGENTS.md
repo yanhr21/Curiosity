@@ -627,6 +627,13 @@ These rules override all other project instructions.
   setting is too early/strong and prevents final-hold latch while creating a
   large lateral roll collapse. The wrapper has been corrected to forward the
   outer `SUITE_STAMP_PREFIX` and to allow one-case parameter overrides.
+- 2026-07-07 close-front `0.525 kg` terminal pre-final brake late-tiny
+  follow-up submitted: Slurm job `170601` (`g1_preftiny`) through tmux
+  `curiosity_g1_closefront_m0525_prefinal_tiny_0707`, stamp prefix
+  `20260707_g1_closefront_mass0525_terminal_prefinal_brake_late_tiny`, case
+  `prefinal_brake_tiny_late_f165`. It uses the corrected wrapper, terminal
+  brake x `-0.0015`, delay `220`, steps `80`, and final box target `1.65 m`.
+  Interpret only after the summary exists.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
