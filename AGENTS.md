@@ -11842,6 +11842,19 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   cannot stop and remain upright with the box; the light chest-pad branch is
   also not robust when run long. Do not treat these as solved carrying or keep
   extending horizons as a repair.
+- 2026-07-07 true Isaac G1 replay render attempt: GPU job `169542`
+  (`g1_bxrgpu`) ran on `server23` using
+  `scripts/isaac/render_core_world_g1_replay_showcase.py` with
+  `--capture-backend replicator` against the boxtilt short-window replay CSV.
+  AppLauncher started, but local Kit extension dependency resolution failed:
+  `omni.replicator.core` could not resolve `omni.kit.pip_archive`, Python
+  import failed with `ModuleNotFoundError: No module named 'omni.replicator'`,
+  and the viewport fallback lacked `isaacsim.core.rendering_manager`. Summary:
+  `experiments/visuals/g1_replay_showcase/20260707_g1_boxtilt_short_window_isaac_replicator_gpu_server23_try/g1_replay_render_summary.json`.
+  Captured frames were `0`. Do not rerun this Replicator/ViewportManager path
+  unchanged or claim a true Isaac camera render is available; use the
+  schematic replay fallback for immediate presentation until a different
+  installed render path or fixed Kit extension set is available.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

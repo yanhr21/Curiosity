@@ -980,6 +980,18 @@ This is a status snapshot only. It is not a carrying-success claim.
   stable steps) but then failed final hold with `304/290` fall/drop events
   and end streak `0`. This proves the selected-branch failures are not just
   short-horizon artifacts.
+- Current best showcase file is
+  `experiments/visuals/g1_replay_showcase/20260707_g1_boxtilt_avgpos_short_window_760_progress_fallback/g1_boxtilt_short_window_progress_annotated.mp4`.
+  It is a schematic G1+free-box replay, not an Isaac camera render. It shows
+  the `0.75 kg` boxtilt short-window progress case: fall/drop `0/0`, final
+  robot/box target-directed travel about `2.255/2.255 m`, and target-window
+  end streak `133`, but strict failure on tilt and lateral error.
+- True Isaac camera replay render attempt `169542` (`g1_bxrgpu`) ran on
+  `server23` and failed as a render-environment issue: Replicator could not
+  import because local Kit extension dependencies were unavailable, and the
+  viewport fallback lacked `isaacsim.core.rendering_manager`. Captured frames:
+  `0`. See
+  `experiments/reports/2026-07-07_current_showcase_visuals.md`.
 - Completion audit remains `fail`. The full task is not achieved.
 
 ## Next Decision
