@@ -12513,6 +12513,15 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   keep tuning final-stand-only close-front repairs. The close-front path needs
   pre-target command/support geometry repair or a posture-conditioned
   gait/support controller before final hold.
+- 2026-07-07 close-front pretarget repair entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_pretarget_repair_suite.sh`.
+  This suite keeps the same 0.60 kg close-front geometry, runtime
+  target-window chest-pad trigger, and strict fall/drop, target-window,
+  final-hold, tilt, lateral-error, and no-shortcut gates. It tests early
+  box-progress and box-lateral command control (`progress_conservative`,
+  `progress_mid`, and `progress_mid_no_hold_lat`) so the robot does not enter
+  the bad pitch/roll trajectory before target-window dwell. It is not evidence
+  until a compute-node summary exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

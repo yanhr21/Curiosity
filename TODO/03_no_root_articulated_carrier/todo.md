@@ -8826,3 +8826,8 @@
   the pre-target close-front trajectory: change command schedule/support
   geometry before step `700-900`, or add a posture-conditioned gait/support
   controller that keeps roll/pitch inside gate before final hold.
+- [ ] Await/run close-front pretarget repair suite:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_pretarget_repair_suite.sh`.
+  It keeps the strict target/fall/drop/tilt gates and tests early
+  box-progress plus box-lateral controllers for the 0.60 kg close-front
+  posture. Do not treat it as evidence until the summary JSON exists.

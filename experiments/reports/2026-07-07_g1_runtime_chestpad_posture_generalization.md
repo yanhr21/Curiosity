@@ -184,6 +184,23 @@ The final-stand hypothesis is negative. The close-front failure is not solved
 by standing up after final hold; the current command/support setup can enter a
 bad pitch/roll trajectory before a useful target-window dwell exists.
 
+## Close-Front Pretarget Repair Entrypoint
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_pretarget_repair_suite.sh`
+- Purpose:
+  repair the close-front trajectory before target-window/final-hold, rather
+  than trying to save it with final-stand after large tilt has already begun.
+- Method:
+  keep the same 0.60 kg close-front geometry, runtime target-window chest-pad
+  trigger, and strict gates, but add an early box-progress controller plus
+  box-lateral controller. Forward command is suppressed when robot/box tilt
+  exceeds configured pretarget limits.
+- Cases:
+  `progress_conservative`, `progress_mid`, and `progress_mid_no_hold_lat`.
+- Status:
+  added, not yet run.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next
