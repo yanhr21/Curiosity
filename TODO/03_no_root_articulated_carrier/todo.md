@@ -155,8 +155,9 @@
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_stand_lateral_suite.sh`.
   It starts from `stand240_blend002` and activates lateral-error-driven balance
   roll target around target-window entry, comparing signs `-1` and `+1` under
-  the same strict gates. Record `close_front_escape_stand_lateral_summary.json`
-  before interpreting.
+  the same strict gates. Submitted through tmux
+  `curiosity_g1_escape_lateral_0707` as Slurm job `170405` / `g1_esclat`.
+  Record `close_front_escape_stand_lateral_summary.json` before interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`

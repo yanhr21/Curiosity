@@ -341,6 +341,9 @@ These rules override all other project instructions.
   window entry point (`850` agile-hold steps), comparing only roll-target signs
   `-1` and `+1` with the same strict gates. This is an experiment entrypoint
   only until `close_front_escape_stand_lateral_summary.json` exists.
+  Submitted through tmux `curiosity_g1_escape_lateral_0707` as Slurm job
+  `170405` / `g1_esclat`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_escape_stand_lateral`.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate
