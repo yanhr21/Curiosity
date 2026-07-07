@@ -774,6 +774,35 @@ These rules override all other project instructions.
   max robot/box tilt `1.566/1.578 rad`. Do not continue simply moving stand
   earlier; the next step should add target-window-latched velocity/retention
   logic after early support, not another final-only handoff.
+- 2026-07-07 close-front held-out geometry window-freeze entrypoint added:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_window_freeze_suite.sh`.
+  It reuses the wide-box hold-trigger side-guard boundary and the tall-box
+  final-guard boundary, then enables
+  `AGILE_COMMAND_HOLD_FINAL_FREEZE_IN_TARGET_WINDOW=1` with robot/box tilt
+  thresholds `0.35/0.45 rad`. This tests whether freezing policy joint targets
+  once both robot and box are inside the target window can prevent the
+  post-window over-travel/fall failure. It is an experiment entrypoint only
+  until `closefront_heldout_geometry_window_freeze_summary.json` exists.
+- 2026-07-07 close-front held-out geometry window-freeze result:
+  `20260707_g1_closefront_heldout_geometry_window_freeze`, submitted through
+  tmux `curiosity_g1_heldout_window_freeze_0707` as Slurm job `170620`, ran
+  on `server39` and produced aggregate `fail`, 0/2 strict cases passed.
+  `wide_y012_hold_guard_freeze` did latch the target-window freeze at step
+  `681` for `319` active steps with rollout writes `0`, but it was worse than
+  the earlier hold-guard boundary: first fall/drop moved to `712/752`,
+  fall/drop rose to `288/139`, target-window stable/longest/end was only
+  `32/32/0`, final robot/box travel was `2.041/1.810 m`, final lateral was
+  `0.642/0.410 m`, relative offset was `0.380 m`, and max robot/box tilt was
+  `2.526/2.535 rad`. `tall_z009_window_freeze` latched freeze at step `754`
+  for `246` steps and reached target-window stable/longest `102/102`, but
+  end streak was still `0`; first fall/drop was `855/872`, fall/drop
+  `145/128`, over-travel was `2.474/2.496 m`, relative offset was `0.297 m`,
+  and max robot/box tilt was `1.844/2.068 rad`. Interpretation:
+  checker-compatible target-window freeze is not the held-out shape fix. It
+  removes command motion after latch but does not provide terminal support,
+  box attitude retention, or controlled braking, so the wide/tall cases still
+  roll, drop, or over-travel. Do not continue simple window-freeze or earlier
+  stand/final-only scalar tuning for held-out shapes.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

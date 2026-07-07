@@ -10116,3 +10116,31 @@
   with a target-window-latched speed/retention controller. Do not keep moving
   stand earlier. The tall-box branch needs roll/tilt retention while braking,
   not a pure stand handoff.
+- [x] Add close-front held-out geometry window-freeze diagnostic:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_window_freeze_suite.sh`.
+  It combines wide-box hold-trigger side guards or tall-box final guards with
+  `AGILE_COMMAND_HOLD_FINAL_FREEZE_IN_TARGET_WINDOW=1`, using robot/box tilt
+  thresholds `0.35/0.45 rad`, to test whether target-window-latched policy
+  freezing prevents post-window over-travel/fall.
+- [x] Run and record the window-freeze diagnostic through tmux plus persistent
+  `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_window_freeze/<stamp>/closefront_heldout_geometry_window_freeze_summary.json`
+  exists.
+- [x] Record window-freeze diagnostic result:
+  `20260707_g1_closefront_heldout_geometry_window_freeze`, tmux
+  `curiosity_g1_heldout_window_freeze_0707`, Slurm job `170620`, aggregate
+  `fail`, 0/2. `wide_y012_hold_guard_freeze` latched freeze at step `681`
+  for `319` active steps, but worsened the hold-guard boundary: fall/drop
+  `288/139`, first fall/drop `712/752`, target-window stable/longest/end
+  `32/32/0`, final travel `2.041/1.810 m`, final lateral
+  `0.642/0.410 m`, relative offset `0.380 m`, max robot/box tilt
+  `2.526/2.535 rad`, writes `0`. `tall_z009_window_freeze` latched at step
+  `754` for `246` steps and reached target-window stable/longest `102/102`,
+  but still ended with streak `0`, first fall/drop `855/872`, fall/drop
+  `145/128`, over-travel `2.474/2.496 m`, relative offset `0.297 m`, and
+  max robot/box tilt `1.844/2.068 rad`.
+- [ ] Next held-out geometry controller step: stop simple target-window
+  freeze, earlier stand, and final-only scalar tuning. The wide/tall failures
+  need a real terminal support/retention controller that changes support,
+  braking, and box attitude retention together before target-window dwell is
+  lost, while preserving strict no-fall/no-drop/no-rollout-write gates.
