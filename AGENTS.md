@@ -86,7 +86,7 @@ These rules override all other project instructions.
   box pose writes `0`, and runtime chest-pad collision enabled at step `712`.
   This is still a narrow engineered diagnostic, not learned unknown-load
   carrying and not arbitrary-posture carrying.
-- 2026-07-07 held-out G1 terminal centroidal-support entrypoint added:
+- 2026-07-07 held-out G1 terminal centroidal-support result:
   `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_centroidal_support_suite.sh`.
   It reruns the close-front held-out `wide_y012` and `tall_z009` strict
   gates with the late terminal posture boundary plus a new opt-in
@@ -95,8 +95,21 @@ These rules override all other project instructions.
   adjusts G1 joint targets from terminal progress, robot/box lateral error,
   roll/pitch rates, and box tilt; it does not write root pose, root velocity,
   or box pose. Launcher forwarding and strict-suite aggregation fields were
-  added. This is an experiment entrypoint only until
-  `closefront_heldout_geometry_centroidal_support_summary.json` exists.
+  added. GPU job `170646` on `server63` and CPU fallback job `170650` on
+  `server02` produced identical aggregate `fail`, 0/2. `wide_y012_centroidal`
+  activated centroidal support for `78` steps from step `656`, hit pitch/roll
+  adjustment limits `0.045/0.045 rad`, and still failed with first fall/drop
+  `710/906`, fall/drop `290/94`, target-window `0/0/0`, final robot/box
+  travel `1.540/1.373 m`, final lateral `0.649/0.388 m`, relative offset
+  `0.392 m`, and max robot/box tilt `1.867/1.898 rad`. `tall_z009_centroidal`
+  activated centroidal support for `198` steps from step `643`, hit the same
+  adjustment limits, did not drop the box, but failed with first fall `840`,
+  fall/drop `160/0`, target-window `69/54/0`, final travel `1.828/1.649 m`,
+  final lateral `-0.155/0.046 m`, relative offset `0.279 m`, and max
+  robot/box tilt `3.135/2.762 rad`. Rollout root/velocity/box pose writes
+  stayed `0/0/0`. Do not keep scalar-tuning this micro joint-target support
+  layer; the next step needs a materially stronger support/locomotion
+  formulation or backend replacement.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with

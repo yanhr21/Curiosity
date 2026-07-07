@@ -10242,7 +10242,22 @@
   `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_centroidal_support_suite.sh`.
   This is an opt-in joint-target support feedback layer, not a root/box
   shortcut.
-- [ ] Run and record the terminal centroidal-support held-out diagnostic
-  through tmux plus persistent `srun`. Do not interpret it until
-  `experiments/outputs/core_world_g1_closefront_heldout_geometry_centroidal_support/<stamp>/closefront_heldout_geometry_centroidal_support_summary.json`
-  exists.
+- [x] Run and record the terminal centroidal-support held-out diagnostic
+  through tmux plus persistent `srun`: GPU job `170646` on `server63` and CPU
+  fallback job `170650` on `server02` both produced the same aggregate
+  `fail`, 0/2. `wide_y012_centroidal` activated centroidal support for `78`
+  steps from `656`, hit pitch/roll adjustment limits `0.045/0.045 rad`, and
+  still failed with fall/drop `290/94`, first fall/drop `710/906`,
+  target-window `0/0/0`, final travel `1.540/1.373 m`, final lateral
+  `0.649/0.388 m`, relative offset `0.392 m`, and max robot/box tilt
+  `1.867/1.898 rad`. `tall_z009_centroidal` activated centroidal support for
+  `198` steps from `643`, hit the same limits, did not drop the box, but
+  failed with fall/drop `160/0`, first fall `840`, target-window `69/54/0`,
+  final travel `1.828/1.649 m`, final lateral `-0.155/0.046 m`, relative
+  offset `0.279 m`, and max robot/box tilt `3.135/2.762 rad`. Rollout
+  root/velocity/box pose writes stayed `0/0/0`.
+- [ ] Next G1 held-out shape step: stop micro joint-target scalar sweeps in
+  the terminal support layer. The controller saturated at its configured
+  pitch/roll adjustment limit and still failed. Replace the support problem
+  with a materially stronger stance/step/support formulation or a different
+  locomotion backend instead of only increasing the centroidal support gains.
