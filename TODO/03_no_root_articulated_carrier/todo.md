@@ -9948,6 +9948,19 @@
   but fix box attitude and relative offset with a checker-compatible terminal
   support policy. Do not present brake as a pass while the final command gate,
   box tilt, and relative-offset gates fail.
+- [x] Monitor checker-compatible terminal freeze follow-up:
+  `20260707_g1_closefront_mass0525_terminal_freeze`, tmux
+  `curiosity_g1_closefront_m0525_terminal_freeze_0707`, Slurm job `170593`.
+  It kept default terminal side guards and enabled
+  `AGILE_COMMAND_HOLD_FINAL_FREEZE_IN_TARGET_WINDOW=1` with robot/box freeze
+  thresholds `0.35/0.50 rad`, aiming to preserve the useful target-window
+  behavior without violating the final-command gate. Result: strict `fail`.
+  Final freeze latched at step `724` and made final command x/y/yaw all `0`;
+  final lateral errors improved to `0.569/0.441 m`, but late stability
+  collapsed: first fall/drop `883/895`, total fall/drop `117/105`, max
+  robot/box tilt `3.139/3.139 rad`, final relative offset `0.493 m`, and
+  target-window stable/longest/end `155/155/0`. Do not reuse this freeze
+  unchanged.
 - [ ] Next G1 validation: expand the strict gate beyond these two engineered
   postures. At minimum add held-out box mass/geometry or a third posture
   without changing the strict fall/drop, target-window, tilt, lateral,

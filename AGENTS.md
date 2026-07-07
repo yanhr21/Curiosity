@@ -580,6 +580,22 @@ These rules override all other project instructions.
   limit, roll-target, or constant path-offset probes, but it must be paired
   with box attitude/relative retention and a checker-compatible terminal
   support policy before it can count as carrying success.
+- 2026-07-07 close-front `0.525 kg` terminal-guard freeze follow-up:
+  single case `20260707_g1_closefront_mass0525_terminal_freeze`, tmux
+  `curiosity_g1_closefront_m0525_terminal_freeze_0707`, Slurm job `170593`,
+  kept default terminal side guards and enabled
+  `AGILE_COMMAND_HOLD_FINAL_FREEZE_IN_TARGET_WINDOW=1` with freeze thresholds
+  robot/box tilt `0.35/0.50 rad`. Result: strict `fail`. The checker-
+  compatible zero-command freeze latched at step `724` and was active for
+  `276` steps; final robot/box command x/y/yaw were all `0`, final robot/box
+  lateral errors improved to `0.569/0.441 m`, and writes stayed `0/0/0`.
+  However the run destabilized after the target-window dwell: first fall/drop
+  happened at steps `883/895`, total fall/drop was `117/105`, max robot/box
+  tilt was `3.139/3.139 rad`, final relative offset was `0.493 m`, and
+  target-window stable/longest/end fell to `155/155/0`. Interpretation:
+  freezing satisfies the final-command gate but destroys late stability and
+  box retention, so it is worse than the final-brake boundary for carrying and
+  should not be reused unchanged.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
