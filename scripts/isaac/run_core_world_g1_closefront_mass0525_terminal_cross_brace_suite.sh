@@ -18,13 +18,26 @@ summary_case_roots=()
 
 run_case() {
   local case_name="$1"
-  local brace_x="$2"
-  local brace_z="$3"
-  local brace_size_x="$4"
-  local brace_size_y="$5"
-  local brace_size_z="$6"
+  local brace_enable_mode="$2"
+  local brace_x="$3"
+  local brace_z="$4"
+  local brace_size_x="$5"
+  local brace_size_y="$6"
+  local brace_size_z="$7"
   local suite_stamp="${SUITE_STAMP_PREFIX}_${case_name}"
-  echo "[G1-CLOSEFRONT-M0525-CROSS-BRACE] case=${case_name} brace_x=${brace_x} brace_z=${brace_z} suite_stamp=${suite_stamp}"
+  local brace_terminal=0
+  local brace_final=0
+  local brace_target=0
+  case "${brace_enable_mode}" in
+    terminal) brace_terminal=1 ;;
+    final) brace_final=1 ;;
+    target_window) brace_target=1 ;;
+    *)
+      echo "Unknown brace_enable_mode=${brace_enable_mode}; expected terminal, final, or target_window" >&2
+      return 2
+      ;;
+  esac
+  echo "[G1-CLOSEFRONT-M0525-CROSS-BRACE] case=${case_name} brace_mode=${brace_enable_mode} brace_x=${brace_x} brace_z=${brace_z} suite_stamp=${suite_stamp}"
   summary_case_roots+=("${ROOT_DIR}/experiments/outputs/core_world_g1_agile_policy_low_cradle/${suite_stamp}")
 
   set +e
@@ -46,7 +59,10 @@ run_case() {
     AGILE_COMMAND_HOLD_FINAL_BOX_TARGET_TRAVEL=1.65 \
     CRADLE_FINAL_CROSS_BRACE=1 \
     CRADLE_FINAL_CROSS_BRACE_SPAWN_ON_TRIGGER=1 \
-    CRADLE_FINAL_CROSS_BRACE_ENABLE_ON_TERMINAL_HOLD=1 \
+    CRADLE_FINAL_CROSS_BRACE_ENABLE_ON_TERMINAL_HOLD="${brace_terminal}" \
+    CRADLE_FINAL_CROSS_BRACE_ENABLE_ON_FINAL_HOLD="${brace_final}" \
+    CRADLE_FINAL_CROSS_BRACE_ENABLE_ON_TARGET_WINDOW="${brace_target}" \
+    CRADLE_FINAL_CROSS_BRACE_TARGET_WINDOW_MIN_STEP=700 \
     CRADLE_FINAL_CROSS_BRACE_LOCAL_X="${brace_x}" \
     CRADLE_FINAL_CROSS_BRACE_LOCAL_Y=0.0 \
     CRADLE_FINAL_CROSS_BRACE_LOCAL_Z="${brace_z}" \
@@ -64,7 +80,18 @@ run_case() {
 
 overall_status=0
 
-run_case terminal_cross_brace_x19_z135 -0.19 0.135 0.07 0.30 0.04 || overall_status=1
+case "${CROSS_BRACE_CASE_SET:-terminal_first}" in
+  terminal_first)
+    run_case terminal_cross_brace_x19_z135 terminal -0.19 0.135 0.07 0.30 0.04 || overall_status=1
+    ;;
+  target_window_late)
+    run_case target_window_cross_brace_x19_z135 target_window -0.19 0.135 0.07 0.30 0.04 || overall_status=1
+    ;;
+  *)
+    echo "Unknown CROSS_BRACE_CASE_SET=${CROSS_BRACE_CASE_SET}; expected terminal_first or target_window_late" >&2
+    exit 2
+    ;;
+esac
 
 summary_args=()
 for case_root in "${summary_case_roots[@]}"; do

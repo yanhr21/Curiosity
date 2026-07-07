@@ -655,6 +655,18 @@ These rules override all other project instructions.
   Slurm job `170605` (`g1_xbrace`) was submitted through tmux
   `curiosity_g1_closefront_m0525_crossbrace_0707`; this is an experiment
   entrypoint only until a fresh summary exists.
+- 2026-07-07 close-front `0.525 kg` terminal cross-brace first result:
+  Slurm job `170605` (`g1_xbrace`) ran on `server44` and produced strict
+  `fail`. The new brace was spawned and enabled at terminal-hold step `461`
+  together with the side guards; no spawn/collision errors occurred, writes
+  stayed `0/0/0`, and fall/drop stayed `0/0`. However the brace engaged too
+  early and blocked useful progress: final robot/box travel was only
+  `1.307/1.020 m`, final hold never latched, target-window stable steps were
+  `0`, final relative offset was `0.371 m`, and max robot/box tilt was
+  `0.540/0.527 rad`. Interpretation: the cross-brace contact path is wired
+  and physically active, but terminal-hold activation is too early/aggressive;
+  the next valid structural test is delayed target-window activation rather
+  than command braking or another terminal scalar.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

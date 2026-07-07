@@ -9990,13 +9990,20 @@
   `scripts/isaac/run_core_world_g1_closefront_mass0525_terminal_cross_brace_suite.sh`.
   This tests physical support/contact on top of the useful `terminal_guard_lx19`
   boundary instead of more command braking.
-- [ ] Run and record terminal cross-brace single case:
+- [x] Run and record terminal cross-brace single case:
   `20260707_g1_closefront_mass0525_terminal_cross_brace_terminal_cross_brace_x19_z135`.
   It keeps terminal side guards, `0.525 kg`, final command zero, and adds a
   terminal cross-brace at local x/z `-0.19/0.135` with size
   `0.07 x 0.30 x 0.04 m`. Slurm job `170605` (`g1_xbrace`) was submitted
-  through tmux `curiosity_g1_closefront_m0525_crossbrace_0707`; interpret only
-  after the strict summary exists.
+  through tmux `curiosity_g1_closefront_m0525_crossbrace_0707` and ran on
+  `server44`. Result: strict `fail`; brace and side guards enabled at step
+  `461`, fall/drop `0/0`, writes `0/0/0`, but final robot/box travel only
+  `1.307/1.020 m`, final hold never latched, target-window stable steps `0`,
+  final relative offset `0.371 m`, and max robot/box tilt `0.540/0.527 rad`.
+- [ ] Run one delayed target-window cross-brace case. Use the same physical
+  brace, but enable it on target-window entry after step `700` so it cannot
+  block approach/terminal progress. This directly tests whether the structural
+  contact can act as terminal retention rather than propulsion resistance.
 - [x] Monitor checker-compatible terminal freeze follow-up:
   `20260707_g1_closefront_mass0525_terminal_freeze`, tmux
   `curiosity_g1_closefront_m0525_terminal_freeze_0707`, Slurm job `170593`.
