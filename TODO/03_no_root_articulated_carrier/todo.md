@@ -9402,3 +9402,30 @@
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case
   pass/fail and whether `agile_command_hold_rescue_override_freeze_*` fields
   show the override actually applied.
+- [x] Rerun the current best G1/AGILE 0.60 kg runtime chest-pad low-carry
+  record for a denser showcase replay. Slurm job `170415` (`g1_showcase`)
+  ran on `server46` through tmux `curiosity_g1_showcase_render_0707c` with
+  record stamp
+  `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`.
+  The rollout reproduced the narrow pass: fall/drop `0/0`, final robot/box
+  target-directed travel about `2.051/2.032 m`, max robot/box tilt
+  `0.309/0.428 rad`, target-window end streak `102`, and rollout root/
+  velocity/box pose writes `0/0/0`.
+- [x] Attempt true Isaac RGB replay render for the dense record. The render
+  stage of job `170415` stalled after local Kit registry dependency failures
+  around `omni.kit.pip_archive`, `omni.replicator.core`,
+  `isaacsim.core.rendering_manager`, and viewport dependencies. It produced
+  only
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_render_dense_replay/render_debug_trace.json`
+  and no PNG/MP4, so the job was cancelled. Do not report this as a true
+  Isaac camera-render success.
+- [x] Generate fallback presentation visual from the dense replay. Slurm job
+  `170419` (`g1_fallback`) ran on `server02` through tmux
+  `curiosity_g1_fallback_video_0707e` and produced 83 frames, GIF, poster,
+  raw MP4, and annotated MP4 under
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_fallback_dense_replay/`.
+  Current best shareable visual:
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_fallback_dense_replay/g1_lowcarry_runtime_chestpad_fallback_annotated.mp4`.
+  Use only with the explicit caveat that it is a schematic replay, not an
+  Isaac camera render, not new control evidence, and not generalized carrying
+  success.

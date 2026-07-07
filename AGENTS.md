@@ -86,6 +86,22 @@ These rules override all other project instructions.
   box pose writes `0`, and runtime chest-pad collision enabled at step `712`.
   This is still a narrow engineered diagnostic, not learned unknown-load
   carrying and not arbitrary-posture carrying.
+- 2026-07-07 current best presentation visual: dense replay rerun
+  `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
+  reproduced the same narrow G1/AGILE low-carry pass on `server46` with
+  fall/drop `0/0`, final robot/box target-directed travel about
+  `2.051/2.032 m`, max robot/box tilt `0.309/0.428 rad`, target-window end
+  streak `102`, rollout root/velocity/box pose writes `0`, and replay CSV
+  enabled. The true Isaac RGB replay-render attempt in job `170415` was
+  stopped after producing only `render_debug_trace.json`; it stalled after
+  local Kit registry dependency failures for `omni.kit.pip_archive` and
+  `isaacsim.core.rendering_manager`/viewport dependencies, with no PNG/MP4.
+  Fallback presentation visual job `170419` then ran on `server02` and
+  produced 83 frames, poster, GIF, and annotated MP4 at:
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_fallback_dense_replay/g1_lowcarry_runtime_chestpad_fallback_annotated.mp4`.
+  This is the best current shareable visual, but it is explicitly a schematic
+  replay, not an Isaac camera render, not new control evidence, and not
+  generalized or learned unknown-load carrying.
 - 2026-07-07 G1 posture-generalization boundary: suite
   `scripts/isaac/run_core_world_g1_lowcarry_runtime_chestpad_posture_generalization_suite.sh`
   produced aggregate `fail`, 1/5 strict cases passed. Only `low_front_060`
