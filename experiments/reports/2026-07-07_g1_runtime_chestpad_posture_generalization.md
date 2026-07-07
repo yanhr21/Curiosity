@@ -230,10 +230,22 @@ target window is reached.
 - Gate:
   unchanged strict fall/drop, target-window, final-hold, tilt,
   lateral-error, stop-window latch, and no rollout root/box writes checks.
-- Status:
-  submitted as Slurm job `169867` (`g1_cfwin`) through tmux
-  `curiosity_g1_close_front_window_arrest_0707`; pending on GPU priority as
-  of `2026-07-07 13:52 CST`, with estimated start `2026-07-07 16:00 CST`.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `169867` (`g1_cfwin`) ran on
+  `server36` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_window_arrest/20260707_g1_lowcarry_close_front_window_arrest/close_front_window_arrest_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | --- |
+| `stop_window_pad620` | fail | 656/617 | 494/533 | 0 | Removing the early hold/adaptive behavior prevents the previous target-window entry. |
+| `stop_window_pad650_soft_hold` | fail | 656/617 | 494/533 | 0 | Same failure; soft hold does not matter because target-window latch never occurs. |
+| `stop_window_pad600` | fail | 656/617 | 494/533 | 0 | Same failure; earlier pad trigger is irrelevant without window entry. |
+
+This is a useful negative control. The `progress_conservative` target-window
+entry depended on the original early hold/adaptive behavior from the lowcarry
+suite. A valid retention repair should preserve that early behavior and only
+alter runtime support/freeze after the target-window region is reached.
 
 ## Next Step
 
@@ -247,5 +259,8 @@ implementation should add an explicit posture-conditioned controller gate:
 - for close-front specifically, build on `progress_conservative` and fix
   target-window retention after step `652`, because stronger progress settings
   collapse earlier,
+- preserve the early hold/adaptive behavior that allowed `progress_conservative`
+  to reach the window; removing it caused `g1_cfwin` to fail before window
+  entry,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

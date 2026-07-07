@@ -8838,12 +8838,13 @@
   progress drive. Candidate knobs: target-window stop/arrest, reduced
   post-window progress command, earlier runtime support after window entry,
   and tighter terminal retention while preserving strict gates.
-- [ ] Await/run close-front window-arrest suite:
+- [x] Record close-front window-arrest suite:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_window_arrest_suite.sh`.
-  It uses conservative box-progress and latches hold on target-window entry
-  with runtime support at min steps `600-650`. It must pass the unchanged
-  strict gates before being interpreted as a close-front repair.
-- [ ] Monitor Slurm job `169867` (`g1_cfwin`) in tmux
-  `curiosity_g1_close_front_window_arrest_0707`; as of
-  `2026-07-07 13:52 CST`, it was pending on GPU priority with estimated start
-  `2026-07-07 16:00 CST`.
+  Slurm job `169867` (`g1_cfwin`) failed `0/3`. All three cases fell/dropped
+  at steps `494/533` with target-window stable steps `0`, because removing
+  the original early hold/adaptive behavior prevented the previous
+  `progress_conservative` target-window entry.
+- [ ] Next retention repair should preserve `progress_conservative` early
+  hold/adaptive behavior and only change target-window runtime support/freeze.
+  Do not continue the `g1_cfwin` setup that sets stop target only and removes
+  early hold/adaptive behavior.

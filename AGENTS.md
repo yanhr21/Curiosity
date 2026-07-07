@@ -12536,11 +12536,16 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   target-window entry and allowing runtime chest support at min steps `600`,
   `620`, or `650`. It keeps strict fall/drop, target-window, final-hold, tilt,
   lateral-error, stop-window latch, and no-shortcut gates. Slurm job `169867`
-  (`g1_cfwin`) was submitted through tmux
-  `curiosity_g1_close_front_window_arrest_0707`; as of
-  `2026-07-07 13:52 CST`, it was pending on GPU priority with estimated start
-  `2026-07-07 16:00 CST`. It is not evidence until a compute-node summary
-  exists.
+  (`g1_cfwin`) ran on `server36` and failed `0/3`. All three cases
+  (`stop_window_pad620`, `stop_window_pad650_soft_hold`, and
+  `stop_window_pad600`) produced the same failure: fall/drop `656/617`, first
+  fall/drop steps `494/533`, target-window stable steps `0`, no
+  target-window latch, and no final-hold activation. This is a useful negative
+  control: removing the original early hold/adaptive behavior prevented the
+  earlier `progress_conservative` target-window entry. Do not continue this
+  exact setup; the next valid retention attempt should preserve
+  `progress_conservative` early hold/adaptive behavior and only alter
+  post-window support/freeze.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
