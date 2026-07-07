@@ -206,6 +206,25 @@ These rules override all other project instructions.
   entrypoint only until
   `closefront_heldout_geometry_preintegrated_contact_cradle_summary.json`
   exists.
+- 2026-07-08 held-out G1 preintegrated contact-cradle result:
+  CPU Slurm job `170672` on `server01` completed
+  `20260708_g1_closefront_heldout_geometry_preintegrated_contact_cradle_cpu`,
+  aggregate strict `fail`, 0/2. This is still not carrying success, but it
+  materially changes the failure boundary. `wide_y012_preintegrated_cradle`
+  failed early with fall/drop `509/142`, first fall/drop `491/556`, almost no
+  forward progress (`max robot/box travel 0.154/0.164 m`), final lateral
+  `-1.182/-1.178 m`, max robot/box tilt `1.849/1.952 rad`, and rollout
+  writes `0/0/0`; the initial contact geometry appears too constraining or
+  destabilizing for the wide box. `tall_z009_preintegrated_cradle` had source
+  rollout `status=pass` with fall/drop `0/0`, no first fall/drop, max robot/
+  box tilt `0.335/0.420 rad`, final relative offset `0.308 m`, and rollout
+  writes `0/0/0`, but strict aggregate still failed because target-window
+  dwell was `0/0/0`, final robot/box travel was only `1.419/1.145 m`, and
+  final lateral error was `0.747/0.882 m`. Next valid step: keep the
+  preintegrated contact direction, tune geometry differently for wide boxes,
+  and add command/support correction for tall boxes to recover target progress
+  and lateral alignment without reintroducing hold/stand or runtime contact
+  insertion.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with

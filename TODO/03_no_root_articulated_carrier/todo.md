@@ -10354,3 +10354,20 @@
   tmux plus persistent `srun`. Do not interpret it until
   `experiments/outputs/core_world_g1_closefront_heldout_geometry_preintegrated_contact_cradle/<stamp>/closefront_heldout_geometry_preintegrated_contact_cradle_summary.json`
   exists.
+- [x] Run and record preintegrated contact-cradle held-out diagnostic:
+  CPU Slurm job `170672` on `server01` completed
+  `20260708_g1_closefront_heldout_geometry_preintegrated_contact_cradle_cpu`,
+  aggregate strict `fail`, 0/2. `wide_y012_preintegrated_cradle` failed early
+  with fall/drop `509/142`, first fall/drop `491/556`, max robot/box travel
+  only `0.154/0.164 m`, final lateral `-1.182/-1.178 m`, max robot/box tilt
+  `1.849/1.952 rad`, and no rollout root/velocity/box pose writes.
+  `tall_z009_preintegrated_cradle` had source rollout `status=pass`,
+  fall/drop `0/0`, max robot/box tilt `0.335/0.420 rad`, final relative
+  offset `0.308 m`, and no rollout root/velocity/box pose writes, but strict
+  aggregate still failed because target-window dwell was `0/0/0`, travel was
+  only `1.419/1.145 m`, and final lateral was `0.747/0.882 m`.
+- [ ] Next G1 held-out preintegrated-contact step: split the repair. For wide
+  boxes, loosen or simplify the initial contact geometry before adding more
+  control. For tall boxes, keep the preintegrated cradle and add command/
+  support correction to recover target progress and lateral alignment without
+  hold/stand or runtime contact insertion.
