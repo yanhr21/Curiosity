@@ -8630,3 +8630,42 @@
   main attempt should move back to a policy-backed locomotion backend or a
   genuinely fuller whole-body controller; do not spend the next iteration on
   another continuous-WBC speed/support-scale/COM-weight sweep.
+- [x] Add G1/AGILE policy-backed 0.60 kg low-carry box-tilt repair suite:
+  `scripts/isaac/run_core_world_g1_lowcarry_060_box_tilt_repair_suite.sh`.
+  This targets the near-miss from the mass-band result where 0.60 kg had
+  fall/drop `0/0`, about `2.197 m` box travel, and target-window end streak
+  `108`, but failed only because max box tilt was `0.6385 rad > 0.45`.
+  The suite tests lower/thicker top-lid geometry, wider/lower retaining
+  geometry, very-low lid, and final-hold chest pad while preserving the strict
+  target-window gates.
+- [x] Await G1/AGILE 0.60 kg box-tilt repair job `169648` (`g1_060tilt`)
+  submitted through tmux `curiosity_g1_lowcarry_060_tilt_repair_0707`.
+  It completed on `server57` with strict pass `0/4`. Pure lid/rail lowering
+  was negative and often destabilized the robot. The useful case was
+  `final_chest_pad`: fall/drop `0/0`, max robot/box tilt `0.323/0.370 rad`,
+  final relative error `0.087 m`, but final robot/box target-directed travel
+  only `1.467/1.510 m`, so target-window stable steps were `0`.
+- [x] Add a 0.60 kg final-chest-pad travel repair suite that keeps the
+  stable low-tilt geometry from `169648` and delays terminal/final hold latch
+  thresholds to recover target-window travel.
+- [x] Await G1/AGILE 0.60 kg final-chest-pad travel repair job `169653`
+  (`g1_060trav`) submitted through tmux
+  `curiosity_g1_lowcarry_060_chesttravel_0707`.
+  It completed on `server57` with strict pass `0/4`. All cases kept
+  fall/drop `0/0` and rollout root/box writes `0`, but none reached target
+  window. Best stable case `final090` had max robot/box tilt `0.323/0.393`,
+  final relative error `0.080 m`, and final latch active `197` steps, but
+  final robot/box travel only `1.205/1.265 m`.
+- [x] Add a 0.60 kg final-chest-pad command-drive repair suite that
+  preserves the low-tilt chest-pad geometry but increases/reshapes AGILE
+  command drive to recover the missing target-window travel.
+- [x] Await G1/AGILE 0.60 kg final-chest-pad command-drive repair job
+  `169664` (`g1_060drive`) submitted through tmux
+  `curiosity_g1_lowcarry_060_chestdrive_0707`.
+  It completed on `server59` with strict pass `0/4`. Increasing command to
+  `0.12` collapsed early with `528` falls / `467` drops; command `0.14`
+  could over-drive travel in one case but failed with `493` falls and
+  `187` drops. Larger constant AGILE command is not the repair.
+- [ ] Next G1/AGILE 0.60 kg path: preserve baseline lowcarry travel while
+  reducing box tilt, or use a smoother command schedule around the chest-pad
+  transition. Do not repeat larger constant-command runs.

@@ -12246,6 +12246,53 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   carrying without replacing the locomotion backend or adding a substantially
   more complete controller. Do not continue this branch with small speed,
   support-scale, or box-COM-weight sweeps.
+- 2026-07-07 G1/AGILE 0.60 kg box-tilt repair result: added
+  `scripts/isaac/run_core_world_g1_lowcarry_060_box_tilt_repair_suite.sh`
+  because the earlier mass-band run showed 0.60 kg low-carry was a near-miss:
+  fall/drop `0/0`, final box target-directed travel `2.197 m`, target-window
+  end streak `108`, but max box tilt `0.6385 rad > 0.45`. Slurm job `169648`
+  (`g1_060tilt`) ran on `server57` and failed strictly `0/4`. Lowering the
+  top lid alone was negative: `lid_lower` fell/dropped `513/124`,
+  `lid_lower_wide` fell `403` times, and `lid_very_low` had fall/drop `0/0`
+  but still max robot/box tilt `0.765/0.809 rad` and target-window streak `0`.
+  The useful signal was `final_chest_pad`: fall/drop `0/0`, max robot/box
+  tilt `0.323/0.370 rad`, final relative error `0.087 m`, no rollout
+  root/box writes, but under-traveled to final robot/box target-directed
+  travel `1.467/1.510 m`, so target-window stable steps stayed `0`. Next
+  valid follow-up is to keep the final chest-pad geometry and delay terminal/
+  final latch to recover target travel; do not treat the `169648` suite as
+  success.
+- 2026-07-07 G1/AGILE 0.60 kg final-chest-pad travel repair result: added
+  `scripts/isaac/run_core_world_g1_lowcarry_060_chestpad_travel_repair_suite.sh`
+  to keep the stable `final_chest_pad` geometry from `169648` while delaying
+  terminal/final hold latch thresholds. Slurm job `169653` (`g1_060trav`) ran
+  on `server57` and failed strictly `0/4`. All cases kept fall/drop `0/0` and
+  rollout root/box writes `0`, but none reached the target window. `final090`
+  was the best stability case: max robot/box tilt `0.323/0.393 rad`, final
+  relative error `0.080 m`, final latch active for `197` steps, but final
+  robot/box travel only `1.205/1.265 m`. `final110` reached similar travel but
+  box tilt rose to `0.704 rad`; `final130` and `final150` never latched final
+  hold and had box tilt `0.578 rad`. Conclusion: delaying final/chest-pad
+  latch alone does not restore travel. The next valid follow-up is to keep the
+  low-tilt chest-pad geometry and increase/reshape the AGILE command drive,
+  not keep moving latch thresholds.
+- 2026-07-07 G1/AGILE 0.60 kg final-chest-pad command-drive repair result:
+  added
+  `scripts/isaac/run_core_world_g1_lowcarry_060_chestpad_drive_repair_suite.sh`
+  to keep the stable chest-pad geometry while increasing AGILE command drive
+  from `0.10` to `0.12`/`0.14`. Slurm job `169664` (`g1_060drive`) ran on
+  `server59` and failed strictly `0/4`. `cmd012_*` collapsed early with
+  `528` falls and `467` drops, no final latch, and negative/near-zero final
+  box travel. `cmd014_final090` over-drove to robot/box travel
+  `2.612/2.630 m` but failed with `493` falls, `187` drops, max robot/box
+  tilt about `3.14/3.14 rad`, and target-window streak `0`.
+  `cmd014_final110` also failed with `493` falls and `98` drops. Conclusion:
+  simply increasing the AGILE command breaks the stability that chest-pad
+  geometry provided. The viable 0.60 kg branch remains a tradeoff: baseline
+  lowcarry has enough travel but high box tilt; final chest pad fixes tilt and
+  fall/drop but under-travels. A future attempt needs a smoother command
+  schedule or contact/geometry that preserves baseline travel, not a larger
+  constant command.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

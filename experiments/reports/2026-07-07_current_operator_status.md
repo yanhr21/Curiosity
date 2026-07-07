@@ -1171,13 +1171,40 @@ This is a status snapshot only. It is not a carrying-success claim.
   `0.319 m`, and final relative error just above gate. Other cases had
   `56-63` falls, `42-54` drops, and near-zero or negative final travel.
   Continuous WBC should not be pursued with more small speed/scale/COM sweeps.
+- G1/AGILE 0.60 kg box-tilt repair job `169648` (`g1_060tilt`) ran on
+  `server57` and failed strictly `0/4`. It was aimed at the earlier 0.60 kg
+  near-miss where travel and fall/drop were good but box roll exceeded the
+  tilt gate. Lower lid/rail variants were negative and often caused falls.
+  The important positive signal is `final_chest_pad`: fall/drop `0/0`,
+  max robot/box tilt `0.323/0.370 rad`, final relative error `0.087 m`, and
+  no rollout root/box writes. It failed only because the final chest-pad hold
+  under-traveled to robot/box travel `1.467/1.510 m`, leaving target-window
+  stable steps `0`. This is the next policy-backed branch to repair: delay
+  terminal/final latch while keeping the chest-pad geometry.
+- G1/AGILE 0.60 kg final-chest-pad travel repair job `169653`
+  (`g1_060trav`) ran on `server57` and failed strictly `0/4`. Delaying latch
+  thresholds did not recover target travel. All cases had fall/drop `0/0` and
+  rollout root/box writes `0`. `final090` was most stable with max robot/box
+  tilt `0.323/0.393 rad`, final relative error `0.080 m`, and `197` final
+  hold active steps, but robot/box travel only `1.205/1.265 m`. `final110`
+  had similar travel but box tilt `0.704 rad`; `final130` and `final150`
+  never latched final hold. Next test should keep chest-pad geometry and
+  increase/reshape AGILE command drive, not keep delaying latch.
+- G1/AGILE 0.60 kg final-chest-pad command-drive repair job `169664`
+  (`g1_060drive`) ran on `server59` and failed strictly `0/4`. Increasing
+  constant AGILE command from `0.10` to `0.12`/`0.14` did not recover a stable
+  target-window carry. `cmd012_*` collapsed early with `528` falls /
+  `467` drops. `cmd014_final090` over-drove to robot/box travel
+  `2.612/2.630 m`, but only with `493` falls, `187` drops, and max robot/box
+  tilt near `3.14 rad`. Larger constant command destroys the low-tilt
+  chest-pad stability.
 
 ## Next Decision
 
-- Next controller work should stay on materially stronger support/contact
-  control. Post-latch QP, feasible-moment QP, and carried-mass WBC all failed,
-  and continuous WBC failed without target-stop switching. Stop this MuJoCo
-  hand-controller branch as the main path. Switch back to a policy-backed
-  locomotion backend or implement a substantially fuller whole-body controller.
+- Next controller work is on the G1/AGILE policy-backed branch. The current
+  local target is 0.60 kg low-carry: chest-pad geometry fixes box tilt and
+  fall/drop, but under-travels; larger constant command collapses. Next
+  attempt should preserve baseline travel while reducing box tilt, or use a
+  smoother command schedule around the chest-pad transition.
 - For visuals, use the schematic GIF/poster only with the explicit label that
   it is not an Isaac camera render.
