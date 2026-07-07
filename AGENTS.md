@@ -234,7 +234,16 @@ These rules override all other project instructions.
   an experiment entrypoint only until
   `chestpad_finalstop_side_guard_summary.json` exists; do not claim it as
   carrying success unless the strict fall/drop/target-window/tilt/lateral/
-  no-write gates pass.
+  no-write gates pass. First quick run
+  `20260707_g1_chestpad_finalstop_side_guard_quick` failed before testing the
+  intended final-hold contact effect: side guards were pre-spawned as fixed
+  rigid bodies with collision disabled, so they still changed torso mass/
+  inertia before trigger. The run never reached final hold, side guards never
+  enabled (`step=null`, update count `0`), and it failed with fall/drop
+  `289/269`, first fall `711`, target-window stable steps `0`, final-hold
+  active steps `0`, and writes `0/0/0`. The mechanism was revised to support
+  `--cradle-final-side-guard-spawn-on-trigger`; the quick suite now enables
+  spawn-on-trigger so guards are not created before the trigger.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

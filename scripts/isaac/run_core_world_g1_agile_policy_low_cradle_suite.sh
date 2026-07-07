@@ -412,6 +412,9 @@ fi
 if [[ "${CRADLE_FINAL_SIDE_GUARDS:-0}" == "1" ]]; then
   free_cradle_extra_args+=(--cradle-final-side-guards)
 fi
+if [[ "${CRADLE_FINAL_SIDE_GUARD_SPAWN_ON_TRIGGER:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-side-guard-spawn-on-trigger)
+fi
 if [[ "${CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_HOLD:-0}" == "1" ]]; then
   free_cradle_extra_args+=(--cradle-final-side-guard-enable-on-hold)
 fi

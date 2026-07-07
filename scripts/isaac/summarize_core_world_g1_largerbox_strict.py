@@ -349,6 +349,9 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "cradle_final_side_guard_enable_on_hold": summary.get(
             "cradle_final_side_guard_enable_on_hold"
         ),
+        "cradle_final_side_guard_spawn_on_trigger": summary.get(
+            "cradle_final_side_guard_spawn_on_trigger"
+        ),
         "cradle_final_side_guard_enable_on_terminal_hold": summary.get(
             "cradle_final_side_guard_enable_on_terminal_hold"
         ),
@@ -366,6 +369,12 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         ),
         "cradle_final_side_guard_collision_enabled_reason": summary.get(
             "cradle_final_side_guard_collision_enabled_reason"
+        ),
+        "cradle_final_side_guard_spawned_step": summary.get(
+            "cradle_final_side_guard_spawned_step"
+        ),
+        "cradle_final_side_guard_spawn_error": summary.get(
+            "cradle_final_side_guard_spawn_error"
         ),
         "cradle_final_side_guard_collision_update_count": summary.get(
             "cradle_final_side_guard_collision_update_count"

@@ -9541,10 +9541,26 @@
   final-hold contact support by enabling final side guards. Quick case:
   `final_guard_hs090`, final-hold activation, local x `-0.18`, half spacing
   `0.09 m`.
-- [ ] Run and record chest-pad final-stop side-guard quick case. Use tmux plus
+- [x] Run and record chest-pad final-stop side-guard quick case. Use tmux plus
   persistent `srun` on a compute node. Do not interpret results until
   `experiments/outputs/core_world_g1_chestpad_finalstop_side_guard/<stamp>/chestpad_finalstop_side_guard_summary.json`
   exists and reports the side-guard collision trigger fields. A pass must
   still satisfy the original strict gates and cannot be claimed as
   arbitrary-posture or learned carrying unless broader posture generalization
   also passes.
+- [x] Record first side-guard quick result:
+  `20260707_g1_chestpad_finalstop_side_guard_quick`. It failed before testing
+  the intended final-hold contact effect because side guards were pre-spawned
+  as fixed rigid bodies with collision disabled, which still changed torso
+  mass/inertia before trigger. The run never reached final hold and side
+  guards never enabled (`collision_enabled_step=null`, update count `0`).
+  Strict result: fall/drop `289/269`, first fall `711`, target-window stable
+  steps `0`, final-hold active steps `0`, writes `0/0/0`. Do not interpret it
+  as final-side-guard contact failure.
+- [x] Add side-guard spawn-on-trigger mode and switch the quick side-guard
+  suite to it. This avoids creating side-guard rigid bodies before trigger and
+  makes the next run a cleaner final-hold contact diagnostic.
+- [ ] Rerun side-guard quick with spawn-on-trigger enabled. Require the
+  summary to show either a valid `cradle_final_side_guard_spawned_step` and
+  collision trigger, or a near-pass trajectory that reaches final hold without
+  side-guard activation.

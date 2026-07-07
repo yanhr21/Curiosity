@@ -381,6 +381,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cradle-final-side-guard-size", type=float, nargs=3, default=(0.18, 0.018, 0.18))
     parser.add_argument("--cradle-final-side-guard-half-spacing", type=float, default=0.075)
     parser.add_argument("--cradle-final-side-guard-mass-scale", type=float, default=1.0)
+    parser.add_argument("--cradle-final-side-guard-spawn-on-trigger", action="store_true")
     parser.add_argument("--cradle-final-side-guard-enable-on-hold", action="store_true")
     parser.add_argument("--cradle-final-side-guard-enable-on-terminal-hold", action="store_true")
     parser.add_argument("--cradle-final-side-guard-enable-on-final-hold", action="store_true")
@@ -1026,7 +1027,7 @@ def _spawn_front_torso_cradle(stage: Usd.Stage, material: UsdShade.Material | No
             or bool(args_cli.cradle_chest_pad_enable_on_box_tilt)
         ):
             _set_collision_enabled(stage, chest_pad_path, False)
-    if bool(args_cli.cradle_final_side_guards):
+    if bool(args_cli.cradle_final_side_guards) and not bool(args_cli.cradle_final_side_guard_spawn_on_trigger):
         guard_joints = _spawn_front_cradle_final_side_guards(stage, material, collision=collision)
         for name, joint_path in guard_joints.items():
             pieces[f"final_side_guard_{name}"] = joint_path
@@ -2872,6 +2873,7 @@ def run_scene() -> Path:
         "cradle_final_side_guard_size_m": [float(v) for v in args_cli.cradle_final_side_guard_size],
         "cradle_final_side_guard_half_spacing_m": float(args_cli.cradle_final_side_guard_half_spacing),
         "cradle_final_side_guard_mass_scale": float(args_cli.cradle_final_side_guard_mass_scale),
+        "cradle_final_side_guard_spawn_on_trigger": bool(args_cli.cradle_final_side_guard_spawn_on_trigger),
         "cradle_final_side_guard_enable_on_hold": bool(args_cli.cradle_final_side_guard_enable_on_hold),
         "cradle_final_side_guard_enable_on_terminal_hold": bool(
             args_cli.cradle_final_side_guard_enable_on_terminal_hold
@@ -2885,13 +2887,16 @@ def run_scene() -> Path:
         ),
         "cradle_final_side_guard_collision_enabled_initial": bool(args_cli.cradle_final_side_guards)
         and not (
-            bool(args_cli.cradle_final_side_guard_enable_on_hold)
+            bool(args_cli.cradle_final_side_guard_spawn_on_trigger)
+            or bool(args_cli.cradle_final_side_guard_enable_on_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_terminal_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_final_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_target_window)
         ),
         "cradle_final_side_guard_collision_enabled_step": None,
         "cradle_final_side_guard_collision_enabled_reason": None,
+        "cradle_final_side_guard_spawned_step": None,
+        "cradle_final_side_guard_spawn_error": None,
         "cradle_final_side_guard_collision_update_count": 0,
         "cradle_final_side_guard_collision_update_error": None,
         "cradle_collision_enabled": not bool(args_cli.disable_cradle_collision),
@@ -3077,7 +3082,8 @@ def run_scene() -> Path:
             or bool(args_cli.cradle_chest_pad_enable_on_box_tilt)
         )
         final_side_guard_collision_enabled = bool(args_cli.cradle_final_side_guards) and not (
-            bool(args_cli.cradle_final_side_guard_enable_on_hold)
+            bool(args_cli.cradle_final_side_guard_spawn_on_trigger)
+            or bool(args_cli.cradle_final_side_guard_enable_on_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_terminal_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_final_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_target_window)
@@ -3087,6 +3093,11 @@ def run_scene() -> Path:
             nonlocal final_side_guard_collision_enabled
             if final_side_guard_collision_enabled:
                 return
+            if bool(args_cli.cradle_final_side_guard_spawn_on_trigger) and not stage.GetPrimAtPath(
+                "/World/G1FrontCradle_final_side_guard_left"
+            ).IsValid():
+                _spawn_front_cradle_final_side_guards(stage, None, collision=True)
+                summary["cradle_final_side_guard_spawned_step"] = int(step_idx)
             for name in ("left", "right"):
                 path = f"/World/G1FrontCradle_final_side_guard_{name}"
                 if not _set_collision_enabled(stage, path, True):
