@@ -350,6 +350,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cradle-chest-pad", action="store_true")
     parser.add_argument("--cradle-chest-pad-local-pos0", type=float, nargs=3, default=(0.10, 0.0, 0.08))
     parser.add_argument("--cradle-chest-pad-size", type=float, nargs=3, default=(0.035, 0.34, 0.20))
+    parser.add_argument("--cradle-chest-pad-mass-scale", type=float, default=1.0)
     parser.add_argument("--cradle-chest-pad-enable-on-hold", action="store_true")
     parser.add_argument("--cradle-chest-pad-enable-on-terminal-hold", action="store_true")
     parser.add_argument("--cradle-chest-pad-enable-on-final-hold", action="store_true")
@@ -906,7 +907,7 @@ def _spawn_front_torso_cradle(stage: Usd.Stage, material: UsdShade.Material | No
             stage,
             chest_pad_path,
             chest_pad_size,
-            0.20 * mass_scale,
+            0.20 * mass_scale * max(0.0, float(args_cli.cradle_chest_pad_mass_scale)),
             (0.30, 0.30, 0.30),
             str(args_cli.attach_body_path),
             chest_pad_local,
@@ -2597,6 +2598,7 @@ def run_scene() -> Path:
         "cradle_chest_pad_enabled": bool(args_cli.cradle_chest_pad),
         "cradle_chest_pad_local_pos0_m": [float(v) for v in args_cli.cradle_chest_pad_local_pos0],
         "cradle_chest_pad_size_m": [float(v) for v in args_cli.cradle_chest_pad_size],
+        "cradle_chest_pad_mass_scale": float(args_cli.cradle_chest_pad_mass_scale),
         "cradle_chest_pad_enable_on_hold": bool(args_cli.cradle_chest_pad_enable_on_hold),
         "cradle_chest_pad_enable_on_terminal_hold": bool(args_cli.cradle_chest_pad_enable_on_terminal_hold),
         "cradle_chest_pad_enable_on_final_hold": bool(args_cli.cradle_chest_pad_enable_on_final_hold),

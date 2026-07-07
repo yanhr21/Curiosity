@@ -8701,3 +8701,12 @@
 - [ ] Await baseline-geometry late chest-pad job `169685` (`g1_060late3`)
   submitted through tmux `curiosity_g1_060_late_chestpad_fix2_0707` with
   prefix `20260707_g1_lowcarry_060_late_chestpad_fix2`.
+- [x] Record baseline-geometry late chest-pad job `169685`: strict `0/4`.
+  Target-window cases never enabled chest-pad collision but still failed with
+  `26` falls, final box travel about `1.457 m`, lateral error about
+  `0.96 m`, max box tilt `1.891 rad`, and target-window streak `0`.
+  Box-tilt trigger cases enabled collision at step `700`/`760`; best case
+  removed falls/drops but still under-traveled and over-tilted. This means the
+  pre-authored fixed-joint chest-pad rigid body itself perturbs the baseline.
+- [ ] Add a zero/tiny-mass chest-pad diagnostic or a runtime-spawned/non-rigid
+  chest support so the inactive support does not corrupt baseline locomotion.

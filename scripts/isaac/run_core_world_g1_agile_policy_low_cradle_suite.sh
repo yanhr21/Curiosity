@@ -393,6 +393,7 @@ free_cradle_extra_args+=(
   --cradle-top-lid-y-scale "${CRADLE_TOP_LID_Y_SCALE:-1.0}"
   --cradle-chest-pad-local-pos0 "${CRADLE_CHEST_PAD_LOCAL_X:-0.10}" "${CRADLE_CHEST_PAD_LOCAL_Y:-0.0}" "${CRADLE_CHEST_PAD_LOCAL_Z:-0.08}"
   --cradle-chest-pad-size "${CRADLE_CHEST_PAD_SIZE_X:-0.035}" "${CRADLE_CHEST_PAD_SIZE_Y:-0.34}" "${CRADLE_CHEST_PAD_SIZE_Z:-0.20}"
+  --cradle-chest-pad-mass-scale "${CRADLE_CHEST_PAD_MASS_SCALE:-1.0}"
   --cradle-chest-pad-target-window-min-step "${CRADLE_CHEST_PAD_TARGET_WINDOW_MIN_STEP:--1}"
   --cradle-chest-pad-box-tilt-threshold "${CRADLE_CHEST_PAD_BOX_TILT_THRESHOLD:-999.0}"
   --cradle-chest-pad-box-tilt-min-step "${CRADLE_CHEST_PAD_BOX_TILT_MIN_STEP:--1}"

@@ -12342,6 +12342,23 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   late chest-pad test because it includes both commit `4994ed8` spawn-time
   collision gating and the baseline top-lid geometry from the 0.60 kg near
   miss.
+- 2026-07-07 baseline-geometry late chest-pad result: job `169685`
+  completed on `server39` with strict pass `0/4`. This is a valid negative
+  result for the pre-authored fixed-joint chest-pad route. In target-window
+  cases the chest-pad collision never enabled
+  (`cradle_chest_pad_collision_enabled_step=null`), yet both failed with
+  final robot/box travel `1.390/1.457 m`, lateral error about
+  `-0.90/-0.96 m`, `26` fall events, max robot/box tilt
+  `0.941/1.891 rad`, and target-window end streak `0`. In box-tilt trigger
+  cases, collision enabled at step `700` or `760`; the best `box_tilt035`
+  eliminated falls/drops but still only reached robot/box travel
+  `1.416/1.458 m` with max box tilt `1.891 rad` and no target-window dwell.
+  Conclusion: merely pre-authoring a fixed-joint chest-pad rigid body, even
+  with collision initially disabled, perturbs the baseline enough to destroy
+  the 0.60 kg near-miss. Do not continue this route by changing only trigger
+  thresholds. Next valid diagnostic is to remove or minimize the pre-authored
+  chest-pad mass/rigid-body disturbance, or spawn/attach the support only when
+  needed.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

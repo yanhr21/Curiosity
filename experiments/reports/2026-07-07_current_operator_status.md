@@ -1235,6 +1235,15 @@ This is a status snapshot only. It is not a carrying-success claim.
   through tmux `curiosity_g1_060_late_chestpad_fix2_0707`, output prefix
   `20260707_g1_lowcarry_060_late_chestpad_fix2`. This is the current valid
   late-trigger test.
+- `169685` completed on `server39` with strict pass `0/4`. Target-window
+  cases never enabled chest-pad collision but still failed with final
+  robot/box travel `1.390/1.457 m`, lateral error about `-0.90/-0.96 m`,
+  `26` fall events, max robot/box tilt `0.941/1.891 rad`, and no
+  target-window dwell. Box-tilt trigger cases enabled collision at step
+  `700`/`760`; the best one removed falls/drops but still only reached
+  `1.416/1.458 m` and max box tilt `1.891 rad`. This is a valid negative
+  result for pre-authored fixed-joint chest-pad bodies: the inactive support
+  already perturbs the baseline dynamics.
 
 ## Next Decision
 
