@@ -1198,13 +1198,29 @@ This is a status snapshot only. It is not a carrying-success claim.
   `2.612/2.630 m`, but only with `493` falls, `187` drops, and max robot/box
   tilt near `3.14 rad`. Larger constant command destroys the low-tilt
   chest-pad stability.
+- Lightweight CSV audit after `169664`: the original 0.60 kg lowcarry
+  baseline reached box travel `2.0 m` at step `780` and only exceeded the
+  box-tilt gate (`0.45 rad`) at step `810`; final box tilt was `0.616 rad` at
+  step `818`. The `final_chest_pad` repair kept max box tilt to `0.370 rad`
+  with fall/drop `0/0`, but at step `818` it only reached box travel
+  `1.512 m`. This supports a late-contact trigger rather than an early
+  chest-pad or larger constant command.
+- Added late chest-pad trigger support to
+  `scripts/isaac/build_core_world_g1_box_scene.py` and launcher env mappings
+  in `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`.
+  New triggers can enable the chest pad on target-window entry or when box
+  tilt crosses a configured threshold, with trigger step/reason recorded in
+  the summary. Submitted job `169676` (`g1_060late`) through tmux
+  `curiosity_g1_060_late_chestpad_0707` to run
+  `scripts/isaac/run_core_world_g1_lowcarry_060_late_chestpad_suite.sh`.
+  It was pending in `gpu` for priority at submission.
 
 ## Next Decision
 
 - Next controller work is on the G1/AGILE policy-backed branch. The current
   local target is 0.60 kg low-carry: chest-pad geometry fixes box tilt and
   fall/drop, but under-travels; larger constant command collapses. Next
-  attempt should preserve baseline travel while reducing box tilt, or use a
-  smoother command schedule around the chest-pad transition.
+  attempt is late chest-pad activation on target-window entry or box-tilt
+  risk, preserving baseline travel while reducing the final tilt spike.
 - For visuals, use the schematic GIF/poster only with the explicit label that
   it is not an Isaac camera render.

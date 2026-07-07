@@ -353,6 +353,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cradle-chest-pad-enable-on-hold", action="store_true")
     parser.add_argument("--cradle-chest-pad-enable-on-terminal-hold", action="store_true")
     parser.add_argument("--cradle-chest-pad-enable-on-final-hold", action="store_true")
+    parser.add_argument("--cradle-chest-pad-enable-on-target-window", action="store_true")
+    parser.add_argument("--cradle-chest-pad-target-window-min-step", type=int, default=-1)
+    parser.add_argument("--cradle-chest-pad-enable-on-box-tilt", action="store_true")
+    parser.add_argument("--cradle-chest-pad-box-tilt-threshold", type=float, default=999.0)
+    parser.add_argument("--cradle-chest-pad-box-tilt-min-step", type=int, default=-1)
     parser.add_argument("--disable-cradle-collision", action="store_true")
     parser.add_argument("--probe-mode", choices=("none", "front_bumper"), default="none")
     parser.add_argument("--probe-start-step", type=int, default=0)
@@ -2593,13 +2598,21 @@ def run_scene() -> Path:
         "cradle_chest_pad_enable_on_hold": bool(args_cli.cradle_chest_pad_enable_on_hold),
         "cradle_chest_pad_enable_on_terminal_hold": bool(args_cli.cradle_chest_pad_enable_on_terminal_hold),
         "cradle_chest_pad_enable_on_final_hold": bool(args_cli.cradle_chest_pad_enable_on_final_hold),
+        "cradle_chest_pad_enable_on_target_window": bool(args_cli.cradle_chest_pad_enable_on_target_window),
+        "cradle_chest_pad_target_window_min_step": int(args_cli.cradle_chest_pad_target_window_min_step),
+        "cradle_chest_pad_enable_on_box_tilt": bool(args_cli.cradle_chest_pad_enable_on_box_tilt),
+        "cradle_chest_pad_box_tilt_threshold_rad": float(args_cli.cradle_chest_pad_box_tilt_threshold),
+        "cradle_chest_pad_box_tilt_min_step": int(args_cli.cradle_chest_pad_box_tilt_min_step),
         "cradle_chest_pad_collision_enabled_initial": bool(args_cli.cradle_chest_pad)
         and not (
             bool(args_cli.cradle_chest_pad_enable_on_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_terminal_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_final_hold)
+            or bool(args_cli.cradle_chest_pad_enable_on_target_window)
+            or bool(args_cli.cradle_chest_pad_enable_on_box_tilt)
         ),
         "cradle_chest_pad_collision_enabled_step": None,
+        "cradle_chest_pad_collision_enabled_reason": None,
         "cradle_chest_pad_collision_update_count": 0,
         "cradle_chest_pad_collision_update_error": None,
         "cradle_collision_enabled": not bool(args_cli.disable_cradle_collision),
@@ -2780,6 +2793,8 @@ def run_scene() -> Path:
             bool(args_cli.cradle_chest_pad_enable_on_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_terminal_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_final_hold)
+            or bool(args_cli.cradle_chest_pad_enable_on_target_window)
+            or bool(args_cli.cradle_chest_pad_enable_on_box_tilt)
         )
         creep_pitch_brake_latched = False
         creep_reverse_brake_latched = False
@@ -2962,6 +2977,51 @@ def run_scene() -> Path:
                                     agile_hold_policy_state_reset_done = True
                         if agile_command_hold_active:
                             summary["agile_command_hold_active_steps"] = int(summary["agile_command_hold_active_steps"]) + 1
+                        if (
+                            bool(args_cli.cradle_chest_pad)
+                            and not chest_pad_hold_collision_enabled
+                            and (
+                                bool(args_cli.cradle_chest_pad_enable_on_target_window)
+                                or bool(args_cli.cradle_chest_pad_enable_on_box_tilt)
+                            )
+                        ):
+                            chest_pad_reasons = []
+                            if (
+                                bool(args_cli.cradle_chest_pad_enable_on_target_window)
+                                and bool(summary.get("target_window_enabled"))
+                                and (
+                                    int(args_cli.cradle_chest_pad_target_window_min_step) < 0
+                                    or int(step) >= int(args_cli.cradle_chest_pad_target_window_min_step)
+                                )
+                            ):
+                                target_center = float(args_cli.target_window_center)
+                                target_halfwidth = float(args_cli.target_window_halfwidth)
+                                if (
+                                    abs(float(prev_robot_target_directed) - target_center) <= target_halfwidth
+                                    and abs(float(prev_box_target_directed) - target_center) <= target_halfwidth
+                                ):
+                                    chest_pad_reasons.append("target_window")
+                            if (
+                                bool(args_cli.cradle_chest_pad_enable_on_box_tilt)
+                                and (
+                                    int(args_cli.cradle_chest_pad_box_tilt_min_step) < 0
+                                    or int(step) >= int(args_cli.cradle_chest_pad_box_tilt_min_step)
+                                )
+                                and float(box_feedback_tilt) >= float(args_cli.cradle_chest_pad_box_tilt_threshold)
+                            ):
+                                chest_pad_reasons.append("box_tilt")
+                            if chest_pad_reasons:
+                                try:
+                                    if not _set_collision_enabled(stage, "/World/G1FrontCradle_chest_pad", True):
+                                        raise RuntimeError("chest pad prim not found")
+                                    summary["cradle_chest_pad_collision_enabled_step"] = int(step)
+                                    summary["cradle_chest_pad_collision_enabled_reason"] = ",".join(chest_pad_reasons)
+                                    summary["cradle_chest_pad_collision_update_count"] = (
+                                        int(summary["cradle_chest_pad_collision_update_count"]) + 1
+                                    )
+                                    chest_pad_hold_collision_enabled = True
+                                except Exception as exc:
+                                    summary["cradle_chest_pad_collision_update_error"] = f"{type(exc).__name__}: {exc}"
                         command_scale = float(args_cli.agile_command_hold_scale) if agile_command_hold_active else 1.0
                         adaptive_risk = 0.0
                         if agile_command_hold_active and bool(args_cli.agile_command_hold_adaptive_scale):

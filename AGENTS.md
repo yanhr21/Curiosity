@@ -12293,6 +12293,25 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   fall/drop but under-travels. A future attempt needs a smoother command
   schedule or contact/geometry that preserves baseline travel, not a larger
   constant command.
+- 2026-07-07 G1/AGILE 0.60 kg late chest-pad follow-up: lightweight CSV audit
+  showed the original 0.60 kg lowcarry baseline reached box target-directed
+  travel `2.0 m` at step `780` and only exceeded the `0.45 rad` box-tilt gate
+  at step `810` (`0.616 rad` at step `818`), while the `final_chest_pad`
+  geometry kept max box tilt to `0.370 rad` and fall/drop `0/0` but only
+  reached final box travel `1.512 m`. This proves early/final chest-pad
+  contact sacrifices too much travel, and larger constant AGILE command was
+  already negative. Added late-trigger support in
+  `scripts/isaac/build_core_world_g1_box_scene.py`:
+  `--cradle-chest-pad-enable-on-target-window` and
+  `--cradle-chest-pad-enable-on-box-tilt`, with trigger step/reason recorded
+  in the summary, plus launcher env mappings in
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`. Added
+  `scripts/isaac/run_core_world_g1_lowcarry_060_late_chestpad_suite.sh` and
+  submitted Slurm job `169676` (`g1_060late`) through tmux
+  `curiosity_g1_060_late_chestpad_0707`; at submission it was pending in the
+  `gpu` partition due to priority. The suite is not a result yet. It must pass
+  the strict fall/drop, target-window, final-hold, box-tilt, and no-rollout-
+  shortcut gates before being treated as a real improvement.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

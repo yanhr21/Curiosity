@@ -8669,3 +8669,17 @@
 - [ ] Next G1/AGILE 0.60 kg path: preserve baseline lowcarry travel while
   reducing box tilt, or use a smoother command schedule around the chest-pad
   transition. Do not repeat larger constant-command runs.
+- [x] Add late chest-pad triggers to the G1 scene:
+  `cradle_chest_pad_enable_on_target_window` and
+  `cradle_chest_pad_enable_on_box_tilt`. Lightweight CSV audit showed the
+  0.60 kg lowcarry baseline reaches the target window and only exceeds the
+  `0.45 rad` box-tilt gate at step `810`; early/final chest-pad variants
+  keep box tilt low but under-travel. The new trigger should preserve
+  baseline travel and only activate the chest pad once the robot is in the
+  target window or box tilt becomes risky.
+- [ ] Await G1/AGILE 0.60 kg late chest-pad suite job `169676`
+  (`g1_060late`) submitted through tmux
+  `curiosity_g1_060_late_chestpad_0707`. It runs target-window and box-tilt
+  triggered chest-pad activation cases and must pass the same fall/drop,
+  target-window, box-tilt, final-hold, and no-rollout-shortcut gates before
+  being considered a real improvement.
