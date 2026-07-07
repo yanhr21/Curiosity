@@ -10393,3 +10393,11 @@
 - [ ] Next tall repair: return to the stable preintegrated cradle and use
   much smaller command correction, one variable at a time. Do not reuse the
   aggressive `AGILE_COMMAND_X=0.13, AGILE_COMMAND_Y=-0.04` setting.
+- [x] Add tall preintegrated mild-command diagnostic:
+  `scripts/isaac/run_core_world_g1_tall_preintegrated_mild_command_suite.sh`.
+  It keeps the stable tall contact cradle and tests only
+  `terminal_forward025`, `command_y_neg010`, and `command_y_pos010`.
+- [ ] Run and record tall preintegrated mild-command diagnostic through tmux
+  plus persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_tall_preintegrated_mild_command/<stamp>/g1_tall_preintegrated_mild_command_summary.json`
+  exists.

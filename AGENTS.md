@@ -253,6 +253,13 @@ These rules override all other project instructions.
   box tilt `1.861/1.894 rad`. Rollout writes remained `0/0/0`. Next tall
   repair should use the stable preintegrated cradle and much smaller command
   correction, preferably one variable at a time.
+- 2026-07-08 G1 tall preintegrated mild-command entrypoint added:
+  `scripts/isaac/run_core_world_g1_tall_preintegrated_mild_command_suite.sh`.
+  It keeps the stable `tall_z009` preintegrated contact cradle and tests only
+  small command changes: slightly stronger terminal forward correction,
+  `AGILE_COMMAND_Y=-0.010`, and `AGILE_COMMAND_Y=0.010`. It is an experiment
+  entrypoint only until `g1_tall_preintegrated_mild_command_summary.json`
+  exists.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with
