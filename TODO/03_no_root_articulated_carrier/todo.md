@@ -9099,6 +9099,14 @@
   `PENDING (Priority)` at submission. Record the result only after
   `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_blend_quick/close_front_retention_posture_summary.json`
   exists.
+- [ ] Monitor blended retention-posture smoke job. Slurm job `170298`
+  (`g1_retbsmo`) was submitted through tmux
+  `curiosity_g1_retention_blend_smoke_0707` with suite stamp
+  `20260707_g1_lowcarry_close_front_retention_blend_smoke700`. It is only a
+  700-step early-stability diagnostic with target-window/final-hold minimums
+  disabled. If it runs, record fall/drop, tilt, target-directed travel,
+  retention activation, and rollout write counts, but do not call it strict
+  carrying success.
 - [x] Add read-only retention-posture summary parser:
   `scripts/isaac/print_g1_retention_posture_summary.sh`. Use it after the
   blended retention-posture summary exists to audit pass/fail, fall/drop,

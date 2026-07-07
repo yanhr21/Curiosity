@@ -12922,6 +12922,15 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   until
   `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_blend_quick/close_front_retention_posture_summary.json`
   exists.
+- 2026-07-07 blended retention-posture smoke job: Slurm job `170298`
+  (`g1_retbsmo`) was submitted through tmux
+  `curiosity_g1_retention_blend_smoke_0707` with suite stamp
+  `20260707_g1_lowcarry_close_front_retention_blend_smoke700`. It is a
+  700-step early-stability diagnostic for the same mild blended retention
+  settings, with target-window/final-hold minimums disabled so it can backfill
+  quickly. It must not be interpreted as strict carrying success even if it
+  passes; only fall/drop, tilt, travel direction, retention activation, and
+  no-rollout-write fields are useful from this smoke.
 - 2026-07-07 close-front retention-posture parser: added
   `scripts/isaac/print_g1_retention_posture_summary.sh`, a lightweight
   read-only `jq` parser for retention-posture summary JSON. It reports
