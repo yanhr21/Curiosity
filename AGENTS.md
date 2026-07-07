@@ -12782,7 +12782,30 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   wrapper fix, Slurm job `170173` (`g1_cfstand3`) was submitted through tmux
   `curiosity_g1_close_front_freeze_stand_override3_0707` with
   `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_freeze_stand_override3`.
-  As of `2026-07-07 17:40 CST`, it was pending on GPU priority.
+  It ran on `server10` and failed `0/3`, but this is the first valid
+  stand-over-freeze evidence. `stand_delay_80` applied stand override for
+  `652` steps from step `648` but fell/dropped at `731/744` and over-traveled
+  to robot/box `2.858/2.659 m`. `stand_delay_120` applied override for
+  `636` steps from step `664` but fell/dropped at `698/737` with only `29`
+  target-window stable steps. `stand_delay_160_soft` applied override for
+  `600` steps from step `700`, improved target-window stable steps to `141`
+  and longest streak to `103`, final robot/box travel to `2.137/2.164 m`,
+  final lateral error to `-0.306/-0.186 m`, and first fall/drop to
+  `816/862`; it still failed strict gates with fall/drop `484/413` and max
+  robot/box tilt `1.412/1.825 rad`. Conclusion: stand-over-freeze is real and
+  more promising than rescue-over-freeze on close-front, but the stand
+  transition is still too aggressive. Next branch should test later/softer
+  stand-over-freeze, not final command scaling.
+- 2026-07-07 close-front stand-over-freeze refinement entrypoint: added
+  `STAND_TRANSITION_CASE_SET=refine_soft` to
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_transition_suite.sh`
+  and wrapper
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_override_refine_suite.sh`.
+  It keeps stand-over-freeze and rescue disabled, then tests
+  `stand_delay_160_microblend`, `stand_delay_180_ultrasoft`, and
+  `stand_delay_220_ultrasoft` under the same strict gates. This is the next
+  valid close-front branch because `stand_delay_160_soft` improved dwell but
+  still failed from excessive tilt/drop.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,

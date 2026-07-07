@@ -554,6 +554,33 @@ Rescue-over-freeze is a real intervention and improves target-window dwell
 slightly, but it is not enough. The next close-front branch should test
 explicit stand-over-freeze priority or support/stance selection after freeze.
 
+## Close-Front Stand-Over-Freeze
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_override_suite.sh`
+- Code hook:
+  `--agile-command-hold-stand-overrides-final-freeze`
+- Purpose:
+  keep the `freeze_strict` target-window branch, but explicitly allow delayed
+  low-COM stand targets to override frozen policy targets after final hold.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `170173` (`g1_cfstand3`) ran on
+  `server10` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_freeze_stand_override/20260707_g1_lowcarry_close_front_freeze_stand_override3/close_front_freeze_stand_override_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Longest/End Streak | Override Steps | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `stand_delay_80` | fail | 569/556 | 731/744 | 84 | 84/0 | 652 | Applies too early, over-travels and collapses. |
+| `stand_delay_120` | fail | 602/519 | 698/737 | 29 | 29/0 | 636 | Worse than the old boundary; transition destabilizes early. |
+| `stand_delay_160_soft` | fail | 484/413 | 816/862 | 141 | 103/0 | 600 | Best close-front stand branch so far; still fails tilt/drop gates. |
+
+Stand-over-freeze is a valid and useful intervention. It improves dwell more
+than rescue-over-freeze and keeps final travel/lateral near the target in the
+soft delayed case, but the transition still produces excessive roll/pitch and
+eventual box drop. The next refinement should make the stand transition later
+and softer, not change final command scale.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next
@@ -592,6 +619,7 @@ implementation should add an explicit posture-conditioned controller gate:
 - do not run rescue timing without override; freeze masks rescue targets,
 - do not treat the previous freeze-stand suite as a valid stand-target test;
   final freeze also masked stand targets,
-- add explicit stand-over-freeze priority or support/stance selection next,
+- stand-over-freeze is now the better close-front branch, but it needs a
+  later/softer transition to reduce tilt/drop,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

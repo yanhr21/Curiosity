@@ -8985,8 +8985,22 @@
 - [ ] Re-run close-front stand-over-freeze suite after the v2 shell fix.
   Slurm job `170173` (`g1_cfstand3`) was submitted through tmux
   `curiosity_g1_close_front_freeze_stand_override3_0707` with suite stamp
-  `20260707_g1_lowcarry_close_front_freeze_stand_override3`; it is pending on
-  GPU priority as of `2026-07-07 17:40 CST`.
+  `20260707_g1_lowcarry_close_front_freeze_stand_override3`; it ran on
+  `server10` and failed `0/3`, but confirmed stand-over-freeze was active.
+  Best case `stand_delay_160_soft` had `600` stand-override steps from step
+  `700`, target-window stable steps `141`, longest streak `103`, final
+  robot/box travel `2.137/2.164 m`, final lateral error `-0.306/-0.186 m`,
+  and first fall/drop `816/862`, but still failed with fall/drop `484/413`
+  and max robot/box tilt `1.412/1.825 rad`.
+- [ ] Run close-front later/softer stand-over-freeze refinement. Continue from
+  `stand_delay_160_soft`; test later delay and gentler low-COM targets/blends
+  to reduce tilt/drop while preserving target-window dwell.
+- [x] Add close-front later/softer stand-over-freeze refinement entrypoint:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_override_refine_suite.sh`.
+  It uses `STAND_TRANSITION_CASE_SET=refine_soft` and tests
+  `stand_delay_160_microblend`, `stand_delay_180_ultrasoft`, and
+  `stand_delay_220_ultrasoft` with stand-over-freeze enabled and rescue
+  disabled.
 - [x] Add a read-only close-front freeze-rescue override parser:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case
