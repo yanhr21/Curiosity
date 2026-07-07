@@ -9902,10 +9902,23 @@
   `1.490/1.466 m`, max robot/box tilt `3.135/3.134 rad`, final relative
   offset `0.500 m`, writes `0/0/0`. Reducing lateral limit alone is worse
   than the default terminal-guard boundary.
-- [ ] Next terminal-guard follow-up: do not continue scalar sign/limit scans.
-  Add or test target-window braking, path/heading offset, or a genuinely
-  posture-conditioned support selection that preserves the useful default
-  terminal side-guard stability while reducing lateral error and box tilt.
+- [x] Run posture-level lateral roll-target probe for the useful
+  `terminal_guard_lx19` boundary: single case
+  `20260707_g1_closefront_mass0525_terminal_rolltarget`, tmux
+  `curiosity_g1_closefront_m0525_terminal_rolltarget_0707`, Slurm job
+  `170578`. It kept terminal side-guard timing and enabled
+  `BALANCE_ROLL_TARGET_FROM_LATERAL=1` with robot lateral source, gain/limit
+  `0.04/0.04`, deadband `0.10`, sign `+1`, 250-step hold delay, and 80-step
+  ramp. Result: strict `fail`; fall/drop stayed `0/0` and tilt improved
+  (`max robot/box tilt 0.236/0.331 rad`), but final robot/box travel collapsed
+  to `1.364/1.016 m`, final robot/box lateral worsened to `1.456/1.598 m`,
+  final relative offset was `0.377 m`, target-window stable steps were `0`,
+  and writes were `0/0/0`. This roll-target sign/gain is not the fix.
+- [ ] Next terminal-guard follow-up: do not continue scalar sign/limit scans
+  or the same `BALANCE_ROLL_TARGET_LATERAL_SIGN=+1` roll-target setup. Add or
+  test target-window braking, path/heading offset, or a genuinely posture-
+  conditioned support selection that preserves the useful default terminal
+  side-guard stability while reducing lateral error and box tilt.
 - [ ] Next G1 validation: expand the strict gate beyond these two engineered
   postures. At minimum add held-out box mass/geometry or a third posture
   without changing the strict fall/drop, target-window, tilt, lateral,

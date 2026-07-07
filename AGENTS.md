@@ -537,6 +537,20 @@ These rules override all other project instructions.
   the next meaningful terminal-guard step needs target-window braking,
   path/heading offset, or posture-conditioned support rather than scalar sign/
   limit scanning.
+- 2026-07-07 close-front `0.525 kg` terminal-guard roll-target probe:
+  single case `20260707_g1_closefront_mass0525_terminal_rolltarget` was
+  submitted through tmux
+  `curiosity_g1_closefront_m0525_terminal_rolltarget_0707` as Slurm job
+  `170578`. It kept the useful terminal side-guard timing and enabled
+  lateral-error-driven `balance_roll_target_from_lateral` with source `robot`,
+  gain/limit `0.04/0.04`, deadband `0.10`, sign `+1`, 250-step hold delay,
+  and 80-step ramp. It failed: fall/drop stayed `0/0` and tilt improved
+  substantially, with max robot/box tilt `0.236/0.331 rad`, but travel
+  collapsed and lateral worsened. Final robot/box target-directed travel was
+  only `1.364/1.016 m`, final robot/box lateral was `1.456/1.598 m`, final
+  relative offset was `0.377 m`, target-window stable steps were `0`, and
+  writes were `0/0/0`. This roll-target sign/gain is not a fix; it trades
+  balance for severe lateral/path error and under-travel.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
