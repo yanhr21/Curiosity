@@ -8931,4 +8931,6 @@
 - [ ] Run close-front freeze-rescue timing suite. Keep `freeze_strict` and
   default balance/stand disabled, then compare rescue disabled, rescue delayed,
   and softened rescue targets to test whether the post-freeze rescue posture
-  causes the `780`-step collapse.
+  causes the `780`-step collapse. Slurm job `170095` (`g1_cfrtime`) was
+  submitted through tmux `curiosity_g1_close_front_freeze_rescue_timing_0707`;
+  it is pending on GPU priority as of `2026-07-07 16:46 CST`.

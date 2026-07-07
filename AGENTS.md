@@ -12695,8 +12695,12 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   It keeps `freeze_strict`, disables delayed stand targets, preserves default
   balance, and compares `freeze_no_rescue`, `freeze_rescue_late055`, and
   `freeze_rescue_soft035` under the same strict target-window, fall/drop,
-  tilt, lateral, and no-rollout-write gates. This is an experiment entrypoint
-  only until `close_front_freeze_rescue_timing_summary.json` exists.
+  tilt, lateral, and no-rollout-write gates. Slurm job `170095`
+  (`g1_cfrtime`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_rescue_timing_0707`; as of
+  `2026-07-07 16:46 CST`, it was pending on GPU priority. This is an
+  experiment entrypoint only until
+  `close_front_freeze_rescue_timing_summary.json` exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
