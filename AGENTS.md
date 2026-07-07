@@ -236,6 +236,23 @@ These rules override all other project instructions.
   moved into the target window. This is an experiment entrypoint only until
   `closefront_heldout_geometry_preintegrated_split_repair_summary.json`
   exists.
+- 2026-07-08 held-out G1 preintegrated split-repair result:
+  CPU Slurm job `170673` on `server01` completed
+  `20260708_g1_closefront_heldout_geometry_preintegrated_split_repair_cpu`,
+  aggregate `fail`, 0/2. `wide_y012_relaxed_geometry` removed chest pad and
+  cross brace and widened side-guard spacing, but still failed with fall/drop
+  `508/474`, first fall/drop `492/526`, max robot/box travel only
+  `0.269/0.339 m`, final travel `-0.490/0.147 m`, relative offset
+  `0.764 m`, and max robot/box tilt `3.141/3.104 rad`. The wide failure is
+  not only over-tight cross-brace/chest-pad geometry. `tall_z009_drive_lateral_refine`
+  kept the stable preintegrated cradle but used larger forward and lateral
+  command corrections; this worsened the previously stable tall boundary:
+  fall/drop `309/31`, first fall/drop `691/786`, robot target-window stable
+  only `16` steps, both-window `0/0/0`, final travel `1.204/0.793 m`,
+  final lateral `0.884/0.847 m`, relative offset `0.431 m`, and max robot/
+  box tilt `1.861/1.894 rad`. Rollout writes remained `0/0/0`. Next tall
+  repair should use the stable preintegrated cradle and much smaller command
+  correction, preferably one variable at a time.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with

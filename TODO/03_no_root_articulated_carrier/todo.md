@@ -10378,3 +10378,18 @@
   tmux plus persistent `srun`. Do not interpret it until
   `experiments/outputs/core_world_g1_closefront_heldout_geometry_preintegrated_split_repair/<stamp>/closefront_heldout_geometry_preintegrated_split_repair_summary.json`
   exists.
+- [x] Run and record preintegrated split-repair held-out diagnostic:
+  CPU Slurm job `170673` on `server01` completed
+  `20260708_g1_closefront_heldout_geometry_preintegrated_split_repair_cpu`,
+  aggregate `fail`, 0/2. `wide_y012_relaxed_geometry` removed chest pad and
+  cross brace and widened side guards, but still failed with fall/drop
+  `508/474`, first fall/drop `492/526`, max travel `0.269/0.339 m`, final
+  travel `-0.490/0.147 m`, relative offset `0.764 m`, and max robot/box tilt
+  `3.141/3.104 rad`. `tall_z009_drive_lateral_refine` made the previously
+  stable tall boundary worse: fall/drop `309/31`, first fall/drop `691/786`,
+  robot target-window stable only `16` steps, both-window `0/0/0`, final
+  travel `1.204/0.793 m`, final lateral `0.884/0.847 m`, relative offset
+  `0.431 m`, and max robot/box tilt `1.861/1.894 rad`.
+- [ ] Next tall repair: return to the stable preintegrated cradle and use
+  much smaller command correction, one variable at a time. Do not reuse the
+  aggressive `AGILE_COMMAND_X=0.13, AGILE_COMMAND_Y=-0.04` setting.
