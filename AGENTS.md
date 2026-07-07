@@ -12922,6 +12922,12 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   until
   `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_blend_quick/close_front_retention_posture_summary.json`
   exists.
+- 2026-07-07 close-front retention-posture parser: added
+  `scripts/isaac/print_g1_retention_posture_summary.sh`, a lightweight
+  read-only `jq` parser for retention-posture summary JSON. It reports
+  per-case pass/fail, fall/drop, target-window dwell, travel, lateral error,
+  tilt, final-hold latch, retention active steps/risk, and rollout root/
+  velocity/box pose write counts. It does not run simulation.
 - 2026-07-07 G1 showcase capture job: Slurm job `170209` (`g1_showviz`) was
   submitted through tmux `curiosity_g1_showcase_capture_0707` to run
   `scripts/isaac/run_core_world_g1_showcase_lowcarry_capture.sh` with

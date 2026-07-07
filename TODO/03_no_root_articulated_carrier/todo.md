@@ -9099,6 +9099,11 @@
   `PENDING (Priority)` at submission. Record the result only after
   `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_blend_quick/close_front_retention_posture_summary.json`
   exists.
+- [x] Add read-only retention-posture summary parser:
+  `scripts/isaac/print_g1_retention_posture_summary.sh`. Use it after the
+  blended retention-posture summary exists to audit pass/fail, fall/drop,
+  target-window dwell, travel, lateral error, tilt, final-hold latch,
+  retention active steps/risk, and rollout root/velocity/box pose writes.
 - [x] Monitor G1 showcase RGB capture job `170209` (`g1_showviz`) submitted
   through tmux `curiosity_g1_showcase_capture_0707`. It runs
   `scripts/isaac/run_core_world_g1_showcase_lowcarry_capture.sh` with
