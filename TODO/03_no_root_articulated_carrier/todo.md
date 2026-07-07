@@ -9840,6 +9840,17 @@
   target-window environment and should not be treated as the held-out gate.
   Interpretation: the close-front `lx19` pass is a narrow `0.50 kg`
   engineered point, not load robust.
+- [x] Run intermediate close-front held-out load boundary at `0.525 kg`:
+  strict rerun `20260707_g1_closefront_lowmass_lx19_mass0525_heldout_strict`
+  through tmux session `curiosity_g1_closefront_lx19_mass0525_strict_0707`,
+  Slurm job `170556`. Result: strict `fail`, first fall/drop at steps
+  `772/800`, fall/drop totals `228/136`, final robot/box target-directed
+  travel about `1.902/1.692 m`, final robot/box lateral about
+  `2.196/2.148 m`, max robot/box tilt `3.068/3.090 rad`, final relative
+  offset `0.458 m`, target-window stable steps `0`, and final-hold active
+  steps `8`. Interpretation: increasing close-front mass from `0.50 kg` to
+  `0.525 kg` already causes severe lateral drift and fall/drop before a valid
+  target-window hold.
 - [ ] Next G1 validation: expand the strict gate beyond these two engineered
   postures. At minimum add held-out box mass/geometry or a third posture
   without changing the strict fall/drop, target-window, tilt, lateral,

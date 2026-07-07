@@ -477,6 +477,18 @@ These rules override all other project instructions.
   target-window environment and should not be used as the held-out gate. The
   strict result shows the close-front `lx19` pass is a narrow `0.50 kg`
   engineered point, not a load-robust carrying strategy.
+- 2026-07-07 close-front `lowmass_lx19` intermediate load boundary:
+  strict `0.525 kg` rerun
+  `20260707_g1_closefront_lowmass_lx19_mass0525_heldout_strict` was submitted
+  through tmux session `curiosity_g1_closefront_lx19_mass0525_strict_0707` as
+  Slurm job `170556`. It also failed: first fall/drop occurred at steps
+  `772/800`, fall/drop totals were `228/136`, final robot/box target-directed
+  travel was about `1.902/1.692 m`, final robot/box lateral error was about
+  `2.196/2.148 m`, max robot/box tilt was `3.068/3.090 rad`, final relative
+  offset was `0.458 m`, target-window stable steps were `0`, and final-hold
+  active steps were `8`. This places the current close-front side-guard pass
+  boundary very close to the tuned `0.50 kg` case; `0.525 kg` already loses
+  lateral stability and falls before a valid target-window hold.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
