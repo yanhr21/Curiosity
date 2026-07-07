@@ -462,6 +462,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cradle-final-side-guard-enable-on-final-hold", action="store_true")
     parser.add_argument("--cradle-final-side-guard-enable-on-target-window", action="store_true")
     parser.add_argument("--cradle-final-side-guard-target-window-min-step", type=int, default=-1)
+    parser.add_argument("--cradle-final-side-guard-enable-on-box-tilt", action="store_true")
+    parser.add_argument("--cradle-final-side-guard-box-tilt-threshold", type=float, default=999.0)
+    parser.add_argument("--cradle-final-side-guard-box-tilt-min-step", type=int, default=-1)
+    parser.add_argument("--cradle-final-side-guard-box-tilt-min-box-target-travel", type=float, default=-1.0)
     parser.add_argument("--cradle-final-cross-brace", action="store_true")
     parser.add_argument("--cradle-final-cross-brace-local-pos0", type=float, nargs=3, default=(-0.18, 0.0, 0.14))
     parser.add_argument("--cradle-final-cross-brace-size", type=float, nargs=3, default=(0.05, 0.30, 0.045))
@@ -472,6 +476,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cradle-final-cross-brace-enable-on-final-hold", action="store_true")
     parser.add_argument("--cradle-final-cross-brace-enable-on-target-window", action="store_true")
     parser.add_argument("--cradle-final-cross-brace-target-window-min-step", type=int, default=-1)
+    parser.add_argument("--cradle-final-cross-brace-enable-on-box-tilt", action="store_true")
+    parser.add_argument("--cradle-final-cross-brace-box-tilt-threshold", type=float, default=999.0)
+    parser.add_argument("--cradle-final-cross-brace-box-tilt-min-step", type=int, default=-1)
+    parser.add_argument("--cradle-final-cross-brace-box-tilt-min-box-target-travel", type=float, default=-1.0)
     parser.add_argument("--disable-cradle-collision", action="store_true")
     parser.add_argument("--probe-mode", choices=("none", "front_bumper"), default="none")
     parser.add_argument("--probe-start-step", type=int, default=0)
@@ -1191,6 +1199,7 @@ def _spawn_front_torso_cradle(stage: Usd.Stage, material: UsdShade.Material | No
             or bool(args_cli.cradle_final_side_guard_enable_on_terminal_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_final_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_target_window)
+            or bool(args_cli.cradle_final_side_guard_enable_on_box_tilt)
         ):
             for name in ("left", "right"):
                 _set_collision_enabled(stage, f"/World/G1FrontCradle_final_side_guard_{name}", False)
@@ -1202,6 +1211,7 @@ def _spawn_front_torso_cradle(stage: Usd.Stage, material: UsdShade.Material | No
             or bool(args_cli.cradle_final_cross_brace_enable_on_terminal_hold)
             or bool(args_cli.cradle_final_cross_brace_enable_on_final_hold)
             or bool(args_cli.cradle_final_cross_brace_enable_on_target_window)
+            or bool(args_cli.cradle_final_cross_brace_enable_on_box_tilt)
         ):
             _set_collision_enabled(stage, brace_path, False)
     return pieces
@@ -3432,6 +3442,18 @@ def run_scene() -> Path:
         "cradle_final_side_guard_target_window_min_step": int(
             args_cli.cradle_final_side_guard_target_window_min_step
         ),
+        "cradle_final_side_guard_enable_on_box_tilt": bool(
+            args_cli.cradle_final_side_guard_enable_on_box_tilt
+        ),
+        "cradle_final_side_guard_box_tilt_threshold_rad": float(
+            args_cli.cradle_final_side_guard_box_tilt_threshold
+        ),
+        "cradle_final_side_guard_box_tilt_min_step": int(
+            args_cli.cradle_final_side_guard_box_tilt_min_step
+        ),
+        "cradle_final_side_guard_box_tilt_min_box_target_travel_m": float(
+            args_cli.cradle_final_side_guard_box_tilt_min_box_target_travel
+        ),
         "cradle_final_side_guard_collision_enabled_initial": bool(args_cli.cradle_final_side_guards)
         and not (
             bool(args_cli.cradle_final_side_guard_spawn_on_trigger)
@@ -3439,6 +3461,7 @@ def run_scene() -> Path:
             or bool(args_cli.cradle_final_side_guard_enable_on_terminal_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_final_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_target_window)
+            or bool(args_cli.cradle_final_side_guard_enable_on_box_tilt)
         ),
         "cradle_final_side_guard_collision_enabled_step": None,
         "cradle_final_side_guard_collision_enabled_reason": None,
@@ -3462,6 +3485,18 @@ def run_scene() -> Path:
         "cradle_final_cross_brace_target_window_min_step": int(
             args_cli.cradle_final_cross_brace_target_window_min_step
         ),
+        "cradle_final_cross_brace_enable_on_box_tilt": bool(
+            args_cli.cradle_final_cross_brace_enable_on_box_tilt
+        ),
+        "cradle_final_cross_brace_box_tilt_threshold_rad": float(
+            args_cli.cradle_final_cross_brace_box_tilt_threshold
+        ),
+        "cradle_final_cross_brace_box_tilt_min_step": int(
+            args_cli.cradle_final_cross_brace_box_tilt_min_step
+        ),
+        "cradle_final_cross_brace_box_tilt_min_box_target_travel_m": float(
+            args_cli.cradle_final_cross_brace_box_tilt_min_box_target_travel
+        ),
         "cradle_final_cross_brace_collision_enabled_initial": bool(args_cli.cradle_final_cross_brace)
         and not (
             bool(args_cli.cradle_final_cross_brace_spawn_on_trigger)
@@ -3469,6 +3504,7 @@ def run_scene() -> Path:
             or bool(args_cli.cradle_final_cross_brace_enable_on_terminal_hold)
             or bool(args_cli.cradle_final_cross_brace_enable_on_final_hold)
             or bool(args_cli.cradle_final_cross_brace_enable_on_target_window)
+            or bool(args_cli.cradle_final_cross_brace_enable_on_box_tilt)
         ),
         "cradle_final_cross_brace_collision_enabled_step": None,
         "cradle_final_cross_brace_collision_enabled_reason": None,
@@ -3664,6 +3700,7 @@ def run_scene() -> Path:
             or bool(args_cli.cradle_final_side_guard_enable_on_terminal_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_final_hold)
             or bool(args_cli.cradle_final_side_guard_enable_on_target_window)
+            or bool(args_cli.cradle_final_side_guard_enable_on_box_tilt)
         )
         final_cross_brace_collision_enabled = bool(args_cli.cradle_final_cross_brace) and not (
             bool(args_cli.cradle_final_cross_brace_spawn_on_trigger)
@@ -3671,6 +3708,7 @@ def run_scene() -> Path:
             or bool(args_cli.cradle_final_cross_brace_enable_on_terminal_hold)
             or bool(args_cli.cradle_final_cross_brace_enable_on_final_hold)
             or bool(args_cli.cradle_final_cross_brace_enable_on_target_window)
+            or bool(args_cli.cradle_final_cross_brace_enable_on_box_tilt)
         )
 
         def enable_final_side_guards(reason: str, step_idx: int) -> None:
@@ -4010,6 +4048,28 @@ def run_scene() -> Path:
                                         f"{type(exc).__name__}: {exc}"
                                     )
                         if (
+                            bool(args_cli.cradle_final_side_guards)
+                            and bool(args_cli.cradle_final_side_guard_enable_on_box_tilt)
+                            and not final_side_guard_collision_enabled
+                            and (
+                                int(args_cli.cradle_final_side_guard_box_tilt_min_step) < 0
+                                or int(step) >= int(args_cli.cradle_final_side_guard_box_tilt_min_step)
+                            )
+                            and (
+                                float(args_cli.cradle_final_side_guard_box_tilt_min_box_target_travel) < 0.0
+                                or float(prev_box_target_directed)
+                                >= float(args_cli.cradle_final_side_guard_box_tilt_min_box_target_travel)
+                            )
+                            and float(box_feedback_tilt)
+                            >= float(args_cli.cradle_final_side_guard_box_tilt_threshold)
+                        ):
+                            try:
+                                enable_final_side_guards("box_tilt", int(step))
+                            except Exception as exc:
+                                summary["cradle_final_side_guard_collision_update_error"] = (
+                                    f"{type(exc).__name__}: {exc}"
+                                )
+                        if (
                             bool(args_cli.cradle_final_cross_brace)
                             and bool(args_cli.cradle_final_cross_brace_enable_on_target_window)
                             and not final_cross_brace_collision_enabled
@@ -4032,6 +4092,29 @@ def run_scene() -> Path:
                                     summary["cradle_final_cross_brace_collision_update_error"] = error_text
                                     if bool(args_cli.cradle_final_cross_brace_spawn_on_trigger):
                                         summary["cradle_final_cross_brace_spawn_error"] = error_text
+                        if (
+                            bool(args_cli.cradle_final_cross_brace)
+                            and bool(args_cli.cradle_final_cross_brace_enable_on_box_tilt)
+                            and not final_cross_brace_collision_enabled
+                            and (
+                                int(args_cli.cradle_final_cross_brace_box_tilt_min_step) < 0
+                                or int(step) >= int(args_cli.cradle_final_cross_brace_box_tilt_min_step)
+                            )
+                            and (
+                                float(args_cli.cradle_final_cross_brace_box_tilt_min_box_target_travel) < 0.0
+                                or float(prev_box_target_directed)
+                                >= float(args_cli.cradle_final_cross_brace_box_tilt_min_box_target_travel)
+                            )
+                            and float(box_feedback_tilt)
+                            >= float(args_cli.cradle_final_cross_brace_box_tilt_threshold)
+                        ):
+                            try:
+                                enable_final_cross_brace("box_tilt", int(step))
+                            except Exception as exc:
+                                error_text = f"{type(exc).__name__}: {exc}"
+                                summary["cradle_final_cross_brace_collision_update_error"] = error_text
+                                if bool(args_cli.cradle_final_cross_brace_spawn_on_trigger):
+                                    summary["cradle_final_cross_brace_spawn_error"] = error_text
                         command_scale = float(args_cli.agile_command_hold_scale) if agile_command_hold_active else 1.0
                         adaptive_risk = 0.0
                         if agile_command_hold_active and bool(args_cli.agile_command_hold_adaptive_scale):

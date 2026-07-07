@@ -162,6 +162,18 @@ These rules override all other project instructions.
   and target progress; the next step should not be another hold-threshold
   variant. It needs a support/contact formulation that keeps propulsion and
   box retention coupled, or a different locomotion backend.
+- 2026-07-08 held-out G1 box-tilt contact-retention entrypoint added:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_box_tilt_contact_retention_suite.sh`.
+  It avoids AGILE hold/stand and keeps locomotion commands active. Instead,
+  box-tilt triggers now can spawn/enable chest pad, final side guards, and
+  final cross brace while preserving rollout root/velocity/box pose write
+  gates. New `cradle_final_side_guard_*_box_tilt*` and
+  `cradle_final_cross_brace_*_box_tilt*` arguments were added to
+  `scripts/isaac/build_core_world_g1_box_scene.py`, forwarded through the
+  AGILE launcher, and copied into strict summaries. This is an experiment
+  entrypoint only until
+  `closefront_heldout_geometry_box_tilt_contact_retention_summary.json`
+  exists.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with

@@ -507,6 +507,9 @@ fi
 if [[ "${CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_TARGET_WINDOW:-0}" == "1" ]]; then
   free_cradle_extra_args+=(--cradle-final-side-guard-enable-on-target-window)
 fi
+if [[ "${CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_BOX_TILT:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-side-guard-enable-on-box-tilt)
+fi
 if [[ "${CRADLE_FINAL_CROSS_BRACE:-0}" == "1" ]]; then
   free_cradle_extra_args+=(--cradle-final-cross-brace)
 fi
@@ -524,6 +527,9 @@ if [[ "${CRADLE_FINAL_CROSS_BRACE_ENABLE_ON_FINAL_HOLD:-0}" == "1" ]]; then
 fi
 if [[ "${CRADLE_FINAL_CROSS_BRACE_ENABLE_ON_TARGET_WINDOW:-0}" == "1" ]]; then
   free_cradle_extra_args+=(--cradle-final-cross-brace-enable-on-target-window)
+fi
+if [[ "${CRADLE_FINAL_CROSS_BRACE_ENABLE_ON_BOX_TILT:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-cross-brace-enable-on-box-tilt)
 fi
 free_cradle_extra_args+=(
   --cradle-side-rail-height "${CRADLE_SIDE_RAIL_HEIGHT:-0.07}"
@@ -548,10 +554,16 @@ free_cradle_extra_args+=(
   --cradle-final-side-guard-dynamic-friction "${CRADLE_FINAL_SIDE_GUARD_DYNAMIC_FRICTION:--1.0}"
   --cradle-final-side-guard-restitution "${CRADLE_FINAL_SIDE_GUARD_RESTITUTION:-0.0}"
   --cradle-final-side-guard-target-window-min-step "${CRADLE_FINAL_SIDE_GUARD_TARGET_WINDOW_MIN_STEP:--1}"
+  --cradle-final-side-guard-box-tilt-threshold "${CRADLE_FINAL_SIDE_GUARD_BOX_TILT_THRESHOLD:-999.0}"
+  --cradle-final-side-guard-box-tilt-min-step "${CRADLE_FINAL_SIDE_GUARD_BOX_TILT_MIN_STEP:--1}"
+  --cradle-final-side-guard-box-tilt-min-box-target-travel "${CRADLE_FINAL_SIDE_GUARD_BOX_TILT_MIN_BOX_TARGET_TRAVEL:--1.0}"
   --cradle-final-cross-brace-local-pos0 "${CRADLE_FINAL_CROSS_BRACE_LOCAL_X:--0.18}" "${CRADLE_FINAL_CROSS_BRACE_LOCAL_Y:-0.0}" "${CRADLE_FINAL_CROSS_BRACE_LOCAL_Z:-0.14}"
   --cradle-final-cross-brace-size "${CRADLE_FINAL_CROSS_BRACE_SIZE_X:-0.05}" "${CRADLE_FINAL_CROSS_BRACE_SIZE_Y:-0.30}" "${CRADLE_FINAL_CROSS_BRACE_SIZE_Z:-0.045}"
   --cradle-final-cross-brace-mass-scale "${CRADLE_FINAL_CROSS_BRACE_MASS_SCALE:-1.0}"
   --cradle-final-cross-brace-target-window-min-step "${CRADLE_FINAL_CROSS_BRACE_TARGET_WINDOW_MIN_STEP:--1}"
+  --cradle-final-cross-brace-box-tilt-threshold "${CRADLE_FINAL_CROSS_BRACE_BOX_TILT_THRESHOLD:-999.0}"
+  --cradle-final-cross-brace-box-tilt-min-step "${CRADLE_FINAL_CROSS_BRACE_BOX_TILT_MIN_STEP:--1}"
+  --cradle-final-cross-brace-box-tilt-min-box-target-travel "${CRADLE_FINAL_CROSS_BRACE_BOX_TILT_MIN_BOX_TARGET_TRAVEL:--1.0}"
 )
 
 run_case() {

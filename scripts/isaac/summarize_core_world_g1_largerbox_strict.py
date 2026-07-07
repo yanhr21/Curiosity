@@ -373,6 +373,18 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "cradle_final_side_guard_enable_on_target_window": summary.get(
             "cradle_final_side_guard_enable_on_target_window"
         ),
+        "cradle_final_side_guard_enable_on_box_tilt": summary.get(
+            "cradle_final_side_guard_enable_on_box_tilt"
+        ),
+        "cradle_final_side_guard_box_tilt_threshold_rad": summary.get(
+            "cradle_final_side_guard_box_tilt_threshold_rad"
+        ),
+        "cradle_final_side_guard_box_tilt_min_step": summary.get(
+            "cradle_final_side_guard_box_tilt_min_step"
+        ),
+        "cradle_final_side_guard_box_tilt_min_box_target_travel_m": summary.get(
+            "cradle_final_side_guard_box_tilt_min_box_target_travel_m"
+        ),
         "cradle_final_side_guard_collision_enabled_initial": summary.get(
             "cradle_final_side_guard_collision_enabled_initial"
         ),
@@ -393,6 +405,27 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         ),
         "cradle_final_side_guard_collision_update_error": summary.get(
             "cradle_final_side_guard_collision_update_error"
+        ),
+        "cradle_final_cross_brace_enable_on_box_tilt": summary.get(
+            "cradle_final_cross_brace_enable_on_box_tilt"
+        ),
+        "cradle_final_cross_brace_box_tilt_threshold_rad": summary.get(
+            "cradle_final_cross_brace_box_tilt_threshold_rad"
+        ),
+        "cradle_final_cross_brace_box_tilt_min_step": summary.get(
+            "cradle_final_cross_brace_box_tilt_min_step"
+        ),
+        "cradle_final_cross_brace_box_tilt_min_box_target_travel_m": summary.get(
+            "cradle_final_cross_brace_box_tilt_min_box_target_travel_m"
+        ),
+        "cradle_final_cross_brace_collision_enabled_step": summary.get(
+            "cradle_final_cross_brace_collision_enabled_step"
+        ),
+        "cradle_final_cross_brace_collision_enabled_reason": summary.get(
+            "cradle_final_cross_brace_collision_enabled_reason"
+        ),
+        "cradle_final_cross_brace_spawned_step": summary.get(
+            "cradle_final_cross_brace_spawned_step"
         ),
         "agile_command_hold_final_tilt_escape_scale": summary.get(
             "agile_command_hold_final_tilt_escape_scale"

@@ -10316,3 +10316,12 @@
   and target progress. Replace it with a coupled support/contact formulation
   that preserves propulsion while retaining the free box, or move to a
   different locomotion/support backend.
+- [x] Add box-tilt contact-retention diagnostic that preserves AGILE
+  propulsion: side guards and cross brace now support box-tilt-triggered
+  runtime enable/spawn, with launcher forwarding and strict-summary fields.
+  Entry point:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_box_tilt_contact_retention_suite.sh`.
+- [ ] Run and record box-tilt contact-retention held-out diagnostic through
+  tmux plus persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_box_tilt_contact_retention/<stamp>/closefront_heldout_geometry_box_tilt_contact_retention_summary.json`
+  exists.
