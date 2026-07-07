@@ -12716,7 +12716,8 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   The wrapper was fixed and pushed in commit `b7b52bc`; Slurm job `170125`
   (`g1_cfovr2`) was submitted through tmux
   `curiosity_g1_close_front_freeze_rescue_override2_0707`; as of
-  `2026-07-07 17:07 CST`, it was pending on GPU priority. This is the valid
+  `2026-07-07 17:17 CST`, it was still pending on GPU priority, with Slurm
+  estimating start at `2026-07-07T20:24:10` on `server46`. This is the valid
   replacement for the cancelled timing suite and remains only an experiment
   entrypoint until
   `close_front_freeze_rescue_override_summary.json` exists.

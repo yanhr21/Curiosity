@@ -8944,5 +8944,6 @@
   (`g1_cfovr`) was cancelled before allocation because the first wrapper
   version did not export the override variable. The fixed wrapper was pushed,
   and Slurm job `170125` (`g1_cfovr2`) was submitted through tmux
-  `curiosity_g1_close_front_freeze_rescue_override2_0707`; it is pending on
-  GPU priority as of `2026-07-07 17:07 CST`.
+  `curiosity_g1_close_front_freeze_rescue_override2_0707`; it is still
+  pending on GPU priority as of `2026-07-07 17:17 CST`, with Slurm estimating
+  start at `2026-07-07T20:24:10` on `server46`.
