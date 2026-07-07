@@ -11583,6 +11583,95 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   valid controller gate is boxtilt-specific target/lateral correction for the
   heavy branch while preserving fall/drop `0/0` and rollout root/box writes
   `0`.
+- 2026-07-07 boxtilt heavy lateral/target suite added:
+  `scripts/isaac/run_core_world_g1_boxtilt_heavy_lateral_target_suite.sh`.
+  It targets the `0.75 kg` three-branch-selected `boxtilt` failure, where
+  fall/drop are already `0/0` but lateral drift and under-travel prevent
+  target-window dwell. The suite tests six small variants: baseline,
+  hold-lateral off, hold-lateral sign reverse, box-lateral controller with
+  positive/negative sign, and conservative box-progress plus box-lateral. It
+  was submitted as Slurm job `169366` (`g1_bxlat`) through tmux
+  `codex_g1_boxtilt_heavy_lateral_0707`; expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_target/20260707_g1_boxtilt_heavy_lateral_target_fresh/boxtilt_heavy_lateral_target_summary.json`.
+  Do not count this route as progress unless it preserves fall/drop `0/0`,
+  root/box rollout writes `0`, and improves lateral error/target-window dwell.
+- 2026-07-07 boxtilt heavy lateral/target result: Slurm job `169366`
+  (`g1_bxlat`) failed strictly with `0/6` cases passing. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_target/20260707_g1_boxtilt_heavy_lateral_target_fresh/boxtilt_heavy_lateral_target_summary.json`.
+  Baseline reproduced the heavy boxtilt safety profile: fall/drop `0/0`,
+  final robot/box travel `1.12217/1.07559 m`, final lateral error
+  `0.81011/0.70503 m`, and target-window streak `0`. `hold_lat_off` and
+  `box_lat_sign_neg` caused large falls/drops, and `box_progress_lat`
+  over-drove and failed with `297` falls / `76` drops. The useful case was
+  `hold_lat_reverse`: fall/drop `0/0`, target-window stable steps/longest
+  streak `152/152`, but it did not stop in the window and ended with
+  over-travel `2.75805/2.74993 m` plus lateral error `1.78825/1.61990 m`.
+  Next valid test is a boxtilt-heavy stop/hold refinement on top of
+  `hold_lat_reverse`, not more broad lateral sweeps.
+- 2026-07-07 boxtilt heavy stop-refine suite added:
+  `scripts/isaac/run_core_world_g1_boxtilt_heavy_stop_refine_suite.sh`.
+  It fixes the `0.75 kg` boxtilt branch to the useful `hold_lat_reverse`
+  lateral setup and sweeps terminal/final hold thresholds around the target
+  window (`1.55/1.70`, `1.65/1.80`, `1.75/1.90`, plus final-zero correction)
+  to try to convert the transient `152`-step target-window visit into an
+  end-of-run hold. Submitted as Slurm job `169371` (`g1_bxstop`) through tmux
+  `codex_g1_boxtilt_heavy_stop_0707`; expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_stop_refine/20260707_g1_boxtilt_heavy_stop_refine_fresh/boxtilt_heavy_stop_refine_summary.json`.
+- 2026-07-07 boxtilt heavy stop-refine result: Slurm job `169371`
+  (`g1_bxstop`) failed strictly with `0/4` cases passing. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_stop_refine/20260707_g1_boxtilt_heavy_stop_refine_fresh/boxtilt_heavy_stop_refine_summary.json`.
+  `stop_155_170` reintroduced instability (`137` falls / `40` drops).
+  `stop_165_180` and `stop_175_190` kept fall/drop `0/0` but overran the
+  target window with end streak `0`. The best partial signal was
+  `stop_165_180_finalzero`: fall/drop `0/0`, target-window stable/longest
+  streak `184/184`, but end streak `0`, final robot/box travel
+  `2.37121/2.41655 m`, large lateral error `1.72462/1.81844 m`, and box
+  tilt above the strict gate. Do not claim success; terminal/final hold
+  improves dwell but does not solve stopping or lateral control.
+- 2026-07-07 boxtilt heavy window-freeze suite added:
+  `scripts/isaac/run_core_world_g1_boxtilt_heavy_window_freeze_suite.sh`.
+  It keeps the heavy `boxtilt` branch on `hold_lat_reverse`, adds target-
+  window freeze, lowers terminal speed, and tests one small final-brake
+  variant. Submitted as Slurm job `169411` (`g1_bxfreeze`) through tmux
+  `codex_g1_boxtilt_freeze_0707`. This remains diagnostic only; it must
+  preserve fall/drop `0/0`, root/box rollout writes `0`, and produce an
+  end-of-run target-window streak before it can be treated as a meaningful
+  controller improvement.
+- 2026-07-07 boxtilt heavy window-freeze result: Slurm job `169411`
+  (`g1_bxfreeze`) failed strictly with `0/4` cases passing. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_window_freeze/20260707_g1_boxtilt_heavy_window_freeze/boxtilt_heavy_window_freeze_summary.json`.
+  All freeze/brake variants reintroduced falls and drops:
+  `freeze_160_180_s012` had `105` falls / `92` drops,
+  `freeze_165_185_s010` had `110` / `26`,
+  `freeze_170_190_s008` had `77` / `49`, and
+  `freeze_165_180_brake` had `109` / `95`. Best target-window dwell in this
+  suite was `122` stable steps with end streak `0`, worse than the previous
+  `169371` `finalzero` branch (`184` stable steps, fall/drop `0/0`). Do not
+  keep adding target-window freeze/brake variants; this worsens late roll/drop.
+  The next valid step is either a lateral-error-aware terminal stabilizer that
+  preserves `169371`'s fall/drop `0/0`, or a controller-backed balance/
+  locomotion replacement.
+- 2026-07-07 boxtilt heavy terminal-lateral suite added:
+  `scripts/isaac/run_core_world_g1_boxtilt_heavy_terminal_lateral_suite.sh`.
+  It returns to the safer `169371` terminal/final hold thresholds, disables
+  freeze/brake, and tests terminal-only lateral correction with excess-error
+  thresholds plus one tilt-gated variant. Submitted as Slurm job `169419`
+  (`g1_bxtermlat`) through tmux `codex_g1_boxtilt_termlat_0707`. Treat this
+  as a narrow diagnostic only; useful progress requires lower lateral error
+  while preserving fall/drop `0/0` and root/box rollout writes `0`.
+- 2026-07-07 boxtilt heavy terminal-lateral result: Slurm job `169419`
+  (`g1_bxtermlat`) failed strictly with `0/4` cases passing. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_terminal_lateral/20260707_g1_boxtilt_heavy_terminal_lateral/boxtilt_heavy_terminal_lateral_summary.json`.
+  All four terminal-only variants failed identically before terminal latch:
+  `448` falls / `293` drops, final robot/box target-directed travel only
+  `0.59292/0.54745 m`, target-window stable steps `0`, and
+  `agile_command_hold_terminal_latched=false`. This proves the pre-terminal
+  lateral correction is required for the current boxtilt branch to stay
+  upright long enough to approach the target. Stop small boxtilt scalar
+  threshold tweaks unless a materially different balance mechanism is added:
+  removing early lateral control collapses early (`169419`), freezing/braking
+  near the window collapses late (`169411`), and the safer final-zero dwell
+  branch still cannot end in the window (`169371`).
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

@@ -8136,3 +8136,97 @@
   improvement is not just fewer falls/drops, because those are already `0/0`;
   it must reduce heavy-case lateral error and increase target-window dwell
   without reintroducing falls/drops or rollout root/box writes.
+- [x] Add `scripts/isaac/run_core_world_g1_boxtilt_heavy_lateral_target_suite.sh`
+  for the 0.75 kg boxtilt branch. It tests six small variants: baseline,
+  hold lateral off, hold lateral sign reverse, box-lateral controller with
+  positive/negative sign, and conservative box-progress plus box-lateral.
+  The gate is not just fall/drop, because baseline already has `0/0`; it must
+  reduce final lateral error and increase target-window dwell without rollout
+  root/box writes.
+- [x] Await boxtilt heavy lateral/target job `169366` (`g1_bxlat`) submitted
+  through tmux `codex_g1_boxtilt_heavy_lateral_0707`. Expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_target/20260707_g1_boxtilt_heavy_lateral_target_fresh/boxtilt_heavy_lateral_target_summary.json`.
+- [x] Record boxtilt heavy lateral/target job `169366`. Result: strict
+  `fail`, `0/6` cases passed. Baseline reproduced the heavy boxtilt safety
+  profile: fall/drop `0/0`, final robot/box travel `1.12217/1.07559 m`,
+  final lateral error `0.81011/0.70503 m`, and target-window streak `0`.
+  `hold_lat_off` and `box_lat_sign_neg` both caused large fall/drop counts,
+  so removing or reversing all lateral stabilization is unsafe. `box_progress_lat`
+  over-drove and failed with `297` falls / `76` drops. The useful case was
+  `hold_lat_reverse`: fall/drop `0/0`, target-window stable steps/longest
+  streak `152/152`, but it did not stop in the window and ended with
+  over-travel `2.75805/2.74993 m` plus large lateral error
+  `1.78825/1.61990 m`. Interpretation: reverse hold-lateral can reach the
+  target window safely, but needs a boxtilt-specific terminal/final hold to
+  prevent overrun and lateral growth.
+- [ ] Next boxtilt-heavy gate: run a stop/hold refinement on top of
+  `hold_lat_reverse`, triggering terminal/final hold near the target window.
+  Required improvement is target-window end streak while preserving fall/drop
+  `0/0` and root/box rollout writes `0`.
+- [x] Add `scripts/isaac/run_core_world_g1_boxtilt_heavy_stop_refine_suite.sh`.
+  It fixes the 0.75 kg boxtilt branch to the useful `hold_lat_reverse`
+  lateral setup and sweeps terminal/final hold thresholds around the target
+  window (`1.55/1.70`, `1.65/1.80`, `1.75/1.90`, plus a final-zero
+  correction variant). The goal is to convert the existing 152-step transient
+  target-window visit into an end-of-run hold.
+- [x] Await boxtilt heavy stop-refine job `169371` (`g1_bxstop`) submitted
+  through tmux `codex_g1_boxtilt_heavy_stop_0707`. Expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_stop_refine/20260707_g1_boxtilt_heavy_stop_refine_fresh/boxtilt_heavy_stop_refine_summary.json`.
+- [x] Record boxtilt heavy stop-refine job `169371`. Result: strict `fail`,
+  `0/4` cases passed. `stop_155_170` destabilized the robot/box with
+  `137` falls / `40` drops, so too-early hard stopping is unsafe.
+  `stop_165_180` and `stop_175_190` preserved fall/drop `0/0` but overran
+  the target window, with end streak `0` and final robot/box travel
+  `2.66508/2.70260 m` and `2.58964/2.62017 m`. The useful partial signal was
+  `stop_165_180_finalzero`: fall/drop `0/0`, target-window stable/longest
+  streak `184/184`, but still end streak `0`, final robot/box travel
+  `2.37121/2.41655 m`, large lateral error `1.72462/1.81844 m`, and box
+  tilt above the strict gate. Interpretation: terminal/final hold can keep
+  the heavy boxtilt branch in the window longer, but it still cannot stop at
+  the end or control lateral drift.
+- [x] Add `scripts/isaac/run_core_world_g1_boxtilt_heavy_window_freeze_suite.sh`.
+  It keeps the 0.75 kg `boxtilt` branch on `hold_lat_reverse` and tests
+  target-window freeze plus lower terminal speed and one small final-brake
+  variant. This is a narrow follow-up to `169371`, not a new success claim.
+- [x] Await boxtilt heavy window-freeze job `169411` (`g1_bxfreeze`)
+  submitted through tmux `codex_g1_boxtilt_freeze_0707`. Expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_window_freeze/20260707_g1_boxtilt_heavy_window_freeze/boxtilt_heavy_window_freeze_summary.json`.
+- [x] Record boxtilt heavy window-freeze job `169411`. Result: strict
+  `fail`, `0/4` cases passed. All target-window freeze/brake variants
+  reintroduced falls and drops: `freeze_160_180_s012` had `105` falls /
+  `92` drops, `freeze_165_185_s010` had `110` / `26`,
+  `freeze_170_190_s008` had `77` / `49`, and `freeze_165_180_brake` had
+  `109` / `95`. The best target-window dwell in this suite was only
+  `122` stable steps with end streak `0`, worse than the prior `169371`
+  `finalzero` case's `184` stable steps and fall/drop `0/0`. Interpretation:
+  target-window freeze/brake is not the missing stabilizer; it worsens late
+  roll/drop. Return to the safer `finalzero` branch or replace the boxtilt
+  terminal controller with an explicit lateral/balance stabilizer rather than
+  freezing policy commands.
+- [ ] Next boxtilt-heavy decision: do not keep adding freeze/brake variants.
+  Either test a lateral-error-aware terminal controller that preserves the
+  `169371` fall/drop `0/0` property, or stop investing in this hand-tuned
+  branch and move to a controller-backed balance/locomotion replacement.
+- [x] Add `scripts/isaac/run_core_world_g1_boxtilt_heavy_terminal_lateral_suite.sh`.
+  It keeps the 0.75 kg boxtilt branch on the safer `169371` terminal/final
+  hold thresholds, disables freeze/brake, and tests terminal-only lateral
+  correction with excess-error thresholds and one tilt-gated variant. The
+  required signal is lower lateral error without reintroducing falls/drops.
+- [x] Await boxtilt heavy terminal-lateral job `169419` (`g1_bxtermlat`)
+  submitted through tmux `codex_g1_boxtilt_termlat_0707`. Expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_terminal_lateral/20260707_g1_boxtilt_heavy_terminal_lateral/boxtilt_heavy_terminal_lateral_summary.json`.
+- [x] Record boxtilt heavy terminal-lateral job `169419`. Result: strict
+  `fail`, `0/4` cases passed. All four terminal-only variants failed
+  identically before terminal latch: `448` falls / `293` drops, final
+  robot/box target-directed travel only `0.59292/0.54745 m`, target-window
+  stable steps `0`, and `agile_command_hold_terminal_latched=false`.
+  Interpretation: the pre-terminal lateral correction is required for this
+  boxtilt branch to remain upright long enough to reach the target region;
+  terminal-only lateral correction is not viable.
+- [ ] Stop small boxtilt hold/lateral tweaking unless a materially different
+  balance mechanism is introduced. Current negative set: removing early
+  lateral control collapses early (`169419`), freezing/braking near the
+  window collapses late (`169411`), and the safer final-zero dwell branch
+  still cannot end in the target window (`169371`). Next credible work should
+  replace the terminal stabilizer or move back to controller-backed
+  locomotion/balance, not add another scalar threshold sweep.

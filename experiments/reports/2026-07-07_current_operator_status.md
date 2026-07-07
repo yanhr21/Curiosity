@@ -182,6 +182,26 @@ This is a status snapshot only. It is not a carrying-success claim.
   under-travel. This is safety progress versus the prior two-branch selector
   because the heavy case no longer catastrophically falls/drops, but it is not
   task success.
+- `169366` / `g1_bxlat` completed on `server36` with Slurm state `FAILED`,
+  exit `1:0`, elapsed `00:02:47`. It was submitted through tmux
+  `codex_g1_boxtilt_heavy_lateral_0707`. It runs
+  `scripts/isaac/run_core_world_g1_boxtilt_heavy_lateral_target_suite.sh` for
+  the `0.75 kg` boxtilt branch. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_target/20260707_g1_boxtilt_heavy_lateral_target_fresh/boxtilt_heavy_lateral_target_summary.json`.
+  Result: strict `fail`, `0/6` cases passed. Baseline kept fall/drop `0/0`
+  but had target-window streak `0`. `hold_lat_off` and `box_lat_sign_neg`
+  caused large falls/drops; `box_progress_lat` over-drove and failed with
+  `297` falls / `76` drops. The useful variant is `hold_lat_reverse`, which
+  kept fall/drop `0/0` and reached target-window stable/longest streak
+  `152/152`, but failed to stop there and ended over-traveled with large
+  lateral error. Next action is a stop/hold refinement on `hold_lat_reverse`.
+- `169371` / `g1_bxstop` completed on `server39` with Slurm exit `1:0`.
+  Summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_stop_refine/20260707_g1_boxtilt_heavy_stop_refine_fresh/boxtilt_heavy_stop_refine_summary.json`.
+  Result: strict `fail`, `0/4` cases passed. The best partial signal was
+  `stop_165_180_finalzero`: fall/drop `0/0`, target-window stable/longest
+  streak `184/184`, but end streak `0`, over-travel, high lateral error, and
+  excessive tilt. This improves dwell only, not final stop/hold.
 - `169303` / `g1_lowload` completed on `server36` in `00:01:55` with Slurm
   exit `1:0`. This is a strict negative load-robustness result for the current
   G1 AGILE low-carry front-tray setup. The `0.50 kg` case passed and
@@ -827,9 +847,38 @@ This is a status snapshot only. It is not a carrying-success claim.
   `2.29876/2.34645 m`, max robot/box tilt `0.20860/0.41361 rad`, min
   robot/box z `0.75211/0.80838 m`, target-window end streak `164`, and no
   rollout root pose/velocity or box pose writes.
-- Low-carry load validation is pending as Slurm job `169303` (`g1_lowload`)
-  through tmux `codex_g1_lowcarry_load_0707`. It tests the same strict
-  low-carry gate at `0.25`, `0.50`, and `0.75 kg`.
+- Low-carry load validation `169303` (`g1_lowload`) already completed with
+  Slurm exit `1:0` and strict aggregate failure. Only the `0.50 kg` case
+  passed; `0.25 kg` failed with `384` falls / `225` drops and `0.75 kg`
+  failed with `346` falls / `284` drops. Do not describe the current
+  low-carry front-tray setup as load robust.
+- Boxtilt heavy stop-refine job `169371` (`g1_bxstop`) completed on
+  `server39` with strict failure `0/4`. The useful case was
+  `stop_165_180_finalzero`: it kept fall/drop `0/0` and increased
+  target-window stable/longest streak to `184/184`, but it still ended
+  outside the window with end streak `0`, over-travel
+  `2.37121/2.41655 m`, lateral error `1.72462/1.81844 m`, and excessive
+  tilt. This is a dwell improvement, not a stop/hold solution.
+- Boxtilt heavy window-freeze job `169411` (`g1_bxfreeze`) completed on
+  `server02` with Slurm exit `1:0`. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_window_freeze/20260707_g1_boxtilt_heavy_window_freeze/boxtilt_heavy_window_freeze_summary.json`.
+  Result: strict `fail`, `0/4` cases passed. All freeze/brake variants
+  reintroduced falls/drops (`105/92`, `110/26`, `77/49`, `109/95`). Best
+  window dwell was `122` stable steps with end streak `0`, worse than
+  `169371` `finalzero` (`184` stable steps, fall/drop `0/0`). Do not keep
+  adding freeze/brake variants on this branch.
+- Boxtilt heavy terminal-lateral suite has been submitted as Slurm job
+  `169419` (`g1_bxtermlat`) through tmux `codex_g1_boxtilt_termlat_0707`.
+  It tests terminal-only, thresholded lateral correction on the safer
+  `169371` terminal/final hold setup, without freeze/brake. Expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_terminal_lateral/20260707_g1_boxtilt_heavy_terminal_lateral/boxtilt_heavy_terminal_lateral_summary.json`.
+- Boxtilt heavy terminal-lateral job `169419` (`g1_bxtermlat`) completed on
+  `server02` with Slurm exit `1:0`. Result: strict `fail`, `0/4` cases
+  passed. All variants failed before terminal latch with `448` falls /
+  `293` drops, final robot/box target-directed travel `0.59292/0.54745 m`,
+  and target-window stable steps `0`. Conclusion: pre-terminal lateral
+  correction is required for this branch; terminal-only correction is not a
+  viable repair.
 - Completion audit remains `fail`. The full task is not achieved.
 
 ## Next Decision
