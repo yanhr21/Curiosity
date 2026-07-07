@@ -185,7 +185,15 @@ These rules override all other project instructions.
   not evidence that the support-posture mechanism works or fails. The suite
   was corrected to `soft1050_active` / `support1200_active` with activation
   starting at `0.65 m`; do not interpret the mechanism until a fresh summary
-  shows nonzero `approach_support_posture_active_steps`.
+  shows nonzero `approach_support_posture_active_steps`. Direct active run
+  `20260707_g1_lowcarry_close_front_approach_support_direct_active` did
+  activate the controller (`active_steps=571`, first active step `479`, max
+  scale about `0.785`) but failed hard: fall/drop `128/28`, first fall/drop
+  steps `922/1022`, final robot/box travel about `1.332/1.044 m`, max
+  robot/box tilt `2.213/2.340 rad`, target-window stable steps `0`, final-hold
+  active steps `0`, and writes `0/0/0`. This shows the early/strong support
+  offset destabilizes the close-front carry; the next valid probe should be a
+  much weaker and later micro-support, not a stronger low-stance offset.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

@@ -9472,10 +9472,28 @@
   `soft1050_active` now blends from `0.65 m` to `1.15 m`, and
   `support1200_active` from `0.65 m` to `1.20 m`, so the support posture can
   become active before final-hold disables it.
-- [ ] Rerun and record active close-front approach-support suite. Use tmux plus
+- [x] Rerun and record active close-front approach-support suite. Use tmux plus
   persistent `srun` on a compute node. Do not interpret results until
   `experiments/outputs/core_world_g1_lowcarry_close_front_approach_support/<stamp>/close_front_approach_support_summary.json`
   exists and reports nonzero `approach_support_posture_active_steps`. A pass
   still must satisfy the original strict gates and cannot be claimed as
   arbitrary-posture or learned carrying unless broader posture generalization
   also passes.
+- [x] Record direct active close-front approach-support result:
+  `20260707_g1_lowcarry_close_front_approach_support_direct_active`. This was
+  run through a direct compute-side env command after one stale wrapper run
+  showed the old activation window in its log and was cancelled. The direct
+  active run did activate support (`active_steps=571`, first active step
+  `479`, max scale about `0.785`) but failed strict gates: fall/drop `128/28`,
+  first fall/drop steps `922/1022`, final robot/box travel about
+  `1.332/1.044 m`, max robot/box tilt `2.213/2.340 rad`, target-window stable
+  steps `0`, final-hold active steps `0`, writes `0/0/0`. Conclusion: the
+  early/strong support offset destabilizes the close-front carry. Do not tune
+  toward stronger low stance; test a much weaker, later micro-support if this
+  branch is continued.
+- [ ] Run a weaker/later close-front micro-support probe: activate closer to
+  the near-miss final-hold boundary, reduce hip/knee/ankle/waist offsets by
+  about 3x, and require the same no-fall/no-drop/no-write/target-window/tilt
+  gates before interpreting. The target is not to force low stance, but to
+  test whether a small pre-final support bias can lower tilt without
+  destroying the previously observed fall/drop `0/0` behavior.
