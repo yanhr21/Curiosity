@@ -430,6 +430,24 @@ fi
 if [[ "${CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_TARGET_WINDOW:-0}" == "1" ]]; then
   free_cradle_extra_args+=(--cradle-final-side-guard-enable-on-target-window)
 fi
+if [[ "${CRADLE_FINAL_CROSS_BRACE:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-cross-brace)
+fi
+if [[ "${CRADLE_FINAL_CROSS_BRACE_SPAWN_ON_TRIGGER:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-cross-brace-spawn-on-trigger)
+fi
+if [[ "${CRADLE_FINAL_CROSS_BRACE_ENABLE_ON_HOLD:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-cross-brace-enable-on-hold)
+fi
+if [[ "${CRADLE_FINAL_CROSS_BRACE_ENABLE_ON_TERMINAL_HOLD:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-cross-brace-enable-on-terminal-hold)
+fi
+if [[ "${CRADLE_FINAL_CROSS_BRACE_ENABLE_ON_FINAL_HOLD:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-cross-brace-enable-on-final-hold)
+fi
+if [[ "${CRADLE_FINAL_CROSS_BRACE_ENABLE_ON_TARGET_WINDOW:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-cross-brace-enable-on-target-window)
+fi
 free_cradle_extra_args+=(
   --cradle-side-rail-height "${CRADLE_SIDE_RAIL_HEIGHT:-0.07}"
   --cradle-end-stop-height "${CRADLE_END_STOP_HEIGHT:-0.08}"
@@ -453,6 +471,10 @@ free_cradle_extra_args+=(
   --cradle-final-side-guard-dynamic-friction "${CRADLE_FINAL_SIDE_GUARD_DYNAMIC_FRICTION:--1.0}"
   --cradle-final-side-guard-restitution "${CRADLE_FINAL_SIDE_GUARD_RESTITUTION:-0.0}"
   --cradle-final-side-guard-target-window-min-step "${CRADLE_FINAL_SIDE_GUARD_TARGET_WINDOW_MIN_STEP:--1}"
+  --cradle-final-cross-brace-local-pos0 "${CRADLE_FINAL_CROSS_BRACE_LOCAL_X:--0.18}" "${CRADLE_FINAL_CROSS_BRACE_LOCAL_Y:-0.0}" "${CRADLE_FINAL_CROSS_BRACE_LOCAL_Z:-0.14}"
+  --cradle-final-cross-brace-size "${CRADLE_FINAL_CROSS_BRACE_SIZE_X:-0.05}" "${CRADLE_FINAL_CROSS_BRACE_SIZE_Y:-0.30}" "${CRADLE_FINAL_CROSS_BRACE_SIZE_Z:-0.045}"
+  --cradle-final-cross-brace-mass-scale "${CRADLE_FINAL_CROSS_BRACE_MASS_SCALE:-1.0}"
+  --cradle-final-cross-brace-target-window-min-step "${CRADLE_FINAL_CROSS_BRACE_TARGET_WINDOW_MIN_STEP:--1}"
 )
 
 run_case() {

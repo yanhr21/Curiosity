@@ -9985,6 +9985,16 @@
   direction is not more brake timing/amplitude; the next control-side change
   needs explicit terminal support/contact geometry or posture-conditioned
   lateral support while keeping final-hold command zero.
+- [x] Add terminal cross-brace structural support entrypoint. Added optional
+  `cradle_final_cross_brace` contact proxy and
+  `scripts/isaac/run_core_world_g1_closefront_mass0525_terminal_cross_brace_suite.sh`.
+  This tests physical support/contact on top of the useful `terminal_guard_lx19`
+  boundary instead of more command braking.
+- [ ] Run and record terminal cross-brace single case:
+  `20260707_g1_closefront_mass0525_terminal_cross_brace_terminal_cross_brace_x19_z135`.
+  It keeps terminal side guards, `0.525 kg`, final command zero, and adds a
+  terminal cross-brace at local x/z `-0.19/0.135` with size
+  `0.07 x 0.30 x 0.04 m`. Interpret only after the strict summary exists.
 - [x] Monitor checker-compatible terminal freeze follow-up:
   `20260707_g1_closefront_mass0525_terminal_freeze`, tmux
   `curiosity_g1_closefront_m0525_terminal_freeze_0707`, Slurm job `170593`.

@@ -642,6 +642,17 @@ These rules override all other project instructions.
   `1.081/0.913 m`. Interpretation: a very small pre-final brake is
   checker-compatible but does not reduce lateral drift and worsens tilt; do
   not keep scalar-scanning pre-final brake.
+- 2026-07-07 close-front `0.525 kg` terminal cross-brace entrypoint: added a
+  new optional `cradle_final_cross_brace` physical contact proxy in
+  `scripts/isaac/build_core_world_g1_box_scene.py` and exposed it through
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`. It is a
+  torso-fixed transverse brace with hold/terminal/final/target-window trigger
+  modes, intended to test a structural support/contact change rather than
+  another command scalar. Added single-case launcher
+  `scripts/isaac/run_core_world_g1_closefront_mass0525_terminal_cross_brace_suite.sh`,
+  which reuses the useful `terminal_guard_lx19` boundary and adds a terminal
+  cross-brace at local x/z `-0.19/0.135` with size `0.07 x 0.30 x 0.04 m`.
+  This is an experiment entrypoint only until a fresh summary exists.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
