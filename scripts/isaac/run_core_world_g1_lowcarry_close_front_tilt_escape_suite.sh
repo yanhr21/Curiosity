@@ -9,6 +9,7 @@ fi
 ROOT_DIR="${ROOT_DIR:-/public/home/yanhongru/Curiosity}"
 SUITE_STAMP_PREFIX="${SUITE_STAMP_PREFIX:-20260707_g1_lowcarry_close_front_tilt_escape}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-${ROOT_DIR}/experiments/outputs/core_world_g1_lowcarry_close_front_tilt_escape/${SUITE_STAMP_PREFIX}}"
+CASE_SET="${TILT_ESCAPE_CASE_SET:-default}"
 
 cd "${ROOT_DIR}"
 mkdir -p "${OUTPUT_ROOT}"
@@ -99,15 +100,34 @@ run_case() {
   fi
 }
 
-run_case escape_robot035_box042_scale015 \
-  AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_SCALE=0.015 \
-  AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_TILT=0.35 \
-  AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_BOX_TILT=0.42
+case "${CASE_SET}" in
+  default)
+    run_case escape_robot035_box042_scale015 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_SCALE=0.015 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_TILT=0.35 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_BOX_TILT=0.42
 
-run_case escape_robot030_box040_scale025 \
-  AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_SCALE=0.025 \
-  AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_TILT=0.30 \
-  AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_BOX_TILT=0.40
+    run_case escape_robot030_box040_scale025 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_SCALE=0.025 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_TILT=0.30 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_BOX_TILT=0.40
+    ;;
+  early)
+    run_case escape_robot022_box030_scale015 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_SCALE=0.015 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_TILT=0.22 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_BOX_TILT=0.30
+
+    run_case escape_robot018_box024_scale020 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_SCALE=0.020 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_TILT=0.18 \
+      AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_BOX_TILT=0.24
+    ;;
+  *)
+    echo "Unknown TILT_ESCAPE_CASE_SET=${CASE_SET}; expected default or early" >&2
+    exit 2
+    ;;
+esac
 
 if [[ "${#summary_args[@]}" -gt 0 ]]; then
   set +e
