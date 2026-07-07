@@ -215,6 +215,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--agile-command-stop-step", type=int, default=-1)
     parser.add_argument("--agile-command-stop-box-target-travel", type=float, default=-1.0)
     parser.add_argument("--agile-command-stop-robot-target-travel", type=float, default=-1.0)
+    parser.add_argument("--agile-command-stop-target-window", action="store_true")
+    parser.add_argument("--agile-command-stop-target-window-min-step", type=int, default=-1)
     parser.add_argument("--agile-command-hold-scale", type=float, default=0.0)
     parser.add_argument("--agile-command-hold-adaptive-scale", action="store_true")
     parser.add_argument("--agile-command-hold-adaptive-min-scale", type=float, default=0.0)
@@ -2292,6 +2294,11 @@ def run_scene() -> Path:
         "agile_command_stop_step": int(args_cli.agile_command_stop_step),
         "agile_command_stop_box_target_travel_m": float(args_cli.agile_command_stop_box_target_travel),
         "agile_command_stop_robot_target_travel_m": float(args_cli.agile_command_stop_robot_target_travel),
+        "agile_command_stop_target_window_enabled": bool(args_cli.agile_command_stop_target_window),
+        "agile_command_stop_target_window_min_step": int(
+            args_cli.agile_command_stop_target_window_min_step
+        ),
+        "agile_command_stop_target_window_latched_step": None,
         "agile_command_hold_scale": float(args_cli.agile_command_hold_scale),
         "agile_command_hold_adaptive_scale_enabled": bool(args_cli.agile_command_hold_adaptive_scale),
         "agile_command_hold_adaptive_min_scale": float(args_cli.agile_command_hold_adaptive_min_scale),
@@ -2888,12 +2895,32 @@ def run_scene() -> Path:
                                 and float(prev_robot_target_directed) >= float(args_cli.agile_command_stop_robot_target_travel)
                             ):
                                 agile_hold_reasons.append("robot_target_travel")
+                            if (
+                                bool(args_cli.agile_command_stop_target_window)
+                                and bool(summary.get("target_window_enabled"))
+                                and (
+                                    int(args_cli.agile_command_stop_target_window_min_step) < 0
+                                    or int(step) >= int(args_cli.agile_command_stop_target_window_min_step)
+                                )
+                            ):
+                                target_center = float(args_cli.target_window_center)
+                                target_halfwidth = float(args_cli.target_window_halfwidth)
+                                if (
+                                    abs(float(prev_robot_target_directed) - target_center) <= target_halfwidth
+                                    and abs(float(prev_box_target_directed) - target_center) <= target_halfwidth
+                                ):
+                                    agile_hold_reasons.append("target_window")
                             if agile_hold_reasons:
                                 agile_command_hold_active = True
                                 agile_command_hold_first_reason = ",".join(agile_hold_reasons)
                                 summary["agile_command_hold_active"] = True
                                 summary["agile_command_hold_first_active_step"] = int(step)
                                 summary["agile_command_hold_first_reason"] = agile_command_hold_first_reason
+                                if (
+                                    "target_window" in agile_hold_reasons
+                                    and summary["agile_command_stop_target_window_latched_step"] is None
+                                ):
+                                    summary["agile_command_stop_target_window_latched_step"] = int(step)
                                 if (
                                     bool(args_cli.cradle_top_lid)
                                     and bool(args_cli.cradle_top_lid_enable_on_hold)

@@ -16,6 +16,10 @@
   controllers:
   `--agile-command-box-progress-scale-on-hold` and
   `--agile-command-box-lateral-scale-on-hold`.
+- [x] Add direct target-window hold trigger for G1 AGILE command control:
+  `--agile-command-stop-target-window` and
+  `--agile-command-stop-target-window-min-step`, plus
+  `scripts/isaac/run_core_world_g1_boxtilt_window_hold_suite.sh`.
 - [ ] Await and record
   `scripts/isaac/run_core_world_g1_boxtilt_scaled_terminal_suite.sh` /
   Slurm job `169580`. It tests whether slow box-progress plus lateral
@@ -23,6 +27,10 @@
   over-travel. If it fails, do not keep scalar-tuning this same command layer;
   move to support/locomotion backend replacement or a materially stronger
   terminal balance controller.
+- [ ] Run and record
+  `scripts/isaac/run_core_world_g1_boxtilt_window_hold_suite.sh` after a GPU
+  compute slot is available. This tests whether directly latching hold on
+  target-window entry is better than box-travel threshold latching.
 - [x] Run and record the MuJoCo robot-like welded-payload bracket after the
   prismatic scaffold pass. `v022_fx130` and `v024_fx115` passed the diagnostic
   no-fall/no-root-write/travel gate; `v026_fx105` failed late with falls.

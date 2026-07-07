@@ -85,6 +85,14 @@ This is a status snapshot only. It is not a carrying-success claim.
   `--agile-command-box-progress-scale-on-hold` and
   `--agile-command-box-lateral-scale-on-hold`, plus the focused
   `scripts/isaac/run_core_world_g1_boxtilt_scaled_terminal_suite.sh`.
+- While `169580` remained pending, a direct target-window hold trigger was
+  added for the same failure mode:
+  `--agile-command-stop-target-window` and
+  `--agile-command-stop-target-window-min-step`, forwarded by the low-cradle
+  launcher. New pending-to-run suite:
+  `scripts/isaac/run_core_world_g1_boxtilt_window_hold_suite.sh`. It has not
+  been run yet; it is only a code path and planned diagnostic until a compute
+  summary exists.
 
 ## Running Or Queued
 

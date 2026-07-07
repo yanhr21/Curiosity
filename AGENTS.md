@@ -11926,6 +11926,19 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `experiments/outputs/core_world_g1_boxtilt_scaled_terminal/20260707_g1_boxtilt_scaled_terminal_gpualloc_cpu/boxtilt_scaled_terminal_summary.json`.
   Treat this as a diagnostic repair test only; no result should be claimed
   until the summary exists and strict fall/drop/target/tilt gates are checked.
+- 2026-07-07 target-window hold trigger added while `169580` was pending:
+  `scripts/isaac/build_core_world_g1_box_scene.py` now supports
+  `--agile-command-stop-target-window` plus
+  `--agile-command-stop-target-window-min-step`, forwarded by
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`. This
+  directly triggers AGILE hold when both robot and box were in the configured
+  target window on the previous step, instead of depending only on scalar
+  box/robot travel thresholds. Added focused suite
+  `scripts/isaac/run_core_world_g1_boxtilt_window_hold_suite.sh`. This is a
+  diagnostic response to the `clean_slow_lateral_pos` failure mode: it entered
+  the target window for `91` steps, then over-traveled and fell/dropped. The
+  new trigger must still be validated on a compute node before it is treated
+  as evidence.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

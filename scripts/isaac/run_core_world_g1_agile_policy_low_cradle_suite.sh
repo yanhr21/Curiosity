@@ -84,6 +84,7 @@ base_python=(
   --agile-command-stop-step "${AGILE_COMMAND_STOP_STEP:--1}"
   --agile-command-stop-box-target-travel "${AGILE_COMMAND_STOP_BOX_TARGET_TRAVEL:--1.0}"
   --agile-command-stop-robot-target-travel "${AGILE_COMMAND_STOP_ROBOT_TARGET_TRAVEL:--1.0}"
+  --agile-command-stop-target-window-min-step "${AGILE_COMMAND_STOP_TARGET_WINDOW_MIN_STEP:--1}"
   --agile-command-hold-scale "${AGILE_COMMAND_HOLD_SCALE:-0.0}"
   --agile-command-hold-adaptive-min-scale "${AGILE_COMMAND_HOLD_ADAPTIVE_MIN_SCALE:-0.0}"
   --agile-command-hold-adaptive-max-scale "${AGILE_COMMAND_HOLD_ADAPTIVE_MAX_SCALE:-1.0}"
@@ -234,6 +235,9 @@ if [[ "${AGILE_COMMAND_HOLD_YAW_CORRECTION:-0}" == "1" ]]; then
 fi
 if [[ "${AGILE_COMMAND_BOX_PROGRESS_CONTROLLER:-0}" == "1" ]]; then
   base_python+=(--agile-command-box-progress-controller)
+fi
+if [[ "${AGILE_COMMAND_STOP_TARGET_WINDOW:-0}" == "1" ]]; then
+  base_python+=(--agile-command-stop-target-window)
 fi
 if [[ "${AGILE_COMMAND_BOX_PROGRESS_SCALE_ON_HOLD:-0}" == "1" ]]; then
   base_python+=(--agile-command-box-progress-scale-on-hold)
