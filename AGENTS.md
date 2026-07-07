@@ -12764,6 +12764,12 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   top-level `SCRIPT_ENV_OVERRIDES=("$@")` and injects them into each case env
   before case-specific overrides. A fresh stand-over-freeze job is required
   before interpreting this branch.
+- 2026-07-07 close-front stand-over-freeze v2 job: after fixing wrapper env
+  propagation, Slurm job `170167` (`g1_cfstand2`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_stand_override2_0707` with
+  `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_freeze_stand_override2`
+  and started on `server58`. Interpret this branch only from the v2 summary at
+  `experiments/outputs/core_world_g1_lowcarry_close_front_freeze_stand_override/20260707_g1_lowcarry_close_front_freeze_stand_override2/close_front_freeze_stand_override_summary.json`.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,
