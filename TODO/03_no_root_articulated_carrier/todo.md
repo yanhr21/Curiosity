@@ -20,6 +20,27 @@
   `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_dense_fallback_min700/g1_lowcarry_runtime_chestpad_fallback_annotated.mp4`
   with 83 frames, explicitly labeled as a schematic replay rather than an
   Isaac camera render.
+- [x] Run and record G1 runtime chest-pad posture generalization. Suite
+  `scripts/isaac/run_core_world_g1_lowcarry_runtime_chestpad_posture_generalization_suite.sh`
+  produced aggregate `fail`, 1/5 cases passed: only the tuned
+  `low_front_060` reproduced the strict pass. `close_front_060` stayed upright
+  and kept the box but missed target-window/lateral/box-tilt gates;
+  `forward_reach_060`, `wide_box_060`, and `low_front_080` fell and/or
+  dropped. Report:
+  `experiments/reports/2026-07-07_g1_runtime_chestpad_posture_generalization.md`.
+- [x] Run and record close-front repair scan. Suite
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_repair_suite.sh`
+  produced aggregate `fail`, 0/3 cases passed. The best variant
+  `lateral_sign_neg` had fall/drop `0/0` and 27 target-window stable steps,
+  but still failed tilt and lateral gates. Stronger lateral command and
+  box-tilt chest-pad triggering did not fix it. Conclusion: do not keep
+  scalar-tuning only lateral sign/gain; next G1 step needs posture-conditioned
+  command/support selection.
+- [ ] Add a posture-conditioned G1 command/support gate. It should select
+  lateral/yaw/hold/support behavior from the current carry geometry before
+  walking, then re-run at least `low_front_060` and `close_front_060` under
+  the same strict gates without relaxing target-window, tilt, lateral-error,
+  fall/drop, or no-rollout-write checks.
 - [x] Record the 2026-07-07 clean G1 boxtilt box-progress isolation result:
   `clean_slow` was stable but under-traveled, while `clean_slow_lateral_pos`
   entered the target window for `91` steps before over-traveling and failing.

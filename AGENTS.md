@@ -78,6 +78,26 @@ These rules override all other project instructions.
 - Current active implementation plan:
   `PLAN/03_no_root_articulated_carrier/plan.md`; current task list:
   `TODO/03_no_root_articulated_carrier/todo.md`.
+- 2026-07-07 current best narrow G1/AGILE low-carry diagnostic:
+  `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_min700` passed
+  for the tuned `low_front_060` setting with fall/drop `0/0`, final robot/box
+  target-directed travel about `2.051/2.032 m`, max robot/box tilt
+  `0.309/0.428 rad`, target-window end streak `102`, rollout root/velocity/
+  box pose writes `0`, and runtime chest-pad collision enabled at step `712`.
+  This is still a narrow engineered diagnostic, not learned unknown-load
+  carrying and not arbitrary-posture carrying.
+- 2026-07-07 G1 posture-generalization boundary: suite
+  `scripts/isaac/run_core_world_g1_lowcarry_runtime_chestpad_posture_generalization_suite.sh`
+  produced aggregate `fail`, 1/5 strict cases passed. Only `low_front_060`
+  passed. `close_front_060` retained the box and had fall/drop `0/0` but
+  missed target-window/lateral/box-tilt gates. `forward_reach_060`,
+  `wide_box_060`, and `low_front_080` failed with falls and/or drops. Follow-up
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_repair_suite.sh`
+  produced aggregate `fail`, 0/3. The best repair, `lateral_sign_neg`, had
+  fall/drop `0/0` and 27 target-window stable steps but still failed tilt and
+  lateral gates. Do not keep scalar-tuning only lateral sign/gain; the next
+  G1 step needs posture-conditioned command/support selection while preserving
+  the same strict gates.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate
