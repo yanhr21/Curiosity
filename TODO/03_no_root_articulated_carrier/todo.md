@@ -8861,6 +8861,7 @@
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_support_timing_suite.sh`.
   It compares no runtime pad, delayed pad760, and smaller pad700 while keeping
   the conservative box-progress controller and strict gates.
-- [ ] Monitor Slurm job `169916` (`g1_cfsup`) in tmux
-  `curiosity_g1_close_front_support_timing_0707`; as of
-  `2026-07-07 14:19 CST`, it was pending on GPU priority.
+- [ ] Monitor Slurm job `169922` (`g1_cfsup`) in tmux
+  `curiosity_g1_close_front_support_timing_short_0707`; original pending job
+  `169916` was cancelled before running to resubmit the same suite with a
+  shorter 12-minute walltime.

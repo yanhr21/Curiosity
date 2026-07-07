@@ -288,9 +288,10 @@ step `653`.
 - Cases:
   `no_runtime_pad`, `pad760`, and `pad700_small`.
 - Status:
-  submitted as Slurm job `169916` (`g1_cfsup`) through tmux
-  `curiosity_g1_close_front_support_timing_0707`; pending on GPU priority as
-  of `2026-07-07 14:19 CST`.
+  original long-walltime pending job `169916` was cancelled before running and
+  replaced with shorter Slurm job `169922` (`g1_cfsup`) through tmux
+  `curiosity_g1_close_front_support_timing_short_0707`; pending on GPU
+  priority as of `2026-07-07 14:21 CST`.
 
 ## Next Step
 

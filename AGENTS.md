@@ -12567,10 +12567,11 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
 - 2026-07-07 close-front support-timing entrypoint: added
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_support_timing_suite.sh`.
   It keeps the `progress_conservative` controller and strict gates while
-  comparing `no_runtime_pad`, `pad760`, and `pad700_small`. Slurm job
-  `169916` (`g1_cfsup`) was submitted through tmux
-  `curiosity_g1_close_front_support_timing_0707`; as of
-  `2026-07-07 14:19 CST`, it was pending on GPU priority. It is not evidence
+  comparing `no_runtime_pad`, `pad760`, and `pad700_small`. Original
+  long-walltime Slurm job `169916` was cancelled before running and replaced
+  with shorter Slurm job `169922` (`g1_cfsup`) through tmux
+  `curiosity_g1_close_front_support_timing_short_0707`; as of
+  `2026-07-07 14:21 CST`, it was pending on GPU priority. It is not evidence
   until a compute-node summary exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
