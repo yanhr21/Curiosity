@@ -13,6 +13,7 @@ VIS_STAMP="${VIS_STAMP:-20260707_g1_lowcarry_060_runtime_chestpad_showcase_fallb
 RECORD_DIR="${ROOT_DIR}/experiments/outputs/core_world_g1_agile_policy_low_cradle/${RECORD_STAMP}/agile_low_cradle_freebox_walk"
 OUTPUT_DIR="${ROOT_DIR}/experiments/visuals/g1_replay_showcase/${VIS_STAMP}"
 REPLAY_CSV="${RECORD_DIR}/core_world_g1_box_scene_replay.csv"
+STATE_CSV="${RECORD_DIR}/core_world_g1_box_scene_state.csv"
 RECORD_SUMMARY="${RECORD_DIR}/core_world_g1_box_scene_summary.json"
 CHECKER_SUMMARY="${RECORD_DIR}/check.json"
 
@@ -20,6 +21,7 @@ cd "${ROOT_DIR}"
 
 "${ISAAC_VENV}/bin/python" scripts/isaac/render_g1_replay_presentation_fallback.py \
   --replay-csv "${REPLAY_CSV}" \
+  --state-csv "${STATE_CSV}" \
   --record-summary "${RECORD_SUMMARY}" \
   --checker-summary "${CHECKER_SUMMARY}" \
   --output-dir "${OUTPUT_DIR}" \

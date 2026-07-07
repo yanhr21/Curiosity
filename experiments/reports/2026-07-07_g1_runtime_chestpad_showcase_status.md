@@ -38,16 +38,22 @@ The chest pad is an engineered runtime support geometry.
 
 ## Visualization Available Now
 
-- Fallback visual directory:
-  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_fallback_min700`
-- Annotated MP4:
+- Preferred dense fallback visual directory:
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_dense_fallback_min700`
+- Preferred annotated MP4:
   `g1_lowcarry_runtime_chestpad_fallback_annotated.mp4`
-- Raw MP4:
+- Preferred raw MP4:
   `g1_lowcarry_runtime_chestpad_fallback.mp4`
-- GIF:
+- Preferred GIF:
   `g1_lowcarry_replay_fallback.gif`
-- Poster:
+- Preferred poster:
   `g1_lowcarry_replay_fallback_poster.png`
+- Preferred fallback frame count: `83`
+- Preferred fallback source CSV:
+  `core_world_g1_box_scene_state.csv`
+
+Earlier sparse fallback visual directory:
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_fallback_min700`
 
 The fallback visual is a schematic replay from the recorded Isaac rollout. It
 shows a G1-like humanoid, the free box, trajectory, and strict metrics. It is

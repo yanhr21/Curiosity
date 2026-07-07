@@ -26,6 +26,7 @@ def _refuse_login_node() -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--replay-csv", type=Path, required=True)
+    parser.add_argument("--state-csv", type=Path, default=None)
     parser.add_argument("--record-summary", type=Path, required=True)
     parser.add_argument("--checker-summary", type=Path, default=None)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -199,13 +200,16 @@ def main() -> int:
     args = parse_args()
     if not args.replay_csv.is_file():
         raise FileNotFoundError(args.replay_csv)
+    if args.state_csv is not None and not args.state_csv.is_file():
+        raise FileNotFoundError(args.state_csv)
     if not args.record_summary.is_file():
         raise FileNotFoundError(args.record_summary)
     if args.checker_summary is not None and not args.checker_summary.is_file():
         raise FileNotFoundError(args.checker_summary)
-    rows_all = _load_rows(args.replay_csv)
+    source_csv = args.state_csv if args.state_csv is not None else args.replay_csv
+    rows_all = _load_rows(source_csv)
     if not rows_all:
-        raise RuntimeError("Replay CSV has no rows")
+        raise RuntimeError(f"Source CSV has no rows: {source_csv}")
     stride = max(1, len(rows_all) // max(1, int(args.max_frames)))
     rows = rows_all[::stride][: int(args.max_frames)]
     summary = json.loads(args.record_summary.read_text())
@@ -249,7 +253,9 @@ def main() -> int:
         "scene_type": "g1_replay_presentation_fallback",
         "success_claim": "schematic_replay_visual_only_not_isaac_camera_render_not_new_control_evidence",
         "status": "pass",
+        "source_csv": str(source_csv),
         "replay_csv": str(args.replay_csv),
+        "state_csv": str(args.state_csv) if args.state_csv is not None else None,
         "record_summary": str(args.record_summary),
         "checker_summary": str(args.checker_summary) if args.checker_summary is not None else None,
         "frame_count": len(frames),
