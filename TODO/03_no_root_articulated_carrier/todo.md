@@ -8928,9 +8928,16 @@
   longest/end streak `68/0`, final robot/box travel `2.176/2.119 m`, and
   fall/drop at `782/804`; shorter stand delays were worse. Do not continue
   stand-delay or stand-target tuning unchanged.
-- [ ] Run close-front freeze-rescue timing suite. Keep `freeze_strict` and
+- [x] Cancel invalid close-front freeze-rescue timing suite. Keep `freeze_strict` and
   default balance/stand disabled, then compare rescue disabled, rescue delayed,
   and softened rescue targets to test whether the post-freeze rescue posture
   causes the `780`-step collapse. Slurm job `170095` (`g1_cfrtime`) was
   submitted through tmux `curiosity_g1_close_front_freeze_rescue_timing_0707`;
-  it is pending on GPU priority as of `2026-07-07 16:46 CST`.
+  it was cancelled before allocation because static control-flow inspection
+  showed rescue targets do not apply once final freeze is active. The suite
+  would not have tested the intended hypothesis.
+- [ ] Run close-front freeze-rescue override suite. Use
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_rescue_override_suite.sh`,
+  which explicitly enables rescue targets to override frozen policy targets
+  after target-window freeze, then compare rescue disabled, delayed rescue,
+  and softened rescue under the same strict gates.

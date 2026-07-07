@@ -363,6 +363,30 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "agile_command_hold_final_last_command_xyz_yaw": summary.get(
             "agile_command_hold_final_last_command_xyz_yaw"
         ),
+        "agile_command_hold_final_freeze_in_target_window": summary.get(
+            "agile_command_hold_final_freeze_in_target_window"
+        ),
+        "agile_command_hold_final_freeze_latched": summary.get(
+            "agile_command_hold_final_freeze_latched"
+        ),
+        "agile_command_hold_final_freeze_latched_step": summary.get(
+            "agile_command_hold_final_freeze_latched_step"
+        ),
+        "agile_command_hold_final_freeze_active_steps": summary.get(
+            "agile_command_hold_final_freeze_active_steps"
+        ),
+        "agile_command_hold_final_freeze_first_active_step": summary.get(
+            "agile_command_hold_final_freeze_first_active_step"
+        ),
+        "agile_command_hold_rescue_overrides_final_freeze": summary.get(
+            "agile_command_hold_rescue_overrides_final_freeze"
+        ),
+        "agile_command_hold_rescue_override_freeze_active_steps": summary.get(
+            "agile_command_hold_rescue_override_freeze_active_steps"
+        ),
+        "agile_command_hold_rescue_override_freeze_first_active_step": summary.get(
+            "agile_command_hold_rescue_override_freeze_first_active_step"
+        ),
         "agile_command_hold_final_stand_enabled": summary.get(
             "agile_command_hold_final_stand_enabled"
         ),

@@ -687,6 +687,15 @@ def main() -> int:
         "agile_command_hold_final_freeze_first_active_step": summary.get(
             "agile_command_hold_final_freeze_first_active_step"
         ),
+        "agile_command_hold_rescue_overrides_final_freeze": summary.get(
+            "agile_command_hold_rescue_overrides_final_freeze"
+        ),
+        "agile_command_hold_rescue_override_freeze_active_steps": summary.get(
+            "agile_command_hold_rescue_override_freeze_active_steps"
+        ),
+        "agile_command_hold_rescue_override_freeze_first_active_step": summary.get(
+            "agile_command_hold_rescue_override_freeze_first_active_step"
+        ),
         "agile_command_hold_final_max_abs_command_x": summary.get(
             "agile_command_hold_final_max_abs_command_x"
         ),

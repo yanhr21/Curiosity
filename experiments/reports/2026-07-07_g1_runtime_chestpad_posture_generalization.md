@@ -520,6 +520,30 @@ The next useful isolation is freeze plus rescue timing: disable or delay the
 post-freeze rescue posture to test whether rescue is causing the `780`-step
 collapse rather than preventing it.
 
+## Close-Front Freeze-Rescue Override Plan
+
+A first timing-only entrypoint,
+`scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_rescue_timing_suite.sh`,
+was submitted as Slurm job `170095` (`g1_cfrtime`) and then cancelled before
+allocation. Static control-flow inspection showed the timing-only intervention
+would not change control behavior: once `final_freeze_active` is true, frozen
+policy joint targets take priority and rescue targets are not applied.
+
+The valid replacement is:
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_rescue_override_suite.sh`
+- Code hook:
+  `--agile-command-hold-rescue-overrides-final-freeze`
+- Purpose:
+  keep the `freeze_strict` target-window branch, but explicitly allow rescue
+  targets to override frozen policy targets after rescue triggers.
+- Cases:
+  `freeze_no_rescue`, `freeze_rescue_late055`, and
+  `freeze_rescue_soft035`.
+
+This is not evidence yet. It is the next experiment entrypoint.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next
@@ -555,7 +579,7 @@ implementation should add an explicit posture-conditioned controller gate:
   target-window dwell,
 - do not continue delayed stand target tuning unchanged; the best delayed
   stand case reproduced the same `freeze_strict` fall/drop boundary,
-- isolate post-freeze rescue timing next; compare rescue disabled, delayed
-  rescue, and softened rescue targets under the same strict gates,
+- do not run rescue timing without override; freeze masks rescue targets,
+- isolate post-freeze rescue with explicit rescue-over-freeze override next,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

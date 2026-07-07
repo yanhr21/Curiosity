@@ -12697,10 +12697,21 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `freeze_rescue_soft035` under the same strict target-window, fall/drop,
   tilt, lateral, and no-rollout-write gates. Slurm job `170095`
   (`g1_cfrtime`) was submitted through tmux
-  `curiosity_g1_close_front_freeze_rescue_timing_0707`; as of
-  `2026-07-07 16:46 CST`, it was pending on GPU priority. This is an
-  experiment entrypoint only until
-  `close_front_freeze_rescue_timing_summary.json` exists.
+  `curiosity_g1_close_front_freeze_rescue_timing_0707`, then cancelled before
+  allocation after a static control-flow audit showed the intended intervention
+  was invalid: once `final_freeze_active` is true, frozen policy joint targets
+  take priority and rescue targets are not applied. Do not interpret the
+  cancelled timing suite as evidence for or against rescue; it did not run and
+  would not have tested the intended hypothesis.
+- 2026-07-07 close-front freeze-rescue override entrypoint: added
+  `--agile-command-hold-rescue-overrides-final-freeze`, summary/check fields
+  for override activation, and wrapper
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_rescue_override_suite.sh`.
+  This wrapper reuses the same three timing cases but explicitly lets active
+  rescue targets override frozen policy targets after target-window freeze.
+  It is the valid replacement for the cancelled timing suite and remains only
+  an experiment entrypoint until
+  `close_front_freeze_rescue_override_summary.json` exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
