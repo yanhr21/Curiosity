@@ -185,6 +185,15 @@ This is a status snapshot only. It is not a carrying-success claim.
   fall/drop, max tilt about `1.68 rad`, and low box height. Current takeaway:
   progress/retention is not the limiter in this branch; post-latch whole-body
   upright recovery is.
+- `169625` / `mj_recover` completed on `server39`. Result: strict `fail`,
+  `0/4` cases passed. The new post-latch attitude-recovery path was active
+  (`1619-1796` recovery steps, LQR active `1797`, target hold `1797`, root/
+  box writes `0`), but fall/drop persisted at `77/73-74`. The best signal was
+  `recover_roll_gain`, reducing max tilt to `1.6355 rad`; this is still far
+  from the `0.70 rad` strict gate. Final box travel remained
+  `0.253-0.272 m` and final relative error `0.099-0.124 m`, so progress and
+  retention are still not the limiting error. Next change should alter the
+  support/contact optimization, not continue gain-only recovery sweeps.
 - `169316` / `any_payload` completed on `server36` with no rollout and no
   summary. The policy-backed ANYmal payload wrapper failed during IsaacLab
   `gym.make` initialization with `Failed to get DOF velocities from backend`.

@@ -496,6 +496,23 @@
   objective that changes support geometry or upright torque before collapse,
   not more x/y LQR or retention tuning; target progress and box retention are
   no longer the limiting errors in the additive LQR result.
+- [x] Add post-latch attitude recovery controller:
+  `--support-attitude-recovery` in
+  `scripts/mujoco/run_quadruped_freebox_carry.py`, launcher/checker exposure,
+  and `scripts/mujoco/run_quadruped_freebox_attitude_recovery_suite.sh`.
+  It scales extra roll/pitch support gains, target-height offset, hip-roll
+  feedback, and roll-to-foot-height feedback when post-latch tilt grows.
+- [x] Record Slurm job `169625` attitude-recovery result. Strict `fail`,
+  `0/4` cases passed. Recovery activated for all cases (`1619-1796` steps),
+  LQR and target hold were active, root/box writes stayed `0`, and final box
+  travel/relative error remained useful, but fall/drop persisted. The
+  roll-gain case slightly reduced max tilt to `1.6355 rad`, still far above
+  the strict gate.
+- [ ] Next meaningful MuJoCo controller step: stop gain-only recovery. The
+  next change must modify the support contact problem itself, such as a
+  constrained whole-body/QP allocation with unilateral foot-force and friction
+  limits, or a controller-backed locomotion policy. Do not continue small
+  attitude-recovery gain sweeps.
 - [x] Switch active implementation focus back to the G1 AGILE policy path.
   Historical best low-carry run completed 819 steps with fall/drop `0/0`,
   free box, G1 USD, AGILE ONNX policy, no rollout root/box pose writes, and

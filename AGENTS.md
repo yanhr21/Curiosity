@@ -11229,6 +11229,30 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   than switching entirely to centroidal allocation, but it still does not
   solve post-latch balance. The remaining failure is not target progress or
   retention; it is whole-body fall/tilt after latch.
+- 2026-07-07 post-latch attitude recovery route added and tested:
+  `scripts/mujoco/run_quadruped_freebox_carry.py` now supports
+  `--support-attitude-recovery`. It activates only after target latch and
+  when tilt exceeds a configurable threshold, then scales extra roll/pitch
+  support gains, optional target-height offset, hold hip-roll feedback, and
+  roll-to-foot-height feedback. It records
+  `support_attitude_recovery_active_steps` and
+  `max_support_attitude_recovery_strength`; it still applies through leg
+  posture targets and support joint torques, with no root/box pose or
+  velocity writes. Launcher/checker support and
+  `scripts/mujoco/run_quadruped_freebox_attitude_recovery_suite.sh` were
+  added. Slurm job `169625` (`mj_recover`) completed on `server39`. Strict
+  result was `fail`, `0/4` cases passed. All cases were valid activation
+  diagnostics: target-stop hold `1797`, LQR active `1797`, recovery active
+  `1619-1796`, support joint torque writes `3000`, and root/box pose/
+  velocity writes all `0`. Fall/drop remained `77/73-74`; final box travel
+  stayed useful at `0.253-0.272 m`; final relative error stayed
+  `0.099-0.124 m`; min box height stayed low at `0.323-0.332 m`. The only
+  useful signal was `recover_roll_gain`, which reduced max tilt to
+  `1.6355 rad` versus additive LQR's roughly `1.67-1.68 rad`, but this is far
+  from the strict `0.70 rad` gate. Conclusion: simple gain/posture recovery
+  can slightly reduce tilt but does not prevent post-latch falling. The next
+  meaningful controller change needs to alter support contacts or solve a
+  constrained whole-body/upright control problem, not merely boost roll gains.
 - 2026-07-07 route switch after MuJoCo hand-controller exhaustion: current
   best credible locomotion/carry evidence is the G1 AGILE policy path in
   `scripts/isaac/build_core_world_g1_box_scene.py` and

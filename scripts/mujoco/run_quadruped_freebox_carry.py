@@ -135,6 +135,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--support-lqr-max-fx", type=float, default=120.0)
     parser.add_argument("--support-lqr-max-fy", type=float, default=120.0)
     parser.add_argument("--support-lqr-post-latch-only", action="store_true")
+    parser.add_argument("--support-attitude-recovery", action="store_true")
+    parser.add_argument("--support-attitude-recovery-start-tilt", type=float, default=0.34)
+    parser.add_argument("--support-attitude-recovery-full-tilt", type=float, default=0.62)
+    parser.add_argument("--support-attitude-recovery-roll-kp-delta", type=float, default=0.0)
+    parser.add_argument("--support-attitude-recovery-roll-kd-delta", type=float, default=0.0)
+    parser.add_argument("--support-attitude-recovery-pitch-kp-delta", type=float, default=0.0)
+    parser.add_argument("--support-attitude-recovery-pitch-kd-delta", type=float, default=0.0)
+    parser.add_argument("--support-attitude-recovery-hip-roll-delta", type=float, default=0.0)
+    parser.add_argument("--support-attitude-recovery-foot-roll-z-delta", type=float, default=0.0)
+    parser.add_argument("--support-attitude-recovery-height-offset", type=float, default=0.0)
     parser.add_argument("--tray-half-length", type=float, default=0.38)
     parser.add_argument("--tray-half-width", type=float, default=0.24)
     parser.add_argument("--wall-height", type=float, default=0.16)
@@ -444,6 +454,18 @@ def main() -> None:
         "support_lqr_k_vel": 0.0,
         "max_abs_support_lqr_fx_n": 0.0,
         "max_abs_support_lqr_fy_n": 0.0,
+        "support_attitude_recovery_enabled": bool(args.support_attitude_recovery),
+        "support_attitude_recovery_active_steps": 0,
+        "support_attitude_recovery_start_tilt_rad": float(args.support_attitude_recovery_start_tilt),
+        "support_attitude_recovery_full_tilt_rad": float(args.support_attitude_recovery_full_tilt),
+        "support_attitude_recovery_roll_kp_delta": float(args.support_attitude_recovery_roll_kp_delta),
+        "support_attitude_recovery_roll_kd_delta": float(args.support_attitude_recovery_roll_kd_delta),
+        "support_attitude_recovery_pitch_kp_delta": float(args.support_attitude_recovery_pitch_kp_delta),
+        "support_attitude_recovery_pitch_kd_delta": float(args.support_attitude_recovery_pitch_kd_delta),
+        "support_attitude_recovery_hip_roll_delta": float(args.support_attitude_recovery_hip_roll_delta),
+        "support_attitude_recovery_foot_roll_z_delta": float(args.support_attitude_recovery_foot_roll_z_delta),
+        "support_attitude_recovery_height_offset_m": float(args.support_attitude_recovery_height_offset),
+        "max_support_attitude_recovery_strength": 0.0,
         "max_assist_force_x_n": float(args.max_assist_force_x),
         "max_assist_force_z_n": float(args.max_assist_force_z),
         "max_assist_torque_nm": float(args.max_assist_torque),
@@ -544,6 +566,31 @@ def main() -> None:
                 float(data.qpos[13]),
             )
             roll_for_gait, pitch_for_gait = _quat_to_roll_pitch(qw_pre, qx_pre, qy_pre, qz_pre)
+            tilt_for_gait = math.sqrt(roll_for_gait * roll_for_gait + pitch_for_gait * pitch_for_gait)
+            attitude_recovery_strength = 0.0
+            if target_stop_latched and bool(args.support_attitude_recovery):
+                start_tilt = float(args.support_attitude_recovery_start_tilt)
+                full_tilt = max(start_tilt + 1e-6, float(args.support_attitude_recovery_full_tilt))
+                attitude_recovery_strength = max(
+                    0.0,
+                    min(1.0, (tilt_for_gait - start_tilt) / (full_tilt - start_tilt)),
+                )
+                if attitude_recovery_strength > 0.0:
+                    summary["support_attitude_recovery_active_steps"] = (
+                        int(summary["support_attitude_recovery_active_steps"]) + 1
+                    )
+                    summary["max_support_attitude_recovery_strength"] = max(
+                        float(summary["max_support_attitude_recovery_strength"]),
+                        float(attitude_recovery_strength),
+                    )
+                    hip_roll_feedback_gain_for_gait += (
+                        float(args.support_attitude_recovery_hip_roll_delta)
+                        * attitude_recovery_strength
+                    )
+                    foot_roll_z_gain_for_gait += (
+                        float(args.support_attitude_recovery_foot_roll_z_delta)
+                        * attitude_recovery_strength
+                    )
             torso_vx_for_gait = float(data.qvel[6])
             hold_capture_active = bool(target_stop_latched and args.hold_capture_point_foot_placement)
             hold_capture_x_adjust = 0.0
@@ -692,6 +739,10 @@ def main() -> None:
                 )
                 if target_stop_latched:
                     target_height_cmd += float(args.hold_support_height_offset)
+                    target_height_cmd += (
+                        float(args.support_attitude_recovery_height_offset)
+                        * attitude_recovery_strength
+                    )
                     support_kd_z *= float(args.hold_support_kd_z_scale)
                     support_kd_roll *= float(args.hold_support_kd_roll_scale)
                     support_kd_pitch *= float(args.hold_support_kd_pitch_scale)
@@ -703,6 +754,15 @@ def main() -> None:
                     support_fy_scale = float(args.hold_support_fy_scale)
                     if args.hold_support_fx_scale is not None:
                         support_fx_scale = float(args.hold_support_fx_scale)
+                if attitude_recovery_strength > 0.0:
+                    support_kd_roll += (
+                        float(args.support_attitude_recovery_roll_kd_delta)
+                        * attitude_recovery_strength
+                    )
+                    support_kd_pitch += (
+                        float(args.support_attitude_recovery_pitch_kd_delta)
+                        * attitude_recovery_strength
+                    )
                 total_fz = (
                     robot_mass_kg * 9.81
                     + float(args.support_kp_z) * (target_height_cmd - torso_z)
@@ -716,8 +776,19 @@ def main() -> None:
                 total_fx = max(-support_max_total_fx, min(support_max_total_fx, total_fx))
                 roll_rate = float(data.qvel[9])
                 pitch_rate = float(data.qvel[10])
-                roll_term = -float(args.support_kp_roll) * roll - support_kd_roll * roll_rate
-                pitch_term = -float(args.support_kp_pitch) * pitch - support_kd_pitch * pitch_rate
+                support_kp_roll = float(args.support_kp_roll)
+                support_kp_pitch = float(args.support_kp_pitch)
+                if attitude_recovery_strength > 0.0:
+                    support_kp_roll += (
+                        float(args.support_attitude_recovery_roll_kp_delta)
+                        * attitude_recovery_strength
+                    )
+                    support_kp_pitch += (
+                        float(args.support_attitude_recovery_pitch_kp_delta)
+                        * attitude_recovery_strength
+                    )
+                roll_term = -support_kp_roll * roll - support_kd_roll * roll_rate
+                pitch_term = -support_kp_pitch * pitch - support_kd_pitch * pitch_rate
                 robot_com = np.zeros(3, dtype=float)
                 if robot_mass_kg > 1e-6:
                     for body_id in robot_body_ids:
