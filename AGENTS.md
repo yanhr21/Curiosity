@@ -12721,6 +12721,12 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   replacement for the cancelled timing suite and remains only an experiment
   entrypoint until
   `close_front_freeze_rescue_override_summary.json` exists.
+- 2026-07-07 close-front freeze-rescue override parsing helper:
+  `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
+  lightweight, read-only summary parser. It prints per-case pass/fail,
+  fall/drop timing, target-window stability, travel/lateral/tilt metrics, and
+  `agile_command_hold_rescue_override_freeze_*` fields so the override run can
+  be audited without hand-parsing JSON. It does not run simulation.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

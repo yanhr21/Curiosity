@@ -8947,3 +8947,8 @@
   `curiosity_g1_close_front_freeze_rescue_override2_0707`; it is still
   pending on GPU priority as of `2026-07-07 17:17 CST`, with Slurm estimating
   start at `2026-07-07T20:24:10` on `server46`.
+- [x] Add a read-only close-front freeze-rescue override parser:
+  `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
+  `close_front_freeze_rescue_override_summary.json` exists to verify per-case
+  pass/fail and whether `agile_command_hold_rescue_override_freeze_*` fields
+  show the override actually applied.
