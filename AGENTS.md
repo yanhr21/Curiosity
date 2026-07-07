@@ -11132,6 +11132,18 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   direction is a controller-backed locomotion policy/backend or a proper
   optimizer/MPC-style balance controller, not more scalar gain sweeps on this
   model.
+- 2026-07-07 MuJoCo hold capture-point controller added as a new post-latch
+  balance formulation: `scripts/mujoco/run_quadruped_freebox_carry.py` now
+  supports `--hold-capture-point-foot-placement` with capture-time,
+  x-foot-placement, y-hip-roll, and y-foot-height terms. It only acts after
+  `target_stop_latched`; it does not write root pose/velocity or box
+  pose/velocity. The launcher forwards the new fields, checker output now
+  records and validates `hold_capture_active_steps`, and new suite
+  `scripts/mujoco/run_quadruped_freebox_stance_force_hold_capture_suite.sh`
+  tests this against the same strict free-box gates. This is intended to
+  address the post-latch lateral/roll collapse by changing foot placement,
+  not by repeating scalar stance-force sweeps. It still requires compute-node
+  validation before being treated as evidence.
 - 2026-07-07 route switch after MuJoCo hand-controller exhaustion: current
   best credible locomotion/carry evidence is the G1 AGILE policy path in
   `scripts/isaac/build_core_world_g1_box_scene.py` and

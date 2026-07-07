@@ -108,6 +108,13 @@ This is a status snapshot only. It is not a carrying-success claim.
   `scripts/isaac/run_core_world_g1_boxtilt_window_hold_suite.sh` after the
   scaled-terminal diagnostic. Expected aggregate:
   `experiments/outputs/core_world_g1_boxtilt_window_hold/20260707_g1_boxtilt_window_hold_after_scaled_terminal/boxtilt_window_hold_summary.json`.
+- MuJoCo hold-capture controller code has been added but not yet run:
+  `scripts/mujoco/run_quadruped_freebox_carry.py` now has post-latch
+  capture-point foot placement/hip/foot-height terms, launcher exposure, and
+  checker gates. Planned suite:
+  `scripts/mujoco/run_quadruped_freebox_stance_force_hold_capture_suite.sh`.
+  This is a new post-latch balance formulation, not a continuation of the
+  exhausted stance-force scalar sweeps.
   No Curiosity simulation/render job is running on the login node.
 - `169316` / `any_payload` completed on `server36` with no rollout and no
   summary. The policy-backed ANYmal payload wrapper failed during IsaacLab

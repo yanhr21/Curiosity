@@ -422,6 +422,19 @@
   for credible fall/drop-free carrying. Further work should switch to a real
   controller-backed locomotion backend or a proper optimizer/MPC-style balance
   controller, not more scalar gain sweeps.
+- [x] Add a materially different MuJoCo post-latch balance controller instead
+  of another stance-force scalar sweep:
+  `--hold-capture-point-foot-placement` in
+  `scripts/mujoco/run_quadruped_freebox_carry.py`, exposed through the
+  launcher and checked through `scripts/mujoco/check_quadruped_freebox_summary.py`.
+  It changes hold foot placement/hip-roll/foot-height based on capture-point
+  style velocity and lateral drift signals after target latch only.
+- [ ] Run and record
+  `scripts/mujoco/run_quadruped_freebox_stance_force_hold_capture_suite.sh`.
+  Preserve strict gates: free box, no torso body-force assist, support torques
+  only through actuated joints, retention force audited, fall/drop 0, final
+  box travel >= `0.12 m`, target hold >= 600 steps, no root/box pose or
+  velocity writes, and final relative error <= `0.20 m`.
 - [x] Switch active implementation focus back to the G1 AGILE policy path.
   Historical best low-carry run completed 819 steps with fall/drop `0/0`,
   free box, G1 USD, AGILE ONNX policy, no rollout root/box pose writes, and
