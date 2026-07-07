@@ -87,14 +87,31 @@
   after the first failure, while the modified lower/thicker top lid enabled at
   step `116`. Conclusion: do not continue the lower-lid/thicker-pad branch;
   isolate the useful early-escape boundary with original support geometry.
-- [ ] Run close-front early-escape 1200-step isolation:
+- [x] Run close-front early-escape 1200-step isolation:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_early_escape_1200_suite.sh`.
   It preserves the original lid/pad geometry from the no-fall 1050-step
   near-miss, extends to `1200` steps for the final-hold gate, and compares
   target-window-only chest-pad trigger against original-size box-tilt-triggered
   chest pad. Submitted through tmux `curiosity_g1_early_escape_1200_0707` as
   Slurm job `170382` / `g1_escape1200`. Record
-  `close_front_early_escape_1200_summary.json` before interpreting.
+  `close_front_early_escape_1200_summary.json` before interpreting. Result:
+  aggregate `fail`, 0/2. Both cases were identical: fall/drop `103/72`, first
+  fall/drop `1097/1128`, target-window stable/longest/end `108/107/0`,
+  final-hold active `418@782`, final robot/box travel about `3.129/2.968 m`,
+  final lateral error about `1.014/1.090 m`, max robot/box tilt
+  `2.120/2.061 rad`, chest pad at step `965`, tilt escape active `197` steps,
+  and writes `0/0/0`. This restores the late near-boundary but shows
+  continuous final tilt escape over-drives the system after target-window
+  dwell.
+- [ ] Run close-front escape-suppression follow-up:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_suite.sh`.
+  It adds
+  `--agile-command-hold-final-tilt-escape-suppress-after-target-window-streak`
+  and suppresses final tilt escape after `60` or `80` consecutive target-window
+  steps. This directly tests whether the 1200-step failure is caused by
+  continued escape-command over-travel after the target window has already been
+  reached. Record `close_front_escape_suppression_summary.json` before
+  interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`

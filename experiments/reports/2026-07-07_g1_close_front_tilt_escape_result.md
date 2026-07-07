@@ -91,3 +91,30 @@ That suite keeps the original support geometry from the no-fall 1050-step
 near-miss, extends to `1200` steps, and only isolates whether early tilt escape
 plus original-size chest-pad triggering can satisfy the final-hold duration and
 box-tilt gates.
+
+## Early-Escape 1200-Step Isolation
+
+Suite:
+`20260707_g1_lowcarry_close_front_early_escape_1200`
+
+Result: aggregate `fail`, `0/2` strict cases passed. Both cases produced the
+same metrics, meaning the original-size box-tilt chest-pad trigger did not
+alter behavior relative to target-window-only triggering.
+
+| Case | fall/drop | first fall/drop | target stable/longest/end | final hold | robot/box travel m | lateral robot/box m | max tilt robot/box rad | escape active |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `baseline_target_window_pad` | `103/72` | `1097/1128` | `108/107/0` | `418@782` | `3.129/2.968` | `1.014/1.090` | `2.120/2.061` | `197` from step `792` |
+| `baseline_box_tilt_pad` | `103/72` | `1097/1128` | `108/107/0` | `418@782` | `3.129/2.968` | `1.014/1.090` | `2.120/2.061` | `197` from step `792` |
+
+This is a useful late-failure boundary. It restores the original no-early-fall
+behavior, satisfies the final-hold active-step count, and enters the target
+window for more than the required number of steps. It then leaves the window,
+over-travels, drifts laterally, and falls/drops late. The likely immediate
+failure mode is that final tilt escape continues to apply a nonzero command
+after the target window has already been stable.
+
+Next valid test:
+`scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_suite.sh`
+
+That suite suppresses final tilt escape after target-window streaks of `60` or
+`80` steps while keeping the same original support geometry and strict gates.

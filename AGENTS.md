@@ -242,7 +242,31 @@ These rules override all other project instructions.
   job `170382` / `g1_escape1200`, suite stamp prefix
   `20260707_g1_lowcarry_close_front_early_escape_1200`. It is an experiment
   entrypoint only until
-  `close_front_early_escape_1200_summary.json` exists.
+  `close_front_early_escape_1200_summary.json` exists. Result: aggregate
+  `fail`, 0/2 strict cases passed. Both `baseline_target_window_pad` and
+  `baseline_box_tilt_pad` produced identical metrics: fall/drop `103/72`,
+  first fall/drop step `1097/1128`, target-window stable/longest/end
+  `108/107/0`, final-hold active `418@782`, final robot/box travel
+  `3.129/2.968 m`, final lateral error `1.014/1.090 m`, max robot/box tilt
+  `2.120/2.061 rad`, chest pad at step `965`, tilt escape active `197` steps
+  from step `792`, and rollout writes `0/0/0`. Interpretation: preserving the
+  original geometry restores the useful late-failure near-boundary and
+  satisfies the final-hold-duration count, but continuous final tilt-escape
+  command drives over-travel/lateral drift and a late fall/drop after the
+  target-window dwell. The next valid close-front terminal test should suppress
+  final tilt escape once the target window has been stable long enough, rather
+  than adding more early contact geometry.
+- 2026-07-07 close-front escape-suppression entrypoint: added
+  `--agile-command-hold-final-tilt-escape-suppress-after-target-window-streak`
+  to `scripts/isaac/build_core_world_g1_box_scene.py`, env forwarding in
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`, summary
+  preservation in `scripts/isaac/summarize_core_world_g1_largerbox_strict.py`,
+  parser output in `scripts/isaac/print_g1_final_stabilize_summary.sh`, and
+  suite launcher
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_suite.sh`.
+  It preserves the early-escape 1200 setup but suppresses final tilt escape
+  after target-window streaks of `60` or `80` steps. It is an experiment
+  entrypoint only until `close_front_escape_suppression_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

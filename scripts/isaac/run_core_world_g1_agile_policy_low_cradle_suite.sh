@@ -132,6 +132,7 @@ base_python=(
   --agile-command-hold-final-tilt-escape-scale "${AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_SCALE:--1.0}"
   --agile-command-hold-final-tilt-escape-tilt "${AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_TILT:-999.0}"
   --agile-command-hold-final-tilt-escape-box-tilt "${AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_BOX_TILT:-999.0}"
+  --agile-command-hold-final-tilt-escape-suppress-after-target-window-streak "${AGILE_COMMAND_HOLD_FINAL_TILT_ESCAPE_SUPPRESS_AFTER_TARGET_WINDOW_STREAK:--1}"
   --agile-command-hold-final-brake-command-x "${AGILE_COMMAND_HOLD_FINAL_BRAKE_COMMAND_X:-0.0}"
   --agile-command-hold-final-brake-delay-steps "${AGILE_COMMAND_HOLD_FINAL_BRAKE_DELAY_STEPS:-0}"
   --agile-command-hold-final-brake-steps "${AGILE_COMMAND_HOLD_FINAL_BRAKE_STEPS:-0}"

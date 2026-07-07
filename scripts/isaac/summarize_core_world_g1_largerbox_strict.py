@@ -304,6 +304,9 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "agile_command_hold_final_tilt_escape_box_tilt_rad": summary.get(
             "agile_command_hold_final_tilt_escape_box_tilt_rad"
         ),
+        "agile_command_hold_final_tilt_escape_suppress_after_target_window_streak": summary.get(
+            "agile_command_hold_final_tilt_escape_suppress_after_target_window_streak"
+        ),
         "agile_command_hold_final_tilt_escape_active_steps": summary.get(
             "agile_command_hold_final_tilt_escape_active_steps"
         ),
@@ -312,6 +315,9 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         ),
         "agile_command_hold_final_tilt_escape_max_scale": summary.get(
             "agile_command_hold_final_tilt_escape_max_scale"
+        ),
+        "agile_command_hold_final_tilt_escape_suppressed_by_target_window_steps": summary.get(
+            "agile_command_hold_final_tilt_escape_suppressed_by_target_window_steps"
         ),
         "agile_command_hold_adaptive_scale_enabled": summary.get(
             "agile_command_hold_adaptive_scale_enabled"

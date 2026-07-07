@@ -278,6 +278,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--agile-command-hold-final-tilt-escape-scale", type=float, default=-1.0)
     parser.add_argument("--agile-command-hold-final-tilt-escape-tilt", type=float, default=999.0)
     parser.add_argument("--agile-command-hold-final-tilt-escape-box-tilt", type=float, default=999.0)
+    parser.add_argument("--agile-command-hold-final-tilt-escape-suppress-after-target-window-streak", type=int, default=-1)
     parser.add_argument("--agile-command-hold-final-brake-command-x", type=float, default=0.0)
     parser.add_argument("--agile-command-hold-final-brake-delay-steps", type=int, default=0)
     parser.add_argument("--agile-command-hold-final-brake-steps", type=int, default=0)
@@ -2444,9 +2445,13 @@ def run_scene() -> Path:
         "agile_command_hold_final_tilt_escape_box_tilt_rad": float(
             args_cli.agile_command_hold_final_tilt_escape_box_tilt
         ),
+        "agile_command_hold_final_tilt_escape_suppress_after_target_window_streak": int(
+            args_cli.agile_command_hold_final_tilt_escape_suppress_after_target_window_streak
+        ),
         "agile_command_hold_final_tilt_escape_active_steps": 0,
         "agile_command_hold_final_tilt_escape_first_active_step": None,
         "agile_command_hold_final_tilt_escape_max_scale": 0.0,
+        "agile_command_hold_final_tilt_escape_suppressed_by_target_window_steps": 0,
         "agile_command_hold_final_lateral_suppressed_steps": 0,
         "agile_command_hold_final_yaw_suppressed_steps": 0,
         "agile_command_hold_final_brake_command_x": float(
@@ -3312,11 +3317,24 @@ def run_scene() -> Path:
                                 agile_final_policy_state_reset_done = True
                             tilt_escape_scale = float(args_cli.agile_command_hold_final_tilt_escape_scale)
                             if tilt_escape_scale >= 0.0:
+                                tilt_escape_suppressed_by_target_window = (
+                                    int(
+                                        args_cli.agile_command_hold_final_tilt_escape_suppress_after_target_window_streak
+                                    )
+                                    >= 0
+                                    and int(target_window_both_streak)
+                                    >= int(
+                                        args_cli.agile_command_hold_final_tilt_escape_suppress_after_target_window_streak
+                                    )
+                                )
                                 tilt_escape_active = (
-                                    max(abs(float(feedback_roll)), abs(float(feedback_pitch)))
-                                    >= float(args_cli.agile_command_hold_final_tilt_escape_tilt)
-                                    or float(box_feedback_tilt)
-                                    >= float(args_cli.agile_command_hold_final_tilt_escape_box_tilt)
+                                    not bool(tilt_escape_suppressed_by_target_window)
+                                    and (
+                                        max(abs(float(feedback_roll)), abs(float(feedback_pitch)))
+                                        >= float(args_cli.agile_command_hold_final_tilt_escape_tilt)
+                                        or float(box_feedback_tilt)
+                                        >= float(args_cli.agile_command_hold_final_tilt_escape_box_tilt)
+                                    )
                                 )
                                 if tilt_escape_active:
                                     command_scale = max(
@@ -3331,6 +3349,17 @@ def run_scene() -> Path:
                                     summary["agile_command_hold_final_tilt_escape_max_scale"] = max(
                                         float(summary["agile_command_hold_final_tilt_escape_max_scale"]),
                                         float(command_scale),
+                                    )
+                                elif tilt_escape_suppressed_by_target_window:
+                                    summary[
+                                        "agile_command_hold_final_tilt_escape_suppressed_by_target_window_steps"
+                                    ] = (
+                                        int(
+                                            summary[
+                                                "agile_command_hold_final_tilt_escape_suppressed_by_target_window_steps"
+                                            ]
+                                        )
+                                        + 1
                                     )
                         applied_agile_command_list = [float(v) * command_scale for v in args_cli.agile_command]
                         if (

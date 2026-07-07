@@ -15,7 +15,7 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 echo "summary=${SUMMARY_PATH}"
-echo -e "case\tstatus\tfall/drop\tfirst_fall/drop\ttarget_stable\tlongest/end\ttravel_robot/box\tlateral_robot/box\ttilt_robot/box\tfinal_hold\tchest_pad\twrites"
+echo -e "case\tstatus\tfall/drop\tfirst_fall/drop\ttarget_stable\tlongest/end\ttravel_robot/box\tlateral_robot/box\ttilt_robot/box\tfinal_hold\tescape_active/suppressed\tchest_pad\twrites"
 jq -r '
   .cases[]
   | select(type == "object" and has("fall_events"))
@@ -30,6 +30,7 @@ jq -r '
       (((.final_robot_target_lateral_error_m // 0)|tostring) + "/" + ((.final_box_target_lateral_error_m // 0)|tostring)),
       (((.max_tilt_rad // 0)|tostring) + "/" + ((.max_box_tilt_rad // 0)|tostring)),
       (((.agile_command_hold_final_active_steps // 0)|tostring) + "@" + ((.agile_command_hold_final_latched_step // "-")|tostring)),
+      (((.agile_command_hold_final_tilt_escape_active_steps // 0)|tostring) + "/" + ((.agile_command_hold_final_tilt_escape_suppressed_by_target_window_steps // 0)|tostring)),
       ((((.cradle_chest_pad_collision_enabled_step // "-")|tostring)) + ":" + ((.cradle_chest_pad_collision_enabled_reason // "-")|tostring)),
       (((.root_pose_write_count_rollout // 0)|tostring) + "/" + ((.root_velocity_write_count_rollout // 0)|tostring) + "/" + ((.box_pose_write_count_rollout // 0)|tostring))
     ]
