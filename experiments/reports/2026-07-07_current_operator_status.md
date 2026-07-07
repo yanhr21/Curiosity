@@ -1273,6 +1273,14 @@ This is a status snapshot only. It is not a carrying-success claim.
   steps `680`, `700`, `720`, and `740`. Submitted job `169724`
   (`g1_060rtiming`) through tmux
   `curiosity_g1_060_runtime_chestpad_timing_0707`.
+- `169724` completed on `server36` with strict pass `2/4`. `min680` and
+  `min700` both reproduced the pass: runtime chest pad spawned/enabled at
+  step `712`, reason `target_window`, no spawn error, final robot/box travel
+  `2.051/2.032 m`, final lateral error `0.071/0.265 m`, max robot/box tilt
+  `0.309/0.428 rad`, fall/drop `0/0`, and target-window/final-hold end
+  streak `102`. `min720` and `min740` were too late and fell after shorter
+  target-window dwell. The stable trigger window is therefore around
+  `680-700` min-step, with actual spawn at `712`.
 
 ## Next Decision
 

@@ -8738,3 +8738,11 @@
 - [ ] Await runtime chest-pad timing job `169724` (`g1_060rtiming`) submitted
   through tmux `curiosity_g1_060_runtime_chestpad_timing_0707`. It scans
   target-window min trigger steps `680`, `700`, `720`, and `740`.
+- [x] Record runtime chest-pad timing job `169724`: strict `2/4`.
+  `min680` and `min700` both passed, spawning/enabling support at step `712`
+  with final robot/box travel `2.051/2.032 m`, max robot/box tilt
+  `0.309/0.428`, fall/drop `0/0`, and target-window/final-hold end streak
+  `102`. `min720` and `min740` were too late and fell.
+- [ ] Generate a replay/visual artifact for the current best 0.60 kg runtime
+  chest-pad pass, without claiming it is learned or final unknown-load
+  carrying.

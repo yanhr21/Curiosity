@@ -12422,6 +12422,19 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   reproducible and how narrow the timing window is. Slurm job `169724`
   (`g1_060rtiming`) was submitted through tmux
   `curiosity_g1_060_runtime_chestpad_timing_0707`.
+- 2026-07-07 runtime-spawn chest-pad timing result: job `169724` completed on
+  `server36` with strict pass `2/4`. `target_window_min680` and
+  `target_window_min700` both reproduced the pass with identical metrics:
+  runtime chest pad spawned/enabled at step `712`, reason `target_window`,
+  `spawn_error=null`, final robot/box target-directed travel
+  `2.051/2.032 m`, final lateral error `0.071/0.265 m`, max robot/box tilt
+  `0.309/0.428 rad`, fall/drop `0/0`, target-window stable steps `105`, and
+  target-window/final-hold end streak `102`. `target_window_min720` and
+  `target_window_min740` were too late: they only held the target window for
+  `14` and `65` steps before fall/tilt failure. Current robust timing
+  conclusion: trigger the runtime support as soon as both robot and box enter
+  the target window after roughly step `680-700`; waiting until `720+` is not
+  stable.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
