@@ -340,6 +340,12 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "agile_command_hold_final_brake_max_abs_command_x": summary.get(
             "agile_command_hold_final_brake_max_abs_command_x"
         ),
+        "agile_command_hold_stand_target_overrides": summary.get(
+            "agile_command_hold_stand_target_overrides"
+        ),
+        "agile_command_hold_applied_stand_joint_targets": summary.get(
+            "agile_command_hold_applied_stand_joint_targets"
+        ),
         "agile_command_hold_adaptive_scale_enabled": summary.get(
             "agile_command_hold_adaptive_scale_enabled"
         ),

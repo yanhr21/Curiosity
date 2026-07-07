@@ -370,7 +370,19 @@ These rules override all other project instructions.
   `close_front_escape_stand_lowstance_summary.json` exists. Submitted through
   tmux `curiosity_g1_lowstance_0707` as Slurm job `170412` / `g1_lowstance`,
   suite stamp prefix
-  `20260707_g1_lowcarry_close_front_escape_stand_lowstance`.
+  `20260707_g1_lowcarry_close_front_escape_stand_lowstance`. Result:
+  aggregate `fail`, 0/2 strict cases passed. Source summaries confirm the
+  low-stance joint overrides were applied. `lowstance_soft` worsened the
+  boundary: fall/drop `123/76`, first fall/drop `1077/1124`, target-window
+  `102/101/0`, final-stand stable/longest `49/49`, final travel
+  `3.424/3.193 m`, lateral `0.991/0.964 m`, tilt `2.613/2.627 rad`, writes
+  `0/0/0`. `lowstance_deeper` roughly reproduced the stand/lateral boundary:
+  fall/drop `55/34`, first fall/drop `1145/1166`, target-window `145/144/0`,
+  final-stand stable/longest `92/92`, final travel `2.765/2.571 m`, lateral
+  `0.846/0.808 m`, tilt `2.741/3.113 rad`, writes `0/0/0`. Interpretation:
+  lower sagittal stand posture does not solve the terminal loss of support.
+  This further supports stopping the current G1 terminal-wrapper branch and
+  moving to a controller-backed or optimizer-backed support backend.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

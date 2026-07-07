@@ -224,3 +224,20 @@ Active next suite:
 It keeps the `suppress60_stand240_blend002` timing but changes the final stand
 posture with sagittal hip/knee/ankle/waist overrides to test a lower terminal
 support policy.
+
+## Low-Stance Terminal Support Follow-Up
+
+Suite:
+`20260707_g1_lowcarry_close_front_escape_stand_lowstance`
+
+Result: aggregate `fail`, `0/2` strict cases passed. Source summaries confirm
+the sagittal stand overrides were applied.
+
+| Case | fall/drop | first fall/drop | target stable/longest/end | final-stand stable/longest | robot/box travel m | lateral robot/box m | max tilt robot/box rad |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `lowstance_soft` | `123/76` | `1077/1124` | `102/101/0` | `49/49` | `3.424/3.193` | `0.991/0.964` | `2.613/2.627` |
+| `lowstance_deeper` | `55/34` | `1145/1166` | `145/144/0` | `92/92` | `2.765/2.571` | `0.846/0.808` | `2.741/3.113` |
+
+Lower sagittal stand posture does not solve the close-front terminal loss of
+support. This reinforces the stop decision for the current G1 terminal-wrapper
+branch.

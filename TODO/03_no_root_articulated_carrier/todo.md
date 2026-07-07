@@ -168,14 +168,18 @@
   roll target produced useful boundaries but no strict pass. The next
   meaningful step is a materially different terminal support policy or support
   backend replacement while preserving the same strict gates.
-- [ ] Run close-front low-stance terminal support follow-up:
+- [x] Run close-front low-stance terminal support follow-up:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_stand_lowstance_suite.sh`.
   It starts from `suppress60_stand240_blend002` but changes the final support
   posture with paired sagittal hip/knee/ankle/waist stand overrides instead of
   further tuning command scalars. Record
   `close_front_escape_stand_lowstance_summary.json` before interpreting.
   Submitted through tmux `curiosity_g1_lowstance_0707` as Slurm job `170412` /
-  `g1_lowstance`.
+  `g1_lowstance`. Result: aggregate `fail`, 0/2. The overrides were applied,
+  but `lowstance_soft` worsened the boundary with fall/drop `123/76` and
+  final-stand stable `49`, while `lowstance_deeper` roughly reproduced the
+  earlier stand boundary with fall/drop `55/34`, target-window `145/144/0`,
+  final-stand stable `92/92`, and writes `0/0/0`.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`
