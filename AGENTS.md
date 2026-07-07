@@ -315,7 +315,10 @@ These rules override all other project instructions.
   target-window streak, then enables `AGILE_COMMAND_HOLD_FINAL_STAND` after
   `240` or `300` final-hold steps with blend rates `0.02` and `0.04`
   respectively. This is an experiment entrypoint only until
-  `close_front_escape_suppression_stand_summary.json` exists.
+  `close_front_escape_suppression_stand_summary.json` exists. Submitted
+  through tmux `curiosity_g1_escape_stand_0707` as Slurm job `170396` /
+  `g1_escstand`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_escape_suppression_stand`.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

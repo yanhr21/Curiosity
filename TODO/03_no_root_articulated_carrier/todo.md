@@ -139,8 +139,9 @@
   It reuses the `suppress_after_streak60` boundary and switches to final stand
   targets after `240` or `300` final-hold steps, preserving strict fall/drop,
   target-window, final-hold, tilt, lateral, and no-rollout-write gates.
-  Record `close_front_escape_suppression_stand_summary.json` before
-  interpreting.
+  Submitted through tmux `curiosity_g1_escape_stand_0707` as Slurm job
+  `170396` / `g1_escstand`. Record
+  `close_front_escape_suppression_stand_summary.json` before interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`
