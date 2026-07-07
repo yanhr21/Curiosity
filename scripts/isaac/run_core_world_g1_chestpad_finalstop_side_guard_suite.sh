@@ -92,7 +92,7 @@ overall_status=0
 
 case "${CASE_SET}" in
   quick)
-    run_case final_guard_hs090 final 0.09 || overall_status=1
+    run_case "${SIDE_GUARD_QUICK_CASE_NAME:-final_guard_hs090}" final "${SIDE_GUARD_QUICK_HALF_SPACING:-0.09}" || overall_status=1
     ;;
   default)
     run_case final_guard_hs090 final 0.09 || overall_status=1

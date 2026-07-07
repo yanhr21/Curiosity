@@ -243,7 +243,18 @@ These rules override all other project instructions.
   `289/269`, first fall `711`, target-window stable steps `0`, final-hold
   active steps `0`, and writes `0/0/0`. The mechanism was revised to support
   `--cradle-final-side-guard-spawn-on-trigger`; the quick suite now enables
-  spawn-on-trigger so guards are not created before the trigger.
+  spawn-on-trigger so guards are not created before the trigger. Spawn-on-
+  trigger quick run
+  `20260707_g1_chestpad_finalstop_side_guard_spawn_quick` did test the
+  intended mechanism: guards spawned/enabled at final-hold step `868`, reason
+  `final_hold`, with update error `null`. It reduced final robot/box lateral
+  error to about `0.040/0.294 m`, but failed strict gates because the contact
+  was too aggressive: fall/drop `68/13`, first fall/drop `932/949`, max
+  robot/box tilt `1.735/1.909 rad`, final relative offset `0.313 m`, target-
+  window stable/longest `45/44`, final-hold active `132`, and writes `0/0/0`.
+  This is useful negative evidence: side guards can correct lateral drift, but
+  half-spacing `0.09 m` destabilizes final hold. The next side-guard probe
+  should loosen spacing rather than increase contact authority.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

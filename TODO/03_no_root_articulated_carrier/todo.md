@@ -9560,7 +9560,23 @@
 - [x] Add side-guard spawn-on-trigger mode and switch the quick side-guard
   suite to it. This avoids creating side-guard rigid bodies before trigger and
   makes the next run a cleaner final-hold contact diagnostic.
-- [ ] Rerun side-guard quick with spawn-on-trigger enabled. Require the
+- [x] Rerun side-guard quick with spawn-on-trigger enabled. Require the
   summary to show either a valid `cradle_final_side_guard_spawned_step` and
   collision trigger, or a near-pass trajectory that reaches final hold without
   side-guard activation.
+- [x] Record spawn-on-trigger side-guard quick result:
+  `20260707_g1_chestpad_finalstop_side_guard_spawn_quick`. It spawned and
+  enabled side guards at final-hold step `868` with reason `final_hold` and
+  no update error. It reduced final robot/box lateral error to about
+  `0.040/0.294 m`, but failed strict gates because the contact was too
+  aggressive: fall/drop `68/13`, first fall/drop `932/949`, max robot/box
+  tilt `1.735/1.909 rad`, final relative offset `0.313 m`, target-window
+  stable/longest `45/44`, final-hold active `132`, writes `0/0/0`. This is
+  useful negative evidence: side guards can correct lateral drift, but
+  half-spacing `0.09 m` destabilizes final hold.
+- [x] Make side-guard quick spacing configurable through
+  `SIDE_GUARD_QUICK_HALF_SPACING` and `SIDE_GUARD_QUICK_CASE_NAME`.
+- [ ] Run a looser side-guard spacing probe. Use the same spawn-on-trigger
+  final-hold mechanism but larger half-spacing, aiming for a small reduction
+  from the `168431` final box lateral error `0.614 m` to below `0.6 m` without
+  creating the tilt/fall impulse seen at `0.09 m`.
