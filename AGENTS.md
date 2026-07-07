@@ -12770,6 +12770,14 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_freeze_stand_override2`
   and started on `server58`. Interpret this branch only from the v2 summary at
   `experiments/outputs/core_world_g1_lowcarry_close_front_freeze_stand_override/20260707_g1_lowcarry_close_front_freeze_stand_override2/close_front_freeze_stand_override_summary.json`.
+- 2026-07-07 close-front stand-over-freeze v2 wrapper failure: Slurm job
+  `170167` (`g1_cfstand2`) started on `server58` but exited after the first
+  case with `line 134: and_delay_80: command not found`. This was a shell
+  wrapper bug, not a valid stand-over-freeze result. The fix removes top-level
+  argument-array forwarding from the transition script; the wrapper now exports
+  `AGILE_COMMAND_HOLD_STAND_OVERRIDES_FINAL_FREEZE=1`, and the transition
+  script lets `AGILE_COMMAND_HOLD_RESCUE_ENABLE` be overridden from the
+  environment. A fresh v3 run is required before interpreting stand-over-freeze.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,

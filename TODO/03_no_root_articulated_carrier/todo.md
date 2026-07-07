@@ -8977,6 +8977,12 @@
   `curiosity_g1_close_front_freeze_stand_override2_0707` and started on
   `server58` with suite stamp
   `20260707_g1_lowcarry_close_front_freeze_stand_override2`.
+- [x] Record invalid stand-over-freeze v2 job `170167`. It exited after the
+  first case with `line 134: and_delay_80: command not found`, caused by the
+  top-level argument forwarding fix colliding with function-local case args.
+  Replaced that approach with exported wrapper variables and environment
+  override support for `AGILE_COMMAND_HOLD_RESCUE_ENABLE`.
+- [ ] Re-run close-front stand-over-freeze suite after the v2 shell fix.
 - [x] Add a read-only close-front freeze-rescue override parser:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case
