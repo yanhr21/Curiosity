@@ -54,10 +54,13 @@
   `0.486/0.493 rad`, target-window stable steps `76 < 80`, and too few
   final-hold active steps. This supports posture-conditioned command/hold
   selection as the next active G1 direction, but it is not a pass.
-- [ ] Await close-front final-stabilize job `169771` (`g1_finalstab`) in tmux
-  `curiosity_g1_close_final_stab_0707`. It tests 1200-step close-front
-  `x=0.10,y=-0.04,final=1.20` variants with earlier box-tilt chest-pad
-  triggers. Do not report it as evidence until the summary exists.
+- [x] Add close-front final-stabilize follow-up script
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_stabilize_suite.sh`.
+  It tests 1200-step close-front `x=0.10,y=-0.04,final=1.20` variants with
+  earlier box-tilt chest-pad triggers. Slurm job `169771` was submitted but
+  stayed pending with an estimated start around `2026-07-07T17:00:00`, so it
+  was cancelled before running. There is no result yet; rerun this script when
+  GPU priority is available.
 - [x] Record the 2026-07-07 clean G1 boxtilt box-progress isolation result:
   `clean_slow` was stable but under-traveled, while `clean_slow_lateral_pos`
   entered the target window for `91` steps before over-traveling and failing.

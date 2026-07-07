@@ -111,6 +111,22 @@ The `steps1050_final120` case is the strongest close-front result so far. It
 does not pass, but it shows that a posture-conditioned command plus delayed
 hold can nearly reach the same task window as the tuned low-front pass.
 
+## Pending Final-Stabilize Follow-Up
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_stabilize_suite.sh`
+- Intended test:
+  1200-step close-front `x=0.10,y=-0.04,final=1.20` with earlier box-tilt
+  chest-pad triggers.
+- Slurm job:
+  `169771` / `g1_finalstab`
+- Status:
+  cancelled before running because it stayed pending with estimated start
+  `2026-07-07T17:00:00`.
+
+There is no final-stabilize result yet. The script is available for a later GPU
+slot, but it must not be reported as evidence until a summary exists.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next

@@ -112,9 +112,12 @@ These rules override all other project instructions.
   travel about `2.026/2.103 m`, final lateral error about `0.081/0.095 m`,
   but max robot/box tilt `0.486/0.493 rad`, target-window stable steps
   `76 < 80`, and final-hold active steps `268 < 399`. This is still not a
-  strict pass. Pending follow-up: Slurm job `169771` / `g1_finalstab` in tmux
-  `curiosity_g1_close_final_stab_0707`, which must not be interpreted until
-  its summary exists.
+  strict pass. Follow-up script
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_stabilize_suite.sh`
+  has been added but not run to completion: Slurm job `169771` / `g1_finalstab`
+  stayed pending with estimated start `2026-07-07T17:00:00` and was cancelled
+  before running. Do not interpret the final-stabilize suite until a fresh
+  summary exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate
