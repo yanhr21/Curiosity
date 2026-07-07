@@ -11879,6 +11879,24 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   tmux `curiosity_g1_boxtilt_box_progress_gpualloc_cpu_0707` using a GPU
   allocation but `DEVICE=cpu`, to preserve the previously validated CPU Isaac
   execution path while avoiding CPU-only Slurm reservation blocking.
+- 2026-07-07 box-progress CPU-device replacement result: GPU-allocation/
+  CPU-device job `169548` (`g1_bxprogc`) ran on `server23`; summary:
+  `experiments/outputs/core_world_g1_boxtilt_box_progress_controller/20260707_g1_boxtilt_box_progress_controller_gpualloc_cpu/boxtilt_box_progress_controller_summary.json`.
+  Strict result was `fail`, `0/3` cases passed. The controller activation was
+  real: `progress_only` had
+  `agile_command_box_progress_controller_enabled=true` and active steps
+  `1160`, but it failed early with `655` falls / `457` drops and max
+  robot/box target-directed travel only `0.537/0.527 m`. `progress_lateral_neg`
+  improved final lateral error but failed earlier with `743` falls / `273`
+  drops and max robot/box travel `0.740/0.817 m`. `progress_lateral_pos` was
+  the least bad stability case, first falling at step `958` and first dropping
+  at step `1139`, but still failed with `242` falls / `61` drops and max
+  robot/box travel only `0.521/0.467 m`. Target-window longest streak stayed
+  `0` for all cases. Conclusion: exposing the dormant box-progress controller
+  was necessary, but this closed-loop command layer does not solve heavy
+  boxtilt carrying; next work needs path/foot/support stabilization or a
+  materially stronger locomotion/contact backend rather than more forward/
+  lateral command tweaks.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

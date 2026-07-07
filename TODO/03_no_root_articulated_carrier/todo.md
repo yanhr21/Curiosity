@@ -8406,12 +8406,22 @@
   then exited `0` without writing per-case summaries. All three checks report
   `summary missing`, and aggregate `case_count` is `0`. This is not a
   controller result.
-- [ ] Await replacement box-progress controller diagnostic job `169548`
+- [x] Await replacement box-progress controller diagnostic job `169548`
   (`g1_bxprogc`) submitted through tmux
   `curiosity_g1_boxtilt_box_progress_gpualloc_cpu_0707`. It requests GPU
   resources only to get scheduled, but runs the previously validated Isaac CPU
   device path with `DEVICE=cpu`. Expected summary:
   `experiments/outputs/core_world_g1_boxtilt_box_progress_controller/20260707_g1_boxtilt_box_progress_controller_gpualloc_cpu/boxtilt_box_progress_controller_summary.json`.
+- [x] Record box-progress controller replacement result. Strict `fail`,
+  `0/3` cases passed. `progress_only` activated the box-progress controller
+  for `1160` steps, but failed with `655/457` fall/drop events and max
+  robot/box target-directed travel only `0.537/0.527 m`. `progress_lateral_neg`
+  improved final lateral error but fell/dropped `743/273` with no target-window
+  dwell. `progress_lateral_pos` delayed failure the most, first fall/drop
+  `958/1139`, but still fell/dropped `242/61` and only reached max robot/box
+  target-directed travel `0.521/0.467 m`. Interpretation: the dormant
+  controller is now wired and verified active, but box-progress/lateral command
+  closure alone is not enough for heavy boxtilt carrying.
 - [ ] Next credible route after `169548`: stop repeating command-layer lateral/yaw/final-stand
   scalar sweeps and small passive cradle-geometry tweaks for the heavy
   boxtilt branch. Move to a materially different support/contact controller

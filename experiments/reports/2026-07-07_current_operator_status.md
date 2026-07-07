@@ -992,6 +992,16 @@ This is a status snapshot only. It is not a carrying-success claim.
   viewport fallback lacked `isaacsim.core.rendering_manager`. Captured frames:
   `0`. See
   `experiments/reports/2026-07-07_current_showcase_visuals.md`.
+- Box-progress controller follow-up: exposed the dormant
+  `AGILE_COMMAND_BOX_PROGRESS_CONTROLLER` and
+  `AGILE_COMMAND_BOX_LATERAL_CONTROLLER` launcher flags, then ran replacement
+  job `169548` (`g1_bxprogc`) with GPU allocation but `DEVICE=cpu`. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_box_progress_controller/20260707_g1_boxtilt_box_progress_controller_gpualloc_cpu/boxtilt_box_progress_controller_summary.json`.
+  Result was strict `fail`, `0/3`. `progress_lateral_pos` was the least bad
+  case by failure timing, but still had `242` falls / `61` drops, first fall
+  at step `958`, first drop at step `1139`, max box target-directed travel
+  `0.467 m`, and target-window streak `0`. The controller is active but not
+  sufficient.
 - Completion audit remains `fail`. The full task is not achieved.
 
 ## Next Decision
