@@ -8838,3 +8838,8 @@
   progress drive. Candidate knobs: target-window stop/arrest, reduced
   post-window progress command, earlier runtime support after window entry,
   and tighter terminal retention while preserving strict gates.
+- [ ] Await/run close-front window-arrest suite:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_window_arrest_suite.sh`.
+  It uses conservative box-progress and latches hold on target-window entry
+  with runtime support at min steps `600-650`. It must pass the unchanged
+  strict gates before being interpreted as a close-front repair.

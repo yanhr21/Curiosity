@@ -216,6 +216,23 @@ step count, but it still fails fall/drop and end-streak gates. The next repair
 should not increase drive; it should arrest or retain the robot/box once the
 target window is reached.
 
+## Close-Front Window-Arrest Entrypoint
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_window_arrest_suite.sh`
+- Purpose:
+  build directly on `progress_conservative`, which reached target-window first
+  stable step `652`, then stop or soften the progress command as soon as both
+  robot and box enter the target window.
+- Cases:
+  `stop_window_pad620`, `stop_window_pad650_soft_hold`, and
+  `stop_window_pad600`.
+- Gate:
+  unchanged strict fall/drop, target-window, final-hold, tilt,
+  lateral-error, stop-window latch, and no rollout root/box writes checks.
+- Status:
+  added, not yet run.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next

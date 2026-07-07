@@ -12530,6 +12530,13 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `595` and target-window stable steps `0`. Conclusion: conservative
   box-progress can get close-front into the target window, but the next valid
   step is target-window retention/arrest, not stronger drive.
+- 2026-07-07 close-front window-arrest entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_window_arrest_suite.sh`.
+  This suite builds on the `progress_conservative` result by latching hold on
+  target-window entry and allowing runtime chest support at min steps `600`,
+  `620`, or `650`. It keeps strict fall/drop, target-window, final-hold, tilt,
+  lateral-error, stop-window latch, and no-shortcut gates. It is not evidence
+  until a compute-node summary exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
