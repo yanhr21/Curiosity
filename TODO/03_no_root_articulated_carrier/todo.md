@@ -9189,14 +9189,25 @@
   This is different from the already failed tiny-final-scale branch: final
   hold remains zero until tilt crosses a threshold, then temporarily restores
   a very small AGILE command scale.
-- [ ] Monitor final-hold tilt-escape probe. Slurm job `170351`
+- [x] Monitor final-hold tilt-escape probe. Slurm job `170351`
   (`g1_tiltesc`) was submitted through tmux `curiosity_g1_tilt_escape_0707`,
   suite stamp prefix `20260707_g1_lowcarry_close_front_tilt_escape`, log
   `logs/g1_tilt_escape_0707_srun.log`. It runs two close-front cases:
   `escape_robot035_box042_scale015` and
-  `escape_robot030_box040_scale025`. Record only after
+  `escape_robot030_box040_scale025`. It completed with aggregate `fail`, 0/2
+  strict cases passed. Both cases kept fall/drop `0/0`, final robot/box travel
+  about `2.026/2.103 m`, target-window stable/longest/end `76/73/73`,
+  final-hold active `268@782`, and rollout root/velocity/box pose writes
+  `0/0/0`, but failed tilt and stable-step gates. `scale015` triggered
+  tilt-escape for only `11` steps from step `1039`; `scale025` triggered for
+  only `18` steps from step `1025`. This shows the mechanism was too late, not
+  that small command release is immediately destructive. Summary:
   `experiments/outputs/core_world_g1_lowcarry_close_front_tilt_escape/20260707_g1_lowcarry_close_front_tilt_escape/close_front_tilt_escape_summary.json`
-  exists.
+- [ ] Next tilt-escape gate: run earlier trigger thresholds rather than
+  increasing scale late. Candidate cases should keep the same strict gates and
+  use final-hold-only escape around robot tilt `0.18-0.22 rad` and box tilt
+  `0.24-0.30 rad`, with scale still small enough to keep final command under
+  audited limits.
 - [x] Monitor blended retention-posture smoke job. Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
   `curiosity_g1_retention_blend_smoke_0707` with suite stamp

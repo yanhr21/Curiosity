@@ -150,7 +150,7 @@ These rules override all other project instructions.
   reset error. Interpretation: reset improves target-window dwell versus the
   no-reset `steps1050_final120` near-miss, but destabilizes the final hold and
   greatly worsens tilt, so it is not the close-front fix.
-- 2026-07-07 final-hold tilt-escape probe submitted:
+- 2026-07-07 final-hold tilt-escape probe result:
   added `--agile-command-hold-final-tilt-escape-scale`,
   `--agile-command-hold-final-tilt-escape-tilt`, and
   `--agile-command-hold-final-tilt-escape-box-tilt` to
@@ -164,7 +164,16 @@ These rules override all other project instructions.
   releases a tiny AGILE command scale. Submitted through tmux
   `curiosity_g1_tilt_escape_0707` as Slurm job `170351` / `g1_tiltesc`, suite
   stamp prefix `20260707_g1_lowcarry_close_front_tilt_escape`. Do not interpret
-  until `close_front_tilt_escape_summary.json` exists.
+  until `close_front_tilt_escape_summary.json` exists. Result: Slurm job
+  `170351` completed with aggregate `fail`, 0/2 strict cases passed. Both
+  cases had fall/drop `0/0`, writes `0/0/0`, final robot/box travel about
+  `2.026/2.103 m`, target-window stable/longest/end `76/73/73`, and
+  final-hold active `268@782`, but still failed tilt and minimum stable-step
+  gates. `scale015` reached max robot/box tilt `0.486/0.493 rad` and
+  triggered escape only for `11` steps from step `1039`; `scale025` reached
+  max robot/box tilt `0.488/0.483 rad` and triggered escape only for `18`
+  steps from step `1025`. Interpretation: the mechanism is not harmful in
+  this bracket, but the thresholds are too late to arrest the final tilt.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate
