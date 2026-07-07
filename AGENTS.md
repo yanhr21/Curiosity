@@ -12922,6 +12922,30 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   until
   `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_blend_quick/close_front_retention_posture_summary.json`
   exists.
+- 2026-07-07 blended retention-posture result: Slurm job `170296`
+  (`g1_retblend`) ran on `server46` and failed strict gates `0/1`.
+  `retention_mild` completed 1050 steps with rollout root/velocity/box pose
+  writes `0`, but had first fall/drop at `821/914`, fall/drop events
+  `229/107`, target-window stable steps `0`, final robot/box target-directed
+  travel `-0.880/-0.896 m`, max robot/box tilt `1.903/3.134 rad`, and max
+  robot/box target-directed travel only `0.446/0.496 m`. Source rollout
+  summary showed retention feedback was active for `835` steps from step
+  `170`, with max risk `1.0`, so the controller did engage. Conclusion:
+  blending stand-like retention posture into AGILE targets is still damaging
+  for close-front locomotion and is worse than the no-retention
+  `steps1050_final120` near-miss; do not continue this retention-posture
+  branch by only changing blend/offset scalars. The next close-front direction
+  should be a support/command formulation that preserves AGILE locomotion
+  rather than posture overwrites.
+- 2026-07-07 retention summary plumbing fix: after `170296`, the source
+  rollout summary contained `box_retention_*` fields, but
+  `scripts/isaac/summarize_core_world_g1_largerbox_strict.py` did not copy
+  them into aggregate summaries. The summarizer now preserves retention
+  enabled/range/blend/active-step/risk fields, and
+  `scripts/isaac/build_core_world_g1_box_scene.py` now records
+  `box_retention_blend_rate` in rollout summaries. Existing `170296`
+  aggregate JSON was not regenerated on the login node; interpret retention
+  activation from the source rollout summary for that run.
 - 2026-07-07 blended retention-posture smoke job: Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
   `curiosity_g1_retention_blend_smoke_0707` with suite stamp
@@ -12931,6 +12955,8 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   quickly. It must not be interpreted as strict carrying success even if it
   passes; only fall/drop, tilt, travel direction, retention activation, and
   no-rollout-write fields are useful from this smoke.
+  It was cancelled once the full `170296` quick gate completed; it produced
+  only an env snapshot and no valid rollout summary.
 - 2026-07-07 close-front retention-posture parser: added
   `scripts/isaac/print_g1_retention_posture_summary.sh`, a lightweight
   read-only `jq` parser for retention-posture summary JSON. It reports

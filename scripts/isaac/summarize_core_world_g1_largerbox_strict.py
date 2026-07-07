@@ -283,6 +283,18 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "balance_roll_target_lateral_suppressed_by_tilt_steps": summary.get(
             "balance_roll_target_lateral_suppressed_by_tilt_steps"
         ),
+        "box_retention_posture_controller_enabled": summary.get(
+            "box_retention_posture_controller_enabled"
+        ),
+        "box_retention_rel_start_m": summary.get("box_retention_rel_start_m"),
+        "box_retention_rel_stop_m": summary.get("box_retention_rel_stop_m"),
+        "box_retention_tilt_start_rad": summary.get("box_retention_tilt_start_rad"),
+        "box_retention_tilt_stop_rad": summary.get("box_retention_tilt_stop_rad"),
+        "box_retention_blend_rate": summary.get("box_retention_blend_rate"),
+        "box_retention_active_steps": summary.get("box_retention_active_steps"),
+        "box_retention_first_active_step": summary.get("box_retention_first_active_step"),
+        "box_retention_last_risk": summary.get("box_retention_last_risk"),
+        "box_retention_max_risk": summary.get("box_retention_max_risk"),
         "agile_command_hold_adaptive_scale_enabled": summary.get(
             "agile_command_hold_adaptive_scale_enabled"
         ),

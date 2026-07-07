@@ -2338,6 +2338,7 @@ def run_scene() -> Path:
         "box_retention_rel_stop_m": float(args_cli.box_retention_rel_stop),
         "box_retention_tilt_start_rad": float(args_cli.box_retention_tilt_start),
         "box_retention_tilt_stop_rad": float(args_cli.box_retention_tilt_stop),
+        "box_retention_blend_rate": float(args_cli.box_retention_blend_rate),
         "box_retention_active_steps": 0,
         "box_retention_first_active_step": None,
         "box_retention_max_risk": 0.0,

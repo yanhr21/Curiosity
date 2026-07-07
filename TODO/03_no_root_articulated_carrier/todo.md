@@ -9091,22 +9091,36 @@
   remains `1.0` for compatibility, but the close-front retention-posture
   suite now uses low blend rates so risk-driven posture feedback blends into
   AGILE policy targets rather than replacing locomotion targets outright.
-- [ ] Monitor blended close-front retention-posture quick job. Slurm job
+- [x] Monitor blended close-front retention-posture quick job. Slurm job
   `170296` (`g1_retblend`) was submitted through tmux
   `curiosity_g1_retention_posture_blend_0707` with
   `RETENTION_POSTURE_CASE_SET=quick` and suite stamp prefix
   `20260707_g1_lowcarry_close_front_retention_posture_blend_quick`. It was
-  `PENDING (Priority)` at submission. Record the result only after
-  `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_blend_quick/close_front_retention_posture_summary.json`
-  exists.
-- [ ] Monitor blended retention-posture smoke job. Slurm job `170298`
+  `PENDING (Priority)` at submission. Result: strict `fail`, `0/1`.
+  `retention_mild` completed 1050 steps with rollout root/velocity/box pose
+  writes `0`, but first fall/drop happened at `821/914`, fall/drop events were
+  `229/107`, target-window stable steps `0`, final robot/box target-directed
+  travel was `-0.880/-0.896 m`, and max robot/box tilt was `1.903/3.134 rad`.
+  Source rollout summary showed retention active for `835` steps from step
+  `170`, max risk `1.0`; the controller engaged but worsened the close-front
+  near-miss. Do not continue this branch with only retention blend/offset
+  scalar changes.
+- [x] Fix retention fields in aggregate summaries. After `170296`, source
+  rollout summary had `box_retention_*` fields but aggregate
+  `close_front_retention_posture_summary.json` did not. Updated
+  `scripts/isaac/summarize_core_world_g1_largerbox_strict.py` to preserve
+  retention enabled/range/blend/active-step/risk fields and updated
+  `scripts/isaac/build_core_world_g1_box_scene.py` to record
+  `box_retention_blend_rate` in future rollout summaries.
+- [x] Monitor blended retention-posture smoke job. Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
   `curiosity_g1_retention_blend_smoke_0707` with suite stamp
   `20260707_g1_lowcarry_close_front_retention_blend_smoke700`. It is only a
   700-step early-stability diagnostic with target-window/final-hold minimums
   disabled. If it runs, record fall/drop, tilt, target-directed travel,
   retention activation, and rollout write counts, but do not call it strict
-  carrying success.
+  carrying success. It was cancelled after `170296` completed, produced only
+  an env snapshot, and has no valid rollout summary.
 - [x] Add read-only retention-posture summary parser:
   `scripts/isaac/print_g1_retention_posture_summary.sh`. Use it after the
   blended retention-posture summary exists to audit pass/fail, fall/drop,
