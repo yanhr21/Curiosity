@@ -8940,4 +8940,7 @@
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_rescue_override_suite.sh`,
   which explicitly enables rescue targets to override frozen policy targets
   after target-window freeze, then compare rescue disabled, delayed rescue,
-  and softened rescue under the same strict gates.
+  and softened rescue under the same strict gates. Slurm job `170122`
+  (`g1_cfovr`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_rescue_override_0707`; it is pending on
+  GPU priority as of `2026-07-07 17:03 CST`.

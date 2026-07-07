@@ -12709,8 +12709,11 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_rescue_override_suite.sh`.
   This wrapper reuses the same three timing cases but explicitly lets active
   rescue targets override frozen policy targets after target-window freeze.
-  It is the valid replacement for the cancelled timing suite and remains only
-  an experiment entrypoint until
+  Slurm job `170122` (`g1_cfovr`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_rescue_override_0707`; as of
+  `2026-07-07 17:03 CST`, it was pending on GPU priority. It is the valid
+  replacement for the cancelled timing suite and remains only an experiment
+  entrypoint until
   `close_front_freeze_rescue_override_summary.json` exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
