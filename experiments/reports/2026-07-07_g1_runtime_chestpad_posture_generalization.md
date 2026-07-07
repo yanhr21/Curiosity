@@ -407,6 +407,10 @@ and the too-late `1.80 m` latch.
   latch fixes end-window retention without causing the late-latch collapse.
 - Cases:
   `final135`, `final145`, and `final155`.
+- Status:
+  Slurm job `169964` (`g1_cffinal`) was submitted through tmux
+  `curiosity_g1_close_front_rescue_final_latch_0707`; still pending on GPU
+  priority as of `2026-07-07 14:52 CST`.
 
 ## Next Step
 

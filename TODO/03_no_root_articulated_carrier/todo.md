@@ -8898,4 +8898,6 @@
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_final_latch_sweep.sh`.
   It keeps `rescue_crouch_abs040` and tests final latch thresholds `1.35`,
   `1.45`, and `1.55 m`, between the current under-traveling `1.20 m` latch
-  and the too-late `1.80 m` latch.
+  and the too-late `1.80 m` latch. Slurm job `169964` (`g1_cffinal`) was
+  submitted through tmux `curiosity_g1_close_front_rescue_final_latch_0707`;
+  it is pending on GPU priority as of `2026-07-07 14:52 CST`.
