@@ -118,6 +118,13 @@ These rules override all other project instructions.
   stayed pending with estimated start `2026-07-07T17:00:00` and was cancelled
   before running. Do not interpret the final-stabilize suite until a fresh
   summary exists.
+- 2026-07-07 posture-conditioned gate entrypoint added:
+  `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It
+  combines the known passing `low_front_060` case with a close-front candidate
+  using `x=0.10,y=-0.04,final=1.20` and earlier box-tilt chest-pad triggering,
+  under the same strict no-fall/no-drop/no-rollout-write/target-window/tilt/
+  lateral gates. It is an experiment entrypoint only until
+  `posture_conditioned_gate_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

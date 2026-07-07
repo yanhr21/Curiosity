@@ -127,6 +127,22 @@ hold can nearly reach the same task window as the tuned low-front pass.
 There is no final-stabilize result yet. The script is available for a later GPU
 slot, but it must not be reported as evidence until a summary exists.
 
+## Posture-Conditioned Gate Entrypoint
+
+- Script:
+  `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`
+- Cases:
+  `low_front_060` and `close_front_060_conditioned`
+- Gate:
+  unchanged strict fall/drop, no rollout root/box writes, target-window,
+  final-hold, tilt, and lateral-error checks.
+- Status:
+  added, not yet run.
+
+This is the next clean experiment entrypoint. It packages the known passing
+low-front command and the best current close-front conditioned hypothesis into
+one reproducible gate. It is not evidence until its summary JSON exists.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next

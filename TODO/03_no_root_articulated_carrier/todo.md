@@ -61,6 +61,15 @@
   stayed pending with an estimated start around `2026-07-07T17:00:00`, so it
   was cancelled before running. There is no result yet; rerun this script when
   GPU priority is available.
+- [x] Add unified posture-conditioned G1 gate suite:
+  `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
+  two strict cases without relaxing gates: the known passing `low_front_060`
+  configuration and a close-front conditioned candidate using
+  `x=0.10,y=-0.04,final=1.20` plus earlier box-tilt chest-pad trigger. This is
+  the next reproducible gate for testing whether posture-conditioned command
+  selection can move beyond a single tuned posture. It has not yet been run
+  because the GPU queue stayed priority-pending; do not report it as evidence
+  until `posture_conditioned_gate_summary.json` exists.
 - [x] Record the 2026-07-07 clean G1 boxtilt box-progress isolation result:
   `clean_slow` was stable but under-traveled, while `clean_slow_lateral_pos`
   entered the target window for `91` steps before over-traveling and failing.
