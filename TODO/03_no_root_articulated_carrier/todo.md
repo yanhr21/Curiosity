@@ -10144,3 +10144,32 @@
   need a real terminal support/retention controller that changes support,
   braking, and box attitude retention together before target-window dwell is
   lost, while preserving strict no-fall/no-drop/no-rollout-write gates.
+- [x] Add close-front held-out geometry rescue-freeze diagnostic:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_rescue_freeze_suite.sh`.
+  It keeps the wide/tall held-out shape cases from the failed window-freeze
+  suite, but enables roll-triggered rescue posture with
+  `AGILE_COMMAND_HOLD_RESCUE_OVERRIDES_FINAL_FREEZE=1` so rescue can override
+  frozen policy targets after target-window latch.
+- [x] Run and record the rescue-freeze diagnostic through tmux plus persistent
+  `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_rescue_freeze/<stamp>/closefront_heldout_geometry_rescue_freeze_summary.json`
+  exists.
+- [x] Record rescue-freeze diagnostic result:
+  `20260707_g1_closefront_heldout_geometry_rescue_freeze`, tmux
+  `curiosity_g1_heldout_rescue_freeze_0707`, Slurm job `170621`, aggregate
+  `fail`, 0/2. `wide_y012_hold_guard_rescue_freeze` froze at step `681`,
+  rescue override started at `691` for `309` steps, and still failed with
+  first fall/drop `723/760`, fall/drop `277/230`, target-window
+  stable/longest/end `43/43/0`, over-travel `3.196/2.880 m`, final lateral
+  `1.267/1.449 m`, relative offset `0.367 m`, max robot/box tilt
+  `3.141/3.141 rad`, writes `0`. `tall_z009_rescue_freeze` froze at step
+  `754`, rescue override started at `823` for `177` steps, reached
+  target-window stable/longest `100/100`, but end streak stayed `0` and it
+  failed with first fall/drop `853/871`, fall/drop `147/129`, over-travel
+  `2.554/2.513 m`, relative offset `0.338 m`, and max robot/box tilt
+  `1.616/2.138 rad`.
+- [ ] Next held-out geometry implementation step: do not keep layering rescue
+  posture on top of freeze. The current controller needs a different terminal
+  formulation that jointly handles commanded braking, support posture, and
+  box attitude/relative-pose retention before roll exceeds the rescue
+  threshold.

@@ -803,6 +803,37 @@ These rules override all other project instructions.
   box attitude retention, or controlled braking, so the wide/tall cases still
   roll, drop, or over-travel. Do not continue simple window-freeze or earlier
   stand/final-only scalar tuning for held-out shapes.
+- 2026-07-07 close-front held-out geometry rescue-freeze entrypoint added:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_rescue_freeze_suite.sh`.
+  It keeps the same two failed wide/tall held-out shape cases and the same
+  strict gates as the window-freeze suite, but enables
+  `AGILE_COMMAND_HOLD_RESCUE_ENABLE=1` and
+  `AGILE_COMMAND_HOLD_RESCUE_OVERRIDES_FINAL_FREEZE=1`. The test question is
+  narrow: whether target-window freeze plus a roll-triggered rescue posture
+  can recover the post-window roll/drop failure without relaxing no-fall,
+  no-drop, no-rollout-write, target-window, tilt, lateral, relative-offset,
+  and final-command gates. This is an experiment entrypoint only until
+  `closefront_heldout_geometry_rescue_freeze_summary.json` exists.
+- 2026-07-07 close-front held-out geometry rescue-freeze result:
+  `20260707_g1_closefront_heldout_geometry_rescue_freeze`, submitted through
+  tmux `curiosity_g1_heldout_rescue_freeze_0707` as Slurm job `170621`, ran
+  on `server39` and produced aggregate `fail`, 0/2 strict cases passed.
+  `wide_y012_hold_guard_rescue_freeze` latched freeze at step `681`, then
+  rescue override became active at step `691` for `309` steps, but the result
+  was still worse than the earlier non-rescue hold-guard boundary: first
+  fall/drop `723/760`, fall/drop `277/230`, target-window stable/longest/end
+  `43/43/0`, over-travel `3.196/2.880 m`, final lateral `1.267/1.449 m`,
+  relative offset `0.367 m`, max robot/box tilt `3.141/3.141 rad`, and
+  rollout writes `0`. `tall_z009_rescue_freeze` latched freeze at step `754`,
+  then rescue override became active at step `823` for `177` steps. It
+  reached target-window stable/longest `100/100`, but end streak stayed `0`
+  and it failed with first fall/drop `853/871`, fall/drop `147/129`,
+  over-travel `2.554/2.513 m`, relative offset `0.338 m`, and max robot/box
+  tilt `1.616/2.138 rad`. Interpretation: this was a valid negative test of
+  the existing rescue-over-freeze mechanism, not a non-trigger bug. The
+  failure mode remains terminal support/retention quality; a blended rescue
+  posture after freeze does not provide enough controlled braking or box
+  attitude retention for held-out shapes.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
