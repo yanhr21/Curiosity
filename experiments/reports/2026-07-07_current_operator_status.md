@@ -1269,6 +1269,10 @@ This is a status snapshot only. It is not a carrying-success claim.
   remains an engineered runtime-support Isaac test, not learned unknown-load
   carrying. `target_window_min760` triggered too late and fell; box-tilt
   triggers preserved travel but failed the box-tilt gate.
+- Added a timing refinement suite for runtime chest-pad target-window trigger
+  steps `680`, `700`, `720`, and `740`. Submitted job `169724`
+  (`g1_060rtiming`) through tmux
+  `curiosity_g1_060_runtime_chestpad_timing_0707`.
 
 ## Next Decision
 

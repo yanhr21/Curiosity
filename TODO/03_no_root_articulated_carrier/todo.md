@@ -8735,3 +8735,6 @@
 - [ ] Reproduce/refine runtime chest-pad target-window timing around min-step
   `700`; `min760` was too late and fell, while box-tilt triggers still failed
   box-tilt gates.
+- [ ] Await runtime chest-pad timing job `169724` (`g1_060rtiming`) submitted
+  through tmux `curiosity_g1_060_runtime_chestpad_timing_0707`. It scans
+  target-window min trigger steps `680`, `700`, `720`, and `740`.

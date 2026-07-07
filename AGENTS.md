@@ -12415,6 +12415,13 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `0.541 rad`. Immediate follow-up should reproduce/refine the successful
   target-window trigger timing around step `700`; do not return to preauthored
   fixed-joint chest-pad bodies.
+- 2026-07-07 runtime-spawn chest-pad timing refinement: added
+  `scripts/isaac/run_core_world_g1_lowcarry_060_runtime_chestpad_timing_suite.sh`.
+  It runs only target-window runtime-spawn cases with min trigger steps
+  `680`, `700`, `720`, and `740` to check whether the `169713` pass is
+  reproducible and how narrow the timing window is. Slurm job `169724`
+  (`g1_060rtiming`) was submitted through tmux
+  `curiosity_g1_060_runtime_chestpad_timing_0707`.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
