@@ -9118,6 +9118,12 @@
   It runs only `steps1200_final120_tilt030`, returning to the no-retention
   close-front near-miss lineage while testing earlier chest-pad triggering
   from box tilt.
+- [x] Add read-only close-front final-stabilize parser:
+  `scripts/isaac/print_g1_final_stabilize_summary.sh`. Use it after the
+  final-stabilize summary exists to audit pass/fail, fall/drop timing,
+  target-window dwell, travel/lateral/tilt metrics, final-hold latch/active
+  steps, chest-pad trigger step/reason, and rollout root/velocity/box pose
+  writes.
 - [ ] Monitor close-front final-stabilize quick job. Slurm job `170302`
   (`g1_finstabq`) was submitted through tmux
   `curiosity_g1_final_stabilize_quick_0707` with

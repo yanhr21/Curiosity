@@ -13037,6 +13037,12 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   fall/drop timing, target-window stability, travel/lateral/tilt metrics, and
   `agile_command_hold_rescue_override_freeze_*` fields so the override run can
   be audited without hand-parsing JSON. It does not run simulation.
+- 2026-07-07 close-front final-stabilize parser: added
+  `scripts/isaac/print_g1_final_stabilize_summary.sh`, a lightweight read-only
+  `jq` parser for final-stabilize summary JSON. It prints per-case pass/fail,
+  fall/drop timing, target-window dwell, travel/lateral/tilt metrics,
+  final-hold latch/active steps, chest-pad collision enable step/reason, and
+  rollout root/velocity/box pose write counts. It does not run simulation.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
