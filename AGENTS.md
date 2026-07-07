@@ -12564,6 +12564,11 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   than the original `progress_conservative` pad700 behavior; next support
   timing tests should compare original pad700 against disabled/delayed or
   softened chest support.
+- 2026-07-07 close-front support-timing entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_support_timing_suite.sh`.
+  It keeps the `progress_conservative` controller and strict gates while
+  comparing `no_runtime_pad`, `pad760`, and `pad700_small`. It is not evidence
+  until a compute-node summary exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

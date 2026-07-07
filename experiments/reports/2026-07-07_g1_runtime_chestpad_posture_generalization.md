@@ -278,6 +278,18 @@ and failed later (`first fall 802`). The next comparison should vary support
 timing/geometry around the original pad700 behavior rather than enabling it at
 step `653`.
 
+## Close-Front Support-Timing Entrypoint
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_support_timing_suite.sh`
+- Purpose:
+  keep the full `progress_conservative` controller and compare whether the
+  runtime chest support helps or hurts target-window retention.
+- Cases:
+  `no_runtime_pad`, `pad760`, and `pad700_small`.
+- Status:
+  added, not yet run.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next

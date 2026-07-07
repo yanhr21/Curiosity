@@ -8857,3 +8857,7 @@
   `progress_conservative` early hold/adaptive behavior and compare original
   pad700 against disabled/delayed/geometry-softened runtime chest support.
   Do not trigger support/freeze immediately at first window entry.
+- [ ] Await/run close-front support-timing suite:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_support_timing_suite.sh`.
+  It compares no runtime pad, delayed pad760, and smaller pad700 while keeping
+  the conservative box-progress controller and strict gates.
