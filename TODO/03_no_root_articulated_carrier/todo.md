@@ -9124,7 +9124,7 @@
   target-window dwell, travel/lateral/tilt metrics, final-hold latch/active
   steps, chest-pad trigger step/reason, and rollout root/velocity/box pose
   writes.
-- [ ] Monitor close-front final-stabilize quick job. Slurm job `170302`
+- [x] Monitor close-front final-stabilize quick job. Slurm job `170302`
   (`g1_finstabq`) was submitted through tmux
   `curiosity_g1_final_stabilize_quick_0707` with
   `FINAL_STABILIZE_CASE_SET=quick` and suite stamp prefix
@@ -9132,11 +9132,23 @@
   cancelled while pending after Slurm estimated a late start. Replacement
   45-minute job `170306` (`g1_finstab45`) was submitted through tmux
   `curiosity_g1_final_stabilize_quick45_0707` with suite stamp prefix
-  `20260707_g1_lowcarry_close_front_final_stabilize_quick45`. It was
-  `PENDING (Priority)` with no start estimate at submission. Record the
-  result only after
+  `20260707_g1_lowcarry_close_front_final_stabilize_quick45`. It completed on
+  `server10` and failed strict gates. The only case
+  `steps1200_final120_tilt030` had fall/drop `142/0`, first fall step `924`,
+  final robot/box target-directed travel about `0.731/0.650 m`, final
+  lateral error about `-0.061/-0.200 m`, max robot/box tilt
+  `3.130/3.129 rad`, target-window stable steps `0`, final-hold active
+  `418@782`, chest pad triggered at step `887`, and rollout root/velocity/box
+  pose writes `0/0/0`. Summary:
   `experiments/outputs/core_world_g1_lowcarry_close_front_final_stabilize/20260707_g1_lowcarry_close_front_final_stabilize_quick45/close_front_final_stabilize_summary.json`
-  exists.
+- [ ] Next close-front G1 action: do not repeat unchanged quick45
+  box-tilt chest-pad/final-stabilize scalar tuning. The best useful boundary
+  remains no-retention `steps1050_final120` from hold-delay, while old
+  `support_timing_no_runtime_pad` reached a longer target-window dwell but
+  fell late. The next test should either produce a short-window diagnostic
+  explicitly labeled as such, or change the mechanism: posture-conditioned
+  support/command selection before target entry, target-window arrest without
+  destabilizing lateral drift, or a controller-backed support posture.
 - [x] Monitor blended retention-posture smoke job. Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
   `curiosity_g1_retention_blend_smoke_0707` with suite stamp

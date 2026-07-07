@@ -114,10 +114,14 @@ These rules override all other project instructions.
   `76 < 80`, and final-hold active steps `268 < 399`. This is still not a
   strict pass. Follow-up script
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_stabilize_suite.sh`
-  has been added but not run to completion: Slurm job `169771` / `g1_finalstab`
-  stayed pending with estimated start `2026-07-07T17:00:00` and was cancelled
-  before running. Do not interpret the final-stabilize suite until a fresh
-  summary exists.
+  was run as Slurm job `170306` / `g1_finstab45` with suite stamp prefix
+  `20260707_g1_lowcarry_close_front_final_stabilize_quick45`. The single
+  quick case `steps1200_final120_tilt030` failed: fall/drop `142/0`, first
+  fall step `924`, final robot/box target-directed travel about
+  `0.731/0.650 m`, max robot/box tilt `3.130/3.129 rad`, target-window stable
+  steps `0`, and rollout root/velocity/box pose writes `0/0/0`. Earlier
+  box-tilt chest-pad triggering did not fix close-front; do not keep repeating
+  this quick45 chest-pad/final-stabilize scalar branch unchanged.
 - 2026-07-07 posture-conditioned gate entrypoint added:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It
   combines the known passing `low_front_060` case with a close-front candidate
