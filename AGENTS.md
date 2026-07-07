@@ -122,13 +122,20 @@ These rules override all other project instructions.
   steps `0`, and rollout root/velocity/box pose writes `0/0/0`. Earlier
   box-tilt chest-pad triggering did not fix close-front; do not keep repeating
   this quick45 chest-pad/final-stabilize scalar branch unchanged.
-- 2026-07-07 posture-conditioned gate entrypoint added:
+- 2026-07-07 posture-conditioned gate result:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It
-  combines the known passing `low_front_060` case with a close-front candidate
+  combined the known passing `low_front_060` case with a close-front candidate
   using `x=0.10,y=-0.04,final=1.20` and earlier box-tilt chest-pad triggering,
   under the same strict no-fall/no-drop/no-rollout-write/target-window/tilt/
-  lateral gates. It is an experiment entrypoint only until
-  `posture_conditioned_gate_summary.json` exists.
+  lateral gates. Aggregate result was `fail`, 1/2 cases passed. `low_front_060`
+  reproduced the narrow pass with fall/drop `0/0`, final robot/box travel
+  about `2.051/2.032 m`, max robot/box tilt `0.309/0.428 rad`, target-window
+  stable/end streak `105/102`, and writes `0/0/0`. `close_front_060_conditioned`
+  failed with the same boundary as quick45: fall/drop `142/0`, first fall step
+  `924`, final robot/box travel about `0.731/0.650 m`, target-window stable
+  steps `0`, and writes `0/0/0`. This confirms the current posture-conditioned
+  gate only preserves the tuned low-front posture; it does not generalize to
+  close-front.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

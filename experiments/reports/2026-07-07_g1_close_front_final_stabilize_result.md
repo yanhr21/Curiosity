@@ -32,6 +32,11 @@ Earlier box-tilt chest-pad triggering did not recover the close-front posture.
 The branch initially stayed upright through the pre-fall window, but the final
 target travel collapsed by the end and the robot fell at step `924`.
 
+The unified posture-conditioned gate confirms the same boundary:
+`low_front_060` still passes, but `close_front_060_conditioned` fails with the
+same fall/travel/target-window profile as this quick45 case. The current gate
+therefore preserves one tuned posture but does not generalize to close-front.
+
 Do not repeat the unchanged quick45 chest-pad/final-stabilize scalar branch.
 The useful close-front boundaries remain:
 

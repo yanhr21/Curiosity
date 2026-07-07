@@ -66,10 +66,17 @@
   two strict cases without relaxing gates: the known passing `low_front_060`
   configuration and a close-front conditioned candidate using
   `x=0.10,y=-0.04,final=1.20` plus earlier box-tilt chest-pad trigger. This is
-  the next reproducible gate for testing whether posture-conditioned command
-  selection can move beyond a single tuned posture. It has not yet been run
-  because the GPU queue stayed priority-pending; do not report it as evidence
-  until `posture_conditioned_gate_summary.json` exists.
+  the reproducible gate for testing whether posture-conditioned command
+  selection can move beyond a single tuned posture. It has run and produced
+  aggregate `fail`, 1/2 cases passed. `low_front_060` passed with fall/drop
+  `0/0`, final robot/box travel about `2.051/2.032 m`, max robot/box tilt
+  `0.309/0.428 rad`, target-window stable/end streak `105/102`, final-hold
+  `462@357`, chest pad at step `712`, and rollout root/velocity/box writes
+  `0/0/0`. `close_front_060_conditioned` failed with fall/drop `142/0`, first
+  fall step `924`, final robot/box travel about `0.731/0.650 m`, max robot/box
+  tilt `3.130/3.129 rad`, target-window stable steps `0`, final-hold
+  `418@782`, chest pad at step `887`, and writes `0/0/0`. Summary:
+  `experiments/outputs/core_world_g1_posture_conditioned_gate/20260707_g1_posture_conditioned_gate/posture_conditioned_gate_summary.json`.
 - [x] Record the 2026-07-07 clean G1 boxtilt box-progress isolation result:
   `clean_slow` was stable but under-traveled, while `clean_slow_lateral_pos`
   entered the target window for `91` steps before over-traveling and failing.
