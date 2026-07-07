@@ -54,7 +54,32 @@ if command -v ffmpeg >/dev/null 2>&1 && find "${frame_dir}" -type f -name '*.png
   fi
   echo "[INFO] Replay video written to: ${movie_path}"
 else
-  echo "[WARN] ffmpeg unavailable or no frames found; frames are under: ${frame_dir}" >&2
+  echo "[WARN] ffmpeg unavailable or no frames found; trying imageio MP4 fallback from: ${frame_dir}" >&2
+  "${ISAAC_VENV}/bin/python" - "${OUTPUT_DIR}" <<'PY'
+from pathlib import Path
+import sys
+
+try:
+    import imageio.v2 as imageio
+except Exception as exc:  # noqa: BLE001
+    print(f"[WARN] imageio unavailable, leaving PNG frames only: {exc}")
+    raise SystemExit(0)
+
+output_dir = Path(sys.argv[1])
+frame_dir = output_dir / "rgb_frames"
+frames = sorted(frame_dir.glob("*.png"))
+if not frames:
+    print(f"[WARN] no PNG frames found for imageio MP4 fallback in {frame_dir}")
+    raise SystemExit(0)
+
+movie_path = output_dir / "g1_replay_showcase.mp4"
+annotated_movie_path = output_dir / "g1_replay_showcase_annotated.mp4"
+for path in (movie_path, annotated_movie_path):
+    with imageio.get_writer(str(path), fps=15, macro_block_size=2) as writer:
+        for frame in frames:
+            writer.append_data(imageio.imread(frame))
+    print(f"[INFO] imageio wrote {path}")
+PY
 fi
 
 record_dir="$(dirname "${REPLAY_CSV}")"
