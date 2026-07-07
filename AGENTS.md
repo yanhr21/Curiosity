@@ -12831,7 +12831,41 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
 - 2026-07-07 close-front stand-over-freeze balance-coupling job: Slurm job
   `170193` (`g1_cfbalstand`) was submitted through tmux
   `curiosity_g1_close_front_freeze_stand_balance_0707`; as of
-  `2026-07-07 17:55 CST`, it was pending on GPU priority.
+  `2026-07-07 17:55 CST`, it was pending on GPU priority. It later ran on
+  `server10` and failed `0/3`. `stand160_balance_base_stand` fell/dropped at
+  `533/827` with target-window stable steps `0` and final robot/box travel
+  only `0.184/0.148 m`; `stand160_balance_half_gain` was catastrophic, with
+  negative final travel and lateral error about `12.9/13.1 m`;
+  `stand160_balance_off` reached robot/box travel `1.703/1.616 m` but
+  fell/dropped at `415/500` and had target-window stable steps `0`. Although
+  `agile_command_hold_stand_overrides_final_freeze=true` was set, none of
+  these cases produced effective stand-over-freeze active steps because they
+  failed to establish the target-window/freeze condition. Conclusion: this
+  balance-coupling attempt is negative and does not beat
+  `stand_delay_160_soft`; do not continue scalar balance-base/gain toggles on
+  this close-front branch.
+- 2026-07-07 G1 showcase capture job: Slurm job `170209` (`g1_showviz`) was
+  submitted through tmux `curiosity_g1_showcase_capture_0707` to run
+  `scripts/isaac/run_core_world_g1_showcase_lowcarry_capture.sh` with
+  `SUITE_STAMP=20260707_g1_lowcarry_showcase_rgb_retry`, RGB capture enabled,
+  and replay recording enabled. It completed on `server28`, but it is negative
+  for both control and camera capture: the run failed early with fall/drop at
+  steps `85/91`, and RGB capture produced no PNG/MP4 because
+  `omni.replicator.core` could not resolve the local `omni.kit.pip_archive`
+  dependency from the available Kit registry mirror. Do not use this run as
+  showcase evidence.
+- 2026-07-07 current best fallback visual: Slurm job `170217`
+  (`g1_bestcpu2`) ran on `server02` through tmux
+  `curiosity_g1_best_fallback_visual_cpu2_0707` and rendered the existing
+  strict-pass replay
+  `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_min700` into
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_best_fallback_cpu2/`.
+  It produced `83` frames, `g1_lowcarry_replay_fallback.gif`,
+  `g1_lowcarry_replay_fallback_poster.png`, `g1_lowcarry_best_fallback.mp4`,
+  and `g1_lowcarry_best_fallback_annotated.mp4`. This is the clearest current
+  presentation artifact for the narrow G1 pass, but it is still a schematic
+  replay visual, not an Isaac camera render and not generalized unknown-load
+  carrying evidence.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,

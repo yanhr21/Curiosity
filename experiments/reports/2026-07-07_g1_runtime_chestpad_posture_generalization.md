@@ -581,6 +581,56 @@ soft delayed case, but the transition still produces excessive roll/pitch and
 eventual box drop. The next refinement should make the stand transition later
 and softer, not change final command scale.
 
+## Close-Front Stand-Over-Freeze Refinement
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_override_refine_suite.sh`
+- Purpose:
+  keep explicit stand-over-freeze priority, but make the delayed stand target
+  later and softer to reduce tilt/drop.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `170185` (`g1_cfstandref`) ran on
+  `server44` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_freeze_stand_override_refine/20260707_g1_lowcarry_close_front_freeze_stand_override_refine/close_front_freeze_stand_override_refine_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Longest/End Streak | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `stand_delay_160_microblend` | fail | 497/429 | 803/834 | 127 | 89/0 | Softer blend worsens dwell versus `stand_delay_160_soft`. |
+| `stand_delay_180_ultrasoft` | fail | 500/442 | 800/826 | 124 | 86/0 | Later/softer transition still falls and drops before final hold. |
+| `stand_delay_220_ultrasoft` | fail | 516/493 | 784/807 | 108 | 70/0 | Reduces max tilt slightly but loses useful target-window dwell. |
+
+Later/softer stand targets did not beat `stand_delay_160_soft`. This rules out
+continuing only delay/blend/low-COM scalar tuning for the current close-front
+stand-over-freeze branch.
+
+## Close-Front Stand Balance Coupling
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_override_balance_suite.sh`
+- Purpose:
+  keep the `stand_delay_160_soft` timing/target and vary balance feedback
+  coupling during the stand branch.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `170193` (`g1_cfbalstand`) ran on
+  `server10` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_freeze_stand_override_balance/20260707_g1_lowcarry_close_front_freeze_stand_override_balance/close_front_freeze_stand_override_balance_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Final Robot/Box Travel | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `stand160_balance_base_stand` | fail | 767/473 | 533/827 | 0 | 0.184/0.148 m | Balance base change destroys target-window entry. |
+| `stand160_balance_half_gain` | fail | 633/520 | 667/780 | 0 | -3.439/-3.698 m | Half gains are unstable and run away laterally. |
+| `stand160_balance_off` | fail | 853/200 | 415/500 | 0 | 1.703/1.616 m | Disabling balance does not retain the box or reach the window. |
+
+The wrapper set `agile_command_hold_stand_overrides_final_freeze=true`, but
+these cases did not establish effective stand-over-freeze active steps because
+they failed target-window/freeze entry. This suite is a negative balance-
+coupling attempt, not evidence that the original `stand_delay_160_soft` branch
+has been solved. The close-front path now needs a materially different
+posture-conditioned support/command formulation, not more scalar balance-base
+or gain toggles.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next
@@ -620,6 +670,7 @@ implementation should add an explicit posture-conditioned controller gate:
 - do not treat the previous freeze-stand suite as a valid stand-target test;
   final freeze also masked stand targets,
 - stand-over-freeze is now the better close-front branch, but it needs a
-  later/softer transition to reduce tilt/drop,
+  different support/command formulation; later/softer transition and scalar
+  balance coupling did not improve it,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

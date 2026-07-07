@@ -8962,7 +8962,7 @@
   It uses `--agile-command-hold-stand-overrides-final-freeze`, disables rescue,
   and reuses the delayed low-COM stand cases with a distinct
   `close_front_freeze_stand_override_summary.json`.
-- [ ] Run close-front stand-over-freeze suite. Slurm job `170159`
+- [x] Run close-front stand-over-freeze suite. Slurm job `170159`
   (`g1_cfstandovr`) was submitted through tmux
   `curiosity_g1_close_front_freeze_stand_override_0707`; it is pending on GPU
   priority as of `2026-07-07 17:32 CST`.
@@ -8972,7 +8972,7 @@
   steps `0`. Fixed
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_transition_suite.sh`
   to pass wrapper-level env overrides into each case.
-- [ ] Re-run close-front stand-over-freeze suite after the wrapper env fix.
+- [x] Re-run close-front stand-over-freeze suite after the wrapper env fix.
   Slurm job `170167` (`g1_cfstand2`) was submitted through tmux
   `curiosity_g1_close_front_freeze_stand_override2_0707` and started on
   `server58` with suite stamp
@@ -8982,7 +8982,7 @@
   top-level argument forwarding fix colliding with function-local case args.
   Replaced that approach with exported wrapper variables and environment
   override support for `AGILE_COMMAND_HOLD_RESCUE_ENABLE`.
-- [ ] Re-run close-front stand-over-freeze suite after the v2 shell fix.
+- [x] Re-run close-front stand-over-freeze suite after the v2 shell fix.
   Slurm job `170173` (`g1_cfstand3`) was submitted through tmux
   `curiosity_g1_close_front_freeze_stand_override3_0707` with suite stamp
   `20260707_g1_lowcarry_close_front_freeze_stand_override3`; it ran on
@@ -8992,7 +8992,7 @@
   robot/box travel `2.137/2.164 m`, final lateral error `-0.306/-0.186 m`,
   and first fall/drop `816/862`, but still failed with fall/drop `484/413`
   and max robot/box tilt `1.412/1.825 rad`.
-- [ ] Run close-front later/softer stand-over-freeze refinement. Continue from
+- [x] Run close-front later/softer stand-over-freeze refinement. Continue from
   `stand_delay_160_soft`; test later delay and gentler low-COM targets/blends
   to reduce tilt/drop while preserving target-window dwell.
 - [x] Add close-front later/softer stand-over-freeze refinement entrypoint:
@@ -9001,14 +9001,14 @@
   `stand_delay_160_microblend`, `stand_delay_180_ultrasoft`, and
   `stand_delay_220_ultrasoft` with stand-over-freeze enabled and rescue
   disabled.
-- [ ] Run close-front later/softer stand-over-freeze refinement suite. Slurm
+- [x] Run close-front later/softer stand-over-freeze refinement suite. Slurm
   job `170185` (`g1_cfstandref`) was submitted through tmux
   `curiosity_g1_close_front_freeze_stand_refine_0707`; it ran on `server44`
   and failed `0/3`. `stand_delay_160_microblend` had stable steps `127`,
   fall/drop `803/834`; `stand_delay_180_ultrasoft` had stable steps `124`,
   fall/drop `800/826`; `stand_delay_220_ultrasoft` lowered max tilt but
   worsened stable steps to `108` and fall/drop to `784/807`.
-- [ ] Add and run a close-front stand-over-freeze balance-coupling suite.
+- [x] Add and run a close-front stand-over-freeze balance-coupling suite.
   Keep the best `stand_delay_160_soft` timing/target and vary balance feedback
   base/gains during stand override.
 - [x] Add close-front stand-over-freeze balance-coupling entrypoint:
@@ -9016,10 +9016,32 @@
   It uses `STAND_TRANSITION_CASE_SET=balance_coupling` and compares
   `stand160_balance_base_stand`, `stand160_balance_half_gain`, and
   `stand160_balance_off`.
-- [ ] Run close-front stand-over-freeze balance-coupling suite. Slurm job
+- [x] Run close-front stand-over-freeze balance-coupling suite. Slurm job
   `170193` (`g1_cfbalstand`) was submitted through tmux
-  `curiosity_g1_close_front_freeze_stand_balance_0707`; it is pending on GPU
-  priority as of `2026-07-07 17:55 CST`.
+  `curiosity_g1_close_front_freeze_stand_balance_0707`; it ran on `server10`
+  and failed `0/3`. `stand160_balance_base_stand` had target-window stable
+  steps `0` and fall/drop `533/827`; `stand160_balance_half_gain` ran away
+  laterally by about `13 m`; `stand160_balance_off` fell/dropped at
+  `415/500` with stable steps `0`. This attempt did not produce effective
+  stand-over-freeze active steps because target-window/freeze was not
+  established. Do not continue scalar balance-base/gain toggles on this
+  close-front branch.
+- [x] Monitor G1 showcase RGB capture job `170209` (`g1_showviz`) submitted
+  through tmux `curiosity_g1_showcase_capture_0707`. It runs
+  `scripts/isaac/run_core_world_g1_showcase_lowcarry_capture.sh` with
+  `SUITE_STAMP=20260707_g1_lowcarry_showcase_rgb_retry`, RGB capture and
+  replay recording enabled. It completed on `server28`, but failed early with
+  fall/drop at steps `85/91` and produced no RGB frames or MP4 because
+  `omni.replicator.core` could not resolve the local `omni.kit.pip_archive`
+  dependency. Do not use this as showcase evidence.
+- [x] Generate current best G1 fallback visual from the existing strict-pass
+  replay, without rerunning control. Slurm job `170217` (`g1_bestcpu2`) ran on
+  `server02` through tmux `curiosity_g1_best_fallback_visual_cpu2_0707` and
+  produced `83` frames, GIF, poster, and MP4 files under
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_best_fallback_cpu2/`.
+  Use it as the current best presentation artifact only with the explicit
+  caveat that it is a schematic replay, not an Isaac camera render and not
+  generalized carrying success.
 - [x] Add a read-only close-front freeze-rescue override parser:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case

@@ -5,26 +5,25 @@ This is a presentation inventory only. It is not a carrying-success claim.
 ## Recommended Current-Progress Visual
 
 - File:
-  `experiments/visuals/g1_replay_showcase/20260707_g1_boxtilt_avgpos_short_window_760_progress_fallback/g1_boxtilt_short_window_progress_annotated.mp4`
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_best_fallback_cpu2/g1_lowcarry_best_fallback_annotated.mp4`
 - Poster:
-  `experiments/visuals/g1_replay_showcase/20260707_g1_boxtilt_avgpos_short_window_760_progress_fallback/g1_boxtilt_short_window_progress_poster.png`
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_best_fallback_cpu2/g1_lowcarry_replay_fallback_poster.png`
 - Source rollout:
-  `experiments/outputs/core_world_g1_agile_policy_low_cradle/20260707_g1_boxtilt_avgpos_short_window_760/agile_low_cradle_freebox_walk/`
-- Strict aggregate:
-  `experiments/outputs/core_world_g1_boxtilt_avgpos_short_window/20260707_g1_boxtilt_avgpos_short_window_760/boxtilt_avgpos_short_window_summary.json`
+  `experiments/outputs/core_world_g1_agile_policy_low_cradle/20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_min700/agile_low_cradle_freebox_walk/`
 
-Interpretation: current G1 AGILE-policy progress with a `0.75 kg` free box in
-the boxtilt/cradle scaffold. It completed the short 760-step window with
-fall/drop `0/0`, final robot/box target-directed travel about
-`2.255/2.255 m`, and target-window end streak `133` steps. The strict checker
-still failed because robot/box tilt was too high (`0.624/0.649 rad`) and
-final lateral error was too large (`1.086/1.284 m`). Present this as progress
-plus the current bottleneck, not as solved carrying.
+Interpretation: current narrow G1 AGILE-policy low-carry pass with a free box
+in the low-front cradle scaffold. The source rollout has fall/drop `0/0`,
+final robot/box target-directed travel about `2.051/2.032 m`, max robot/box
+tilt `0.309/0.428 rad`, target-window end streak `102`, and no rollout
+root/velocity/box pose writes. Present this as the best current narrow
+engineered diagnostic, not as robust unknown-load or posture-general carrying.
 
 Important limitation: this is a schematic replay fallback from recorded CSV,
-not an Isaac camera render and not new control evidence.
+not an Isaac camera render and not new control evidence. A fresh true Isaac
+camera capture attempt on 2026-07-07 failed because `omni.replicator.core`
+could not resolve the local `omni.kit.pip_archive` dependency.
 
-## Narrow Passing Visual
+## Previous Narrow Passing Visual
 
 - File:
   `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_current_pass_presentation_fallback/g1_lowcarry_replay_fallback_annotated.mp4`
@@ -90,6 +89,13 @@ the Python import failed with `ModuleNotFoundError: No module named
 `isaacsim.core.rendering_manager`. Captured frames: `0`. Do not advertise a
 true Isaac camera render as available until the local Kit extension set is
 fixed or a different installed render path is found.
+
+Follow-up RGB capture attempt: job `170209` (`g1_showviz`) ran on `server28`
+with `scripts/isaac/run_core_world_g1_showcase_lowcarry_capture.sh` and
+`SUITE_STAMP=20260707_g1_lowcarry_showcase_rgb_retry`. It is also negative:
+the control configuration failed early with fall/drop at steps `85/91`, and
+RGB capture produced no PNG/MP4 because `omni.replicator.core` again could not
+resolve `omni.kit.pip_archive` from the local registry mirror.
 
 ## Latest Negative Diagnostics To Mention Honestly
 
