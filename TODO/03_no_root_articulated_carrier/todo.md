@@ -9053,7 +9053,7 @@
   tilt `1.284/1.397 rad`. This early `policy_then_stand` handoff is worse
   than the earlier `stand_delay_160_soft` boundary; do not continue this
   exact branch without a materially different support/terminal-control design.
-- [ ] Monitor posture-conditioned gate rerun. Slurm job `170282`
+- [x] Monitor posture-conditioned gate rerun. Slurm job `170282`
   (`g1_postgate`) was submitted through tmux `curiosity_g1_posture_gate_0707`
   with `SUITE_STAMP_PREFIX=20260707_g1_posture_conditioned_gate_rerun`. It
   runs the existing two-case gate, known `low_front_060` reproduction plus
@@ -9062,7 +9062,8 @@
   at submission. Record the result only after
   `experiments/outputs/core_world_g1_posture_conditioned_gate/20260707_g1_posture_conditioned_gate_rerun/posture_conditioned_gate_summary.json`
   exists. This job was later cancelled while still pending so the GPU queue
-  could be used for the more targeted close-front retention-posture test.
+  could be used for the more targeted close-front retention-posture test; no
+  summary exists and it should not be interpreted as evidence.
 - [x] Add close-front retention-posture suite:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_retention_posture_suite.sh`.
   It starts from the previous near-miss `steps1050_final120` and enables
@@ -9070,7 +9071,7 @@
   rollout root/velocity/box pose shortcuts. The quick case tests mild
   risk-driven hip/knee/ankle/waist/arm posture feedback; the full case-set can
   compare mild and strong feedback.
-- [ ] Monitor close-front retention-posture quick job. Slurm job `170290`
+- [x] Monitor close-front retention-posture quick job. Slurm job `170290`
   (`g1_retpost`) was submitted through tmux
   `curiosity_g1_retention_posture_0707` with
   `RETENTION_POSTURE_CASE_SET=quick` and suite stamp prefix
@@ -9079,8 +9080,24 @@
   Replacement Slurm job `170293` (`g1_retpost45`) was submitted through tmux
   `curiosity_g1_retention_posture_45m_0707` with suite stamp prefix
   `20260707_g1_lowcarry_close_front_retention_posture_quick45`. It was
+  also cancelled while pending after implementation review showed the original
+  retention posture controller would hard-overwrite AGILE policy joint targets.
+  No summary exists for `170290` or `170293`; do not interpret them as
+  evidence.
+- [x] Add blended retention-posture control. Added
+  `--box-retention-blend-rate` to
+  `scripts/isaac/build_core_world_g1_box_scene.py` and forwarded
+  `BOX_RETENTION_BLEND_RATE` through the AGILE low-cradle runner. Default
+  remains `1.0` for compatibility, but the close-front retention-posture
+  suite now uses low blend rates so risk-driven posture feedback blends into
+  AGILE policy targets rather than replacing locomotion targets outright.
+- [ ] Monitor blended close-front retention-posture quick job. Slurm job
+  `170296` (`g1_retblend`) was submitted through tmux
+  `curiosity_g1_retention_posture_blend_0707` with
+  `RETENTION_POSTURE_CASE_SET=quick` and suite stamp prefix
+  `20260707_g1_lowcarry_close_front_retention_posture_blend_quick`. It was
   `PENDING (Priority)` at submission. Record the result only after
-  `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_quick45/close_front_retention_posture_summary.json`
+  `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_blend_quick/close_front_retention_posture_summary.json`
   exists.
 - [x] Monitor G1 showcase RGB capture job `170209` (`g1_showviz`) submitted
   through tmux `curiosity_g1_showcase_capture_0707`. It runs

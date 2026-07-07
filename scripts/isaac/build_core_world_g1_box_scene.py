@@ -201,6 +201,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--box-retention-rel-stop", type=float, default=0.28)
     parser.add_argument("--box-retention-tilt-start", type=float, default=0.20)
     parser.add_argument("--box-retention-tilt-stop", type=float, default=0.55)
+    parser.add_argument("--box-retention-blend-rate", type=float, default=1.0)
     parser.add_argument("--box-retention-hip-pitch-offset", type=float, default=-0.04)
     parser.add_argument("--box-retention-knee-offset", type=float, default=0.12)
     parser.add_argument("--box-retention-ankle-pitch-offset", type=float, default=-0.06)
@@ -1162,6 +1163,20 @@ def _command_joint_position(
         command[joint_names.index(joint_name)] = float(value)
 
 
+def _blend_command_joint_position(
+    command: np.ndarray,
+    joint_names: list[str],
+    joint_name: str,
+    target: float,
+    blend_rate: float,
+) -> None:
+    if joint_name not in joint_names:
+        return
+    idx = joint_names.index(joint_name)
+    alpha = max(0.0, min(1.0, float(blend_rate)))
+    command[idx] = (1.0 - alpha) * float(command[idx]) + alpha * float(target)
+
+
 def _apply_hold_stand_overrides(command: np.ndarray, joint_names: list[str]) -> dict[str, float]:
     applied: dict[str, float] = {}
     paired_overrides = {
@@ -1302,63 +1317,72 @@ def _apply_box_retention_posture_feedback(
     )
     if risk <= 0.0:
         return 0.0
+    blend_rate = max(0.0, min(1.0, float(args_cli.box_retention_blend_rate)))
     stand_targets = _stand_joint_targets()
     for side in ("left", "right"):
-        _command_joint_position(
+        _blend_command_joint_position(
             command,
             joint_names,
             f"{side}_hip_pitch_joint",
             stand_targets.get(f"{side}_hip_pitch_joint", -0.10)
             + risk * float(args_cli.box_retention_hip_pitch_offset),
+            blend_rate,
         )
-        _command_joint_position(
+        _blend_command_joint_position(
             command,
             joint_names,
             f"{side}_knee_joint",
             stand_targets.get(f"{side}_knee_joint", 0.30)
             + risk * float(args_cli.box_retention_knee_offset),
+            blend_rate,
         )
-        _command_joint_position(
+        _blend_command_joint_position(
             command,
             joint_names,
             f"{side}_ankle_pitch_joint",
             stand_targets.get(f"{side}_ankle_pitch_joint", -0.20)
             + risk * float(args_cli.box_retention_ankle_pitch_offset),
+            blend_rate,
         )
         shoulder_roll_bias = 0.02 if side == "left" else -0.02
-        _command_joint_position(
+        _blend_command_joint_position(
             command,
             joint_names,
             f"{side}_shoulder_pitch_joint",
             stand_targets.get(f"{side}_shoulder_pitch_joint", 0.0)
             + risk * float(args_cli.box_retention_shoulder_pitch_offset),
+            blend_rate,
         )
-        _command_joint_position(
+        _blend_command_joint_position(
             command,
             joint_names,
             f"{side}_shoulder_roll_joint",
             stand_targets.get(f"{side}_shoulder_roll_joint", 0.0) + risk * shoulder_roll_bias,
+            blend_rate,
         )
-        _command_joint_position(
+        _blend_command_joint_position(
             command,
             joint_names,
             f"{side}_elbow_joint",
             stand_targets.get(f"{side}_elbow_joint", 0.0)
             + risk * float(args_cli.box_retention_elbow_offset),
+            blend_rate,
         )
-        _command_joint_position(
+        _blend_command_joint_position(
             command,
             joint_names,
             f"{side}_wrist_pitch_joint",
             stand_targets.get(f"{side}_wrist_pitch_joint", 0.0)
             + risk * float(args_cli.box_retention_wrist_pitch_offset),
+            blend_rate,
         )
-    _command_joint_position(
+    _blend_command_joint_position(
         command,
         joint_names,
         "waist_pitch_joint",
         stand_targets.get("waist_pitch_joint", 0.0)
         + risk * float(args_cli.box_retention_waist_pitch_offset),
+        blend_rate,
     )
     return float(risk)
 

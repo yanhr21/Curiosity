@@ -68,6 +68,7 @@ base_python=(
   --box-retention-rel-stop "${BOX_RETENTION_REL_STOP:-0.28}"
   --box-retention-tilt-start "${BOX_RETENTION_TILT_START:-0.20}"
   --box-retention-tilt-stop "${BOX_RETENTION_TILT_STOP:-0.55}"
+  --box-retention-blend-rate "${BOX_RETENTION_BLEND_RATE:-1.0}"
   --box-retention-hip-pitch-offset "${BOX_RETENTION_HIP_PITCH_OFFSET:--0.04}"
   --box-retention-knee-offset "${BOX_RETENTION_KNEE_OFFSET:-0.12}"
   --box-retention-ankle-pitch-offset "${BOX_RETENTION_ANKLE_PITCH_OFFSET:--0.06}"

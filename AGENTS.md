@@ -12902,9 +12902,25 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   Replacement Slurm job `170293` (`g1_retpost45`) was submitted through tmux
   `curiosity_g1_retention_posture_45m_0707` with the same quick case and
   `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_retention_posture_quick45`.
+  It was also cancelled while pending after implementation review showed that
+  the original retention-posture controller directly overwrote AGILE policy
+  joint targets with stand-like posture targets when risk was active, likely
+  too disruptive for locomotion.
+- 2026-07-07 blended retention-posture fix: added
+  `--box-retention-blend-rate` to
+  `scripts/isaac/build_core_world_g1_box_scene.py` and forwarded it through
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`. The
+  default remains `1.0` for compatibility, but
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_retention_posture_suite.sh`
+  now uses low blend rates (`0.08` mild, `0.12` strong) so risk-driven posture
+  feedback blends into the AGILE policy targets instead of hard replacing
+  them. Slurm job `170296` (`g1_retblend`) was submitted through tmux
+  `curiosity_g1_retention_posture_blend_0707` with
+  `RETENTION_POSTURE_CASE_SET=quick` and
+  `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_retention_posture_blend_quick`.
   As of submission it was `PENDING (Priority)`. Do not interpret this branch
   until
-  `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_quick45/close_front_retention_posture_summary.json`
+  `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_blend_quick/close_front_retention_posture_summary.json`
   exists.
 - 2026-07-07 G1 showcase capture job: Slurm job `170209` (`g1_showviz`) was
   submitted through tmux `curiosity_g1_showcase_capture_0707` to run
