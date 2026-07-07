@@ -1259,6 +1259,16 @@ This is a status snapshot only. It is not a carrying-success claim.
   (`g1_060rtpad`) through tmux `curiosity_g1_060_runtime_chestpad_0707`.
   This run does not create the chest-pad rigid body during scene setup; it
   attempts to create it only when the target-window or box-tilt trigger fires.
+- `169713` completed on `server39` with strict pass `1/4`. Passing case
+  `target_window_min700` spawned/enabled the chest pad at step `712` for
+  reason `target_window`, with no spawn error. It reached final robot/box
+  target-directed travel `2.051/2.032 m`, final lateral error
+  `0.071/0.265 m`, max robot/box tilt `0.309/0.428 rad`, fall/drop `0/0`,
+  target-window stable steps `105`, and target-window/final-hold end streak
+  `102`. This is the current best 0.60 kg G1/AGILE strict diagnostic, but it
+  remains an engineered runtime-support Isaac test, not learned unknown-load
+  carrying. `target_window_min760` triggered too late and fell; box-tilt
+  triggers preserved travel but failed the box-tilt gate.
 
 ## Next Decision
 

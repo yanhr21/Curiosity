@@ -8727,3 +8727,11 @@
   through tmux `curiosity_g1_060_runtime_chestpad_0707`. Check spawn fields
   before task metrics: `cradle_chest_pad_spawned_step`,
   `cradle_chest_pad_spawn_error`, and collision trigger reason.
+- [x] Record runtime-spawn chest-pad job `169713`: strict `1/4`. Passing case
+  `target_window_min700` spawned/enabled chest support at step `712` with no
+  spawn error, final robot/box travel `2.051/2.032 m`, max robot/box tilt
+  `0.309/0.428 rad`, fall/drop `0/0`, and target-window/final-hold end
+  streak `102`. This is the current best 0.60 kg G1/AGILE diagnostic.
+- [ ] Reproduce/refine runtime chest-pad target-window timing around min-step
+  `700`; `min760` was too late and fell, while box-tilt triggers still failed
+  box-tilt gates.

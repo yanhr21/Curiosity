@@ -12396,6 +12396,25 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   joint/collider creation may itself fail or be ignored by PhysX, so inspect
   `cradle_chest_pad_spawned_step` and `cradle_chest_pad_spawn_error` before
   interpreting task metrics.
+- 2026-07-07 runtime-spawn chest-pad result: job `169713` completed on
+  `server39` with strict pass `1/4`. This is the first 0.60 kg G1/AGILE
+  low-carry runtime-support diagnostic passing the current strict gates, but
+  it remains an engineered Isaac diagnostic, not learned carrying or unknown-
+  object active probing. Passing case:
+  `20260707_g1_lowcarry_060_runtime_chestpad_target_window_min700` used
+  `CRADLE_CHEST_PAD_SPAWN_ON_TRIGGER=1`, spawned/enabled the chest pad at
+  step `712` for reason `target_window`, had `spawn_error=null`,
+  final robot/box target-directed travel `2.051/2.032 m`, final lateral error
+  `0.071/0.265 m`, max robot/box tilt `0.309/0.428 rad`, fall/drop `0/0`,
+  target-window stable steps `105`, target-window end streak `102`, final-
+  hold stable steps `105`, final-hold end streak `102`, and rollout root/
+  velocity/box pose writes `0`. Negative cases: `target_window_min760`
+  triggered too late and fell after a temporary `81`-step window dwell;
+  `box_tilt035_min700` and `box_tilt040_min760` preserved travel and fall/drop
+  but still failed only the box-tilt gate with max box tilt `0.642` and
+  `0.541 rad`. Immediate follow-up should reproduce/refine the successful
+  target-window trigger timing around step `700`; do not return to preauthored
+  fixed-joint chest-pad bodies.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
