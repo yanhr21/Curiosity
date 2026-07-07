@@ -318,7 +318,22 @@ These rules override all other project instructions.
   `close_front_escape_suppression_stand_summary.json` exists. Submitted
   through tmux `curiosity_g1_escape_stand_0707` as Slurm job `170396` /
   `g1_escstand`, suite stamp prefix
-  `20260707_g1_lowcarry_close_front_escape_suppression_stand`.
+  `20260707_g1_lowcarry_close_front_escape_suppression_stand`. Result:
+  aggregate `fail`, 0/2 strict cases passed. `suppress60_stand240_blend002`
+  is the better boundary: fall/drop `56/33`, first fall/drop `1144/1167`,
+  target-window stable/longest/end `144/143/0`, final stand active `178`
+  steps from `1022`, target-window final-stand stable/longest `91/91`,
+  final robot/box travel `2.750/2.510 m`, final lateral `0.765/0.869 m`,
+  max robot/box tilt `2.924/2.198 rad`, tilt escape active/suppressed
+  `149/84`, writes `0/0/0`. `suppress60_stand300_blend004` delayed collapse
+  but started stand too late for window hold: fall/drop `39/12`, first
+  fall/drop `1161/1188`, final-stand stable/longest `1/1`, final travel
+  `3.312/3.240 m`, lateral `0.739/0.945 m`, tilt `1.108/1.110 rad`, writes
+  `0/0/0`. Interpretation: stand handoff is the best terminal-control
+  direction so far because it increases target-window dwell, but it still
+  loses lateral/tilt stability; the next step should combine earlier stand
+  handoff with lateral/roll stabilization or a materially better support
+  backend, not claim close-front pass.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

@@ -171,3 +171,25 @@ Active next suite:
 
 It keeps the `suppress_after_streak60` boundary and switches to final stand
 targets after `240` or `300` final-hold steps.
+
+## Escape-Suppression Stand Follow-Up
+
+Suite:
+`20260707_g1_lowcarry_close_front_escape_suppression_stand`
+
+Result: aggregate `fail`, `0/2` strict cases passed.
+
+| Case | fall/drop | first fall/drop | target stable/longest/end | final-stand stable/longest | robot/box travel m | lateral robot/box m | max tilt robot/box rad |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `suppress60_stand240_blend002` | `56/33` | `1144/1167` | `144/143/0` | `91/91` | `2.750/2.510` | `0.765/0.869` | `2.924/2.198` |
+| `suppress60_stand300_blend004` | `39/12` | `1161/1188` | `114/113/0` | `1/1` | `3.312/3.240` | `0.739/0.945` | `1.108/1.110` |
+
+The earlier stand handoff is the best terminal-control direction so far because
+it increased total target-window dwell and produced `91` stable target-window
+steps during final stand. It still fails strict gates: fall/drop are nonzero,
+the target-window streak at the end is `0`, lateral error remains too high, and
+tilt eventually exceeds the limit.
+
+The next step should combine this earlier stand handoff with lateral/roll
+stabilization or replace the support backend. This is still not close-front
+carrying success.

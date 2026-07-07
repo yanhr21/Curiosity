@@ -134,7 +134,7 @@
   fall/drop to `33/7` with first fall/drop `1167/1193` and max robot/box tilt
   `0.673/0.739 rad`, but final travel grew to `3.583/3.587 m` and target
   streak at end stayed `0`. Do not continue scanning brake magnitude alone.
-- [ ] Run close-front stand-handoff follow-up after target-window dwell:
+- [x] Run close-front stand-handoff follow-up after target-window dwell:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_stand_suite.sh`.
   It reuses the `suppress_after_streak60` boundary and switches to final stand
   targets after `240` or `300` final-hold steps, preserving strict fall/drop,
@@ -142,6 +142,15 @@
   Submitted through tmux `curiosity_g1_escape_stand_0707` as Slurm job
   `170396` / `g1_escstand`. Record
   `close_front_escape_suppression_stand_summary.json` before interpreting.
+  Result: aggregate `fail`, 0/2. `stand240_blend002` is the better terminal
+  boundary: fall/drop `56/33`, first fall/drop `1144/1167`,
+  target-window stable/longest/end `144/143/0`, final-stand stable/longest
+  `91/91`, final travel `2.750/2.510 m`, lateral `0.765/0.869 m`, and writes
+  `0/0/0`. It improves dwell but still fails lateral/tilt stability.
+- [ ] Next close-front terminal step: combine the earlier `stand240_blend002`
+  handoff with lateral/roll stabilization or replace the support backend. Do
+  not claim close-front pass from the stand-handoff result; it still has
+  fall/drop events and target-window streak at end `0`.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`
