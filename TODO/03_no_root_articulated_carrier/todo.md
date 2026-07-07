@@ -151,6 +151,12 @@
   handoff with lateral/roll stabilization or replace the support backend. Do
   not claim close-front pass from the stand-handoff result; it still has
   fall/drop events and target-window streak at end `0`.
+- [ ] Run close-front escape-stand lateral follow-up:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_stand_lateral_suite.sh`.
+  It starts from `stand240_blend002` and activates lateral-error-driven balance
+  roll target around target-window entry, comparing signs `-1` and `+1` under
+  the same strict gates. Record `close_front_escape_stand_lateral_summary.json`
+  before interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`

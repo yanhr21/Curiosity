@@ -193,3 +193,9 @@ tilt eventually exceeds the limit.
 The next step should combine this earlier stand handoff with lateral/roll
 stabilization or replace the support backend. This is still not close-front
 carrying success.
+
+Active next suite:
+`scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_stand_lateral_suite.sh`
+
+It starts from `suppress60_stand240_blend002` and compares the two signs of an
+existing lateral-error-driven balance roll target.

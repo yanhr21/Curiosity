@@ -334,6 +334,13 @@ These rules override all other project instructions.
   loses lateral/tilt stability; the next step should combine earlier stand
   handoff with lateral/roll stabilization or a materially better support
   backend, not claim close-front pass.
+- 2026-07-07 close-front escape-stand lateral entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_stand_lateral_suite.sh`.
+  It starts from the best `suppress60_stand240_blend002` boundary and adds the
+  existing lateral-error-driven balance roll target after about the target
+  window entry point (`850` agile-hold steps), comparing only roll-target signs
+  `-1` and `+1` with the same strict gates. This is an experiment entrypoint
+  only until `close_front_escape_stand_lateral_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate
