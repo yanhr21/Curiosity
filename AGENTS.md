@@ -880,6 +880,28 @@ These rules override all other project instructions.
   terminal phase. This is an experiment entrypoint only until
   `closefront_heldout_geometry_terminal_support_lateposture_summary.json`
   exists.
+- 2026-07-07 G1 terminal-support late-posture result:
+  `20260707_g1_closefront_heldout_geometry_terminal_support_lateposture`,
+  submitted through tmux
+  `curiosity_g1_heldout_terminal_support_lateposture_0707` as Slurm job
+  `170638`, ran on `server44` and produced aggregate `fail`, 0/2 strict
+  cases passed. The late-posture change improved the wide-box failure mode but
+  did not pass. `wide_y012_lateposture` had command active for `136` steps
+  from step `622`, posture active for `117` steps from step `718`, no box
+  drops, final relative offset `0.104 m`, and rollout writes `0`; however it
+  still first fell at step `719`, had fall events `214`, target-window
+  stable/longest/end only `2/2/0`, final travel `1.828/1.882 m`, final
+  lateral `0.698/0.681 m`, and max robot/box tilt `1.228/1.365 rad`.
+  `tall_z009_lateposture` had command active for `198` steps from step `609`
+  and posture active for `217` steps from step `783`, but failed with first
+  fall/drop `836/970`, fall/drop `156/30`, target-window stable/longest/end
+  `62/54/0`, over-travel `3.552/3.242 m`, final lateral `1.888/2.126 m`,
+  relative offset `0.424 m`, and max robot/box tilt `2.711/3.075 rad`.
+  Interpretation: delaying posture avoids the worst wide-box drop/overdrive,
+  but the current AGILE terminal-command/posture layer still cannot stabilize
+  held-out shapes. Continuing scalar timing/authority sweeps is low value; the
+  next meaningful step is stronger balance/support allocation or a different
+  locomotion/support backend while preserving these strict gates.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

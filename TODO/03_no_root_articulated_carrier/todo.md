@@ -10213,7 +10213,25 @@
   It delays posture support until terminal progress, disables rel/tilt
   posture-risk triggers for this diagnostic, lowers max forward command, and
   reruns the same `wide_y012` / `tall_z009` strict gates.
-- [ ] Run and record the terminal-support late-posture diagnostic through
+- [x] Run and record the terminal-support late-posture diagnostic through
   tmux plus persistent `srun`. Do not interpret it until
   `experiments/outputs/core_world_g1_closefront_heldout_geometry_terminal_support_lateposture/<stamp>/closefront_heldout_geometry_terminal_support_lateposture_summary.json`
   exists.
+- [x] Record terminal-support late-posture result:
+  `20260707_g1_closefront_heldout_geometry_terminal_support_lateposture`,
+  tmux `curiosity_g1_heldout_terminal_support_lateposture_0707`, Slurm job
+  `170638`, aggregate `fail`, 0/2. `wide_y012_lateposture` improved the
+  earlier wide failure by eliminating box drops and keeping final relative
+  offset `0.104 m`, but still first fell at step `719`, had fall events
+  `214`, target-window `2/2/0`, final travel `1.828/1.882 m`, final lateral
+  `0.698/0.681 m`, and max robot/box tilt `1.228/1.365 rad`.
+  `tall_z009_lateposture` first fell/dropped at `836/970`, had fall/drop
+  `156/30`, target-window `62/54/0`, over-travel `3.552/3.242 m`, final
+  lateral `1.888/2.126 m`, relative offset `0.424 m`, and max robot/box tilt
+  `2.711/3.075 rad`.
+- [ ] Next G1 held-out shape step: stop scalar timing/authority sweeps in
+  this AGILE terminal-command layer. Late posture improved box retention for
+  wide boxes but did not produce stable balance. The next implementation
+  should change support allocation materially, such as a stronger balance/
+  centroidal support controller or a different locomotion/support backend,
+  while preserving the same strict gates.
