@@ -8966,6 +8966,13 @@
   (`g1_cfstandovr`) was submitted through tmux
   `curiosity_g1_close_front_freeze_stand_override_0707`; it is pending on GPU
   priority as of `2026-07-07 17:32 CST`.
+- [x] Record invalid close-front stand-over-freeze job `170159`. It ran and
+  failed `0/3`, but summaries showed stand override did not apply:
+  `agile_command_hold_stand_overrides_final_freeze=false` and override active
+  steps `0`. Fixed
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_transition_suite.sh`
+  to pass wrapper-level env overrides into each case.
+- [ ] Re-run close-front stand-over-freeze suite after the wrapper env fix.
 - [x] Add a read-only close-front freeze-rescue override parser:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case

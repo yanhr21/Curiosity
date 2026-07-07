@@ -10,6 +10,7 @@ ROOT_DIR="${ROOT_DIR:-/public/home/yanhongru/Curiosity}"
 SUITE_STAMP_PREFIX="${SUITE_STAMP_PREFIX:-20260707_g1_lowcarry_close_front_freeze_stand_transition}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-${ROOT_DIR}/experiments/outputs/core_world_g1_lowcarry_close_front_freeze_stand_transition/${SUITE_STAMP_PREFIX}}"
 SUITE_NAME="${SUITE_NAME:-close_front_freeze_stand_transition}"
+SCRIPT_ENV_OVERRIDES=("$@")
 
 cd "${ROOT_DIR}"
 mkdir -p "${OUTPUT_ROOT}"
@@ -118,6 +119,7 @@ run_case() {
     CRADLE_CHEST_PAD_SPAWN_ON_TRIGGER=1 \
     CRADLE_CHEST_PAD_ENABLE_ON_TARGET_WINDOW=0 \
     COMPUTE_SIDE_STARTUP_SLEEP="${COMPUTE_SIDE_STARTUP_SLEEP:-5}" \
+    "${SCRIPT_ENV_OVERRIDES[@]}" \
     "$@" \
     bash "${ROOT_DIR}/scripts/isaac/run_core_world_g1_largerbox_strict_suite.sh"
   local status=$?

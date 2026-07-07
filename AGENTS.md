@@ -12753,6 +12753,17 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `curiosity_g1_close_front_freeze_stand_override_0707`; as of
   `2026-07-07 17:32 CST`, it was pending on GPU priority with unknown
   estimated start time.
+- 2026-07-07 close-front stand-over-freeze wrapper correction: Slurm job
+  `170159` (`g1_cfstandovr`) ran on `server58` and failed `0/3`, but the run
+  is not valid stand-over-freeze evidence. The summaries showed
+  `agile_command_hold_stand_overrides_final_freeze=false` and
+  `agile_command_hold_stand_override_freeze_active_steps=0`; the wrapper
+  arguments were not passed through because
+  `run_core_world_g1_lowcarry_close_front_freeze_stand_transition_suite.sh`
+  used function-local `"$@"` inside `run_case`. The script now captures
+  top-level `SCRIPT_ENV_OVERRIDES=("$@")` and injects them into each case env
+  before case-specific overrides. A fresh stand-over-freeze job is required
+  before interpreting this branch.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,
