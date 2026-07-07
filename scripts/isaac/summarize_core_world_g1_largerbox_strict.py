@@ -295,6 +295,24 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "box_retention_first_active_step": summary.get("box_retention_first_active_step"),
         "box_retention_last_risk": summary.get("box_retention_last_risk"),
         "box_retention_max_risk": summary.get("box_retention_max_risk"),
+        "agile_command_hold_final_tilt_escape_scale": summary.get(
+            "agile_command_hold_final_tilt_escape_scale"
+        ),
+        "agile_command_hold_final_tilt_escape_tilt_rad": summary.get(
+            "agile_command_hold_final_tilt_escape_tilt_rad"
+        ),
+        "agile_command_hold_final_tilt_escape_box_tilt_rad": summary.get(
+            "agile_command_hold_final_tilt_escape_box_tilt_rad"
+        ),
+        "agile_command_hold_final_tilt_escape_active_steps": summary.get(
+            "agile_command_hold_final_tilt_escape_active_steps"
+        ),
+        "agile_command_hold_final_tilt_escape_first_active_step": summary.get(
+            "agile_command_hold_final_tilt_escape_first_active_step"
+        ),
+        "agile_command_hold_final_tilt_escape_max_scale": summary.get(
+            "agile_command_hold_final_tilt_escape_max_scale"
+        ),
         "agile_command_hold_adaptive_scale_enabled": summary.get(
             "agile_command_hold_adaptive_scale_enabled"
         ),

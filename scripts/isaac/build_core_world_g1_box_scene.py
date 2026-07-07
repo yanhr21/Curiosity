@@ -275,6 +275,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--agile-command-hold-final-latch", action="store_true")
     parser.add_argument("--agile-command-hold-final-zero-corrections", action="store_true")
     parser.add_argument("--agile-command-hold-final-reset-policy-state", action="store_true")
+    parser.add_argument("--agile-command-hold-final-tilt-escape-scale", type=float, default=-1.0)
+    parser.add_argument("--agile-command-hold-final-tilt-escape-tilt", type=float, default=999.0)
+    parser.add_argument("--agile-command-hold-final-tilt-escape-box-tilt", type=float, default=999.0)
     parser.add_argument("--agile-command-hold-final-brake-command-x", type=float, default=0.0)
     parser.add_argument("--agile-command-hold-final-brake-delay-steps", type=int, default=0)
     parser.add_argument("--agile-command-hold-final-brake-steps", type=int, default=0)
@@ -2432,6 +2435,18 @@ def run_scene() -> Path:
         ),
         "agile_command_hold_final_policy_state_reset_count": 0,
         "agile_command_hold_final_last_policy_state_reset_error": None,
+        "agile_command_hold_final_tilt_escape_scale": float(
+            args_cli.agile_command_hold_final_tilt_escape_scale
+        ),
+        "agile_command_hold_final_tilt_escape_tilt_rad": float(
+            args_cli.agile_command_hold_final_tilt_escape_tilt
+        ),
+        "agile_command_hold_final_tilt_escape_box_tilt_rad": float(
+            args_cli.agile_command_hold_final_tilt_escape_box_tilt
+        ),
+        "agile_command_hold_final_tilt_escape_active_steps": 0,
+        "agile_command_hold_final_tilt_escape_first_active_step": None,
+        "agile_command_hold_final_tilt_escape_max_scale": 0.0,
         "agile_command_hold_final_lateral_suppressed_steps": 0,
         "agile_command_hold_final_yaw_suppressed_steps": 0,
         "agile_command_hold_final_brake_command_x": float(
@@ -3295,6 +3310,28 @@ def run_scene() -> Path:
                                         f"{type(exc).__name__}: {exc}"
                                     )
                                 agile_final_policy_state_reset_done = True
+                            tilt_escape_scale = float(args_cli.agile_command_hold_final_tilt_escape_scale)
+                            if tilt_escape_scale >= 0.0:
+                                tilt_escape_active = (
+                                    max(abs(float(feedback_roll)), abs(float(feedback_pitch)))
+                                    >= float(args_cli.agile_command_hold_final_tilt_escape_tilt)
+                                    or float(box_feedback_tilt)
+                                    >= float(args_cli.agile_command_hold_final_tilt_escape_box_tilt)
+                                )
+                                if tilt_escape_active:
+                                    command_scale = max(
+                                        float(command_scale),
+                                        max(0.0, min(1.0, tilt_escape_scale)),
+                                    )
+                                    summary["agile_command_hold_final_tilt_escape_active_steps"] = (
+                                        int(summary["agile_command_hold_final_tilt_escape_active_steps"]) + 1
+                                    )
+                                    if summary["agile_command_hold_final_tilt_escape_first_active_step"] is None:
+                                        summary["agile_command_hold_final_tilt_escape_first_active_step"] = int(step)
+                                    summary["agile_command_hold_final_tilt_escape_max_scale"] = max(
+                                        float(summary["agile_command_hold_final_tilt_escape_max_scale"]),
+                                        float(command_scale),
+                                    )
                         applied_agile_command_list = [float(v) * command_scale for v in args_cli.agile_command]
                         if (
                             bool(args_cli.agile_command_box_progress_controller)
