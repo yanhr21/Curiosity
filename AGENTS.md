@@ -280,6 +280,15 @@ These rules override all other project instructions.
   `AGILE_COMMAND_Y` or terminal-forward tweaks on this path; the next valid
   tall step needs posture-conditioned support/contact control, not another
   small open-loop command offset.
+- 2026-07-08 G1 tall preintegrated support/contact entrypoint added:
+  `scripts/isaac/run_core_world_g1_tall_preintegrated_support_contact_suite.sh`.
+  It keeps the same tall preintegrated cradle and strict no-rollout-write
+  gates, then tests `centroidal_cautious`, `retention_posture`, and
+  `combined_conservative`. This is intended to test whether existing
+  posture-conditioned support and box-retention joint feedback can preserve
+  the stable tall boundary while improving target/lateral behavior. It is an
+  experiment entrypoint only until
+  `g1_tall_preintegrated_support_contact_summary.json` exists.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with

@@ -10419,3 +10419,12 @@
   forward tweaks on the current open-loop path. Design posture-conditioned
   support/contact control that changes support stance, cradle pressure, and
   command damping together while preserving the no-rollout-write strict gates.
+- [x] Add tall preintegrated support/contact diagnostic:
+  `scripts/isaac/run_core_world_g1_tall_preintegrated_support_contact_suite.sh`.
+  It keeps the same tall preintegrated cradle and tests `centroidal_cautious`,
+  `retention_posture`, and `combined_conservative` under the same strict
+  target-window, tilt, fall/drop, and no-rollout-write gates.
+- [ ] Run and record tall preintegrated support/contact diagnostic through
+  tmux plus persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_tall_preintegrated_support_contact/<stamp>/g1_tall_preintegrated_support_contact_summary.json`
+  exists.
