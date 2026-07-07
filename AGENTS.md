@@ -12662,6 +12662,17 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   fell at `723`. Conclusion: continue from `freeze_strict`; the next valid
   change is stronger roll/balance feedback during frozen hold, not command
   scale, final latch, lateral roll-target, or chest-pad timing.
+- 2026-07-07 close-front freeze-balance refine entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_balance_refine_suite.sh`.
+  It keeps `freeze_strict` and tests increased roll/balance feedback. Slurm
+  job `170003` (`g1_cfbal`) ran on `server39` and failed `0/3`.
+  `roll_gain_010` had target-window stable steps `0` and fell/dropped at
+  `724/773`; `roll_gain_014` reached only `42` stable steps and fell/dropped
+  at `674/704`; `roll_pitch_gain` reached `44` stable steps but ran away to
+  robot/box travel `6.157/5.975 m` and fell/dropped at `853/924`.
+  Conclusion: do not continue increasing balance gains for close-front
+  freeze; the next branch should preserve default balance and try a delayed
+  low-COM stand/hold transition after target-window freeze.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

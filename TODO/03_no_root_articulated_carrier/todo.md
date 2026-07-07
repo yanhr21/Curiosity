@@ -8914,6 +8914,12 @@
   freeze step `663`, rescue step `732`, target-window stable steps `106`,
   longest streak `68`, good final travel/lateral, but it fell/dropped at
   `782/804`. `freeze_loose` avoided drops but only got `71` stable steps.
-- [ ] Run close-front freeze-balance refine suite. Continue from
+- [x] Record close-front freeze-balance refine suite. Continue from
   `freeze_strict` and increase roll/balance feedback authority to attack the
-  roll collapse around steps `730-790`.
+  roll collapse around steps `730-790`. Slurm job `170003` (`g1_cfbal`) failed
+  `0/3`; stronger roll/balance feedback shortened or destroyed window dwell.
+  Do not continue balance-gain increases.
+- [ ] Run close-front freeze-stand transition suite. Keep `freeze_strict` and
+  default balance, then transition to delayed low-COM stand targets after
+  freeze to see whether symmetric low-COM posture prevents the `780`-step
+  collapse.

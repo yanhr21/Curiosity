@@ -473,6 +473,29 @@ window for 106 steps with good final travel/lateral error, then falls from roll
 collapse around steps `780-790`. The next small test should keep
 `freeze_strict` and increase roll/balance feedback authority.
 
+## Close-Front Freeze-Balance Refine
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_balance_refine_suite.sh`
+- Purpose:
+  retain `freeze_strict` and test whether stronger balance feedback can catch
+  the roll collapse.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `170003` (`g1_cfbal`) ran on `server39`
+  and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_freeze_balance_refine/20260707_g1_lowcarry_close_front_freeze_balance_refine/close_front_freeze_balance_refine_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | --- |
+| `roll_gain_010` | fail | 576/527 | 724/773 | 0 | Increased roll gain prevents useful target-window dwell. |
+| `roll_gain_014` | fail | 626/574 | 674/704 | 42 | Stronger roll gain is worse. |
+| `roll_pitch_gain` | fail | 407/376 | 853/924 | 44 | Delays fall but runs away far past the target. |
+
+This rules out simply increasing balance gains. The next close-front test
+should preserve default balance and use a delayed low-COM stand/hold transition
+after target-window freeze.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next
@@ -504,5 +527,7 @@ implementation should add an explicit posture-conditioned controller gate:
 - continue from `freeze_strict` if pursuing close-front: it is now the best
   target-window branch, and the next failure is roll balance rather than target
   progress,
+- do not continue stronger balance-gain tuning; it shortened useful
+  target-window dwell,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.
