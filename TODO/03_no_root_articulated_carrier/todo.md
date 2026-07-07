@@ -8843,3 +8843,7 @@
   It uses conservative box-progress and latches hold on target-window entry
   with runtime support at min steps `600-650`. It must pass the unchanged
   strict gates before being interpreted as a close-front repair.
+- [ ] Monitor Slurm job `169867` (`g1_cfwin`) in tmux
+  `curiosity_g1_close_front_window_arrest_0707`; as of
+  `2026-07-07 13:52 CST`, it was pending on GPU priority with estimated start
+  `2026-07-07 16:00 CST`.

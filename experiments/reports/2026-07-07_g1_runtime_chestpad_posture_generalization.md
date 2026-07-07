@@ -231,7 +231,9 @@ target window is reached.
   unchanged strict fall/drop, target-window, final-hold, tilt,
   lateral-error, stop-window latch, and no rollout root/box writes checks.
 - Status:
-  added, not yet run.
+  submitted as Slurm job `169867` (`g1_cfwin`) through tmux
+  `curiosity_g1_close_front_window_arrest_0707`; pending on GPU priority as
+  of `2026-07-07 13:52 CST`, with estimated start `2026-07-07 16:00 CST`.
 
 ## Next Step
 

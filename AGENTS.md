@@ -12535,8 +12535,12 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   This suite builds on the `progress_conservative` result by latching hold on
   target-window entry and allowing runtime chest support at min steps `600`,
   `620`, or `650`. It keeps strict fall/drop, target-window, final-hold, tilt,
-  lateral-error, stop-window latch, and no-shortcut gates. It is not evidence
-  until a compute-node summary exists.
+  lateral-error, stop-window latch, and no-shortcut gates. Slurm job `169867`
+  (`g1_cfwin`) was submitted through tmux
+  `curiosity_g1_close_front_window_arrest_0707`; as of
+  `2026-07-07 13:52 CST`, it was pending on GPU priority with estimated start
+  `2026-07-07 16:00 CST`. It is not evidence until a compute-node summary
+  exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
