@@ -8853,3 +8853,6 @@
   It keeps `progress_conservative` early hold/adaptive behavior and tests only
   earlier runtime chest support plus target-window freeze/zero-correction
   variants.
+- [ ] Monitor Slurm job `169906` (`g1_cfv2`) in tmux
+  `curiosity_g1_close_front_window_retention_v2_0707`; as of
+  `2026-07-07 14:09 CST`, it was pending on GPU priority.

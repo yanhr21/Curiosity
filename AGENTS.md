@@ -12552,7 +12552,10 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   tests only earlier runtime chest support plus target-window freeze/
   zero-correction variants (`pad620`, `pad620_freeze`, and
   `pad650_freeze_zero_corr`). It keeps strict fall/drop, target-window,
-  final-hold, tilt, lateral-error, and no-shortcut gates. It is not evidence
+  final-hold, tilt, lateral-error, and no-shortcut gates. Slurm job `169906`
+  (`g1_cfv2`) was submitted through tmux
+  `curiosity_g1_close_front_window_retention_v2_0707`; as of
+  `2026-07-07 14:09 CST`, it was pending on GPU priority. It is not evidence
   until a compute-node summary exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe

@@ -260,7 +260,9 @@ alter runtime support/freeze after the target-window region is reached.
   unchanged strict fall/drop, target-window, final-hold, tilt,
   lateral-error, and no rollout root/box writes checks.
 - Status:
-  added, not yet run.
+  submitted as Slurm job `169906` (`g1_cfv2`) through tmux
+  `curiosity_g1_close_front_window_retention_v2_0707`; pending on GPU priority
+  as of `2026-07-07 14:09 CST`.
 
 ## Next Step
 
