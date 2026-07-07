@@ -150,6 +150,21 @@ These rules override all other project instructions.
   reset error. Interpretation: reset improves target-window dwell versus the
   no-reset `steps1050_final120` near-miss, but destabilizes the final hold and
   greatly worsens tilt, so it is not the close-front fix.
+- 2026-07-07 final-hold tilt-escape probe submitted:
+  added `--agile-command-hold-final-tilt-escape-scale`,
+  `--agile-command-hold-final-tilt-escape-tilt`, and
+  `--agile-command-hold-final-tilt-escape-box-tilt` to
+  `scripts/isaac/build_core_world_g1_box_scene.py`, launcher env forwarding in
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`, and
+  aggregate summary fields in
+  `scripts/isaac/summarize_core_world_g1_largerbox_strict.py`. Entrypoint:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_tilt_escape_suite.sh`.
+  It starts from the no-reset `steps1050_final120` close-front near-miss and
+  keeps final hold near zero unless robot/box tilt exceeds a threshold, then
+  releases a tiny AGILE command scale. Submitted through tmux
+  `curiosity_g1_tilt_escape_0707` as Slurm job `170351` / `g1_tiltesc`, suite
+  stamp prefix `20260707_g1_lowcarry_close_front_tilt_escape`. Do not interpret
+  until `close_front_tilt_escape_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

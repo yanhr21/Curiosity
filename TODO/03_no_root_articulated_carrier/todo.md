@@ -9176,6 +9176,27 @@
   (`120` vs `76`) but caused late fall and much worse tilt, so do not keep
   pursuing final policy-state reset alone. Summary:
   `experiments/outputs/core_world_g1_lowcarry_close_front_final_reset_probe/20260707_g1_lowcarry_close_front_final_reset_probe/close_front_final_reset_probe_summary.json`
+- [x] Add final-hold tilt-escape mechanism and close-front probe:
+  `--agile-command-hold-final-tilt-escape-scale`,
+  `--agile-command-hold-final-tilt-escape-tilt`, and
+  `--agile-command-hold-final-tilt-escape-box-tilt` in
+  `scripts/isaac/build_core_world_g1_box_scene.py`, env forwarding in
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`,
+  aggregate summary preservation in
+  `scripts/isaac/summarize_core_world_g1_largerbox_strict.py`, and
+  entrypoint
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_tilt_escape_suite.sh`.
+  This is different from the already failed tiny-final-scale branch: final
+  hold remains zero until tilt crosses a threshold, then temporarily restores
+  a very small AGILE command scale.
+- [ ] Monitor final-hold tilt-escape probe. Slurm job `170351`
+  (`g1_tiltesc`) was submitted through tmux `curiosity_g1_tilt_escape_0707`,
+  suite stamp prefix `20260707_g1_lowcarry_close_front_tilt_escape`, log
+  `logs/g1_tilt_escape_0707_srun.log`. It runs two close-front cases:
+  `escape_robot035_box042_scale015` and
+  `escape_robot030_box040_scale025`. Record only after
+  `experiments/outputs/core_world_g1_lowcarry_close_front_tilt_escape/20260707_g1_lowcarry_close_front_tilt_escape/close_front_tilt_escape_summary.json`
+  exists.
 - [x] Monitor blended retention-posture smoke job. Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
   `curiosity_g1_retention_blend_smoke_0707` with suite stamp
