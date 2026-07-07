@@ -174,6 +174,28 @@ These rules override all other project instructions.
   entrypoint only until
   `closefront_heldout_geometry_box_tilt_contact_retention_summary.json`
   exists.
+- 2026-07-08 held-out G1 box-tilt contact-retention result:
+  CPU Slurm job `170665` on `server01` completed
+  `20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu`,
+  aggregate `fail`, 0/2. This run preserved AGILE propulsion commands and did
+  not enter hold/stand (`agile_command_hold_active=False`). `wide_y012_contact_retention`
+  enabled the chest pad from `box_tilt` at step `380`, but did not reach the
+  side-guard/cross-brace min-travel triggers; it failed with fall/drop
+  `452/344`, first fall/drop `548/656`, target-window `0/0/0`, final robot/
+  box travel `-0.745/-0.687 m`, final lateral `1.584/-1.399 m`, relative
+  offset `2.996 m`, and max robot/box tilt `1.685/3.141 rad`.
+  `tall_z009_contact_retention` enabled chest pad at step `380`, side guards
+  at `426`, and cross brace at `461`, all from `box_tilt`, but failed even
+  earlier with fall/drop `576/544`, first fall/drop `424/456`,
+  target-window `0/0/0`, final travel `0.464/1.124 m`, final lateral
+  `-0.714/0.466 m`, relative offset `1.387 m`, and max robot/box tilt
+  `1.872/3.138 rad`. Rollout root/velocity/box pose writes stayed `0/0/0`.
+  Conclusion: runtime hard enabling contact-retention geometry while
+  continuing AGILE propulsion is not a viable held-out carrying backend; it
+  introduces or fails to prevent violent contact/retention loss. The next
+  meaningful step is not another trigger-threshold variant. Replace the
+  support/contact backend with a controller that plans contact from the start
+  of the gait, or move to a different locomotion/support formulation.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with

@@ -10325,3 +10325,24 @@
   tmux plus persistent `srun`. Do not interpret it until
   `experiments/outputs/core_world_g1_closefront_heldout_geometry_box_tilt_contact_retention/<stamp>/closefront_heldout_geometry_box_tilt_contact_retention_summary.json`
   exists.
+- [x] Run and record box-tilt contact-retention held-out diagnostic:
+  CPU Slurm job `170665` on `server01` completed
+  `20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu`,
+  aggregate `fail`, 0/2. It preserved AGILE propulsion and did not enter
+  hold/stand. `wide_y012_contact_retention` enabled chest pad from `box_tilt`
+  at step `380`, but did not reach side-guard/cross-brace min-travel
+  triggers; it failed with fall/drop `452/344`, first fall/drop `548/656`,
+  target-window `0/0/0`, final travel `-0.745/-0.687 m`, final lateral
+  `1.584/-1.399 m`, relative offset `2.996 m`, max robot/box tilt
+  `1.685/3.141 rad`, and no rollout root/velocity/box pose writes.
+  `tall_z009_contact_retention` enabled chest pad at `380`, side guards at
+  `426`, and cross brace at `461`, all from `box_tilt`, but failed with
+  fall/drop `576/544`, first fall/drop `424/456`, target-window `0/0/0`,
+  final travel `0.464/1.124 m`, final lateral `-0.714/0.466 m`, relative
+  offset `1.387 m`, max robot/box tilt `1.872/3.138 rad`, and no rollout
+  root/velocity/box pose writes.
+- [ ] Next G1 held-out shape step: stop runtime-triggered hard contact
+  insertion variants. Contact support must be part of the locomotion/contact
+  backend from the start of the gait, or the backend must be replaced. Do not
+  keep adding trigger thresholds for side guards, cross braces, hold, or
+  planted stance on this AGILE wrapper path.
