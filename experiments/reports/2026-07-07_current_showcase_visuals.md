@@ -37,6 +37,41 @@ failed.
 Important limitation: this is also a schematic replay fallback, not an Isaac
 camera render.
 
+## Robot-Like MuJoCo Visual
+
+- File:
+  `experiments/visuals/mujoco_quadruped_payload/20260707_mujoco_quad_payload4kg_v024_fx115_visual/mujoco_quadruped_payload_fallback.gif`
+- Poster:
+  `experiments/visuals/mujoco_quadruped_payload/20260707_mujoco_quad_payload4kg_v024_fx115_visual/mujoco_quadruped_payload_fallback_poster.png`
+- Source rollout:
+  `experiments/outputs/mujoco_quadruped_payload/20260707_mujoco_quad_payload4kg_v024_fx115/`
+
+Interpretation: clearer robot-like visualization than the early block
+scaffolds. It shows a quadruped-style body and legs carrying a welded payload
+in MuJoCo with a diagnostic controller. Use it to explain the direction toward
+robot embodiment and balance diagnostics.
+
+Important limitation: this is a welded-payload diagnostic, not unknown
+free-box carrying. The later free-box MuJoCo hand-controller line, including
+the 2026-07-07 hold-capture suite, failed strict free-box fall/drop/tilt/height
+gates, so this visual should not be presented as solved contact carrying.
+
+## Prismatic Isaac Scaffold Visual
+
+- File:
+  `experiments/visuals/prismatic_reference_showcase/20260707_prismatic_reference_probe_adaptive_10kg_mid_matched_cpu/prismatic_reference_fallback.gif`
+- Poster:
+  `experiments/visuals/prismatic_reference_showcase/20260707_prismatic_reference_probe_adaptive_10kg_mid_matched_cpu/prismatic_reference_fallback_poster.png`
+- One-page wrapper:
+  `slides/2026-07-07_isaac_carry_showcase.html`
+
+Interpretation: best schematic for the Isaac task scaffold: target, carrier,
+box, posture/probe labels, and progress metrics. Use it only to explain task
+structure and measurement gates.
+
+Important limitation: this is a prismatic scaffold visualization, not a
+humanoid, not learned locomotion, and not final carrying success.
+
 ## True Isaac Camera Render Attempt
 
 - Slurm attempt: job `169542` (`g1_bxrgpu`) ran on `server23` with
@@ -55,3 +90,17 @@ the Python import failed with `ModuleNotFoundError: No module named
 `isaacsim.core.rendering_manager`. Captured frames: `0`. Do not advertise a
 true Isaac camera render as available until the local Kit extension set is
 fixed or a different installed render path is found.
+
+## Latest Negative Diagnostics To Mention Honestly
+
+- G1 boxtilt scaled-terminal and target-window hold diagnostics both failed:
+  they can enter the target window transiently but cannot hold without later
+  fall/drop or over-travel.
+- MuJoCo free-box hold-capture diagnostic failed all six cases despite active
+  target-stop and capture-point terms: no root/box pose or velocity shortcuts,
+  but every case still had post-latch falls/drops and excessive tilt.
+
+Presentation implication: the best honest message is "we have a narrow G1
+low-carry pass, a boxtilt progress replay showing the hard failure mode, and
+clear scaffold/robot-like visuals; robust unknown-load long-hold carrying is
+not solved yet."
