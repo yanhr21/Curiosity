@@ -8332,3 +8332,28 @@
   `g1_boxtilt_short_window_progress.mp4` for the cleanest current-progress
   demo; the poster now says `strict checker: fail`. This is only a schematic
   replay fallback, not an Isaac camera render or solved carrying.
+- [x] Add
+  `scripts/isaac/run_core_world_g1_boxtilt_final_stand_refine_suite.sh`.
+  It tests a different mechanism from command-layer lateral correction:
+  final-hold joint-target blending into default or gentle crouch stand targets
+  for the 0.75 kg boxtilt short-window case. The objective is to reduce the
+  strict tilt failures from `169472` while preserving fall/drop `0/0` and
+  target-window end streak.
+- [x] Await boxtilt final-stand refine diagnostic. GPU job `169508`
+  (`g1_bxfinstand`) stayed pending and was cancelled after CPU compute backup
+  `169514` (`g1_bxfinstandc2`) completed on `server36`. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_final_stand_refine/20260707_g1_boxtilt_final_stand_refine_760_cpu_backup2/boxtilt_final_stand_refine_summary.json`.
+- [x] Record boxtilt final-stand refine result. Strict `fail`, `0/4` cases
+  passed. All cases kept `box_drop_events=0` but introduced late falls and
+  larger tilt than the no-final-stand short-window baseline:
+  `stand_default_d0_b002` had `10` falls, `stand_default_d20_b005` had `9`,
+  `stand_gentle_crouch_d0_b004` had `8`, and `stand_crouch_d20_b003` had
+  `10`. Max robot/box tilt stayed around `0.934-0.993 / 0.889-0.948 rad`,
+  target-window end streak stayed `0`, and final lateral error remained large.
+  Interpretation: final-stand joint-target blending is not the missing
+  stabilizer for 0.75 kg boxtilt; stop scalar final-stand delay/blend tuning
+  for this branch.
+- [ ] Next credible route: do not repeat command-layer lateral/yaw/final-stand
+  scalar sweeps for the heavy boxtilt branch. Move to a materially different
+  support/contact geometry or locomotion/balance backend that can address
+  side drift and roll without consuming the stability margin.

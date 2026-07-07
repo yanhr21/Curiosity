@@ -50,6 +50,17 @@ This is a status snapshot only. It is not a carrying-success claim.
   `g1_boxtilt_short_window_progress.mp4`,
   `g1_boxtilt_short_window_progress.gif`, and
   `g1_boxtilt_short_window_progress_poster.png`.
+- `169514` / `g1_bxfinstandc2` completed on `server36` with Slurm state
+  `FAILED`, exit `1:0`, elapsed `00:02:53`. It was the CPU compute backup for
+  `scripts/isaac/run_core_world_g1_boxtilt_final_stand_refine_suite.sh`.
+  Aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_final_stand_refine/20260707_g1_boxtilt_final_stand_refine_760_cpu_backup2/boxtilt_final_stand_refine_summary.json`.
+  Result: strict `fail`, `0/4` cases passed. Final-stand blending preserved
+  box drops at `0` but introduced late falls (`8-10` fall events) and worse
+  tilt (`0.934-0.993 rad` robot, `0.889-0.948 rad` box). It should not be
+  treated as the missing stabilizer for the heavy boxtilt branch.
+- `169508` / `g1_bxfinstand` stayed pending on `gpu` and was cancelled after
+  `169514` produced the diagnostic result.
 
 ## Running Or Queued
 

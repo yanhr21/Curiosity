@@ -11778,6 +11778,37 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   Use this only as current progress material: 0.75 kg free-box G1 boxtilt
   short-window, fall/drop `0/0`, target-window end streak `133`, but strict
   failure on lateral drift and tilt.
+- 2026-07-07 boxtilt final-stand refine suite added:
+  `scripts/isaac/run_core_world_g1_boxtilt_final_stand_refine_suite.sh`.
+  It uses the same `0.75 kg` boxtilt short-window condition that produced
+  fall/drop `0/0` but excessive final tilt/lateral drift, then enables
+  `AGILE_COMMAND_HOLD_FINAL_STAND=1` after final hold. This is a joint-target
+  blending mechanism, not root/box pose assistance. Cases test default stand
+  and gentle crouch stand targets with blend rates `0.002-0.005` and
+  final-stand delays `0/20`. Submitted as Slurm job `169508`
+  (`g1_bxfinstand`) through tmux `codex_g1_boxtilt_finalstand_0707`.
+  Useful progress requires preserving fall/drop `0/0` and end target-window
+  dwell while reducing max/final stand tilt below strict gates; if this fails,
+  current AGILE command/posture wrappers are likely exhausted for the heavy
+  boxtilt branch and the next credible route is a different locomotion/balance
+  backend.
+- 2026-07-07 boxtilt final-stand refine result: GPU job `169508`
+  (`g1_bxfinstand`) stayed pending and was cancelled after the CPU compute
+  backup finished. CPU compute job `169514` (`g1_bxfinstandc2`) ran on
+  `server36` and failed strictly with `0/4` cases passing. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_final_stand_refine/20260707_g1_boxtilt_final_stand_refine_760_cpu_backup2/boxtilt_final_stand_refine_summary.json`.
+  All final-stand cases preserved box drops at `0`, but introduced late falls
+  and larger tilt than the no-final-stand short-window run: `stand_default_d0_b002`
+  had `10` falls, `stand_default_d20_b005` had `9` falls,
+  `stand_gentle_crouch_d0_b004` had `8` falls, and
+  `stand_crouch_d20_b003` had `10` falls. Max robot/box tilt stayed around
+  `0.934-0.993 rad` / `0.889-0.948 rad`, target-window end streak stayed `0`,
+  and final lateral error remained about `0.99-1.08 m` robot and
+  `1.16-1.27 m` box. Conclusion: final-stand joint-target blending is not the
+  missing stabilizer for the `0.75 kg` boxtilt branch; it worsens late
+  stability compared with `169472`. Do not keep tuning final-stand scalar
+  delays/blend rates for this branch without a materially different balance
+  controller or contact geometry.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already
