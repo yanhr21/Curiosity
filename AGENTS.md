@@ -12554,9 +12554,16 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `pad650_freeze_zero_corr`). It keeps strict fall/drop, target-window,
   final-hold, tilt, lateral-error, and no-shortcut gates. Slurm job `169906`
   (`g1_cfv2`) was submitted through tmux
-  `curiosity_g1_close_front_window_retention_v2_0707`; as of
-  `2026-07-07 14:09 CST`, it was pending on GPU priority. It is not evidence
-  until a compute-node summary exists.
+  `curiosity_g1_close_front_window_retention_v2_0707`; it ran on `server63`
+  and failed `0/3`. `pad620` produced fall/drop `591/573`, first fall/drop
+  steps `709/727`, and target-window stable steps `57`. `pad620_freeze` and
+  `pad650_freeze_zero_corr` both latched freeze at step `653`, prevented box
+  drops, and preserved final travel/lateral, but still had `593` falls, first
+  fall step `707`, and only `55` target-window stable steps. Conclusion:
+  triggering support/freeze immediately at first target-window entry is worse
+  than the original `progress_conservative` pad700 behavior; next support
+  timing tests should compare original pad700 against disabled/delayed or
+  softened chest support.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

@@ -259,10 +259,24 @@ alter runtime support/freeze after the target-window region is reached.
 - Gate:
   unchanged strict fall/drop, target-window, final-hold, tilt,
   lateral-error, and no rollout root/box writes checks.
-- Status:
-  submitted as Slurm job `169906` (`g1_cfv2`) through tmux
-  `curiosity_g1_close_front_window_retention_v2_0707`; pending on GPU priority
-  as of `2026-07-07 14:09 CST`.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `169906` (`g1_cfv2`) ran on
+  `server63` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_window_retention_v2/20260707_g1_lowcarry_close_front_window_retention_v2/close_front_window_retention_v2_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Freeze | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | --- | --- |
+| `pad620` | fail | 591/573 | 709/727 | 57 | no | Earlier pad trigger worsens the prior `progress_conservative` result. |
+| `pad620_freeze` | fail | 593/0 | 707/- | 55 | yes, step 653 | Freeze prevents drop and preserves final travel/lateral, but still falls early. |
+| `pad650_freeze_zero_corr` | fail | 593/0 | 707/- | 55 | yes, step 653 | Zeroing corrections does not change the freeze failure. |
+
+The v2 result rules out "earlier support/freeze at first window entry" as the
+repair. The best close-front evidence remains `progress_conservative` with
+runtime support at step `700`: it held the window longer (`136` stable steps)
+and failed later (`first fall 802`). The next comparison should vary support
+timing/geometry around the original pad700 behavior rather than enabling it at
+step `653`.
 
 ## Next Step
 
@@ -279,5 +293,7 @@ implementation should add an explicit posture-conditioned controller gate:
 - preserve the early hold/adaptive behavior that allowed `progress_conservative`
   to reach the window; removing it caused `g1_cfwin` to fail before window
   entry,
+- do not trigger chest support/freeze immediately at first target-window entry;
+  v2 shortened the stable window and moved first fall earlier,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

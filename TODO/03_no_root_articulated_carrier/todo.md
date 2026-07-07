@@ -8848,11 +8848,12 @@
   hold/adaptive behavior and only change target-window runtime support/freeze.
   Do not continue the `g1_cfwin` setup that sets stop target only and removes
   early hold/adaptive behavior.
-- [ ] Await/run close-front window-retention-v2 suite:
+- [x] Record close-front window-retention-v2 suite:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_window_retention_v2_suite.sh`.
-  It keeps `progress_conservative` early hold/adaptive behavior and tests only
-  earlier runtime chest support plus target-window freeze/zero-correction
-  variants.
-- [ ] Monitor Slurm job `169906` (`g1_cfv2`) in tmux
-  `curiosity_g1_close_front_window_retention_v2_0707`; as of
-  `2026-07-07 14:09 CST`, it was pending on GPU priority.
+  Slurm job `169906` (`g1_cfv2`) failed `0/3`. Earlier runtime support at
+  step `653` shortened target-window stable steps to `55-57` and moved first
+  fall to `707-709`; freeze prevented box drops but still fell.
+- [ ] Next close-front support timing test should keep
+  `progress_conservative` early hold/adaptive behavior and compare original
+  pad700 against disabled/delayed/geometry-softened runtime chest support.
+  Do not trigger support/freeze immediately at first window entry.
