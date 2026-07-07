@@ -9521,9 +9521,30 @@
   travel regressed to about `1.012/0.959 m`, final-hold active
   `355 < 399`, writes `0/0/0`. Conclusion: later latch recovers target-window
   entry but destabilizes the final hold; this is only a boundary diagnostic.
-- [ ] Stop the current approach-support sweep unless a new mechanism is added.
+- [x] Stop the current approach-support sweep unless a new mechanism is added.
   The three active results now bracket the behavior: strong/early support
   collapses, weak support with old latch arrests too early, and weak support
   with later latch reaches the window but falls late. Next close-front work
   should change the final-hold/contact/support mechanism rather than continue
   scalar tuning of approach-support start/full/latch values.
+- [x] Add final-hold side-guard contact mechanism. Files:
+  `scripts/isaac/build_core_world_g1_box_scene.py`,
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`, and
+  `scripts/isaac/summarize_core_world_g1_largerbox_strict.py`. The new
+  opt-in `--cradle-final-side-guards` mechanism spawns left/right torso-fixed
+  physical side guards around the carried box, can enable them on hold,
+  terminal-hold, final-hold, or target-window entry, and records trigger
+  fields in source and aggregate summaries.
+- [x] Add side-guard validation entrypoint:
+  `scripts/isaac/run_core_world_g1_chestpad_finalstop_side_guard_suite.sh`.
+  It starts from the `168431` chest-pad final-stop near-pass and changes only
+  final-hold contact support by enabling final side guards. Quick case:
+  `final_guard_hs090`, final-hold activation, local x `-0.18`, half spacing
+  `0.09 m`.
+- [ ] Run and record chest-pad final-stop side-guard quick case. Use tmux plus
+  persistent `srun` on a compute node. Do not interpret results until
+  `experiments/outputs/core_world_g1_chestpad_finalstop_side_guard/<stamp>/chestpad_finalstop_side_guard_summary.json`
+  exists and reports the side-guard collision trigger fields. A pass must
+  still satisfy the original strict gates and cannot be claimed as
+  arbitrary-posture or learned carrying unless broader posture generalization
+  also passes.

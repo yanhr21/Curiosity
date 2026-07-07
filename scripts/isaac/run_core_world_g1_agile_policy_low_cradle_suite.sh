@@ -409,6 +409,21 @@ fi
 if [[ "${CRADLE_CHEST_PAD_ENABLE_ON_BOX_TILT:-0}" == "1" ]]; then
   free_cradle_extra_args+=(--cradle-chest-pad-enable-on-box-tilt)
 fi
+if [[ "${CRADLE_FINAL_SIDE_GUARDS:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-side-guards)
+fi
+if [[ "${CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_HOLD:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-side-guard-enable-on-hold)
+fi
+if [[ "${CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_TERMINAL_HOLD:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-side-guard-enable-on-terminal-hold)
+fi
+if [[ "${CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_FINAL_HOLD:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-side-guard-enable-on-final-hold)
+fi
+if [[ "${CRADLE_FINAL_SIDE_GUARD_ENABLE_ON_TARGET_WINDOW:-0}" == "1" ]]; then
+  free_cradle_extra_args+=(--cradle-final-side-guard-enable-on-target-window)
+fi
 free_cradle_extra_args+=(
   --cradle-side-rail-height "${CRADLE_SIDE_RAIL_HEIGHT:-0.07}"
   --cradle-end-stop-height "${CRADLE_END_STOP_HEIGHT:-0.08}"
@@ -424,6 +439,11 @@ free_cradle_extra_args+=(
   --cradle-chest-pad-target-window-min-step "${CRADLE_CHEST_PAD_TARGET_WINDOW_MIN_STEP:--1}"
   --cradle-chest-pad-box-tilt-threshold "${CRADLE_CHEST_PAD_BOX_TILT_THRESHOLD:-999.0}"
   --cradle-chest-pad-box-tilt-min-step "${CRADLE_CHEST_PAD_BOX_TILT_MIN_STEP:--1}"
+  --cradle-final-side-guard-local-pos0 "${CRADLE_FINAL_SIDE_GUARD_LOCAL_X:-0.0}" "${CRADLE_FINAL_SIDE_GUARD_LOCAL_Y:-0.0}" "${CRADLE_FINAL_SIDE_GUARD_LOCAL_Z:-0.08}"
+  --cradle-final-side-guard-size "${CRADLE_FINAL_SIDE_GUARD_SIZE_X:-0.18}" "${CRADLE_FINAL_SIDE_GUARD_SIZE_Y:-0.018}" "${CRADLE_FINAL_SIDE_GUARD_SIZE_Z:-0.18}"
+  --cradle-final-side-guard-half-spacing "${CRADLE_FINAL_SIDE_GUARD_HALF_SPACING:-0.075}"
+  --cradle-final-side-guard-mass-scale "${CRADLE_FINAL_SIDE_GUARD_MASS_SCALE:-1.0}"
+  --cradle-final-side-guard-target-window-min-step "${CRADLE_FINAL_SIDE_GUARD_TARGET_WINDOW_MIN_STEP:--1}"
 )
 
 run_case() {

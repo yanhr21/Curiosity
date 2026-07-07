@@ -334,6 +334,45 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "approach_support_posture_last_scale": summary.get(
             "approach_support_posture_last_scale"
         ),
+        "cradle_final_side_guards_enabled": summary.get(
+            "cradle_final_side_guards_enabled"
+        ),
+        "cradle_final_side_guard_local_pos0_m": summary.get(
+            "cradle_final_side_guard_local_pos0_m"
+        ),
+        "cradle_final_side_guard_size_m": summary.get(
+            "cradle_final_side_guard_size_m"
+        ),
+        "cradle_final_side_guard_half_spacing_m": summary.get(
+            "cradle_final_side_guard_half_spacing_m"
+        ),
+        "cradle_final_side_guard_enable_on_hold": summary.get(
+            "cradle_final_side_guard_enable_on_hold"
+        ),
+        "cradle_final_side_guard_enable_on_terminal_hold": summary.get(
+            "cradle_final_side_guard_enable_on_terminal_hold"
+        ),
+        "cradle_final_side_guard_enable_on_final_hold": summary.get(
+            "cradle_final_side_guard_enable_on_final_hold"
+        ),
+        "cradle_final_side_guard_enable_on_target_window": summary.get(
+            "cradle_final_side_guard_enable_on_target_window"
+        ),
+        "cradle_final_side_guard_collision_enabled_initial": summary.get(
+            "cradle_final_side_guard_collision_enabled_initial"
+        ),
+        "cradle_final_side_guard_collision_enabled_step": summary.get(
+            "cradle_final_side_guard_collision_enabled_step"
+        ),
+        "cradle_final_side_guard_collision_enabled_reason": summary.get(
+            "cradle_final_side_guard_collision_enabled_reason"
+        ),
+        "cradle_final_side_guard_collision_update_count": summary.get(
+            "cradle_final_side_guard_collision_update_count"
+        ),
+        "cradle_final_side_guard_collision_update_error": summary.get(
+            "cradle_final_side_guard_collision_update_error"
+        ),
         "agile_command_hold_final_tilt_escape_scale": summary.get(
             "agile_command_hold_final_tilt_escape_scale"
         ),

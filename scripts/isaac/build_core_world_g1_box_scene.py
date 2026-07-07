@@ -376,6 +376,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cradle-chest-pad-enable-on-box-tilt", action="store_true")
     parser.add_argument("--cradle-chest-pad-box-tilt-threshold", type=float, default=999.0)
     parser.add_argument("--cradle-chest-pad-box-tilt-min-step", type=int, default=-1)
+    parser.add_argument("--cradle-final-side-guards", action="store_true")
+    parser.add_argument("--cradle-final-side-guard-local-pos0", type=float, nargs=3, default=(0.0, 0.0, 0.08))
+    parser.add_argument("--cradle-final-side-guard-size", type=float, nargs=3, default=(0.18, 0.018, 0.18))
+    parser.add_argument("--cradle-final-side-guard-half-spacing", type=float, default=0.075)
+    parser.add_argument("--cradle-final-side-guard-mass-scale", type=float, default=1.0)
+    parser.add_argument("--cradle-final-side-guard-enable-on-hold", action="store_true")
+    parser.add_argument("--cradle-final-side-guard-enable-on-terminal-hold", action="store_true")
+    parser.add_argument("--cradle-final-side-guard-enable-on-final-hold", action="store_true")
+    parser.add_argument("--cradle-final-side-guard-enable-on-target-window", action="store_true")
+    parser.add_argument("--cradle-final-side-guard-target-window-min-step", type=int, default=-1)
     parser.add_argument("--disable-cradle-collision", action="store_true")
     parser.add_argument("--probe-mode", choices=("none", "front_bumper"), default="none")
     parser.add_argument("--probe-start-step", type=int, default=0)
@@ -874,6 +884,56 @@ def _spawn_front_cradle_chest_pad(
     )
 
 
+def _spawn_front_cradle_final_side_guards(
+    stage: Usd.Stage,
+    material: UsdShade.Material | None,
+    *,
+    collision: bool,
+) -> dict[str, str]:
+    if not stage.GetPrimAtPath(args_cli.attach_body_path).IsValid():
+        raise RuntimeError(f"Attach body path not found after G1 reference: {args_cli.attach_body_path}")
+    attach_pose = _usd_world_pose_wxyz(stage, str(args_cli.attach_body_path))
+    attach_world = (0.0, 0.0, 0.8) if attach_pose is None else (
+        float(attach_pose[0]),
+        float(attach_pose[1]),
+        float(attach_pose[2]),
+    )
+    local_center = tuple(float(v) for v in args_cli.cradle_final_side_guard_local_pos0)
+    guard_size = tuple(max(0.001, float(v)) for v in args_cli.cradle_final_side_guard_size)
+    half_spacing = max(0.0, float(args_cli.cradle_final_side_guard_half_spacing))
+    mass_scale = max(0.0, float(args_cli.cradle_mass_scale))
+    guard_mass_scale = max(0.0, float(args_cli.cradle_final_side_guard_mass_scale))
+    joints: dict[str, str] = {}
+    for name, y_sign in (("left", 1.0), ("right", -1.0)):
+        path = f"/World/G1FrontCradle_final_side_guard_{name}"
+        if stage.GetPrimAtPath(path).IsValid():
+            joints[name] = f"{path}/FixedJointToG1"
+            continue
+        local = (
+            local_center[0],
+            local_center[1] + y_sign * half_spacing,
+            local_center[2],
+        )
+        initial_world = (
+            attach_world[0] + local[0],
+            attach_world[1] + local[1],
+            attach_world[2] + local[2],
+        )
+        joints[name] = _spawn_fixed_torso_box(
+            stage,
+            path,
+            guard_size,
+            0.12 * mass_scale * guard_mass_scale,
+            (0.32, 0.32, 0.18),
+            str(args_cli.attach_body_path),
+            local,
+            material,
+            initial_world,
+            collision,
+        )
+    return joints
+
+
 def _spawn_front_torso_cradle(stage: Usd.Stage, material: UsdShade.Material | None) -> dict[str, str]:
     if not stage.GetPrimAtPath(args_cli.attach_body_path).IsValid():
         raise RuntimeError(f"Attach body path not found after G1 reference: {args_cli.attach_body_path}")
@@ -966,6 +1026,18 @@ def _spawn_front_torso_cradle(stage: Usd.Stage, material: UsdShade.Material | No
             or bool(args_cli.cradle_chest_pad_enable_on_box_tilt)
         ):
             _set_collision_enabled(stage, chest_pad_path, False)
+    if bool(args_cli.cradle_final_side_guards):
+        guard_joints = _spawn_front_cradle_final_side_guards(stage, material, collision=collision)
+        for name, joint_path in guard_joints.items():
+            pieces[f"final_side_guard_{name}"] = joint_path
+        if (
+            bool(args_cli.cradle_final_side_guard_enable_on_hold)
+            or bool(args_cli.cradle_final_side_guard_enable_on_terminal_hold)
+            or bool(args_cli.cradle_final_side_guard_enable_on_final_hold)
+            or bool(args_cli.cradle_final_side_guard_enable_on_target_window)
+        ):
+            for name in ("left", "right"):
+                _set_collision_enabled(stage, f"/World/G1FrontCradle_final_side_guard_{name}", False)
     return pieces
 
 
@@ -2795,6 +2867,33 @@ def run_scene() -> Path:
         "cradle_chest_pad_spawn_error": None,
         "cradle_chest_pad_collision_update_count": 0,
         "cradle_chest_pad_collision_update_error": None,
+        "cradle_final_side_guards_enabled": bool(args_cli.cradle_final_side_guards),
+        "cradle_final_side_guard_local_pos0_m": [float(v) for v in args_cli.cradle_final_side_guard_local_pos0],
+        "cradle_final_side_guard_size_m": [float(v) for v in args_cli.cradle_final_side_guard_size],
+        "cradle_final_side_guard_half_spacing_m": float(args_cli.cradle_final_side_guard_half_spacing),
+        "cradle_final_side_guard_mass_scale": float(args_cli.cradle_final_side_guard_mass_scale),
+        "cradle_final_side_guard_enable_on_hold": bool(args_cli.cradle_final_side_guard_enable_on_hold),
+        "cradle_final_side_guard_enable_on_terminal_hold": bool(
+            args_cli.cradle_final_side_guard_enable_on_terminal_hold
+        ),
+        "cradle_final_side_guard_enable_on_final_hold": bool(args_cli.cradle_final_side_guard_enable_on_final_hold),
+        "cradle_final_side_guard_enable_on_target_window": bool(
+            args_cli.cradle_final_side_guard_enable_on_target_window
+        ),
+        "cradle_final_side_guard_target_window_min_step": int(
+            args_cli.cradle_final_side_guard_target_window_min_step
+        ),
+        "cradle_final_side_guard_collision_enabled_initial": bool(args_cli.cradle_final_side_guards)
+        and not (
+            bool(args_cli.cradle_final_side_guard_enable_on_hold)
+            or bool(args_cli.cradle_final_side_guard_enable_on_terminal_hold)
+            or bool(args_cli.cradle_final_side_guard_enable_on_final_hold)
+            or bool(args_cli.cradle_final_side_guard_enable_on_target_window)
+        ),
+        "cradle_final_side_guard_collision_enabled_step": None,
+        "cradle_final_side_guard_collision_enabled_reason": None,
+        "cradle_final_side_guard_collision_update_count": 0,
+        "cradle_final_side_guard_collision_update_error": None,
         "cradle_collision_enabled": not bool(args_cli.disable_cradle_collision),
         "box_mass_kg": float(args_cli.box_mass),
         "box_size_m": [float(v) for v in args_cli.box_size],
@@ -2977,6 +3076,27 @@ def run_scene() -> Path:
             or bool(args_cli.cradle_chest_pad_enable_on_target_window)
             or bool(args_cli.cradle_chest_pad_enable_on_box_tilt)
         )
+        final_side_guard_collision_enabled = bool(args_cli.cradle_final_side_guards) and not (
+            bool(args_cli.cradle_final_side_guard_enable_on_hold)
+            or bool(args_cli.cradle_final_side_guard_enable_on_terminal_hold)
+            or bool(args_cli.cradle_final_side_guard_enable_on_final_hold)
+            or bool(args_cli.cradle_final_side_guard_enable_on_target_window)
+        )
+
+        def enable_final_side_guards(reason: str, step_idx: int) -> None:
+            nonlocal final_side_guard_collision_enabled
+            if final_side_guard_collision_enabled:
+                return
+            for name in ("left", "right"):
+                path = f"/World/G1FrontCradle_final_side_guard_{name}"
+                if not _set_collision_enabled(stage, path, True):
+                    raise RuntimeError(f"final side guard prim not found: {path}")
+            summary["cradle_final_side_guard_collision_enabled_step"] = int(step_idx)
+            summary["cradle_final_side_guard_collision_enabled_reason"] = str(reason)
+            summary["cradle_final_side_guard_collision_update_count"] = (
+                int(summary["cradle_final_side_guard_collision_update_count"]) + 1
+            )
+            final_side_guard_collision_enabled = True
         creep_pitch_brake_latched = False
         creep_reverse_brake_latched = False
         creep_reverse_brake_latched_step = None
@@ -3147,6 +3267,17 @@ def run_scene() -> Path:
                                         chest_pad_hold_collision_enabled = True
                                     except Exception as exc:
                                         summary["cradle_chest_pad_collision_update_error"] = f"{type(exc).__name__}: {exc}"
+                                if (
+                                    bool(args_cli.cradle_final_side_guards)
+                                    and bool(args_cli.cradle_final_side_guard_enable_on_hold)
+                                    and not final_side_guard_collision_enabled
+                                ):
+                                    try:
+                                        enable_final_side_guards("hold", int(step))
+                                    except Exception as exc:
+                                        summary["cradle_final_side_guard_collision_update_error"] = (
+                                            f"{type(exc).__name__}: {exc}"
+                                        )
                                 if bool(args_cli.agile_command_hold_reset_policy_state) and not agile_hold_policy_state_reset_done:
                                     try:
                                         agile_policy.reset_state()
@@ -3212,6 +3343,28 @@ def run_scene() -> Path:
                                     summary["cradle_chest_pad_collision_update_error"] = error_text
                                     if bool(args_cli.cradle_chest_pad_spawn_on_trigger):
                                         summary["cradle_chest_pad_spawn_error"] = error_text
+                        if (
+                            bool(args_cli.cradle_final_side_guards)
+                            and bool(args_cli.cradle_final_side_guard_enable_on_target_window)
+                            and not final_side_guard_collision_enabled
+                            and bool(summary.get("target_window_enabled"))
+                            and (
+                                int(args_cli.cradle_final_side_guard_target_window_min_step) < 0
+                                or int(step) >= int(args_cli.cradle_final_side_guard_target_window_min_step)
+                            )
+                        ):
+                            target_center = float(args_cli.target_window_center)
+                            target_halfwidth = float(args_cli.target_window_halfwidth)
+                            if (
+                                abs(float(prev_robot_target_directed) - target_center) <= target_halfwidth
+                                and abs(float(prev_box_target_directed) - target_center) <= target_halfwidth
+                            ):
+                                try:
+                                    enable_final_side_guards("target_window", int(step))
+                                except Exception as exc:
+                                    summary["cradle_final_side_guard_collision_update_error"] = (
+                                        f"{type(exc).__name__}: {exc}"
+                                    )
                         command_scale = float(args_cli.agile_command_hold_scale) if agile_command_hold_active else 1.0
                         adaptive_risk = 0.0
                         if agile_command_hold_active and bool(args_cli.agile_command_hold_adaptive_scale):
@@ -3313,6 +3466,17 @@ def run_scene() -> Path:
                                     chest_pad_hold_collision_enabled = True
                                 except Exception as exc:
                                     summary["cradle_chest_pad_collision_update_error"] = f"{type(exc).__name__}: {exc}"
+                            if (
+                                bool(args_cli.cradle_final_side_guards)
+                                and bool(args_cli.cradle_final_side_guard_enable_on_terminal_hold)
+                                and not final_side_guard_collision_enabled
+                            ):
+                                try:
+                                    enable_final_side_guards("terminal_hold", int(step))
+                                except Exception as exc:
+                                    summary["cradle_final_side_guard_collision_update_error"] = (
+                                        f"{type(exc).__name__}: {exc}"
+                                    )
                             command_scale = min(
                                 float(command_scale),
                                 max(0.0, float(args_cli.agile_command_hold_terminal_scale)),
@@ -3373,6 +3537,17 @@ def run_scene() -> Path:
                                     chest_pad_hold_collision_enabled = True
                                 except Exception as exc:
                                     summary["cradle_chest_pad_collision_update_error"] = f"{type(exc).__name__}: {exc}"
+                            if (
+                                bool(args_cli.cradle_final_side_guards)
+                                and bool(args_cli.cradle_final_side_guard_enable_on_final_hold)
+                                and not final_side_guard_collision_enabled
+                            ):
+                                try:
+                                    enable_final_side_guards("final_hold", int(step))
+                                except Exception as exc:
+                                    summary["cradle_final_side_guard_collision_update_error"] = (
+                                        f"{type(exc).__name__}: {exc}"
+                                    )
                             command_scale = min(
                                 float(command_scale),
                                 max(0.0, float(args_cli.agile_command_hold_final_scale)),

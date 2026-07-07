@@ -219,6 +219,22 @@ These rules override all other project instructions.
   recover target-window entry, but the current weak support plus late final
   hold is not stable. Do not claim this branch as progress beyond a boundary
   diagnostic.
+- 2026-07-07 final-hold side-guard contact mechanism added:
+  `scripts/isaac/build_core_world_g1_box_scene.py` now supports opt-in
+  `--cradle-final-side-guards`, which spawns two torso-fixed physical side
+  guard collision blocks around the carried box. They can be enabled on
+  agile-hold, terminal-hold, final-hold, or target-window entry and record
+  their geometry, trigger reason, trigger step, and update errors in rollout
+  summaries. Launcher forwarding was added to
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`, and
+  aggregate summaries now preserve the side-guard fields. New entrypoint:
+  `scripts/isaac/run_core_world_g1_chestpad_finalstop_side_guard_suite.sh`.
+  It returns to the strong `168431` chest-pad final-stop near-pass and changes
+  only the final-hold contact support by enabling final side guards. This is
+  an experiment entrypoint only until
+  `chestpad_finalstop_side_guard_summary.json` exists; do not claim it as
+  carrying success unless the strict fall/drop/target-window/tilt/lateral/
+  no-write gates pass.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
