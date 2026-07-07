@@ -9208,6 +9208,17 @@
   use final-hold-only escape around robot tilt `0.18-0.22 rad` and box tilt
   `0.24-0.30 rad`, with scale still small enough to keep final command under
   audited limits.
+- [x] Add early tilt-escape case set:
+  `TILT_ESCAPE_CASE_SET=early` in
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_tilt_escape_suite.sh`.
+  It runs `escape_robot022_box030_scale015` and
+  `escape_robot018_box024_scale020`.
+- [ ] Monitor early tilt-escape job. Slurm job `170356` (`g1_tiltearly`) was
+  submitted through tmux `curiosity_g1_tilt_escape_early_0707`, suite stamp
+  prefix `20260707_g1_lowcarry_close_front_tilt_escape_early`, log
+  `logs/g1_tilt_escape_early_0707_srun.log`. Record only after
+  `experiments/outputs/core_world_g1_lowcarry_close_front_tilt_escape/20260707_g1_lowcarry_close_front_tilt_escape_early/close_front_tilt_escape_summary.json`
+  exists.
 - [x] Monitor blended retention-posture smoke job. Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
   `curiosity_g1_retention_blend_smoke_0707` with suite stamp

@@ -174,6 +174,16 @@ These rules override all other project instructions.
   max robot/box tilt `0.488/0.483 rad` and triggered escape only for `18`
   steps from step `1025`. Interpretation: the mechanism is not harmful in
   this bracket, but the thresholds are too late to arrest the final tilt.
+- 2026-07-07 early final-hold tilt-escape cases submitted: added
+  `TILT_ESCAPE_CASE_SET=early` to
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_tilt_escape_suite.sh`.
+  It runs `escape_robot022_box030_scale015` and
+  `escape_robot018_box024_scale020`, keeping the same strict gates but
+  triggering final-hold escape earlier. Submitted through tmux
+  `curiosity_g1_tilt_escape_early_0707` as Slurm job `170356` /
+  `g1_tiltearly`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_tilt_escape_early`. Do not interpret until
+  `close_front_tilt_escape_summary.json` exists under the early output root.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate
