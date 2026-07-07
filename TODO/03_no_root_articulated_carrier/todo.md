@@ -9061,6 +9061,22 @@
   lateral/no-shortcut checks. It was `PENDING (Priority)` with no start time
   at submission. Record the result only after
   `experiments/outputs/core_world_g1_posture_conditioned_gate/20260707_g1_posture_conditioned_gate_rerun/posture_conditioned_gate_summary.json`
+  exists. This job was later cancelled while still pending so the GPU queue
+  could be used for the more targeted close-front retention-posture test.
+- [x] Add close-front retention-posture suite:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_retention_posture_suite.sh`.
+  It starts from the previous near-miss `steps1050_final120` and enables
+  `BOX_RETENTION_POSTURE_CONTROLLER`, preserving the same strict gates and no
+  rollout root/velocity/box pose shortcuts. The quick case tests mild
+  risk-driven hip/knee/ankle/waist/arm posture feedback; the full case-set can
+  compare mild and strong feedback.
+- [ ] Monitor close-front retention-posture quick job. Slurm job `170290`
+  (`g1_retpost`) was submitted through tmux
+  `curiosity_g1_retention_posture_0707` with
+  `RETENTION_POSTURE_CASE_SET=quick` and suite stamp prefix
+  `20260707_g1_lowcarry_close_front_retention_posture_quick`. It was
+  `PENDING (Priority)` at submission. Record the result only after
+  `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_quick/close_front_retention_posture_summary.json`
   exists.
 - [x] Monitor G1 showcase RGB capture job `170209` (`g1_showviz`) submitted
   through tmux `curiosity_g1_showcase_capture_0707`. It runs

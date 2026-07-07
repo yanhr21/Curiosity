@@ -12881,6 +12881,26 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   tilt, lateral, and no-shortcut checks. As of submission it was still
   `PENDING (Priority)` with no start time. Do not report any result until
   `experiments/outputs/core_world_g1_posture_conditioned_gate/20260707_g1_posture_conditioned_gate_rerun/posture_conditioned_gate_summary.json`
+  exists. It was later cancelled while still pending so the queue could be
+  used for the more targeted close-front retention-posture test.
+- 2026-07-07 close-front retention-posture entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_retention_posture_suite.sh`.
+  It starts from the previous best close-front near-miss
+  `steps1050_final120` and enables the existing audited
+  `BOX_RETENTION_POSTURE_CONTROLLER` so box relative-error/tilt risk changes
+  G1 hip, knee, ankle, waist, shoulder, elbow, and wrist targets. It preserves
+  the strict no-fall/no-drop/target-window/tilt/lateral/no-rollout-write
+  gates and does not add root, velocity, or box pose shortcuts. This is the
+  next structural close-front test after early `policy_then_stand` handoff
+  failed; it is not a command-only scalar sweep.
+- 2026-07-07 close-front retention-posture quick job: Slurm job `170290`
+  (`g1_retpost`) was submitted through tmux
+  `curiosity_g1_retention_posture_0707` with
+  `RETENTION_POSTURE_CASE_SET=quick` and
+  `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_retention_posture_quick`.
+  As of submission it was `PENDING (Priority)`. Do not interpret this branch
+  until
+  `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_quick/close_front_retention_posture_summary.json`
   exists.
 - 2026-07-07 G1 showcase capture job: Slurm job `170209` (`g1_showviz`) was
   submitted through tmux `curiosity_g1_showcase_capture_0707` to run
