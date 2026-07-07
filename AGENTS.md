@@ -12673,6 +12673,14 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   Conclusion: do not continue increasing balance gains for close-front
   freeze; the next branch should preserve default balance and try a delayed
   low-COM stand/hold transition after target-window freeze.
+- 2026-07-07 close-front freeze-stand transition entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_transition_suite.sh`.
+  It keeps `freeze_strict`, default balance feedback, and tests delayed
+  low-COM stand targets at delays `80`, `120`, and a softer `160` steps after
+  final hold. Slurm job `170016` (`g1_cfstand2`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_stand_transition_0707`; as of
+  `2026-07-07 15:22 CST`, it was pending on GPU priority with no compute-node
+  summary yet.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

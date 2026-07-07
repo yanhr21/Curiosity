@@ -8922,4 +8922,6 @@
 - [ ] Run close-front freeze-stand transition suite. Keep `freeze_strict` and
   default balance, then transition to delayed low-COM stand targets after
   freeze to see whether symmetric low-COM posture prevents the `780`-step
-  collapse.
+  collapse. Slurm job `170016` (`g1_cfstand2`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_stand_transition_0707`; it is pending on
+  GPU priority as of `2026-07-07 15:22 CST`.
