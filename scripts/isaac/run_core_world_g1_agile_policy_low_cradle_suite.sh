@@ -446,6 +446,9 @@ free_cradle_extra_args+=(
   --cradle-final-side-guard-size "${CRADLE_FINAL_SIDE_GUARD_SIZE_X:-0.18}" "${CRADLE_FINAL_SIDE_GUARD_SIZE_Y:-0.018}" "${CRADLE_FINAL_SIDE_GUARD_SIZE_Z:-0.18}"
   --cradle-final-side-guard-half-spacing "${CRADLE_FINAL_SIDE_GUARD_HALF_SPACING:-0.075}"
   --cradle-final-side-guard-mass-scale "${CRADLE_FINAL_SIDE_GUARD_MASS_SCALE:-1.0}"
+  --cradle-final-side-guard-static-friction "${CRADLE_FINAL_SIDE_GUARD_STATIC_FRICTION:--1.0}"
+  --cradle-final-side-guard-dynamic-friction "${CRADLE_FINAL_SIDE_GUARD_DYNAMIC_FRICTION:--1.0}"
+  --cradle-final-side-guard-restitution "${CRADLE_FINAL_SIDE_GUARD_RESTITUTION:-0.0}"
   --cradle-final-side-guard-target-window-min-step "${CRADLE_FINAL_SIDE_GUARD_TARGET_WINDOW_MIN_STEP:--1}"
 )
 

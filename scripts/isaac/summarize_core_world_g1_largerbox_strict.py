@@ -346,6 +346,18 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "cradle_final_side_guard_half_spacing_m": summary.get(
             "cradle_final_side_guard_half_spacing_m"
         ),
+        "cradle_final_side_guard_mass_scale": summary.get(
+            "cradle_final_side_guard_mass_scale"
+        ),
+        "cradle_final_side_guard_static_friction": summary.get(
+            "cradle_final_side_guard_static_friction"
+        ),
+        "cradle_final_side_guard_dynamic_friction": summary.get(
+            "cradle_final_side_guard_dynamic_friction"
+        ),
+        "cradle_final_side_guard_restitution": summary.get(
+            "cradle_final_side_guard_restitution"
+        ),
         "cradle_final_side_guard_enable_on_hold": summary.get(
             "cradle_final_side_guard_enable_on_hold"
         ),

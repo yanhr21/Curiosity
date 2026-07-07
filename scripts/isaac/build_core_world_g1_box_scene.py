@@ -381,6 +381,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cradle-final-side-guard-size", type=float, nargs=3, default=(0.18, 0.018, 0.18))
     parser.add_argument("--cradle-final-side-guard-half-spacing", type=float, default=0.075)
     parser.add_argument("--cradle-final-side-guard-mass-scale", type=float, default=1.0)
+    parser.add_argument("--cradle-final-side-guard-static-friction", type=float, default=-1.0)
+    parser.add_argument("--cradle-final-side-guard-dynamic-friction", type=float, default=-1.0)
+    parser.add_argument("--cradle-final-side-guard-restitution", type=float, default=0.0)
     parser.add_argument("--cradle-final-side-guard-spawn-on-trigger", action="store_true")
     parser.add_argument("--cradle-final-side-guard-enable-on-hold", action="store_true")
     parser.add_argument("--cradle-final-side-guard-enable-on-terminal-hold", action="store_true")
@@ -753,12 +756,18 @@ def _set_xform(prim: Usd.Prim, translation: tuple[float, float, float], scale: t
     xform_api.SetScale(Gf.Vec3f(*[float(v) for v in scale]))
 
 
-def _define_material(stage: Usd.Stage, path: str, static_friction: float, dynamic_friction: float) -> UsdShade.Material:
+def _define_material(
+    stage: Usd.Stage,
+    path: str,
+    static_friction: float,
+    dynamic_friction: float,
+    restitution: float = 0.0,
+) -> UsdShade.Material:
     material = UsdShade.Material.Define(stage, path)
     physics_material = UsdPhysics.MaterialAPI.Apply(material.GetPrim())
     physics_material.CreateStaticFrictionAttr().Set(float(static_friction))
     physics_material.CreateDynamicFrictionAttr().Set(float(dynamic_friction))
-    physics_material.CreateRestitutionAttr().Set(0.0)
+    physics_material.CreateRestitutionAttr().Set(float(restitution))
     return material
 
 
@@ -904,6 +913,30 @@ def _spawn_front_cradle_final_side_guards(
     half_spacing = max(0.0, float(args_cli.cradle_final_side_guard_half_spacing))
     mass_scale = max(0.0, float(args_cli.cradle_mass_scale))
     guard_mass_scale = max(0.0, float(args_cli.cradle_final_side_guard_mass_scale))
+    guard_material = material
+    if (
+        float(args_cli.cradle_final_side_guard_static_friction) >= 0.0
+        or float(args_cli.cradle_final_side_guard_dynamic_friction) >= 0.0
+        or float(args_cli.cradle_final_side_guard_restitution) > 0.0
+    ):
+        UsdGeom.Scope.Define(stage, "/World/Looks")
+        static_friction = (
+            float(args_cli.cradle_final_side_guard_static_friction)
+            if float(args_cli.cradle_final_side_guard_static_friction) >= 0.0
+            else 1.2
+        )
+        dynamic_friction = (
+            float(args_cli.cradle_final_side_guard_dynamic_friction)
+            if float(args_cli.cradle_final_side_guard_dynamic_friction) >= 0.0
+            else min(static_friction, 0.9)
+        )
+        guard_material = _define_material(
+            stage,
+            "/World/Looks/CarrySceneFinalSideGuardMaterial",
+            static_friction,
+            dynamic_friction,
+            max(0.0, float(args_cli.cradle_final_side_guard_restitution)),
+        )
     joints: dict[str, str] = {}
     for name, y_sign in (("left", 1.0), ("right", -1.0)):
         path = f"/World/G1FrontCradle_final_side_guard_{name}"
@@ -928,7 +961,7 @@ def _spawn_front_cradle_final_side_guards(
             (0.32, 0.32, 0.18),
             str(args_cli.attach_body_path),
             local,
-            material,
+            guard_material,
             initial_world,
             collision,
         )
@@ -2873,6 +2906,9 @@ def run_scene() -> Path:
         "cradle_final_side_guard_size_m": [float(v) for v in args_cli.cradle_final_side_guard_size],
         "cradle_final_side_guard_half_spacing_m": float(args_cli.cradle_final_side_guard_half_spacing),
         "cradle_final_side_guard_mass_scale": float(args_cli.cradle_final_side_guard_mass_scale),
+        "cradle_final_side_guard_static_friction": float(args_cli.cradle_final_side_guard_static_friction),
+        "cradle_final_side_guard_dynamic_friction": float(args_cli.cradle_final_side_guard_dynamic_friction),
+        "cradle_final_side_guard_restitution": float(args_cli.cradle_final_side_guard_restitution),
         "cradle_final_side_guard_spawn_on_trigger": bool(args_cli.cradle_final_side_guard_spawn_on_trigger),
         "cradle_final_side_guard_enable_on_hold": bool(args_cli.cradle_final_side_guard_enable_on_hold),
         "cradle_final_side_guard_enable_on_terminal_hold": bool(

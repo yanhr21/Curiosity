@@ -359,6 +359,111 @@ These rules override all other project instructions.
   steps `0`, writes `0/0/0`. Do not continue terminal-trigger side guards
   without a materially softer/controlled contact formulation; final-only
   `hs120` and `lx22` remain the useful near-miss boundaries.
+- 2026-07-07 soft side-guard contact parameterization added:
+  `scripts/isaac/build_core_world_g1_box_scene.py` now supports side-guard
+  specific `--cradle-final-side-guard-static-friction`,
+  `--cradle-final-side-guard-dynamic-friction`,
+  `--cradle-final-side-guard-restitution`, and existing side-guard mass scale
+  is forwarded through the launchers. These parameters are recorded in source
+  summaries. This is still physical contact with the free box, not pose-lock,
+  servoing, or learned carrying. First compute-node diagnostic
+  `20260707_g1_chestpad_finalstop_side_guard_lx22_softmat` was submitted
+  through tmux session `curiosity_g1_side_guard_lx22_softmat_0707` as Slurm
+  job `170506`. It reuses the `lx22` relative-offset-pass geometry and tests
+  final-only spawn-on-trigger guards with mass scale `0.25`, static/dynamic
+  friction `0.35/0.25`, and restitution `0.0`. Job `170506` is invalid as a
+  simulation result because it exited before Isaac startup on a transient
+  shell parse error while the suite was being edited; no summary exists.
+  After `bash -n` passed, the same diagnostic was resubmitted as
+  `20260707_g1_chestpad_finalstop_side_guard_lx22_softmat2` through tmux
+  session `curiosity_g1_side_guard_lx22_softmat2_0707` as Slurm job `170508`.
+  It ran and failed: fall/drop `69/38`, max robot/box tilt
+  `2.152/2.126 rad`, target-window stable/longest/end `64/64/0`, final
+  relative offset `0.328 m`, final robot/box lateral `0.449/0.308 m`, writes
+  `0/0/0`. Low-friction low-mass guards corrected lateral but destabilized
+  final hold and worsened relative offset. Aggregate summarizer was updated to
+  preserve side-guard mass/friction/restitution fields. Follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_lx22_lowmass` was submitted
+  through tmux session `curiosity_g1_side_guard_lx22_lowmass_0707` as Slurm
+  job `170510`; it keeps default friction and changes only side-guard mass
+  scale to `0.25`. It produced a stronger near-miss than raw `lx22`: fall/drop
+  `0/0`, max robot/box tilt `0.308/0.385 rad`, target-window
+  stable/longest/end `133/133/133`, final-hold active `132`, final relative
+  offset `0.163 m`, final robot/box lateral `0.486/0.640 m`, writes `0/0/0`,
+  and failed only final box lateral `0.640 m > 0.6`. This means reducing guard
+  mass helps relative offset while preserving stability, but still needs a
+  little more lateral correction. Follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_lx22_lowmass_hs118` was submitted
+  through tmux session `curiosity_g1_side_guard_lx22_lowmass_hs118_0707` as
+  Slurm job `170512`; it keeps mass scale `0.25` and tightens half-spacing
+  from `0.12` to `0.118`. It ran with fall/drop `0/0`, max robot/box tilt
+  `0.308/0.385 rad`, target-window stable/longest/end `133/133/133`, final
+  relative offset `0.141 m`, final robot/box lateral `0.545/0.686 m`, writes
+  `0/0/0`, and failed only final box lateral. Tightening spacing worsened
+  lateral despite improving relative offset. Follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_lowmass_lx20` was submitted
+  through tmux session `curiosity_g1_side_guard_lowmass_lx20_0707` as Slurm
+  job `170514`; it keeps low mass and half-spacing `0.12` but moves local X
+  from `-0.22` to `-0.20` to trade some relative-offset margin for lateral
+  correction. It produced the closest low-mass boundary so far: fall/drop
+  `0/0`, max robot/box tilt `0.308/0.385 rad`, target-window
+  stable/longest/end `133/133/133`, final-hold active `132`, final relative
+  offset `0.185 m`, final robot/box lateral `0.432/0.616 m`, writes `0/0/0`,
+  and failed only final box lateral `0.616 m > 0.6`. Follow-up
+  `20260707_g1_chestpad_finalstop_side_guard_lowmass_lx19` was submitted
+  through tmux session `curiosity_g1_side_guard_lowmass_lx19_0707` as Slurm
+  job `170524`; it keeps low mass and half-spacing `0.12` and moves local X
+  to `-0.19` to try to close the remaining `1.6 cm` lateral gap. Do not
+  interpret it until its summary exists. It produced the first strict pass in
+  the close-front side-guard family: check `pass`, failures `[]`, fall/drop
+  `0/0`, max robot/box tilt `0.308/0.385 rad`, target-window
+  stable/longest/end `133/133/133`, final-hold active `132`, final relative
+  offset `0.0757 m`, final robot/box target-directed travel `2.032/2.081 m`,
+  final robot/box lateral `0.407/0.465 m`, rollout root/velocity/box pose
+  writes `0/0/0`, side guards spawned at final-hold step `868`, mass scale
+  `0.25`, half-spacing `0.12`, local X `-0.19`, and default guard friction.
+  This is still a narrow engineered G1/AGILE diagnostic, not learned carrying,
+  not unknown-load active probing, and not arbitrary-posture carrying. A
+  same-parameter repeat
+  `20260707_g1_chestpad_finalstop_side_guard_lowmass_lx19_repeat` was
+  submitted through tmux session
+  `curiosity_g1_side_guard_lowmass_lx19_repeat_0707` as Slurm job `170528`;
+  it reproduced the pass with identical key metrics: check `pass`, failures
+  `[]`, fall/drop `0/0`, max robot/box tilt `0.308/0.385 rad`, target-window
+  stable/longest/end `133/133/133`, final-hold active `132`, final relative
+  offset `0.0757 m`, final robot/box target-directed travel `2.032/2.081 m`,
+  final robot/box lateral `0.407/0.465 m`, rollout root/velocity/box pose
+  writes `0/0/0`, side guards spawned at final-hold step `868`, mass scale
+  `0.25`, half-spacing `0.12`, local X `-0.19`, and default guard friction.
+  Treat `lowmass_lx19` as the current best narrow close-front G1/AGILE
+  engineered diagnostic. It is not evidence of arbitrary-posture carrying,
+  learned carrying, or unknown-load active probing.
+- 2026-07-07 two-posture validation entrypoint added:
+  `scripts/isaac/run_core_world_g1_lowfront_closefront_lowmass_gate.sh`. It
+  runs the known `low_front_060` runtime chest-pad gate and the reproduced
+  `close_front_060_lowmass_lx19` side-guard gate into one aggregate summary.
+  First run `20260707_g1_lowfront_closefront_lowmass_gate` was submitted
+  through tmux session `curiosity_g1_lowfront_closefront_gate_0707` as Slurm
+  job `170535`; aggregate result was `fail`, 1/2 passed. The low-front case
+  passed, but the close-front case failed because the integrated script used
+  `FREE_BOX_MASS=0.60`, while the reproduced `lowmass_lx19` close-front pass
+  was a `0.50 kg` case. Do not use job `170535` as evidence against the
+  reproduced `lowmass_lx19` boundary; it is a mismatched-mass gate. Corrected
+  rerun `20260707_g1_lowfront_closefront_lowmass_gate_m050` was submitted
+  through tmux session `curiosity_g1_lowfront_closefront_gate_m050_0707` as
+  Slurm job `170540`; aggregate result was `pass`, 2/2 passed. `low_front_060`
+  passed with fall/drop `0/0`, final robot/box target-directed travel about
+  `2.051/2.032 m`, max robot/box tilt `0.309/0.428 rad`, target-window
+  stable/end streak `105/102`, final-hold active `462`, and writes `0/0/0`.
+  `close_front_060_lowmass_lx19` passed with fall/drop `0/0`, final robot/box
+  target-directed travel about `2.032/2.081 m`, max robot/box tilt
+  `0.308/0.385 rad`, target-window stable/longest/end `133/133/133`,
+  final-hold active `132`, final relative offset `0.0757 m`, final robot/box
+  lateral `0.407/0.465 m`, side guards spawned at final-hold step `868`, and
+  writes `0/0/0`. This validates two engineered G1/AGILE postures under strict
+  gates, with low-front at `0.60 kg` and close-front at `0.50 kg`. It is not
+  arbitrary-posture carrying, not load-robust carrying, not learned carrying,
+  and not unknown-load active probing.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
