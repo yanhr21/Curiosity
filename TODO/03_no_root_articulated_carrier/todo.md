@@ -8826,8 +8826,15 @@
   the pre-target close-front trajectory: change command schedule/support
   geometry before step `700-900`, or add a posture-conditioned gait/support
   controller that keeps roll/pitch inside gate before final hold.
-- [ ] Await/run close-front pretarget repair suite:
+- [x] Record close-front pretarget repair suite:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_pretarget_repair_suite.sh`.
-  It keeps the strict target/fall/drop/tilt gates and tests early
-  box-progress plus box-lateral controllers for the 0.60 kg close-front
-  posture. Do not treat it as evidence until the summary JSON exists.
+  Slurm job `169858` (`g1_cfpre`) ran on `server44` and failed `0/3`.
+  `progress_conservative` was useful despite failing: it reached target-window
+  first stable step `652`, target-window stable steps `136`, longest streak
+  `73`, but fell/dropped at steps `802/864`. `progress_mid` and
+  `progress_mid_no_hold_lat` collapsed earlier and should not be continued.
+- [ ] Next close-front repair should build on `progress_conservative` and
+  target retention/arrest after entering the target window, not stronger
+  progress drive. Candidate knobs: target-window stop/arrest, reduced
+  post-window progress command, earlier runtime support after window entry,
+  and tighter terminal retention while preserving strict gates.

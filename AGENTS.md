@@ -12520,8 +12520,16 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   final-hold, tilt, lateral-error, and no-shortcut gates. It tests early
   box-progress and box-lateral command control (`progress_conservative`,
   `progress_mid`, and `progress_mid_no_hold_lat`) so the robot does not enter
-  the bad pitch/roll trajectory before target-window dwell. It is not evidence
-  until a compute-node summary exists.
+  the bad pitch/roll trajectory before target-window dwell. Slurm job
+  `169858` (`g1_cfpre`) ran on `server44` and failed `0/3`.
+  `progress_conservative` is the useful negative result: fall/drop
+  `485/247`, first fall/drop steps `802/864`, target-window first stable step
+  `652`, target-window stable steps `136`, longest/end streak `73/0`, and no
+  rollout root/velocity/box pose writes. `progress_mid` and
+  `progress_mid_no_hold_lat` collapsed earlier with first falls at `383` and
+  `595` and target-window stable steps `0`. Conclusion: conservative
+  box-progress can get close-front into the target window, but the next valid
+  step is target-window retention/arrest, not stronger drive.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

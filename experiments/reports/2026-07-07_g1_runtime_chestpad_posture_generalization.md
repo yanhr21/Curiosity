@@ -198,8 +198,23 @@ bad pitch/roll trajectory before a useful target-window dwell exists.
   exceeds configured pretarget limits.
 - Cases:
   `progress_conservative`, `progress_mid`, and `progress_mid_no_hold_lat`.
-- Status:
-  added, not yet run.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `169858` (`g1_cfpre`) ran on
+  `server44` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_pretarget_repair/20260707_g1_lowcarry_close_front_pretarget_repair/close_front_pretarget_repair_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Longest/End Streak | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `progress_conservative` | fail | 485/247 | 802/864 | 136 | 73/0 | Useful direction: reaches target window at step 652 and holds briefly, but cannot retain through the end. |
+| `progress_mid` | fail | 917/757 | 383/396 | 0 | 0/0 | Too aggressive; collapses early. |
+| `progress_mid_no_hold_lat` | fail | 705/579 | 595/663 | 0 | 0/0 | Disabling hold lateral/yaw makes it worse; no target-window dwell. |
+
+The pretarget experiment changes the failure mode. Conservative box-progress
+control is the first close-front variant to exceed the target-window stable
+step count, but it still fails fall/drop and end-streak gates. The next repair
+should not increase drive; it should arrest or retain the robot/box once the
+target window is reached.
 
 ## Next Step
 
@@ -210,5 +225,8 @@ implementation should add an explicit posture-conditioned controller gate:
 - choose different command/lateral/yaw/support parameters per posture,
 - repair the pre-target close-front trajectory rather than only the final
   stand/hold phase,
+- for close-front specifically, build on `progress_conservative` and fix
+  target-window retention after step `652`, because stronger progress settings
+  collapse earlier,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.
