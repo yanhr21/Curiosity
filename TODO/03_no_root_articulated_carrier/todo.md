@@ -8,6 +8,17 @@
   external models by default. Continue building and gating the direct Isaac
   carrying scene. Only use an external model/checkpoint/wrapper if it directly
   removes a named Isaac blocker in the current gate.
+- [x] Generate the current best 0.60 kg G1/AGILE runtime chest-pad showcase
+  record and fallback visual. The rollout record
+  `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_min700` passed
+  with fall/drop `0/0`, robot/box target-directed travel about `2.051/2.032 m`,
+  max robot/box tilt `0.309/0.428 rad`, and chest-pad collision enabled at
+  step `712`. The real Isaac RGB replay renderer failed because the current
+  Kit environment lacks `omni.replicator` and
+  `isaacsim.core.rendering_manager`; do not rerun that path unchanged. The
+  available presentation artifact is
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_060_runtime_chestpad_showcase_fallback_min700/g1_lowcarry_runtime_chestpad_fallback_annotated.mp4`,
+  explicitly labeled as a schematic replay rather than an Isaac camera render.
 - [x] Record the 2026-07-07 clean G1 boxtilt box-progress isolation result:
   `clean_slow` was stable but under-traveled, while `clean_slow_lateral_pos`
   entered the target window for `91` steps before over-traveling and failing.
