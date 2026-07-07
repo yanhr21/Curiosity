@@ -20,8 +20,9 @@ engineered diagnostic, not as robust unknown-load or posture-general carrying.
 
 Important limitation: this is a schematic replay fallback from recorded CSV,
 not an Isaac camera render and not new control evidence. A fresh true Isaac
-camera capture attempt on 2026-07-07 failed because `omni.replicator.core`
-could not resolve the local `omni.kit.pip_archive` dependency.
+camera capture attempt on 2026-07-07 is still blocked: the default installed
+Kit path can import `omni.replicator.core`, but the replay renderer later
+failed in the articulation wrapper and xform-only render-product paths.
 
 ## Previous Narrow Passing Visual
 
@@ -107,11 +108,24 @@ summary at
 So the blocker has moved from "replicator cannot import" to "post-import
 capture path still does not write frames".
 
+Post-import debug follow-up: job `170230` (`g1_rdrdbg`) wrote failure summaries
+showing the articulation-wrapper replay path fails during `SingleArticulation`
+creation with `PhysxManager._get_backend_utils` missing. Xform-only replay
+attempts `170252` and `170256` avoided that wrapper and created a Replicator
+camera, but stalled at `rep.create.render_product(...)`. Current status:
+there is still no true Isaac camera render; the available G1 showcase remains
+the schematic replay fallback.
+
 ## Latest Negative Diagnostics To Mention Honestly
 
 - G1 boxtilt scaled-terminal and target-window hold diagnostics both failed:
   they can enter the target window transiently but cannot hold without later
   fall/drop or over-travel.
+- G1 close-front `policy_then_stand` handoff quick diagnostic
+  `170278 / g1_cfhand4` failed strict gates: first fall at step `725`,
+  fall events `575`, target-window stable steps `0`, final robot/box
+  target-directed travel `-0.496/-0.643 m`, and max robot/box tilt
+  `1.284/1.397 rad`.
 - MuJoCo free-box hold-capture diagnostic failed all six cases despite active
   target-stop and capture-point terms: no root/box pose or velocity shortcuts,
   but every case still had post-latch falls/drops and excessive tilt.

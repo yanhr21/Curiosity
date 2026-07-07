@@ -9026,6 +9026,33 @@
   stand-over-freeze active steps because target-window/freeze was not
   established. Do not continue scalar balance-base/gain toggles on this
   close-front branch.
+- [x] Add close-front handoff-structure case-set:
+  `STAND_TRANSITION_CASE_SET=handoff_structure` in
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_transition_suite.sh`.
+  It tests delayed `policy_then_stand` handoff with stand-over-freeze enabled
+  and rescue disabled, under the same strict no-fall/no-drop/target-window/
+  tilt/lateral/no-shortcut gates. This is a control-priority/transition
+  structure test, not another balance-gain sweep.
+- [x] Monitor close-front handoff-structure suite. Slurm job `170267`
+  (`g1_cfhand`) was submitted through tmux
+  `curiosity_g1_close_front_handoff_0707` with suite stamp prefix
+  `20260707_g1_lowcarry_close_front_freeze_stand_handoff`; it was cancelled
+  while still pending after Slurm estimated a late start. It was superseded by
+  quick single-case job `170276` (`g1_cfhandq`) through tmux
+  `curiosity_g1_close_front_handoff_quick_0707`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_freeze_stand_handoff_quick`; it was also
+  cancelled while pending. A `test` partition attempt failed immediately with
+  invalid account/partition combination. Final quick run `170278`
+  (`g1_cfhand4`) ran on `server02` through tmux
+  `curiosity_g1_close_front_handoff_gpu_small_0707` with suite stamp prefix
+  `20260707_g1_lowcarry_close_front_freeze_stand_handoff_quick_gpu4`. Result:
+  strict `fail`, `0/1`. `policy_then_stand_delay120` completed 1300 steps
+  with box drops `0` and rollout root/velocity/box pose writes `0`, but had
+  first fall at step `725`, fall events `575`, target-window stable steps `0`,
+  final robot/box target-directed travel `-0.496/-0.643 m`, and max robot/box
+  tilt `1.284/1.397 rad`. This early `policy_then_stand` handoff is worse
+  than the earlier `stand_delay_160_soft` boundary; do not continue this
+  exact branch without a materially different support/terminal-control design.
 - [x] Monitor G1 showcase RGB capture job `170209` (`g1_showviz`) submitted
   through tmux `curiosity_g1_showcase_capture_0707`. It runs
   `scripts/isaac/run_core_world_g1_showcase_lowcarry_capture.sh` with
@@ -9054,6 +9081,15 @@
   `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_best_true_render_smoke_defaultkit/g1_replay_showcase_check.json`.
   Continue treating true Isaac camera render as unavailable until the
   post-import capture path is fixed.
+- [x] Debug the post-import true-render failure boundary. Slurm job `170230`
+  (`g1_rdrdbg`) wrote failure summaries and showed the articulation-wrapper
+  replay path fails at `SingleArticulation(...)` with
+  `AttributeError: type object 'PhysxManager' has no attribute '_get_backend_utils'`.
+  Xform-only replay attempts `170252` and `170256` avoided that wrapper and
+  created a Replicator camera, but stalled at `rep.create.render_product(...)`.
+  Current conclusion: default Kit can import `omni.replicator.core`, but true
+  Isaac camera replay remains blocked by the post-import render-product/capture
+  backend. Do not rerun unchanged true-render attempts.
 - [x] Add a read-only close-front freeze-rescue override parser:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case

@@ -12844,6 +12844,35 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   balance-coupling attempt is negative and does not beat
   `stand_delay_160_soft`; do not continue scalar balance-base/gain toggles on
   this close-front branch.
+- 2026-07-07 close-front handoff-structure entrypoint: added
+  `STAND_TRANSITION_CASE_SET=handoff_structure` to
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_transition_suite.sh`.
+  It tests `AGILE_COMMAND_HOLD_MODE=policy_then_stand` with delayed
+  policy-to-stand handoff, stand-over-freeze enabled, and rescue disabled,
+  preserving the same strict target-window, tilt, lateral, fall/drop, and
+  no-shortcut gates. This is a structural hold/stand handoff test after the
+  negative balance-coupling result, not another scalar balance-gain sweep.
+  Slurm job `170267` (`g1_cfhand`) was submitted through tmux
+  `curiosity_g1_close_front_handoff_0707` with suite stamp prefix
+  `20260707_g1_lowcarry_close_front_freeze_stand_handoff`, but was cancelled
+  while still pending after Slurm estimated a late start. It was superseded by
+  single-case quick job `170276` (`g1_cfhandq`) through tmux
+  `curiosity_g1_close_front_handoff_quick_0707`, case-set
+  `handoff_quick`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_freeze_stand_handoff_quick`, which was
+  also cancelled while pending. A `test` partition attempt was rejected by
+  Slurm as an invalid account/partition combination. Final quick run
+  `170278` (`g1_cfhand4`) ran on `server02` through tmux
+  `curiosity_g1_close_front_handoff_gpu_small_0707`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_freeze_stand_handoff_quick_gpu4`, and
+  failed strict gates `0/1`. Case `policy_then_stand_delay120` completed
+  1300 steps with no box drops and no rollout root/velocity/box pose writes,
+  but fell at step `725` with fall events `575`, target-window stable steps
+  `0`, final robot/box target-directed travel `-0.496/-0.643 m`, max
+  robot/box tilt `1.284/1.397 rad`, and final hold never latched. Conclusion:
+  this early `policy_then_stand` handoff is worse than the previous
+  `stand_delay_160_soft` boundary; do not continue this handoff branch without
+  a materially different support/terminal-control formulation.
 - 2026-07-07 G1 showcase capture job: Slurm job `170209` (`g1_showviz`) was
   submitted through tmux `curiosity_g1_showcase_capture_0707` to run
   `scripts/isaac/run_core_world_g1_showcase_lowcarry_capture.sh` with
@@ -12878,6 +12907,20 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_best_true_render_smoke_defaultkit/g1_replay_showcase_check.json`
   reports `frame_count=0`. Therefore true Isaac camera render remains
   unsolved; the current presentation artifact is still the schematic fallback.
+- 2026-07-07 true Isaac replay-render debug boundary: follow-up debug run
+  `170230` (`g1_rdrdbg`) wrote failure artifacts under
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_best_true_render_debug_defaultkit/`.
+  It showed the articulation-wrapper replay path fails while creating
+  `SingleArticulation` with
+  `AttributeError: type object 'PhysxManager' has no attribute '_get_backend_utils'`.
+  The renderer was then given an opt-out xform-only replay path. Xform-only
+  attempts `170252`/`170256` avoided `SingleArticulation`, created the
+  Replicator camera, and then stalled at `rep.create.render_product(...)`.
+  Conclusion: the default Kit path can import `omni.replicator.core`, but true
+  Isaac camera replay is still blocked by post-import rendering/product
+  creation in this environment. Do not submit more unchanged true-render
+  attempts; use the schematic fallback until a different render backend or
+  fixed Kit capture stack is available.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,
