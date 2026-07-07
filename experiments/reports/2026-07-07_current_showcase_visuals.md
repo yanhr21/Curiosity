@@ -97,6 +97,16 @@ the control configuration failed early with fall/drop at steps `85/91`, and
 RGB capture produced no PNG/MP4 because `omni.replicator.core` again could not
 resolve `omni.kit.pip_archive` from the local registry mirror.
 
+Registry/import follow-up: job `170222` (`repregsmk`) showed that using the
+installed IsaacLab Kit experience, rather than forcing the external
+IsaacLab-Arena experience, can import `omni.replicator.core`. The replay render
+launcher was updated accordingly. A true replay-render smoke after that change,
+job `170224` (`g1_truerdr`), still failed with `0` frames and no render
+summary at
+`experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_best_true_render_smoke_defaultkit/`.
+So the blocker has moved from "replicator cannot import" to "post-import
+capture path still does not write frames".
+
 ## Latest Negative Diagnostics To Mention Honestly
 
 - G1 boxtilt scaled-terminal and target-window hold diagnostics both failed:

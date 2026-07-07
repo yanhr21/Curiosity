@@ -12866,6 +12866,18 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   presentation artifact for the narrow G1 pass, but it is still a schematic
   replay visual, not an Isaac camera render and not generalized unknown-load
   carrying evidence.
+- 2026-07-07 true Isaac replay-render follow-up: `scripts/isaac/run_core_world_g1_replay_showcase_render.sh`
+  was changed so it no longer forces the external IsaacLab-Arena experience by
+  default; it now lets AppLauncher use the installed IsaacLab Kit experience
+  and passes local registry names plus `file://` URLs. Minimal smoke job
+  `170222` (`repregsmk`) on `server30` confirmed that this default-Kit path can
+  start AppLauncher and import `omni.replicator.core`. However true replay
+  render smoke job `170224` (`g1_truerdr`) on `server36` still failed: it
+  produced no PNG frames, no MP4, and no `g1_replay_render_summary.json`.
+  Checker output at
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_best_true_render_smoke_defaultkit/g1_replay_showcase_check.json`
+  reports `frame_count=0`. Therefore true Isaac camera render remains
+  unsolved; the current presentation artifact is still the schematic fallback.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,

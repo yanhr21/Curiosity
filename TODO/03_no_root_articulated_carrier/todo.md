@@ -9042,6 +9042,18 @@
   Use it as the current best presentation artifact only with the explicit
   caveat that it is a schematic replay, not an Isaac camera render and not
   generalized carrying success.
+- [x] Probe true Isaac replay-render registry/import path. Updated
+  `scripts/isaac/run_core_world_g1_replay_showcase_render.sh` to use the
+  installed IsaacLab Kit experience by default and local registry `file://`
+  URLs. Slurm job `170222` (`repregsmk`) on `server30` confirmed
+  `omni.replicator.core` can import under this default-Kit path.
+- [x] Run true Isaac replay-render smoke after the launcher fix. Slurm job
+  `170224` (`g1_truerdr`) on `server36` still failed: no PNG frames, no MP4,
+  and no `g1_replay_render_summary.json`; checker status is `fail` with
+  `frame_count=0` at
+  `experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_best_true_render_smoke_defaultkit/g1_replay_showcase_check.json`.
+  Continue treating true Isaac camera render as unavailable until the
+  post-import capture path is fixed.
 - [x] Add a read-only close-front freeze-rescue override parser:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case

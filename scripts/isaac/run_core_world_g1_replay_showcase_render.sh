@@ -9,8 +9,8 @@ fi
 ROOT_DIR="${ROOT_DIR:-/public/home/yanhongru/Curiosity}"
 ISAAC_VENV="${ISAAC_VENV:-/public/home/yanhongru/envs/isaac_arena_py312}"
 OV_REGISTRY_MIRROR="${OV_REGISTRY_MIRROR:-/public/home/yanhongru/ov_registry_mirror}"
-EXPERIENCE="${EXPERIENCE:-${ROOT_DIR}/external/IsaacLab-Arena/submodules/IsaacLab/apps/isaaclab.python.headless.kit}"
-KIT_ARGS="${KIT_ARGS:---/exts/omni.kit.registry.nucleus/registries/0/url=${OV_REGISTRY_MIRROR}/kit_prod_default --/exts/omni.kit.registry.nucleus/registries/1/url=${OV_REGISTRY_MIRROR}/kit_prod_sdk}"
+EXPERIENCE="${EXPERIENCE:-}"
+KIT_ARGS="${KIT_ARGS:---/exts/omni.kit.registry.nucleus/registries/0/name=local_default --/exts/omni.kit.registry.nucleus/registries/0/url=file://${OV_REGISTRY_MIRROR}/kit_prod_default --/exts/omni.kit.registry.nucleus/registries/1/name=local_sdk --/exts/omni.kit.registry.nucleus/registries/1/url=file://${OV_REGISTRY_MIRROR}/kit_prod_sdk}"
 
 REPLAY_CSV="${REPLAY_CSV:?Set REPLAY_CSV to core_world_g1_box_scene_replay.csv}"
 OUTPUT_DIR="${OUTPUT_DIR:-${ROOT_DIR}/experiments/visuals/g1_replay_showcase/$(date +%Y%m%d_%H%M%S)}"
@@ -26,10 +26,9 @@ mkdir -p "${OUTPUT_DIR}"
 python3 -m py_compile scripts/isaac/render_core_world_g1_replay_showcase.py
 python3 -m py_compile scripts/isaac/check_core_world_g1_replay_showcase.py
 
-"${ISAAC_VENV}/bin/python" scripts/isaac/render_core_world_g1_replay_showcase.py \
+render_args=(
   --viz none \
   --enable_cameras \
-  --experience "${EXPERIENCE}" \
   --device "${DEVICE}" \
   --kit_args "${KIT_ARGS}" \
   --replay-csv "${REPLAY_CSV}" \
@@ -39,6 +38,12 @@ python3 -m py_compile scripts/isaac/check_core_world_g1_replay_showcase.py
   --max-frames "${MAX_FRAMES}" \
   --follow-frame \
   --frame-zoom "${FRAME_ZOOM:-0.42}"
+)
+if [[ -n "${EXPERIENCE}" ]]; then
+  render_args+=(--experience "${EXPERIENCE}")
+fi
+
+"${ISAAC_VENV}/bin/python" scripts/isaac/render_core_world_g1_replay_showcase.py "${render_args[@]}"
 
 frame_dir="${OUTPUT_DIR}/rgb_frames"
 movie_path="${OUTPUT_DIR}/g1_replay_showcase.mp4"
