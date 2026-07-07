@@ -598,6 +598,15 @@ def main() -> int:
         "agile_command_hold_terminal_last_reason": summary.get(
             "agile_command_hold_terminal_last_reason"
         ),
+        "agile_command_stop_target_window_enabled": summary.get(
+            "agile_command_stop_target_window_enabled"
+        ),
+        "agile_command_stop_target_window_min_step": summary.get(
+            "agile_command_stop_target_window_min_step"
+        ),
+        "agile_command_stop_target_window_latched_step": summary.get(
+            "agile_command_stop_target_window_latched_step"
+        ),
         "agile_command_hold_final_box_target_travel_m": summary.get(
             "agile_command_hold_final_box_target_travel_m"
         ),

@@ -317,6 +317,15 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "agile_command_hold_lateral_suppressed_by_tilt_steps": summary.get(
             "agile_command_hold_lateral_suppressed_by_tilt_steps"
         ),
+        "agile_command_stop_target_window_enabled": summary.get(
+            "agile_command_stop_target_window_enabled"
+        ),
+        "agile_command_stop_target_window_min_step": summary.get(
+            "agile_command_stop_target_window_min_step"
+        ),
+        "agile_command_stop_target_window_latched_step": summary.get(
+            "agile_command_stop_target_window_latched_step"
+        ),
         "agile_command_hold_terminal_latch_enabled": summary.get(
             "agile_command_hold_terminal_latch_enabled"
         ),
