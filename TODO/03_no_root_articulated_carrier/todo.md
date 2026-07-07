@@ -127,8 +127,9 @@
   support geometry, suppresses final tilt escape after a `60`-step target
   window streak, and applies a negative final brake command after `240`
   final-hold steps for `120` steps. Cases test `-0.004` and `-0.008` command
-  x. Record `close_front_escape_suppression_brake_summary.json` before
-  interpreting.
+  x. Submitted through tmux `curiosity_g1_escape_brake_0707` as Slurm job
+  `170388` / `g1_escbrake`. Record
+  `close_front_escape_suppression_brake_summary.json` before interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`

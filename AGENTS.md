@@ -291,7 +291,10 @@ These rules override all other project instructions.
   after `240` final-hold steps for `120` steps. Cases test brake command
   `-0.004` and `-0.008`, with original support geometry and the same strict
   gates. This is an experiment entrypoint only until
-  `close_front_escape_suppression_brake_summary.json` exists.
+  `close_front_escape_suppression_brake_summary.json` exists. Submitted
+  through tmux `curiosity_g1_escape_brake_0707` as Slurm job `170388` /
+  `g1_escbrake`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_escape_suppression_brake`.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate
