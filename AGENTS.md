@@ -464,6 +464,19 @@ These rules override all other project instructions.
   gates, with low-front at `0.60 kg` and close-front at `0.50 kg`. It is not
   arbitrary-posture carrying, not load-robust carrying, not learned carrying,
   and not unknown-load active probing.
+- 2026-07-07 close-front `lowmass_lx19` held-out load boundary:
+  a strict `0.55 kg` rerun,
+  `20260707_g1_closefront_lowmass_lx19_mass055_heldout_strict`, was submitted
+  through tmux session `curiosity_g1_closefront_lx19_mass055_strict_0707` as
+  Slurm job `170548`. It failed under the same strict target-window gates:
+  fall/drop stayed `0/0`, but final robot/box target-directed travel was only
+  about `0.552/0.186 m`, max robot/box tilt was `0.447/0.532 rad`, final
+  relative offset was `0.399 m`, target-window stable steps were `0`, and
+  final-hold active steps were `0`. An earlier non-strict `0.55 kg` probe
+  `20260707_g1_closefront_lowmass_lx19_mass055_heldout` omitted the common
+  target-window environment and should not be used as the held-out gate. The
+  strict result shows the close-front `lx19` pass is a narrow `0.50 kg`
+  engineered point, not a load-robust carrying strategy.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

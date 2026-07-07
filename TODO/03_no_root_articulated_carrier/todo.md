@@ -9826,6 +9826,20 @@
   two-posture G1/AGILE gate, but it proves only two engineered postures with
   different masses (`0.60 kg` low-front, `0.50 kg` close-front), not arbitrary
   posture or load robustness.
+- [x] Run first held-out load boundary beyond the two engineered postures.
+  Strict close-front `0.55 kg` rerun
+  `20260707_g1_closefront_lowmass_lx19_mass055_heldout_strict` was submitted
+  through tmux session `curiosity_g1_closefront_lx19_mass055_strict_0707` as
+  Slurm job `170548`, using the same `lowmass_lx19` side-guard geometry and
+  the two-posture gate's common target-window environment. Result: strict
+  `fail`, fall/drop `0/0`, final robot/box target-directed travel only about
+  `0.552/0.186 m`, max robot/box tilt `0.447/0.532 rad`, final relative
+  offset `0.399 m`, target-window stable steps `0`, and final-hold active
+  steps `0`. Earlier probe
+  `20260707_g1_closefront_lowmass_lx19_mass055_heldout` omitted the common
+  target-window environment and should not be treated as the held-out gate.
+  Interpretation: the close-front `lx19` pass is a narrow `0.50 kg`
+  engineered point, not load robust.
 - [ ] Next G1 validation: expand the strict gate beyond these two engineered
   postures. At minimum add held-out box mass/geometry or a third posture
   without changing the strict fall/drop, target-window, tilt, lateral,
