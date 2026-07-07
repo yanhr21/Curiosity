@@ -10270,3 +10270,20 @@
   persistent `srun`. Do not interpret it until
   `experiments/outputs/core_world_g1_closefront_heldout_geometry_planted_stance/<stamp>/closefront_heldout_geometry_planted_stance_summary.json`
   exists.
+- [x] Run and record planted-stance held-out diagnostic:
+  CPU fallback Slurm job `170658` on `server01` completed
+  `20260707_g1_closefront_heldout_geometry_planted_stance_cpu`, aggregate
+  `fail`, 0/2; queued GPU duplicate `170657` was cancelled before allocation.
+  `wide_y012_planted` first fell before hold activation (`586 < 602`) and
+  failed with fall/drop `414/364`, target-window `0/0/0`, final travel
+  `1.517/1.908 m`, final lateral `-0.215/0.856 m`, relative offset
+  `1.168 m`, max robot/box tilt `2.442/3.142 rad`, and no rollout root/
+  velocity/box pose writes. `tall_z009_planted` also first fell before hold
+  activation (`904 < 961`) and failed with fall/drop `96/35`, target-window
+  `0/0/0`, final travel `1.494/1.776 m`, final lateral `-0.185/-0.429 m`,
+  relative offset `0.409 m`, max robot/box tilt `1.059/2.428 rad`, and no
+  rollout root/velocity/box pose writes.
+- [ ] Next G1 held-out shape step: a box-travel-triggered planted stance is
+  too late. If staying on AGILE, trigger the strong support transition from
+  impending instability before the fall, or switch to a support backend that
+  explicitly controls stance/contact before terminal instability develops.

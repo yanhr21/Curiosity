@@ -118,6 +118,23 @@ These rules override all other project instructions.
   then blend toward a crouched stand target while keeping root/box write gates
   and the same held-out strict checks. It is an experiment entrypoint only
   until `closefront_heldout_geometry_planted_stance_summary.json` exists.
+- 2026-07-07 held-out G1 planted-stance result:
+  CPU fallback Slurm job `170658` on `server01` completed
+  `20260707_g1_closefront_heldout_geometry_planted_stance_cpu`, aggregate
+  `fail`, 0/2; the queued GPU duplicate `170657` was cancelled before
+  allocation. `wide_y012_planted` first fell before hold activation
+  (`fall step 586`, hold step `602`), then failed with fall/drop `414/364`,
+  target-window `0/0/0`, final robot/box travel `1.517/1.908 m`, final
+  lateral `-0.215/0.856 m`, relative offset `1.168 m`, and max robot/box
+  tilt `2.442/3.142 rad`. `tall_z009_planted` also first fell before hold
+  activation (`fall step 904`, hold step `961`), then failed with fall/drop
+  `96/35`, target-window `0/0/0`, final travel `1.494/1.776 m`, final
+  lateral `-0.185/-0.429 m`, relative offset `0.409 m`, and max robot/box
+  tilt `1.059/2.428 rad`. Rollout root/velocity/box pose writes stayed
+  `0/0/0`. Conclusion: box-travel-triggered planted stance is too late for
+  these held-out shapes; the next diagnostic must trigger from impending
+  instability or change the support backend before the fall, not after
+  reaching a travel threshold.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with
