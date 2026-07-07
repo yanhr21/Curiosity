@@ -146,6 +146,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--balance-roll-right-hip-scale", type=float, default=-0.5)
     parser.add_argument("--balance-pitch-target", type=float, default=0.0)
     parser.add_argument("--balance-roll-target", type=float, default=0.0)
+    parser.add_argument("--balance-roll-target-from-lateral", action="store_true")
+    parser.add_argument(
+        "--balance-roll-target-lateral-source",
+        choices=("robot", "box", "average"),
+        default="robot",
+    )
+    parser.add_argument("--balance-roll-target-lateral-gain", type=float, default=0.0)
+    parser.add_argument("--balance-roll-target-lateral-limit", type=float, default=0.0)
+    parser.add_argument("--balance-roll-target-lateral-deadband", type=float, default=0.0)
+    parser.add_argument("--balance-roll-target-lateral-sign", type=float, default=1.0)
     parser.add_argument("--balance-target-start-step", type=int, default=0)
     parser.add_argument("--balance-target-end-step", type=int, default=-1)
     parser.add_argument("--balance-target-pulse-period-steps", type=int, default=0)
@@ -1578,14 +1588,24 @@ def _apply_balance_feedback(
     pitch: float,
     roll_rate: float,
     pitch_rate: float,
+    pitch_target_override: float | None = None,
+    roll_target_override: float | None = None,
 ) -> tuple[np.ndarray, bool]:
     if not bool(args_cli.balance_feedback_controller):
         return command, False
     if int(step) < int(args_cli.balance_start_step):
         return command, False
     target_active = _balance_target_active(step)
-    pitch_target = float(args_cli.balance_pitch_target) if target_active else 0.0
-    roll_target = float(args_cli.balance_roll_target) if target_active else 0.0
+    pitch_target = (
+        float(pitch_target_override)
+        if pitch_target_override is not None
+        else (float(args_cli.balance_pitch_target) if target_active else 0.0)
+    )
+    roll_target = (
+        float(roll_target_override)
+        if roll_target_override is not None
+        else (float(args_cli.balance_roll_target) if target_active else 0.0)
+    )
     pitch_error = float(pitch) - pitch_target
     roll_error = float(roll) - roll_target
     active = (
@@ -1881,6 +1901,12 @@ def run_scene() -> Path:
         "balance_roll_right_hip_scale": float(args_cli.balance_roll_right_hip_scale),
         "balance_pitch_target": float(args_cli.balance_pitch_target),
         "balance_roll_target": float(args_cli.balance_roll_target),
+        "balance_roll_target_from_lateral": bool(args_cli.balance_roll_target_from_lateral),
+        "balance_roll_target_lateral_source": str(args_cli.balance_roll_target_lateral_source),
+        "balance_roll_target_lateral_gain": float(args_cli.balance_roll_target_lateral_gain),
+        "balance_roll_target_lateral_limit": float(args_cli.balance_roll_target_lateral_limit),
+        "balance_roll_target_lateral_deadband": float(args_cli.balance_roll_target_lateral_deadband),
+        "balance_roll_target_lateral_sign": float(args_cli.balance_roll_target_lateral_sign),
         "balance_target_start_step": int(args_cli.balance_target_start_step),
         "balance_target_end_step": int(args_cli.balance_target_end_step),
         "balance_target_pulse_period_steps": int(args_cli.balance_target_pulse_period_steps),
@@ -2182,6 +2208,17 @@ def run_scene() -> Path:
         "balance_roll_right_hip_scale": float(args_cli.balance_roll_right_hip_scale),
         "balance_pitch_target": float(args_cli.balance_pitch_target),
         "balance_roll_target": float(args_cli.balance_roll_target),
+        "balance_roll_target_from_lateral": bool(args_cli.balance_roll_target_from_lateral),
+        "balance_roll_target_lateral_source": str(args_cli.balance_roll_target_lateral_source),
+        "balance_roll_target_lateral_gain": float(args_cli.balance_roll_target_lateral_gain),
+        "balance_roll_target_lateral_limit": float(args_cli.balance_roll_target_lateral_limit),
+        "balance_roll_target_lateral_deadband": float(args_cli.balance_roll_target_lateral_deadband),
+        "balance_roll_target_lateral_sign": float(args_cli.balance_roll_target_lateral_sign),
+        "balance_roll_target_lateral_active_steps": 0,
+        "balance_roll_target_lateral_first_active_step": None,
+        "balance_roll_target_lateral_last_error_m": 0.0,
+        "balance_roll_target_lateral_last_target_rad": 0.0,
+        "balance_roll_target_lateral_max_abs_target_rad": 0.0,
         "balance_target_start_step": int(args_cli.balance_target_start_step),
         "balance_target_end_step": int(args_cli.balance_target_end_step),
         "balance_target_pulse_period_steps": int(args_cli.balance_target_pulse_period_steps),
@@ -3644,6 +3681,53 @@ def run_scene() -> Path:
                         )
                     balance_allowed = not bool(args_cli.balance_start_on_agile_hold) or bool(agile_command_hold_active)
                     if balance_allowed:
+                        dynamic_balance_roll_target = None
+                        if bool(args_cli.balance_roll_target_from_lateral):
+                            robot_lateral_error = _lateral_xy_delta(
+                                list(pose_for_feedback),
+                                list(initial_robot),
+                                robot_target_direction_xy,
+                            )
+                            box_lateral_error = robot_lateral_error
+                            if box_pose_for_feedback is not None and initial_box is not None:
+                                box_lateral_error = _lateral_xy_delta(
+                                    list(box_pose_for_feedback),
+                                    list(initial_box),
+                                    box_target_direction_xy,
+                                )
+                            lateral_source = str(args_cli.balance_roll_target_lateral_source)
+                            if lateral_source == "box":
+                                balance_lateral_error = float(box_lateral_error)
+                            elif lateral_source == "average":
+                                balance_lateral_error = 0.5 * (
+                                    float(robot_lateral_error) + float(box_lateral_error)
+                                )
+                            else:
+                                balance_lateral_error = float(robot_lateral_error)
+                            deadband = max(0.0, float(args_cli.balance_roll_target_lateral_deadband))
+                            lateral_excess = max(0.0, abs(float(balance_lateral_error)) - deadband)
+                            target_limit = abs(float(args_cli.balance_roll_target_lateral_limit))
+                            dynamic_balance_roll_target = max(
+                                -target_limit,
+                                min(
+                                    target_limit,
+                                    float(args_cli.balance_roll_target_lateral_sign)
+                                    * float(args_cli.balance_roll_target_lateral_gain)
+                                    * math.copysign(float(lateral_excess), float(balance_lateral_error)),
+                                ),
+                            )
+                            if abs(float(dynamic_balance_roll_target)) > 0.0:
+                                summary["balance_roll_target_lateral_active_steps"] = (
+                                    int(summary["balance_roll_target_lateral_active_steps"]) + 1
+                                )
+                                if summary["balance_roll_target_lateral_first_active_step"] is None:
+                                    summary["balance_roll_target_lateral_first_active_step"] = int(step)
+                            summary["balance_roll_target_lateral_last_error_m"] = float(balance_lateral_error)
+                            summary["balance_roll_target_lateral_last_target_rad"] = float(dynamic_balance_roll_target)
+                            summary["balance_roll_target_lateral_max_abs_target_rad"] = max(
+                                float(summary["balance_roll_target_lateral_max_abs_target_rad"]),
+                                abs(float(dynamic_balance_roll_target)),
+                            )
                         command_positions, balance_active = _apply_balance_feedback(
                             command_positions,
                             joint_names,
@@ -3652,6 +3736,7 @@ def run_scene() -> Path:
                             feedback_pitch,
                             feedback_roll_rate,
                             feedback_pitch_rate,
+                            roll_target_override=dynamic_balance_roll_target,
                         )
                     else:
                         balance_active = False

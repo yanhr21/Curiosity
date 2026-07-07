@@ -272,6 +272,11 @@ if [[ "${BALANCE_FEEDBACK_CONTROLLER:-0}" == "1" ]]; then
     --balance-roll-right-hip-scale "${BALANCE_ROLL_RIGHT_HIP_SCALE:--0.5}"
     --balance-pitch-target "${BALANCE_PITCH_TARGET:-0.0}"
     --balance-roll-target "${BALANCE_ROLL_TARGET:-0.0}"
+    --balance-roll-target-lateral-source "${BALANCE_ROLL_TARGET_LATERAL_SOURCE:-robot}"
+    --balance-roll-target-lateral-gain "${BALANCE_ROLL_TARGET_LATERAL_GAIN:-0.0}"
+    --balance-roll-target-lateral-limit "${BALANCE_ROLL_TARGET_LATERAL_LIMIT:-0.0}"
+    --balance-roll-target-lateral-deadband "${BALANCE_ROLL_TARGET_LATERAL_DEADBAND:-0.0}"
+    --balance-roll-target-lateral-sign "${BALANCE_ROLL_TARGET_LATERAL_SIGN:-1.0}"
     --balance-target-start-step "${BALANCE_TARGET_START_STEP:-0}"
     --balance-target-end-step "${BALANCE_TARGET_END_STEP:--1}"
     --balance-pitch-sign "${BALANCE_PITCH_SIGN:--1.0}"
@@ -285,6 +290,9 @@ if [[ "${BALANCE_FEEDBACK_CONTROLLER:-0}" == "1" ]]; then
 fi
 if [[ "${BALANCE_START_ON_AGILE_HOLD:-0}" == "1" ]]; then
   base_python+=(--balance-start-on-agile-hold)
+fi
+if [[ "${BALANCE_ROLL_TARGET_FROM_LATERAL:-0}" == "1" ]]; then
+  base_python+=(--balance-roll-target-from-lateral)
 fi
 
 if [[ "${AGILE_COMMAND_HOLD_RESET_POLICY_STATE:-0}" == "1" ]]; then

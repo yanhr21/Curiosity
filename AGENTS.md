@@ -11672,6 +11672,33 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   removing early lateral control collapses early (`169419`), freezing/braking
   near the window collapses late (`169411`), and the safer final-zero dwell
   branch still cannot end in the window (`169371`).
+- 2026-07-07 dynamic lateral-roll balance target support added to
+  `scripts/isaac/build_core_world_g1_box_scene.py` and exposed through
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`. It maps
+  robot/box/average target-line lateral error into a bounded roll target for
+  the ankle/hip balance-feedback controller. This is a different balance
+  mechanism from command lateral correction, freeze, or brake; it changes
+  joint targets only and must not be described as root/box pose assistance.
+  First diagnostic suite:
+  `scripts/isaac/run_core_world_g1_boxtilt_heavy_lateral_roll_target_suite.sh`.
+  Submitted as Slurm job `169432` (`g1_bxrolltarget`) through tmux
+  `codex_g1_boxtilt_rolltarget_0707`. Useful progress requires fall/drop
+  `0/0`, root/box rollout writes `0`, lower lateral error, and improved
+  end-of-run target-window streak.
+- 2026-07-07 boxtilt heavy lateral-roll-target result: Slurm job `169432`
+  (`g1_bxrolltarget`) failed strictly with `0/4` cases passing. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target/20260707_g1_boxtilt_heavy_lateral_roll_target/boxtilt_heavy_lateral_roll_target_summary.json`.
+  `avg_sign_neg` kept fall/drop `0/0` and low tilt (`0.24390/0.34400 rad`)
+  but drifted laterally (`1.87642/2.11266 m`) and had target-window dwell
+  `0`. `box_sign_neg` reduced final lateral error to `0.86138/0.94767 m`
+  and got a 53-step target-window dwell, but failed with `162` falls /
+  `127` drops. This verifies the roll-target path is active, but it is not a
+  carrying success. Aggregate summaries now include lateral roll-target
+  source/gain/sign and active/last/max target diagnostics. Follow-up
+  low-gain refinement:
+  `scripts/isaac/run_core_world_g1_boxtilt_heavy_lateral_roll_target_refine_suite.sh`,
+  submitted as Slurm job `169446` (`g1_bxrollref`) through tmux
+  `codex_g1_boxtilt_rollref_0707`.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

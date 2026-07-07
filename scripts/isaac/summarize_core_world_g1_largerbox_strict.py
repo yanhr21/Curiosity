@@ -242,6 +242,29 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "target_window_both_final_stand_stable_at_final_step": summary.get(
             "target_window_both_final_stand_stable_at_final_step"
         ),
+        "balance_roll_target_from_lateral": summary.get("balance_roll_target_from_lateral"),
+        "balance_roll_target_lateral_source": summary.get("balance_roll_target_lateral_source"),
+        "balance_roll_target_lateral_gain": summary.get("balance_roll_target_lateral_gain"),
+        "balance_roll_target_lateral_limit": summary.get("balance_roll_target_lateral_limit"),
+        "balance_roll_target_lateral_deadband": summary.get(
+            "balance_roll_target_lateral_deadband"
+        ),
+        "balance_roll_target_lateral_sign": summary.get("balance_roll_target_lateral_sign"),
+        "balance_roll_target_lateral_active_steps": summary.get(
+            "balance_roll_target_lateral_active_steps"
+        ),
+        "balance_roll_target_lateral_first_active_step": summary.get(
+            "balance_roll_target_lateral_first_active_step"
+        ),
+        "balance_roll_target_lateral_last_error_m": summary.get(
+            "balance_roll_target_lateral_last_error_m"
+        ),
+        "balance_roll_target_lateral_last_target_rad": summary.get(
+            "balance_roll_target_lateral_last_target_rad"
+        ),
+        "balance_roll_target_lateral_max_abs_target_rad": summary.get(
+            "balance_roll_target_lateral_max_abs_target_rad"
+        ),
         "agile_command_hold_adaptive_scale_enabled": summary.get(
             "agile_command_hold_adaptive_scale_enabled"
         ),

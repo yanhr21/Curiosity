@@ -8230,3 +8230,41 @@
   still cannot end in the target window (`169371`). Next credible work should
   replace the terminal stabilizer or move back to controller-backed
   locomotion/balance, not add another scalar threshold sweep.
+- [x] Add dynamic lateral-roll balance target support to
+  `scripts/isaac/build_core_world_g1_box_scene.py` and expose it through
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`.
+  The new path maps robot/box/average target-line lateral error into a bounded
+  roll target for the existing ankle/hip balance-feedback controller. This is
+  a different balance mechanism from command lateral correction, freeze, or
+  brake; it changes joint targets only and does not write root/box rollout
+  state.
+- [x] Add `scripts/isaac/run_core_world_g1_boxtilt_heavy_lateral_roll_target_suite.sh`.
+  It starts from the safest heavy boxtilt final-zero dwell setup from
+  `169371`, then sweeps dynamic roll target source/sign. Required useful
+  signal: preserve fall/drop `0/0`, lower lateral error, and improve
+  end-of-run target-window streak.
+- [x] Await boxtilt heavy lateral-roll-target job `169432`
+  (`g1_bxrolltarget`) submitted through tmux
+  `codex_g1_boxtilt_rolltarget_0707`. Expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target/20260707_g1_boxtilt_heavy_lateral_roll_target/boxtilt_heavy_lateral_roll_target_summary.json`.
+- [x] Record boxtilt heavy lateral-roll-target job `169432`. Result:
+  strict `fail`, `0/4` cases passed. `avg_sign_neg` was stable with
+  fall/drop `0/0` and low tilt (`0.24390/0.34400 rad`) but drifted badly
+  laterally (`1.87642/2.11266 m`) and never entered the target window.
+  `box_sign_neg` improved final lateral error to `0.86138/0.94767 m` and
+  reached a 53-step target-window dwell, but reintroduced `162` falls /
+  `127` drops. `avg_sign_pos` and `box_sign_pos` also fell/dropped. This
+  validates the new roll-target path as active, but not as a success.
+- [x] Add roll-target fields to
+  `scripts/isaac/summarize_core_world_g1_largerbox_strict.py`, so aggregate
+  summaries record lateral roll-target source/gain/sign and active/last/max
+  target diagnostics.
+- [x] Add `scripts/isaac/run_core_world_g1_boxtilt_heavy_lateral_roll_target_refine_suite.sh`.
+  It lowers gain/limit around the promising but unstable `box_sign_neg`
+  branch and includes one gentler `avg_sign_pos` case. Required signal:
+  preserve fall/drop `0/0` while retaining at least some lateral-error
+  reduction versus the safe but drifting `avg_sign_neg`.
+- [ ] Await boxtilt heavy lateral-roll-target refine job `169446`
+  (`g1_bxrollref`) submitted through tmux
+  `codex_g1_boxtilt_rollref_0707`. Expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target_refine/20260707_g1_boxtilt_heavy_lateral_roll_target_refine/boxtilt_heavy_lateral_roll_target_refine_summary.json`.
