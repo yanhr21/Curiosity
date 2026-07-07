@@ -9491,9 +9491,23 @@
   early/strong support offset destabilizes the close-front carry. Do not tune
   toward stronger low stance; test a much weaker, later micro-support if this
   branch is continued.
-- [ ] Run a weaker/later close-front micro-support probe: activate closer to
+- [x] Run a weaker/later close-front micro-support probe: activate closer to
   the near-miss final-hold boundary, reduce hip/knee/ankle/waist offsets by
   about 3x, and require the same no-fall/no-drop/no-write/target-window/tilt
   gates before interpreting. The target is not to force low stance, but to
   test whether a small pre-final support bias can lower tilt without
   destroying the previously observed fall/drop `0/0` behavior.
+- [x] Record weak/later close-front micro-support result:
+  `20260707_g1_lowcarry_close_front_approach_support_micro_direct`. It
+  activated support (`active_steps=275`, first active step `645`, max scale
+  about `0.650`) and preserved fall/drop `0/0` with writes `0/0/0`, but failed
+  strict gates: final robot/box travel about `1.305/1.311 m`, max robot/box
+  tilt `0.281/0.570 rad`, target-window stable steps `0`, final-hold active
+  steps `130 < 399`. Interpretation: weak support avoids the collapse seen in
+  the strong run, but with the old `final=1.20` latch it arrests too early and
+  still leaves box roll above the `0.45 rad` gate.
+- [ ] Run a weak-support later-latch probe: keep the micro offsets and move
+  terminal/final latch later so the robot can reach the `2.0 m` target window
+  before final hold. This should be treated as a diagnostic of timing/support
+  interaction, not as solved posture generalization unless all strict gates
+  pass.

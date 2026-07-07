@@ -194,6 +194,18 @@ These rules override all other project instructions.
   active steps `0`, and writes `0/0/0`. This shows the early/strong support
   offset destabilizes the close-front carry; the next valid probe should be a
   much weaker and later micro-support, not a stronger low-stance offset.
+  Follow-up micro-support run
+  `20260707_g1_lowcarry_close_front_approach_support_micro_direct` used
+  `start=0.95`, `full=1.25`, blend `0.005`, and offsets
+  `hip=-0.01,knee=0.02,ankle=-0.01,waist=-0.005`. It activated
+  (`active_steps=275`, first active step `645`, max scale about `0.650`) and
+  preserved fall/drop `0/0` with writes `0/0/0`, but still failed strict
+  gates: final robot/box travel about `1.305/1.311 m`, max robot/box tilt
+  `0.281/0.570 rad`, target-window stable steps `0`, and final-hold active
+  steps `130 < 399`. Interpretation: weak support no longer causes collapse,
+  but combined with the old `final=1.20` latch it arrests too early and still
+  leaves box roll above the `0.45 rad` gate. Next probe should keep support
+  weak and move terminal/final latch later rather than increasing support.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
