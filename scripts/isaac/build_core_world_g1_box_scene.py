@@ -918,6 +918,8 @@ def _spawn_front_torso_cradle(stage: Usd.Stage, material: UsdShade.Material | No
             bool(args_cli.cradle_chest_pad_enable_on_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_terminal_hold)
             or bool(args_cli.cradle_chest_pad_enable_on_final_hold)
+            or bool(args_cli.cradle_chest_pad_enable_on_target_window)
+            or bool(args_cli.cradle_chest_pad_enable_on_box_tilt)
         ):
             _set_collision_enabled(stage, chest_pad_path, False)
     return pieces
