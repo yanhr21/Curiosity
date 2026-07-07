@@ -235,8 +235,14 @@ fi
 if [[ "${AGILE_COMMAND_BOX_PROGRESS_CONTROLLER:-0}" == "1" ]]; then
   base_python+=(--agile-command-box-progress-controller)
 fi
+if [[ "${AGILE_COMMAND_BOX_PROGRESS_SCALE_ON_HOLD:-0}" == "1" ]]; then
+  base_python+=(--agile-command-box-progress-scale-on-hold)
+fi
 if [[ "${AGILE_COMMAND_BOX_LATERAL_CONTROLLER:-0}" == "1" ]]; then
   base_python+=(--agile-command-box-lateral-controller)
+fi
+if [[ "${AGILE_COMMAND_BOX_LATERAL_SCALE_ON_HOLD:-0}" == "1" ]]; then
+  base_python+=(--agile-command-box-lateral-scale-on-hold)
 fi
 if [[ "${AGILE_COMMAND_HOLD_TERMINAL_LATCH:-0}" == "1" ]]; then
   base_python+=(--agile-command-hold-terminal-latch)

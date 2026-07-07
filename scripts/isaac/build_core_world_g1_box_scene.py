@@ -253,11 +253,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--agile-command-box-progress-max-reverse", type=float, default=0.03)
     parser.add_argument("--agile-command-box-progress-max-tilt", type=float, default=999.0)
     parser.add_argument("--agile-command-box-progress-max-box-tilt", type=float, default=999.0)
+    parser.add_argument("--agile-command-box-progress-scale-on-hold", action="store_true")
     parser.add_argument("--agile-command-box-lateral-controller", action="store_true")
     parser.add_argument("--agile-command-box-lateral-deadband", type=float, default=0.08)
     parser.add_argument("--agile-command-box-lateral-gain", type=float, default=0.02)
     parser.add_argument("--agile-command-box-lateral-limit", type=float, default=0.004)
     parser.add_argument("--agile-command-box-lateral-sign", type=float, default=1.0)
+    parser.add_argument("--agile-command-box-lateral-scale-on-hold", action="store_true")
     parser.add_argument("--agile-command-hold-terminal-box-target-travel", type=float, default=-1.0)
     parser.add_argument("--agile-command-hold-terminal-min-robot-target-travel", type=float, default=-1.0)
     parser.add_argument("--agile-command-hold-terminal-min-step", type=int, default=-1)
@@ -2426,22 +2428,28 @@ def run_scene() -> Path:
         "agile_command_box_progress_max_box_tilt_rad": float(
             args_cli.agile_command_box_progress_max_box_tilt
         ),
+        "agile_command_box_progress_scale_on_hold": bool(
+            args_cli.agile_command_box_progress_scale_on_hold
+        ),
         "agile_command_box_progress_active_steps": 0,
         "agile_command_box_progress_first_active_step": None,
         "agile_command_box_progress_last_error_m": 0.0,
         "agile_command_box_progress_last_command_x": 0.0,
         "agile_command_box_progress_max_abs_command_x": 0.0,
+        "agile_command_box_progress_hold_scaled_steps": 0,
         "agile_command_box_progress_tilt_suppressed_steps": 0,
         "agile_command_box_lateral_controller_enabled": bool(args_cli.agile_command_box_lateral_controller),
         "agile_command_box_lateral_deadband_m": float(args_cli.agile_command_box_lateral_deadband),
         "agile_command_box_lateral_gain": float(args_cli.agile_command_box_lateral_gain),
         "agile_command_box_lateral_limit": float(args_cli.agile_command_box_lateral_limit),
         "agile_command_box_lateral_sign": float(args_cli.agile_command_box_lateral_sign),
+        "agile_command_box_lateral_scale_on_hold": bool(args_cli.agile_command_box_lateral_scale_on_hold),
         "agile_command_box_lateral_active_steps": 0,
         "agile_command_box_lateral_first_active_step": None,
         "agile_command_box_lateral_last_error_m": 0.0,
         "agile_command_box_lateral_last_command_y": 0.0,
         "agile_command_box_lateral_max_abs_command_y": 0.0,
+        "agile_command_box_lateral_hold_scaled_steps": 0,
         "agile_command_hold_mode": str(args_cli.agile_command_hold_mode),
         "agile_command_hold_stand_blend_rate": float(args_cli.agile_command_hold_stand_blend_rate),
         "agile_command_hold_policy_then_stand_delay_steps": int(
@@ -3164,6 +3172,14 @@ def run_scene() -> Path:
                                     summary["agile_command_box_progress_tilt_suppressed_steps"] = (
                                         int(summary["agile_command_box_progress_tilt_suppressed_steps"]) + 1
                                     )
+                                if (
+                                    bool(args_cli.agile_command_box_progress_scale_on_hold)
+                                    and bool(agile_command_hold_active)
+                                ):
+                                    progress_command_x *= float(command_scale)
+                                    summary["agile_command_box_progress_hold_scaled_steps"] = (
+                                        int(summary["agile_command_box_progress_hold_scaled_steps"]) + 1
+                                    )
                                 applied_agile_command_list[0] = float(progress_command_x)
                                 summary["agile_command_box_progress_active_steps"] = (
                                     int(summary["agile_command_box_progress_active_steps"]) + 1
@@ -3202,6 +3218,14 @@ def run_scene() -> Path:
                                         * math.copysign(float(lateral_abs_error), float(box_lateral_error)),
                                     ),
                                 )
+                                if (
+                                    bool(args_cli.agile_command_box_lateral_scale_on_hold)
+                                    and bool(agile_command_hold_active)
+                                ):
+                                    box_lateral_command *= float(command_scale)
+                                    summary["agile_command_box_lateral_hold_scaled_steps"] = (
+                                        int(summary["agile_command_box_lateral_hold_scaled_steps"]) + 1
+                                    )
                                 applied_agile_command_list[1] += float(box_lateral_command)
                                 summary["agile_command_box_lateral_active_steps"] = (
                                     int(summary["agile_command_box_lateral_active_steps"]) + 1

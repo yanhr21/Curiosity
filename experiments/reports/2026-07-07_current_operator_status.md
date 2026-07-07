@@ -1,6 +1,6 @@
 # Current Operator Status
 
-Timestamp: 2026-07-07 09:20 CST.
+Timestamp: 2026-07-07 10:00 CST.
 
 This is a status snapshot only. It is not a carrying-success claim.
 
@@ -72,11 +72,29 @@ This is a status snapshot only. It is not a carrying-success claim.
   `163` drops, while the other three cases had target-window streak `0`.
   These small passive contact-geometry edits should not be repeated as the
   active rescue path for the 0.75 kg boxtilt branch.
+- `169549` / `g1_bxclean` completed through tmux
+  `curiosity_g1_boxtilt_clean_progress_0707` using GPU allocation and
+  `DEVICE=cpu`. Aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_clean_box_progress/20260707_g1_boxtilt_clean_box_progress_gpualloc_cpu/boxtilt_clean_box_progress_summary.json`.
+  Result: strict `fail`, `0/3` cases passed. `clean_slow` had fall/drop
+  `0/0` but under-traveled, while `clean_slow_lateral_pos` reached the target
+  window at step `747` and held for `91` steps before over-traveling and
+  failing with first fall/drop at `944/971`. This is a useful terminal-control
+  signal, not a success.
+- Box-progress/lateral controller hold-scaling was added after `169549`:
+  `--agile-command-box-progress-scale-on-hold` and
+  `--agile-command-box-lateral-scale-on-hold`, plus the focused
+  `scripts/isaac/run_core_world_g1_boxtilt_scaled_terminal_suite.sh`.
 
 ## Running Or Queued
 
-- No Curiosity simulation/render job is currently running or queued, and no
-  Curiosity simulation/render job is running on the login node.
+- `169580` / `g1_bxterm` is queued/running through tmux
+  `curiosity_g1_boxtilt_scaled_terminal_0707`. It uses GPU allocation with
+  `DEVICE=cpu` and runs
+  `scripts/isaac/run_core_world_g1_boxtilt_scaled_terminal_suite.sh`.
+  Expected aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_scaled_terminal/20260707_g1_boxtilt_scaled_terminal_gpualloc_cpu/boxtilt_scaled_terminal_summary.json`.
+  No Curiosity simulation/render job is running on the login node.
 - `169316` / `any_payload` completed on `server36` with no rollout and no
   summary. The policy-backed ANYmal payload wrapper failed during IsaacLab
   `gym.make` initialization with `Failed to get DOF velocities from backend`.

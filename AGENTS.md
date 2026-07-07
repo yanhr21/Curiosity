@@ -11897,6 +11897,35 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   boxtilt carrying; next work needs path/foot/support stabilization or a
   materially stronger locomotion/contact backend rather than more forward/
   lateral command tweaks.
+- 2026-07-07 clean box-progress isolation result: GPU-allocation/CPU-device
+  job `169549` (`g1_bxclean`) ran through tmux
+  `curiosity_g1_boxtilt_clean_progress_0707`; summary:
+  `experiments/outputs/core_world_g1_boxtilt_clean_box_progress/20260707_g1_boxtilt_clean_box_progress_gpualloc_cpu/boxtilt_clean_box_progress_summary.json`.
+  Strict result was `fail`, `0/3` cases passed. `clean_default` collapsed
+  early with `778` falls / `346` drops and max robot/box target travel only
+  `0.360/0.387 m`. `clean_slow` was stable with fall/drop `0/0`, but
+  under-traveled (`0.865/0.917 m` max robot/box travel) and had excessive
+  tilt (`0.787/0.801 rad`). `clean_slow_lateral_pos` reached the target
+  window at step `747` and held both robot and box in-window for `91` steps,
+  but then over-traveled to `5.235/4.934 m`, first fell/dropped at
+  `944/971`, and ended with `256` falls / `229` drops. This is useful
+  evidence that slow progress plus positive box-lateral correction can enter
+  the target window, but the controller lacks terminal stopping/holding.
+- 2026-07-07 controller terminal-scaling repair under test: the box-progress
+  and box-lateral controllers previously overrode the AGILE hold/final
+  `command_scale`, so terminal/final hold could not reliably suppress those
+  closed-loop commands. Added explicit opt-in switches
+  `--agile-command-box-progress-scale-on-hold` and
+  `--agile-command-box-lateral-scale-on-hold`, forwarded by
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`, and
+  added focused suite
+  `scripts/isaac/run_core_world_g1_boxtilt_scaled_terminal_suite.sh`.
+  Slurm job `169580` (`g1_bxterm`) was submitted through tmux
+  `curiosity_g1_boxtilt_scaled_terminal_0707` with GPU allocation and
+  `DEVICE=cpu`. Expected aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_scaled_terminal/20260707_g1_boxtilt_scaled_terminal_gpualloc_cpu/boxtilt_scaled_terminal_summary.json`.
+  Treat this as a diagnostic repair test only; no result should be claimed
+  until the summary exists and strict fall/drop/target/tilt gates are checked.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

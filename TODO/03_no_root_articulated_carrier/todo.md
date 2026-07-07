@@ -8,6 +8,21 @@
   external models by default. Continue building and gating the direct Isaac
   carrying scene. Only use an external model/checkpoint/wrapper if it directly
   removes a named Isaac blocker in the current gate.
+- [x] Record the 2026-07-07 clean G1 boxtilt box-progress isolation result:
+  `clean_slow` was stable but under-traveled, while `clean_slow_lateral_pos`
+  entered the target window for `91` steps before over-traveling and failing.
+  Treat this as terminal-control evidence only, not carrying success.
+- [x] Add opt-in hold scaling for the G1 box-progress and box-lateral
+  controllers:
+  `--agile-command-box-progress-scale-on-hold` and
+  `--agile-command-box-lateral-scale-on-hold`.
+- [ ] Await and record
+  `scripts/isaac/run_core_world_g1_boxtilt_scaled_terminal_suite.sh` /
+  Slurm job `169580`. It tests whether slow box-progress plus lateral
+  correction can enter the target window and then stop/hold without
+  over-travel. If it fails, do not keep scalar-tuning this same command layer;
+  move to support/locomotion backend replacement or a materially stronger
+  terminal balance controller.
 - [x] Run and record the MuJoCo robot-like welded-payload bracket after the
   prismatic scaffold pass. `v022_fx130` and `v024_fx115` passed the diagnostic
   no-fall/no-root-write/travel gate; `v026_fx105` failed late with falls.
