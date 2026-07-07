@@ -513,6 +513,15 @@
   constrained whole-body/QP allocation with unilateral foot-force and friction
   limits, or a controller-backed locomotion policy. Do not continue small
   attitude-recovery gain sweeps.
+- [x] Add constrained support/contact allocator:
+  `SUPPORT_CONTROLLER_MODE=qp_stance_force` in
+  `scripts/mujoco/run_quadruped_freebox_carry.py`, launcher/checker exposure,
+  and `scripts/mujoco/run_quadruped_freebox_qp_support_suite.sh`. It uses a
+  projected-contact QP-style allocation with unilateral normal-force bounds
+  and friction-cone projection before mapping foot forces to joint torques.
+- [ ] Monitor Slurm job `169627` / tmux `curiosity_mujoco_qp_support_0707`.
+  Compare strict gates and QP diagnostics against additive LQR and attitude
+  recovery.
 - [x] Switch active implementation focus back to the G1 AGILE policy path.
   Historical best low-carry run completed 819 steps with fall/drop `0/0`,
   free box, G1 USD, AGILE ONNX policy, no rollout root/box pose writes, and
@@ -8543,3 +8552,30 @@
   boxtilt branch. Move to a materially different support/contact controller
   or locomotion/balance backend that can address side drift and roll without
   consuming the stability margin.
+- [x] Add MuJoCo `SUPPORT_CONTROLLER_MODE=qp_stance_force` with projected
+  unilateral/friction-limited foot-contact force allocation, QP residual and
+  friction-usage summary fields, launcher envs, checker gates, and the
+  full-time QP diagnostic suite
+  `scripts/mujoco/run_quadruped_freebox_qp_support_suite.sh`.
+- [x] Record full-time MuJoCo QP support job `169627` (`mj_qpsupp`) as a
+  strict negative result. QP was active all rollout (`3000` steps) with root/
+  box writes still `0`, but strict pass was `0/4`; the two latched cases still
+  had large fall/drop counts and max tilt above `3.2 rad`, while the other two
+  cases broke target latch. Friction saturated and wrench residuals were
+  enormous, so this is not a support solution.
+- [x] Add post-latch-only QP support mode and suite
+  `scripts/mujoco/run_quadruped_freebox_qp_post_latch_suite.sh`, preserving
+  the known stance-force approach and activating QP only after target-stop
+  latch.
+- [x] Await and record post-latch MuJoCo QP support job `169628`
+  (`mj_qppost`) submitted through tmux
+  `curiosity_mujoco_qp_post_latch_0707`. It completed on `server39` with
+  Slurm exit `0:0`, but strict pass was `0/4`. All cases latched and ran
+  QP/LQR for `1797` post-latch steps with root/box writes `0`, but still had
+  `78-79` falls, `72-73` drops, max tilt `2.03-2.26 rad`, and saturated QP
+  friction usage. Post-latch QP is not the missing stabilizer.
+- [ ] Next controller step: stop small QP weight/gain sweeps on this MuJoCo
+  hand-controller branch unless they introduce a materially different
+  feasibility mechanism. Prefer a constrained whole-body/contact controller
+  with explicit upright, support polygon, friction, and box-retention
+  objectives, or return to a policy-backed locomotion backend.

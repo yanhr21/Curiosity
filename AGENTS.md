@@ -11253,6 +11253,20 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   can slightly reduce tilt but does not prevent post-latch falling. The next
   meaningful controller change needs to alter support contacts or solve a
   constrained whole-body/upright control problem, not merely boost roll gains.
+- 2026-07-07 constrained support/contact allocation route added:
+  `scripts/mujoco/run_quadruped_freebox_carry.py` now supports
+  `SUPPORT_CONTROLLER_MODE=qp_stance_force`. This is a projected-contact
+  QP-style stance-foot allocator: it tracks the desired whole-body wrench,
+  constrains each stance foot to unilateral normal-force bounds, clips
+  tangential force inside a friction cone, regularizes force magnitude, and
+  maps the resulting foot forces through foot Jacobians to actuated joint
+  generalized forces. It records `support_qp_active_steps`,
+  `max_support_qp_wrench_residual`, and `max_support_qp_friction_usage`.
+  Launcher/checker support and
+  `scripts/mujoco/run_quadruped_freebox_qp_support_suite.sh` were added.
+  Slurm job `169627` (`mj_qpsupp`) was submitted through tmux
+  `curiosity_mujoco_qp_support_0707`; treat it as unverified until summaries
+  are parsed.
 - 2026-07-07 route switch after MuJoCo hand-controller exhaustion: current
   best credible locomotion/carry evidence is the G1 AGILE policy path in
   `scripts/isaac/build_core_world_g1_box_scene.py` and
@@ -12143,6 +12157,42 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `lowcarry_heavybox` had `506` falls / `402` drops. Conclusion: the existing
   narrow low-carry pass does not generalize to the gauntlet, so the full
   objective remains far from complete.
+- 2026-07-07 MuJoCo projected-contact QP diagnostic: Slurm job `169627`
+  (`mj_qpsupp`) completed on `server39` and is negative evidence for using
+  full-time QP support allocation from rollout start. The new
+  `SUPPORT_CONTROLLER_MODE=qp_stance_force` route activated QP for all
+  `3000` steps with rollout root/box pose writes still `0`, but strict result
+  was `0/4`. `qp_nominal` and `qp_recovery` latched target-stop but still had
+  `95/85` and `90/79` fall/drop events, max tilt `3.24-3.33 rad`, final box
+  target-directed travel only `0.292 m` and `0.157 m`, and QP friction usage
+  saturated at `1.0`. `qp_roll_weight` and `qp_conservative` failed to latch.
+  Max QP wrench residuals were very large (`1489-4147`), so the constrained
+  allocation is active but not currently feasible/stabilizing. Do not report
+  this as carrying progress; it proves full-time QP can break approach and
+  still cannot solve post-latch whole-body upright recovery.
+- 2026-07-07 MuJoCo post-latch QP follow-up: after the full-time QP negative
+  result, `SUPPORT_QP_POST_LATCH_ONLY=1` was added so the known stance-force
+  approach/probe phase is preserved and projected-contact QP only takes over
+  after target-stop latch. Slurm job `169628` (`mj_qppost`) was submitted
+  through tmux `curiosity_mujoco_qp_post_latch_0707` with suite
+  `scripts/mujoco/run_quadruped_freebox_qp_post_latch_suite.sh`. Interpret
+  this run strictly: it must pass fall/drop, tilt, target-hold, box-travel,
+  relative-error, and no-root/no-box-write gates before it can be called
+  progress.
+- 2026-07-07 MuJoCo post-latch QP result: Slurm job `169628` completed on
+  `server39` with Slurm exit `0:0`, but strict result was still `0/4`.
+  Unlike full-time QP, all four cases preserved approach and target-stop
+  latch: target-stop/QP/LQR active steps were `1797/1797/1797`, and
+  root/box pose/velocity writes were all `0`. The failures are controller
+  failures after latch: fall/drop counts were `78-79` / `72-73`, max tilt was
+  `2.03-2.26 rad`, min box z was `0.394-0.411 m`, final box travel was only
+  `0.355-0.371 m`, QP friction usage saturated at `1.0`, and max QP wrench
+  residual remained huge (`1111-4088`). Conclusion: post-latch QP is better
+  scoped than full-time QP but still does not solve upright recovery or stable
+  carrying. Do not keep treating scalar QP gain/weight sweeps as the likely
+  missing piece; the next credible step needs a materially different
+  constrained whole-body/contact controller or a policy-backed locomotion
+  backend.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

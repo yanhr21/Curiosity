@@ -194,6 +194,13 @@ This is a status snapshot only. It is not a carrying-success claim.
   `0.253-0.272 m` and final relative error `0.099-0.124 m`, so progress and
   retention are still not the limiting error. Next change should alter the
   support/contact optimization, not continue gain-only recovery sweeps.
+- New constrained support/contact allocator added and submitted:
+  `SUPPORT_CONTROLLER_MODE=qp_stance_force` uses projected foot-force
+  allocation with unilateral normal-force bounds and friction-cone projection,
+  then maps stance-foot forces to actuated joint torques. Slurm job `169627`
+  / `mj_qpsupp` is queued/running through tmux
+  `curiosity_mujoco_qp_support_0707`; log:
+  `experiments/outputs/mujoco_quadruped_freebox_qp_support/20260707_mujoco_qp_support/tmux_srun.log`.
 - `169316` / `any_payload` completed on `server36` with no rollout and no
   summary. The policy-backed ANYmal payload wrapper failed during IsaacLab
   `gym.make` initialization with `Failed to get DOF velocities from backend`.
@@ -1120,12 +1127,26 @@ This is a status snapshot only. It is not a carrying-success claim.
   `0.467 m`, and target-window streak `0`. The controller is active but not
   sufficient.
 - Completion audit remains `fail`. The full task is not achieved.
+- MuJoCo support-controller follow-up: full-time projected-contact QP support
+  job `169627` (`mj_qpsupp`) is complete and negative. It proved the QP route
+  is wired and active, but strict pass was `0/4`; QP friction saturated,
+  wrench residuals stayed huge, target latch broke in two cases, and latched
+  cases still fell/dropped with max tilt above `3.2 rad`. This should not be
+  presented as carrying progress.
+- Post-latch QP suite job `169628` (`mj_qppost`) completed on `server39` with
+  Slurm exit `0:0`, but strict pass was `0/4`. It fixed the full-time QP
+  approach failure: all four cases latched and ran QP/LQR for `1797`
+  post-latch steps with root/box pose/velocity writes `0`. It did not fix the
+  actual post-latch problem: all cases still had `78-79` falls, `72-73` drops,
+  max tilt `2.03-2.26 rad`, min box z below gate, saturated QP friction usage,
+  and large residuals. This is a controller negative result, not an
+  infrastructure failure.
 
 ## Next Decision
 
-- Next controller work should stay on stance-force / support-force control:
-  narrow the stable-backward versus positive-falling boundary, then add better
-  stop/hold damping. Do not keep tuning only open-loop foot-IK hip base,
-  roll-height feedback, or body-force assist.
+- Next controller work should stay on materially stronger support/contact
+  control. If post-latch QP also fails with saturated residuals/friction, stop
+  tuning scalar gains and move to a constrained whole-body/contact formulation
+  or a policy-backed locomotion backend.
 - For visuals, use the schematic GIF/poster only with the explicit label that
   it is not an Isaac camera render.

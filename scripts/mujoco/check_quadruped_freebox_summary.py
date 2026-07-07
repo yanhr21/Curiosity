@@ -23,6 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-support-joint-torque-writes", type=int, default=None)
     parser.add_argument("--min-support-lqr-active-steps", type=int, default=None)
     parser.add_argument("--min-support-attitude-recovery-active-steps", type=int, default=None)
+    parser.add_argument("--min-support-qp-active-steps", type=int, default=None)
     parser.add_argument("--require-closed-loop-foot-placement", action="store_true")
     parser.add_argument("--require-hold-capture-point-foot-placement", action="store_true")
     parser.add_argument("--min-hold-capture-active-steps", type=int, default=None)
@@ -71,6 +72,8 @@ def main() -> int:
         failures.append(
             f"support attitude recovery active steps too low: {summary.get('support_attitude_recovery_active_steps')}"
         )
+    if args.min_support_qp_active_steps is not None and int(summary.get("support_qp_active_steps", 0)) < args.min_support_qp_active_steps:
+        failures.append(f"support QP active steps too low: {summary.get('support_qp_active_steps')}")
     if args.require_closed_loop_foot_placement and not bool(summary.get("closed_loop_foot_placement", False)):
         failures.append("closed-loop foot placement was not enabled")
     if args.require_hold_capture_point_foot_placement and not bool(
@@ -138,6 +141,10 @@ def main() -> int:
         "support_attitude_recovery_enabled": summary.get("support_attitude_recovery_enabled"),
         "support_attitude_recovery_active_steps": summary.get("support_attitude_recovery_active_steps"),
         "max_support_attitude_recovery_strength": summary.get("max_support_attitude_recovery_strength"),
+        "support_qp_active_steps": summary.get("support_qp_active_steps"),
+        "support_qp_post_latch_only": summary.get("support_qp_post_latch_only"),
+        "max_support_qp_wrench_residual": summary.get("max_support_qp_wrench_residual"),
+        "max_support_qp_friction_usage": summary.get("max_support_qp_friction_usage"),
         "closed_loop_foot_placement": summary.get("closed_loop_foot_placement"),
         "hold_capture_point_foot_placement": summary.get("hold_capture_point_foot_placement"),
         "hold_capture_active_steps": summary.get("hold_capture_active_steps"),

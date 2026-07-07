@@ -85,6 +85,7 @@ def parse_args() -> argparse.Namespace:
             "centroidal_stance_force",
             "lqr_stance_force",
             "lqr_additive_stance_force",
+            "qp_stance_force",
         ),
         default="none",
     )
@@ -145,6 +146,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--support-attitude-recovery-hip-roll-delta", type=float, default=0.0)
     parser.add_argument("--support-attitude-recovery-foot-roll-z-delta", type=float, default=0.0)
     parser.add_argument("--support-attitude-recovery-height-offset", type=float, default=0.0)
+    parser.add_argument("--support-qp-iterations", type=int, default=24)
+    parser.add_argument("--support-qp-regularization", type=float, default=1e-3)
+    parser.add_argument("--support-qp-friction-mu", type=float, default=0.9)
+    parser.add_argument("--support-qp-angular-weight", type=float, default=1.0)
+    parser.add_argument("--support-qp-post-latch-only", action="store_true")
     parser.add_argument("--tray-half-length", type=float, default=0.38)
     parser.add_argument("--tray-half-width", type=float, default=0.24)
     parser.add_argument("--wall-height", type=float, default=0.16)
@@ -286,6 +292,76 @@ def _finite_horizon_double_integrator_lqr_gain(
         p = q + a.T @ p @ (a - b @ gain)
     gain = np.linalg.solve(r_mat + b.T @ p @ b, b.T @ p @ a)
     return float(gain[0, 0]), float(gain[0, 1])
+
+
+def _project_contact_force(
+    force: "np.ndarray",
+    normal_sign: float,
+    min_normal: float,
+    max_normal: float,
+    friction_mu: float,
+) -> "np.ndarray":
+    import numpy as np
+
+    projected = np.asarray(force, dtype=float).copy()
+    min_n = max(0.0, float(min_normal))
+    max_n = max(min_n, float(max_normal))
+    mu = max(0.0, float(friction_mu))
+    normal = normal_sign * projected[2]
+    normal = float(np.clip(normal, min_n, max_n))
+    projected[2] = normal_sign * normal
+    tangential_limit = mu * normal
+    tangential_norm = float(np.linalg.norm(projected[:2]))
+    if tangential_limit <= 0.0:
+        projected[:2] = 0.0
+    elif tangential_norm > tangential_limit:
+        projected[:2] *= tangential_limit / max(1e-9, tangential_norm)
+    return projected
+
+
+def _solve_projected_contact_qp(
+    wrench_matrix: "np.ndarray",
+    desired_wrench: "np.ndarray",
+    initial_forces: list["np.ndarray"],
+    normal_sign: float,
+    min_normal: float,
+    max_normal: float,
+    friction_mu: float,
+    iterations: int,
+    regularization: float,
+) -> tuple[list["np.ndarray"], float, float]:
+    import numpy as np
+
+    if not initial_forces:
+        return [], 0.0, 0.0
+    force_vec = np.concatenate([np.asarray(force, dtype=float) for force in initial_forces])
+    reg = max(0.0, float(regularization))
+    spectral = float(np.linalg.norm(wrench_matrix, ord=2) ** 2 + reg)
+    step_size = 0.8 / max(1e-6, spectral)
+    for _ in range(max(1, int(iterations))):
+        residual = wrench_matrix @ force_vec - desired_wrench
+        grad = wrench_matrix.T @ residual + reg * force_vec
+        force_vec = force_vec - step_size * grad
+        for foot_index in range(len(initial_forces)):
+            start = 3 * foot_index
+            force_vec[start : start + 3] = _project_contact_force(
+                force_vec[start : start + 3],
+                normal_sign=normal_sign,
+                min_normal=min_normal,
+                max_normal=max_normal,
+                friction_mu=friction_mu,
+            )
+    residual_norm = float(np.linalg.norm(wrench_matrix @ force_vec - desired_wrench))
+    max_friction_usage = 0.0
+    projected_forces: list[np.ndarray] = []
+    for foot_index in range(len(initial_forces)):
+        force = force_vec[3 * foot_index : 3 * foot_index + 3].copy()
+        normal = max(0.0, normal_sign * float(force[2]))
+        tangential = float(np.linalg.norm(force[:2]))
+        if normal > 1e-9 and friction_mu > 1e-9:
+            max_friction_usage = max(max_friction_usage, tangential / (friction_mu * normal))
+        projected_forces.append(force)
+    return projected_forces, residual_norm, max_friction_usage
 
 
 def _xml(args: argparse.Namespace) -> str:
@@ -466,6 +542,14 @@ def main() -> None:
         "support_attitude_recovery_foot_roll_z_delta": float(args.support_attitude_recovery_foot_roll_z_delta),
         "support_attitude_recovery_height_offset_m": float(args.support_attitude_recovery_height_offset),
         "max_support_attitude_recovery_strength": 0.0,
+        "support_qp_iterations": int(args.support_qp_iterations),
+        "support_qp_regularization": float(args.support_qp_regularization),
+        "support_qp_friction_mu": float(args.support_qp_friction_mu),
+        "support_qp_angular_weight": float(args.support_qp_angular_weight),
+        "support_qp_post_latch_only": bool(args.support_qp_post_latch_only),
+        "support_qp_active_steps": 0,
+        "max_support_qp_wrench_residual": 0.0,
+        "max_support_qp_friction_usage": 0.0,
         "max_assist_force_x_n": float(args.max_assist_force_x),
         "max_assist_force_z_n": float(args.max_assist_force_z),
         "max_assist_torque_nm": float(args.max_assist_torque),
@@ -721,6 +805,7 @@ def main() -> None:
                 "centroidal_stance_force",
                 "lqr_stance_force",
                 "lqr_additive_stance_force",
+                "qp_stance_force",
             ) and stance_feet:
                 target_height_cmd = float(args.target_height)
                 support_kd_z = float(args.support_kd_z)
@@ -801,7 +886,7 @@ def main() -> None:
                 support_lqr_fx = 0.0
                 support_lqr_fy = 0.0
                 support_lqr_active = (
-                    args.support_controller_mode in ("lqr_stance_force", "lqr_additive_stance_force")
+                    args.support_controller_mode in ("lqr_stance_force", "lqr_additive_stance_force", "qp_stance_force")
                     and (target_stop_latched or not bool(args.support_lqr_post_latch_only))
                 )
                 if support_lqr_active and robot_mass_kg > 1e-6:
@@ -883,7 +968,11 @@ def main() -> None:
                     args.support_controller_mode == "centroidal_stance_force"
                     or (args.support_controller_mode == "lqr_stance_force" and support_lqr_active)
                 )
-                if use_centroidal_allocation:
+                use_qp_allocation = (
+                    args.support_controller_mode == "qp_stance_force"
+                    and (target_stop_latched or not bool(args.support_qp_post_latch_only))
+                )
+                if use_centroidal_allocation or use_qp_allocation:
                     wrench_matrix = np.zeros((6, 3 * len(stance_feet)), dtype=float)
                     wrench_center = robot_com if robot_mass_kg > 1e-6 else data.xpos[torso_id]
                     for foot_index, (foot_body_id, _, _) in enumerate(stance_feet):
@@ -910,18 +999,54 @@ def main() -> None:
                         ],
                         dtype=float,
                     )
-                    solution, *_ = np.linalg.lstsq(wrench_matrix, desired_wrench, rcond=None)
+                    angular_weight = max(0.0, float(args.support_qp_angular_weight))
+                    if angular_weight != 1.0:
+                        wrench_weight = np.ones(6, dtype=float)
+                        wrench_weight[3:6] = angular_weight
+                        weighted_matrix = wrench_matrix * wrench_weight[:, None]
+                        weighted_wrench = desired_wrench * wrench_weight
+                    else:
+                        weighted_matrix = wrench_matrix
+                        weighted_wrench = desired_wrench
+                    solution, *_ = np.linalg.lstsq(weighted_matrix, weighted_wrench, rcond=None)
                     max_lateral_force = max(
                         0.0,
                         float(args.support_max_total_fy),
                         float(args.support_lqr_max_fy) if support_lqr_active else 0.0,
                     )
+                    initial_forces: list[np.ndarray] = []
                     for foot_index in range(len(stance_feet)):
                         force = solution[3 * foot_index:3 * foot_index + 3].astype(float)
                         force[0] = float(np.clip(force[0], -support_max_total_fx, support_max_total_fx))
                         force[1] = float(np.clip(force[1], -max_lateral_force, max_lateral_force))
                         force[2] = float(np.clip(force[2], -abs(float(args.support_force_scale)) * support_max_foot_fz, abs(float(args.support_force_scale)) * support_max_foot_fz))
-                        foot_forces.append(force)
+                        initial_forces.append(force)
+                    if use_qp_allocation:
+                        normal_sign = -1.0 if float(args.support_force_scale) < 0.0 else 1.0
+                        min_normal = abs(float(args.support_force_scale)) * float(args.support_min_foot_fz)
+                        max_normal = abs(float(args.support_force_scale)) * support_max_foot_fz
+                        foot_forces, qp_residual, qp_friction_usage = _solve_projected_contact_qp(
+                            weighted_matrix,
+                            weighted_wrench,
+                            initial_forces,
+                            normal_sign=normal_sign,
+                            min_normal=min_normal,
+                            max_normal=max_normal,
+                            friction_mu=float(args.support_qp_friction_mu),
+                            iterations=int(args.support_qp_iterations),
+                            regularization=float(args.support_qp_regularization),
+                        )
+                        summary["support_qp_active_steps"] = int(summary["support_qp_active_steps"]) + 1
+                        summary["max_support_qp_wrench_residual"] = max(
+                            float(summary["max_support_qp_wrench_residual"]),
+                            float(qp_residual),
+                        )
+                        summary["max_support_qp_friction_usage"] = max(
+                            float(summary["max_support_qp_friction_usage"]),
+                            float(qp_friction_usage),
+                        )
+                    else:
+                        foot_forces = initial_forces
                 else:
                     for _, side_sign, fore_sign in stance_feet:
                         foot_fz = total_fz / len(stance_feet)
