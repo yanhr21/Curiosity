@@ -10371,3 +10371,10 @@
   control. For tall boxes, keep the preintegrated cradle and add command/
   support correction to recover target progress and lateral alignment without
   hold/stand or runtime contact insertion.
+- [x] Add preintegrated split-repair diagnostic:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_preintegrated_split_repair_suite.sh`.
+  It runs `wide_y012_relaxed_geometry` and `tall_z009_drive_lateral_refine`.
+- [ ] Run and record preintegrated split-repair held-out diagnostic through
+  tmux plus persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_preintegrated_split_repair/<stamp>/closefront_heldout_geometry_preintegrated_split_repair_summary.json`
+  exists.

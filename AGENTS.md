@@ -225,6 +225,17 @@ These rules override all other project instructions.
   and add command/support correction for tall boxes to recover target progress
   and lateral alignment without reintroducing hold/stand or runtime contact
   insertion.
+- 2026-07-08 held-out G1 preintegrated split-repair entrypoint added:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_preintegrated_split_repair_suite.sh`.
+  It runs two targeted follow-ups to the preintegrated contact boundary:
+  `wide_y012_relaxed_geometry` removes chest pad and cross brace and widens
+  side-guard spacing to test whether the wide failure was caused by overly
+  constraining initial contact geometry; `tall_z009_drive_lateral_refine`
+  keeps the full preintegrated cradle but increases forward command and adds a
+  lateral command correction to test whether the stable tall boundary can be
+  moved into the target window. This is an experiment entrypoint only until
+  `closefront_heldout_geometry_preintegrated_split_repair_summary.json`
+  exists.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with
