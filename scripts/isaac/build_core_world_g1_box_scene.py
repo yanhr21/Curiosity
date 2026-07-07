@@ -156,6 +156,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--balance-roll-target-lateral-limit", type=float, default=0.0)
     parser.add_argument("--balance-roll-target-lateral-deadband", type=float, default=0.0)
     parser.add_argument("--balance-roll-target-lateral-sign", type=float, default=1.0)
+    parser.add_argument("--balance-roll-target-lateral-start-after-hold-steps", type=int, default=0)
+    parser.add_argument("--balance-roll-target-lateral-ramp-steps", type=int, default=0)
+    parser.add_argument("--balance-roll-target-lateral-max-tilt", type=float, default=999.0)
+    parser.add_argument("--balance-roll-target-lateral-max-box-tilt", type=float, default=999.0)
     parser.add_argument("--balance-target-start-step", type=int, default=0)
     parser.add_argument("--balance-target-end-step", type=int, default=-1)
     parser.add_argument("--balance-target-pulse-period-steps", type=int, default=0)
@@ -1907,6 +1911,14 @@ def run_scene() -> Path:
         "balance_roll_target_lateral_limit": float(args_cli.balance_roll_target_lateral_limit),
         "balance_roll_target_lateral_deadband": float(args_cli.balance_roll_target_lateral_deadband),
         "balance_roll_target_lateral_sign": float(args_cli.balance_roll_target_lateral_sign),
+        "balance_roll_target_lateral_start_after_hold_steps": int(
+            args_cli.balance_roll_target_lateral_start_after_hold_steps
+        ),
+        "balance_roll_target_lateral_ramp_steps": int(args_cli.balance_roll_target_lateral_ramp_steps),
+        "balance_roll_target_lateral_max_tilt": float(args_cli.balance_roll_target_lateral_max_tilt),
+        "balance_roll_target_lateral_max_box_tilt": float(
+            args_cli.balance_roll_target_lateral_max_box_tilt
+        ),
         "balance_target_start_step": int(args_cli.balance_target_start_step),
         "balance_target_end_step": int(args_cli.balance_target_end_step),
         "balance_target_pulse_period_steps": int(args_cli.balance_target_pulse_period_steps),
@@ -2214,11 +2226,21 @@ def run_scene() -> Path:
         "balance_roll_target_lateral_limit": float(args_cli.balance_roll_target_lateral_limit),
         "balance_roll_target_lateral_deadband": float(args_cli.balance_roll_target_lateral_deadband),
         "balance_roll_target_lateral_sign": float(args_cli.balance_roll_target_lateral_sign),
+        "balance_roll_target_lateral_start_after_hold_steps": int(
+            args_cli.balance_roll_target_lateral_start_after_hold_steps
+        ),
+        "balance_roll_target_lateral_ramp_steps": int(args_cli.balance_roll_target_lateral_ramp_steps),
+        "balance_roll_target_lateral_max_tilt": float(args_cli.balance_roll_target_lateral_max_tilt),
+        "balance_roll_target_lateral_max_box_tilt": float(
+            args_cli.balance_roll_target_lateral_max_box_tilt
+        ),
         "balance_roll_target_lateral_active_steps": 0,
         "balance_roll_target_lateral_first_active_step": None,
         "balance_roll_target_lateral_last_error_m": 0.0,
         "balance_roll_target_lateral_last_target_rad": 0.0,
         "balance_roll_target_lateral_max_abs_target_rad": 0.0,
+        "balance_roll_target_lateral_suppressed_by_hold_delay_steps": 0,
+        "balance_roll_target_lateral_suppressed_by_tilt_steps": 0,
         "balance_target_start_step": int(args_cli.balance_target_start_step),
         "balance_target_end_step": int(args_cli.balance_target_end_step),
         "balance_target_pulse_period_steps": int(args_cli.balance_target_pulse_period_steps),
@@ -3707,6 +3729,36 @@ def run_scene() -> Path:
                             deadband = max(0.0, float(args_cli.balance_roll_target_lateral_deadband))
                             lateral_excess = max(0.0, abs(float(balance_lateral_error)) - deadband)
                             target_limit = abs(float(args_cli.balance_roll_target_lateral_limit))
+                            hold_delay = max(
+                                0,
+                                int(args_cli.balance_roll_target_lateral_start_after_hold_steps),
+                            )
+                            hold_first_step = summary.get("agile_command_hold_first_active_step")
+                            hold_elapsed = (
+                                int(step) - int(hold_first_step)
+                                if hold_first_step is not None
+                                else 0
+                            )
+                            lateral_target_allowed = True
+                            if hold_delay > 0 and (not agile_command_hold_active or hold_elapsed < hold_delay):
+                                lateral_target_allowed = False
+                                summary["balance_roll_target_lateral_suppressed_by_hold_delay_steps"] = (
+                                    int(summary["balance_roll_target_lateral_suppressed_by_hold_delay_steps"]) + 1
+                                )
+                            lateral_tilt = max(abs(float(feedback_roll)), abs(float(feedback_pitch)))
+                            if (
+                                float(lateral_tilt) > max(0.0, float(args_cli.balance_roll_target_lateral_max_tilt))
+                                or float(box_feedback_tilt)
+                                > max(0.0, float(args_cli.balance_roll_target_lateral_max_box_tilt))
+                            ):
+                                lateral_target_allowed = False
+                                summary["balance_roll_target_lateral_suppressed_by_tilt_steps"] = (
+                                    int(summary["balance_roll_target_lateral_suppressed_by_tilt_steps"]) + 1
+                                )
+                            ramp_steps = max(0, int(args_cli.balance_roll_target_lateral_ramp_steps))
+                            ramp_scale = 1.0
+                            if ramp_steps > 0:
+                                ramp_scale = max(0.0, min(1.0, float(hold_elapsed) / float(ramp_steps)))
                             dynamic_balance_roll_target = max(
                                 -target_limit,
                                 min(
@@ -3716,6 +3768,9 @@ def run_scene() -> Path:
                                     * math.copysign(float(lateral_excess), float(balance_lateral_error)),
                                 ),
                             )
+                            dynamic_balance_roll_target *= float(ramp_scale)
+                            if not lateral_target_allowed:
+                                dynamic_balance_roll_target = 0.0
                             if abs(float(dynamic_balance_roll_target)) > 0.0:
                                 summary["balance_roll_target_lateral_active_steps"] = (
                                     int(summary["balance_roll_target_lateral_active_steps"]) + 1

@@ -8264,7 +8264,14 @@
   branch and includes one gentler `avg_sign_pos` case. Required signal:
   preserve fall/drop `0/0` while retaining at least some lateral-error
   reduction versus the safe but drifting `avg_sign_neg`.
-- [ ] Await boxtilt heavy lateral-roll-target refine job `169446`
-  (`g1_bxrollref`) submitted through tmux
-  `codex_g1_boxtilt_rollref_0707`. Expected summary:
-  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target_refine/20260707_g1_boxtilt_heavy_lateral_roll_target_refine/boxtilt_heavy_lateral_roll_target_refine_summary.json`.
+- [x] Cancel stale boxtilt heavy lateral-roll-target refine job `169446`
+  before rollout because it used the ungated refinement script. It never
+  started and had no assigned node.
+- [x] Add gating/ramp protection to dynamic lateral-roll balance target:
+  hold-delay steps, ramp steps, max robot tilt, and max box tilt. These guards
+  are intended to prevent early gait deflection and late high-tilt correction,
+  both of which were failure modes in `169432`.
+- [ ] Await gated boxtilt heavy lateral-roll-target refine job `169465`
+  (`g1_bxrollgated`) submitted through tmux
+  `codex_g1_boxtilt_rollgated_0707`. Expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target_refine/20260707_g1_boxtilt_heavy_lateral_roll_target_refine_gated/boxtilt_heavy_lateral_roll_target_refine_summary.json`.

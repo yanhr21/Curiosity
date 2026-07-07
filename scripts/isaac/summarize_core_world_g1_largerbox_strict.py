@@ -250,6 +250,18 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
             "balance_roll_target_lateral_deadband"
         ),
         "balance_roll_target_lateral_sign": summary.get("balance_roll_target_lateral_sign"),
+        "balance_roll_target_lateral_start_after_hold_steps": summary.get(
+            "balance_roll_target_lateral_start_after_hold_steps"
+        ),
+        "balance_roll_target_lateral_ramp_steps": summary.get(
+            "balance_roll_target_lateral_ramp_steps"
+        ),
+        "balance_roll_target_lateral_max_tilt": summary.get(
+            "balance_roll_target_lateral_max_tilt"
+        ),
+        "balance_roll_target_lateral_max_box_tilt": summary.get(
+            "balance_roll_target_lateral_max_box_tilt"
+        ),
         "balance_roll_target_lateral_active_steps": summary.get(
             "balance_roll_target_lateral_active_steps"
         ),
@@ -264,6 +276,12 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         ),
         "balance_roll_target_lateral_max_abs_target_rad": summary.get(
             "balance_roll_target_lateral_max_abs_target_rad"
+        ),
+        "balance_roll_target_lateral_suppressed_by_hold_delay_steps": summary.get(
+            "balance_roll_target_lateral_suppressed_by_hold_delay_steps"
+        ),
+        "balance_roll_target_lateral_suppressed_by_tilt_steps": summary.get(
+            "balance_roll_target_lateral_suppressed_by_tilt_steps"
         ),
         "agile_command_hold_adaptive_scale_enabled": summary.get(
             "agile_command_hold_adaptive_scale_enabled"

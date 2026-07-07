@@ -893,9 +893,13 @@ This is a status snapshot only. It is not a carrying-success claim.
   `1.87642/2.11266 m` with target-window dwell `0`; `box_sign_neg` reduced
   final lateral error to `0.86138/0.94767 m` and reached 53 target-window
   steps, but failed with `162` falls / `127` drops. A low-gain refinement
-  suite has been submitted as Slurm job `169446` (`g1_bxrollref`) through
-  tmux `codex_g1_boxtilt_rollref_0707`. Expected summary:
-  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target_refine/20260707_g1_boxtilt_heavy_lateral_roll_target_refine/boxtilt_heavy_lateral_roll_target_refine_summary.json`.
+  suite was first submitted as Slurm job `169446`, but that pending job was
+  cancelled before rollout after adding hold-delay/ramp/tilt gates to the
+  controller.
+- Gated boxtilt heavy lateral-roll-target refine is now pending as Slurm job
+  `169465` (`g1_bxrollgated`) through tmux
+  `codex_g1_boxtilt_rollgated_0707`. Expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target_refine/20260707_g1_boxtilt_heavy_lateral_roll_target_refine_gated/boxtilt_heavy_lateral_roll_target_refine_summary.json`.
 - Completion audit remains `fail`. The full task is not achieved.
 
 ## Next Decision

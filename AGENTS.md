@@ -11697,8 +11697,18 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   source/gain/sign and active/last/max target diagnostics. Follow-up
   low-gain refinement:
   `scripts/isaac/run_core_world_g1_boxtilt_heavy_lateral_roll_target_refine_suite.sh`,
-  submitted as Slurm job `169446` (`g1_bxrollref`) through tmux
-  `codex_g1_boxtilt_rollref_0707`.
+  was first submitted as Slurm job `169446` (`g1_bxrollref`) through tmux
+  `codex_g1_boxtilt_rollref_0707`, but it was cancelled before rollout
+  because the script did not yet include gating/ramp protection.
+- 2026-07-07 dynamic lateral-roll target was extended with hold-delay,
+  ramp, max-robot-tilt, and max-box-tilt gates. These guards target the
+  observed `169432` failures: early gait deflection and late high-tilt
+  correction. The gated refinement suite now defaults to stamp prefix
+  `20260707_g1_boxtilt_heavy_lateral_roll_target_refine_gated` and is
+  submitted as Slurm job `169465` (`g1_bxrollgated`) through tmux
+  `codex_g1_boxtilt_rollgated_0707`. Useful progress still requires fall/drop
+  `0/0`, root/box rollout writes `0`, lower lateral error, and target-window
+  dwell; do not claim success merely because the gait remains upright.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

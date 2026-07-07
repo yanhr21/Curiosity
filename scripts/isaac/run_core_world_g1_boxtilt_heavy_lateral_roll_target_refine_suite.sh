@@ -7,7 +7,7 @@ if [[ "$(hostname)" == mgmtserver* ]]; then
 fi
 
 ROOT_DIR="${ROOT_DIR:-/public/home/yanhongru/Curiosity}"
-SUITE_STAMP_PREFIX="${SUITE_STAMP_PREFIX:-20260707_g1_boxtilt_heavy_lateral_roll_target_refine}"
+SUITE_STAMP_PREFIX="${SUITE_STAMP_PREFIX:-20260707_g1_boxtilt_heavy_lateral_roll_target_refine_gated}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-${ROOT_DIR}/experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target_refine/${SUITE_STAMP_PREFIX}}"
 
 cd "${ROOT_DIR}"
@@ -54,6 +54,10 @@ run_case() {
     AGILE_COMMAND_HOLD_FINAL_ZERO_CORRECTIONS=1 \
     BALANCE_ROLL_TARGET_FROM_LATERAL=1 \
     BALANCE_ROLL_TARGET_LATERAL_DEADBAND=0.45 \
+    BALANCE_ROLL_TARGET_LATERAL_START_AFTER_HOLD_STEPS=24 \
+    BALANCE_ROLL_TARGET_LATERAL_RAMP_STEPS=80 \
+    BALANCE_ROLL_TARGET_LATERAL_MAX_TILT=0.45 \
+    BALANCE_ROLL_TARGET_LATERAL_MAX_BOX_TILT=0.60 \
     "$@" \
     bash "${ROOT_DIR}/scripts/isaac/run_core_world_g1_largerbox_strict_suite.sh"
   local status=$?
