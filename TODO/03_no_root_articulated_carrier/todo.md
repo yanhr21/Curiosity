@@ -8926,8 +8926,10 @@
   `0/3`. The best case, `stand_delay_160_soft`, reproduced the prior
   `freeze_strict` near miss with `106` stable target-window steps,
   longest/end streak `68/0`, final robot/box travel `2.176/2.119 m`, and
-  fall/drop at `782/804`; shorter stand delays were worse. Do not continue
-  stand-delay or stand-target tuning unchanged.
+  fall/drop at `782/804`; shorter stand delays were worse. Later static audit
+  showed this was not a valid applied stand-target test because final freeze
+  masks final-stand targets. Treat it as a negative diagnostic for old control
+  priority, not proof that stand targets cannot help.
 - [x] Cancel invalid close-front freeze-rescue timing suite. Keep `freeze_strict` and
   default balance/stand disabled, then compare rescue disabled, rescue delayed,
   and softened rescue targets to test whether the post-freeze rescue posture
@@ -8936,7 +8938,7 @@
   it was cancelled before allocation because static control-flow inspection
   showed rescue targets do not apply once final freeze is active. The suite
   would not have tested the intended hypothesis.
-- [ ] Run close-front freeze-rescue override suite. Use
+- [x] Record close-front freeze-rescue override suite. Use
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_rescue_override_suite.sh`,
   which explicitly enables rescue targets to override frozen policy targets
   after target-window freeze, then compare rescue disabled, delayed rescue,
@@ -8944,9 +8946,22 @@
   (`g1_cfovr`) was cancelled before allocation because the first wrapper
   version did not export the override variable. The fixed wrapper was pushed,
   and Slurm job `170125` (`g1_cfovr2`) was submitted through tmux
-  `curiosity_g1_close_front_freeze_rescue_override2_0707`; it is still
-  pending on GPU priority as of `2026-07-07 17:17 CST`, with Slurm estimating
-  start at `2026-07-07T20:24:10` on `server46`.
+  `curiosity_g1_close_front_freeze_rescue_override2_0707`; it ran on
+  `server46` and failed `0/3`. Override was real: `freeze_rescue_late055`
+  had `540` override-active steps from step `760`, and
+  `freeze_rescue_soft035` had `573` override-active steps from step `727`.
+  `soft035` improved target-window stable steps to `122` and longest streak
+  to `84`, but still fell/dropped at `798/816`; rescue-over-freeze is useful
+  evidence but not a solution.
+- [ ] Add and run a close-front stand-over-freeze suite. The previous
+  freeze-stand suite did not actually apply stand targets after freeze.
+  Add explicit stand-over-freeze priority and test delayed low-COM stand
+  targets under the same strict fall/drop/target-window/tilt/lateral gates.
+- [x] Add close-front stand-over-freeze entrypoint:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_override_suite.sh`.
+  It uses `--agile-command-hold-stand-overrides-final-freeze`, disables rescue,
+  and reuses the delayed low-COM stand cases with a distinct
+  `close_front_freeze_stand_override_summary.json`.
 - [x] Add a read-only close-front freeze-rescue override parser:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case

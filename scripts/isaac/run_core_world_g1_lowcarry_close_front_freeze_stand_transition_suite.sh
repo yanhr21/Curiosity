@@ -9,12 +9,13 @@ fi
 ROOT_DIR="${ROOT_DIR:-/public/home/yanhongru/Curiosity}"
 SUITE_STAMP_PREFIX="${SUITE_STAMP_PREFIX:-20260707_g1_lowcarry_close_front_freeze_stand_transition}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-${ROOT_DIR}/experiments/outputs/core_world_g1_lowcarry_close_front_freeze_stand_transition/${SUITE_STAMP_PREFIX}}"
+SUITE_NAME="${SUITE_NAME:-close_front_freeze_stand_transition}"
 
 cd "${ROOT_DIR}"
 mkdir -p "${OUTPUT_ROOT}"
 
-status_file="${OUTPUT_ROOT}/close_front_freeze_stand_transition_status.tsv"
-summary_out="${OUTPUT_ROOT}/close_front_freeze_stand_transition_summary.json"
+status_file="${OUTPUT_ROOT}/${SUITE_NAME}_status.tsv"
+summary_out="${OUTPUT_ROOT}/${SUITE_NAME}_summary.json"
 printf "case\tstatus\tsuite_stamp\n" > "${status_file}"
 
 summary_args=()

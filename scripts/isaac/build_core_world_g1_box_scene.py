@@ -281,6 +281,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--agile-command-hold-final-freeze-max-tilt", type=float, default=0.25)
     parser.add_argument("--agile-command-hold-final-freeze-max-box-tilt", type=float, default=0.35)
     parser.add_argument("--agile-command-hold-rescue-overrides-final-freeze", action="store_true")
+    parser.add_argument("--agile-command-hold-stand-overrides-final-freeze", action="store_true")
     parser.add_argument("--agile-command-hold-final-stand", action="store_true")
     parser.add_argument("--agile-command-hold-final-stand-delay-steps", type=int, default=0)
     parser.add_argument(
@@ -2437,6 +2438,11 @@ def run_scene() -> Path:
         ),
         "agile_command_hold_rescue_override_freeze_active_steps": 0,
         "agile_command_hold_rescue_override_freeze_first_active_step": None,
+        "agile_command_hold_stand_overrides_final_freeze": bool(
+            args_cli.agile_command_hold_stand_overrides_final_freeze
+        ),
+        "agile_command_hold_stand_override_freeze_active_steps": 0,
+        "agile_command_hold_stand_override_freeze_first_active_step": None,
         "agile_command_hold_final_max_abs_command_x": 0.0,
         "agile_command_hold_final_max_abs_command_y": 0.0,
         "agile_command_hold_final_max_abs_command_yaw": 0.0,
@@ -3623,7 +3629,19 @@ def run_scene() -> Path:
                             and agile_command_hold_rescue_active
                             and bool(args_cli.agile_command_hold_rescue_overrides_final_freeze)
                         )
-                        if agile_command_hold_active and final_freeze_active and not rescue_overrides_freeze_active:
+                        stand_overrides_freeze_active = (
+                            agile_command_hold_active
+                            and final_freeze_active
+                            and final_stand_active
+                            and bool(args_cli.agile_command_hold_stand_overrides_final_freeze)
+                            and not rescue_overrides_freeze_active
+                        )
+                        if (
+                            agile_command_hold_active
+                            and final_freeze_active
+                            and not rescue_overrides_freeze_active
+                            and not stand_overrides_freeze_active
+                        ):
                             policy_joint_targets = np.asarray(final_frozen_policy_joint_targets, dtype=float).copy()
                             summary["agile_command_hold_final_freeze_active_steps"] = (
                                 int(summary["agile_command_hold_final_freeze_active_steps"]) + 1
@@ -3642,6 +3660,12 @@ def run_scene() -> Path:
                                 )
                                 if summary["agile_command_hold_rescue_override_freeze_first_active_step"] is None:
                                     summary["agile_command_hold_rescue_override_freeze_first_active_step"] = int(step)
+                            if stand_overrides_freeze_active:
+                                summary["agile_command_hold_stand_override_freeze_active_steps"] = (
+                                    int(summary["agile_command_hold_stand_override_freeze_active_steps"]) + 1
+                                )
+                                if summary["agile_command_hold_stand_override_freeze_first_active_step"] is None:
+                                    summary["agile_command_hold_stand_override_freeze_first_active_step"] = int(step)
                             blend_rate = min(
                                 1.0,
                                 max(
@@ -3656,6 +3680,8 @@ def run_scene() -> Path:
                                 if agile_command_hold_rescue_active
                                 else np.asarray(stand_hold_joint_targets, dtype=float)
                             )
+                            if stand_overrides_freeze_active:
+                                hold_target = np.asarray(stand_hold_joint_targets, dtype=float)
                             policy_joint_targets = (
                                 (1.0 - blend_rate) * np.asarray(policy_joint_targets, dtype=float)
                                 + blend_rate * hold_target

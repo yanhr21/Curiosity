@@ -12686,10 +12686,12 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   longest/end streak `68/0`, final robot/box travel `2.176/2.119 m`,
   final lateral error `-0.105/0.084 m`, and fall/drop at `782/804` with
   max robot/box tilt `1.202/1.516 rad`. Conclusion: delayed low-COM stand
-  transition does not fix close-front freeze collapse; do not continue stand
-  delay/stand target tuning unchanged. The next valid close-front test should
-  isolate whether post-freeze rescue activation is helping or causing the
-  collapse.
+  transition did not fix close-front freeze collapse, but a later static
+  audit found this was not a valid test of stand targets after freeze: when
+  `final_freeze_active` is true, frozen policy joint targets take priority and
+  final-stand targets are not applied. Treat the numeric run as a negative
+  diagnostic for the old control priority, not as evidence that stand targets
+  cannot help. A valid stand test needs explicit stand-over-freeze priority.
 - 2026-07-07 close-front freeze-rescue timing entrypoint: added
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_rescue_timing_suite.sh`.
   It keeps `freeze_strict`, disables delayed stand targets, preserves default
@@ -12721,6 +12723,32 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   replacement for the cancelled timing suite and remains only an experiment
   entrypoint until
   `close_front_freeze_rescue_override_summary.json` exists.
+- 2026-07-07 close-front freeze-rescue override result: Slurm job `170125`
+  (`g1_cfovr2`) ran on `server46` and failed `0/3`.
+  `freeze_no_rescue` reproduced the `freeze_strict` boundary with fall/drop
+  `518/496`, first fall/drop `782/804`, target-window stable steps `106`,
+  longest/end streak `68/0`, and override active steps `0`.
+  `freeze_rescue_late055` verified rescue-over-freeze applied for `540` steps
+  from step `760`, improved final robot lateral error to about `-0.007 m`,
+  but still fell/dropped at `787/811` with max robot/box tilt
+  `1.328/1.407 rad`. `freeze_rescue_soft035` applied override for `573` steps
+  from step `727`, improved target-window stable steps to `122` and
+  longest streak to `84`, but still fell/dropped at `798/816`, had final
+  robot/box lateral error `0.222/0.421 m`, and max robot/box tilt
+  `1.410/1.498 rad`. Conclusion: rescue-over-freeze is a real intervention
+  and slightly improves dwell, but does not solve close-front balance/drop.
+  The next valid branch is explicit stand-over-freeze or support/stance
+  selection after freeze, not more final-command scaling.
+- 2026-07-07 close-front stand-over-freeze entrypoint: added
+  `--agile-command-hold-stand-overrides-final-freeze`, summary/check fields
+  for stand override activation, generalized
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_transition_suite.sh`
+  with `SUITE_NAME`, and added wrapper
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_stand_override_suite.sh`.
+  The wrapper reuses the delayed low-COM stand cases, explicitly lets final
+  stand targets override frozen policy targets, and disables rescue so the
+  stand target is not masked. This is an experiment entrypoint only until
+  `close_front_freeze_stand_override_summary.json` exists.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,

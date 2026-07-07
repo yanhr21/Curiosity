@@ -513,14 +513,16 @@ after target-window freeze.
 | --- | --- | ---: | ---: | ---: | ---: | --- |
 | `stand_delay_80` | fail | 585/546 | 715/741 | 68 | 68/0 | Too early/aggressive stand transition over-travels to about `3.7 m` and drops. |
 | `stand_delay_120` | fail | 612/520 | 688/727 | 28 | 28/0 | Worse target-window retention and early fall/drop. |
-| `stand_delay_160_soft` | fail | 518/496 | 782/804 | 106 | 68/0 | Reproduces the `freeze_strict` near miss; stand transition does not fix collapse. |
+| `stand_delay_160_soft` | fail | 518/496 | 782/804 | 106 | 68/0 | Reproduces the `freeze_strict` near miss under old control priority. |
 
-This rules out delayed stand target tuning for the current close-front branch.
-The next useful isolation is freeze plus rescue timing: disable or delay the
-post-freeze rescue posture to test whether rescue is causing the `780`-step
-collapse rather than preventing it.
+Later static control-flow inspection showed this suite did not actually test
+stand targets after target-window freeze: once `final_freeze_active` is true,
+frozen policy joint targets take priority and final-stand targets are masked.
+Treat this as a negative diagnostic for the old control priority, not as proof
+that stand targets cannot help. A valid stand test needs explicit
+stand-over-freeze priority.
 
-## Close-Front Freeze-Rescue Override Plan
+## Close-Front Freeze-Rescue Override
 
 A first timing-only entrypoint,
 `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_rescue_timing_suite.sh`,
@@ -529,8 +531,6 @@ allocation. Static control-flow inspection showed the timing-only intervention
 would not change control behavior: once `final_freeze_active` is true, frozen
 policy joint targets take priority and rescue targets are not applied.
 
-The valid replacement is:
-
 - Script:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_freeze_rescue_override_suite.sh`
 - Code hook:
@@ -538,11 +538,21 @@ The valid replacement is:
 - Purpose:
   keep the `freeze_strict` target-window branch, but explicitly allow rescue
   targets to override frozen policy targets after rescue triggers.
-- Cases:
-  `freeze_no_rescue`, `freeze_rescue_late055`, and
-  `freeze_rescue_soft035`.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `170125` (`g1_cfovr2`) ran on
+  `server46` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_freeze_rescue_override/20260707_g1_lowcarry_close_front_freeze_rescue_override/close_front_freeze_rescue_override_summary.json`
 
-This is not evidence yet. It is the next experiment entrypoint.
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Longest/End Streak | Override Steps | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `freeze_no_rescue` | fail | 518/496 | 782/804 | 106 | 68/0 | 0 | Control baseline reproduces `freeze_strict`. |
+| `freeze_rescue_late055` | fail | 513/489 | 787/811 | 111 | 73/0 | 540 | Override applies and improves lateral error, but still falls/drops. |
+| `freeze_rescue_soft035` | fail | 502/484 | 798/816 | 122 | 84/0 | 573 | Best dwell so far on this branch, but tilt/drop remain far outside gates. |
+
+Rescue-over-freeze is a real intervention and improves target-window dwell
+slightly, but it is not enough. The next close-front branch should test
+explicit stand-over-freeze priority or support/stance selection after freeze.
 
 ## Next Step
 
@@ -572,14 +582,16 @@ implementation should add an explicit posture-conditioned controller gate:
   fall/drop timing,
 - do not use nonzero final-hold scale for this branch; tiny scales still
   caused early drop/collapse,
-- continue from `freeze_strict` if pursuing close-front: it is now the best
-  target-window branch, and the next failure is roll balance rather than target
-  progress,
+- continue from `freeze_strict` if pursuing close-front: it is still the best
+  target-window branch, but rescue-over-freeze only improves dwell slightly and
+  does not solve roll/drop,
 - do not continue stronger balance-gain tuning; it shortened useful
   target-window dwell,
 - do not continue delayed stand target tuning unchanged; the best delayed
   stand case reproduced the same `freeze_strict` fall/drop boundary,
 - do not run rescue timing without override; freeze masks rescue targets,
-- isolate post-freeze rescue with explicit rescue-over-freeze override next,
+- do not treat the previous freeze-stand suite as a valid stand-target test;
+  final freeze also masked stand targets,
+- add explicit stand-over-freeze priority or support/stance selection next,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

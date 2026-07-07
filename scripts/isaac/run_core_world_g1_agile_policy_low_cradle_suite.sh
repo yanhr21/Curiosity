@@ -266,6 +266,9 @@ fi
 if [[ "${AGILE_COMMAND_HOLD_RESCUE_OVERRIDES_FINAL_FREEZE:-0}" == "1" ]]; then
   base_python+=(--agile-command-hold-rescue-overrides-final-freeze)
 fi
+if [[ "${AGILE_COMMAND_HOLD_STAND_OVERRIDES_FINAL_FREEZE:-0}" == "1" ]]; then
+  base_python+=(--agile-command-hold-stand-overrides-final-freeze)
+fi
 if [[ "${AGILE_COMMAND_HOLD_FINAL_STAND:-0}" == "1" ]]; then
   base_python+=(--agile-command-hold-final-stand)
 fi
