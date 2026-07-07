@@ -147,3 +147,27 @@ Active next suite:
 
 It keeps the better `suppress_after_streak60` setup and applies a negative
 final brake command after `240` final-hold steps for `120` steps.
+
+## Escape-Suppression Brake Follow-Up
+
+Suite:
+`20260707_g1_lowcarry_close_front_escape_suppression_brake`
+
+Result: aggregate `fail`, `0/2` strict cases passed.
+
+| Case | fall/drop | first fall/drop | target stable/longest/end | robot/box travel m | lateral robot/box m | max tilt robot/box rad | brake active |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `suppress60_brake240_neg004` | `110/81` | `1090/1119` | `110/109/0` | `3.177/3.039` | `0.653/0.559` | `3.134/3.141` | `120`, steps `1022-1141` |
+| `suppress60_brake240_neg008` | `33/7` | `1167/1193` | `108/107/0` | `3.583/3.587` | `0.902/1.064` | `0.673/0.739` | `120`, steps `1022-1141` |
+
+The stronger brake delayed collapse and reduced tilt/drop severity, but it did
+not preserve the target-window hold. It also allowed more target-direction
+over-travel. This suggests the next terminal test should switch the controller
+to stand targets after sufficient window dwell instead of continuing to tune
+brake magnitude alone.
+
+Active next suite:
+`scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_stand_suite.sh`
+
+It keeps the `suppress_after_streak60` boundary and switches to final stand
+targets after `240` or `300` final-hold steps.

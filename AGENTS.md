@@ -294,7 +294,28 @@ These rules override all other project instructions.
   `close_front_escape_suppression_brake_summary.json` exists. Submitted
   through tmux `curiosity_g1_escape_brake_0707` as Slurm job `170388` /
   `g1_escbrake`, suite stamp prefix
-  `20260707_g1_lowcarry_close_front_escape_suppression_brake`.
+  `20260707_g1_lowcarry_close_front_escape_suppression_brake`. Result:
+  aggregate `fail`, 0/2 strict cases passed. `suppress60_brake240_neg004`
+  had fall/drop `110/81`, first fall/drop `1090/1119`, target-window
+  stable/longest/end `110/109/0`, final travel `3.177/3.039 m`, final lateral
+  `0.653/0.559 m`, max robot/box tilt `3.134/3.141 rad`, brake active
+  `120` steps from `1022` to `1141`, and writes `0/0/0`.
+  `suppress60_brake240_neg008` delayed collapse and reduced severity but
+  still failed: fall/drop `33/7`, first fall/drop `1167/1193`, target-window
+  `108/107/0`, final travel `3.583/3.587 m`, final lateral `0.902/1.064 m`,
+  max robot/box tilt `0.673/0.739 rad`, brake active `120` steps from `1022`
+  to `1141`, and writes `0/0/0`. Interpretation: braking improves late
+  stability but does not keep the robot in the target window and can worsen
+  over-travel; do not continue scanning brake magnitude alone. The next valid
+  terminal test is a stand-target handoff after target-window dwell.
+- 2026-07-07 close-front escape-suppression stand entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_stand_suite.sh`.
+  It starts from the `suppress_after_streak60` boundary, keeps original support
+  geometry and strict gates, suppresses final tilt escape after a `60`-step
+  target-window streak, then enables `AGILE_COMMAND_HOLD_FINAL_STAND` after
+  `240` or `300` final-hold steps with blend rates `0.02` and `0.04`
+  respectively. This is an experiment entrypoint only until
+  `close_front_escape_suppression_stand_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

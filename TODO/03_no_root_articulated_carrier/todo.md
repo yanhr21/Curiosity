@@ -121,7 +121,7 @@
   `suppress_after_streak80` was weaker. Next step should add a window-latched
   brake or stand handoff after sufficient dwell, not more forward escape or
   lower-lid contact.
-- [ ] Run close-front escape-suppression brake follow-up:
+- [x] Run close-front escape-suppression brake follow-up:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_brake_suite.sh`.
   It starts from the better `suppress_after_streak60` boundary, keeps original
   support geometry, suppresses final tilt escape after a `60`-step target
@@ -130,6 +130,17 @@
   x. Submitted through tmux `curiosity_g1_escape_brake_0707` as Slurm job
   `170388` / `g1_escbrake`. Record
   `close_front_escape_suppression_brake_summary.json` before interpreting.
+  Result: aggregate `fail`, 0/2. `neg008` delayed collapse and reduced
+  fall/drop to `33/7` with first fall/drop `1167/1193` and max robot/box tilt
+  `0.673/0.739 rad`, but final travel grew to `3.583/3.587 m` and target
+  streak at end stayed `0`. Do not continue scanning brake magnitude alone.
+- [ ] Run close-front stand-handoff follow-up after target-window dwell:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_escape_suppression_stand_suite.sh`.
+  It reuses the `suppress_after_streak60` boundary and switches to final stand
+  targets after `240` or `300` final-hold steps, preserving strict fall/drop,
+  target-window, final-hold, tilt, lateral, and no-rollout-write gates.
+  Record `close_front_escape_suppression_stand_summary.json` before
+  interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`
