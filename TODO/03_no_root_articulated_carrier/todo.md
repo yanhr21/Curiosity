@@ -8579,3 +8579,21 @@
   feasibility mechanism. Prefer a constrained whole-body/contact controller
   with explicit upright, support polygon, friction, and box-retention
   objectives, or return to a policy-backed locomotion backend.
+- [x] Add a MuJoCo QP feasibility mechanism: `SUPPORT_QP_MOMENT_CLIP_SCALE`
+  clips requested roll/pitch/yaw moments by a support-foot geometric estimate
+  of normal-force and friction-limited contact moment capacity before QP
+  allocation. This is off by default and records
+  `max_abs_support_qp_moment_clip_delta_nm`.
+- [x] Await feasible-moment QP diagnostic job `169632` (`mj_qpfeas`) submitted
+  through tmux `curiosity_mujoco_qp_feasible_moment_0707`, suite
+  `scripts/mujoco/run_quadruped_freebox_qp_feasible_moment_suite.sh`.
+  Slurm completed on `server39` with exit `0:0`, but strict pass remained
+  `0/4`. The moment clip was useful diagnostically: max QP residual dropped
+  to `268-363` from the previous `1111-4088`, and `clip05` reduced max tilt
+  to `1.6669 rad`. It still had `77-78` falls, `72` drops, box z below gate,
+  saturated friction usage, and short final travel. This is not a carrying
+  solution.
+- [ ] Stop this MuJoCo hand-controller path after feasible-moment QP unless
+  the next change replaces the controller class. Needed next work is a real
+  constrained whole-body/contact optimizer or policy-backed locomotion, not
+  another small QP clipping/weight/gain sweep.

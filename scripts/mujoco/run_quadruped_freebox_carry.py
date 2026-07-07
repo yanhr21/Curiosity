@@ -151,6 +151,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--support-qp-friction-mu", type=float, default=0.9)
     parser.add_argument("--support-qp-angular-weight", type=float, default=1.0)
     parser.add_argument("--support-qp-post-latch-only", action="store_true")
+    parser.add_argument("--support-qp-moment-clip-scale", type=float, default=0.0)
     parser.add_argument("--tray-half-length", type=float, default=0.38)
     parser.add_argument("--tray-half-width", type=float, default=0.24)
     parser.add_argument("--wall-height", type=float, default=0.16)
@@ -364,6 +365,25 @@ def _solve_projected_contact_qp(
     return projected_forces, residual_norm, max_friction_usage
 
 
+def _contact_moment_bounds(
+    foot_positions: list["np.ndarray"],
+    wrench_center: "np.ndarray",
+    max_normal_force: float,
+    friction_mu: float,
+) -> "np.ndarray":
+    import numpy as np
+
+    bounds = np.zeros(3, dtype=float)
+    normal_bound = max(0.0, float(max_normal_force))
+    tangential_bound = max(0.0, float(friction_mu)) * normal_bound
+    for foot_pos in foot_positions:
+        lever = np.asarray(foot_pos, dtype=float) - np.asarray(wrench_center, dtype=float)
+        bounds[0] += abs(float(lever[1])) * normal_bound + abs(float(lever[2])) * tangential_bound
+        bounds[1] += abs(float(lever[2])) * tangential_bound + abs(float(lever[0])) * normal_bound
+        bounds[2] += (abs(float(lever[0])) + abs(float(lever[1]))) * tangential_bound
+    return bounds
+
+
 def _xml(args: argparse.Namespace) -> str:
     wall_y = args.tray_half_width + 0.025
     wall_half_height = args.wall_height * 0.5
@@ -547,9 +567,11 @@ def main() -> None:
         "support_qp_friction_mu": float(args.support_qp_friction_mu),
         "support_qp_angular_weight": float(args.support_qp_angular_weight),
         "support_qp_post_latch_only": bool(args.support_qp_post_latch_only),
+        "support_qp_moment_clip_scale": float(args.support_qp_moment_clip_scale),
         "support_qp_active_steps": 0,
         "max_support_qp_wrench_residual": 0.0,
         "max_support_qp_friction_usage": 0.0,
+        "max_abs_support_qp_moment_clip_delta_nm": 0.0,
         "max_assist_force_x_n": float(args.max_assist_force_x),
         "max_assist_force_z_n": float(args.max_assist_force_z),
         "max_assist_torque_nm": float(args.max_assist_torque),
@@ -975,9 +997,11 @@ def main() -> None:
                 if use_centroidal_allocation or use_qp_allocation:
                     wrench_matrix = np.zeros((6, 3 * len(stance_feet)), dtype=float)
                     wrench_center = robot_com if robot_mass_kg > 1e-6 else data.xpos[torso_id]
+                    qp_foot_positions: list[np.ndarray] = []
                     for foot_index, (foot_body_id, _, _) in enumerate(stance_feet):
                         col = 3 * foot_index
                         foot_pos = np.asarray(data.xpos[foot_body_id], dtype=float)
+                        qp_foot_positions.append(foot_pos)
                         lever = foot_pos - wrench_center
                         wrench_matrix[0:3, col:col + 3] = np.eye(3)
                         wrench_matrix[3:6, col:col + 3] = np.array(
@@ -999,6 +1023,21 @@ def main() -> None:
                         ],
                         dtype=float,
                     )
+                    if use_qp_allocation and float(args.support_qp_moment_clip_scale) > 0.0:
+                        moment_bounds = _contact_moment_bounds(
+                            qp_foot_positions,
+                            wrench_center,
+                            max_normal_force=abs(float(args.support_force_scale)) * support_max_foot_fz,
+                            friction_mu=float(args.support_qp_friction_mu),
+                        )
+                        moment_bounds *= max(0.0, float(args.support_qp_moment_clip_scale))
+                        original_moments = desired_wrench[3:6].copy()
+                        desired_wrench[3:6] = np.clip(desired_wrench[3:6], -moment_bounds, moment_bounds)
+                        clip_delta = float(np.max(np.abs(original_moments - desired_wrench[3:6])))
+                        summary["max_abs_support_qp_moment_clip_delta_nm"] = max(
+                            float(summary["max_abs_support_qp_moment_clip_delta_nm"]),
+                            clip_delta,
+                        )
                     angular_weight = max(0.0, float(args.support_qp_angular_weight))
                     if angular_weight != 1.0:
                         wrench_weight = np.ones(6, dtype=float)

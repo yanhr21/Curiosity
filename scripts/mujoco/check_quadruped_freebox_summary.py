@@ -143,6 +143,8 @@ def main() -> int:
         "max_support_attitude_recovery_strength": summary.get("max_support_attitude_recovery_strength"),
         "support_qp_active_steps": summary.get("support_qp_active_steps"),
         "support_qp_post_latch_only": summary.get("support_qp_post_latch_only"),
+        "support_qp_moment_clip_scale": summary.get("support_qp_moment_clip_scale"),
+        "max_abs_support_qp_moment_clip_delta_nm": summary.get("max_abs_support_qp_moment_clip_delta_nm"),
         "max_support_qp_wrench_residual": summary.get("max_support_qp_wrench_residual"),
         "max_support_qp_friction_usage": summary.get("max_support_qp_friction_usage"),
         "closed_loop_foot_placement": summary.get("closed_loop_foot_placement"),

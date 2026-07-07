@@ -1141,12 +1141,22 @@ This is a status snapshot only. It is not a carrying-success claim.
   max tilt `2.03-2.26 rad`, min box z below gate, saturated QP friction usage,
   and large residuals. This is a controller negative result, not an
   infrastructure failure.
+- Feasible-moment QP follow-up job `169632` (`mj_qpfeas`) completed on
+  `server39` with Slurm exit `0:0`, but strict pass was still `0/4`. It
+  clipped requested roll/pitch/yaw moments against support-foot contact
+  capacity before QP. This made the QP numerically less infeasible: max
+  residual fell to `268-363` and `clip05` reduced max tilt to `1.6669 rad`.
+  The physical failure remained: `77-78` falls, `72` drops, min box z below
+  gate, friction usage saturated, and final travel only `0.260-0.328 m`.
+  Treat this as a useful diagnostic that the desired wrench was infeasible,
+  not as progress toward solved carrying.
 
 ## Next Decision
 
 - Next controller work should stay on materially stronger support/contact
-  control. If post-latch QP also fails with saturated residuals/friction, stop
-  tuning scalar gains and move to a constrained whole-body/contact formulation
-  or a policy-backed locomotion backend.
+  control. Post-latch QP and feasible-moment QP both failed, so stop small
+  QP gain/weight/clip sweeps on this MuJoCo hand-controller branch. Move to a
+  constrained whole-body/contact formulation or a policy-backed locomotion
+  backend.
 - For visuals, use the schematic GIF/poster only with the explicit label that
   it is not an Isaac camera render.

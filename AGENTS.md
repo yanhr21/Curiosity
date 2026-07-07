@@ -12193,6 +12193,24 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   missing piece; the next credible step needs a materially different
   constrained whole-body/contact controller or a policy-backed locomotion
   backend.
+- 2026-07-07 MuJoCo feasible-moment QP result: added
+  `SUPPORT_QP_MOMENT_CLIP_SCALE`, which clips requested roll/pitch/yaw
+  moments by a support-foot geometric estimate of normal-force and
+  friction-limited contact moment capacity before projected QP allocation.
+  Slurm job `169632` (`mj_qpfeas`) completed on `server39` with Slurm exit
+  `0:0`, but strict result was still `0/4`. All four cases latched and kept
+  root/box pose/velocity writes at `0`; QP/LQR active steps were `1797`.
+  The mechanism is active and informative: max QP residual dropped from
+  `1111-4088` in the unclipped post-latch QP run to `268-363`, and the best
+  `clip05` case reduced max tilt to `1.6669 rad`. It still failed with
+  `77-78` falls, `72` drops, min box z `0.395-0.418 m`, saturated friction
+  usage `1.0`, and final box travel only `0.260-0.328 m`. Conclusion:
+  contact-feasibility clipping improves numerical feasibility but does not
+  solve the physical support/retention failure. Do not keep this MuJoCo
+  hand-controller branch on small QP-parameter sweeps; the next credible step
+  is either a real constrained whole-body/contact controller with posture,
+  support polygon, and box retention jointly optimized, or a policy-backed
+  locomotion backend.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
