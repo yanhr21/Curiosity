@@ -12651,7 +12651,17 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   test should keep `rescue_crouch_abs040`, final scale `0.0`, no runtime chest
   support, and add target-window joint-target freeze with strict/loose
   thresholds. This tests whether the drift after the first target-window dwell
-  can be arrested without adding lateral command or chest-pad geometry.
+  can be arrested without adding lateral command or chest-pad geometry. Slurm
+  job `169996` (`g1_cffreeze`) ran on `server59` and failed `0/3`, but
+  `freeze_strict` is the best freeze branch: freeze latched at step `663`,
+  rescue started at step `732`, target-window stable steps `106`, longest
+  streak `68`, final robot/box travel `2.176/2.119 m`, final robot/box lateral
+  error `-0.105/0.084 m`, but fall/drop happened at `782/804` with max
+  robot/box tilt `1.202/1.516 rad`. `freeze_loose` and
+  `freeze_loose_zero_corr` avoided drops but only reached `71` stable steps and
+  fell at `723`. Conclusion: continue from `freeze_strict`; the next valid
+  change is stronger roll/balance feedback during frozen hold, not command
+  scale, final latch, lateral roll-target, or chest-pad timing.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

@@ -449,6 +449,30 @@ The best branch remains `rescue_crouch_abs040` with final scale `0.0`. The next
 valid test is target-window joint-target freeze on top of that branch, because
 the remaining failure is drift after the first target-window dwell.
 
+## Close-Front Rescue Freeze
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_freeze_suite.sh`
+- Purpose:
+  keep `rescue_crouch_abs040`, final scale `0.0`, no runtime chest support,
+  and add target-window joint-target freeze.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `169996` (`g1_cffreeze`) ran on
+  `server59` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_rescue_freeze/20260707_g1_lowcarry_close_front_rescue_freeze/close_front_rescue_freeze_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Longest/End Streak | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `freeze_strict` | fail | 518/496 | 782/804 | 106 | 68/0 | Best freeze branch: good final travel/lateral, but roll collapse and later drop. |
+| `freeze_loose` | fail | 577/0 | 723/- | 71 | 71/0 | Avoids drop but falls too early and misses stable-step gate. |
+| `freeze_loose_zero_corr` | fail | 577/0 | 723/- | 71 | 71/0 | Same as loose freeze; zero corrections does not help. |
+
+The most actionable close-front branch is now `freeze_strict`: it reaches the
+window for 106 steps with good final travel/lateral error, then falls from roll
+collapse around steps `780-790`. The next small test should keep
+`freeze_strict` and increase roll/balance feedback authority.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next
@@ -477,5 +501,8 @@ implementation should add an explicit posture-conditioned controller gate:
   fall/drop timing,
 - do not use nonzero final-hold scale for this branch; tiny scales still
   caused early drop/collapse,
+- continue from `freeze_strict` if pursuing close-front: it is now the best
+  target-window branch, and the next failure is roll balance rather than target
+  progress,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

@@ -8906,7 +8906,14 @@
   `0/3`: `0.003` and `0.006` collapsed around steps `634-658`, while `0.010`
   reached only `49` stable steps and still dropped. Do not continue nonzero
   final scale for this branch.
-- [ ] Run close-front rescue target-window freeze suite. Keep
+- [x] Record close-front rescue target-window freeze suite. Keep
   `rescue_crouch_abs040`, final scale `0.0`, and no runtime chest support;
   add target-window policy-joint freeze to test whether drift after first
   window dwell can be arrested without lateral command or support geometry.
+  Slurm job `169996` (`g1_cffreeze`) failed `0/3`. `freeze_strict` is useful:
+  freeze step `663`, rescue step `732`, target-window stable steps `106`,
+  longest streak `68`, good final travel/lateral, but it fell/dropped at
+  `782/804`. `freeze_loose` avoided drops but only got `71` stable steps.
+- [ ] Run close-front freeze-balance refine suite. Continue from
+  `freeze_strict` and increase roll/balance feedback authority to attack the
+  roll collapse around steps `730-790`.
