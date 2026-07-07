@@ -970,6 +970,16 @@ This is a status snapshot only. It is not a carrying-success claim.
   `169465` (`g1_bxrollgated`) through tmux
   `codex_g1_boxtilt_rollgated_0707`. Expected summary:
   `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target_refine/20260707_g1_boxtilt_heavy_lateral_roll_target_refine_gated/boxtilt_heavy_lateral_roll_target_refine_summary.json`.
+- Selected-branch horizon/hold repair job `169529` (`g1_branchhor`) completed
+  on `server26` with strict failure `0/4`. Summary:
+  `experiments/outputs/core_world_g1_selected_branch_horizon_repair/20260707_g1_selected_branch_horizon_repair_cpu/selected_branch_horizon_repair_summary.json`.
+  Both `0.25 kg` chest-pad 1600-step variants collapsed late with `526/373`
+  fall/drop events and no target-window dwell. `0.75 kg` boxtilt default
+  failed with `257/168` fall/drop events. `0.75 kg` boxtilt stop/final-zero
+  briefly reached the target window (`184` stable steps, `166` final-hold
+  stable steps) but then failed final hold with `304/290` fall/drop events
+  and end streak `0`. This proves the selected-branch failures are not just
+  short-horizon artifacts.
 - Completion audit remains `fail`. The full task is not achieved.
 
 ## Next Decision

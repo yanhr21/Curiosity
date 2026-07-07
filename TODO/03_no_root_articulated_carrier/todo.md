@@ -8370,6 +8370,22 @@
   `183/8` and lost forward progress; `final_chest_pad` fell/dropped `119/105`.
   Interpretation: small lateral cradle offsets, wider retaining geometry, and
   final-hold chest pad do not rescue the heavy boxtilt branch.
+- [x] Add
+  `scripts/isaac/run_core_world_g1_selected_branch_horizon_repair_suite.sh`
+  to test whether the probe-selected `0.25 kg` chest-pad branch and `0.75 kg`
+  boxtilt branch were only failing because the validation horizon/hold logic
+  was too short.
+- [x] Run and record selected-branch horizon/hold repair job `169529`
+  (`g1_branchhor`) on compute node `server26`. Summary:
+  `experiments/outputs/core_world_g1_selected_branch_horizon_repair/20260707_g1_selected_branch_horizon_repair_cpu/selected_branch_horizon_repair_summary.json`.
+  Result: strict `fail`, `0/4` cases passed. Both `0.25 kg` chest-pad
+  1600-step cases failed late with `526/373` fall/drop events and no
+  target-window dwell. The `0.75 kg` boxtilt default 1200-step case failed
+  with `257/168` fall/drop events. The `0.75 kg` boxtilt stop/final-zero
+  case showed the only useful signal, reaching target-window dwell
+  `184` steps and final-hold dwell `166` steps, but then falling/dropping
+  `304/290` times with end streak `0`. Interpretation: longer horizons and
+  simple final stop/zero commands do not solve selected-branch robustness.
 - [ ] Next credible route: stop repeating command-layer lateral/yaw/final-stand
   scalar sweeps and small passive cradle-geometry tweaks for the heavy
   boxtilt branch. Move to a materially different support/contact controller

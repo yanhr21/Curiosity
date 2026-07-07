@@ -11826,6 +11826,22 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `0.75 kg` boxtilt short-window branch. Stop small contact-geometry tweaks
   on this scaffold unless paired with a materially different balance/contact
   controller.
+- 2026-07-07 selected-branch horizon/hold repair result: added
+  `scripts/isaac/run_core_world_g1_selected_branch_horizon_repair_suite.sh`
+  and ran CPU compute job `169529` (`g1_branchhor`) on `server26`; summary:
+  `experiments/outputs/core_world_g1_selected_branch_horizon_repair/20260707_g1_selected_branch_horizon_repair_cpu/selected_branch_horizon_repair_summary.json`.
+  Strict result was `fail`, `0/4` cases passed. The two `0.25 kg`
+  chest-pad 1600-step cases both collapsed late with `526` falls / `373`
+  drops, first fall at step `1074`, and never reached the target window. The
+  `0.75 kg` boxtilt 1200-step default case failed with `257` falls / `168`
+  drops. The `0.75 kg` boxtilt stop/final-zero case reached the target window
+  for `184` stable steps and final-hold window for `166` steps, but then lost
+  final hold with `304` falls / `290` drops and end streak `0`. Conclusion:
+  the selected posture failures are not merely short-horizon artifacts. The
+  boxtilt branch can briefly reach the window, but the current controller
+  cannot stop and remain upright with the box; the light chest-pad branch is
+  also not robust when run long. Do not treat these as solved carrying or keep
+  extending horizons as a repair.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already
