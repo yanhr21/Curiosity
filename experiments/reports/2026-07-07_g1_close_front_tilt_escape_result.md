@@ -63,3 +63,31 @@ Pending jobs:
 
 - full two-case suite: Slurm `170370` / `g1_chestpad`
 - one-case quick/backfill suite: Slurm `170372` / `g1_chestquick`
+
+## Chest-Pad Tilt-Support Follow-Up
+
+Suite:
+`20260707_g1_lowcarry_close_front_chestpad_tilt_support`
+
+Result: aggregate `fail`, `0/2` strict cases passed. The quick/backfill job
+`170372` was cancelled after the full suite started, to avoid duplicate GPU use.
+
+| Case | fall/drop | first fall/drop | robot/box travel m | max tilt robot/box rad | target stable | final hold | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `pad_box022_z012_x006` | `891/593` | `277/309` | `0.192/0.065` | `3.138/3.141` | `0` | `0` | early collapse |
+| `pad_box026_z014_x008` | `879/387` | `277/309` | `0.838/0.733` | `3.105/3.141` | `0` | `0` | early collapse |
+
+This follow-up was a negative isolation result. Chest-pad collision enabled at
+step `650`, after the first fall/drop, while the modified lower/thicker top lid
+enabled at step `116`. Therefore this run should not be interpreted as evidence
+that an earlier chest pad is bad. It shows that the lower-lid / thicker-pad
+geometry destabilized the carry before the intended terminal support mechanism
+could matter.
+
+Next valid test:
+`scripts/isaac/run_core_world_g1_lowcarry_close_front_early_escape_1200_suite.sh`
+
+That suite keeps the original support geometry from the no-fall 1050-step
+near-miss, extends to `1200` steps, and only isolates whether early tilt escape
+plus original-size chest-pad triggering can satisfy the final-hold duration and
+box-tilt gates.

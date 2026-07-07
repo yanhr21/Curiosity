@@ -71,7 +71,7 @@
   `0/0/0`, but box tilt reached `0.544 rad > 0.45` and final-hold active
   stayed `268 < 399`. Treat this as evidence for a box-attitude-support
   follow-up, not as a pass.
-- [ ] Run close-front chest-pad tilt-support follow-up:
+- [x] Run close-front chest-pad tilt-support follow-up:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_chestpad_tilt_support_suite.sh`.
   It starts from the useful early-escape boundary, extends to `1200` steps, and
   tests earlier box-tilt chest-pad triggering plus thicker/higher pad and
@@ -81,7 +81,19 @@
   `curiosity_g1_chestpad_tilt_quick_0707` as Slurm job `170372` /
   `g1_chestquick`, suite stamp prefix
   `20260707_g1_lowcarry_close_front_chestpad_tilt_support_quick`.
-  Record `close_front_chestpad_tilt_support_summary.json` before interpreting.
+  The full suite ran and failed aggregate `0/2`. Both cases fell early at step
+  `277` and dropped at step `309`, with target-window stable steps `0` and
+  final-hold active steps `0`; chest-pad collision only enabled at step `650`,
+  after the first failure, while the modified lower/thicker top lid enabled at
+  step `116`. Conclusion: do not continue the lower-lid/thicker-pad branch;
+  isolate the useful early-escape boundary with original support geometry.
+- [ ] Run close-front early-escape 1200-step isolation:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_early_escape_1200_suite.sh`.
+  It preserves the original lid/pad geometry from the no-fall 1050-step
+  near-miss, extends to `1200` steps for the final-hold gate, and compares
+  target-window-only chest-pad trigger against original-size box-tilt-triggered
+  chest pad. Record `close_front_early_escape_1200_summary.json` before
+  interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`

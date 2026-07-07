@@ -218,7 +218,28 @@ These rules override all other project instructions.
   `g1_chestquick`, using `CHESTPAD_TILT_SUPPORT_CASE_SET=quick` and suite
   stamp prefix
   `20260707_g1_lowcarry_close_front_chestpad_tilt_support_quick`; interpret it
-  separately from the full two-case suite.
+  separately from the full two-case suite. When full job `170370` started,
+  queued quick job `170372` was cancelled to avoid duplicate GPU use. Result:
+  aggregate `fail`, 0/2 strict cases passed. Both cases failed early with
+  first fall/drop at `277/309`, target-window stable steps `0`, final-hold
+  active steps `0`, and rollout writes `0/0/0`. `pad_box022_z012_x006` had
+  fall/drop `891/593`, final robot/box travel about `0.192/0.065 m`, and max
+  robot/box tilt `3.138/3.141 rad`. `pad_box026_z014_x008` had fall/drop
+  `879/387`, final robot/box travel about `0.838/0.733 m`, and max robot/box
+  tilt `3.105/3.141 rad`. Chest-pad collision enabled only at step `650`,
+  after the first fall/drop, while the lower/thicker top lid was enabled at
+  step `116`. Interpretation: this branch was destabilized by early geometry
+  changes before the intended chest-pad trigger; do not continue the lower-lid
+  / thicker-pad branch as the active close-front fix.
+- 2026-07-07 close-front early-escape 1200-step isolation entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_early_escape_1200_suite.sh`.
+  It preserves the useful early-escape command boundary and the original
+  top-lid/chest-pad geometry from the no-fall 1050-step near-miss, extends to
+  `1200` steps for the `399` final-hold gate, and compares target-window-only
+  chest-pad trigger against original-size box-tilt-triggered chest pad. This
+  isolates terminal-duration behavior from the failed lower-lid geometry. It
+  is an experiment entrypoint only until
+  `close_front_early_escape_1200_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate
