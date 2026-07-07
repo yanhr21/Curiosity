@@ -10261,3 +10261,12 @@
   pitch/roll adjustment limit and still failed. Replace the support problem
   with a materially stronger stance/step/support formulation or a different
   locomotion backend instead of only increasing the centroidal support gains.
+- [x] Add planted-stance held-out diagnostic entrypoint:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_planted_stance_suite.sh`.
+  It uses the existing `policy_then_stand` hold mode to test a stronger
+  terminal transition to crouched stand targets for `wide_y012` and
+  `tall_z009`, preserving strict gates and no root/box rollout-write checks.
+- [ ] Run and record planted-stance held-out diagnostic through tmux plus
+  persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_planted_stance/<stamp>/closefront_heldout_geometry_planted_stance_summary.json`
+  exists.

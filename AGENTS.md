@@ -110,6 +110,14 @@ These rules override all other project instructions.
   stayed `0/0/0`. Do not keep scalar-tuning this micro joint-target support
   layer; the next step needs a materially stronger support/locomotion
   formulation or backend replacement.
+- 2026-07-07 held-out G1 planted-stance entrypoint added:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_planted_stance_suite.sh`.
+  It tests a stronger existing `AGILE_COMMAND_HOLD_MODE=policy_then_stand`
+  transition rather than the saturated micro centroidal support feedback:
+  wide boxes trigger hold near `1.25 m` box travel, tall boxes near `1.55 m`,
+  then blend toward a crouched stand target while keeping root/box write gates
+  and the same held-out strict checks. It is an experiment entrypoint only
+  until `closefront_heldout_geometry_planted_stance_summary.json` exists.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with
