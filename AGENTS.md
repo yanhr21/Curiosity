@@ -12629,10 +12629,19 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   It keeps `rescue_crouch_abs040` and tests moderate final-latch thresholds
   (`1.35`, `1.45`, `1.55 m`) after the `1.20 m` latch under-traveled and the
   `1.80 m` latch collapsed before activation. This is diagnostic only until
-  strict gates pass. Slurm job `169964` (`g1_cffinal`) was submitted through
-  tmux `curiosity_g1_close_front_rescue_final_latch_0707`; as of
-  `2026-07-07 14:52 CST`, it was still pending on GPU priority with no
-  compute-node summary yet.
+  strict gates pass. Slurm job `169964` (`g1_cffinal`) ran on `server39` and
+  failed `0/3`. `final135` fell/dropped at `784/799` with target-window stable
+  steps `75`; `final145` fell/dropped at `684/703` with stable steps `32`;
+  `final155` fell/dropped at `632/640` with stable steps `0`. Conclusion:
+  moderate final-latch thresholds are worse than the original
+  `rescue_crouch_abs040` early latch; do not continue final-latch threshold
+  sweeps for close-front.
+- 2026-07-07 close-front rescue tiny-final-scale direction: next valid test
+  should keep `rescue_crouch_abs040` and the early final latch, but use a very
+  small nonzero final-hold command scale so the existing box-progress/lateral
+  controllers can counter drift without the runaway caused by unscaled lateral
+  correction. This is a diagnostic bridge between the too-passive final scale
+  `0.0` and the unstable unscaled lateral correction.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

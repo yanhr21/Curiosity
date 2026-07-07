@@ -407,10 +407,23 @@ and the too-late `1.80 m` latch.
   latch fixes end-window retention without causing the late-latch collapse.
 - Cases:
   `final135`, `final145`, and `final155`.
-- Status:
-  Slurm job `169964` (`g1_cffinal`) was submitted through tmux
-  `curiosity_g1_close_front_rescue_final_latch_0707`; still pending on GPU
-  priority as of `2026-07-07 14:52 CST`.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `169964` (`g1_cffinal`) ran on
+  `server39` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_rescue_final_latch/20260707_g1_lowcarry_close_front_rescue_final_latch/close_front_rescue_final_latch_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | --- |
+| `final135` | fail | 516/458 | 784/799 | 75 | Moderate final latch is worse than `rescue_crouch_abs040`. |
+| `final145` | fail | 616/597 | 684/703 | 32 | Later latch collapses earlier. |
+| `final155` | fail | 668/580 | 632/640 | 0 | Approaches the too-late latch failure. |
+
+This rules out final-latch threshold sweeps for the current close-front
+branch. The next useful bridge is to keep the early `1.20 m` final latch from
+`rescue_crouch_abs040`, but give final hold a tiny nonzero scale so the
+existing progress/lateral controllers can oppose drift without the runaway of
+unscaled lateral correction.
 
 ## Next Step
 
@@ -436,5 +449,7 @@ implementation should add an explicit posture-conditioned controller gate:
   useful controller hook, and its next issue is final lateral retention,
 - do not unscale final-hold box-lateral correction; it causes runaway
   over-travel and box drops,
+- do not continue final-latch threshold sweeps; moderate thresholds worsened
+  fall/drop timing,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

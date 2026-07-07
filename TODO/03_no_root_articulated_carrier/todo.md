@@ -8894,10 +8894,12 @@
   fell/dropped at `811/832` and over-traveled to about `8.75 m`; opposite
   sign fell/dropped at `626/647` with no window dwell. Do not continue
   unscaled lateral correction.
-- [ ] Run close-front rescue final-latch sweep:
+- [x] Record close-front rescue final-latch sweep:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_final_latch_sweep.sh`.
-  It keeps `rescue_crouch_abs040` and tests final latch thresholds `1.35`,
-  `1.45`, and `1.55 m`, between the current under-traveling `1.20 m` latch
-  and the too-late `1.80 m` latch. Slurm job `169964` (`g1_cffinal`) was
-  submitted through tmux `curiosity_g1_close_front_rescue_final_latch_0707`;
-  it is pending on GPU priority as of `2026-07-07 14:52 CST`.
+  Slurm job `169964` (`g1_cffinal`) ran on `server39` and failed `0/3`.
+  `final135`, `final145`, and `final155` all fell/dropped earlier than
+  `rescue_crouch_abs040`; moderate final-latch thresholds should not continue.
+- [ ] Run close-front rescue tiny-final-scale suite. Keep
+  `rescue_crouch_abs040` and early final latch, but set final-hold scale to a
+  very small nonzero value so existing progress/lateral controllers can oppose
+  drift without unscaled runaway.
