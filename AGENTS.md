@@ -11148,6 +11148,28 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `curiosity_mujoco_hold_capture_after_g1_0707` with
   `--dependency=afterany:169585`, GPU allocation, and the suite suffix
   `stance_force_holdcapture_after_g1`.
+- 2026-07-07 MuJoCo hold capture-point result: Slurm job `169609`
+  (`mj_holdcap`) ran on `server59`; all six summaries were written under
+  `experiments/outputs/mujoco_quadruped_freebox/20260707_mujoco_quad_freebox_2kg_*_stance_force_holdcapture_after_g1/`,
+  then the job was cancelled during script-end cleanup to release the node.
+  Strict result was `fail`, `0/6` cases passed. All cases had free box,
+  `assist_mode=none`, `leg_drive_mode=foot_ik`,
+  `support_controller_mode=stance_force`, retention force audited,
+  target-stop latched, target-stop hold `1797` steps, hold-capture active
+  `1796` steps, support joint torque writes `3000`, and root/box pose/
+  velocity writes all `0`. They still failed after latch with `77` fall
+  events and `73-74` box-drop events, max tilt `1.668-1.719 rad`, and minimum
+  box height `0.318-0.362 m`. Final box travel was nonzero
+  (`0.260-0.313 m`), but the robot/box collapsed during the hold. Best final
+  relative error was `0.104 m` in `capture_xy_pos`, and best min box height
+  was `0.362 m` in `capture_x_pos`; neither is close to a pass because the
+  fall/drop/tilt/height gates fail. Conclusion: the new capture-point
+  foot-placement/hip/foot-height controller is active and audited, but it
+  does not solve the simplified MuJoCo free-box post-latch stability problem.
+  This reinforces the prior stop decision for hand-tuned MuJoCo controller
+  sweeps; the next credible path needs a real controller-backed locomotion
+  backend, MPC/whole-body balance controller, or a materially different
+  support optimizer, not more scalar gain variants on this same model.
 - 2026-07-07 route switch after MuJoCo hand-controller exhaustion: current
   best credible locomotion/carry evidence is the G1 AGILE policy path in
   `scripts/isaac/build_core_world_g1_box_scene.py` and

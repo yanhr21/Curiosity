@@ -440,13 +440,19 @@
   launcher and checked through `scripts/mujoco/check_quadruped_freebox_summary.py`.
   It changes hold foot placement/hip-roll/foot-height based on capture-point
   style velocity and lateral drift signals after target latch only.
-- [ ] Run and record
+- [x] Run and record
   `scripts/mujoco/run_quadruped_freebox_stance_force_hold_capture_suite.sh`.
   Preserve strict gates: free box, no torso body-force assist, support torques
   only through actuated joints, retention force audited, fall/drop 0, final
   box travel >= `0.12 m`, target hold >= 600 steps, no root/box pose or
   velocity writes, and final relative error <= `0.20 m`.
   Submitted as Slurm job `169609` with `--dependency=afterany:169585`.
+- [x] Record Slurm job `169609` MuJoCo hold-capture result. Strict `fail`,
+  `0/6` cases passed. Target-stop and hold-capture both activated for all
+  cases, root/box pose and velocity writes stayed `0`, and final box travel
+  was nonzero, but every case still had `77` falls, `73-74` drops, excessive
+  tilt, and low box height. Stop treating this hand-controller family as a
+  credible route to stable carrying.
 - [x] Switch active implementation focus back to the G1 AGILE policy path.
   Historical best low-carry run completed 819 steps with fall/drop `0/0`,
   free box, G1 USD, AGILE ONNX policy, no rollout root/box pose writes, and

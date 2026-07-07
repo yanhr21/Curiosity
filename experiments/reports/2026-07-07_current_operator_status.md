@@ -138,6 +138,17 @@ This is a status snapshot only. It is not a carrying-success claim.
   `--dependency=afterany:169585`. It will run the MuJoCo hold-capture suite
   after the G1 window-hold diagnostic.
   No Curiosity simulation/render job is running on the login node.
+- `169609` / `mj_holdcap` ran on `server59`; all six case summaries were
+  written, then the Slurm job was cancelled during script-end cleanup to
+  release the node. Result: strict `fail`, `0/6` cases passed. All cases
+  latched target-stop (`1797` hold steps), activated hold-capture (`1796`
+  steps), kept root/box pose and velocity writes at `0`, and used audited
+  support-joint torques plus retention force. They still failed with `77`
+  falls, `73-74` drops, max tilt `1.668-1.719 rad`, and min box height
+  `0.318-0.362 m`. Interpretation: capture-point foot placement is active,
+  but this simplified MuJoCo hand-controller still collapses during the hold;
+  stop this controller family unless the next change is a materially different
+  controller/backend.
 - `169316` / `any_payload` completed on `server36` with no rollout and no
   summary. The policy-backed ANYmal payload wrapper failed during IsaacLab
   `gym.make` initialization with `Failed to get DOF velocities from backend`.
