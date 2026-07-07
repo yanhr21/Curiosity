@@ -8873,9 +8873,13 @@
 - [ ] Do not continue runtime chest-pad timing/geometry for close-front. Next
   retention tests should use the no-pad close-front trajectory and add late
   final-hold/brake/freeze only after the run approaches the target window.
-- [ ] Await close-front late-hold suite:
+- [x] Record close-front late-hold suite:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_late_hold_suite.sh`.
-  Slurm job `169927` (`g1_cflate`) was submitted through tmux
-  `curiosity_g1_close_front_late_hold_0707` and is pending/running on GPU.
-  It tests `late_final_180`, `late_final_180_freeze`, and
-  `late_final_180_brake` with runtime chest support disabled.
+  Slurm job `169927` (`g1_cflate`) ran on `server63` and failed `0/3`.
+  All three cases fell/dropped at steps `632/640`, had target-window stable
+  steps `0`, and did not final-latch until step `790`. Late final latch at
+  `1.80 m` is too late and should not be continued.
+- [ ] Run close-front rescue/balance suite:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_balance_suite.sh`.
+  It returns to the `no_runtime_pad` early-final-latch baseline and tests
+  crouch rescue plus lateral roll-target signs for the late roll collapse.

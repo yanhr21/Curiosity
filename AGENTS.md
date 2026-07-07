@@ -12587,10 +12587,22 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `late_final_180`, `late_final_180_freeze`, and `late_final_180_brake` to
   determine whether later final latch plus zero command, target-window freeze,
   or a short reverse brake can retain the target window after the support-free
-  run reaches it. Slurm job `169927` (`g1_cflate`) was submitted through tmux
-  `curiosity_g1_close_front_late_hold_0707` and was pending on GPU priority as
-  of `2026-07-07 14:29 CST`. It is not evidence until the compute-node summary
-  exists.
+  run reaches it. Slurm job `169927` (`g1_cflate`) ran on `server63` and
+  failed `0/3`. All three cases failed before reaching the target window:
+  first fall/drop `632/640`, target-window stable steps `0`, final latch step
+  `790`, and no rollout root/velocity/box pose writes. `late_final_180_brake`
+  also over-traveled to robot/box `3.386/3.467 m`. Conclusion: late final
+  latch at `1.80 m` is too late for close-front; the early final latch around
+  `1.20 m` from `no_runtime_pad` is necessary even though it later falls.
+- 2026-07-07 close-front rescue/balance entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_balance_suite.sh`.
+  It returns to the `no_runtime_pad` early-final-latch baseline and tests
+  crouch rescue triggered by absolute roll (`rescue_crouch_abs040`,
+  `rescue_crouch_abs055`) plus lateral-error-derived roll targets with both
+  signs (`balance_roll_avg_pos`, `balance_roll_avg_neg`). This is a diagnostic
+  for the late roll-collapse seen around steps `780-910`; it must not be
+  claimed as final carrying unless strict fall/drop, target-window, tilt, and
+  no-shortcut gates pass.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

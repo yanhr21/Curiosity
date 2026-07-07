@@ -318,10 +318,37 @@ target-window freeze, or a short reverse brake on the no-pad trajectory.
   retain the close-front trajectory after it reaches the target region.
 - Cases:
   `late_final_180`, `late_final_180_freeze`, and `late_final_180_brake`.
-- Status:
-  Slurm job `169927` (`g1_cflate`) was submitted through tmux
-  `curiosity_g1_close_front_late_hold_0707`; pending on GPU priority as of
-  `2026-07-07 14:29 CST`.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `169927` (`g1_cflate`) ran on
+  `server63` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_late_hold/20260707_g1_lowcarry_close_front_late_hold/close_front_late_hold_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Final Latch Step | Target Stable Steps | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `late_final_180` | fail | 668/548 | 632/640 | 790 | 0 | Final latch occurs after collapse; worse than `no_runtime_pad`. |
+| `late_final_180_freeze` | fail | 668/548 | 632/640 | 790 | 0 | Freeze never latches because the robot falls before target-window stability. |
+| `late_final_180_brake` | fail | 668/544 | 632/640 | 790 | 0 | Reverse brake is activated too late and over-travels badly. |
+
+This rules out late final latch at `1.80 m` for the current close-front
+trajectory. The earlier final latch from `no_runtime_pad` at step `540` is
+necessary to reach any target-window dwell. The failure to repair is now a
+late roll-collapse problem, not a missing late command stop.
+
+## Close-Front Rescue/Balance Entrypoint
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_rescue_balance_suite.sh`
+- Purpose:
+  return to the `no_runtime_pad` early-final-latch baseline and test whether
+  existing controller hooks can catch the late roll collapse around steps
+  `780-910`.
+- Cases:
+  `rescue_crouch_abs040`, `rescue_crouch_abs055`,
+  `balance_roll_avg_pos`, and `balance_roll_avg_neg`.
+- Gate:
+  unchanged strict fall/drop, target-window, final-hold, tilt,
+  lateral-error, and no rollout root/box writes checks.
 
 ## Next Step
 
@@ -341,5 +368,7 @@ implementation should add an explicit posture-conditioned controller gate:
 - do not trigger chest support/freeze immediately at first target-window entry
   or keep tuning chest-pad timing/geometry for close-front; v2 shortened the
   stable window and support-timing showed no-pad was least bad,
+- do not move final latch later to `1.80 m`; late-hold collapsed before it
+  could latch,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.
