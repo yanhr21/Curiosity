@@ -127,6 +127,9 @@ SUPPORT_QP_FRICTION_MU="${SUPPORT_QP_FRICTION_MU:-0.9}"
 SUPPORT_QP_ANGULAR_WEIGHT="${SUPPORT_QP_ANGULAR_WEIGHT:-1.0}"
 SUPPORT_QP_POST_LATCH_ONLY="${SUPPORT_QP_POST_LATCH_ONLY:-0}"
 SUPPORT_QP_MOMENT_CLIP_SCALE="${SUPPORT_QP_MOMENT_CLIP_SCALE:-0.0}"
+SUPPORT_WBC_POST_LATCH_ONLY="${SUPPORT_WBC_POST_LATCH_ONLY:-0}"
+SUPPORT_WBC_INCLUDE_BOX_MASS="${SUPPORT_WBC_INCLUDE_BOX_MASS:-0}"
+SUPPORT_WBC_BOX_COM_WEIGHT="${SUPPORT_WBC_BOX_COM_WEIGHT:-1.0}"
 
 EXTRA_ARGS=()
 if [[ -n "${STOP_AFTER_BOX_TRAVEL}" ]]; then
@@ -170,6 +173,12 @@ if [[ "${SUPPORT_ATTITUDE_RECOVERY}" == "1" ]]; then
 fi
 if [[ "${SUPPORT_QP_POST_LATCH_ONLY}" == "1" ]]; then
   EXTRA_ARGS+=(--support-qp-post-latch-only)
+fi
+if [[ "${SUPPORT_WBC_POST_LATCH_ONLY}" == "1" ]]; then
+  EXTRA_ARGS+=(--support-wbc-post-latch-only)
+fi
+if [[ "${SUPPORT_WBC_INCLUDE_BOX_MASS}" == "1" ]]; then
+  EXTRA_ARGS+=(--support-wbc-include-box-mass)
 fi
 
 mkdir -p "${LOG_DIR}" "${OUTPUT_DIR}"
@@ -280,6 +289,7 @@ cd "${ROOT_DIR}"
   --support-qp-friction-mu "${SUPPORT_QP_FRICTION_MU}" \
   --support-qp-angular-weight "${SUPPORT_QP_ANGULAR_WEIGHT}" \
   --support-qp-moment-clip-scale "${SUPPORT_QP_MOMENT_CLIP_SCALE}" \
+  --support-wbc-box-com-weight "${SUPPORT_WBC_BOX_COM_WEIGHT}" \
   --output-dir "${OUTPUT_DIR}" \
   "${EXTRA_ARGS[@]}" \
   2>&1 | tee "${LOG_PATH}"

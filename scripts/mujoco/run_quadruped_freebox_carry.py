@@ -86,6 +86,7 @@ def parse_args() -> argparse.Namespace:
             "lqr_stance_force",
             "lqr_additive_stance_force",
             "qp_stance_force",
+            "wbc_carried_mass_qp",
         ),
         default="none",
     )
@@ -152,6 +153,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--support-qp-angular-weight", type=float, default=1.0)
     parser.add_argument("--support-qp-post-latch-only", action="store_true")
     parser.add_argument("--support-qp-moment-clip-scale", type=float, default=0.0)
+    parser.add_argument("--support-wbc-post-latch-only", action="store_true")
+    parser.add_argument("--support-wbc-include-box-mass", action="store_true")
+    parser.add_argument("--support-wbc-box-com-weight", type=float, default=1.0)
     parser.add_argument("--tray-half-length", type=float, default=0.38)
     parser.add_argument("--tray-half-width", type=float, default=0.24)
     parser.add_argument("--wall-height", type=float, default=0.16)
@@ -572,6 +576,13 @@ def main() -> None:
         "max_support_qp_wrench_residual": 0.0,
         "max_support_qp_friction_usage": 0.0,
         "max_abs_support_qp_moment_clip_delta_nm": 0.0,
+        "support_wbc_post_latch_only": bool(args.support_wbc_post_latch_only),
+        "support_wbc_include_box_mass": bool(args.support_wbc_include_box_mass),
+        "support_wbc_box_com_weight": float(args.support_wbc_box_com_weight),
+        "support_wbc_active_steps": 0,
+        "max_abs_wbc_combined_com_support_x_error_m": 0.0,
+        "max_abs_wbc_combined_com_support_y_error_m": 0.0,
+        "max_support_wbc_extra_payload_fz_n": 0.0,
         "max_assist_force_x_n": float(args.max_assist_force_x),
         "max_assist_force_z_n": float(args.max_assist_force_z),
         "max_assist_torque_nm": float(args.max_assist_torque),
@@ -828,6 +839,7 @@ def main() -> None:
                 "lqr_stance_force",
                 "lqr_additive_stance_force",
                 "qp_stance_force",
+                "wbc_carried_mass_qp",
             ) and stance_feet:
                 target_height_cmd = float(args.target_height)
                 support_kd_z = float(args.support_kd_z)
@@ -875,6 +887,19 @@ def main() -> None:
                     + float(args.support_kp_z) * (target_height_cmd - torso_z)
                     - support_kd_z * float(data.qvel[8])
                 )
+                use_wbc_allocation = (
+                    args.support_controller_mode == "wbc_carried_mass_qp"
+                    and (target_stop_latched or not bool(args.support_wbc_post_latch_only))
+                )
+                wbc_extra_payload_fz = 0.0
+                if use_wbc_allocation and bool(args.support_wbc_include_box_mass):
+                    box_mass_kg = float(model.body(box_id).mass[0])
+                    wbc_extra_payload_fz = box_mass_kg * 9.81
+                    total_fz += wbc_extra_payload_fz
+                    summary["max_support_wbc_extra_payload_fz_n"] = max(
+                        float(summary["max_support_wbc_extra_payload_fz_n"]),
+                        abs(float(wbc_extra_payload_fz)),
+                    )
                 total_fz = max(
                     float(args.support_min_foot_fz) * len(stance_feet),
                     min(support_max_foot_fz * len(stance_feet), total_fz),
@@ -901,23 +926,51 @@ def main() -> None:
                     for body_id in robot_body_ids:
                         robot_com += float(model.body(body_id).mass[0]) * data.xipos[body_id]
                     robot_com /= robot_mass_kg
+                wbc_com = robot_com.copy()
+                wbc_mass_kg = robot_mass_kg
+                if use_wbc_allocation and bool(args.support_wbc_include_box_mass):
+                    box_mass_kg = float(model.body(box_id).mass[0])
+                    box_com_weight = max(0.0, float(args.support_wbc_box_com_weight))
+                    if robot_mass_kg + box_com_weight * box_mass_kg > 1e-6:
+                        wbc_com = (
+                            robot_mass_kg * robot_com
+                            + box_com_weight * box_mass_kg * np.asarray(data.xipos[box_id], dtype=float)
+                        ) / (robot_mass_kg + box_com_weight * box_mass_kg)
+                        wbc_mass_kg = robot_mass_kg + box_com_weight * box_mass_kg
                 stance_center_x = sum(float(data.xpos[foot_body_id, 0]) for foot_body_id, _, _ in stance_feet) / len(stance_feet)
                 stance_center_y = sum(float(data.xpos[foot_body_id, 1]) for foot_body_id, _, _ in stance_feet) / len(stance_feet)
-                com_x_error = float(robot_com[0] - (stance_center_x + float(args.support_com_target_x_offset)))
-                com_y_error = float(robot_com[1] - (stance_center_y + float(args.support_com_target_y_offset)))
+                support_com_for_control = wbc_com if use_wbc_allocation else robot_com
+                support_mass_for_control = wbc_mass_kg if use_wbc_allocation else robot_mass_kg
+                com_x_error = float(support_com_for_control[0] - (stance_center_x + float(args.support_com_target_x_offset)))
+                com_y_error = float(support_com_for_control[1] - (stance_center_y + float(args.support_com_target_y_offset)))
+                if use_wbc_allocation:
+                    summary["support_wbc_active_steps"] = int(summary["support_wbc_active_steps"]) + 1
+                    summary["max_abs_wbc_combined_com_support_x_error_m"] = max(
+                        float(summary["max_abs_wbc_combined_com_support_x_error_m"]),
+                        abs(com_x_error),
+                    )
+                    summary["max_abs_wbc_combined_com_support_y_error_m"] = max(
+                        float(summary["max_abs_wbc_combined_com_support_y_error_m"]),
+                        abs(com_y_error),
+                    )
                 support_lqr_fx = 0.0
                 support_lqr_fy = 0.0
                 support_lqr_active = (
-                    args.support_controller_mode in ("lqr_stance_force", "lqr_additive_stance_force", "qp_stance_force")
+                    args.support_controller_mode in (
+                        "lqr_stance_force",
+                        "lqr_additive_stance_force",
+                        "qp_stance_force",
+                        "wbc_carried_mass_qp",
+                    )
                     and (target_stop_latched or not bool(args.support_lqr_post_latch_only))
                 )
-                if support_lqr_active and robot_mass_kg > 1e-6:
+                if support_lqr_active and support_mass_for_control > 1e-6:
                     lqr_vx_error = float(data.qvel[6] - target_speed_cmd)
                     lqr_vy_error = float(data.qvel[7])
                     lqr_ax = -support_lqr_k_pos * com_x_error - support_lqr_k_vel * lqr_vx_error
                     lqr_ay = -support_lqr_k_pos * com_y_error - support_lqr_k_vel * lqr_vy_error
-                    support_lqr_fx = float(robot_mass_kg * lqr_ax)
-                    support_lqr_fy = float(robot_mass_kg * lqr_ay)
+                    support_lqr_fx = float(support_mass_for_control * lqr_ax)
+                    support_lqr_fy = float(support_mass_for_control * lqr_ay)
                     support_lqr_fx = max(
                         -float(args.support_lqr_max_fx),
                         min(float(args.support_lqr_max_fx), support_lqr_fx),
@@ -994,9 +1047,9 @@ def main() -> None:
                     args.support_controller_mode == "qp_stance_force"
                     and (target_stop_latched or not bool(args.support_qp_post_latch_only))
                 )
-                if use_centroidal_allocation or use_qp_allocation:
+                if use_centroidal_allocation or use_qp_allocation or use_wbc_allocation:
                     wrench_matrix = np.zeros((6, 3 * len(stance_feet)), dtype=float)
-                    wrench_center = robot_com if robot_mass_kg > 1e-6 else data.xpos[torso_id]
+                    wrench_center = support_com_for_control if support_mass_for_control > 1e-6 else data.xpos[torso_id]
                     qp_foot_positions: list[np.ndarray] = []
                     for foot_index, (foot_body_id, _, _) in enumerate(stance_feet):
                         col = 3 * foot_index
@@ -1023,7 +1076,7 @@ def main() -> None:
                         ],
                         dtype=float,
                     )
-                    if use_qp_allocation and float(args.support_qp_moment_clip_scale) > 0.0:
+                    if (use_qp_allocation or use_wbc_allocation) and float(args.support_qp_moment_clip_scale) > 0.0:
                         moment_bounds = _contact_moment_bounds(
                             qp_foot_positions,
                             wrench_center,
@@ -1060,7 +1113,7 @@ def main() -> None:
                         force[1] = float(np.clip(force[1], -max_lateral_force, max_lateral_force))
                         force[2] = float(np.clip(force[2], -abs(float(args.support_force_scale)) * support_max_foot_fz, abs(float(args.support_force_scale)) * support_max_foot_fz))
                         initial_forces.append(force)
-                    if use_qp_allocation:
+                    if use_qp_allocation or use_wbc_allocation:
                         normal_sign = -1.0 if float(args.support_force_scale) < 0.0 else 1.0
                         min_normal = abs(float(args.support_force_scale)) * float(args.support_min_foot_fz)
                         max_normal = abs(float(args.support_force_scale)) * support_max_foot_fz

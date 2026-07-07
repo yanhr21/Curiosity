@@ -1150,13 +1150,24 @@ This is a status snapshot only. It is not a carrying-success claim.
   gate, friction usage saturated, and final travel only `0.260-0.328 m`.
   Treat this as a useful diagnostic that the desired wrench was infeasible,
   not as progress toward solved carrying.
+- WBC carried-mass follow-up job `169633` (`mj_wbcmass`) completed on
+  `server39` with Slurm exit `0:0`, but strict pass was `0/4`. This was a
+  real controller-class change, not a small QP sweep: it used
+  `SUPPORT_CONTROLLER_MODE=wbc_carried_mass_qp`, added physical box mass to
+  the support vertical load, and used robot+box combined COM for post-latch
+  support allocation. It proved active (`2292-2555` WBC/QP/LQR steps,
+  `19.62 N` extra payload support, root/box writes `0`) but failed physically.
+  Three cases latched early at step `445` and then drove backward, ending with
+  negative final box travel; high-hold moved forward but fell/dropped
+  `99/93`. Overall fall/drop was `51-99` / `42-93`, min box z
+  `0.286-0.373 m`, max tilt `1.77-3.26 rad`. This is not a success.
 
 ## Next Decision
 
 - Next controller work should stay on materially stronger support/contact
-  control. Post-latch QP and feasible-moment QP both failed, so stop small
-  QP gain/weight/clip sweeps on this MuJoCo hand-controller branch. Move to a
-  constrained whole-body/contact formulation or a policy-backed locomotion
-  backend.
+  control. Post-latch QP, feasible-moment QP, and carried-mass WBC all failed,
+  so stop this MuJoCo hand-controller branch unless the next change explicitly
+  introduces a transition-aware contact objective for stopping plus retention,
+  or switch to a policy-backed locomotion backend.
 - For visuals, use the schematic GIF/poster only with the explicit label that
   it is not an Isaac camera render.

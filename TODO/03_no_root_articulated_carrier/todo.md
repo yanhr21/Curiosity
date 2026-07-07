@@ -8597,3 +8597,19 @@
   the next change replaces the controller class. Needed next work is a real
   constrained whole-body/contact optimizer or policy-backed locomotion, not
   another small QP clipping/weight/gain sweep.
+- [x] Add a replacement MuJoCo controller class,
+  `SUPPORT_CONTROLLER_MODE=wbc_carried_mass_qp`, with post-latch carried-mass
+  support, robot+box combined COM, WBC active-step metrics, combined-COM
+  support-error metrics, and extra payload-Fz metrics.
+- [x] Run and record WBC carried-mass diagnostic job `169633` (`mj_wbcmass`)
+  through tmux `curiosity_mujoco_wbc_carried_mass_0707`. Slurm completed on
+  `server39` with exit `0:0`, but strict pass was `0/4`. WBC was active
+  (`2292-2555` steps) with root/box writes `0`, but it latched early and
+  failed post-latch retention/balance: fall/drop `51-99` / `42-93`, min box z
+  `0.286-0.373 m`, max tilt `1.77-3.26 rad`, and three cases ended with
+  negative final box travel. This is not carrying success.
+- [ ] Next credible path after WBC carried-mass failure: do not continue this
+  MuJoCo branch with small stop/height/weight changes. Either add a real
+  transition-aware contact objective that jointly handles stopping,
+  retention, and support, or switch effort back to a policy-backed locomotion
+  backend where walking is not hand-authored.

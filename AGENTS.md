@@ -12211,6 +12211,25 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   is either a real constrained whole-body/contact controller with posture,
   support polygon, and box retention jointly optimized, or a policy-backed
   locomotion backend.
+- 2026-07-07 MuJoCo carried-mass WBC diagnostic: added
+  `SUPPORT_CONTROLLER_MODE=wbc_carried_mass_qp`, which is a separate
+  controller class from the earlier QP sweeps. It can activate post-latch,
+  include the physical box mass in support vertical load, and compute support
+  LQR/contact allocation from the robot+box combined COM. Slurm job `169633`
+  (`mj_wbcmass`) completed on `server39` with Slurm exit `0:0`, but strict
+  result was `0/4`. All four cases latched and kept root/box pose/velocity
+  writes at `0`; WBC/QP/LQR active steps were `2292-2555`, and extra payload
+  support was recorded as `19.62 N`. The useful negative signal is that WBC
+  caused much earlier target-stop latch (`step 445` for three cases, `708` for
+  high-hold) and then failed post-latch balance/retention: fullbox/halfcom/
+  recovery ended with negative final box travel (`-0.60`, `-0.61`, `-0.89 m`)
+  despite max travel only `0.062 m`; high-hold moved forward `0.373 m` but
+  had `99/93` fall/drop events and max tilt `3.24 rad`. Fall/drop counts were
+  `51-99` / `42-93`, min box z `0.286-0.373 m`, and max tilt `1.77-3.26 rad`.
+  Conclusion: simply adding carried mass and combined COM to support QP is not
+  enough; the transition/stop and retention/contact objectives must be jointly
+  handled, or the project should return to a real policy-backed locomotion
+  backend. Do not report `169633` as robot carrying success.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
