@@ -172,6 +172,38 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--balance-roll-activation-threshold", type=float, default=0.0)
     parser.add_argument("--balance-pitch-rate-activation-threshold", type=float, default=0.0)
     parser.add_argument("--balance-roll-rate-activation-threshold", type=float, default=0.0)
+    parser.add_argument("--terminal-centroidal-support-controller", action="store_true")
+    parser.add_argument("--terminal-centroidal-support-start-box-target-travel", type=float, default=-1.0)
+    parser.add_argument("--terminal-centroidal-support-progress-full", type=float, default=2.0)
+    parser.add_argument("--terminal-centroidal-support-target", type=float, default=-1.0)
+    parser.add_argument("--terminal-centroidal-support-progress-deadband", type=float, default=0.08)
+    parser.add_argument("--terminal-centroidal-support-progress-pitch-target-gain", type=float, default=0.0)
+    parser.add_argument("--terminal-centroidal-support-progress-pitch-target-limit", type=float, default=0.04)
+    parser.add_argument("--terminal-centroidal-support-lateral-source", choices=("robot", "box", "average"), default="average")
+    parser.add_argument("--terminal-centroidal-support-lateral-deadband", type=float, default=0.06)
+    parser.add_argument("--terminal-centroidal-support-lateral-target-gain", type=float, default=0.10)
+    parser.add_argument("--terminal-centroidal-support-lateral-target-limit", type=float, default=0.05)
+    parser.add_argument("--terminal-centroidal-support-lateral-target-sign", type=float, default=1.0)
+    parser.add_argument("--terminal-centroidal-support-pitch-gain", type=float, default=0.08)
+    parser.add_argument("--terminal-centroidal-support-pitch-rate-gain", type=float, default=0.004)
+    parser.add_argument("--terminal-centroidal-support-roll-gain", type=float, default=0.08)
+    parser.add_argument("--terminal-centroidal-support-roll-rate-gain", type=float, default=0.004)
+    parser.add_argument("--terminal-centroidal-support-pitch-sign", type=float, default=-1.0)
+    parser.add_argument("--terminal-centroidal-support-roll-sign", type=float, default=-1.0)
+    parser.add_argument("--terminal-centroidal-support-adjustment-limit", type=float, default=0.06)
+    parser.add_argument("--terminal-centroidal-support-blend-rate", type=float, default=1.0)
+    parser.add_argument("--terminal-centroidal-support-hip-pitch-scale", type=float, default=-0.45)
+    parser.add_argument("--terminal-centroidal-support-ankle-pitch-scale", type=float, default=1.0)
+    parser.add_argument("--terminal-centroidal-support-knee-crouch-offset", type=float, default=0.02)
+    parser.add_argument("--terminal-centroidal-support-hip-crouch-offset", type=float, default=-0.01)
+    parser.add_argument("--terminal-centroidal-support-ankle-crouch-offset", type=float, default=-0.006)
+    parser.add_argument("--terminal-centroidal-support-waist-pitch-scale", type=float, default=0.20)
+    parser.add_argument("--terminal-centroidal-support-roll-left-ankle-scale", type=float, default=1.0)
+    parser.add_argument("--terminal-centroidal-support-roll-right-ankle-scale", type=float, default=1.0)
+    parser.add_argument("--terminal-centroidal-support-roll-left-hip-scale", type=float, default=-0.45)
+    parser.add_argument("--terminal-centroidal-support-roll-right-hip-scale", type=float, default=-0.45)
+    parser.add_argument("--terminal-centroidal-support-max-tilt", type=float, default=999.0)
+    parser.add_argument("--terminal-centroidal-support-max-box-tilt", type=float, default=999.0)
     parser.add_argument("--diagnostic-root-drive", choices=("none", "smooth_x"), default="none")
     parser.add_argument("--diagnostic-root-drive-start-step", type=int, default=0)
     parser.add_argument("--diagnostic-root-drive-stop-step", type=int, default=-1)
@@ -2137,6 +2169,167 @@ def _apply_balance_feedback(
     return adjusted, True
 
 
+def _apply_terminal_centroidal_support(
+    command: np.ndarray,
+    joint_names: list[str],
+    robot_target_directed: float,
+    box_target_directed: float,
+    robot_lateral_error: float,
+    box_lateral_error: float,
+    roll: float,
+    pitch: float,
+    roll_rate: float,
+    pitch_rate: float,
+    box_tilt: float,
+) -> tuple[np.ndarray, bool, dict[str, float]]:
+    diag = {
+        "risk": 0.0,
+        "progress_error_m": 0.0,
+        "lateral_error_m": 0.0,
+        "pitch_target_rad": 0.0,
+        "roll_target_rad": 0.0,
+        "pitch_adjust_rad": 0.0,
+        "roll_adjust_rad": 0.0,
+    }
+    if not bool(args_cli.terminal_centroidal_support_controller):
+        return command, False, diag
+    support_progress = min(float(robot_target_directed), float(box_target_directed))
+    start = float(args_cli.terminal_centroidal_support_start_box_target_travel)
+    if start < 0.0 or support_progress < start:
+        return command, False, diag
+    if (
+        max(abs(float(roll)), abs(float(pitch))) > max(0.0, float(args_cli.terminal_centroidal_support_max_tilt))
+        or float(box_tilt) > max(0.0, float(args_cli.terminal_centroidal_support_max_box_tilt))
+    ):
+        return command, False, diag
+
+    progress_risk = _ramp01(
+        support_progress,
+        start,
+        float(args_cli.terminal_centroidal_support_progress_full),
+    )
+    if progress_risk <= 0.0:
+        return command, False, diag
+
+    lateral_source = str(args_cli.terminal_centroidal_support_lateral_source)
+    if lateral_source == "box":
+        lateral_error = float(box_lateral_error)
+    elif lateral_source == "robot":
+        lateral_error = float(robot_lateral_error)
+    else:
+        lateral_error = 0.5 * (float(robot_lateral_error) + float(box_lateral_error))
+    lateral_deadband = max(0.0, float(args_cli.terminal_centroidal_support_lateral_deadband))
+    lateral_excess = max(0.0, abs(lateral_error) - lateral_deadband)
+    roll_target_limit = abs(float(args_cli.terminal_centroidal_support_lateral_target_limit))
+    roll_target = max(
+        -roll_target_limit,
+        min(
+            roll_target_limit,
+            float(args_cli.terminal_centroidal_support_lateral_target_sign)
+            * float(args_cli.terminal_centroidal_support_lateral_target_gain)
+            * math.copysign(float(lateral_excess), float(lateral_error) if lateral_error != 0.0 else 1.0),
+        ),
+    )
+
+    target = (
+        float(args_cli.terminal_centroidal_support_target)
+        if float(args_cli.terminal_centroidal_support_target) >= 0.0
+        else float(args_cli.target_window_center)
+    )
+    average_progress = 0.5 * (float(robot_target_directed) + float(box_target_directed))
+    progress_error = float(target) - float(average_progress)
+    progress_excess = math.copysign(
+        max(0.0, abs(float(progress_error)) - max(0.0, float(args_cli.terminal_centroidal_support_progress_deadband))),
+        float(progress_error) if progress_error != 0.0 else 1.0,
+    )
+    pitch_target_limit = abs(float(args_cli.terminal_centroidal_support_progress_pitch_target_limit))
+    pitch_target = max(
+        -pitch_target_limit,
+        min(
+            pitch_target_limit,
+            float(args_cli.terminal_centroidal_support_progress_pitch_target_gain) * float(progress_excess),
+        ),
+    )
+
+    limit = abs(float(args_cli.terminal_centroidal_support_adjustment_limit))
+    pitch_adjust = max(
+        -limit,
+        min(
+            limit,
+            float(args_cli.terminal_centroidal_support_pitch_sign)
+            * (
+                float(args_cli.terminal_centroidal_support_pitch_gain) * (float(pitch) - float(pitch_target))
+                + float(args_cli.terminal_centroidal_support_pitch_rate_gain) * float(pitch_rate)
+            ),
+        ),
+    )
+    roll_adjust = max(
+        -limit,
+        min(
+            limit,
+            float(args_cli.terminal_centroidal_support_roll_sign)
+            * (
+                float(args_cli.terminal_centroidal_support_roll_gain) * (float(roll) - float(roll_target))
+                + float(args_cli.terminal_centroidal_support_roll_rate_gain) * float(roll_rate)
+            ),
+        ),
+    )
+    blend = max(0.0, min(1.0, float(args_cli.terminal_centroidal_support_blend_rate)))
+    if blend <= 0.0:
+        return command, False, diag
+
+    adjusted = np.array(command, dtype=float, copy=True)
+    crouch = float(progress_risk)
+    for side in ("left", "right"):
+        if f"{side}_ankle_pitch_joint" in joint_names:
+            idx = joint_names.index(f"{side}_ankle_pitch_joint")
+            target_value = (
+                float(command[idx])
+                + float(args_cli.terminal_centroidal_support_ankle_pitch_scale) * float(pitch_adjust)
+                + crouch * float(args_cli.terminal_centroidal_support_ankle_crouch_offset)
+            )
+            adjusted[idx] = (1.0 - blend) * adjusted[idx] + blend * target_value
+        if f"{side}_hip_pitch_joint" in joint_names:
+            idx = joint_names.index(f"{side}_hip_pitch_joint")
+            target_value = (
+                float(command[idx])
+                + float(args_cli.terminal_centroidal_support_hip_pitch_scale) * float(pitch_adjust)
+                + crouch * float(args_cli.terminal_centroidal_support_hip_crouch_offset)
+            )
+            adjusted[idx] = (1.0 - blend) * adjusted[idx] + blend * target_value
+        if f"{side}_knee_joint" in joint_names:
+            idx = joint_names.index(f"{side}_knee_joint")
+            target_value = float(command[idx]) + crouch * float(args_cli.terminal_centroidal_support_knee_crouch_offset)
+            adjusted[idx] = (1.0 - blend) * adjusted[idx] + blend * target_value
+    for joint_name, scale_name in (
+        ("left_ankle_roll_joint", "terminal_centroidal_support_roll_left_ankle_scale"),
+        ("right_ankle_roll_joint", "terminal_centroidal_support_roll_right_ankle_scale"),
+        ("left_hip_roll_joint", "terminal_centroidal_support_roll_left_hip_scale"),
+        ("right_hip_roll_joint", "terminal_centroidal_support_roll_right_hip_scale"),
+    ):
+        if joint_name in joint_names:
+            idx = joint_names.index(joint_name)
+            target_value = float(command[idx]) + float(getattr(args_cli, scale_name)) * float(roll_adjust)
+            adjusted[idx] = (1.0 - blend) * adjusted[idx] + blend * target_value
+    if "waist_pitch_joint" in joint_names:
+        idx = joint_names.index("waist_pitch_joint")
+        target_value = float(command[idx]) + float(args_cli.terminal_centroidal_support_waist_pitch_scale) * float(pitch_adjust)
+        adjusted[idx] = (1.0 - blend) * adjusted[idx] + blend * target_value
+
+    diag.update(
+        {
+            "risk": float(progress_risk),
+            "progress_error_m": float(progress_error),
+            "lateral_error_m": float(lateral_error),
+            "pitch_target_rad": float(pitch_target),
+            "roll_target_rad": float(roll_target),
+            "pitch_adjust_rad": float(pitch_adjust),
+            "roll_adjust_rad": float(roll_adjust),
+        }
+    )
+    return adjusted, True, diag
+
+
 def _balance_target_active(step: int) -> bool:
     active = int(step) >= int(args_cli.balance_target_start_step) and (
         int(args_cli.balance_target_end_step) < 0 or int(step) < int(args_cli.balance_target_end_step)
@@ -2698,6 +2891,28 @@ def run_scene() -> Path:
         "balance_feedback_first_active_step": None,
         "balance_target_active_steps": 0,
         "balance_target_first_active_step": None,
+        "terminal_centroidal_support_controller_enabled": bool(
+            args_cli.terminal_centroidal_support_controller
+        ),
+        "terminal_centroidal_support_start_box_target_travel_m": float(
+            args_cli.terminal_centroidal_support_start_box_target_travel
+        ),
+        "terminal_centroidal_support_progress_full_m": float(
+            args_cli.terminal_centroidal_support_progress_full
+        ),
+        "terminal_centroidal_support_target_m": float(args_cli.terminal_centroidal_support_target),
+        "terminal_centroidal_support_active_steps": 0,
+        "terminal_centroidal_support_first_active_step": None,
+        "terminal_centroidal_support_last_risk": 0.0,
+        "terminal_centroidal_support_max_risk": 0.0,
+        "terminal_centroidal_support_last_progress_error_m": 0.0,
+        "terminal_centroidal_support_last_lateral_error_m": 0.0,
+        "terminal_centroidal_support_last_pitch_target_rad": 0.0,
+        "terminal_centroidal_support_last_roll_target_rad": 0.0,
+        "terminal_centroidal_support_last_pitch_adjust_rad": 0.0,
+        "terminal_centroidal_support_last_roll_adjust_rad": 0.0,
+        "terminal_centroidal_support_max_abs_pitch_adjust_rad": 0.0,
+        "terminal_centroidal_support_max_abs_roll_adjust_rad": 0.0,
         "diagnostic_root_drive": str(args_cli.diagnostic_root_drive),
         "diagnostic_root_drive_start_step": int(args_cli.diagnostic_root_drive_start_step),
         "diagnostic_root_drive_stop_step": int(args_cli.diagnostic_root_drive_stop_step),
@@ -4912,6 +5127,72 @@ def run_scene() -> Path:
                         summary["approach_support_posture_max_scale"] = max(
                             float(summary["approach_support_posture_max_scale"]),
                             float(approach_support_scale),
+                        )
+                    terminal_robot_lateral_error = _lateral_xy_delta(
+                        list(pose_for_feedback),
+                        list(initial_robot),
+                        robot_target_direction_xy,
+                    )
+                    terminal_box_lateral_error = terminal_robot_lateral_error
+                    if box_pose_for_feedback is not None and initial_box is not None:
+                        terminal_box_lateral_error = _lateral_xy_delta(
+                            list(box_pose_for_feedback),
+                            list(initial_box),
+                            box_target_direction_xy,
+                        )
+                    command_positions, terminal_centroidal_active, terminal_centroidal_diag = (
+                        _apply_terminal_centroidal_support(
+                            command_positions,
+                            joint_names,
+                            float(prev_robot_target_directed),
+                            float(prev_box_target_directed),
+                            float(terminal_robot_lateral_error),
+                            float(terminal_box_lateral_error),
+                            float(feedback_roll),
+                            float(feedback_pitch),
+                            float(feedback_roll_rate),
+                            float(feedback_pitch_rate),
+                            float(box_feedback_tilt),
+                        )
+                    )
+                    if terminal_centroidal_active:
+                        summary["terminal_centroidal_support_active_steps"] = (
+                            int(summary["terminal_centroidal_support_active_steps"]) + 1
+                        )
+                        if summary["terminal_centroidal_support_first_active_step"] is None:
+                            summary["terminal_centroidal_support_first_active_step"] = int(step)
+                        summary["terminal_centroidal_support_last_risk"] = float(
+                            terminal_centroidal_diag["risk"]
+                        )
+                        summary["terminal_centroidal_support_max_risk"] = max(
+                            float(summary["terminal_centroidal_support_max_risk"]),
+                            float(terminal_centroidal_diag["risk"]),
+                        )
+                        summary["terminal_centroidal_support_last_progress_error_m"] = float(
+                            terminal_centroidal_diag["progress_error_m"]
+                        )
+                        summary["terminal_centroidal_support_last_lateral_error_m"] = float(
+                            terminal_centroidal_diag["lateral_error_m"]
+                        )
+                        summary["terminal_centroidal_support_last_pitch_target_rad"] = float(
+                            terminal_centroidal_diag["pitch_target_rad"]
+                        )
+                        summary["terminal_centroidal_support_last_roll_target_rad"] = float(
+                            terminal_centroidal_diag["roll_target_rad"]
+                        )
+                        summary["terminal_centroidal_support_last_pitch_adjust_rad"] = float(
+                            terminal_centroidal_diag["pitch_adjust_rad"]
+                        )
+                        summary["terminal_centroidal_support_last_roll_adjust_rad"] = float(
+                            terminal_centroidal_diag["roll_adjust_rad"]
+                        )
+                        summary["terminal_centroidal_support_max_abs_pitch_adjust_rad"] = max(
+                            float(summary["terminal_centroidal_support_max_abs_pitch_adjust_rad"]),
+                            abs(float(terminal_centroidal_diag["pitch_adjust_rad"])),
+                        )
+                        summary["terminal_centroidal_support_max_abs_roll_adjust_rad"] = max(
+                            float(summary["terminal_centroidal_support_max_abs_roll_adjust_rad"]),
+                            abs(float(terminal_centroidal_diag["roll_adjust_rad"])),
                         )
                     balance_allowed = not bool(args_cli.balance_start_on_agile_hold) or bool(agile_command_hold_active)
                     if balance_allowed:

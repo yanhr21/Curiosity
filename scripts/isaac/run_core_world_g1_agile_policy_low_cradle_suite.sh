@@ -158,6 +158,37 @@ base_python=(
   --terminal-support-posture-shoulder-pitch-offset "${TERMINAL_SUPPORT_POSTURE_SHOULDER_PITCH_OFFSET:--0.06}"
   --terminal-support-posture-elbow-offset "${TERMINAL_SUPPORT_POSTURE_ELBOW_OFFSET:-0.10}"
   --terminal-support-posture-wrist-pitch-offset "${TERMINAL_SUPPORT_POSTURE_WRIST_PITCH_OFFSET:--0.025}"
+  --terminal-centroidal-support-start-box-target-travel "${TERMINAL_CENTROIDAL_SUPPORT_START_BOX_TARGET_TRAVEL:--1.0}"
+  --terminal-centroidal-support-progress-full "${TERMINAL_CENTROIDAL_SUPPORT_PROGRESS_FULL:-2.0}"
+  --terminal-centroidal-support-target "${TERMINAL_CENTROIDAL_SUPPORT_TARGET:--1.0}"
+  --terminal-centroidal-support-progress-deadband "${TERMINAL_CENTROIDAL_SUPPORT_PROGRESS_DEADBAND:-0.08}"
+  --terminal-centroidal-support-progress-pitch-target-gain "${TERMINAL_CENTROIDAL_SUPPORT_PROGRESS_PITCH_TARGET_GAIN:-0.0}"
+  --terminal-centroidal-support-progress-pitch-target-limit "${TERMINAL_CENTROIDAL_SUPPORT_PROGRESS_PITCH_TARGET_LIMIT:-0.04}"
+  --terminal-centroidal-support-lateral-source "${TERMINAL_CENTROIDAL_SUPPORT_LATERAL_SOURCE:-average}"
+  --terminal-centroidal-support-lateral-deadband "${TERMINAL_CENTROIDAL_SUPPORT_LATERAL_DEADBAND:-0.06}"
+  --terminal-centroidal-support-lateral-target-gain "${TERMINAL_CENTROIDAL_SUPPORT_LATERAL_TARGET_GAIN:-0.10}"
+  --terminal-centroidal-support-lateral-target-limit "${TERMINAL_CENTROIDAL_SUPPORT_LATERAL_TARGET_LIMIT:-0.05}"
+  --terminal-centroidal-support-lateral-target-sign "${TERMINAL_CENTROIDAL_SUPPORT_LATERAL_TARGET_SIGN:-1.0}"
+  --terminal-centroidal-support-pitch-gain "${TERMINAL_CENTROIDAL_SUPPORT_PITCH_GAIN:-0.08}"
+  --terminal-centroidal-support-pitch-rate-gain "${TERMINAL_CENTROIDAL_SUPPORT_PITCH_RATE_GAIN:-0.004}"
+  --terminal-centroidal-support-roll-gain "${TERMINAL_CENTROIDAL_SUPPORT_ROLL_GAIN:-0.08}"
+  --terminal-centroidal-support-roll-rate-gain "${TERMINAL_CENTROIDAL_SUPPORT_ROLL_RATE_GAIN:-0.004}"
+  --terminal-centroidal-support-pitch-sign "${TERMINAL_CENTROIDAL_SUPPORT_PITCH_SIGN:--1.0}"
+  --terminal-centroidal-support-roll-sign "${TERMINAL_CENTROIDAL_SUPPORT_ROLL_SIGN:--1.0}"
+  --terminal-centroidal-support-adjustment-limit "${TERMINAL_CENTROIDAL_SUPPORT_ADJUSTMENT_LIMIT:-0.06}"
+  --terminal-centroidal-support-blend-rate "${TERMINAL_CENTROIDAL_SUPPORT_BLEND_RATE:-1.0}"
+  --terminal-centroidal-support-hip-pitch-scale "${TERMINAL_CENTROIDAL_SUPPORT_HIP_PITCH_SCALE:--0.45}"
+  --terminal-centroidal-support-ankle-pitch-scale "${TERMINAL_CENTROIDAL_SUPPORT_ANKLE_PITCH_SCALE:-1.0}"
+  --terminal-centroidal-support-knee-crouch-offset "${TERMINAL_CENTROIDAL_SUPPORT_KNEE_CROUCH_OFFSET:-0.02}"
+  --terminal-centroidal-support-hip-crouch-offset "${TERMINAL_CENTROIDAL_SUPPORT_HIP_CROUCH_OFFSET:--0.01}"
+  --terminal-centroidal-support-ankle-crouch-offset "${TERMINAL_CENTROIDAL_SUPPORT_ANKLE_CROUCH_OFFSET:--0.006}"
+  --terminal-centroidal-support-waist-pitch-scale "${TERMINAL_CENTROIDAL_SUPPORT_WAIST_PITCH_SCALE:-0.20}"
+  --terminal-centroidal-support-roll-left-ankle-scale "${TERMINAL_CENTROIDAL_SUPPORT_ROLL_LEFT_ANKLE_SCALE:-1.0}"
+  --terminal-centroidal-support-roll-right-ankle-scale "${TERMINAL_CENTROIDAL_SUPPORT_ROLL_RIGHT_ANKLE_SCALE:-1.0}"
+  --terminal-centroidal-support-roll-left-hip-scale "${TERMINAL_CENTROIDAL_SUPPORT_ROLL_LEFT_HIP_SCALE:--0.45}"
+  --terminal-centroidal-support-roll-right-hip-scale "${TERMINAL_CENTROIDAL_SUPPORT_ROLL_RIGHT_HIP_SCALE:--0.45}"
+  --terminal-centroidal-support-max-tilt "${TERMINAL_CENTROIDAL_SUPPORT_MAX_TILT:-999.0}"
+  --terminal-centroidal-support-max-box-tilt "${TERMINAL_CENTROIDAL_SUPPORT_MAX_BOX_TILT:-999.0}"
   --agile-command-hold-terminal-box-target-travel "${AGILE_COMMAND_HOLD_TERMINAL_BOX_TARGET_TRAVEL:--1.0}"
   --agile-command-hold-terminal-min-robot-target-travel "${AGILE_COMMAND_HOLD_TERMINAL_MIN_ROBOT_TARGET_TRAVEL:--1.0}"
   --agile-command-hold-terminal-min-step "${AGILE_COMMAND_HOLD_TERMINAL_MIN_STEP:--1}"
@@ -307,6 +338,9 @@ if [[ "${AGILE_COMMAND_TERMINAL_SUPPORT_FINAL_ZERO_COMMAND:-0}" == "1" ]]; then
 fi
 if [[ "${TERMINAL_SUPPORT_POSTURE_CONTROLLER:-0}" == "1" ]]; then
   base_python+=(--terminal-support-posture-controller)
+fi
+if [[ "${TERMINAL_CENTROIDAL_SUPPORT_CONTROLLER:-0}" == "1" ]]; then
+  base_python+=(--terminal-centroidal-support-controller)
 fi
 if [[ "${AGILE_COMMAND_HOLD_TERMINAL_LATCH:-0}" == "1" ]]; then
   base_python+=(--agile-command-hold-terminal-latch)

@@ -10235,3 +10235,14 @@
   should change support allocation materially, such as a stronger balance/
   centroidal support controller or a different locomotion/support backend,
   while preserving the same strict gates.
+- [x] Add terminal centroidal-support controller and held-out suite:
+  `--terminal-centroidal-support-controller` in
+  `scripts/isaac/build_core_world_g1_box_scene.py`, launcher env forwarding,
+  aggregate summary fields, and
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_centroidal_support_suite.sh`.
+  This is an opt-in joint-target support feedback layer, not a root/box
+  shortcut.
+- [ ] Run and record the terminal centroidal-support held-out diagnostic
+  through tmux plus persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_centroidal_support/<stamp>/closefront_heldout_geometry_centroidal_support_summary.json`
+  exists.

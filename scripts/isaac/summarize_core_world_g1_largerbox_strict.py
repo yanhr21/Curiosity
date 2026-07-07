@@ -533,6 +533,45 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "terminal_support_posture_max_risk": summary.get(
             "terminal_support_posture_max_risk"
         ),
+        "terminal_centroidal_support_controller_enabled": summary.get(
+            "terminal_centroidal_support_controller_enabled"
+        ),
+        "terminal_centroidal_support_active_steps": summary.get(
+            "terminal_centroidal_support_active_steps"
+        ),
+        "terminal_centroidal_support_first_active_step": summary.get(
+            "terminal_centroidal_support_first_active_step"
+        ),
+        "terminal_centroidal_support_last_risk": summary.get(
+            "terminal_centroidal_support_last_risk"
+        ),
+        "terminal_centroidal_support_max_risk": summary.get(
+            "terminal_centroidal_support_max_risk"
+        ),
+        "terminal_centroidal_support_last_progress_error_m": summary.get(
+            "terminal_centroidal_support_last_progress_error_m"
+        ),
+        "terminal_centroidal_support_last_lateral_error_m": summary.get(
+            "terminal_centroidal_support_last_lateral_error_m"
+        ),
+        "terminal_centroidal_support_last_pitch_target_rad": summary.get(
+            "terminal_centroidal_support_last_pitch_target_rad"
+        ),
+        "terminal_centroidal_support_last_roll_target_rad": summary.get(
+            "terminal_centroidal_support_last_roll_target_rad"
+        ),
+        "terminal_centroidal_support_last_pitch_adjust_rad": summary.get(
+            "terminal_centroidal_support_last_pitch_adjust_rad"
+        ),
+        "terminal_centroidal_support_last_roll_adjust_rad": summary.get(
+            "terminal_centroidal_support_last_roll_adjust_rad"
+        ),
+        "terminal_centroidal_support_max_abs_pitch_adjust_rad": summary.get(
+            "terminal_centroidal_support_max_abs_pitch_adjust_rad"
+        ),
+        "terminal_centroidal_support_max_abs_roll_adjust_rad": summary.get(
+            "terminal_centroidal_support_max_abs_roll_adjust_rad"
+        ),
         "agile_command_stop_target_window_enabled": summary.get(
             "agile_command_stop_target_window_enabled"
         ),

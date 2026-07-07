@@ -86,6 +86,17 @@ These rules override all other project instructions.
   box pose writes `0`, and runtime chest-pad collision enabled at step `712`.
   This is still a narrow engineered diagnostic, not learned unknown-load
   carrying and not arbitrary-posture carrying.
+- 2026-07-07 held-out G1 terminal centroidal-support entrypoint added:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_centroidal_support_suite.sh`.
+  It reruns the close-front held-out `wide_y012` and `tall_z009` strict
+  gates with the late terminal posture boundary plus a new opt-in
+  `--terminal-centroidal-support-controller` in
+  `scripts/isaac/build_core_world_g1_box_scene.py`. The new controller only
+  adjusts G1 joint targets from terminal progress, robot/box lateral error,
+  roll/pitch rates, and box tilt; it does not write root pose, root velocity,
+  or box pose. Launcher forwarding and strict-suite aggregation fields were
+  added. This is an experiment entrypoint only until
+  `closefront_heldout_geometry_centroidal_support_summary.json` exists.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with
