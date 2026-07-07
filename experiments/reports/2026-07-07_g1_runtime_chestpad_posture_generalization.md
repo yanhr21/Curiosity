@@ -247,6 +247,21 @@ entry depended on the original early hold/adaptive behavior from the lowcarry
 suite. A valid retention repair should preserve that early behavior and only
 alter runtime support/freeze after the target-window region is reached.
 
+## Close-Front Window-Retention V2 Entrypoint
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_window_retention_v2_suite.sh`
+- Purpose:
+  preserve the exact early hold/adaptive behavior from
+  `progress_conservative`, then test only target-window retention changes.
+- Cases:
+  `pad620`, `pad620_freeze`, and `pad650_freeze_zero_corr`.
+- Gate:
+  unchanged strict fall/drop, target-window, final-hold, tilt,
+  lateral-error, and no rollout root/box writes checks.
+- Status:
+  added, not yet run.
+
 ## Next Step
 
 Do not claim posture-general carrying from the current G1 route. The next

@@ -8848,3 +8848,8 @@
   hold/adaptive behavior and only change target-window runtime support/freeze.
   Do not continue the `g1_cfwin` setup that sets stop target only and removes
   early hold/adaptive behavior.
+- [ ] Await/run close-front window-retention-v2 suite:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_window_retention_v2_suite.sh`.
+  It keeps `progress_conservative` early hold/adaptive behavior and tests only
+  earlier runtime chest support plus target-window freeze/zero-correction
+  variants.

@@ -12546,6 +12546,14 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   exact setup; the next valid retention attempt should preserve
   `progress_conservative` early hold/adaptive behavior and only alter
   post-window support/freeze.
+- 2026-07-07 close-front window-retention-v2 entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_window_retention_v2_suite.sh`.
+  It preserves the `progress_conservative` early hold/adaptive setup and
+  tests only earlier runtime chest support plus target-window freeze/
+  zero-correction variants (`pad620`, `pad620_freeze`, and
+  `pad650_freeze_zero_corr`). It keeps strict fall/drop, target-window,
+  final-hold, tilt, lateral-error, and no-shortcut gates. It is not evidence
+  until a compute-node summary exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
