@@ -9914,11 +9914,24 @@
   to `1.364/1.016 m`, final robot/box lateral worsened to `1.456/1.598 m`,
   final relative offset was `0.377 m`, target-window stable steps were `0`,
   and writes were `0/0/0`. This roll-target sign/gain is not the fix.
+- [x] Run constant path-offset probe for the useful `terminal_guard_lx19`
+  boundary: single case
+  `20260707_g1_closefront_mass0525_terminal_cmdy_neg020`, tmux
+  `curiosity_g1_closefront_m0525_terminal_cmdy_neg020_0707`, Slurm job
+  `170584`. It kept terminal side guards but set `AGILE_COMMAND_Y=-0.02`.
+  Result: strict `fail`, first fall/drop `438/471`, fall/drop totals
+  `562/279`, side guards triggered at terminal-hold step `421`, final
+  robot/box target-directed travel over-shot to `4.947/4.490 m`, final
+  relative offset `0.472 m`, max robot/box tilt `3.139/3.141 rad`,
+  target-window stable steps `0`, writes `0/0/0`. Final lateral was small
+  (`0.299/0.216 m`), but the constant path offset destabilized early
+  transport and caused massive forward over-travel.
 - [ ] Next terminal-guard follow-up: do not continue scalar sign/limit scans
-  or the same `BALANCE_ROLL_TARGET_LATERAL_SIGN=+1` roll-target setup. Add or
-  test target-window braking, path/heading offset, or a genuinely posture-
-  conditioned support selection that preserves the useful default terminal
-  side-guard stability while reducing lateral error and box tilt.
+  or the same `BALANCE_ROLL_TARGET_LATERAL_SIGN=+1` roll-target setup. Do not
+  use constant `AGILE_COMMAND_Y=-0.02` as the path-offset fix. Add or test
+  target-window/terminal conditional braking, heading offset, or a genuinely
+  posture-conditioned support selection that preserves the useful default
+  terminal side-guard stability while reducing lateral error and box tilt.
 - [ ] Next G1 validation: expand the strict gate beyond these two engineered
   postures. At minimum add held-out box mass/geometry or a third posture
   without changing the strict fall/drop, target-window, tilt, lateral,

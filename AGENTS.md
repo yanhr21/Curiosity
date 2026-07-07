@@ -551,6 +551,19 @@ These rules override all other project instructions.
   relative offset was `0.377 m`, target-window stable steps were `0`, and
   writes were `0/0/0`. This roll-target sign/gain is not a fix; it trades
   balance for severe lateral/path error and under-travel.
+- 2026-07-07 close-front `0.525 kg` terminal-guard path-offset probe:
+  single case `20260707_g1_closefront_mass0525_terminal_cmdy_neg020` was
+  submitted through tmux
+  `curiosity_g1_closefront_m0525_terminal_cmdy_neg020_0707` as Slurm job
+  `170584`, keeping terminal side guards but setting `AGILE_COMMAND_Y=-0.02`.
+  It failed badly: first fall/drop at steps `438/471`, fall/drop totals
+  `562/279`, side guards triggered at terminal-hold step `421`, final
+  robot/box target-directed travel over-shot to `4.947/4.490 m`, final
+  relative offset was `0.472 m`, max robot/box tilt was `3.139/3.141 rad`,
+  target-window stable steps were `0`, and writes were `0/0/0`. Although final
+  lateral was small (`0.299/0.216 m`), the path offset destabilized early
+  transport and caused massive forward over-travel. Do not use a constant
+  `AGILE_COMMAND_Y=-0.02` path offset for this boundary.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
