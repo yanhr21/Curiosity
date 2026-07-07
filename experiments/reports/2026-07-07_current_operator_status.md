@@ -1244,6 +1244,11 @@ This is a status snapshot only. It is not a carrying-success claim.
   `1.416/1.458 m` and max box tilt `1.891 rad`. This is a valid negative
   result for pre-authored fixed-joint chest-pad bodies: the inactive support
   already perturbs the baseline dynamics.
+- Added `CRADLE_CHEST_PAD_MASS_SCALE` support and submitted tiny-mass
+  replacement job `169705` (`g1_060ltiny`) through tmux
+  `curiosity_g1_060_late_chestpad_tinymass_0707`. This run keeps the same
+  baseline geometry but sets chest-pad mass scale to `0.001` to test whether
+  added mass/inertia is the main source of inactive-support disturbance.
 
 ## Next Decision
 

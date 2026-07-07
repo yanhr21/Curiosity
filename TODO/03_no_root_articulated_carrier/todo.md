@@ -8710,3 +8710,7 @@
   pre-authored fixed-joint chest-pad rigid body itself perturbs the baseline.
 - [ ] Add a zero/tiny-mass chest-pad diagnostic or a runtime-spawned/non-rigid
   chest support so the inactive support does not corrupt baseline locomotion.
+- [ ] Await tiny-mass late chest-pad job `169705` (`g1_060ltiny`) submitted
+  through tmux `curiosity_g1_060_late_chestpad_tinymass_0707`. It uses
+  `CRADLE_CHEST_PAD_MASS_SCALE=0.001` and should reveal whether added support
+  mass/inertia caused the `169685` baseline corruption.

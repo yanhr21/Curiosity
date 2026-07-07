@@ -12359,6 +12359,17 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   thresholds. Next valid diagnostic is to remove or minimize the pre-authored
   chest-pad mass/rigid-body disturbance, or spawn/attach the support only when
   needed.
+- 2026-07-07 tiny-mass late chest-pad diagnostic: added
+  `--cradle-chest-pad-mass-scale` to
+  `scripts/isaac/build_core_world_g1_box_scene.py` and launcher env
+  `CRADLE_CHEST_PAD_MASS_SCALE`. Added
+  `scripts/isaac/run_core_world_g1_lowcarry_060_late_chestpad_tinymass_suite.sh`,
+  which reuses the baseline-geometry late chest-pad suite with chest-pad mass
+  scale `0.001`. Slurm job `169705` (`g1_060ltiny`) was submitted through
+  tmux `curiosity_g1_060_late_chestpad_tinymass_0707`. This is a diagnostic
+  to test whether the inactive fixed-joint support was corrupting the
+  baseline primarily through added mass/inertia. It is not a final carrying
+  claim.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
