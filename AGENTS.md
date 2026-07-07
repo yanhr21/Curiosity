@@ -610,6 +610,23 @@ These rules override all other project instructions.
   Slurm job `170599` (`g1_prefbrk`) was submitted through tmux
   `curiosity_g1_closefront_m0525_prefinal_brake_0707`; this is an experiment
   entrypoint only until a fresh summary exists.
+- 2026-07-07 close-front `0.525 kg` terminal pre-final brake first result:
+  Slurm job `170599` (`g1_prefbrk`) ran on `server02` through tmux
+  `curiosity_g1_closefront_m0525_prefinal_brake_0707` and produced strict
+  `fail`. Because the first wrapper did not forward `SUITE_STAMP_PREFIX` to
+  the inner side-guard script, the actual run directory is
+  `20260707_g1_chestpad_finalstop_side_guard_prefinal_brake_soft_f180`.
+  The run confirmed the new terminal-brake fields were active:
+  terminal brake x `-0.003`, first/last active steps `631/790`, active steps
+  `160`, and final-hold command remained zero because final hold never
+  latched. It is worse than `terminal_guard_lx19`: first fall/drop
+  `859/959`, fall/drop `141/41`, max robot/box tilt `2.249/2.253 rad`,
+  target-window stable/longest/end `91/91/0`, final robot/box travel
+  `2.041/1.814 m`, final lateral `1.722/1.451 m`, and writes `0/0/0`.
+  Interpretation: pre-final brake is structurally wired correctly, but this
+  setting is too early/strong and prevents final-hold latch while creating a
+  large lateral roll collapse. The wrapper has been corrected to forward the
+  outer `SUITE_STAMP_PREFIX` and to allow one-case parameter overrides.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

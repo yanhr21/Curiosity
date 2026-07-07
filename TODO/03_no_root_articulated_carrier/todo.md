@@ -9954,13 +9954,25 @@
   It moves a small reverse command into terminal hold before final hold, so
   the final-hold command gate can remain zero if the trajectory reaches the
   final latch.
-- [ ] Run and record terminal pre-final brake single case:
+- [x] Run and record terminal pre-final brake single case:
   `20260707_g1_closefront_mass0525_terminal_prefinal_brake_prefinal_brake_soft_f180`.
   It uses terminal side guards, `0.525 kg`, terminal brake x `-0.003`, delay
   `170`, steps `160`, and final box target `1.80 m`. Slurm job `170599`
   (`g1_prefbrk`) was submitted through tmux
-  `curiosity_g1_closefront_m0525_prefinal_brake_0707`; interpret only after
-  `core_world_g1_box_scene_summary.json` exists.
+  `curiosity_g1_closefront_m0525_prefinal_brake_0707` and ran on `server02`.
+  Actual run directory was
+  `20260707_g1_chestpad_finalstop_side_guard_prefinal_brake_soft_f180`
+  because the first wrapper did not forward `SUITE_STAMP_PREFIX`. Result:
+  strict `fail`; terminal brake was active for steps `631-790`, final hold
+  never latched, first fall/drop `859/959`, fall/drop `141/41`, target-window
+  stable/longest/end `91/91/0`, max robot/box tilt `2.249/2.253 rad`, and
+  final lateral `1.722/1.451 m`.
+- [ ] Run only one later/weaker terminal pre-final brake follow-up after the
+  wrapper fix. Use a much smaller late brake, e.g.
+  `PREFINAL_BRAKE_CASE_NAME=prefinal_brake_tiny_late_f165`,
+  `PREFINAL_BRAKE_COMMAND_X=-0.0015`, delay `220`, steps `80`, and final box
+  target `1.65`, to test whether a short pre-final correction can reduce
+  lateral drift without destroying the stable `terminal_guard_lx19` behavior.
 - [x] Monitor checker-compatible terminal freeze follow-up:
   `20260707_g1_closefront_mass0525_terminal_freeze`, tmux
   `curiosity_g1_closefront_m0525_terminal_freeze_0707`, Slurm job `170593`.

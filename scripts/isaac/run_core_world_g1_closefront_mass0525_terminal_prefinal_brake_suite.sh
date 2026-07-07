@@ -28,7 +28,7 @@ run_case() {
 
   set +e
   env \
-    SUITE_STAMP="${suite_stamp}" \
+    SUITE_STAMP_PREFIX="${SUITE_STAMP_PREFIX}" \
     SIDE_GUARD_CASE_SET=quick \
     SIDE_GUARD_QUICK_CASE_NAME="${case_name}" \
     SIDE_GUARD_QUICK_ENABLE_MODE=terminal \
@@ -56,7 +56,12 @@ run_case() {
 
 overall_status=0
 
-run_case prefinal_brake_soft_f180 -0.003 170 160 1.80 || overall_status=1
+run_case \
+  "${PREFINAL_BRAKE_CASE_NAME:-prefinal_brake_soft_f180}" \
+  "${PREFINAL_BRAKE_COMMAND_X:--0.003}" \
+  "${PREFINAL_BRAKE_DELAY_STEPS:-170}" \
+  "${PREFINAL_BRAKE_STEPS:-160}" \
+  "${PREFINAL_BRAKE_FINAL_BOX_TARGET:-1.80}" || overall_status=1
 
 summary_args=()
 for case_root in "${summary_case_roots[@]}"; do
