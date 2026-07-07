@@ -12898,9 +12898,13 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `curiosity_g1_retention_posture_0707` with
   `RETENTION_POSTURE_CASE_SET=quick` and
   `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_retention_posture_quick`.
+  It was cancelled while still pending after Slurm estimated a late start.
+  Replacement Slurm job `170293` (`g1_retpost45`) was submitted through tmux
+  `curiosity_g1_retention_posture_45m_0707` with the same quick case and
+  `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_retention_posture_quick45`.
   As of submission it was `PENDING (Priority)`. Do not interpret this branch
   until
-  `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_quick/close_front_retention_posture_summary.json`
+  `experiments/outputs/core_world_g1_lowcarry_close_front_retention_posture/20260707_g1_lowcarry_close_front_retention_posture_quick45/close_front_retention_posture_summary.json`
   exists.
 - 2026-07-07 G1 showcase capture job: Slurm job `170209` (`g1_showviz`) was
   submitted through tmux `curiosity_g1_showcase_capture_0707` to run
