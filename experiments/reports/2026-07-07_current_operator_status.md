@@ -1249,6 +1249,12 @@ This is a status snapshot only. It is not a carrying-success claim.
   `curiosity_g1_060_late_chestpad_tinymass_0707`. This run keeps the same
   baseline geometry but sets chest-pad mass scale to `0.001` to test whether
   added mass/inertia is the main source of inactive-support disturbance.
+- `169705` completed on `server36` with strict pass `0/4`. Tiny chest-pad
+  mass did not restore baseline behavior. All four cases ended with final
+  robot/box target-directed travel about `0.270/0.077 m`, lateral error about
+  `1.975/2.117 m`, `20` falls, max robot/box tilt about `1.746/1.746 rad`,
+  and no target-window/final-hold dwell. This rules out further small mass or
+  trigger-threshold tuning for the fixed-joint chest-pad route.
 
 ## Next Decision
 

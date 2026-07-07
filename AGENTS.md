@@ -12370,6 +12370,19 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   to test whether the inactive fixed-joint support was corrupting the
   baseline primarily through added mass/inertia. It is not a final carrying
   claim.
+- 2026-07-07 tiny-mass late chest-pad result: job `169705` completed on
+  `server36` with strict pass `0/4`. All four cases failed similarly:
+  target-window cases never enabled chest-pad collision, and box-tilt cases
+  enabled it at step `707` or `760`, but final robot/box target-directed
+  travel stayed only `0.270/0.077 m`, lateral error grew to
+  `1.975/2.117 m`, fall events were `20`, max robot/box tilt was
+  `1.746/1.746 rad`, and target-window/final-hold dwell stayed `0`.
+  Reducing chest-pad mass scale to `0.001` did not restore the baseline; it
+  made the fixed-joint preauthored support route worse. Conclusion: do not
+  keep tuning chest-pad mass or trigger thresholds. The next G1 0.60 kg
+  attempt should be control-only terminal stabilization, a runtime-created
+  support that is not present during baseline walking, or a non-fixed-joint/
+  non-articulation contact formulation.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

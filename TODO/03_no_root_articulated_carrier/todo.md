@@ -8714,3 +8714,12 @@
   through tmux `curiosity_g1_060_late_chestpad_tinymass_0707`. It uses
   `CRADLE_CHEST_PAD_MASS_SCALE=0.001` and should reveal whether added support
   mass/inertia caused the `169685` baseline corruption.
+- [x] Record tiny-mass late chest-pad job `169705`: strict `0/4`.
+  Reducing chest-pad mass scale to `0.001` did not restore the baseline.
+  All cases ended with final robot/box target-directed travel about
+  `0.270/0.077 m`, lateral error about `1.975/2.117 m`, `20` falls, max
+  robot/box tilt about `1.746/1.746 rad`, and no target-window/final-hold
+  dwell. Stop tuning fixed-joint chest-pad mass/trigger thresholds.
+- [ ] Next G1/AGILE 0.60 kg attempt should avoid pre-authored fixed-joint
+  support bodies. Try control-only terminal stabilization or a support that is
+  created/attached only after baseline walking has reached the target region.
