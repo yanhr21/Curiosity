@@ -8857,11 +8857,25 @@
   `progress_conservative` early hold/adaptive behavior and compare original
   pad700 against disabled/delayed/geometry-softened runtime chest support.
   Do not trigger support/freeze immediately at first window entry.
-- [ ] Await/run close-front support-timing suite:
+- [x] Record close-front support-timing suite:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_support_timing_suite.sh`.
   It compares no runtime pad, delayed pad760, and smaller pad700 while keeping
-  the conservative box-progress controller and strict gates.
-- [ ] Monitor Slurm job `169922` (`g1_cfsup`) in tmux
+  the conservative box-progress controller and strict gates. Slurm job
+  `169922` (`g1_cfsup`) failed `0/3`. `no_runtime_pad` was best among the
+  failures: no box drops, first fall step `901`, target-window stable steps
+  `130`, longest/end streak `78/0`, and final robot/box travel
+  `1.615/1.627 m`. Delayed/smaller runtime pads caused drops and did not
+  improve final retention.
+- [x] Monitor Slurm job `169922` (`g1_cfsup`) in tmux
   `curiosity_g1_close_front_support_timing_short_0707`; original pending job
   `169916` was cancelled before running to resubmit the same suite with a
   shorter 12-minute walltime.
+- [ ] Do not continue runtime chest-pad timing/geometry for close-front. Next
+  retention tests should use the no-pad close-front trajectory and add late
+  final-hold/brake/freeze only after the run approaches the target window.
+- [ ] Await close-front late-hold suite:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_late_hold_suite.sh`.
+  Slurm job `169927` (`g1_cflate`) was submitted through tmux
+  `curiosity_g1_close_front_late_hold_0707` and is pending/running on GPU.
+  It tests `late_final_180`, `late_final_180_freeze`, and
+  `late_final_180_brake` with runtime chest support disabled.

@@ -287,11 +287,41 @@ step `653`.
   runtime chest support helps or hurts target-window retention.
 - Cases:
   `no_runtime_pad`, `pad760`, and `pad700_small`.
+- Result:
+  `fail`, 0/3 cases passed. Original long-walltime pending job `169916` was
+  cancelled before running and replaced with shorter Slurm job `169922`
+  (`g1_cfsup`) through tmux
+  `curiosity_g1_close_front_support_timing_short_0707`; it ran on `server63`
+  and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_support_timing/20260707_g1_lowcarry_close_front_support_timing/close_front_support_timing_summary.json`
+
+| Case | Result | Fall/Drop | First Fall/Drop Step | Target Stable Steps | Longest/End Streak | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `no_runtime_pad` | fail | 355/0 | 901/- | 130 | 78/0 | Best of this suite: no drops and latest fall, but still cannot hold the target window through the end. |
+| `pad760` | fail | 396/303 | 904/997 | 133 | 81/0 | Delayed chest support does not prevent fall and later causes large travel/drop failure. |
+| `pad700_small` | fail | 416/241 | 884/900 | 73 | 50/0 | Smaller support is worse than no pad and worsens target-window retention. |
+
+This rules out the current runtime chest-pad timing/geometry family for the
+close-front repair. The support-free trajectory is the least bad close-front
+variant: it gets into the target window, avoids drops, and fails late. The next
+test should not add more chest-pad geometry; it should try late final-hold,
+target-window freeze, or a short reverse brake on the no-pad trajectory.
+
+## Close-Front Late-Hold Entrypoint
+
+- Script:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_late_hold_suite.sh`
+- Purpose:
+  build on `no_runtime_pad` from support-timing and test whether later final
+  latch plus zero command, target-window freeze, or a short reverse brake can
+  retain the close-front trajectory after it reaches the target region.
+- Cases:
+  `late_final_180`, `late_final_180_freeze`, and `late_final_180_brake`.
 - Status:
-  original long-walltime pending job `169916` was cancelled before running and
-  replaced with shorter Slurm job `169922` (`g1_cfsup`) through tmux
-  `curiosity_g1_close_front_support_timing_short_0707`; pending on GPU
-  priority as of `2026-07-07 14:21 CST`.
+  Slurm job `169927` (`g1_cflate`) was submitted through tmux
+  `curiosity_g1_close_front_late_hold_0707`; pending on GPU priority as of
+  `2026-07-07 14:29 CST`.
 
 ## Next Step
 
@@ -308,7 +338,8 @@ implementation should add an explicit posture-conditioned controller gate:
 - preserve the early hold/adaptive behavior that allowed `progress_conservative`
   to reach the window; removing it caused `g1_cfwin` to fail before window
   entry,
-- do not trigger chest support/freeze immediately at first target-window entry;
-  v2 shortened the stable window and moved first fall earlier,
+- do not trigger chest support/freeze immediately at first target-window entry
+  or keep tuning chest-pad timing/geometry for close-front; v2 shortened the
+  stable window and support-timing showed no-pad was least bad,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.

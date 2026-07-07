@@ -12570,9 +12570,27 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   comparing `no_runtime_pad`, `pad760`, and `pad700_small`. Original
   long-walltime Slurm job `169916` was cancelled before running and replaced
   with shorter Slurm job `169922` (`g1_cfsup`) through tmux
-  `curiosity_g1_close_front_support_timing_short_0707`; as of
-  `2026-07-07 14:21 CST`, it was pending on GPU priority. It is not evidence
-  until a compute-node summary exists.
+  `curiosity_g1_close_front_support_timing_short_0707`; it ran on `server63`
+  and failed `0/3`. `no_runtime_pad` was the useful negative result: no box
+  drops, first fall step `901`, target-window first stable step `652`, stable
+  steps `130`, longest/end streak `78/0`, final robot/box travel
+  `1.615/1.627 m`, max robot/box tilt `1.381/1.611 rad`, and no rollout
+  root/velocity/box pose writes. `pad760` and `pad700_small` both worsened the
+  result with box drops (`303` and `241`) and earlier or larger tilt failure.
+  Conclusion: do not continue runtime chest-pad timing/geometry as the
+  close-front repair. The next valid test should use the no-pad close-front
+  trajectory and add late final-hold/brake/freeze retention around the target
+  window.
+- 2026-07-07 close-front late-hold entrypoint: added
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_late_hold_suite.sh`.
+  It preserves the `progress_conservative` no-pad direction and tests
+  `late_final_180`, `late_final_180_freeze`, and `late_final_180_brake` to
+  determine whether later final latch plus zero command, target-window freeze,
+  or a short reverse brake can retain the target window after the support-free
+  run reaches it. Slurm job `169927` (`g1_cflate`) was submitted through tmux
+  `curiosity_g1_close_front_late_hold_0707` and was pending on GPU priority as
+  of `2026-07-07 14:29 CST`. It is not evidence until the compute-node summary
+  exists.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
