@@ -9,6 +9,7 @@ fi
 ROOT_DIR="${ROOT_DIR:-/public/home/yanhongru/Curiosity}"
 SUITE_STAMP_PREFIX="${SUITE_STAMP_PREFIX:-20260707_g1_lowcarry_close_front_final_stabilize}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-${ROOT_DIR}/experiments/outputs/core_world_g1_lowcarry_close_front_final_stabilize/${SUITE_STAMP_PREFIX}}"
+CASE_SET="${FINAL_STABILIZE_CASE_SET:-default}"
 
 mkdir -p "${OUTPUT_ROOT}"
 status_file="${OUTPUT_ROOT}/close_front_final_stabilize_status.tsv"
@@ -95,8 +96,19 @@ run_case() {
 
 overall_status=0
 
-run_case steps1200_final120_tilt035 0.35 || overall_status=1
-run_case steps1200_final120_tilt030 0.30 || overall_status=1
+case "${CASE_SET}" in
+  default)
+    run_case steps1200_final120_tilt035 0.35 || overall_status=1
+    run_case steps1200_final120_tilt030 0.30 || overall_status=1
+    ;;
+  quick)
+    run_case steps1200_final120_tilt030 0.30 || overall_status=1
+    ;;
+  *)
+    echo "Unknown FINAL_STABILIZE_CASE_SET=${CASE_SET}; expected default or quick" >&2
+    exit 2
+    ;;
+esac
 
 summary_args=()
 for case_root in "${summary_case_roots[@]}"; do

@@ -12946,6 +12946,22 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `box_retention_blend_rate` in rollout summaries. Existing `170296`
   aggregate JSON was not regenerated on the login node; interpret retention
   activation from the source rollout summary for that run.
+- 2026-07-07 close-front final-stabilize quick entrypoint: added
+  `FINAL_STABILIZE_CASE_SET=quick` to
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_stabilize_suite.sh`
+  so a single no-retention `steps1200_final120_tilt030` case can be run
+  without launching the full two-case suite. This returns to the best
+  no-retention close-front near-miss lineage and tests earlier chest-pad
+  triggering from box tilt while preserving AGILE locomotion targets.
+- 2026-07-07 close-front final-stabilize quick job: Slurm job `170302`
+  (`g1_finstabq`) was submitted through tmux
+  `curiosity_g1_final_stabilize_quick_0707` with
+  `FINAL_STABILIZE_CASE_SET=quick` and
+  `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_final_stabilize_quick`.
+  As of submission it was `PENDING (Priority)`. Do not interpret this branch
+  until
+  `experiments/outputs/core_world_g1_lowcarry_close_front_final_stabilize/20260707_g1_lowcarry_close_front_final_stabilize_quick/close_front_final_stabilize_summary.json`
+  exists.
 - 2026-07-07 blended retention-posture smoke job: Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
   `curiosity_g1_retention_blend_smoke_0707` with suite stamp

@@ -9112,6 +9112,20 @@
   retention enabled/range/blend/active-step/risk fields and updated
   `scripts/isaac/build_core_world_g1_box_scene.py` to record
   `box_retention_blend_rate` in future rollout summaries.
+- [x] Add close-front final-stabilize quick case-set:
+  `FINAL_STABILIZE_CASE_SET=quick` in
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_stabilize_suite.sh`.
+  It runs only `steps1200_final120_tilt030`, returning to the no-retention
+  close-front near-miss lineage while testing earlier chest-pad triggering
+  from box tilt.
+- [ ] Monitor close-front final-stabilize quick job. Slurm job `170302`
+  (`g1_finstabq`) was submitted through tmux
+  `curiosity_g1_final_stabilize_quick_0707` with
+  `FINAL_STABILIZE_CASE_SET=quick` and suite stamp prefix
+  `20260707_g1_lowcarry_close_front_final_stabilize_quick`. It was
+  `PENDING (Priority)` at submission. Record the result only after
+  `experiments/outputs/core_world_g1_lowcarry_close_front_final_stabilize/20260707_g1_lowcarry_close_front_final_stabilize_quick/close_front_final_stabilize_summary.json`
+  exists.
 - [x] Monitor blended retention-posture smoke job. Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
   `curiosity_g1_retention_blend_smoke_0707` with suite stamp
