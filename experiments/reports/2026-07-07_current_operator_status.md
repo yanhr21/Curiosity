@@ -1255,6 +1255,10 @@ This is a status snapshot only. It is not a carrying-success claim.
   `1.975/2.117 m`, `20` falls, max robot/box tilt about `1.746/1.746 rad`,
   and no target-window/final-hold dwell. This rules out further small mass or
   trigger-threshold tuning for the fixed-joint chest-pad route.
+- Added runtime-spawn chest-pad support and submitted job `169713`
+  (`g1_060rtpad`) through tmux `curiosity_g1_060_runtime_chestpad_0707`.
+  This run does not create the chest-pad rigid body during scene setup; it
+  attempts to create it only when the target-window or box-tilt trigger fires.
 
 ## Next Decision
 

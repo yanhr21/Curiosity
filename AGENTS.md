@@ -12383,6 +12383,19 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   attempt should be control-only terminal stabilization, a runtime-created
   support that is not present during baseline walking, or a non-fixed-joint/
   non-articulation contact formulation.
+- 2026-07-07 runtime-spawn chest-pad diagnostic: added
+  `--cradle-chest-pad-spawn-on-trigger` and launcher env
+  `CRADLE_CHEST_PAD_SPAWN_ON_TRIGGER`, plus
+  `scripts/isaac/run_core_world_g1_lowcarry_060_runtime_chestpad_suite.sh`.
+  Unlike the invalid preauthored chest-pad route, this skips creating the
+  chest-pad rigid body during scene setup and attempts to create it only when
+  the existing target-window or box-tilt trigger fires. Slurm job `169713`
+  (`g1_060rtpad`) was submitted through tmux
+  `curiosity_g1_060_runtime_chestpad_0707`. This is a diagnostic of whether
+  runtime support creation can avoid baseline-walking disturbance; runtime USD
+  joint/collider creation may itself fail or be ignored by PhysX, so inspect
+  `cradle_chest_pad_spawned_step` and `cradle_chest_pad_spawn_error` before
+  interpreting task metrics.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

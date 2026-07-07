@@ -8723,3 +8723,7 @@
 - [ ] Next G1/AGILE 0.60 kg attempt should avoid pre-authored fixed-joint
   support bodies. Try control-only terminal stabilization or a support that is
   created/attached only after baseline walking has reached the target region.
+- [ ] Await runtime-spawn chest-pad job `169713` (`g1_060rtpad`) submitted
+  through tmux `curiosity_g1_060_runtime_chestpad_0707`. Check spawn fields
+  before task metrics: `cradle_chest_pad_spawned_step`,
+  `cradle_chest_pad_spawn_error`, and collision trigger reason.
