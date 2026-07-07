@@ -267,6 +267,9 @@ These rules override all other project instructions.
   It preserves the early-escape 1200 setup but suppresses final tilt escape
   after target-window streaks of `60` or `80` steps. It is an experiment
   entrypoint only until `close_front_escape_suppression_summary.json` exists.
+  Submitted through tmux `curiosity_g1_escape_suppression_0707` as Slurm job
+  `170384` / `g1_escsup`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_escape_suppression`.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

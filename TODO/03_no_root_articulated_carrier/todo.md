@@ -110,8 +110,9 @@
   and suppresses final tilt escape after `60` or `80` consecutive target-window
   steps. This directly tests whether the 1200-step failure is caused by
   continued escape-command over-travel after the target window has already been
-  reached. Record `close_front_escape_suppression_summary.json` before
-  interpreting.
+  reached. Submitted through tmux `curiosity_g1_escape_suppression_0707` as
+  Slurm job `170384` / `g1_escsup`. Record
+  `close_front_escape_suppression_summary.json` before interpreting.
 - [x] Add unified posture-conditioned G1 gate suite:
   `scripts/isaac/run_core_world_g1_posture_conditioned_gate_suite.sh`. It runs
   two strict cases without relaxing gates: the known passing `low_front_060`
