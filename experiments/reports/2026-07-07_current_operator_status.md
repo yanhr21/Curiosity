@@ -1231,6 +1231,10 @@ This is a status snapshot only. It is not a carrying-success claim.
   at step `628`, `191` falls, and `180` drops, so it is a geometry mismatch,
   not valid late-trigger evidence. The suite has been corrected back to the
   baseline top-lid geometry for a fresh `fix2` run.
+- Baseline-geometry replacement job `169685` (`g1_060late3`) is now submitted
+  through tmux `curiosity_g1_060_late_chestpad_fix2_0707`, output prefix
+  `20260707_g1_lowcarry_060_late_chestpad_fix2`. This is the current valid
+  late-trigger test.
 
 ## Next Decision
 

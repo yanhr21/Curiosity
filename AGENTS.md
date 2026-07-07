@@ -12335,6 +12335,13 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   late chest-pad activation. The suite was corrected back to the baseline
   top-lid geometry; only a later `fix2` or newer prefix should be used for
   the true baseline-geometry late-trigger test.
+- 2026-07-07 baseline-geometry late chest-pad rerun: Slurm job `169685`
+  (`g1_060late3`) was submitted through tmux
+  `curiosity_g1_060_late_chestpad_fix2_0707` with output prefix
+  `20260707_g1_lowcarry_060_late_chestpad_fix2`. This is the current valid
+  late chest-pad test because it includes both commit `4994ed8` spawn-time
+  collision gating and the baseline top-lid geometry from the 0.60 kg near
+  miss.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

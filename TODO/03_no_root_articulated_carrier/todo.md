@@ -8698,3 +8698,6 @@
   evidence.
 - [ ] Rerun the late chest-pad suite with baseline 0.60 kg top-lid geometry
   and a fresh output prefix such as `fix2`.
+- [ ] Await baseline-geometry late chest-pad job `169685` (`g1_060late3`)
+  submitted through tmux `curiosity_g1_060_late_chestpad_fix2_0707` with
+  prefix `20260707_g1_lowcarry_060_late_chestpad_fix2`.
