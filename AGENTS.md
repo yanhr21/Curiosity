@@ -12778,6 +12778,11 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `AGILE_COMMAND_HOLD_STAND_OVERRIDES_FINAL_FREEZE=1`, and the transition
   script lets `AGILE_COMMAND_HOLD_RESCUE_ENABLE` be overridden from the
   environment. A fresh v3 run is required before interpreting stand-over-freeze.
+- 2026-07-07 close-front stand-over-freeze v3 job: after the exported-env
+  wrapper fix, Slurm job `170173` (`g1_cfstand3`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_stand_override3_0707` with
+  `SUITE_STAMP_PREFIX=20260707_g1_lowcarry_close_front_freeze_stand_override3`.
+  As of `2026-07-07 17:40 CST`, it was pending on GPU priority.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,
