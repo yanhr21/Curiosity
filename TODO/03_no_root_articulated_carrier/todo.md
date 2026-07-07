@@ -9156,6 +9156,18 @@
   explicitly labeled as such, or change the mechanism: posture-conditioned
   support/command selection before target entry, target-window arrest without
   destabilizing lateral drift, or a controller-backed support posture.
+- [x] Add close-front final-hold policy-state reset probe:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`.
+  It repeats the `steps1050_final120` near-miss with
+  `AGILE_COMMAND_HOLD_FINAL_RESET_POLICY_STATE=1` to test whether resetting
+  AGILE's recurrent state at final-hold entry reduces the tilt excess. This is
+  a diagnostic mechanism check, not a relaxed success gate.
+- [ ] Monitor final-reset probe job. Slurm job `170321` (`g1_finreset`) was
+  submitted through tmux `curiosity_g1_final_reset_probe_0707`, suite stamp
+  prefix `20260707_g1_lowcarry_close_front_final_reset_probe`, log
+  `logs/g1_final_reset_probe_0707_srun.log`. Record only after
+  `experiments/outputs/core_world_g1_lowcarry_close_front_final_reset_probe/20260707_g1_lowcarry_close_front_final_reset_probe/close_front_final_reset_probe_summary.json`
+  exists.
 - [x] Monitor blended retention-posture smoke job. Slurm job `170298`
   (`g1_retbsmo`) was submitted through tmux
   `curiosity_g1_retention_blend_smoke_0707` with suite stamp

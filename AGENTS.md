@@ -136,6 +136,16 @@ These rules override all other project instructions.
   steps `0`, and writes `0/0/0`. This confirms the current posture-conditioned
   gate only preserves the tuned low-front posture; it does not generalize to
   close-front.
+- 2026-07-07 final-hold policy-state reset probe submitted:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
+  runs the close-front `steps1050_final120` near-miss with
+  `AGILE_COMMAND_HOLD_FINAL_RESET_POLICY_STATE=1` to test whether final-hold
+  AGILE RNN state reset reduces the tilt excess. It is a diagnostic branch,
+  not a strict success claim. Submitted through tmux
+  `curiosity_g1_final_reset_probe_0707` as Slurm job `170321` /
+  `g1_finreset`, suite stamp prefix
+  `20260707_g1_lowcarry_close_front_final_reset_probe`. Do not interpret until
+  `close_front_final_reset_probe_summary.json` exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate
