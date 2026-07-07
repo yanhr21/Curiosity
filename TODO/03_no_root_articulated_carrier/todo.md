@@ -10000,12 +10000,20 @@
   `461`, fall/drop `0/0`, writes `0/0/0`, but final robot/box travel only
   `1.307/1.020 m`, final hold never latched, target-window stable steps `0`,
   final relative offset `0.371 m`, and max robot/box tilt `0.540/0.527 rad`.
-- [ ] Run one delayed target-window cross-brace case. Use the same physical
+- [x] Run one delayed target-window cross-brace case. Use the same physical
   brace, but enable it on target-window entry after step `700` so it cannot
   block approach/terminal progress. This directly tests whether the structural
   contact can act as terminal retention rather than propulsion resistance.
   Slurm job `170607` (`g1_xbrtgt`) was submitted through tmux
-  `curiosity_g1_closefront_m0525_crossbrace_target_0707`.
+  `curiosity_g1_closefront_m0525_crossbrace_target_0707` and ran on
+  `server39`. Result: strict `fail`; cross-brace enabled at step `724`, final
+  travel `1.968/2.049 m`, final relative offset `0.238 m`, but first
+  fall/drop `799/815`, fall/drop `201/185`, max robot/box tilt
+  `1.080/1.163 rad`, target-window stable/longest/end `75/70/0`, and final
+  lateral `0.617/0.731 m`.
+- [ ] Stop hard cross-brace geometry/timing micro-scans for close-front. The
+  next structural repair should be softer contact or posture-conditioned
+  support/retention that avoids the contact impulse seen at step `724`.
 - [x] Monitor checker-compatible terminal freeze follow-up:
   `20260707_g1_closefront_mass0525_terminal_freeze`, tmux
   `curiosity_g1_closefront_m0525_terminal_freeze_0707`, Slurm job `170593`.

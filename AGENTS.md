@@ -673,7 +673,19 @@ These rules override all other project instructions.
   `20260707_g1_closefront_mass0525_target_cross_brace`, case
   `target_window_cross_brace_x19_z135`. It keeps terminal side guards but
   delays the same cross-brace until target-window entry after step `700`.
-  Interpret only after the strict summary exists.
+- 2026-07-07 close-front target-window cross-brace result: Slurm job `170607`
+  ran on `server39` and produced strict `fail`. The brace spawned and enabled
+  at target-window step `724`, after final hold latched at step `711`; side
+  guards still enabled at terminal-hold step `461`, and writes stayed
+  `0/0/0`. Delaying the brace avoided approach blockage and kept final
+  robot/box travel near target (`1.968/2.049 m`) with final relative offset
+  `0.238 m`, but the rigid contact destabilized the carry: first fall/drop
+  `799/815`, fall/drop `201/185`, max robot/box tilt `1.080/1.163 rad`,
+  target-window stable/longest/end only `75/70/0`, and final robot/box lateral
+  `0.617/0.731 m`. Interpretation: rigid cross-brace contact improves
+  relative offset but injects too much disturbance; do not continue hard
+  cross-brace geometry/timing micro-scans without a softer contact or
+  posture-conditioned support controller.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
