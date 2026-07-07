@@ -98,6 +98,23 @@ These rules override all other project instructions.
   lateral gates. Do not keep scalar-tuning only lateral sign/gain; the next
   G1 step needs posture-conditioned command/support selection while preserving
   the same strict gates.
+- 2026-07-07 close-front posture-conditioned command evidence: command scan
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_command_conditioned_suite.sh`
+  produced aggregate `fail`, 0/3, but `command_y_neg004` was a useful boundary:
+  fall/drop `0/0`, final robot/box lateral error about `0.054/0.034 m`, max
+  robot/box tilt `0.246/0.329 rad`, and under-travel `1.374/1.443 m`.
+  Forward-refinement
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_command_refine_suite.sh`
+  showed that increasing forward command reaches the window but destabilizes.
+  Hold-delay scan
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_hold_delay_suite.sh`
+  produced a near miss `steps1050_final120`: fall/drop `0/0`, final robot/box
+  travel about `2.026/2.103 m`, final lateral error about `0.081/0.095 m`,
+  but max robot/box tilt `0.486/0.493 rad`, target-window stable steps
+  `76 < 80`, and final-hold active steps `268 < 399`. This is still not a
+  strict pass. Pending follow-up: Slurm job `169771` / `g1_finalstab` in tmux
+  `curiosity_g1_close_final_stab_0707`, which must not be interpreted until
+  its summary exists.
 - Current execution directive: do not block on external model/checkpoint
   downloads or optional policy-server rollouts when they are not directly
   useful. Continue direct Isaac scene construction first. The immediate

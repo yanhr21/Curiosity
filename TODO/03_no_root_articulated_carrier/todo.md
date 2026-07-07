@@ -41,6 +41,23 @@
   walking, then re-run at least `low_front_060` and `close_front_060` under
   the same strict gates without relaxing target-window, tilt, lateral-error,
   fall/drop, or no-rollout-write checks.
+- [x] Add and run first close-front posture-conditioned command scans:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_command_conditioned_suite.sh`,
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_command_refine_suite.sh`,
+  and `scripts/isaac/run_core_world_g1_lowcarry_close_front_hold_delay_suite.sh`.
+  None passed strict gates, but they materially advanced the close-front
+  boundary. `command_y_neg004` centered the close-front carry with fall/drop
+  `0/0`, final lateral error about `0.054/0.034 m`, and max robot/box tilt
+  `0.246/0.329 rad`, but under-traveled. `steps1050_final120` reached final
+  robot/box travel about `2.026/2.103 m` with fall/drop `0/0` and final
+  lateral error about `0.081/0.095 m`, but failed by slight tilt excess
+  `0.486/0.493 rad`, target-window stable steps `76 < 80`, and too few
+  final-hold active steps. This supports posture-conditioned command/hold
+  selection as the next active G1 direction, but it is not a pass.
+- [ ] Await close-front final-stabilize job `169771` (`g1_finalstab`) in tmux
+  `curiosity_g1_close_final_stab_0707`. It tests 1200-step close-front
+  `x=0.10,y=-0.04,final=1.20` variants with earlier box-tilt chest-pad
+  triggers. Do not report it as evidence until the summary exists.
 - [x] Record the 2026-07-07 clean G1 boxtilt box-progress isolation result:
   `clean_slow` was stable but under-traveled, while `clean_slow_lateral_pos`
   entered the target window for `91` steps before over-traveling and failing.
