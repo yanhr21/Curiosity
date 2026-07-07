@@ -12230,6 +12230,22 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   enough; the transition/stop and retention/contact objectives must be jointly
   handled, or the project should return to a real policy-backed locomotion
   backend. Do not report `169633` as robot carrying success.
+- 2026-07-07 MuJoCo continuous WBC diagnostic: to isolate whether `169633`
+  failed mainly because of target-stop/hold switching, added
+  `scripts/mujoco/run_quadruped_freebox_wbc_continuous_carry_suite.sh`, which
+  runs `wbc_carried_mass_qp` from rollout start with no target-stop latch.
+  Slurm job `169638` (`mj_wbccont`) completed on `server36` with Slurm exit
+  `0:0`, but strict result was still `0/4`. WBC/QP/LQR were active for all
+  `2400` steps and root/box pose/velocity writes were `0`. The best travel
+  cases (`wbc_cont_medium`, `wbc_cont_halfcom`) reached final box travel only
+  `0.191-0.218 m` and still failed with `63-67` falls, `54-60` drops, max
+  tilt `3.25-3.26 rad`, and min box z `0.313-0.319 m`. Slow and stronger
+  support cases had near-zero or negative final travel and also failed.
+  Conclusion: removing stop/hold switching does not rescue WBC; the MuJoCo
+  hand-authored locomotion/WBC branch itself is not a credible path to final
+  carrying without replacing the locomotion backend or adding a substantially
+  more complete controller. Do not continue this branch with small speed,
+  support-scale, or box-COM-weight sweeps.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

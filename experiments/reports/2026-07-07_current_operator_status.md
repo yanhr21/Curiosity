@@ -1161,13 +1161,23 @@ This is a status snapshot only. It is not a carrying-success claim.
   negative final box travel; high-hold moved forward but fell/dropped
   `99/93`. Overall fall/drop was `51-99` / `42-93`, min box z
   `0.286-0.373 m`, max tilt `1.77-3.26 rad`. This is not a success.
+- WBC continuous-carry isolation job `169638` (`mj_wbccont`) completed on
+  `server36` with Slurm exit `0:0`, but strict pass was `0/4`. This removed
+  target-stop/hold switching and ran `wbc_carried_mass_qp` continuously from
+  rollout start. WBC/QP/LQR were active all `2400` steps, with root/box writes
+  `0`, so this is valid controller evidence. Removing stop did not fix the
+  failure: best final travel was `0.218 m` in `wbc_cont_halfcom`, but that
+  still had `67` falls / `60` drops, max tilt `3.2546 rad`, min box z
+  `0.319 m`, and final relative error just above gate. Other cases had
+  `56-63` falls, `42-54` drops, and near-zero or negative final travel.
+  Continuous WBC should not be pursued with more small speed/scale/COM sweeps.
 
 ## Next Decision
 
 - Next controller work should stay on materially stronger support/contact
   control. Post-latch QP, feasible-moment QP, and carried-mass WBC all failed,
-  so stop this MuJoCo hand-controller branch unless the next change explicitly
-  introduces a transition-aware contact objective for stopping plus retention,
-  or switch to a policy-backed locomotion backend.
+  and continuous WBC failed without target-stop switching. Stop this MuJoCo
+  hand-controller branch as the main path. Switch back to a policy-backed
+  locomotion backend or implement a substantially fuller whole-body controller.
 - For visuals, use the schematic GIF/poster only with the explicit label that
   it is not an Isaac camera render.

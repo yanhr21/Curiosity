@@ -8613,3 +8613,20 @@
   transition-aware contact objective that jointly handles stopping,
   retention, and support, or switch effort back to a policy-backed locomotion
   backend where walking is not hand-authored.
+- [x] Add
+  `scripts/mujoco/run_quadruped_freebox_wbc_continuous_carry_suite.sh` to
+  isolate whether `169633` failed mainly because of target-stop/hold
+  switching. This suite runs `wbc_carried_mass_qp` continuously from rollout
+  start with no target-stop latch and still enforces no fall/drop, travel,
+  tilt, box-height, relative-error, and no-shortcut gates.
+- [x] Await WBC continuous-carry diagnostic job `169638` (`mj_wbccont`)
+  submitted through tmux `curiosity_mujoco_wbc_continuous_carry_0707`.
+  It completed on `server36` with Slurm exit `0:0`, but strict pass was
+  `0/4`. WBC/QP/LQR were active for all `2400` steps with root/box writes
+  `0`. Removing target-stop did not solve carrying: best final travel was
+  `0.218 m`, but still with `67` falls and `60` drops; other cases had
+  near-zero or negative final travel and similar collapse.
+- [ ] Retire the MuJoCo hand-authored WBC branch as the main path. The next
+  main attempt should move back to a policy-backed locomotion backend or a
+  genuinely fuller whole-body controller; do not spend the next iteration on
+  another continuous-WBC speed/support-scale/COM-weight sweep.
