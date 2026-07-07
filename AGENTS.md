@@ -12828,6 +12828,10 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   It keeps the best `stand_delay_160_soft` timing/target and compares
   `BALANCE_FEEDBACK_BASE=stand`, half balance gains, and balance disabled
   under the same strict gates.
+- 2026-07-07 close-front stand-over-freeze balance-coupling job: Slurm job
+  `170193` (`g1_cfbalstand`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_stand_balance_0707`; as of
+  `2026-07-07 17:55 CST`, it was pending on GPU priority.
 - 2026-07-07 close-front freeze-rescue override parsing helper:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh` was added as a
   lightweight, read-only summary parser. It prints per-case pass/fail,

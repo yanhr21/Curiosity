@@ -9016,6 +9016,10 @@
   It uses `STAND_TRANSITION_CASE_SET=balance_coupling` and compares
   `stand160_balance_base_stand`, `stand160_balance_half_gain`, and
   `stand160_balance_off`.
+- [ ] Run close-front stand-over-freeze balance-coupling suite. Slurm job
+  `170193` (`g1_cfbalstand`) was submitted through tmux
+  `curiosity_g1_close_front_freeze_stand_balance_0707`; it is pending on GPU
+  priority as of `2026-07-07 17:55 CST`.
 - [x] Add a read-only close-front freeze-rescue override parser:
   `scripts/isaac/print_g1_freeze_rescue_override_summary.sh`. Use it after
   `close_front_freeze_rescue_override_summary.json` exists to verify per-case
