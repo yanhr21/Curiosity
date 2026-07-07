@@ -1214,6 +1214,15 @@ This is a status snapshot only. It is not a carrying-success claim.
   `curiosity_g1_060_late_chestpad_0707` to run
   `scripts/isaac/run_core_world_g1_lowcarry_060_late_chestpad_suite.sh`.
   It was pending in `gpu` for priority at submission.
+- `169676` was cancelled during its third case after a launcher/builder bug
+  was found: the new trigger flags were included in summary initialization but
+  not in the actual spawn-time `_set_collision_enabled(..., False)` condition.
+  Therefore the first two cases started with chest-pad collision active and
+  reproduced the old under-travel failure (`1.510 m` final box travel,
+  max box tilt `0.370 rad`). Commit `4994ed8` fixed this gating mistake, and
+  replacement job `169678` (`g1_060late2`) was submitted through tmux
+  `curiosity_g1_060_late_chestpad_fix_0707` with prefix
+  `20260707_g1_lowcarry_060_late_chestpad_fix1`.
 
 ## Next Decision
 

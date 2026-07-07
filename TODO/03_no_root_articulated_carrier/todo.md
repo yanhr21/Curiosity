@@ -8683,3 +8683,11 @@
   triggered chest-pad activation cases and must pass the same fall/drop,
   target-window, box-tilt, final-hold, and no-rollout-shortcut gates before
   being considered a real improvement.
+- [x] Cancel invalid late chest-pad job `169676` after discovering the
+  spawn-time collision-disable condition missed the two new late-trigger flags.
+  The first two cases therefore started with chest-pad collision active and are
+  not valid tests of late activation.
+- [ ] Await replacement late chest-pad job `169678` (`g1_060late2`) submitted
+  through tmux `curiosity_g1_060_late_chestpad_fix_0707` after commit
+  `4994ed8` fixed the actual spawn-time collision gating. Interpret only the
+  `20260707_g1_lowcarry_060_late_chestpad_fix1` outputs.

@@ -12312,6 +12312,18 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `gpu` partition due to priority. The suite is not a result yet. It must pass
   the strict fall/drop, target-window, final-hold, box-tilt, and no-rollout-
   shortcut gates before being treated as a real improvement.
+- 2026-07-07 late chest-pad gating correction: first two cases of `169676`
+  were invalid and reproduced the old under-travel failure because
+  `_spawn_front_torso_cradle()` did not include the new target-window/box-tilt
+  trigger flags in the initial `_set_collision_enabled(..., False)` condition.
+  The summary said `cradle_chest_pad_collision_enabled_initial=false`, but the
+  actual chest-pad collision was still active from rollout start. Job `169676`
+  was cancelled during the third case to avoid wasting GPU time. Commit
+  `4994ed8` fixed the actual spawn-time collision gating. Replacement Slurm
+  job `169678` (`g1_060late2`) was submitted through tmux
+  `curiosity_g1_060_late_chestpad_fix_0707` with prefix
+  `20260707_g1_lowcarry_060_late_chestpad_fix1`; only the replacement job can
+  be interpreted as the late-trigger test.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned
