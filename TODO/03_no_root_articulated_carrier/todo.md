@@ -10064,3 +10064,30 @@
   contact/support selection from measured box response, or a controller that
   changes final retention based on box dimensions while preserving the same
   strict gates.
+- [x] Add close-front held-out geometry adaptive-support diagnostic:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_adaptive_support_suite.sh`.
+  It tests two mechanism changes under the same strict gates: terminal-trigger
+  side guards for the `wide_y012` drift/fall failure, and delayed final-stand
+  handoff for the `tall_z009` target-window-then-collapse failure.
+- [x] Run and record the adaptive-support diagnostic through tmux plus
+  persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_closefront_heldout_geometry_adaptive_support/<stamp>/closefront_heldout_geometry_adaptive_support_summary.json`
+  exists.
+- [x] Record adaptive-support diagnostic result:
+  `20260707_g1_closefront_heldout_geometry_adaptive_support`, tmux
+  `curiosity_g1_heldout_adaptive_support_0707`, Slurm job `170614`,
+  aggregate `fail`, 0/2. `wide_y012_terminal_guard` matched the earlier wide
+  failure; terminal side guard never triggered (`collision_enabled_step=null`),
+  fall/drop `53/15`, first fall/drop `942/966`, target-window stable `0`,
+  final travel `0.995/0.784 m`, final lateral `2.135/1.904 m`, relative
+  offset `0.324 m`, and max robot/box tilt `1.298/1.163 rad`. The failure is
+  before the current terminal-hold guard trigger becomes usable.
+  `tall_z009_final_stand` improved box retention and relative geometry but
+  still failed: final stand active from step `867` for `133` steps, box drops
+  `0`, relative offset `0.179 m`, final lateral `0.416/0.252 m`, but first
+  fall `954`, fall events `46`, over-travel `2.814/2.843 m`, end streak `0`,
+  and max robot/box tilt `1.601/1.602 rad`.
+- [ ] Next held-out shape step: avoid final-only interventions. For the wide
+  case, the support/path change must happen before terminal hold; for the tall
+  case, stand handoff needs earlier target-window speed/position arrest or a
+  geometry-aware command controller, not just delayed final stand.

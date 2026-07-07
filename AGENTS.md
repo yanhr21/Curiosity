@@ -715,6 +715,35 @@ These rules override all other project instructions.
   `0.364 m`, and max robot/box tilt `2.388/2.074 rad`. This confirms the
   current two-posture result is narrow and geometry-sensitive, not a general
   shape-robust carrying solution.
+- 2026-07-07 close-front held-out geometry adaptive-support entrypoint added:
+  `scripts/isaac/run_core_world_g1_closefront_heldout_geometry_adaptive_support_suite.sh`.
+  It does not tune the passed baseline; it probes two mechanism changes for
+  the failed held-out shape cases under the same strict gates. For
+  `wide_y012`, side guards are enabled at terminal hold instead of final hold
+  to test whether early lateral contact prevents the pre-window drift. For
+  `tall_z009`, final stand handoff starts after 120 final-hold steps with
+  blend rate `0.02` to test whether the target-window dwell can be preserved
+  instead of collapsing late. This is an experiment entrypoint only until
+  `closefront_heldout_geometry_adaptive_support_summary.json` exists.
+- 2026-07-07 close-front held-out geometry adaptive-support result:
+  `20260707_g1_closefront_heldout_geometry_adaptive_support`, submitted
+  through tmux `curiosity_g1_heldout_adaptive_support_0707` as Slurm job
+  `170614`, ran on `server44` and produced aggregate `fail`, 0/2 strict
+  cases passed. `wide_y012_terminal_guard` did not improve the previous wide
+  failure and the terminal side guard never triggered
+  (`collision_enabled_step=null`): fall/drop `53/15`, first fall/drop
+  `942/966`, target-window stable steps `0`, final robot/box travel about
+  `0.995/0.784 m`, final lateral `2.135/1.904 m`, relative offset `0.324 m`,
+  and max robot/box tilt `1.298/1.163 rad`. Interpretation: the wide-box
+  failure happens before the current terminal-hold side-guard trigger becomes
+  usable. `tall_z009_final_stand` changed the tall-box failure mode but did
+  not pass: final stand became active at step `867` for `133` steps, box drops
+  fell from the previous `11` to `0`, relative offset improved to `0.179 m`,
+  and lateral error stayed within gate (`0.416/0.252 m`), but the run still
+  had first fall `954`, fall events `46`, over-travel `2.814/2.843 m`, target
+  end streak `0`, and max robot/box tilt `1.601/1.602 rad`. Next shape-robust
+  work should use earlier geometry-adaptive path/support selection rather than
+  final-only stand or side-guard timing.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
