@@ -8805,17 +8805,24 @@
   with final robot/box travel `2.051/2.032 m`, max robot/box tilt
   `0.309/0.428`, fall/drop `0/0`, and target-window/final-hold end streak
   `102`. `min720` and `min740` were too late and fell.
-- [ ] Generate a replay/visual artifact for the current best 0.60 kg runtime
+- [x] Generate a replay/visual artifact for the current best 0.60 kg runtime
   chest-pad pass, without claiming it is learned or final unknown-load
-  carrying.
-- [ ] Await posture-conditioned gate job `169793` (`g1_postgate`) submitted
+  carrying. Current local showcase page:
+  `slides/2026-07-07_isaac_carry_showcase.html`; video asset remains local
+  under ignored `experiments/visuals/`.
+- [x] Record posture-conditioned gate job `169793` (`g1_postgate`) submitted
   through tmux `curiosity_g1_posture_gate_0707`. It runs the known passing
   `low_front_060` and the current best close-front conditioned hypothesis
-  under the unchanged strict gates. As of `2026-07-07 13:22 CST`, it was still
-  pending on GPU priority and had not produced evidence.
-- [ ] Await close-front final-stand job `169822` (`g1_cfstand`) submitted
+  under the unchanged strict gates. It failed aggregate `1/2`: `low_front_060`
+  passed again, while `close_front_060_conditioned` failed with `142` falls,
+  max robot/box tilt `3.130/3.129 rad`, and target-window stable steps `0`.
+- [x] Record close-front final-stand job `169822` (`g1_cfstand`) submitted
   through tmux `curiosity_g1_close_front_final_stand_0707`. This suite tests
   whether late final-stand/freeze stabilization can fix the `steps1050_final120`
-  failure, where target-window entry happened around step `968` but robot/box
-  tilt exceeded gates around step `1040+`. Do not interpret it until its
-  summary JSON exists.
+  failure. It failed `0/3`: late crouched stand, freeze-window then stand, and
+  policy-then-stand all collapsed, with falls `262`, `226`, and `700`
+  respectively and target-window stable steps `0`.
+- [ ] Next close-front work should not continue final-stand-only tuning. Repair
+  the pre-target close-front trajectory: change command schedule/support
+  geometry before step `700-900`, or add a posture-conditioned gait/support
+  controller that keeps roll/pitch inside gate before final hold.

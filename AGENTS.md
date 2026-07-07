@@ -12487,9 +12487,14 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   packages the known passing `low_front_060` case and the best current
   close-front conditioned hypothesis under the same strict fall/drop,
   target-window, final-hold, tilt, lateral-error, and no-shortcut gates. Slurm
-  job `169793` (`g1_postgate`) was submitted through tmux
-  `curiosity_g1_posture_gate_0707`; as of `2026-07-07 13:22 CST`, it was
-  still pending on GPU priority. It is not evidence until the summary exists.
+  job `169793` (`g1_postgate`) ran on `server57` and failed the aggregate gate
+  with `1/2` cases passing. `low_front_060` reproduced the narrow pass with
+  fall/drop `0/0`, robot/box travel `2.051/2.032 m`, max robot/box tilt
+  `0.309/0.428 rad`, target-window stable steps `105`, and end streak `102`.
+  `close_front_060_conditioned` failed with `142` falls, robot/box travel
+  `0.731/0.650 m`, max robot/box tilt `3.130/3.129 rad`, and target-window
+  stable steps `0`. Conclusion: the current runtime chest-pad route is still
+  a narrow low-front result, not posture-general carrying.
 - 2026-07-07 close-front final-stand follow-up: added
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_stand_suite.sh`
   to target the late-tilt failure from
@@ -12497,10 +12502,17 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   reached the target window at step `968` and did not exceed the tilt gates
   until roughly step `1040+`, so the new suite tests late crouched
   final-stand, target-window freeze then final-stand, and policy-then-stand
-  without relaxing gates. Slurm job `169822` (`g1_cfstand`) was submitted
-  through tmux `curiosity_g1_close_front_final_stand_0707`; as of
-  `2026-07-07 13:22 CST`, it was still pending on GPU priority. It is not
-  evidence until its summary JSON exists.
+  without relaxing gates. Slurm job `169822` (`g1_cfstand`) ran on `server44`
+  and failed `0/3`. `stand_late_crouch_b003` had fall/drop `262/27`,
+  robot/box travel `1.488/1.454 m`, max robot/box tilt `3.102/3.111 rad`, and
+  target-window stable steps `0`. `freeze_window_then_stand_b002` had
+  fall/drop `226/0`, travel `0.974/0.657 m`, max tilt `3.137/3.138 rad`, and
+  target-window stable steps `0`. `policy_then_stand_b002` failed earlier
+  with fall/drop `700/463`, travel `0.835/0.604 m`, max tilt
+  `2.494/1.843 rad`, and target-window stable steps `0`. Conclusion: do not
+  keep tuning final-stand-only close-front repairs. The close-front path needs
+  pre-target command/support geometry repair or a posture-conditioned
+  gait/support controller before final hold.
 - 2026-07-06 lightweight checks after `168433` submission passed: `bash -n`
   over the affected shell launchers, `python3 -m py_compile` for the G1 probe
   selector, and `git diff --check` over touched docs/scripts all returned

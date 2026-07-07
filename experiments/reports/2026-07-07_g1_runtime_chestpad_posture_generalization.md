@@ -136,14 +136,19 @@ slot, but it must not be reported as evidence until a summary exists.
 - Gate:
   unchanged strict fall/drop, no rollout root/box writes, target-window,
   final-hold, tilt, and lateral-error checks.
-- Status:
-  submitted as Slurm job `169793` (`g1_postgate`) through tmux
-  `curiosity_g1_posture_gate_0707`; pending on GPU priority as of
-  `2026-07-07 13:22 CST`.
+- Result:
+  `fail`, 1/2 cases passed. Slurm job `169793` (`g1_postgate`) ran on
+  `server57` and exited `FAILED 1:0`, because the aggregate gate failed.
+- Summary:
+  `experiments/outputs/core_world_g1_posture_conditioned_gate/20260707_g1_posture_conditioned_gate/posture_conditioned_gate_summary.json`
 
-This is the next clean experiment entrypoint. It packages the known passing
-low-front command and the best current close-front conditioned hypothesis into
-one reproducible gate. It is not evidence until its summary JSON exists.
+| Case | Result | Fall/Drop | Robot/Box Travel m | Max Robot/Box Tilt rad | Target Stable Steps | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `low_front_060` | pass | 0/0 | 2.051/2.032 | 0.309/0.428 | 105 | Reproduces the current narrow low-front runtime-support pass. |
+| `close_front_060_conditioned` | fail | 142/0 | 0.731/0.650 | 3.130/3.129 | 0 | The packaged close-front hypothesis collapses; this is not a small final-hold error. |
+
+The clean gate confirms the boundary: current G1/AGILE runtime chest-pad logic
+passes only the tuned low-front posture. Close-front remains unsolved.
 
 ## Close-Front Final-Stand Follow-Up
 
@@ -163,11 +168,21 @@ one reproducible gate. It is not evidence until its summary JSON exists.
 - Slurm job:
   `169822` (`g1_cfstand`) through tmux
   `curiosity_g1_close_front_final_stand_0707`.
-- Status:
-  pending on GPU priority as of `2026-07-07 13:22 CST`.
+- Result:
+  `fail`, 0/3 cases passed. Slurm job `169822` (`g1_cfstand`) ran on
+  `server44` and exited `FAILED 1:0`.
+- Summary:
+  `experiments/outputs/core_world_g1_lowcarry_close_front_final_stand/20260707_g1_lowcarry_close_front_final_stand/close_front_final_stand_summary.json`
 
-This is not evidence yet. It is the next targeted test for the late-tilt
-failure mode after close-front already reaches the target region.
+| Case | Result | Fall/Drop | Robot/Box Travel m | Max Robot/Box Tilt rad | Target Stable Steps | Main Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `stand_late_crouch_b003` | fail | 262/27 | 1.488/1.454 | 3.102/3.111 | 0 | Late crouched stand does not arrest the posture; first fall at step 924. |
+| `freeze_window_then_stand_b002` | fail | 226/0 | 0.974/0.657 | 3.137/3.138 | 0 | Freeze/stand never reaches the target window; first fall at step 924. |
+| `policy_then_stand_b002` | fail | 700/463 | 0.835/0.604 | 2.494/1.843 | 0 | Policy-then-stand destabilizes much earlier; first fall at step 409. |
+
+The final-stand hypothesis is negative. The close-front failure is not solved
+by standing up after final hold; the current command/support setup can enter a
+bad pitch/roll trajectory before a useful target-window dwell exists.
 
 ## Next Step
 
@@ -176,5 +191,7 @@ implementation should add an explicit posture-conditioned controller gate:
 
 - estimate or select carry posture/geometry before walking,
 - choose different command/lateral/yaw/support parameters per posture,
+- repair the pre-target close-front trajectory rather than only the final
+  stand/hold phase,
 - keep the same strict checks: fall/drop 0, no rollout root/box writes,
   final target-window hold, tilt bounds, and final lateral error bounds.
