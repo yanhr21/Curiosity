@@ -667,6 +667,13 @@ These rules override all other project instructions.
   and physically active, but terminal-hold activation is too early/aggressive;
   the next valid structural test is delayed target-window activation rather
   than command braking or another terminal scalar.
+- 2026-07-07 close-front target-window cross-brace follow-up submitted:
+  Slurm job `170607` (`g1_xbrtgt`) through tmux
+  `curiosity_g1_closefront_m0525_crossbrace_target_0707`, stamp prefix
+  `20260707_g1_closefront_mass0525_target_cross_brace`, case
+  `target_window_cross_brace_x19_z135`. It keeps terminal side guards but
+  delays the same cross-brace until target-window entry after step `700`.
+  Interpret only after the strict summary exists.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

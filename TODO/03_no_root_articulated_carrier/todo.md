@@ -10004,6 +10004,8 @@
   brace, but enable it on target-window entry after step `700` so it cannot
   block approach/terminal progress. This directly tests whether the structural
   contact can act as terminal retention rather than propulsion resistance.
+  Slurm job `170607` (`g1_xbrtgt`) was submitted through tmux
+  `curiosity_g1_closefront_m0525_crossbrace_target_0707`.
 - [x] Monitor checker-compatible terminal freeze follow-up:
   `20260707_g1_closefront_mass0525_terminal_freeze`, tmux
   `curiosity_g1_closefront_m0525_terminal_freeze_0707`, Slurm job `170593`.
