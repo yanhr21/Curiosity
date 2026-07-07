@@ -209,6 +209,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--box-retention-shoulder-pitch-offset", type=float, default=-0.10)
     parser.add_argument("--box-retention-elbow-offset", type=float, default=0.16)
     parser.add_argument("--box-retention-wrist-pitch-offset", type=float, default=-0.04)
+    parser.add_argument("--approach-support-posture-controller", action="store_true")
+    parser.add_argument("--approach-support-posture-travel-start", type=float, default=1.20)
+    parser.add_argument("--approach-support-posture-travel-full", type=float, default=1.80)
+    parser.add_argument("--approach-support-posture-blend-rate", type=float, default=0.02)
+    parser.add_argument("--approach-support-posture-hip-pitch-offset", type=float, default=-0.04)
+    parser.add_argument("--approach-support-posture-knee-offset", type=float, default=0.08)
+    parser.add_argument("--approach-support-posture-ankle-pitch-offset", type=float, default=-0.04)
+    parser.add_argument("--approach-support-posture-waist-pitch-offset", type=float, default=-0.02)
+    parser.add_argument("--approach-support-posture-disable-on-final-hold", action="store_true")
     parser.add_argument("--policy-start-step", type=int, default=40)
     parser.add_argument("--policy-control-decimation", type=int, default=4)
     parser.add_argument("--agile-command", type=float, nargs=3, default=(0.25, 0.0, 0.0), metavar=("VX", "VY", "YAW"))
@@ -1391,6 +1400,66 @@ def _apply_box_retention_posture_feedback(
     return float(risk)
 
 
+def _apply_approach_support_posture(
+    command: np.ndarray,
+    joint_names: list[str],
+    robot_target_directed: float,
+    box_target_directed: float,
+    *,
+    final_hold_active: bool,
+) -> float:
+    if not bool(args_cli.approach_support_posture_controller):
+        return 0.0
+    if bool(args_cli.approach_support_posture_disable_on_final_hold) and bool(final_hold_active):
+        return 0.0
+    support_progress = min(float(robot_target_directed), float(box_target_directed))
+    scale = _ramp01(
+        float(support_progress),
+        float(args_cli.approach_support_posture_travel_start),
+        float(args_cli.approach_support_posture_travel_full),
+    )
+    if scale <= 0.0:
+        return 0.0
+    blend_rate = max(0.0, min(1.0, float(args_cli.approach_support_posture_blend_rate))) * scale
+    if blend_rate <= 0.0:
+        return 0.0
+    stand_targets = _stand_joint_targets()
+    for side in ("left", "right"):
+        _blend_command_joint_position(
+            command,
+            joint_names,
+            f"{side}_hip_pitch_joint",
+            stand_targets.get(f"{side}_hip_pitch_joint", -0.10)
+            + scale * float(args_cli.approach_support_posture_hip_pitch_offset),
+            blend_rate,
+        )
+        _blend_command_joint_position(
+            command,
+            joint_names,
+            f"{side}_knee_joint",
+            stand_targets.get(f"{side}_knee_joint", 0.30)
+            + scale * float(args_cli.approach_support_posture_knee_offset),
+            blend_rate,
+        )
+        _blend_command_joint_position(
+            command,
+            joint_names,
+            f"{side}_ankle_pitch_joint",
+            stand_targets.get(f"{side}_ankle_pitch_joint", -0.20)
+            + scale * float(args_cli.approach_support_posture_ankle_pitch_offset),
+            blend_rate,
+        )
+    _blend_command_joint_position(
+        command,
+        joint_names,
+        "waist_pitch_joint",
+        stand_targets.get("waist_pitch_joint", 0.0)
+        + scale * float(args_cli.approach_support_posture_waist_pitch_offset),
+        blend_rate,
+    )
+    return float(scale)
+
+
 def _apply_symmetric_pitch_offsets(
     command: np.ndarray,
     joint_names: list[str],
@@ -2347,6 +2416,25 @@ def run_scene() -> Path:
         "box_retention_first_active_step": None,
         "box_retention_max_risk": 0.0,
         "box_retention_last_risk": 0.0,
+        "approach_support_posture_controller_enabled": bool(args_cli.approach_support_posture_controller),
+        "approach_support_posture_travel_start_m": float(args_cli.approach_support_posture_travel_start),
+        "approach_support_posture_travel_full_m": float(args_cli.approach_support_posture_travel_full),
+        "approach_support_posture_blend_rate": float(args_cli.approach_support_posture_blend_rate),
+        "approach_support_posture_hip_pitch_offset": float(args_cli.approach_support_posture_hip_pitch_offset),
+        "approach_support_posture_knee_offset": float(args_cli.approach_support_posture_knee_offset),
+        "approach_support_posture_ankle_pitch_offset": float(
+            args_cli.approach_support_posture_ankle_pitch_offset
+        ),
+        "approach_support_posture_waist_pitch_offset": float(
+            args_cli.approach_support_posture_waist_pitch_offset
+        ),
+        "approach_support_posture_disable_on_final_hold": bool(
+            args_cli.approach_support_posture_disable_on_final_hold
+        ),
+        "approach_support_posture_active_steps": 0,
+        "approach_support_posture_first_active_step": None,
+        "approach_support_posture_max_scale": 0.0,
+        "approach_support_posture_last_scale": 0.0,
         "arm_pose_active_steps": 0,
         "arm_pose_first_active_step": None,
         "max_abs_roll_rad": 0.0,
@@ -3991,6 +4079,24 @@ def run_scene() -> Path:
                         summary["box_retention_max_risk"] = max(
                             float(summary["box_retention_max_risk"]),
                             float(retention_risk),
+                        )
+                    approach_support_scale = _apply_approach_support_posture(
+                        command_positions,
+                        joint_names,
+                        float(prev_robot_target_directed),
+                        float(prev_box_target_directed),
+                        final_hold_active=bool(current_final_hold_scale_active),
+                    )
+                    if approach_support_scale > 0.0:
+                        summary["approach_support_posture_active_steps"] = (
+                            int(summary["approach_support_posture_active_steps"]) + 1
+                        )
+                        if summary["approach_support_posture_first_active_step"] is None:
+                            summary["approach_support_posture_first_active_step"] = int(step)
+                        summary["approach_support_posture_last_scale"] = float(approach_support_scale)
+                        summary["approach_support_posture_max_scale"] = max(
+                            float(summary["approach_support_posture_max_scale"]),
+                            float(approach_support_scale),
                         )
                     balance_allowed = not bool(args_cli.balance_start_on_agile_hold) or bool(agile_command_hold_active)
                     if balance_allowed:

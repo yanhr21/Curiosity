@@ -165,6 +165,19 @@ These rules override all other project instructions.
   steps `0`, and writes `0/0/0`. This confirms the current posture-conditioned
   gate only preserves the tuned low-front posture; it does not generalize to
   close-front.
+- 2026-07-07 close-front approach-support controller added:
+  `scripts/isaac/build_core_world_g1_box_scene.py` now has opt-in
+  `--approach-support-posture-controller`, which blends a small low-COM
+  lower-body support posture into the AGILE policy targets based on
+  target-directed robot/box travel before final-hold. This is intentionally
+  different from the failed retention-posture controller: it is phase/travel
+  conditioned, not box-risk conditioned, and can be disabled on final-hold.
+  Launcher forwarding and aggregate fields were added, plus entrypoint
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_approach_support_suite.sh`.
+  This is an experiment entrypoint only until
+  `close_front_approach_support_summary.json` exists; do not claim it as
+  carrying success before strict fall/drop/target-window/tilt/lateral/no-write
+  gates pass.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with

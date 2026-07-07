@@ -295,6 +295,45 @@ def _case_record(summary_path: Path) -> dict[str, Any]:
         "box_retention_first_active_step": summary.get("box_retention_first_active_step"),
         "box_retention_last_risk": summary.get("box_retention_last_risk"),
         "box_retention_max_risk": summary.get("box_retention_max_risk"),
+        "approach_support_posture_controller_enabled": summary.get(
+            "approach_support_posture_controller_enabled"
+        ),
+        "approach_support_posture_travel_start_m": summary.get(
+            "approach_support_posture_travel_start_m"
+        ),
+        "approach_support_posture_travel_full_m": summary.get(
+            "approach_support_posture_travel_full_m"
+        ),
+        "approach_support_posture_blend_rate": summary.get(
+            "approach_support_posture_blend_rate"
+        ),
+        "approach_support_posture_hip_pitch_offset": summary.get(
+            "approach_support_posture_hip_pitch_offset"
+        ),
+        "approach_support_posture_knee_offset": summary.get(
+            "approach_support_posture_knee_offset"
+        ),
+        "approach_support_posture_ankle_pitch_offset": summary.get(
+            "approach_support_posture_ankle_pitch_offset"
+        ),
+        "approach_support_posture_waist_pitch_offset": summary.get(
+            "approach_support_posture_waist_pitch_offset"
+        ),
+        "approach_support_posture_disable_on_final_hold": summary.get(
+            "approach_support_posture_disable_on_final_hold"
+        ),
+        "approach_support_posture_active_steps": summary.get(
+            "approach_support_posture_active_steps"
+        ),
+        "approach_support_posture_first_active_step": summary.get(
+            "approach_support_posture_first_active_step"
+        ),
+        "approach_support_posture_max_scale": summary.get(
+            "approach_support_posture_max_scale"
+        ),
+        "approach_support_posture_last_scale": summary.get(
+            "approach_support_posture_last_scale"
+        ),
         "agile_command_hold_final_tilt_escape_scale": summary.get(
             "agile_command_hold_final_tilt_escape_scale"
         ),

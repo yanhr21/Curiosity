@@ -9445,3 +9445,23 @@
   `omni.kit.viewport.window`, or switch to a Kit experience/launcher that can
   resolve those registry packages before spending more GPU time on replay
   render-product/capture tests.
+- [x] Add an opt-in close-front approach-support posture controller. It blends
+  a small low-COM hip/knee/ankle/waist support posture into AGILE policy
+  targets based on target-directed robot/box travel before final-hold. This is
+  not the failed retention-posture branch: it is travel/phase conditioned and
+  defaults off. Updated files:
+  `scripts/isaac/build_core_world_g1_box_scene.py`,
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`, and
+  `scripts/isaac/summarize_core_world_g1_largerbox_strict.py`.
+- [x] Add close-front approach-support suite:
+  `scripts/isaac/run_core_world_g1_lowcarry_close_front_approach_support_suite.sh`.
+  It starts from the `steps1050_final120` near-miss lineage and tests a
+  pre-final-hold support posture in `soft1050`, plus a 1200-step strict
+  `support1200` case in the default case set, under the same fall/drop,
+  target-window, final-hold, tilt, lateral, and no-rollout-write gates.
+- [ ] Run and record close-front approach-support suite. Use tmux plus
+  persistent `srun` on a compute node. Do not interpret results until
+  `experiments/outputs/core_world_g1_lowcarry_close_front_approach_support/<stamp>/close_front_approach_support_summary.json`
+  exists. A pass still must satisfy the original strict gates and cannot be
+  claimed as arbitrary-posture or learned carrying unless broader posture
+  generalization also passes.

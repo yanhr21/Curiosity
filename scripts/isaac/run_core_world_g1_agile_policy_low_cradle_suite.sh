@@ -25,7 +25,7 @@ AGILE_HEIGHT_COMMAND="${AGILE_HEIGHT_COMMAND:-0.72}"
 cd "${ROOT_DIR}"
 mkdir -p "${SUITE_DIR}"
 
-env | sort | grep -E '^(AGILE_|ARM_|BALANCE_|CAPTURE_|CRADLE_|FREE_|G1_|GENERATE_|LARGERBOX_|MIN_|RECORD_|RUN_|STRICT|SUITE_|TARGET_)' \
+env | sort | grep -E '^(AGILE_|APPROACH_|ARM_|BALANCE_|CAPTURE_|CRADLE_|FREE_|G1_|GENERATE_|LARGERBOX_|MIN_|RECORD_|RUN_|STRICT|SUITE_|TARGET_)' \
   > "${SUITE_DIR}/agile_policy_low_cradle_env_snapshot.txt"
 
 sleep "${COMPUTE_SIDE_STARTUP_SLEEP}"
@@ -76,6 +76,13 @@ base_python=(
   --box-retention-shoulder-pitch-offset "${BOX_RETENTION_SHOULDER_PITCH_OFFSET:--0.10}"
   --box-retention-elbow-offset "${BOX_RETENTION_ELBOW_OFFSET:-0.16}"
   --box-retention-wrist-pitch-offset "${BOX_RETENTION_WRIST_PITCH_OFFSET:--0.04}"
+  --approach-support-posture-travel-start "${APPROACH_SUPPORT_POSTURE_TRAVEL_START:-1.20}"
+  --approach-support-posture-travel-full "${APPROACH_SUPPORT_POSTURE_TRAVEL_FULL:-1.80}"
+  --approach-support-posture-blend-rate "${APPROACH_SUPPORT_POSTURE_BLEND_RATE:-0.02}"
+  --approach-support-posture-hip-pitch-offset "${APPROACH_SUPPORT_POSTURE_HIP_PITCH_OFFSET:--0.04}"
+  --approach-support-posture-knee-offset "${APPROACH_SUPPORT_POSTURE_KNEE_OFFSET:-0.08}"
+  --approach-support-posture-ankle-pitch-offset "${APPROACH_SUPPORT_POSTURE_ANKLE_PITCH_OFFSET:--0.04}"
+  --approach-support-posture-waist-pitch-offset "${APPROACH_SUPPORT_POSTURE_WAIST_PITCH_OFFSET:--0.02}"
   --probe-mode "${PROBE_MODE:-none}"
   --probe-start-step "${PROBE_START_STEP:-0}"
   --probe-end-step "${PROBE_END_STEP:--1}"
@@ -172,6 +179,12 @@ if [[ "${RECORD_REPLAY_CSV:-0}" == "1" ]]; then
 fi
 if [[ "${BOX_RETENTION_POSTURE_CONTROLLER:-0}" == "1" ]]; then
   base_python+=(--box-retention-posture-controller)
+fi
+if [[ "${APPROACH_SUPPORT_POSTURE_CONTROLLER:-0}" == "1" ]]; then
+  base_python+=(--approach-support-posture-controller)
+fi
+if [[ "${APPROACH_SUPPORT_POSTURE_DISABLE_ON_FINAL_HOLD:-0}" == "1" ]]; then
+  base_python+=(--approach-support-posture-disable-on-final-hold)
 fi
 
 if [[ -n "${AGILE_COMMAND_HOLD_STAND_HIP_PITCH:-}" ]]; then
