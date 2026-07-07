@@ -9932,6 +9932,22 @@
   target-window/terminal conditional braking, heading offset, or a genuinely
   posture-conditioned support selection that preserves the useful default
   terminal side-guard stability while reducing lateral error and box tilt.
+- [x] Run conservative final-brake probe for the useful `terminal_guard_lx19`
+  boundary: single case
+  `20260707_g1_closefront_mass0525_terminal_brake004`, tmux
+  `curiosity_g1_closefront_m0525_terminal_brake004_0707`, Slurm job `170587`.
+  It kept default terminal side guards and added final-hold brake
+  `AGILE_COMMAND_HOLD_FINAL_BRAKE_COMMAND_X=-0.004` for `160` steps. Result:
+  strict `fail`, but it is the best terminal follow-up so far: fall/drop
+  `0/0`, target-window stable/longest/end `277/277/277`, final robot/box
+  lateral improved to `0.401/0.214 m`, final robot/box travel stayed
+  in-window at `2.304/1.935 m`, and writes were `0/0/0`. Remaining failures:
+  max robot/box tilt `0.401/0.672 rad`, final relative offset `0.419 m`, and
+  final command gate because brake command x reached `0.004 > 0.001`.
+- [ ] Next terminal-guard follow-up: keep the useful final-brake direction,
+  but fix box attitude and relative offset with a checker-compatible terminal
+  support policy. Do not present brake as a pass while the final command gate,
+  box tilt, and relative-offset gates fail.
 - [ ] Next G1 validation: expand the strict gate beyond these two engineered
   postures. At minimum add held-out box mass/geometry or a third posture
   without changing the strict fall/drop, target-window, tilt, lateral,

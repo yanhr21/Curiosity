@@ -564,6 +564,22 @@ These rules override all other project instructions.
   lateral was small (`0.299/0.216 m`), the path offset destabilized early
   transport and caused massive forward over-travel. Do not use a constant
   `AGILE_COMMAND_Y=-0.02` path offset for this boundary.
+- 2026-07-07 close-front `0.525 kg` terminal-guard final-brake probe:
+  single case `20260707_g1_closefront_mass0525_terminal_brake004` was
+  submitted through tmux `curiosity_g1_closefront_m0525_terminal_brake004_0707`
+  as Slurm job `170587`, keeping default terminal side guards and adding
+  final-hold brake `AGILE_COMMAND_HOLD_FINAL_BRAKE_COMMAND_X=-0.004` for
+  `160` steps. It is not a strict pass, but it is the most useful terminal
+  follow-up so far. Fall/drop stayed `0/0`, target-window stable/longest/end
+  stayed `277/277/277`, final robot/box lateral improved to
+  `0.401/0.214 m`, and final robot/box travel stayed in-window at
+  `2.304/1.935 m`. Failures were max robot/box tilt `0.401/0.672 rad`, final
+  relative offset `0.419 m`, and the strict final command gate because brake
+  command x reached `0.004 > 0.001`; writes stayed `0/0/0`. Interpretation:
+  terminal braking addresses lateral/over-travel better than sign, lateral
+  limit, roll-target, or constant path-offset probes, but it must be paired
+  with box attitude/relative retention and a checker-compatible terminal
+  support policy before it can count as carrying success.
 - 2026-07-07 final-hold policy-state reset probe result:
   `scripts/isaac/run_core_world_g1_lowcarry_close_front_final_reset_probe.sh`
   ran the close-front `steps1050_final120` near-miss with
