@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$(hostname)" == mgmtserver* ]]; then
+  echo "Refusing to run G1 boxtilt short-window suite on login/management node: $(hostname)" >&2
+  exit 2
+fi
+
+ROOT_DIR="${ROOT_DIR:-/public/home/yanhongru/Curiosity}"
+SUITE_STAMP="${SUITE_STAMP:-20260707_g1_boxtilt_avgpos_short_window_760}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-${ROOT_DIR}/experiments/outputs/core_world_g1_boxtilt_avgpos_short_window/${SUITE_STAMP}}"
+CASE_ROOT="${ROOT_DIR}/experiments/outputs/core_world_g1_agile_policy_low_cradle/${SUITE_STAMP}"
+SUMMARY_OUT="${OUTPUT_ROOT}/boxtilt_avgpos_short_window_summary.json"
+STATUS_FILE="${OUTPUT_ROOT}/boxtilt_avgpos_short_window_status.tsv"
+
+cd "${ROOT_DIR}"
+mkdir -p "${OUTPUT_ROOT}"
+printf "case\tstatus\tsuite_stamp\n" > "${STATUS_FILE}"
+
+set +e
+env \
+  SUITE_STAMP="${SUITE_STAMP}" \
+  LARGERBOX_STRICT_MODE=boxtilt \
+  FREE_BOX_MASS=0.75 \
+  FREE_STEPS="${FREE_STEPS:-760}" \
+  FREE_MAX_FINAL_ROBOT_TARGET_DIRECTED_TRAVEL="${FREE_MAX_FINAL_ROBOT_TARGET_DIRECTED_TRAVEL:-2.35}" \
+  FREE_MAX_FINAL_BOX_TARGET_DIRECTED_TRAVEL="${FREE_MAX_FINAL_BOX_TARGET_DIRECTED_TRAVEL:-2.35}" \
+  TARGET_WINDOW_CENTER="${TARGET_WINDOW_CENTER:-2.0}" \
+  TARGET_WINDOW_HALFWIDTH="${TARGET_WINDOW_HALFWIDTH:-0.35}" \
+  MIN_TARGET_WINDOW_BOTH_STABLE_STEPS="${MIN_TARGET_WINDOW_BOTH_STABLE_STEPS:-80}" \
+  MIN_TARGET_WINDOW_BOTH_LONGEST_STREAK_STEPS="${MIN_TARGET_WINDOW_BOTH_LONGEST_STREAK_STEPS:-50}" \
+  MIN_TARGET_WINDOW_BOTH_STREAK_AT_END_STEPS="${MIN_TARGET_WINDOW_BOTH_STREAK_AT_END_STEPS:-40}" \
+  MAX_FINAL_HOLD_FALL_EVENTS="${MAX_FINAL_HOLD_FALL_EVENTS:-0}" \
+  MAX_FINAL_HOLD_BOX_DROP_EVENTS="${MAX_FINAL_HOLD_BOX_DROP_EVENTS:-0}" \
+  AGILE_COMMAND_HOLD_LATERAL_SIGN=-1.0 \
+  AGILE_COMMAND_HOLD_LATERAL_GAIN=0.04 \
+  AGILE_COMMAND_HOLD_LATERAL_LIMIT=0.018 \
+  AGILE_COMMAND_HOLD_TERMINAL_LATCH=1 \
+  AGILE_COMMAND_HOLD_FINAL_LATCH=1 \
+  AGILE_COMMAND_HOLD_TERMINAL_BOX_TARGET_TRAVEL=1.65 \
+  AGILE_COMMAND_HOLD_TERMINAL_SCALE=0.018 \
+  AGILE_COMMAND_HOLD_FINAL_BOX_TARGET_TRAVEL=1.80 \
+  AGILE_COMMAND_HOLD_FINAL_SCALE=0.0 \
+  AGILE_COMMAND_HOLD_FINAL_ZERO_CORRECTIONS=1 \
+  BALANCE_ROLL_TARGET_FROM_LATERAL=1 \
+  BALANCE_ROLL_TARGET_LATERAL_SOURCE=average \
+  BALANCE_ROLL_TARGET_LATERAL_SIGN=1.0 \
+  BALANCE_ROLL_TARGET_LATERAL_GAIN=0.020 \
+  BALANCE_ROLL_TARGET_LATERAL_LIMIT=0.030 \
+  BALANCE_ROLL_TARGET_LATERAL_DEADBAND=0.45 \
+  BALANCE_ROLL_TARGET_LATERAL_START_AFTER_HOLD_STEPS=24 \
+  BALANCE_ROLL_TARGET_LATERAL_RAMP_STEPS=80 \
+  BALANCE_ROLL_TARGET_LATERAL_MAX_TILT=0.45 \
+  BALANCE_ROLL_TARGET_LATERAL_MAX_BOX_TILT=0.60 \
+  bash "${ROOT_DIR}/scripts/isaac/run_core_world_g1_largerbox_strict_suite.sh"
+run_status=$?
+set -e
+
+printf "avg_pos_g020_l030_short\t%s\t%s\n" "${run_status}" "${SUITE_STAMP}" >> "${STATUS_FILE}"
+
+set +e
+python3 scripts/isaac/summarize_core_world_g1_largerbox_strict.py \
+  --case-root "${CASE_ROOT}" \
+  --output "${SUMMARY_OUT}"
+summary_status=$?
+set -e
+
+if [[ "${run_status}" != "0" || "${summary_status}" != "0" ]]; then
+  exit 1
+fi

@@ -8271,7 +8271,64 @@
   hold-delay steps, ramp steps, max robot tilt, and max box tilt. These guards
   are intended to prevent early gait deflection and late high-tilt correction,
   both of which were failure modes in `169432`.
-- [ ] Await gated boxtilt heavy lateral-roll-target refine job `169465`
+- [x] Await gated boxtilt heavy lateral-roll-target refine job `169465`
   (`g1_bxrollgated`) submitted through tmux
   `codex_g1_boxtilt_rollgated_0707`. Expected summary:
   `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target_refine/20260707_g1_boxtilt_heavy_lateral_roll_target_refine_gated/boxtilt_heavy_lateral_roll_target_refine_summary.json`.
+- [x] Record gated boxtilt heavy lateral-roll-target refine job `169465`.
+  Result: strict `fail`, `0/4` cases passed. `box_neg_g010_l018` failed
+  with `52` falls / `13` drops and no target-window dwell. Stronger
+  `box_neg_g020_l030` and `box_neg_g030_l045` collapsed earlier with
+  `242/195` and `284/236` fall/drop counts. The only useful partial signal
+  was `avg_pos_g020_l030`: target-window stable/longest streak `137/137`,
+  but end streak `0`, late `55` falls / `38` drops, final robot/box travel
+  `2.40772/2.36080 m`, and final lateral error `1.05326/1.30846 m`.
+  Interpretation: gated lateral roll-target does not solve the heavy boxtilt
+  target hold; stronger or mildly gated roll-target tuning should stop here.
+- [x] Add
+  `scripts/isaac/run_core_world_g1_boxtilt_avgpos_short_window_suite.sh` to
+  isolate the partial `avg_pos_g020_l030` signal before late fall/drop.
+- [x] Record short-window job `169472` (`g1_bxavgshort`). Result: strict
+  `fail`, but useful visualization candidate. It completed `760/760` with
+  fall/drop `0/0`, root/box rollout writes `0`, final robot/box target-
+  directed travel `2.25514/2.25542 m`, target-window end streak `133`, and
+  final-hold end streak `100`. It failed tilt and lateral gates:
+  max robot/box tilt `0.62420/0.64870 rad`, final lateral error
+  `1.08572/1.28355 m`. This may be shown only as current progress, not
+  solved carrying.
+- [x] Add
+  `scripts/isaac/run_core_world_g1_boxtilt_lateral_hold_refine_suite.sh`.
+  It tests whether keeping small final-hold lateral correction, or a small
+  box-lateral correction, can reduce the `169472` side drift without losing
+  fall/drop `0/0`.
+- [x] Await boxtilt lateral-hold refine job `169476` (`g1_bxlathold`)
+  submitted through tmux `codex_g1_boxtilt_lathold_0707`. Expected summary:
+  `experiments/outputs/core_world_g1_boxtilt_lateral_hold_refine/20260707_g1_boxtilt_lateral_hold_refine_760/boxtilt_lateral_hold_refine_summary.json`.
+- [x] Record boxtilt lateral-hold refine job `169476`. Result: strict
+  `fail`, `0/4` cases passed. `hold_sign_neg_l006` reduced final lateral
+  error to `0.30088/0.38493 m`, but failed with `190` falls / `175` drops
+  and target-window dwell `0`. `hold_sign_neg_l012` was worse with
+  `323` falls / `310` drops. `hold_sign_pos_l006` reduced final lateral
+  error to about `-0.213/-0.210 m`, but over-drove to final robot/box travel
+  `3.60361/3.67621 m` and had `220` falls / `65` drops. `boxlat_sign_neg_l010`
+  kept box drops at `0` and final lateral error low (`0.28659/0.18326 m`),
+  but had `295` falls and no target-window dwell. Interpretation:
+  command-level lateral correction can change side drift, but it destroys the
+  stability/propulsion balance; stop scalar lateral-hold tuning here.
+- [x] Add
+  `scripts/isaac/run_core_world_g1_boxtilt_short_window_record_and_fallback.sh`
+  for a replay-recorded, fallback-rendered visualization of the `169472`
+  short-window boxtilt progress case.
+- [x] Await boxtilt short-window visual job `169488` (`g1_bxshortviz`)
+  submitted through tmux `codex_g1_boxtilt_shortviz_0707`. Expected visual
+  directory:
+  `experiments/visuals/g1_replay_showcase/20260707_g1_boxtilt_avgpos_short_window_760_progress_fallback/`.
+- [x] Record boxtilt short-window visual jobs. `169488` completed on
+  `server43` with exit `0:0`, generating replay CSV and fallback visuals.
+  `169501` completed on `server39` with exit `0:0`, regenerating the visual
+  labels with aggregate checker status. Final visual directory:
+  `experiments/visuals/g1_replay_showcase/20260707_g1_boxtilt_avgpos_short_window_760_progress_fallback/`.
+  Use `g1_boxtilt_short_window_progress_annotated.mp4` or
+  `g1_boxtilt_short_window_progress.mp4` for the cleanest current-progress
+  demo; the poster now says `strict checker: fail`. This is only a schematic
+  replay fallback, not an Isaac camera render or solved carrying.

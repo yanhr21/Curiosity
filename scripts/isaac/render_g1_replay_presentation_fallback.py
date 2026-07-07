@@ -27,7 +27,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--replay-csv", type=Path, required=True)
     parser.add_argument("--record-summary", type=Path, required=True)
+    parser.add_argument("--checker-summary", type=Path, default=None)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--title", default="G1 low-carry replay fallback")
+    parser.add_argument("--subtitle", default="schematic from recorded pass, not Isaac camera render")
+    parser.add_argument("--gif-name", default="g1_lowcarry_replay_fallback.gif")
+    parser.add_argument("--poster-name", default="g1_lowcarry_replay_fallback_poster.png")
     parser.add_argument("--max-frames", type=int, default=64)
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=720)
@@ -120,6 +125,9 @@ def _draw_frame(
     row: dict[str, str],
     idx: int,
     summary: dict,
+    checker: dict | None,
+    title: str,
+    subtitle: str,
     width: int,
     height: int,
     x_min: float,
@@ -158,10 +166,20 @@ def _draw_frame(
     robot_travel = summary.get("final_robot_target_directed_travel_m")
     box_travel = summary.get("final_box_target_directed_travel_m")
     rel = summary.get("final_box_robot_relative_offset_error_m")
-    draw.text((64, 34), "G1 low-carry replay fallback", font=title_font, fill=(28, 35, 43))
-    draw.text((66, 78), "schematic from recorded pass, not Isaac camera render", font=label_font, fill=(94, 54, 35))
+    checker_status = summary.get("status")
+    if checker:
+        checker_status = checker.get("status", checker_status)
+        cases = checker.get("cases")
+        if isinstance(cases, list) and cases:
+            first_case = cases[0]
+            if isinstance(first_case, dict):
+                checker_status = first_case.get("check_status", checker_status)
+                if first_case.get("passed") is False:
+                    checker_status = "fail"
+    draw.text((64, 34), str(title), font=title_font, fill=(28, 35, 43))
+    draw.text((66, 78), str(subtitle), font=label_font, fill=(94, 54, 35))
     metrics = [
-        f"source status: {summary.get('status')}",
+        f"strict checker: {checker_status}",
         f"fall/drop: {summary.get('fall_events')}/{summary.get('box_drop_events')}",
         f"robot/box travel: {float(robot_travel or 0):.2f} / {float(box_travel or 0):.2f} m",
         f"final rel error: {float(rel or 0):.3f} m",
@@ -183,12 +201,15 @@ def main() -> int:
         raise FileNotFoundError(args.replay_csv)
     if not args.record_summary.is_file():
         raise FileNotFoundError(args.record_summary)
+    if args.checker_summary is not None and not args.checker_summary.is_file():
+        raise FileNotFoundError(args.checker_summary)
     rows_all = _load_rows(args.replay_csv)
     if not rows_all:
         raise RuntimeError("Replay CSV has no rows")
     stride = max(1, len(rows_all) // max(1, int(args.max_frames)))
     rows = rows_all[::stride][: int(args.max_frames)]
     summary = json.loads(args.record_summary.read_text())
+    checker = json.loads(args.checker_summary.read_text()) if args.checker_summary is not None else None
     args.output_dir.mkdir(parents=True, exist_ok=True)
     frame_dir = args.output_dir / "frames"
     frame_dir.mkdir(parents=True, exist_ok=True)
@@ -197,11 +218,23 @@ def main() -> int:
     x_max = max(xs) + 0.35
     frames: list[Image.Image] = []
     for idx, row in enumerate(rows):
-        img = _draw_frame(rows, row, idx, summary, int(args.width), int(args.height), x_min, x_max)
+        img = _draw_frame(
+            rows,
+            row,
+            idx,
+            summary,
+            checker,
+            str(args.title),
+            str(args.subtitle),
+            int(args.width),
+            int(args.height),
+            x_min,
+            x_max,
+        )
         frame_path = frame_dir / f"g1_replay_fallback_{idx:04d}.png"
         img.save(frame_path)
         frames.append(img)
-    gif_path = args.output_dir / "g1_lowcarry_replay_fallback.gif"
+    gif_path = args.output_dir / str(args.gif_name)
     frames[0].save(
         gif_path,
         save_all=True,
@@ -210,7 +243,7 @@ def main() -> int:
         loop=0,
         optimize=False,
     )
-    poster_path = args.output_dir / "g1_lowcarry_replay_fallback_poster.png"
+    poster_path = args.output_dir / str(args.poster_name)
     frames[min(len(frames) - 1, len(frames) // 2)].save(poster_path)
     out_summary = {
         "scene_type": "g1_replay_presentation_fallback",
@@ -218,6 +251,7 @@ def main() -> int:
         "status": "pass",
         "replay_csv": str(args.replay_csv),
         "record_summary": str(args.record_summary),
+        "checker_summary": str(args.checker_summary) if args.checker_summary is not None else None,
         "frame_count": len(frames),
         "frame_dir": str(frame_dir),
         "gif": str(gif_path),

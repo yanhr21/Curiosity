@@ -11709,6 +11709,75 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   `codex_g1_boxtilt_rollgated_0707`. Useful progress still requires fall/drop
   `0/0`, root/box rollout writes `0`, lower lateral error, and target-window
   dwell; do not claim success merely because the gait remains upright.
+- 2026-07-07 gated lateral-roll-target refine result: Slurm job `169465`
+  (`g1_bxrollgated`) failed strictly with `0/4` cases passing. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target_refine/20260707_g1_boxtilt_heavy_lateral_roll_target_refine_gated/boxtilt_heavy_lateral_roll_target_refine_summary.json`.
+  `box_neg_g010_l018` failed with `52` falls / `13` drops and no target-window
+  dwell; stronger `box_neg_g020_l030` and `box_neg_g030_l045` collapsed earlier
+  with `242/195` and `284/236` fall/drop counts. `avg_pos_g020_l030` was the
+  only informative partial signal: it reached `137` target-window stable steps
+  but still fell/dropped late (`55` falls / `38` drops), had end streak `0`,
+  and ended with large lateral error (`1.053/1.308 m`). Conclusion: gated
+  lateral roll-target is active but does not solve heavy boxtilt lateral hold;
+  increasing or mildly gating roll target should not be treated as a valid
+  completion route.
+- 2026-07-07 short-window check of the partial `avg_pos_g020_l030` signal:
+  Slurm job `169472` (`g1_bxavgshort`) ran
+  `scripts/isaac/run_core_world_g1_boxtilt_avgpos_short_window_suite.sh` for
+  `760` steps and failed strict gates. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_avgpos_short_window/20260707_g1_boxtilt_avgpos_short_window_760/boxtilt_avgpos_short_window_summary.json`.
+  It completed `760/760` steps with fall/drop `0/0`, root/box rollout writes
+  `0`, final robot/box target-directed travel `2.255/2.255 m`, target-window
+  end streak `133`, and final-hold end streak `100`; however, it still failed
+  tilt and lateral gates: max robot/box tilt `0.624/0.649 rad`, final lateral
+  error `1.086/1.284 m`. This is useful as an honest current-progress
+  visualization candidate, not as long-duration or robust carrying success.
+- 2026-07-07 boxtilt lateral-hold refine suite added:
+  `scripts/isaac/run_core_world_g1_boxtilt_lateral_hold_refine_suite.sh`.
+  It keeps the `0.75 kg` boxtilt/avg-roll-target short-window setup but stops
+  suppressing final-hold lateral correction and probes small command-level or
+  box-lateral corrections. Submitted as Slurm job `169476` (`g1_bxlathold`)
+  through tmux `codex_g1_boxtilt_lathold_0707`. Useful progress requires
+  reducing lateral error without losing the `169472` fall/drop `0/0` and
+  end-window streak; if it fails, stop treating command-layer lateral tweaks
+  as the missing stabilizer.
+- 2026-07-07 boxtilt lateral-hold refine result: Slurm job `169476`
+  (`g1_bxlathold`) failed strictly with `0/4` cases passing. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_lateral_hold_refine/20260707_g1_boxtilt_lateral_hold_refine_760/boxtilt_lateral_hold_refine_summary.json`.
+  `hold_sign_neg_l006` reduced final lateral error to `0.301/0.385 m` but
+  failed early with `190` falls / `175` drops and no target-window dwell.
+  `hold_sign_neg_l012` was worse (`323` falls / `310` drops). `hold_sign_pos_l006`
+  reduced lateral error but over-drove to `3.604/3.676 m` target-directed
+  travel and failed with `220` falls / `65` drops. `boxlat_sign_neg_l010`
+  kept box drops at `0` and final lateral error low (`0.287/0.183 m`) but had
+  `295` falls and no target-window dwell. Conclusion: command-level lateral
+  correction can move lateral error, but it consumes stability/propulsion
+  margin; stop this scalar lateral-hold tuning route unless paired with a
+  materially different balance controller.
+- 2026-07-07 boxtilt short-window presentation fallback route added:
+  `scripts/isaac/run_core_world_g1_boxtilt_short_window_record_and_fallback.sh`.
+  It reruns the `169472` 760-step short-window condition with replay CSV
+  recording and renders a fallback GIF/MP4/poster via
+  `render_g1_replay_presentation_fallback.py`. Submitted as Slurm job
+  `169488` (`g1_bxshortviz`) through tmux `codex_g1_boxtilt_shortviz_0707`.
+  This is for honest visualization of current progress only; it is not an
+  Isaac camera render and not a strict carrying success.
+- 2026-07-07 boxtilt short-window visual result: Slurm job `169488`
+  (`g1_bxshortviz`) completed on `server43` with exit `0:0`; relabel fix job
+  `169501` (`g1_bxvizfix2`) completed on `server39` with exit `0:0`.
+  Visual directory:
+  `experiments/visuals/g1_replay_showcase/20260707_g1_boxtilt_avgpos_short_window_760_progress_fallback/`.
+  Key files:
+  `g1_boxtilt_short_window_progress.mp4`,
+  `g1_boxtilt_short_window_progress_annotated.mp4`,
+  `g1_boxtilt_short_window_progress.gif`, and
+  `g1_boxtilt_short_window_progress_poster.png`. The final poster was checked
+  and now correctly says `G1 boxtilt short-window progress` and
+  `strict checker: fail`. The renderer summary records
+  `success_claim=schematic_replay_visual_only_not_isaac_camera_render_not_new_control_evidence`.
+  Use this only as current progress material: 0.75 kg free-box G1 boxtilt
+  short-window, fall/drop `0/0`, target-window end streak `133`, but strict
+  failure on lateral drift and tilt.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

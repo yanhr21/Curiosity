@@ -1,8 +1,55 @@
 # Current Operator Status
 
-Timestamp: 2026-07-07 08:41 CST.
+Timestamp: 2026-07-07 09:17 CST.
 
 This is a status snapshot only. It is not a carrying-success claim.
+
+## Latest G1 Boxtilt Status
+
+- `169465` / `g1_bxrollgated` completed on `server44` with Slurm state
+  `FAILED`, exit `1:0`, elapsed `00:03:01`. Aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_heavy_lateral_roll_target_refine/20260707_g1_boxtilt_heavy_lateral_roll_target_refine_gated/boxtilt_heavy_lateral_roll_target_refine_summary.json`.
+  Result: strict `fail`, `0/4` cases passed. Gated lateral roll-target
+  remained negative: stronger box-source roll targets collapsed early, and
+  the best `avg_pos_g020_l030` case only reached a transient 137-step target
+  window before late fall/drop.
+- `169472` / `g1_bxavgshort` completed on `server36` with Slurm state
+  `FAILED`, exit `1:0`, elapsed `00:00:54`. Aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_avgpos_short_window/20260707_g1_boxtilt_avgpos_short_window_760/boxtilt_avgpos_short_window_summary.json`.
+  Result: strict `fail`, but a useful current-progress clip candidate:
+  `760/760` steps, fall/drop `0/0`, final robot/box target-directed travel
+  `2.25514/2.25542 m`, target-window end streak `133`, and final-hold end
+  streak `100`; failures are excessive tilt (`0.624/0.649 rad`) and large
+  lateral error (`1.086/1.284 m`). Do not call it robust or completed
+  carrying.
+- `169476` / `g1_bxlathold` completed on `server36` with Slurm state
+  `FAILED`, exit `1:0`, elapsed `00:02:41`. Aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_lateral_hold_refine/20260707_g1_boxtilt_lateral_hold_refine_760/boxtilt_lateral_hold_refine_summary.json`.
+  Result: strict `fail`, `0/4` cases passed. It runs
+  `scripts/isaac/run_core_world_g1_boxtilt_lateral_hold_refine_suite.sh` to
+  test whether small final-hold lateral correction or box-lateral correction
+  can reduce the `169472` side drift without reintroducing falls/drops. It
+  did reduce lateral error in some cases, but every case broke stability or
+  target-window dwell: `190/175`, `323/310`, `220/65`, and `295/0`
+  fall/drop counts respectively. This route should be stopped unless paired
+  with a materially different balance controller.
+- `169488` / `g1_bxshortviz` is queued/running through tmux
+  `codex_g1_boxtilt_shortviz_0707`. It completed on `server43` with Slurm
+  state `COMPLETED`, exit `0:0`, elapsed `00:01:49`. It runs
+  `scripts/isaac/run_core_world_g1_boxtilt_short_window_record_and_fallback.sh`
+  to rerun the `169472` 760-step short-window boxtilt case with replay CSV
+  recording, then render GIF/MP4/poster fallback visuals to
+  `experiments/visuals/g1_replay_showcase/20260707_g1_boxtilt_avgpos_short_window_760_progress_fallback/`.
+  This is visualization-only progress material, not a strict success.
+- `169501` / `g1_bxvizfix2` completed on `server39` with Slurm state
+  `COMPLETED`, exit `0:0`, elapsed `00:00:15`. It regenerated the same visual
+  directory with correct boxtilt labels and aggregate checker status. The
+  checked poster now says `G1 boxtilt short-window progress` and
+  `strict checker: fail`. Primary files:
+  `g1_boxtilt_short_window_progress_annotated.mp4`,
+  `g1_boxtilt_short_window_progress.mp4`,
+  `g1_boxtilt_short_window_progress.gif`, and
+  `g1_boxtilt_short_window_progress_poster.png`.
 
 ## Running Or Queued
 
