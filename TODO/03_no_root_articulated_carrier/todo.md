@@ -8353,7 +8353,25 @@
   Interpretation: final-stand joint-target blending is not the missing
   stabilizer for 0.75 kg boxtilt; stop scalar final-stand delay/blend tuning
   for this branch.
-- [ ] Next credible route: do not repeat command-layer lateral/yaw/final-stand
-  scalar sweeps for the heavy boxtilt branch. Move to a materially different
-  support/contact geometry or locomotion/balance backend that can address
-  side drift and roll without consuming the stability margin.
+- [x] Expose `FREE_CRADLE_LOCAL_Y` in
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`, so
+  lateral cradle placement can be tested without changing the scene builder.
+- [x] Add
+  `scripts/isaac/run_core_world_g1_boxtilt_geometry_refine_suite.sh`. It
+  tests four non-command-layer contact/geometry variations for the 0.75 kg
+  boxtilt short-window branch: negative box/cradle Y offset, positive
+  box/cradle Y offset, wider lid/rails, and final-hold chest pad.
+- [x] Run and record boxtilt geometry refine job `169519`
+  (`g1_bxgeomc`) on compute node `server26`. Summary:
+  `experiments/outputs/core_world_g1_boxtilt_geometry_refine/20260707_g1_boxtilt_geometry_refine_760_cpu_backup/boxtilt_geometry_refine_summary.json`.
+  Result: strict `fail`, `0/4` cases passed. `box_cradle_y_neg003` fell/dropped
+  `291/163` despite lower final lateral error; `box_cradle_y_pos003` fell/dropped
+  `45/26` and had no target-window dwell; `wider_lid_rails` fell/dropped
+  `183/8` and lost forward progress; `final_chest_pad` fell/dropped `119/105`.
+  Interpretation: small lateral cradle offsets, wider retaining geometry, and
+  final-hold chest pad do not rescue the heavy boxtilt branch.
+- [ ] Next credible route: stop repeating command-layer lateral/yaw/final-stand
+  scalar sweeps and small passive cradle-geometry tweaks for the heavy
+  boxtilt branch. Move to a materially different support/contact controller
+  or locomotion/balance backend that can address side drift and roll without
+  consuming the stability margin.

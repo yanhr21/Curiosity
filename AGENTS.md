@@ -11809,6 +11809,23 @@ Anything weaker is a diagnostic, engineering milestone, or negative result.
   stability compared with `169472`. Do not keep tuning final-stand scalar
   delays/blend rates for this branch without a materially different balance
   controller or contact geometry.
+- 2026-07-07 boxtilt contact-geometry refine result: added
+  `scripts/isaac/run_core_world_g1_boxtilt_geometry_refine_suite.sh` and
+  exposed `FREE_CRADLE_LOCAL_Y` through
+  `scripts/isaac/run_core_world_g1_agile_policy_low_cradle_suite.sh`.
+  CPU compute job `169519` (`g1_bxgeomc`) ran on `server26`; summary:
+  `experiments/outputs/core_world_g1_boxtilt_geometry_refine/20260707_g1_boxtilt_geometry_refine_760_cpu_backup/boxtilt_geometry_refine_summary.json`.
+  Strict result was `fail`, `0/4` cases passed. `box_cradle_y_neg003`
+  improved final lateral error but collapsed with `291` falls / `163` drops
+  and target-window longest/end streak `30/0`. `box_cradle_y_pos003` had
+  `45` falls / `26` drops and target-window streak `0`. `wider_lid_rails`
+  had `183` falls / `8` drops, negative final target-directed travel, and
+  target-window streak `0`. `final_chest_pad` had `119` falls / `105` drops
+  and target-window streak `0`. Conclusion: lateral cradle/box offsets,
+  wider rails/lid, and final-hold chest-pad collision do not rescue the
+  `0.75 kg` boxtilt short-window branch. Stop small contact-geometry tweaks
+  on this scaffold unless paired with a materially different balance/contact
+  controller.
 - 2026-07-07 immediate prismatic presentation visual: Slurm job `169015`
   (`prism_hist_viz`) completed on `server36` in `00:00:13` with exit `0:0`.
   It generated a clearer 1600x900 schematic GIF/poster from the already

@@ -1,6 +1,6 @@
 # Current Operator Status
 
-Timestamp: 2026-07-07 09:17 CST.
+Timestamp: 2026-07-07 09:20 CST.
 
 This is a status snapshot only. It is not a carrying-success claim.
 
@@ -61,10 +61,22 @@ This is a status snapshot only. It is not a carrying-success claim.
   treated as the missing stabilizer for the heavy boxtilt branch.
 - `169508` / `g1_bxfinstand` stayed pending on `gpu` and was cancelled after
   `169514` produced the diagnostic result.
+- `169519` / `g1_bxgeomc` completed on `server26` through tmux
+  `curiosity_g1_boxtilt_geom_cpu_0707`. It ran
+  `scripts/isaac/run_core_world_g1_boxtilt_geometry_refine_suite.sh` after
+  exposing `FREE_CRADLE_LOCAL_Y` in the low-cradle launcher. Aggregate:
+  `experiments/outputs/core_world_g1_boxtilt_geometry_refine/20260707_g1_boxtilt_geometry_refine_760_cpu_backup/boxtilt_geometry_refine_summary.json`.
+  Result: strict `fail`, `0/4` cases passed. Negative/positive box-cradle Y
+  offsets, wider lid/rails, and final-hold chest pad all failed. The least
+  bad lateral-error case (`box_cradle_y_neg003`) still had `291` falls /
+  `163` drops, while the other three cases had target-window streak `0`.
+  These small passive contact-geometry edits should not be repeated as the
+  active rescue path for the 0.75 kg boxtilt branch.
 
 ## Running Or Queued
 
-- No Curiosity simulation/render job is currently running on the login node.
+- No Curiosity simulation/render job is currently running or queued, and no
+  Curiosity simulation/render job is running on the login node.
 - `169316` / `any_payload` completed on `server36` with no rollout and no
   summary. The policy-backed ANYmal payload wrapper failed during IsaacLab
   `gym.make` initialization with `Failed to get DOF velocities from backend`.

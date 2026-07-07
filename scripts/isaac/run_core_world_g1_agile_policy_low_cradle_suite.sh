@@ -657,7 +657,7 @@ if [[ "${RUN_FREE:-1}" == "1" ]]; then
     --torso-cradle front_tray \
     --require-box-no-drop \
     --cradle-deck-size 0.24 0.26 0.025 \
-    --cradle-deck-local-pos0 "${FREE_CRADLE_LOCAL_X:-0.34}" 0.0 "${FREE_CRADLE_LOCAL_Z:-0.05}" \
+    --cradle-deck-local-pos0 "${FREE_CRADLE_LOCAL_X:-0.34}" "${FREE_CRADLE_LOCAL_Y:-0.0}" "${FREE_CRADLE_LOCAL_Z:-0.05}" \
     "${free_cradle_extra_args[@]}"
 fi
 
