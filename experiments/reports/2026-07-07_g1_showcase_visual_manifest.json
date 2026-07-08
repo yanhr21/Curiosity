@@ -1,0 +1,146 @@
+{
+  "best_annotated_mp4": "",
+  "best_first_frame": "",
+  "best_mp4": "",
+  "best_render_dir": "",
+  "claim_limit": "This is a visual replay of a prior recorded low-carry pass. It is not new control evidence, not proof of arbitrary posture robustness, and not final task completion.",
+  "presentation_fallback": {
+    "dir": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_presentation_fallback_gif",
+    "frame_count": 64,
+    "gif": {
+      "bytes": 1213628,
+      "exists": true,
+      "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_presentation_fallback_gif/g1_lowcarry_replay_fallback.gif"
+    },
+    "poster": {
+      "bytes": 24338,
+      "exists": true,
+      "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_presentation_fallback_gif/g1_lowcarry_replay_fallback_poster.png"
+    },
+    "status": "pass",
+    "success_claim": "schematic_replay_visual_only_not_isaac_camera_render_not_new_control_evidence"
+  },
+  "record_box_drop_events": 0,
+  "record_dir": "experiments/outputs/core_world_g1_agile_policy_low_cradle/20260706_g1_lowcarry_168398_replay_record_retry2/agile_low_cradle_freebox_walk",
+  "record_fall_events": 0,
+  "record_replay_csv": true,
+  "record_status": "pass",
+  "render_entries": [
+    {
+      "annotated_mp4": {
+        "bytes": 0,
+        "exists": false,
+        "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_q3/g1_replay_showcase_annotated.mp4"
+      },
+      "check_failures": [
+        "missing render summary: experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_q3/g1_replay_render_summary.json",
+        "frame count 0 < 10"
+      ],
+      "check_status": "fail",
+      "first_frame": "",
+      "frame_count": 0,
+      "last_frame": "",
+      "mp4": {
+        "bytes": 0,
+        "exists": false,
+        "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_q3/g1_replay_showcase.mp4"
+      },
+      "render_dir": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_q3",
+      "summary_status": "missing",
+      "summary_success_claim": null
+    },
+    {
+      "annotated_mp4": {
+        "bytes": 0,
+        "exists": false,
+        "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_960x540/g1_replay_showcase_annotated.mp4"
+      },
+      "check_failures": [],
+      "check_status": "missing",
+      "first_frame": "",
+      "frame_count": 0,
+      "last_frame": "",
+      "mp4": {
+        "bytes": 0,
+        "exists": false,
+        "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_960x540/g1_replay_showcase.mp4"
+      },
+      "render_dir": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_960x540",
+      "summary_status": "missing",
+      "summary_success_claim": null
+    },
+    {
+      "annotated_mp4": {
+        "bytes": 0,
+        "exists": false,
+        "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_abs_960x540/g1_replay_showcase_annotated.mp4"
+      },
+      "check_failures": [],
+      "check_status": "missing",
+      "first_frame": "",
+      "frame_count": 0,
+      "last_frame": "",
+      "mp4": {
+        "bytes": 0,
+        "exists": false,
+        "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_abs_960x540/g1_replay_showcase.mp4"
+      },
+      "render_dir": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_abs_960x540",
+      "summary_status": "missing",
+      "summary_success_claim": null
+    },
+    {
+      "annotated_mp4": {
+        "bytes": 0,
+        "exists": false,
+        "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_direct_960x540/g1_replay_showcase_annotated.mp4"
+      },
+      "check_failures": [
+        "missing render summary: /public/home/yanhongru/Curiosity/experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_direct_960x540/g1_replay_render_summary.json",
+        "frame count 0 < 10"
+      ],
+      "check_status": "fail",
+      "first_frame": "",
+      "frame_count": 0,
+      "last_frame": "",
+      "mp4": {
+        "bytes": 0,
+        "exists": false,
+        "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_direct_960x540/g1_replay_showcase.mp4"
+      },
+      "render_dir": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_direct_960x540",
+      "summary_status": "missing",
+      "summary_success_claim": null
+    },
+    {
+      "annotated_mp4": {
+        "bytes": 0,
+        "exists": false,
+        "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_ext_960x540/g1_replay_showcase_annotated.mp4"
+      },
+      "check_failures": [
+        "render status is not pass: fail",
+        "render success_claim is not visualization-only",
+        "frame count 0 < 10"
+      ],
+      "check_status": "fail",
+      "first_frame": "",
+      "frame_count": 0,
+      "last_frame": "",
+      "mp4": {
+        "bytes": 0,
+        "exists": false,
+        "path": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_ext_960x540/g1_replay_showcase.mp4"
+      },
+      "render_dir": "experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_fallback_ext_960x540",
+      "summary_status": "fail",
+      "summary_success_claim": "visual_replay_failed_no_control_evidence"
+    }
+  ],
+  "replay_csv": {
+    "bytes": 205501,
+    "exists": true,
+    "path": "experiments/outputs/core_world_g1_agile_policy_low_cradle/20260706_g1_lowcarry_168398_replay_record_retry2/agile_low_cradle_freebox_walk/core_world_g1_box_scene_replay.csv"
+  },
+  "status": "pending_or_failed"
+}

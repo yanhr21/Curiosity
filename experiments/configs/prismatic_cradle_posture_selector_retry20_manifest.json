@@ -1,0 +1,51 @@
+{
+  "manifest_type": "prismatic_cradle_posture_selector_diagnostic_manifest",
+  "description": "Completed direct-Isaac prismatic cradle posture candidates for a rule-based selector baseline. This is scaffold evidence only, not learned or autonomous probing.",
+  "cases": [
+    {
+      "case_id": "standard_8kg_close_mid_retry14a",
+      "box_condition": "standard_8kg",
+      "summary": "experiments/outputs/core_world_prismatic_carrier_stand/20260705_prismatic_cradle_walklike_close_x045_z016_long_retry14a/core_world_prismatic_carrier_stand_summary.json"
+    },
+    {
+      "case_id": "standard_8kg_mid_retry14b",
+      "box_condition": "standard_8kg",
+      "summary": "experiments/outputs/core_world_prismatic_carrier_stand/20260705_prismatic_cradle_walklike_mid_x050_z016_long_retry14b/core_world_prismatic_carrier_stand_summary.json"
+    },
+    {
+      "case_id": "standard_8kg_close_low_retry14c",
+      "box_condition": "standard_8kg",
+      "summary": "experiments/outputs/core_world_prismatic_carrier_stand/20260705_prismatic_cradle_walklike_close_low_x045_z014_retry14c_retry2/core_world_prismatic_carrier_stand_summary.json"
+    },
+    {
+      "case_id": "standard_8kg_high_mid_retry18a",
+      "box_condition": "standard_8kg",
+      "summary": "experiments/outputs/core_world_prismatic_carrier_stand/20260705_prismatic_cradle_walklike_directional_guard_high_mid_x050_z018_retry18a/core_world_prismatic_carrier_stand_summary.json"
+    },
+    {
+      "case_id": "standard_8kg_high_close_retry18b",
+      "box_condition": "standard_8kg",
+      "summary": "experiments/outputs/core_world_prismatic_carrier_stand/20260705_prismatic_cradle_walklike_directional_guard_high_close_x045_z018_overdrive16_retry18b/core_world_prismatic_carrier_stand_summary.json"
+    },
+    {
+      "case_id": "standard_12kg_mid_retry19a",
+      "box_condition": "standard_12kg",
+      "summary": "experiments/outputs/core_world_prismatic_carrier_stand/20260705_prismatic_cradle_walklike_posture_load_mid_x050_z016_mass12_retry19a/core_world_prismatic_carrier_stand_summary.json"
+    },
+    {
+      "case_id": "standard_12kg_high_retry19b",
+      "box_condition": "standard_12kg",
+      "summary": "experiments/outputs/core_world_prismatic_carrier_stand/20260705_prismatic_cradle_walklike_posture_load_high_x050_z018_mass12_retry19b/core_world_prismatic_carrier_stand_summary.json"
+    },
+    {
+      "case_id": "tall_8kg_mid_retry19c",
+      "box_condition": "tall_8kg",
+      "summary": "experiments/outputs/core_world_prismatic_carrier_stand/20260705_prismatic_cradle_walklike_posture_shape_mid_x050_z016_tall_retry19c/core_world_prismatic_carrier_stand_summary.json"
+    },
+    {
+      "case_id": "tall_8kg_high_retry19d",
+      "box_condition": "tall_8kg",
+      "summary": "experiments/outputs/core_world_prismatic_carrier_stand/20260705_prismatic_cradle_walklike_posture_shape_high_x050_z018_tall_retry19d/core_world_prismatic_carrier_stand_summary.json"
+    }
+  ]
+}

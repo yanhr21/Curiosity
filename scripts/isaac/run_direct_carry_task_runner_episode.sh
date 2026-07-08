@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$(hostname)" == mgmtserver* ]]; then
+  echo "Refusing to run direct carry task runner on login/management node: $(hostname)" >&2
+  exit 2
+fi
+
+ROOT_DIR="${ROOT_DIR:-/public/home/yanhongru/Curiosity}"
+ISAAC_VENV="${ISAAC_VENV:-/public/home/yanhongru/envs/isaac_arena_py312}"
+STAMP="${STAMP:-$(date +%Y%m%d_%H%M%S)_direct_carry_task_runner}"
+BOX_SEED="${BOX_SEED:-7078}"
+CARRY_POSTURE="${CARRY_POSTURE:-front_mid}"
+TARGET_X="${TARGET_X:-0.64}"
+STEPS="${STEPS:-3580}"
+SUPPORT_MODE="${SUPPORT_MODE:-alternating_anchor_feet}"
+STEP_LENGTH="${STEP_LENGTH:-}"
+STANCE_STEPS="${STANCE_STEPS:-80}"
+GAIT_SPEED_SCALE="${GAIT_SPEED_SCALE:-1.0}"
+FEEDBACK_STEP_X_GAIN="${FEEDBACK_STEP_X_GAIN:-0.015}"
+FEEDBACK_STEP_X_LIMIT="${FEEDBACK_STEP_X_LIMIT:-0.008}"
+FEEDBACK_STEP_TILT_GAIN="${FEEDBACK_STEP_TILT_GAIN:-0.05}"
+FEEDBACK_STEP_TILT_LIMIT="${FEEDBACK_STEP_TILT_LIMIT:-0.005}"
+SUPPORT_FOOT_DOUBLE_SUPPORT_FRACTION="${SUPPORT_FOOT_DOUBLE_SUPPORT_FRACTION:-0.18}"
+STANCE_FOOT_WORLD_LOCK="${STANCE_FOOT_WORLD_LOCK:-0}"
+FREEZE_LOCKED_STANCE_FOOT_TARGETS="${FREEZE_LOCKED_STANCE_FOOT_TARGETS:-0}"
+FREEZE_COMMANDED_STANCE_FOOT_TARGETS="${FREEZE_COMMANDED_STANCE_FOOT_TARGETS:-0}"
+PLANTED_STANCE_RAIL_PROPULSION="${PLANTED_STANCE_RAIL_PROPULSION:-0}"
+SUPPORT_FOOT_DRIVE_STIFFNESS="${SUPPORT_FOOT_DRIVE_STIFFNESS:-}"
+SUPPORT_FOOT_DRIVE_DAMPING="${SUPPORT_FOOT_DRIVE_DAMPING:-}"
+SUPPORT_FOOT_DRIVE_MAX_FORCE="${SUPPORT_FOOT_DRIVE_MAX_FORCE:-}"
+SUPPORT_FOOT_Z_DRIVE_STIFFNESS="${SUPPORT_FOOT_Z_DRIVE_STIFFNESS:-}"
+SUPPORT_FOOT_Z_DRIVE_DAMPING="${SUPPORT_FOOT_Z_DRIVE_DAMPING:-}"
+SUPPORT_FOOT_Z_DRIVE_MAX_FORCE="${SUPPORT_FOOT_Z_DRIVE_MAX_FORCE:-}"
+STATIC_FRICTION="${STATIC_FRICTION:-}"
+DYNAMIC_FRICTION="${DYNAMIC_FRICTION:-}"
+PROBE_STEPS="${PROBE_STEPS:-0}"
+PROBE_AMPLITUDE_X="${PROBE_AMPLITUDE_X:-0.0}"
+PROBE_AMPLITUDE_Z="${PROBE_AMPLITUDE_Z:-0.0}"
+
+export STANCE_STEPS
+export STANCE_FOOT_WORLD_LOCK
+export FREEZE_LOCKED_STANCE_FOOT_TARGETS
+export FREEZE_COMMANDED_STANCE_FOOT_TARGETS
+export PLANTED_STANCE_RAIL_PROPULSION
+if [[ -n "${STEP_LENGTH}" ]]; then export STEP_LENGTH; fi
+if [[ -n "${SUPPORT_FOOT_DRIVE_STIFFNESS}" ]]; then export SUPPORT_FOOT_DRIVE_STIFFNESS; fi
+if [[ -n "${SUPPORT_FOOT_DRIVE_DAMPING}" ]]; then export SUPPORT_FOOT_DRIVE_DAMPING; fi
+if [[ -n "${SUPPORT_FOOT_DRIVE_MAX_FORCE}" ]]; then export SUPPORT_FOOT_DRIVE_MAX_FORCE; fi
+if [[ -n "${SUPPORT_FOOT_Z_DRIVE_STIFFNESS}" ]]; then export SUPPORT_FOOT_Z_DRIVE_STIFFNESS; fi
+if [[ -n "${SUPPORT_FOOT_Z_DRIVE_DAMPING}" ]]; then export SUPPORT_FOOT_Z_DRIVE_DAMPING; fi
+if [[ -n "${SUPPORT_FOOT_Z_DRIVE_MAX_FORCE}" ]]; then export SUPPORT_FOOT_Z_DRIVE_MAX_FORCE; fi
+if [[ -n "${STATIC_FRICTION}" ]]; then export STATIC_FRICTION; fi
+if [[ -n "${DYNAMIC_FRICTION}" ]]; then export DYNAMIC_FRICTION; fi
+
+cd "${ROOT_DIR}"
+
+"${ISAAC_VENV}/bin/python" scripts/isaac/run_direct_carry_task_runner_episode.py \
+  --root-dir "${ROOT_DIR}" \
+  --stamp "${STAMP}" \
+  --box-seed "${BOX_SEED}" \
+  --carry-posture "${CARRY_POSTURE}" \
+  --target-x "${TARGET_X}" \
+  --steps "${STEPS}" \
+  --support-mode "${SUPPORT_MODE}" \
+  --gait-speed-scale "${GAIT_SPEED_SCALE}" \
+  --feedback-step-x-gain "${FEEDBACK_STEP_X_GAIN}" \
+  --feedback-step-x-limit "${FEEDBACK_STEP_X_LIMIT}" \
+  --feedback-step-tilt-gain "${FEEDBACK_STEP_TILT_GAIN}" \
+  --feedback-step-tilt-limit "${FEEDBACK_STEP_TILT_LIMIT}" \
+  --support-foot-double-support-fraction "${SUPPORT_FOOT_DOUBLE_SUPPORT_FRACTION}" \
+  --probe-steps "${PROBE_STEPS}" \
+  --probe-amplitude-x "${PROBE_AMPLITUDE_X}" \
+  --probe-amplitude-z "${PROBE_AMPLITUDE_Z}" \
+  "$@"

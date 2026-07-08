@@ -63,3 +63,20 @@ The method should maintain an online estimate or latent belief over:
 - Safety metrics do not regress.
 - The report shows what the robot did before committing to carry.
 
+## 2026-07-06 Scaffold Execution Path
+
+The immediate Isaac path does not wait for external models. Continue with the
+current direct-Isaac carrying scaffold in three diagnostic steps:
+
+- Two-stage probing selector: run a short active-probe episode, select a carry
+  posture from observed probe telemetry only, then run the selected carry with
+  strict no-shortcut/support gates. This passed on Slurm job `167441`.
+- Same-episode support adaptation: within one rollout, perform the probe,
+  compute the probe belief at carry-start, and adapt support step height,
+  double-support fraction, stance x, and swing x. First compute attempt
+  `167449` failed before Isaac due to launcher shell parsing and must be
+  rerun after the launcher fix. Retry3 Slurm job `167455` passed both
+  vertical and horizontal probe cases.
+- Next after same-episode support adaptation passes: add same-episode hold
+  geometry switching or contact redistribution, still explicitly as a scaffold
+  diagnostic rather than learned humanoid control.

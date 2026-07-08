@@ -311,6 +311,14 @@ These rules override all other project instructions.
   progress. The next tall attempt should cap retention influence by delaying
   and weakening its activation, while starting centroidal progress support
   earlier; do not reuse full-risk retention settings unchanged.
+- 2026-07-08 G1 tall limited-retention/centroidal entrypoint added:
+  `scripts/isaac/run_core_world_g1_tall_limited_retention_centroidal_suite.sh`.
+  It keeps the same tall preintegrated cradle and strict gates, then tests
+  `centroidal_early`, `retention_late_weak`, and `combined_limited`. This is
+  intended to check whether earlier centroidal progress support plus delayed,
+  weak retention can preserve the no-fall/no-drop boundary before optimizing
+  target-window dwell. It is an experiment entrypoint only until
+  `g1_tall_limited_retention_centroidal_summary.json` exists.
 - 2026-07-07 current best presentation visual: dense replay rerun
   `20260707_g1_lowcarry_060_runtime_chestpad_showcase_record_dense_replay`
   reproduced the same narrow G1/AGILE low-carry pass on `server46` with

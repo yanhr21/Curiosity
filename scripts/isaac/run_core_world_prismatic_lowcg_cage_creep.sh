@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$(hostname)" == mgmtserver* ]]; then
+  echo "Refusing to run Isaac simulation on login/management node: $(hostname)" >&2
+  exit 2
+fi
+
+ROOT_DIR="${ROOT_DIR:-/public/home/yanhongru/Curiosity}"
+ISAAC_VENV="${ISAAC_VENV:-/public/home/yanhongru/envs/isaac_arena_py312}"
+STAMP="${STAMP:-$(date +%Y%m%d_%H%M%S)}"
+LOG_DIR="${LOG_DIR:-${ROOT_DIR}/logs/core_world_prismatic_carrier_stand}"
+OUTPUT_DIR="${OUTPUT_DIR:-${ROOT_DIR}/experiments/outputs/core_world_prismatic_carrier_stand/${STAMP}}"
+EXPERIENCE="${EXPERIENCE:-${ROOT_DIR}/external/IsaacLab-Arena/submodules/IsaacLab/apps/isaaclab.python.headless.kit}"
+OV_REGISTRY_MIRROR="${OV_REGISTRY_MIRROR:-/public/home/yanhongru/ov_registry_mirror}"
+KIT_ARGS="${KIT_ARGS:---/exts/omni.kit.registry.nucleus/registries/0/url=${OV_REGISTRY_MIRROR}/kit_prod_default --/exts/omni.kit.registry.nucleus/registries/1/url=${OV_REGISTRY_MIRROR}/kit_prod_sdk}"
+
+mkdir -p "${LOG_DIR}" "${OUTPUT_DIR}"
+cd "${ROOT_DIR}"
+
+LOG_PATH="${LOG_DIR}/core_world_prismatic_carrier_stand_${STAMP}.log"
+echo "[CONFIG] STAMP=${STAMP} low-CG cage creep STEPS=${STEPS:-900} TARGET_X=${TARGET_X:--0.030} STEP_LENGTH=${STEP_LENGTH:-0.020} STEP_HEIGHT=${STEP_HEIGHT:-0.020} SETTLE_STEPS=${SETTLE_STEPS:-350} RAMP_STEPS=${RAMP_STEPS:-300}"
+"${ISAAC_VENV}/bin/python" \
+  "${ROOT_DIR}/scripts/isaac/build_core_world_prismatic_carrier_stand.py" \
+  --viz none \
+  --experience "${EXPERIENCE}" \
+  --device "${DEVICE:-cpu}" \
+  --kit_args "${KIT_ARGS}" \
+  --steps "${STEPS:-900}" \
+  --payload-mode tray_contact_free_box \
+  --payload-mass "${PAYLOAD_MASS:-1.0}" \
+  --torso-mass "${TORSO_MASS:-100.0}" \
+  --torso-z "${TORSO_Z:-0.58}" \
+  --payload-local-x "${PAYLOAD_LOCAL_X:-0.03}" \
+  --payload-local-z "${PAYLOAD_LOCAL_Z:-0.04}" \
+  --tray-local-x "${TRAY_LOCAL_X:-0.03}" \
+  --tray-local-z "${TRAY_LOCAL_Z:-0.07}" \
+  --tray-size "${TRAY_SIZE_X:-0.72}" "${TRAY_SIZE_Y:-0.56}" "${TRAY_SIZE_Z:-0.04}" \
+  --tray-rail-height "${TRAY_RAIL_HEIGHT:-0.30}" \
+  --tray-rail-thickness "${TRAY_RAIL_THICKNESS:-0.055}" \
+  --tray-mass "${TRAY_MASS:-1.0}" \
+  --enable-tray-lid \
+  --tray-lid-clearance "${TRAY_LID_CLEARANCE:-0.015}" \
+  --tray-lid-thickness "${TRAY_LID_THICKNESS:-0.04}" \
+  --tray-lid-mass "${TRAY_LID_MASS:-0.3}" \
+  --motion-mode creep \
+  --enable-horizontal-legs \
+  --target-x "${TARGET_X:--0.030}" \
+  --step-length "${STEP_LENGTH:-0.020}" \
+  --step-height "${STEP_HEIGHT:-0.020}" \
+  --gait-period-steps "${GAIT_PERIOD_STEPS:-480}" \
+  --swing-fraction "${SWING_FRACTION:-0.16}" \
+  --settle-steps "${SETTLE_STEPS:-350}" \
+  --ramp-steps "${RAMP_STEPS:-300}" \
+  --stance-half-length "${STANCE_HALF_LENGTH:-0.58}" \
+  --stance-half-width "${STANCE_HALF_WIDTH:-0.65}" \
+  --foot-length "${FOOT_LENGTH:-0.78}" \
+  --foot-width "${FOOT_WIDTH:-0.44}" \
+  --foot-height "${FOOT_HEIGHT:-0.055}" \
+  --foot-mass "${FOOT_MASS:-14.0}" \
+  --leg-target "${LEG_TARGET:--0.50}" \
+  --leg-lower "${LEG_LOWER:--0.75}" \
+  --leg-upper "${LEG_UPPER:--0.25}" \
+  --leg-stiffness "${LEG_STIFFNESS:-30000.0}" \
+  --leg-damping "${LEG_DAMPING:-3500.0}" \
+  --leg-max-force "${LEG_MAX_FORCE:-45000.0}" \
+  --x-slide-limit "${X_SLIDE_LIMIT:-0.04}" \
+  --x-slide-stiffness "${X_SLIDE_STIFFNESS:-5000.0}" \
+  --x-slide-damping "${X_SLIDE_DAMPING:-3500.0}" \
+  --x-slide-max-force "${X_SLIDE_MAX_FORCE:-6000.0}" \
+  --static-friction "${STATIC_FRICTION:-5.0}" \
+  --dynamic-friction "${DYNAMIC_FRICTION:-4.5}" \
+  --fall-z "${FALL_Z:-0.42}" \
+  --drop-z "${DROP_Z:-0.24}" \
+  --max-stand-drift "${MAX_STAND_DRIFT:-0.08}" \
+  --output-dir "${OUTPUT_DIR}" \
+  2>&1 | tee "${LOG_PATH}"
+
+echo "[INFO] Log: ${LOG_PATH}"
+echo "[INFO] Output: ${OUTPUT_DIR}"

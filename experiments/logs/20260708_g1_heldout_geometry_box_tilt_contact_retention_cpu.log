@@ -1,0 +1,1582 @@
+srun: job 170665 queued and waiting for resources
+srun: job 170665 has been allocated resources
+[G1-HELDOUT-GEOMETRY-BOX-TILT-CONTACT-RETENTION] case=wide_y012_contact_retention suite_stamp=20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_wide_y012_contact_retention
+[AGILE-SUITE] agile_low_cradle_freebox_walk kind=free_cradle steps=1000 backend=onnx
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1783440766.229670 1044023 descriptor_database.cc:633] File already exists in database: grpc/health/v1/health.proto
+W0000 00:00:1783440766.229713 1044023 message.cc:301] Protobuf GeneratedMessageFactory: File is already registered: grpc/health/v1/health.proto
+[PROGRESS] AppLauncher started
+Warp CUDA error 100: no CUDA-capable device is detected (in function init_cuda_driver, /builds/omniverse/warp/warp/native/cuda_util.cpp:308)
+Warp 1.13.0 initialized:
+   CUDA Toolkit 12.9, CUDA driver not available (NVRTC compilation available)
+   Devices:
+     "cpu"      : "x86_64"
+   Kernel cache:
+     /public/home/yanhongru/.cache/warp/1.13.0
+[PROGRESS] Core World and prim wrappers created
+[PROGRESS] Core World reset completed
+[PROGRESS] G1 and box wrappers initialized
+[PROGRESS] G1 articulation initialized with 43 joints
+[PROGRESS] Loading AGILE ONNX policy
+[PROGRESS] AGILE ONNX policy loaded model=/public/home/yanhongru/Curiosity/external/WBC-AGILE/agile/data/policy/velocity_height_g1/unitree_g1_velocity_height_recurrent_student.onnx inputs=['obs', 'h_in', 'c_in'] outputs=['actions', 'h_out', 'c_out']
+[STATE] step=0 robot=(-0.003,-0.000,0.783) box=(-0.185,-0.000,0.927) roll=0.0000 pitch=-0.0143 tilt=0.0143 fall=0 drop=0
+[STATE] step=10 robot=(-0.023,-0.001,0.785) box=(-0.206,-0.001,0.927) roll=0.0004 pitch=-0.0337 tilt=0.0337 fall=0 drop=0
+[STATE] step=20 robot=(-0.040,-0.001,0.786) box=(-0.226,-0.000,0.923) roll=0.0004 pitch=-0.0542 tilt=0.0542 fall=0 drop=0
+[STATE] step=30 robot=(-0.055,-0.000,0.787) box=(-0.244,0.000,0.920) roll=-0.0001 pitch=-0.0730 tilt=0.0730 fall=0 drop=0
+[STATE] step=40 robot=(-0.068,0.000,0.787) box=(-0.259,0.001,0.917) roll=-0.0010 pitch=-0.0826 tilt=0.0826 fall=0 drop=0
+[STATE] step=50 robot=(-0.083,-0.003,0.784) box=(-0.274,-0.000,0.915) roll=-0.0190 pitch=-0.0892 tilt=0.0892 fall=0 drop=0
+[STATE] step=60 robot=(-0.094,-0.007,0.781) box=(-0.290,0.002,0.904) roll=-0.0210 pitch=-0.1009 tilt=0.1009 fall=0 drop=0
+[STATE] step=70 robot=(-0.111,-0.010,0.769) box=(-0.309,-0.005,0.902) roll=0.0052 pitch=-0.0919 tilt=0.0919 fall=0 drop=0
+[STATE] step=80 robot=(-0.126,-0.016,0.763) box=(-0.325,-0.013,0.893) roll=0.0202 pitch=-0.0778 tilt=0.0778 fall=0 drop=0
+[STATE] step=90 robot=(-0.146,-0.016,0.771) box=(-0.341,-0.011,0.910) roll=0.0590 pitch=-0.0966 tilt=0.0966 fall=0 drop=0
+[STATE] step=100 robot=(-0.150,-0.012,0.791) box=(-0.363,-0.014,0.918) roll=0.1115 pitch=-0.0671 tilt=0.1115 fall=0 drop=0
+[STATE] step=110 robot=(-0.168,-0.005,0.819) box=(-0.380,-0.009,0.961) roll=0.1341 pitch=-0.0332 tilt=0.1341 fall=0 drop=0
+[STATE] step=120 robot=(-0.173,0.001,0.823) box=(-0.398,-0.004,1.000) roll=0.1561 pitch=-0.0456 tilt=0.1561 fall=0 drop=0
+[STATE] step=130 robot=(-0.182,0.006,0.802) box=(-0.416,0.002,1.015) roll=0.1672 pitch=-0.0425 tilt=0.1672 fall=0 drop=0
+[STATE] step=140 robot=(-0.188,0.011,0.774) box=(-0.434,0.007,1.006) roll=0.1630 pitch=-0.0433 tilt=0.1630 fall=0 drop=0
+[STATE] step=150 robot=(-0.189,0.017,0.775) box=(-0.444,0.015,0.977) roll=0.1509 pitch=-0.0595 tilt=0.1509 fall=0 drop=0
+[STATE] step=160 robot=(-0.181,0.027,0.782) box=(-0.440,0.025,0.937) roll=0.1422 pitch=0.0233 tilt=0.1422 fall=0 drop=0
+[STATE] step=170 robot=(-0.189,0.034,0.792) box=(-0.422,0.033,0.976) roll=0.0717 pitch=-0.0368 tilt=0.0717 fall=0 drop=0
+[STATE] step=180 robot=(-0.185,0.042,0.790) box=(-0.404,0.040,0.991) roll=0.0005 pitch=-0.0536 tilt=0.0536 fall=0 drop=0
+[STATE] step=190 robot=(-0.188,0.051,0.778) box=(-0.386,0.048,0.982) roll=-0.0314 pitch=-0.0568 tilt=0.0568 fall=0 drop=0
+[STATE] step=200 robot=(-0.185,0.048,0.790) box=(-0.368,0.055,0.949) roll=-0.0568 pitch=-0.0116 tilt=0.0568 fall=0 drop=0
+[STATE] step=210 robot=(-0.191,0.041,0.796) box=(-0.382,0.077,0.953) roll=-0.0976 pitch=-0.0106 tilt=0.0976 fall=0 drop=0
+[STATE] step=220 robot=(-0.186,0.035,0.801) box=(-0.402,0.091,0.946) roll=-0.0768 pitch=-0.0961 tilt=0.0961 fall=0 drop=0
+[STATE] step=230 robot=(-0.186,0.031,0.792) box=(-0.421,0.104,0.917) roll=-0.0183 pitch=0.0015 tilt=0.0183 fall=0 drop=0
+[STATE] step=240 robot=(-0.211,0.028,0.760) box=(-0.440,0.081,0.914) roll=-0.0184 pitch=-0.0390 tilt=0.0390 fall=0 drop=0
+[STATE] step=250 robot=(-0.226,0.015,0.760) box=(-0.440,0.071,0.904) roll=-0.0523 pitch=-0.0273 tilt=0.0523 fall=0 drop=0
+[STATE] step=260 robot=(-0.245,-0.007,0.790) box=(-0.457,0.042,0.937) roll=-0.0373 pitch=0.0121 tilt=0.0373 fall=0 drop=0
+[STATE] step=270 robot=(-0.262,-0.023,0.800) box=(-0.477,0.012,0.971) roll=0.0076 pitch=0.0048 tilt=0.0076 fall=0 drop=0
+[STATE] step=280 robot=(-0.276,-0.042,0.789) box=(-0.495,-0.018,0.979) roll=0.0426 pitch=0.0169 tilt=0.0426 fall=0 drop=0
+[STATE] step=290 robot=(-0.302,-0.049,0.787) box=(-0.512,-0.048,0.963) roll=0.1095 pitch=0.0719 tilt=0.1095 fall=0 drop=0
+[STATE] step=300 robot=(-0.319,-0.063,0.786) box=(-0.524,-0.072,0.944) roll=0.1243 pitch=-0.0415 tilt=0.1243 fall=0 drop=0
+[STATE] step=310 robot=(-0.321,-0.071,0.788) box=(-0.540,-0.097,0.914) roll=0.1443 pitch=-0.0903 tilt=0.1443 fall=0 drop=0
+[STATE] step=320 robot=(-0.338,-0.074,0.804) box=(-0.556,-0.100,0.926) roll=0.1190 pitch=-0.0509 tilt=0.1190 fall=0 drop=0
+[STATE] step=330 robot=(-0.357,-0.077,0.806) box=(-0.580,-0.091,0.966) roll=0.0823 pitch=-0.1090 tilt=0.1090 fall=0 drop=0
+[STATE] step=340 robot=(-0.368,-0.078,0.810) box=(-0.604,-0.082,0.981) roll=0.0472 pitch=-0.0558 tilt=0.0558 fall=0 drop=0
+[STATE] step=350 robot=(-0.393,-0.083,0.809) box=(-0.619,-0.079,0.980) roll=-0.0267 pitch=-0.0192 tilt=0.0267 fall=0 drop=0
+[STATE] step=360 robot=(-0.415,-0.083,0.785) box=(-0.635,-0.083,0.964) roll=-0.0617 pitch=-0.0026 tilt=0.0617 fall=0 drop=0
+[STATE] step=370 robot=(-0.422,-0.081,0.779) box=(-0.650,-0.098,0.944) roll=-0.0317 pitch=0.0480 tilt=0.0480 fall=0 drop=0
+[STATE] step=380 robot=(-0.434,-0.084,0.778) box=(-0.653,-0.114,0.971) roll=0.0043 pitch=0.0198 tilt=0.0198 fall=0 drop=0
+[STATE] step=390 robot=(-0.449,-0.086,0.767) box=(-0.655,-0.122,0.978) roll=0.0332 pitch=-0.0124 tilt=0.0332 fall=0 drop=0
+[STATE] step=400 robot=(-0.452,-0.089,0.775) box=(-0.657,-0.130,0.960) roll=0.0252 pitch=0.0385 tilt=0.0385 fall=0 drop=0
+[STATE] step=410 robot=(-0.460,-0.099,0.780) box=(-0.651,-0.138,0.946) roll=0.0047 pitch=0.1037 tilt=0.1037 fall=0 drop=0
+[STATE] step=420 robot=(-0.480,-0.109,0.779) box=(-0.656,-0.152,1.001) roll=0.0080 pitch=0.2052 tilt=0.2052 fall=0 drop=0
+[STATE] step=430 robot=(-0.484,-0.122,0.778) box=(-0.652,-0.169,1.028) roll=0.0001 pitch=0.2476 tilt=0.2476 fall=0 drop=0
+[STATE] step=440 robot=(-0.487,-0.139,0.783) box=(-0.648,-0.185,1.032) roll=-0.0341 pitch=0.2270 tilt=0.2270 fall=0 drop=0
+[STATE] step=450 robot=(-0.484,-0.145,0.781) box=(-0.645,-0.202,1.012) roll=0.0268 pitch=0.2157 tilt=0.2157 fall=0 drop=0
+[STATE] step=460 robot=(-0.502,-0.153,0.762) box=(-0.645,-0.225,0.980) roll=0.0995 pitch=0.2491 tilt=0.2491 fall=0 drop=0
+[STATE] step=470 robot=(-0.498,-0.162,0.780) box=(-0.628,-0.227,1.013) roll=0.0829 pitch=0.3570 tilt=0.3570 fall=0 drop=0
+[STATE] step=480 robot=(-0.471,-0.172,0.794) box=(-0.600,-0.212,1.048) roll=0.0469 pitch=0.3768 tilt=0.3768 fall=0 drop=0
+[STATE] step=490 robot=(-0.461,-0.184,0.783) box=(-0.573,-0.196,1.058) roll=0.0190 pitch=0.4571 tilt=0.4571 fall=0 drop=0
+[STATE] step=500 robot=(-0.450,-0.192,0.742) box=(-0.546,-0.181,1.044) roll=0.0093 pitch=0.3905 tilt=0.3905 fall=0 drop=0
+[STATE] step=510 robot=(-0.422,-0.203,0.667) box=(-0.516,-0.168,0.999) roll=-0.0364 pitch=0.5483 tilt=0.5483 fall=0 drop=0
+[STATE] step=520 robot=(-0.405,-0.220,0.588) box=(-0.467,-0.152,0.932) roll=-0.1673 pitch=0.5436 tilt=0.5436 fall=0 drop=0
+[STATE] step=530 robot=(-0.383,-0.228,0.509) box=(-0.400,-0.132,0.847) roll=-0.3335 pitch=0.6253 tilt=0.6253 fall=0 drop=0
+[STATE] step=540 robot=(-0.364,-0.234,0.492) box=(-0.334,-0.112,0.737) roll=-0.5505 pitch=0.7908 tilt=0.7908 fall=0 drop=0
+[STATE] step=550 robot=(-0.337,-0.217,0.477) box=(-0.246,-0.074,0.676) roll=-0.6888 pitch=0.9333 tilt=0.9333 fall=1 drop=0
+[STATE] step=560 robot=(-0.315,-0.212,0.427) box=(-0.167,-0.022,0.657) roll=-0.6915 pitch=1.1179 tilt=1.1179 fall=1 drop=0
+[STATE] step=570 robot=(-0.283,-0.269,0.412) box=(-0.098,0.032,0.639) roll=-0.0980 pitch=1.1794 tilt=1.1794 fall=1 drop=0
+[STATE] step=580 robot=(-0.247,-0.330,0.430) box=(-0.093,0.126,0.679) roll=0.3915 pitch=0.8901 tilt=0.8901 fall=1 drop=0
+[STATE] step=590 robot=(-0.221,-0.367,0.424) box=(-0.089,0.221,0.696) roll=0.5243 pitch=0.6859 tilt=0.6859 fall=1 drop=0
+[STATE] step=600 robot=(-0.196,-0.425,0.422) box=(-0.085,0.316,0.688) roll=0.6324 pitch=0.4017 tilt=0.6324 fall=1 drop=0
+[STATE] step=610 robot=(-0.092,-0.530,0.439) box=(-0.081,0.411,0.655) roll=0.7934 pitch=-0.0790 tilt=0.7934 fall=1 drop=0
+[STATE] step=620 robot=(0.031,-0.645,0.446) box=(-0.077,0.505,0.598) roll=0.7743 pitch=-0.5800 tilt=0.7743 fall=1 drop=0
+[STATE] step=630 robot=(0.114,-0.749,0.418) box=(-0.073,0.600,0.517) roll=0.6541 pitch=-0.9220 tilt=0.9220 fall=1 drop=0
+[STATE] step=640 robot=(0.179,-0.859,0.354) box=(-0.069,0.695,0.411) roll=0.2132 pitch=-1.2762 tilt=1.2762 fall=1 drop=0
+[STATE] step=650 robot=(0.239,-0.973,0.333) box=(-0.065,0.790,0.280) roll=-1.0886 pitch=-1.3413 tilt=1.3413 fall=1 drop=0
+[STATE] step=660 robot=(0.312,-1.051,0.367) box=(-0.061,0.885,0.125) roll=-1.5049 pitch=-1.0742 tilt=1.5049 fall=1 drop=1
+[STATE] step=670 robot=(0.399,-1.120,0.376) box=(-0.016,0.951,0.106) roll=-1.6254 pitch=-0.8129 tilt=1.6254 fall=1 drop=1
+[STATE] step=680 robot=(0.481,-1.194,0.363) box=(0.047,1.001,0.140) roll=-1.6424 pitch=-0.5303 tilt=1.6424 fall=1 drop=1
+[STATE] step=690 robot=(0.568,-1.273,0.325) box=(0.111,1.050,0.150) roll=-1.6400 pitch=-0.2410 tilt=1.6400 fall=1 drop=1
+[STATE] step=700 robot=(0.668,-1.364,0.263) box=(0.174,1.100,0.135) roll=-1.6029 pitch=0.0318 tilt=1.6029 fall=1 drop=1
+[STATE] step=710 robot=(0.741,-1.423,0.204) box=(0.237,1.149,0.096) roll=-1.6848 pitch=0.1073 tilt=1.6848 fall=1 drop=1
+[STATE] step=720 robot=(0.791,-1.450,0.221) box=(0.294,1.206,0.099) roll=-1.6020 pitch=0.0382 tilt=1.6020 fall=1 drop=1
+[STATE] step=730 robot=(0.822,-1.460,0.203) box=(0.341,1.258,0.102) roll=-1.5514 pitch=0.0732 tilt=1.5514 fall=1 drop=1
+[STATE] step=740 robot=(0.838,-1.489,0.200) box=(0.378,1.305,0.106) roll=-1.5197 pitch=0.1004 tilt=1.5197 fall=1 drop=1
+[STATE] step=750 robot=(0.855,-1.533,0.205) box=(0.415,1.350,0.093) roll=-1.4766 pitch=-0.0620 tilt=1.4766 fall=1 drop=1
+[STATE] step=760 robot=(0.854,-1.556,0.219) box=(0.445,1.382,0.098) roll=-1.4560 pitch=-0.2417 tilt=1.4560 fall=1 drop=1
+[STATE] step=770 robot=(0.839,-1.592,0.220) box=(0.477,1.413,0.082) roll=-1.5077 pitch=-0.2634 tilt=1.5077 fall=1 drop=1
+[STATE] step=780 robot=(0.847,-1.620,0.234) box=(0.491,1.428,0.077) roll=-1.5580 pitch=-0.2902 tilt=1.5580 fall=1 drop=1
+[STATE] step=790 robot=(0.859,-1.642,0.228) box=(0.492,1.429,0.078) roll=-1.5391 pitch=-0.1317 tilt=1.5391 fall=1 drop=1
+[STATE] step=800 robot=(0.851,-1.662,0.205) box=(0.486,1.424,0.072) roll=-1.6139 pitch=0.2249 tilt=1.6139 fall=1 drop=1
+[STATE] step=810 robot=(0.864,-1.660,0.217) box=(0.489,1.421,0.071) roll=-1.5769 pitch=0.1712 tilt=1.5769 fall=1 drop=1
+[STATE] step=820 robot=(0.871,-1.646,0.210) box=(0.493,1.415,0.069) roll=-1.4941 pitch=0.0683 tilt=1.4941 fall=1 drop=1
+[STATE] step=830 robot=(0.866,-1.641,0.196) box=(0.500,1.405,0.065) roll=-1.4811 pitch=0.1114 tilt=1.4811 fall=1 drop=1
+[STATE] step=840 robot=(0.862,-1.657,0.194) box=(0.506,1.396,0.062) roll=-1.4749 pitch=0.0923 tilt=1.4749 fall=1 drop=1
+[STATE] step=850 robot=(0.856,-1.655,0.211) box=(0.507,1.394,0.063) roll=-1.4782 pitch=-0.0493 tilt=1.4782 fall=1 drop=1
+[STATE] step=860 robot=(0.836,-1.639,0.211) box=(0.504,1.399,0.060) roll=-1.4866 pitch=-0.1577 tilt=1.4866 fall=1 drop=1
+[STATE] step=870 robot=(0.825,-1.633,0.202) box=(0.504,1.398,0.060) roll=-1.5015 pitch=-0.1828 tilt=1.5015 fall=1 drop=1
+[STATE] step=880 robot=(0.822,-1.612,0.203) box=(0.504,1.398,0.060) roll=-1.5168 pitch=-0.1945 tilt=1.5168 fall=1 drop=1
+[STATE] step=890 robot=(0.809,-1.600,0.200) box=(0.504,1.398,0.060) roll=-1.5025 pitch=-0.1118 tilt=1.5025 fall=1 drop=1
+[STATE] step=900 robot=(0.821,-1.607,0.206) box=(0.504,1.398,0.060) roll=-1.5859 pitch=0.0080 tilt=1.5859 fall=1 drop=1
+[STATE] step=910 robot=(0.844,-1.585,0.214) box=(0.504,1.398,0.060) roll=-1.6421 pitch=0.0551 tilt=1.6421 fall=1 drop=1
+[STATE] step=920 robot=(0.837,-1.575,0.215) box=(0.504,1.398,0.060) roll=-1.6201 pitch=0.1346 tilt=1.6201 fall=1 drop=1
+[STATE] step=930 robot=(0.832,-1.576,0.210) box=(0.504,1.398,0.060) roll=-1.5949 pitch=0.1203 tilt=1.5949 fall=1 drop=1
+[STATE] step=940 robot=(0.838,-1.557,0.199) box=(0.504,1.398,0.060) roll=-1.5580 pitch=0.0495 tilt=1.5580 fall=1 drop=1
+[STATE] step=950 robot=(0.828,-1.553,0.196) box=(0.504,1.398,0.060) roll=-1.5133 pitch=0.1429 tilt=1.5133 fall=1 drop=1
+[STATE] step=960 robot=(0.826,-1.570,0.195) box=(0.504,1.398,0.060) roll=-1.4662 pitch=0.0638 tilt=1.4662 fall=1 drop=1
+[STATE] step=970 robot=(0.813,-1.578,0.193) box=(0.504,1.398,0.060) roll=-1.3769 pitch=-0.0648 tilt=1.3769 fall=1 drop=1
+[STATE] step=980 robot=(0.784,-1.588,0.207) box=(0.504,1.398,0.060) roll=-1.4127 pitch=-0.1321 tilt=1.4127 fall=1 drop=1
+[STATE] step=990 robot=(0.755,-1.599,0.201) box=(0.504,1.398,0.060) roll=-1.5071 pitch=-0.0440 tilt=1.5071 fall=1 drop=1
+[STATE] step=999 robot=(0.743,-1.584,0.202) box=(0.504,1.398,0.060) roll=-1.5317 pitch=-0.0235 tilt=1.5317 fall=1 drop=1
+[INFO] Summary written to: /public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_wide_y012_contact_retention/agile_low_cradle_freebox_walk/core_world_g1_box_scene_summary.json
+[INFO] Metrics written to: /public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_wide_y012_contact_retention/agile_low_cradle_freebox_walk/core_world_g1_box_scene_state.csv
+Loading user config located at: '/public/home/yanhongru/envs/isaac_arena_py312/lib/python3.12/site-packages/isaacsim/kit/data/Kit/IsaacLab/3.0/user.config.json'
+2026-07-07T16:12:41Z [0ms] [Warning] [omni.ext.plugin] [ext: isaaclab_visualizers] Extensions config 'extension.toml' doesn't exist '/public/home/yanhongru/Curiosity/external/IsaacLab-Arena/submodules/IsaacLab/source/isaaclab_visualizers' or '/public/home/yanhongru/Curiosity/external/IsaacLab-Arena/submodules/IsaacLab/source/isaaclab_visualizers/config'
+2026-07-07T16:12:46Z [4,868ms] [Warning] [omni.perfmonitor.plugin]  PerfMonitorManager::onStart - error calling pthread_setaffinity_np
+2026-07-07T16:12:46Z [5,008ms] [Warning] [omni.platforminfo.plugin] failed to open the default display.  Can't verify X Server version.
+2026-07-07T16:12:47Z [5,284ms] [Warning] [omni.usd_config.extension] Enable omni.materialx.libs extension to use MaterialX
+2026-07-07T16:12:48Z [6,714ms] [Warning] [omni.physx.foundation.plugin] IOptionalCuda: cuInit failed (CUresult 100) -- treating as CPU-only.
+2026-07-07T16:12:52Z [10,160ms] [Warning] [usdrt.population.plugin] Last global time was not created. Did you call setEnableUsdNoticeHandling?
+2026-07-07T16:12:52Z [10,181ms] [Warning] [omni.usd] Encountered USD Warnings but USD Diagnostics are currently muted. To view USD Warnings, please set the '/persistent/app/usd/muteUsdDiagnostics' setting to false in Preferences page.
+{
+  "active_grasp_body_path": null,
+  "agile_command_hold_active": false,
+  "agile_command_hold_active_steps": 0,
+  "agile_command_hold_adaptive_active_steps": 0,
+  "agile_command_hold_adaptive_box_tilt_enabled": true,
+  "agile_command_hold_adaptive_box_tilt_rate_start": 2.0,
+  "agile_command_hold_adaptive_box_tilt_rate_stop": 7.0,
+  "agile_command_hold_adaptive_box_tilt_start": 0.12,
+  "agile_command_hold_adaptive_box_tilt_stop": 0.35,
+  "agile_command_hold_adaptive_first_active_step": null,
+  "agile_command_hold_adaptive_last_risk": 0.0,
+  "agile_command_hold_adaptive_max_observed_scale": null,
+  "agile_command_hold_adaptive_max_scale": 0.35,
+  "agile_command_hold_adaptive_min_observed_scale": null,
+  "agile_command_hold_adaptive_min_scale": 0.1,
+  "agile_command_hold_adaptive_rate_start": 2.0,
+  "agile_command_hold_adaptive_rate_stop": 7.0,
+  "agile_command_hold_adaptive_rel_start": 0.1,
+  "agile_command_hold_adaptive_rel_stop": 0.26,
+  "agile_command_hold_adaptive_scale_enabled": false,
+  "agile_command_hold_adaptive_scale_smoothing": 0.25,
+  "agile_command_hold_adaptive_tilt_start": 0.14,
+  "agile_command_hold_adaptive_tilt_stop": 0.35,
+  "agile_command_hold_applied_rescue_joint_targets": {},
+  "agile_command_hold_applied_stand_joint_targets": {},
+  "agile_command_hold_final_active_steps": 0,
+  "agile_command_hold_final_box_drop_events": 0,
+  "agile_command_hold_final_box_target_travel_m": -1.0,
+  "agile_command_hold_final_brake_active_steps": 0,
+  "agile_command_hold_final_brake_command_x": 0.0,
+  "agile_command_hold_final_brake_delay_steps": 0,
+  "agile_command_hold_final_brake_first_active_step": null,
+  "agile_command_hold_final_brake_last_active_step": null,
+  "agile_command_hold_final_brake_max_abs_command_x": 0.0,
+  "agile_command_hold_final_brake_steps": 0,
+  "agile_command_hold_final_fall_events": 0,
+  "agile_command_hold_final_first_active_step": null,
+  "agile_command_hold_final_first_box_drop_step": null,
+  "agile_command_hold_final_first_fall_step": null,
+  "agile_command_hold_final_freeze_active_steps": 0,
+  "agile_command_hold_final_freeze_first_active_step": null,
+  "agile_command_hold_final_freeze_in_target_window": false,
+  "agile_command_hold_final_freeze_latched": false,
+  "agile_command_hold_final_freeze_latched_step": null,
+  "agile_command_hold_final_freeze_max_box_tilt_rad": 0.35,
+  "agile_command_hold_final_freeze_max_tilt_rad": 0.25,
+  "agile_command_hold_final_last_command_xyz_yaw": null,
+  "agile_command_hold_final_last_policy_state_reset_error": null,
+  "agile_command_hold_final_last_reason": null,
+  "agile_command_hold_final_latch_enabled": false,
+  "agile_command_hold_final_latched": false,
+  "agile_command_hold_final_latched_step": null,
+  "agile_command_hold_final_lateral_suppressed_steps": 0,
+  "agile_command_hold_final_max_abs_command_x": 0.0,
+  "agile_command_hold_final_max_abs_command_y": 0.0,
+  "agile_command_hold_final_max_abs_command_yaw": 0.0,
+  "agile_command_hold_final_max_box_tilt_rad": 0.0,
+  "agile_command_hold_final_max_tilt_rad": 0.0,
+  "agile_command_hold_final_min_box_z_m": null,
+  "agile_command_hold_final_min_robot_z_m": null,
+  "agile_command_hold_final_policy_state_reset_count": 0,
+  "agile_command_hold_final_reset_policy_state": false,
+  "agile_command_hold_final_scale": -1.0,
+  "agile_command_hold_final_stand_active_steps": 0,
+  "agile_command_hold_final_stand_box_drop_events": 0,
+  "agile_command_hold_final_stand_delay_steps": 0,
+  "agile_command_hold_final_stand_enabled": false,
+  "agile_command_hold_final_stand_fall_events": 0,
+  "agile_command_hold_final_stand_first_active_step": null,
+  "agile_command_hold_final_stand_first_box_drop_step": null,
+  "agile_command_hold_final_stand_first_fall_step": null,
+  "agile_command_hold_final_stand_max_box_tilt_rad": 0.0,
+  "agile_command_hold_final_stand_max_tilt_rad": 0.0,
+  "agile_command_hold_final_stand_min_box_z_m": null,
+  "agile_command_hold_final_stand_min_robot_z_m": null,
+  "agile_command_hold_final_yaw_suppressed_steps": 0,
+  "agile_command_hold_final_zero_corrections_enabled": false,
+  "agile_command_hold_first_active_step": null,
+  "agile_command_hold_first_reason": null,
+  "agile_command_hold_last_policy_state_reset_error": null,
+  "agile_command_hold_lateral_active_steps": 0,
+  "agile_command_hold_lateral_correction_enabled": true,
+  "agile_command_hold_lateral_error_start_m": 0.0,
+  "agile_command_hold_lateral_first_active_step": null,
+  "agile_command_hold_lateral_gain": 0.08,
+  "agile_command_hold_lateral_last_error_m": 0.0,
+  "agile_command_hold_lateral_limit": 0.035,
+  "agile_command_hold_lateral_max_abs_command": 0.0,
+  "agile_command_hold_lateral_max_box_tilt_rad": 999.0,
+  "agile_command_hold_lateral_max_tilt_rad": 999.0,
+  "agile_command_hold_lateral_sign": 1.0,
+  "agile_command_hold_lateral_suppressed_by_tilt_steps": 0,
+  "agile_command_hold_lateral_terminal_only": false,
+  "agile_command_hold_lateral_use_excess_error": false,
+  "agile_command_hold_mode": "policy_command",
+  "agile_command_hold_policy_state_reset_count": 0,
+  "agile_command_hold_policy_then_stand_delay_steps": 80,
+  "agile_command_hold_rescue_abs_roll_threshold_rad": 999.0,
+  "agile_command_hold_rescue_active": false,
+  "agile_command_hold_rescue_active_steps": 0,
+  "agile_command_hold_rescue_blend_rate": 0.04,
+  "agile_command_hold_rescue_enabled": false,
+  "agile_command_hold_rescue_first_active_step": null,
+  "agile_command_hold_rescue_first_reason": null,
+  "agile_command_hold_rescue_forward_pitch_threshold_rad": -999.0,
+  "agile_command_hold_rescue_override_freeze_active_steps": 0,
+  "agile_command_hold_rescue_override_freeze_first_active_step": null,
+  "agile_command_hold_rescue_overrides_final_freeze": false,
+  "agile_command_hold_rescue_target_overrides": {
+    "ankle_pitch": null,
+    "ankle_roll": null,
+    "hip_pitch": null,
+    "hip_roll": null,
+    "knee": null,
+    "waist_pitch": null
+  },
+  "agile_command_hold_reset_policy_state": false,
+  "agile_command_hold_scale": 1.0,
+  "agile_command_hold_stand_blend_rate": 0.04,
+  "agile_command_hold_stand_override_freeze_active_steps": 0,
+  "agile_command_hold_stand_override_freeze_first_active_step": null,
+  "agile_command_hold_stand_overrides_final_freeze": false,
+  "agile_command_hold_stand_target_active_steps": 0,
+  "agile_command_hold_stand_target_overrides": {
+    "ankle_pitch": null,
+    "ankle_roll": null,
+    "hip_pitch": null,
+    "hip_roll": null,
+    "knee": null,
+    "waist_pitch": null
+  },
+  "agile_command_hold_terminal_active_steps": 0,
+  "agile_command_hold_terminal_box_target_travel_m": -1.0,
+  "agile_command_hold_terminal_first_active_step": null,
+  "agile_command_hold_terminal_last_reason": null,
+  "agile_command_hold_terminal_latch_enabled": false,
+  "agile_command_hold_terminal_latched": false,
+  "agile_command_hold_terminal_latched_step": null,
+  "agile_command_hold_terminal_scale": 0.0,
+  "agile_command_hold_yaw_active_steps": 0,
+  "agile_command_hold_yaw_correction_enabled": false,
+  "agile_command_hold_yaw_first_active_step": null,
+  "agile_command_hold_yaw_gain": 0.0,
+  "agile_command_hold_yaw_last_error_m": 0.0,
+  "agile_command_hold_yaw_limit": 0.2,
+  "agile_command_hold_yaw_max_abs_command": 0.0,
+  "agile_command_hold_yaw_sign": 1.0,
+  "agile_command_stop_box_target_travel_m": -1.0,
+  "agile_command_stop_robot_target_travel_m": -1.0,
+  "agile_command_stop_step": -1,
+  "agile_command_stop_target_window_enabled": false,
+  "agile_command_stop_target_window_latched_step": null,
+  "agile_command_stop_target_window_min_step": -1,
+  "agile_last_command_xyz_yaw": [
+    0.1,
+    0.0,
+    0.0
+  ],
+  "agile_last_root_ang_vel_read_error": null,
+  "agile_root_ang_vel_read_failures": 0,
+  "agile_root_ang_vel_source": "core_api_get_angular_velocity_rotated_to_body",
+  "applied_stand_drive_gain_count": 29,
+  "attach_box": "none",
+  "balance_adjustment_limit": 0.08,
+  "balance_feedback_active_steps": 0,
+  "balance_feedback_base": "command",
+  "balance_feedback_controller_enabled": true,
+  "balance_feedback_first_active_step": null,
+  "balance_pitch_activation_threshold": 0.05,
+  "balance_pitch_gain": 0.1,
+  "balance_pitch_rate_activation_threshold": 0.2,
+  "balance_pitch_rate_gain": 0.006,
+  "balance_pitch_sign": 1.0,
+  "balance_pitch_target": 0.0,
+  "balance_roll_activation_threshold": 0.05,
+  "balance_roll_gain": 0.06,
+  "balance_roll_left_ankle_scale": 1.0,
+  "balance_roll_left_hip_scale": -0.5,
+  "balance_roll_rate_activation_threshold": 0.2,
+  "balance_roll_rate_gain": 0.003,
+  "balance_roll_right_ankle_scale": -1.0,
+  "balance_roll_right_hip_scale": 0.5,
+  "balance_roll_sign": -1.0,
+  "balance_roll_target": 0.0,
+  "balance_start_on_agile_hold": true,
+  "balance_start_step": 0,
+  "balance_target_active_steps": 1000,
+  "balance_target_end_step": -1,
+  "balance_target_first_active_step": 0,
+  "balance_target_pulse_period_steps": 0,
+  "balance_target_pulse_phase_step": 0,
+  "balance_target_pulse_width_steps": 0,
+  "balance_target_start_step": 0,
+  "box_collision_enabled": true,
+  "box_drop_events": 344,
+  "box_pose_write_count_rollout": 0,
+  "box_support_actual_release_step": null,
+  "box_support_mode": "none",
+  "box_support_released": false,
+  "carry_box_spawned": true,
+  "completed_steps": 1000,
+  "cradle_chest_pad_collision_enabled_initial": false,
+  "cradle_chest_pad_collision_enabled_step": 380,
+  "cradle_chest_pad_collision_update_count": 1,
+  "cradle_chest_pad_collision_update_error": null,
+  "cradle_chest_pad_enable_on_hold": false,
+  "cradle_chest_pad_enabled": true,
+  "cradle_chest_pad_local_pos0_m": [
+    -0.02,
+    0.0,
+    0.1
+  ],
+  "cradle_chest_pad_size_m": [
+    0.045,
+    0.4,
+    0.23
+  ],
+  "cradle_collision_enabled": true,
+  "cradle_piece_count": 6,
+  "cradle_top_lid_collision_enabled_initial": false,
+  "cradle_top_lid_collision_enabled_step": null,
+  "cradle_top_lid_collision_update_count": 0,
+  "cradle_top_lid_collision_update_error": null,
+  "cradle_top_lid_enable_on_hold": true,
+  "cradle_top_lid_enabled": true,
+  "cradle_top_lid_local_z_m": 0.16,
+  "cradle_top_lid_thickness_m": 0.014,
+  "cradle_top_lid_x_scale": 1.15,
+  "cradle_top_lid_y_scale": 1.1,
+  "diagnostic_root_drive": "none",
+  "diagnostic_root_drive_active_steps": 0,
+  "diagnostic_root_drive_final_commanded_xy_m": [
+    0.0,
+    0.0
+  ],
+  "diagnostic_root_drive_speed_mps": 0.0,
+  "disable_usd_pelvis_xform": null,
+  "error": null,
+  "failures": [
+    "fall_events 452 > 0",
+    "box_drop_events 344 > 0",
+    "min_robot_z_m 0.19108085334300995 < 0.45",
+    "min_box_z_m 0.05999999865889549 < 0.2",
+    "max_tilt_rad 1.684757910824547 > 0.35",
+    "max_box_tilt_rad 3.141287564845183 > 0.45",
+    "final_box_robot_relative_offset_error_m 2.995880421138252 > 0.25",
+    "final_robot_target_directed_travel_m -0.7445601970932443 < 0.02",
+    "final_box_target_directed_travel_m -0.6867550693224568 < 0.02",
+    "max_abs_robot_target_lateral_error_m 1.6636440441605316 > 0.8",
+    "max_abs_box_target_lateral_error_m 1.4292096944394794 > 0.8",
+    "abs(final_robot_target_lateral_error_m) 1.5839872034269704 > 0.6",
+    "abs(final_box_target_lateral_error_m) 1.3986547356296193 > 0.6",
+    "target_window_both_stable_steps 0 < 100",
+    "target_window_both_longest_streak_steps 0 < 100",
+    "target_window_both_streak_at_end_steps 0 < 100"
+  ],
+  "fall_events": 452,
+  "final_box_pitch_rad": -1.3020667388730126e-07,
+  "final_box_robot_relative_offset_error_m": 2.995880421138252,
+  "final_box_roll_rad": -1.5707965928912766,
+  "final_box_target_directed_travel_m": -0.6867550693224568,
+  "final_box_target_lateral_error_m": -1.3986547356296193,
+  "final_box_travel_xy_m": 1.5581616073884161,
+  "final_pitch_rad": -0.023463382644316345,
+  "final_post_grasp_box_z_delta_m": 0.0,
+  "final_probe_box_target_directed_travel_m": 0.0,
+  "final_probe_box_travel_xy_m": 0.0,
+  "final_robot_target_directed_travel_m": -0.7445601970932443,
+  "final_robot_target_lateral_error_m": 1.5839872034269704,
+  "final_robot_travel_xy_m": 1.7502529382109107,
+  "final_roll_rad": -1.5317394845183716,
+  "first_box_drop_step": 656,
+  "first_box_drop_time_s": 3.2800000000000002,
+  "first_fall_step": 548,
+  "first_fall_time_s": 2.74,
+  "gait_min_amplitude_scale": 0.0,
+  "gait_mode": "agile_policy",
+  "gait_ramp_down_end_step": -1,
+  "gait_ramp_down_start_step": -1,
+  "grasp_attach_step": null,
+  "grasp_attached": false,
+  "grasp_body_box_world_distance_at_attach_m": null,
+  "grasp_body_path": "/World/G1/torso_link",
+  "grasp_body_wrapper_error": null,
+  "grasp_body_wrapper_initialized": false,
+  "grasp_lift_offset_z_m": 0.0,
+  "grasp_mode": "none",
+  "joint_count": 43,
+  "joint_state_write_count_setup": 1,
+  "joint_state_write_error": null,
+  "max_abs_box_pitch_rad": 1.4940721406706312,
+  "max_abs_box_roll_rad": 3.141287564845183,
+  "max_abs_box_target_lateral_error_m": 1.4292096944394794,
+  "max_abs_pitch_rad": 1.4146863066824986,
+  "max_abs_robot_target_lateral_error_m": 1.6636440441605316,
+  "max_abs_roll_rad": 1.684757910824547,
+  "max_agile_root_ang_vel_norm": 16.438623428344727,
+  "max_box_robot_relative_offset_error_m": 3.104221372950072,
+  "max_box_target_directed_travel_m": 0.47603957858245494,
+  "max_box_tilt_rad": 3.141287564845183,
+  "max_policy_raw_action_norm": 7.942277431488037,
+  "max_post_grasp_box_z_delta_m": 0.0,
+  "max_probe_box_target_directed_travel_m": 0.0,
+  "max_probe_box_travel_xy_m": 0.0,
+  "max_robot_target_directed_travel_m": 0.5027818643004381,
+  "max_tilt_rad": 1.684757910824547,
+  "min_box_z_m": 0.05999999865889549,
+  "min_robot_z_m": 0.19108085334300995,
+  "policy_inference_count": 240,
+  "probe_active_steps": 0,
+  "probe_box_moved": false,
+  "probe_mode": "none",
+  "recovery_active_steps": 0,
+  "recovery_ankle_pitch_offset": 0.0,
+  "recovery_first_active_step": null,
+  "recovery_hip_pitch_offset": 0.0,
+  "recovery_knee_offset": 0.0,
+  "recovery_pitch_rate_threshold": 999.0,
+  "recovery_pitch_threshold": 999.0,
+  "recovery_waist_pitch_offset": 0.0,
+  "root_pose_write_count_rollout": 0,
+  "root_pose_write_count_setup": 1,
+  "root_velocity_write_count_rollout": 0,
+  "scene_type": "core_world_g1_box_scene",
+  "stand_drive_gains_enabled": true,
+  "stand_drive_preset": "isaaclab29dof",
+  "status": "fail",
+  "success_claim": "g1_usd_core_api_scene_diagnostic_not_walking_or_carrying_success",
+  "summary": "/public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_wide_y012_contact_retention/agile_low_cradle_freebox_walk/core_world_g1_box_scene_summary.json",
+  "target_window_both_final_hold_first_stable_step": null,
+  "target_window_both_final_hold_longest_streak_steps": 0,
+  "target_window_both_final_hold_stable_at_final_step": false,
+  "target_window_both_final_hold_stable_steps": 0,
+  "target_window_both_final_hold_streak_at_end_steps": 0,
+  "target_window_both_final_stand_first_stable_step": null,
+  "target_window_both_final_stand_longest_streak_steps": 0,
+  "target_window_both_final_stand_stable_at_final_step": false,
+  "target_window_both_final_stand_stable_steps": 0,
+  "target_window_both_final_stand_streak_at_end_steps": 0,
+  "target_window_both_first_stable_step": null,
+  "target_window_both_longest_streak_steps": 0,
+  "target_window_both_stable_at_final_step": false,
+  "target_window_both_stable_steps": 0,
+  "target_window_both_streak_at_end_steps": 0,
+  "target_window_box_first_stable_step": null,
+  "target_window_box_longest_streak_steps": 0,
+  "target_window_box_stable_steps": 0,
+  "target_window_center_m": 2.0,
+  "target_window_enabled": true,
+  "target_window_halfwidth_m": 0.35,
+  "target_window_robot_first_stable_step": null,
+  "target_window_robot_longest_streak_steps": 0,
+  "target_window_robot_stable_steps": 0,
+  "target_xy_m": [
+    -1.2,
+    0.0
+  ],
+  "torso_cradle": "front_tray"
+}
+[AGILE-SUITE] status file: /public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_wide_y012_contact_retention/agile_policy_low_cradle_status.tsv
+[G1-HELDOUT-GEOMETRY-BOX-TILT-CONTACT-RETENTION] case=tall_z009_contact_retention suite_stamp=20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_tall_z009_contact_retention
+[AGILE-SUITE] agile_low_cradle_freebox_walk kind=free_cradle steps=1000 backend=onnx
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1783440791.688048 1044314 descriptor_database.cc:633] File already exists in database: grpc/health/v1/health.proto
+W0000 00:00:1783440791.688088 1044314 message.cc:301] Protobuf GeneratedMessageFactory: File is already registered: grpc/health/v1/health.proto
+[PROGRESS] AppLauncher started
+Warp CUDA error 100: no CUDA-capable device is detected (in function init_cuda_driver, /builds/omniverse/warp/warp/native/cuda_util.cpp:308)
+Warp 1.13.0 initialized:
+   CUDA Toolkit 12.9, CUDA driver not available (NVRTC compilation available)
+   Devices:
+     "cpu"      : "x86_64"
+   Kernel cache:
+     /public/home/yanhongru/.cache/warp/1.13.0
+[PROGRESS] Core World and prim wrappers created
+[PROGRESS] Core World reset completed
+[PROGRESS] G1 and box wrappers initialized
+[PROGRESS] G1 articulation initialized with 43 joints
+[PROGRESS] Loading AGILE ONNX policy
+[PROGRESS] AGILE ONNX policy loaded model=/public/home/yanhongru/Curiosity/external/WBC-AGILE/agile/data/policy/velocity_height_g1/unitree_g1_velocity_height_recurrent_student.onnx inputs=['obs', 'h_in', 'c_in'] outputs=['actions', 'h_out', 'c_out']
+[STATE] step=0 robot=(-0.003,-0.000,0.783) box=(-0.185,-0.000,0.929) roll=0.0000 pitch=-0.0142 tilt=0.0142 fall=0 drop=0
+[STATE] step=10 robot=(-0.023,-0.001,0.785) box=(-0.210,-0.005,0.938) roll=0.0004 pitch=-0.0336 tilt=0.0336 fall=0 drop=0
+[STATE] step=20 robot=(-0.040,-0.001,0.786) box=(-0.230,-0.005,0.930) roll=0.0004 pitch=-0.0541 tilt=0.0541 fall=0 drop=0
+[STATE] step=30 robot=(-0.055,-0.000,0.787) box=(-0.248,-0.003,0.925) roll=0.0000 pitch=-0.0730 tilt=0.0730 fall=0 drop=0
+[STATE] step=40 robot=(-0.068,0.000,0.787) box=(-0.263,-0.003,0.922) roll=-0.0009 pitch=-0.0826 tilt=0.0826 fall=0 drop=0
+[STATE] step=50 robot=(-0.082,-0.002,0.785) box=(-0.279,-0.002,0.922) roll=-0.0237 pitch=-0.0797 tilt=0.0797 fall=0 drop=0
+[STATE] step=60 robot=(-0.098,-0.009,0.785) box=(-0.300,-0.003,0.919) roll=-0.0446 pitch=-0.0945 tilt=0.0945 fall=0 drop=0
+[STATE] step=70 robot=(-0.112,-0.011,0.774) box=(-0.315,-0.009,0.906) roll=-0.0133 pitch=-0.0916 tilt=0.0916 fall=0 drop=0
+[STATE] step=80 robot=(-0.128,-0.015,0.761) box=(-0.327,-0.026,0.900) roll=0.0212 pitch=-0.0718 tilt=0.0718 fall=0 drop=0
+[STATE] step=90 robot=(-0.144,-0.012,0.769) box=(-0.346,-0.026,0.905) roll=0.0560 pitch=-0.0656 tilt=0.0656 fall=0 drop=0
+[STATE] step=100 robot=(-0.155,-0.000,0.799) box=(-0.361,-0.033,0.927) roll=0.1311 pitch=-0.0704 tilt=0.1311 fall=0 drop=0
+[STATE] step=110 robot=(-0.172,0.013,0.828) box=(-0.372,-0.022,0.976) roll=0.1702 pitch=-0.0476 tilt=0.1702 fall=0 drop=0
+[STATE] step=120 robot=(-0.170,0.027,0.831) box=(-0.385,-0.010,1.012) roll=0.2219 pitch=-0.0412 tilt=0.2219 fall=0 drop=0
+[STATE] step=130 robot=(-0.183,0.040,0.821) box=(-0.398,0.002,1.022) roll=0.2479 pitch=-0.0725 tilt=0.2479 fall=0 drop=0
+[STATE] step=140 robot=(-0.180,0.051,0.821) box=(-0.411,0.014,1.009) roll=0.2426 pitch=-0.0615 tilt=0.2426 fall=0 drop=0
+[STATE] step=150 robot=(-0.194,0.068,0.817) box=(-0.404,0.035,1.001) roll=0.2544 pitch=0.0019 tilt=0.2544 fall=0 drop=0
+[STATE] step=160 robot=(-0.204,0.087,0.802) box=(-0.401,0.047,1.000) roll=0.2845 pitch=-0.0707 tilt=0.2845 fall=0 drop=0
+[STATE] step=170 robot=(-0.206,0.104,0.796) box=(-0.398,0.059,0.980) roll=0.2855 pitch=0.0314 tilt=0.2855 fall=0 drop=0
+[STATE] step=180 robot=(-0.227,0.120,0.798) box=(-0.406,0.051,1.004) roll=0.2233 pitch=0.0093 tilt=0.2233 fall=0 drop=0
+[STATE] step=190 robot=(-0.224,0.127,0.796) box=(-0.416,0.044,1.018) roll=0.1168 pitch=-0.0552 tilt=0.1168 fall=0 drop=0
+[STATE] step=200 robot=(-0.223,0.139,0.782) box=(-0.434,0.055,1.017) roll=0.0248 pitch=-0.0258 tilt=0.0258 fall=0 drop=0
+[STATE] step=210 robot=(-0.235,0.147,0.774) box=(-0.436,0.068,1.016) roll=0.0569 pitch=-0.0056 tilt=0.0569 fall=0 drop=0
+[STATE] step=220 robot=(-0.234,0.178,0.768) box=(-0.435,0.081,0.994) roll=0.0197 pitch=-0.0280 tilt=0.0280 fall=0 drop=0
+[STATE] step=230 robot=(-0.250,0.181,0.775) box=(-0.434,0.095,0.960) roll=0.0155 pitch=-0.0590 tilt=0.0590 fall=0 drop=0
+[STATE] step=240 robot=(-0.262,0.181,0.793) box=(-0.424,0.130,0.964) roll=0.0289 pitch=-0.0217 tilt=0.0289 fall=0 drop=0
+[STATE] step=250 robot=(-0.280,0.195,0.812) box=(-0.425,0.144,0.981) roll=-0.0102 pitch=0.0006 tilt=0.0102 fall=0 drop=0
+[STATE] step=260 robot=(-0.291,0.203,0.806) box=(-0.442,0.148,0.988) roll=-0.0472 pitch=-0.0167 tilt=0.0472 fall=0 drop=0
+[STATE] step=270 robot=(-0.307,0.211,0.784) box=(-0.460,0.152,0.969) roll=-0.0735 pitch=-0.0336 tilt=0.0735 fall=0 drop=0
+[STATE] step=280 robot=(-0.324,0.212,0.782) box=(-0.490,0.147,0.951) roll=-0.0960 pitch=0.0089 tilt=0.0960 fall=0 drop=0
+[STATE] step=290 robot=(-0.339,0.205,0.786) box=(-0.514,0.144,0.959) roll=-0.1337 pitch=-0.0239 tilt=0.1337 fall=0 drop=0
+[STATE] step=300 robot=(-0.340,0.206,0.790) box=(-0.544,0.170,0.944) roll=-0.0677 pitch=-0.0300 tilt=0.0677 fall=0 drop=0
+[STATE] step=310 robot=(-0.345,0.198,0.800) box=(-0.560,0.163,0.952) roll=-0.0176 pitch=-0.0221 tilt=0.0221 fall=0 drop=0
+[STATE] step=320 robot=(-0.363,0.192,0.802) box=(-0.568,0.145,0.965) roll=0.0297 pitch=0.0313 tilt=0.0313 fall=0 drop=0
+[STATE] step=330 robot=(-0.387,0.187,0.808) box=(-0.580,0.116,0.978) roll=0.0298 pitch=-0.1391 tilt=0.1391 fall=0 drop=0
+[STATE] step=340 robot=(-0.382,0.171,0.794) box=(-0.594,0.089,0.969) roll=-0.0641 pitch=-0.0376 tilt=0.0641 fall=0 drop=0
+[STATE] step=350 robot=(-0.401,0.156,0.784) box=(-0.613,0.081,0.952) roll=-0.1280 pitch=-0.0080 tilt=0.1280 fall=0 drop=0
+[STATE] step=360 robot=(-0.433,0.140,0.801) box=(-0.624,0.077,1.004) roll=-0.1476 pitch=-0.1587 tilt=0.1587 fall=0 drop=0
+[STATE] step=370 robot=(-0.434,0.136,0.798) box=(-0.632,0.073,1.030) roll=-0.1241 pitch=-0.0305 tilt=0.1241 fall=0 drop=0
+[STATE] step=380 robot=(-0.436,0.135,0.775) box=(-0.640,0.068,1.031) roll=-0.0827 pitch=0.0660 tilt=0.0827 fall=0 drop=0
+[STATE] step=390 robot=(-0.489,0.115,0.748) box=(-0.683,0.042,1.004) roll=-0.0362 pitch=0.0026 tilt=0.0362 fall=0 drop=0
+[STATE] step=400 robot=(-0.519,0.091,0.696) box=(-0.741,0.008,0.951) roll=-0.0062 pitch=-0.1263 tilt=0.1263 fall=0 drop=0
+[STATE] step=410 robot=(-0.531,0.079,0.604) box=(-0.798,-0.027,0.873) roll=-0.0032 pitch=-0.2439 tilt=0.2439 fall=0 drop=0
+[STATE] step=420 robot=(-0.529,0.090,0.492) box=(-0.856,-0.061,0.771) roll=0.1039 pitch=-0.4517 tilt=0.4517 fall=0 drop=0
+[STATE] step=430 robot=(-0.512,0.106,0.371) box=(-0.914,-0.095,0.644) roll=0.3513 pitch=-0.7468 tilt=0.7468 fall=1 drop=0
+[STATE] step=440 robot=(-0.487,0.112,0.260) box=(-0.971,-0.130,0.493) roll=0.3744 pitch=-0.9264 tilt=0.9264 fall=1 drop=0
+[STATE] step=450 robot=(-0.514,0.128,0.244) box=(-1.029,-0.164,0.317) roll=0.0862 pitch=-0.7384 tilt=0.7384 fall=1 drop=0
+[STATE] step=460 robot=(-0.529,0.136,0.253) box=(-1.086,-0.198,0.116) roll=-0.1541 pitch=-0.8885 tilt=0.8885 fall=1 drop=1
+[STATE] step=470 robot=(-0.533,0.193,0.248) box=(-1.134,-0.252,0.075) roll=-0.2911 pitch=-0.6644 tilt=0.6644 fall=1 drop=1
+[STATE] step=480 robot=(-0.558,0.231,0.221) box=(-1.183,-0.293,0.074) roll=-0.3151 pitch=-0.8511 tilt=0.8511 fall=1 drop=1
+[STATE] step=490 robot=(-0.560,0.242,0.228) box=(-1.210,-0.331,0.087) roll=-0.3616 pitch=-0.9390 tilt=0.9390 fall=1 drop=1
+[STATE] step=500 robot=(-0.562,0.253,0.254) box=(-1.231,-0.367,0.087) roll=-0.5111 pitch=-0.9226 tilt=0.9226 fall=1 drop=1
+[STATE] step=510 robot=(-0.574,0.260,0.263) box=(-1.249,-0.403,0.066) roll=-0.6823 pitch=-0.8794 tilt=0.8794 fall=1 drop=1
+[STATE] step=520 robot=(-0.572,0.277,0.265) box=(-1.254,-0.425,0.065) roll=-0.7937 pitch=-0.8315 tilt=0.8315 fall=1 drop=1
+[STATE] step=530 robot=(-0.555,0.273,0.265) box=(-1.263,-0.429,0.066) roll=-0.8657 pitch=-0.7742 tilt=0.8657 fall=1 drop=1
+[STATE] step=540 robot=(-0.560,0.262,0.283) box=(-1.267,-0.433,0.067) roll=-0.9160 pitch=-0.8496 tilt=0.9160 fall=1 drop=1
+[STATE] step=550 robot=(-0.581,0.270,0.284) box=(-1.270,-0.436,0.067) roll=-1.0387 pitch=-0.8041 tilt=1.0387 fall=1 drop=1
+[STATE] step=560 robot=(-0.587,0.265,0.303) box=(-1.272,-0.437,0.067) roll=-1.1234 pitch=-0.8693 tilt=1.1234 fall=1 drop=1
+[STATE] step=570 robot=(-0.615,0.259,0.313) box=(-1.274,-0.439,0.067) roll=-1.1630 pitch=-0.8662 tilt=1.1630 fall=1 drop=1
+[STATE] step=580 robot=(-0.630,0.269,0.321) box=(-1.277,-0.441,0.067) roll=-1.3187 pitch=-0.8263 tilt=1.3187 fall=1 drop=1
+[STATE] step=590 robot=(-0.642,0.293,0.341) box=(-1.280,-0.444,0.067) roll=-1.4411 pitch=-0.8492 tilt=1.4411 fall=1 drop=1
+[STATE] step=600 robot=(-0.669,0.304,0.350) box=(-1.285,-0.448,0.065) roll=-1.4245 pitch=-0.9265 tilt=1.4245 fall=1 drop=1
+[STATE] step=610 robot=(-0.715,0.328,0.326) box=(-1.293,-0.455,0.062) roll=-1.3290 pitch=-0.8062 tilt=1.3290 fall=1 drop=1
+[STATE] step=620 robot=(-0.746,0.337,0.299) box=(-1.305,-0.465,0.053) roll=-1.3993 pitch=-0.6603 tilt=1.3993 fall=1 drop=1
+[STATE] step=630 robot=(-0.782,0.359,0.307) box=(-1.308,-0.468,0.052) roll=-1.4073 pitch=-0.6193 tilt=1.4073 fall=1 drop=1
+[STATE] step=640 robot=(-0.804,0.390,0.282) box=(-1.307,-0.466,0.050) roll=-1.4726 pitch=-0.4321 tilt=1.4726 fall=1 drop=1
+[STATE] step=650 robot=(-0.803,0.421,0.227) box=(-1.307,-0.466,0.050) roll=-1.4285 pitch=-0.2319 tilt=1.4285 fall=1 drop=1
+[STATE] step=660 robot=(-0.807,0.463,0.200) box=(-1.307,-0.466,0.050) roll=-1.5248 pitch=-0.0799 tilt=1.5248 fall=1 drop=1
+[STATE] step=670 robot=(-0.802,0.506,0.202) box=(-1.307,-0.466,0.050) roll=-1.5829 pitch=0.2095 tilt=1.5829 fall=1 drop=1
+[STATE] step=680 robot=(-0.802,0.505,0.229) box=(-1.307,-0.466,0.050) roll=-1.5438 pitch=0.2740 tilt=1.5438 fall=1 drop=1
+[STATE] step=690 robot=(-0.798,0.512,0.244) box=(-1.307,-0.466,0.050) roll=-1.5658 pitch=0.2809 tilt=1.5658 fall=1 drop=1
+[STATE] step=700 robot=(-0.786,0.533,0.262) box=(-1.307,-0.466,0.050) roll=-1.6045 pitch=0.2147 tilt=1.6045 fall=1 drop=1
+[STATE] step=710 robot=(-0.776,0.541,0.229) box=(-1.307,-0.466,0.050) roll=-1.6105 pitch=0.1666 tilt=1.6105 fall=1 drop=1
+[STATE] step=720 robot=(-0.785,0.534,0.213) box=(-1.307,-0.466,0.050) roll=-1.6590 pitch=0.1261 tilt=1.6590 fall=1 drop=1
+[STATE] step=730 robot=(-0.798,0.533,0.225) box=(-1.307,-0.466,0.050) roll=-1.6629 pitch=0.0439 tilt=1.6629 fall=1 drop=1
+[STATE] step=740 robot=(-0.808,0.529,0.213) box=(-1.307,-0.466,0.050) roll=-1.5868 pitch=-0.0826 tilt=1.5868 fall=1 drop=1
+[STATE] step=750 robot=(-0.821,0.514,0.198) box=(-1.307,-0.466,0.050) roll=-1.4913 pitch=-0.0865 tilt=1.4913 fall=1 drop=1
+[STATE] step=760 robot=(-0.811,0.500,0.195) box=(-1.307,-0.466,0.050) roll=-1.4382 pitch=-0.0831 tilt=1.4382 fall=1 drop=1
+[STATE] step=770 robot=(-0.808,0.474,0.207) box=(-1.307,-0.466,0.050) roll=-1.5821 pitch=-0.0594 tilt=1.5821 fall=1 drop=1
+[STATE] step=780 robot=(-0.795,0.468,0.248) box=(-1.307,-0.466,0.050) roll=-1.6474 pitch=0.0463 tilt=1.6474 fall=1 drop=1
+[STATE] step=790 robot=(-0.793,0.468,0.244) box=(-1.307,-0.466,0.050) roll=-1.7461 pitch=0.2854 tilt=1.7461 fall=1 drop=1
+[STATE] step=800 robot=(-0.750,0.462,0.267) box=(-1.307,-0.466,0.050) roll=-1.7189 pitch=0.2254 tilt=1.7189 fall=1 drop=1
+[STATE] step=810 robot=(-0.680,0.472,0.245) box=(-1.307,-0.466,0.050) roll=-1.7385 pitch=0.1444 tilt=1.7385 fall=1 drop=1
+[STATE] step=820 robot=(-0.595,0.502,0.223) box=(-1.307,-0.466,0.050) roll=-1.6545 pitch=0.0269 tilt=1.6545 fall=1 drop=1
+[STATE] step=830 robot=(-0.528,0.562,0.204) box=(-1.307,-0.466,0.050) roll=-1.6474 pitch=0.0209 tilt=1.6474 fall=1 drop=1
+[STATE] step=840 robot=(-0.509,0.623,0.208) box=(-1.307,-0.466,0.050) roll=-1.6531 pitch=0.1451 tilt=1.6531 fall=1 drop=1
+[STATE] step=850 robot=(-0.497,0.676,0.235) box=(-1.307,-0.466,0.050) roll=-1.7132 pitch=0.1772 tilt=1.7132 fall=1 drop=1
+[STATE] step=860 robot=(-0.512,0.716,0.243) box=(-1.307,-0.466,0.050) roll=-1.6647 pitch=0.1451 tilt=1.6647 fall=1 drop=1
+[STATE] step=870 robot=(-0.514,0.743,0.226) box=(-1.307,-0.466,0.050) roll=-1.6741 pitch=0.1120 tilt=1.6741 fall=1 drop=1
+[STATE] step=880 robot=(-0.518,0.775,0.203) box=(-1.307,-0.466,0.050) roll=-1.6756 pitch=0.1052 tilt=1.6756 fall=1 drop=1
+[STATE] step=890 robot=(-0.533,0.777,0.199) box=(-1.307,-0.466,0.050) roll=-1.5553 pitch=0.0121 tilt=1.5553 fall=1 drop=1
+[STATE] step=900 robot=(-0.544,0.779,0.194) box=(-1.307,-0.466,0.050) roll=-1.4764 pitch=-0.0025 tilt=1.4764 fall=1 drop=1
+[STATE] step=910 robot=(-0.549,0.790,0.199) box=(-1.307,-0.466,0.050) roll=-1.4656 pitch=-0.1013 tilt=1.4656 fall=1 drop=1
+[STATE] step=920 robot=(-0.542,0.800,0.202) box=(-1.307,-0.466,0.050) roll=-1.4135 pitch=-0.2182 tilt=1.4135 fall=1 drop=1
+[STATE] step=930 robot=(-0.543,0.796,0.229) box=(-1.307,-0.466,0.050) roll=-1.4542 pitch=-0.2203 tilt=1.4542 fall=1 drop=1
+[STATE] step=940 robot=(-0.517,0.802,0.251) box=(-1.307,-0.466,0.050) roll=-1.6139 pitch=-0.1199 tilt=1.6139 fall=1 drop=1
+[STATE] step=950 robot=(-0.499,0.802,0.249) box=(-1.307,-0.466,0.050) roll=-1.8621 pitch=0.0881 tilt=1.8621 fall=1 drop=1
+[STATE] step=960 robot=(-0.495,0.742,0.271) box=(-1.307,-0.466,0.050) roll=-1.8348 pitch=0.1456 tilt=1.8348 fall=1 drop=1
+[STATE] step=970 robot=(-0.466,0.698,0.241) box=(-1.307,-0.466,0.050) roll=-1.7730 pitch=0.1830 tilt=1.7730 fall=1 drop=1
+[STATE] step=980 robot=(-0.435,0.704,0.246) box=(-1.307,-0.466,0.050) roll=-1.6594 pitch=0.3542 tilt=1.6594 fall=1 drop=1
+[STATE] step=990 robot=(-0.449,0.713,0.235) box=(-1.307,-0.466,0.050) roll=-1.6056 pitch=0.3320 tilt=1.6056 fall=1 drop=1
+[STATE] step=999 robot=(-0.466,0.714,0.226) box=(-1.307,-0.466,0.050) roll=-1.4825 pitch=0.1176 tilt=1.4825 fall=1 drop=1
+[INFO] Summary written to: /public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_tall_z009_contact_retention/agile_low_cradle_freebox_walk/core_world_g1_box_scene_summary.json
+[INFO] Metrics written to: /public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_tall_z009_contact_retention/agile_low_cradle_freebox_walk/core_world_g1_box_scene_state.csv
+Loading user config located at: '/public/home/yanhongru/envs/isaac_arena_py312/lib/python3.12/site-packages/isaacsim/kit/data/Kit/IsaacLab/3.0/user.config.json'
+2026-07-07T16:13:09Z [0ms] [Warning] [omni.ext.plugin] [ext: isaaclab_visualizers] Extensions config 'extension.toml' doesn't exist '/public/home/yanhongru/Curiosity/external/IsaacLab-Arena/submodules/IsaacLab/source/isaaclab_visualizers' or '/public/home/yanhongru/Curiosity/external/IsaacLab-Arena/submodules/IsaacLab/source/isaaclab_visualizers/config'
+2026-07-07T16:13:12Z [2,718ms] [Warning] [omni.perfmonitor.plugin]  PerfMonitorManager::onStart - error calling pthread_setaffinity_np
+2026-07-07T16:13:12Z [2,813ms] [Warning] [omni.platforminfo.plugin] failed to open the default display.  Can't verify X Server version.
+2026-07-07T16:13:12Z [2,837ms] [Warning] [omni.usd_config.extension] Enable omni.materialx.libs extension to use MaterialX
+2026-07-07T16:13:13Z [4,055ms] [Warning] [omni.physx.foundation.plugin] IOptionalCuda: cuInit failed (CUresult 100) -- treating as CPU-only.
+2026-07-07T16:13:15Z [6,431ms] [Warning] [usdrt.population.plugin] Last global time was not created. Did you call setEnableUsdNoticeHandling?
+2026-07-07T16:13:15Z [6,448ms] [Warning] [omni.usd] Encountered USD Warnings but USD Diagnostics are currently muted. To view USD Warnings, please set the '/persistent/app/usd/muteUsdDiagnostics' setting to false in Preferences page.
+{
+  "active_grasp_body_path": null,
+  "agile_command_hold_active": false,
+  "agile_command_hold_active_steps": 0,
+  "agile_command_hold_adaptive_active_steps": 0,
+  "agile_command_hold_adaptive_box_tilt_enabled": true,
+  "agile_command_hold_adaptive_box_tilt_rate_start": 2.0,
+  "agile_command_hold_adaptive_box_tilt_rate_stop": 7.0,
+  "agile_command_hold_adaptive_box_tilt_start": 0.12,
+  "agile_command_hold_adaptive_box_tilt_stop": 0.35,
+  "agile_command_hold_adaptive_first_active_step": null,
+  "agile_command_hold_adaptive_last_risk": 0.0,
+  "agile_command_hold_adaptive_max_observed_scale": null,
+  "agile_command_hold_adaptive_max_scale": 0.35,
+  "agile_command_hold_adaptive_min_observed_scale": null,
+  "agile_command_hold_adaptive_min_scale": 0.1,
+  "agile_command_hold_adaptive_rate_start": 2.0,
+  "agile_command_hold_adaptive_rate_stop": 7.0,
+  "agile_command_hold_adaptive_rel_start": 0.1,
+  "agile_command_hold_adaptive_rel_stop": 0.26,
+  "agile_command_hold_adaptive_scale_enabled": false,
+  "agile_command_hold_adaptive_scale_smoothing": 0.25,
+  "agile_command_hold_adaptive_tilt_start": 0.14,
+  "agile_command_hold_adaptive_tilt_stop": 0.35,
+  "agile_command_hold_applied_rescue_joint_targets": {},
+  "agile_command_hold_applied_stand_joint_targets": {},
+  "agile_command_hold_final_active_steps": 0,
+  "agile_command_hold_final_box_drop_events": 0,
+  "agile_command_hold_final_box_target_travel_m": -1.0,
+  "agile_command_hold_final_brake_active_steps": 0,
+  "agile_command_hold_final_brake_command_x": 0.0,
+  "agile_command_hold_final_brake_delay_steps": 0,
+  "agile_command_hold_final_brake_first_active_step": null,
+  "agile_command_hold_final_brake_last_active_step": null,
+  "agile_command_hold_final_brake_max_abs_command_x": 0.0,
+  "agile_command_hold_final_brake_steps": 0,
+  "agile_command_hold_final_fall_events": 0,
+  "agile_command_hold_final_first_active_step": null,
+  "agile_command_hold_final_first_box_drop_step": null,
+  "agile_command_hold_final_first_fall_step": null,
+  "agile_command_hold_final_freeze_active_steps": 0,
+  "agile_command_hold_final_freeze_first_active_step": null,
+  "agile_command_hold_final_freeze_in_target_window": false,
+  "agile_command_hold_final_freeze_latched": false,
+  "agile_command_hold_final_freeze_latched_step": null,
+  "agile_command_hold_final_freeze_max_box_tilt_rad": 0.35,
+  "agile_command_hold_final_freeze_max_tilt_rad": 0.25,
+  "agile_command_hold_final_last_command_xyz_yaw": null,
+  "agile_command_hold_final_last_policy_state_reset_error": null,
+  "agile_command_hold_final_last_reason": null,
+  "agile_command_hold_final_latch_enabled": false,
+  "agile_command_hold_final_latched": false,
+  "agile_command_hold_final_latched_step": null,
+  "agile_command_hold_final_lateral_suppressed_steps": 0,
+  "agile_command_hold_final_max_abs_command_x": 0.0,
+  "agile_command_hold_final_max_abs_command_y": 0.0,
+  "agile_command_hold_final_max_abs_command_yaw": 0.0,
+  "agile_command_hold_final_max_box_tilt_rad": 0.0,
+  "agile_command_hold_final_max_tilt_rad": 0.0,
+  "agile_command_hold_final_min_box_z_m": null,
+  "agile_command_hold_final_min_robot_z_m": null,
+  "agile_command_hold_final_policy_state_reset_count": 0,
+  "agile_command_hold_final_reset_policy_state": false,
+  "agile_command_hold_final_scale": -1.0,
+  "agile_command_hold_final_stand_active_steps": 0,
+  "agile_command_hold_final_stand_box_drop_events": 0,
+  "agile_command_hold_final_stand_delay_steps": 0,
+  "agile_command_hold_final_stand_enabled": false,
+  "agile_command_hold_final_stand_fall_events": 0,
+  "agile_command_hold_final_stand_first_active_step": null,
+  "agile_command_hold_final_stand_first_box_drop_step": null,
+  "agile_command_hold_final_stand_first_fall_step": null,
+  "agile_command_hold_final_stand_max_box_tilt_rad": 0.0,
+  "agile_command_hold_final_stand_max_tilt_rad": 0.0,
+  "agile_command_hold_final_stand_min_box_z_m": null,
+  "agile_command_hold_final_stand_min_robot_z_m": null,
+  "agile_command_hold_final_yaw_suppressed_steps": 0,
+  "agile_command_hold_final_zero_corrections_enabled": false,
+  "agile_command_hold_first_active_step": null,
+  "agile_command_hold_first_reason": null,
+  "agile_command_hold_last_policy_state_reset_error": null,
+  "agile_command_hold_lateral_active_steps": 0,
+  "agile_command_hold_lateral_correction_enabled": true,
+  "agile_command_hold_lateral_error_start_m": 0.0,
+  "agile_command_hold_lateral_first_active_step": null,
+  "agile_command_hold_lateral_gain": 0.08,
+  "agile_command_hold_lateral_last_error_m": 0.0,
+  "agile_command_hold_lateral_limit": 0.035,
+  "agile_command_hold_lateral_max_abs_command": 0.0,
+  "agile_command_hold_lateral_max_box_tilt_rad": 999.0,
+  "agile_command_hold_lateral_max_tilt_rad": 999.0,
+  "agile_command_hold_lateral_sign": 1.0,
+  "agile_command_hold_lateral_suppressed_by_tilt_steps": 0,
+  "agile_command_hold_lateral_terminal_only": false,
+  "agile_command_hold_lateral_use_excess_error": false,
+  "agile_command_hold_mode": "policy_command",
+  "agile_command_hold_policy_state_reset_count": 0,
+  "agile_command_hold_policy_then_stand_delay_steps": 80,
+  "agile_command_hold_rescue_abs_roll_threshold_rad": 999.0,
+  "agile_command_hold_rescue_active": false,
+  "agile_command_hold_rescue_active_steps": 0,
+  "agile_command_hold_rescue_blend_rate": 0.04,
+  "agile_command_hold_rescue_enabled": false,
+  "agile_command_hold_rescue_first_active_step": null,
+  "agile_command_hold_rescue_first_reason": null,
+  "agile_command_hold_rescue_forward_pitch_threshold_rad": -999.0,
+  "agile_command_hold_rescue_override_freeze_active_steps": 0,
+  "agile_command_hold_rescue_override_freeze_first_active_step": null,
+  "agile_command_hold_rescue_overrides_final_freeze": false,
+  "agile_command_hold_rescue_target_overrides": {
+    "ankle_pitch": null,
+    "ankle_roll": null,
+    "hip_pitch": null,
+    "hip_roll": null,
+    "knee": null,
+    "waist_pitch": null
+  },
+  "agile_command_hold_reset_policy_state": false,
+  "agile_command_hold_scale": 1.0,
+  "agile_command_hold_stand_blend_rate": 0.04,
+  "agile_command_hold_stand_override_freeze_active_steps": 0,
+  "agile_command_hold_stand_override_freeze_first_active_step": null,
+  "agile_command_hold_stand_overrides_final_freeze": false,
+  "agile_command_hold_stand_target_active_steps": 0,
+  "agile_command_hold_stand_target_overrides": {
+    "ankle_pitch": null,
+    "ankle_roll": null,
+    "hip_pitch": null,
+    "hip_roll": null,
+    "knee": null,
+    "waist_pitch": null
+  },
+  "agile_command_hold_terminal_active_steps": 0,
+  "agile_command_hold_terminal_box_target_travel_m": -1.0,
+  "agile_command_hold_terminal_first_active_step": null,
+  "agile_command_hold_terminal_last_reason": null,
+  "agile_command_hold_terminal_latch_enabled": false,
+  "agile_command_hold_terminal_latched": false,
+  "agile_command_hold_terminal_latched_step": null,
+  "agile_command_hold_terminal_scale": 0.0,
+  "agile_command_hold_yaw_active_steps": 0,
+  "agile_command_hold_yaw_correction_enabled": false,
+  "agile_command_hold_yaw_first_active_step": null,
+  "agile_command_hold_yaw_gain": 0.0,
+  "agile_command_hold_yaw_last_error_m": 0.0,
+  "agile_command_hold_yaw_limit": 0.2,
+  "agile_command_hold_yaw_max_abs_command": 0.0,
+  "agile_command_hold_yaw_sign": 1.0,
+  "agile_command_stop_box_target_travel_m": -1.0,
+  "agile_command_stop_robot_target_travel_m": -1.0,
+  "agile_command_stop_step": -1,
+  "agile_command_stop_target_window_enabled": false,
+  "agile_command_stop_target_window_latched_step": null,
+  "agile_command_stop_target_window_min_step": -1,
+  "agile_last_command_xyz_yaw": [
+    0.1,
+    0.0,
+    0.0
+  ],
+  "agile_last_root_ang_vel_read_error": null,
+  "agile_root_ang_vel_read_failures": 0,
+  "agile_root_ang_vel_source": "core_api_get_angular_velocity_rotated_to_body",
+  "applied_stand_drive_gain_count": 29,
+  "attach_box": "none",
+  "balance_adjustment_limit": 0.08,
+  "balance_feedback_active_steps": 0,
+  "balance_feedback_base": "command",
+  "balance_feedback_controller_enabled": true,
+  "balance_feedback_first_active_step": null,
+  "balance_pitch_activation_threshold": 0.05,
+  "balance_pitch_gain": 0.1,
+  "balance_pitch_rate_activation_threshold": 0.2,
+  "balance_pitch_rate_gain": 0.006,
+  "balance_pitch_sign": 1.0,
+  "balance_pitch_target": 0.0,
+  "balance_roll_activation_threshold": 0.05,
+  "balance_roll_gain": 0.06,
+  "balance_roll_left_ankle_scale": 1.0,
+  "balance_roll_left_hip_scale": -0.5,
+  "balance_roll_rate_activation_threshold": 0.2,
+  "balance_roll_rate_gain": 0.003,
+  "balance_roll_right_ankle_scale": -1.0,
+  "balance_roll_right_hip_scale": 0.5,
+  "balance_roll_sign": -1.0,
+  "balance_roll_target": 0.0,
+  "balance_start_on_agile_hold": true,
+  "balance_start_step": 0,
+  "balance_target_active_steps": 1000,
+  "balance_target_end_step": -1,
+  "balance_target_first_active_step": 0,
+  "balance_target_pulse_period_steps": 0,
+  "balance_target_pulse_phase_step": 0,
+  "balance_target_pulse_width_steps": 0,
+  "balance_target_start_step": 0,
+  "box_collision_enabled": true,
+  "box_drop_events": 544,
+  "box_pose_write_count_rollout": 0,
+  "box_support_actual_release_step": null,
+  "box_support_mode": "none",
+  "box_support_released": false,
+  "carry_box_spawned": true,
+  "completed_steps": 1000,
+  "cradle_chest_pad_collision_enabled_initial": false,
+  "cradle_chest_pad_collision_enabled_step": 380,
+  "cradle_chest_pad_collision_update_count": 1,
+  "cradle_chest_pad_collision_update_error": null,
+  "cradle_chest_pad_enable_on_hold": false,
+  "cradle_chest_pad_enabled": true,
+  "cradle_chest_pad_local_pos0_m": [
+    -0.02,
+    0.0,
+    0.1
+  ],
+  "cradle_chest_pad_size_m": [
+    0.045,
+    0.4,
+    0.23
+  ],
+  "cradle_collision_enabled": true,
+  "cradle_piece_count": 6,
+  "cradle_top_lid_collision_enabled_initial": false,
+  "cradle_top_lid_collision_enabled_step": null,
+  "cradle_top_lid_collision_update_count": 0,
+  "cradle_top_lid_collision_update_error": null,
+  "cradle_top_lid_enable_on_hold": true,
+  "cradle_top_lid_enabled": true,
+  "cradle_top_lid_local_z_m": 0.16,
+  "cradle_top_lid_thickness_m": 0.014,
+  "cradle_top_lid_x_scale": 1.15,
+  "cradle_top_lid_y_scale": 1.1,
+  "diagnostic_root_drive": "none",
+  "diagnostic_root_drive_active_steps": 0,
+  "diagnostic_root_drive_final_commanded_xy_m": [
+    0.0,
+    0.0
+  ],
+  "diagnostic_root_drive_speed_mps": 0.0,
+  "disable_usd_pelvis_xform": null,
+  "error": null,
+  "failures": [
+    "fall_events 576 > 0",
+    "box_drop_events 544 > 0",
+    "min_robot_z_m 0.19442078471183777 < 0.45",
+    "min_box_z_m 0.049999989569187164 < 0.2",
+    "max_tilt_rad 1.8724764955137163 > 0.35",
+    "max_box_tilt_rad 3.138499329258431 > 0.45",
+    "final_box_robot_relative_offset_error_m 1.3873785583022196 > 0.25",
+    "max_abs_robot_target_lateral_error_m 0.8084992769193884 > 0.8",
+    "abs(final_robot_target_lateral_error_m) 0.7141206235831966 > 0.6",
+    "target_window_both_stable_steps 0 < 100",
+    "target_window_both_longest_streak_steps 0 < 100",
+    "target_window_both_streak_at_end_steps 0 < 100"
+  ],
+  "fall_events": 576,
+  "final_box_pitch_rad": -1.0963002594621707e-07,
+  "final_box_robot_relative_offset_error_m": 1.3873785583022196,
+  "final_box_roll_rad": -1.5707965195430549,
+  "final_box_target_directed_travel_m": 1.1242436607956086,
+  "final_box_target_lateral_error_m": 0.4664626740893295,
+  "final_box_travel_xy_m": 1.217173461408718,
+  "final_pitch_rad": 0.11755752438300532,
+  "final_post_grasp_box_z_delta_m": 0.0,
+  "final_probe_box_target_directed_travel_m": 0.0,
+  "final_probe_box_travel_xy_m": 0.0,
+  "final_robot_target_directed_travel_m": 0.4644088633413017,
+  "final_robot_target_lateral_error_m": -0.7141206235831966,
+  "final_robot_travel_xy_m": 0.8518473204611338,
+  "final_roll_rad": -1.4824555540167252,
+  "first_box_drop_step": 456,
+  "first_box_drop_time_s": 2.2800000000000002,
+  "first_fall_step": 424,
+  "first_fall_time_s": 2.12,
+  "gait_min_amplitude_scale": 0.0,
+  "gait_mode": "agile_policy",
+  "gait_ramp_down_end_step": -1,
+  "gait_ramp_down_start_step": -1,
+  "grasp_attach_step": null,
+  "grasp_attached": false,
+  "grasp_body_box_world_distance_at_attach_m": null,
+  "grasp_body_path": "/World/G1/torso_link",
+  "grasp_body_wrapper_error": null,
+  "grasp_body_wrapper_initialized": false,
+  "grasp_lift_offset_z_m": 0.0,
+  "grasp_mode": "none",
+  "joint_count": 43,
+  "joint_state_write_count_setup": 1,
+  "joint_state_write_error": null,
+  "max_abs_box_pitch_rad": 1.4152670551193371,
+  "max_abs_box_roll_rad": 3.138499329258431,
+  "max_abs_box_target_lateral_error_m": 0.4677385875881174,
+  "max_abs_pitch_rad": 1.0310454022170361,
+  "max_abs_robot_target_lateral_error_m": 0.8084992769193884,
+  "max_abs_roll_rad": 1.8724764955137163,
+  "max_agile_root_ang_vel_norm": 26.997709274291992,
+  "max_box_robot_relative_offset_error_m": 1.4588881279720638,
+  "max_box_target_directed_travel_m": 1.1257730474340994,
+  "max_box_tilt_rad": 3.138499329258431,
+  "max_policy_raw_action_norm": 7.977899074554443,
+  "max_post_grasp_box_z_delta_m": 0.0,
+  "max_probe_box_target_directed_travel_m": 0.0,
+  "max_probe_box_travel_xy_m": 0.0,
+  "max_robot_target_directed_travel_m": 0.8194247697443854,
+  "max_tilt_rad": 1.8724764955137163,
+  "min_box_z_m": 0.049999989569187164,
+  "min_robot_z_m": 0.19442078471183777,
+  "policy_inference_count": 240,
+  "probe_active_steps": 0,
+  "probe_box_moved": false,
+  "probe_mode": "none",
+  "recovery_active_steps": 0,
+  "recovery_ankle_pitch_offset": 0.0,
+  "recovery_first_active_step": null,
+  "recovery_hip_pitch_offset": 0.0,
+  "recovery_knee_offset": 0.0,
+  "recovery_pitch_rate_threshold": 999.0,
+  "recovery_pitch_threshold": 999.0,
+  "recovery_waist_pitch_offset": 0.0,
+  "root_pose_write_count_rollout": 0,
+  "root_pose_write_count_setup": 1,
+  "root_velocity_write_count_rollout": 0,
+  "scene_type": "core_world_g1_box_scene",
+  "stand_drive_gains_enabled": true,
+  "stand_drive_preset": "isaaclab29dof",
+  "status": "fail",
+  "success_claim": "g1_usd_core_api_scene_diagnostic_not_walking_or_carrying_success",
+  "summary": "/public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_tall_z009_contact_retention/agile_low_cradle_freebox_walk/core_world_g1_box_scene_summary.json",
+  "target_window_both_final_hold_first_stable_step": null,
+  "target_window_both_final_hold_longest_streak_steps": 0,
+  "target_window_both_final_hold_stable_at_final_step": false,
+  "target_window_both_final_hold_stable_steps": 0,
+  "target_window_both_final_hold_streak_at_end_steps": 0,
+  "target_window_both_final_stand_first_stable_step": null,
+  "target_window_both_final_stand_longest_streak_steps": 0,
+  "target_window_both_final_stand_stable_at_final_step": false,
+  "target_window_both_final_stand_stable_steps": 0,
+  "target_window_both_final_stand_streak_at_end_steps": 0,
+  "target_window_both_first_stable_step": null,
+  "target_window_both_longest_streak_steps": 0,
+  "target_window_both_stable_at_final_step": false,
+  "target_window_both_stable_steps": 0,
+  "target_window_both_streak_at_end_steps": 0,
+  "target_window_box_first_stable_step": null,
+  "target_window_box_longest_streak_steps": 0,
+  "target_window_box_stable_steps": 0,
+  "target_window_center_m": 2.0,
+  "target_window_enabled": true,
+  "target_window_halfwidth_m": 0.35,
+  "target_window_robot_first_stable_step": null,
+  "target_window_robot_longest_streak_steps": 0,
+  "target_window_robot_stable_steps": 0,
+  "target_xy_m": [
+    -1.2,
+    0.0
+  ],
+  "torso_cradle": "front_tray"
+}
+[AGILE-SUITE] status file: /public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_tall_z009_contact_retention/agile_policy_low_cradle_status.tsv
+{
+  "case_count": 2,
+  "cases": [
+    {
+      "agile_command_hold_active": false,
+      "agile_command_hold_active_steps": 0,
+      "agile_command_hold_adaptive_box_tilt_enabled": true,
+      "agile_command_hold_adaptive_last_risk": 0.0,
+      "agile_command_hold_adaptive_max_observed_scale": null,
+      "agile_command_hold_adaptive_min_observed_scale": null,
+      "agile_command_hold_adaptive_scale_enabled": false,
+      "agile_command_hold_applied_stand_joint_targets": {},
+      "agile_command_hold_final_active_steps": 0,
+      "agile_command_hold_final_box_drop_events": 0,
+      "agile_command_hold_final_box_target_travel_m": -1.0,
+      "agile_command_hold_final_brake_active_steps": 0,
+      "agile_command_hold_final_brake_command_x": 0.0,
+      "agile_command_hold_final_brake_delay_steps": 0,
+      "agile_command_hold_final_brake_first_active_step": null,
+      "agile_command_hold_final_brake_last_active_step": null,
+      "agile_command_hold_final_brake_max_abs_command_x": 0.0,
+      "agile_command_hold_final_brake_steps": 0,
+      "agile_command_hold_final_fall_events": 0,
+      "agile_command_hold_final_first_box_drop_step": null,
+      "agile_command_hold_final_first_fall_step": null,
+      "agile_command_hold_final_freeze_active_steps": 0,
+      "agile_command_hold_final_freeze_first_active_step": null,
+      "agile_command_hold_final_freeze_in_target_window": false,
+      "agile_command_hold_final_freeze_latched": false,
+      "agile_command_hold_final_freeze_latched_step": null,
+      "agile_command_hold_final_last_command_xyz_yaw": null,
+      "agile_command_hold_final_latch_enabled": false,
+      "agile_command_hold_final_latched": false,
+      "agile_command_hold_final_latched_step": null,
+      "agile_command_hold_final_lateral_suppressed_steps": 0,
+      "agile_command_hold_final_max_abs_command_x": 0.0,
+      "agile_command_hold_final_max_abs_command_y": 0.0,
+      "agile_command_hold_final_max_abs_command_yaw": 0.0,
+      "agile_command_hold_final_max_box_tilt_rad": 0.0,
+      "agile_command_hold_final_max_tilt_rad": 0.0,
+      "agile_command_hold_final_min_box_z_m": null,
+      "agile_command_hold_final_min_robot_z_m": null,
+      "agile_command_hold_final_scale": -1.0,
+      "agile_command_hold_final_stand_active_steps": 0,
+      "agile_command_hold_final_stand_box_drop_events": 0,
+      "agile_command_hold_final_stand_delay_steps": 0,
+      "agile_command_hold_final_stand_enabled": false,
+      "agile_command_hold_final_stand_fall_events": 0,
+      "agile_command_hold_final_stand_first_active_step": null,
+      "agile_command_hold_final_stand_first_box_drop_step": null,
+      "agile_command_hold_final_stand_first_fall_step": null,
+      "agile_command_hold_final_stand_max_box_tilt_rad": 0.0,
+      "agile_command_hold_final_stand_max_tilt_rad": 0.0,
+      "agile_command_hold_final_stand_min_box_z_m": null,
+      "agile_command_hold_final_stand_min_robot_z_m": null,
+      "agile_command_hold_final_tilt_escape_active_steps": 0,
+      "agile_command_hold_final_tilt_escape_box_tilt_rad": 999.0,
+      "agile_command_hold_final_tilt_escape_first_active_step": null,
+      "agile_command_hold_final_tilt_escape_max_scale": 0.0,
+      "agile_command_hold_final_tilt_escape_scale": -1.0,
+      "agile_command_hold_final_tilt_escape_suppress_after_target_window_streak": -1,
+      "agile_command_hold_final_tilt_escape_suppressed_by_target_window_steps": 0,
+      "agile_command_hold_final_tilt_escape_tilt_rad": 999.0,
+      "agile_command_hold_final_yaw_suppressed_steps": 0,
+      "agile_command_hold_final_zero_corrections_enabled": false,
+      "agile_command_hold_first_active_step": null,
+      "agile_command_hold_first_reason": null,
+      "agile_command_hold_lateral_error_start_m": 0.0,
+      "agile_command_hold_lateral_max_abs_command": 0.0,
+      "agile_command_hold_lateral_max_box_tilt_rad": 999.0,
+      "agile_command_hold_lateral_max_tilt_rad": 999.0,
+      "agile_command_hold_lateral_suppressed_by_tilt_steps": 0,
+      "agile_command_hold_lateral_terminal_only": false,
+      "agile_command_hold_lateral_use_excess_error": false,
+      "agile_command_hold_rescue_override_freeze_active_steps": 0,
+      "agile_command_hold_rescue_override_freeze_first_active_step": null,
+      "agile_command_hold_rescue_overrides_final_freeze": false,
+      "agile_command_hold_stand_override_freeze_active_steps": 0,
+      "agile_command_hold_stand_override_freeze_first_active_step": null,
+      "agile_command_hold_stand_overrides_final_freeze": false,
+      "agile_command_hold_stand_target_active_steps": 0,
+      "agile_command_hold_stand_target_overrides": {
+        "ankle_pitch": null,
+        "ankle_roll": null,
+        "hip_pitch": null,
+        "hip_roll": null,
+        "knee": null,
+        "waist_pitch": null
+      },
+      "agile_command_hold_terminal_latch_enabled": false,
+      "agile_command_hold_terminal_latched": false,
+      "agile_command_hold_terminal_latched_step": null,
+      "agile_command_stop_box_tilt_threshold_rad": 999.0,
+      "agile_command_stop_target_window_enabled": false,
+      "agile_command_stop_target_window_latched_step": null,
+      "agile_command_stop_target_window_min_step": -1,
+      "agile_command_stop_tilt_min_box_target_travel_m": -1.0,
+      "agile_command_stop_tilt_min_step": -1,
+      "agile_command_stop_tilt_threshold_rad": 999.0,
+      "agile_command_terminal_support_active_steps": 0,
+      "agile_command_terminal_support_controller_enabled": true,
+      "agile_command_terminal_support_final_zeroed_steps": 0,
+      "agile_command_terminal_support_first_active_step": null,
+      "agile_command_terminal_support_last_command_xyz_yaw": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "agile_command_terminal_support_last_lateral_error_m": 0.0,
+      "agile_command_terminal_support_last_progress_error_m": 0.0,
+      "agile_command_terminal_support_max_abs_command_x": 0.0,
+      "agile_command_terminal_support_max_abs_command_y": 0.0,
+      "agile_command_terminal_support_max_abs_command_yaw": 0.0,
+      "agile_command_terminal_support_start_box_target_travel_m": 1.25,
+      "agile_command_terminal_support_target_m": 2.0,
+      "agile_command_terminal_support_tilt_suppressed_steps": 0,
+      "approach_support_posture_active_steps": 0,
+      "approach_support_posture_ankle_pitch_offset": -0.04,
+      "approach_support_posture_blend_rate": 0.02,
+      "approach_support_posture_controller_enabled": false,
+      "approach_support_posture_disable_on_final_hold": false,
+      "approach_support_posture_first_active_step": null,
+      "approach_support_posture_hip_pitch_offset": -0.04,
+      "approach_support_posture_knee_offset": 0.08,
+      "approach_support_posture_last_scale": 0.0,
+      "approach_support_posture_max_scale": 0.0,
+      "approach_support_posture_travel_full_m": 1.8,
+      "approach_support_posture_travel_start_m": 1.2,
+      "approach_support_posture_waist_pitch_offset": -0.02,
+      "balance_roll_target_from_lateral": false,
+      "balance_roll_target_lateral_active_steps": 0,
+      "balance_roll_target_lateral_deadband": 0.0,
+      "balance_roll_target_lateral_first_active_step": null,
+      "balance_roll_target_lateral_gain": 0.0,
+      "balance_roll_target_lateral_last_error_m": 0.0,
+      "balance_roll_target_lateral_last_target_rad": 0.0,
+      "balance_roll_target_lateral_limit": 0.0,
+      "balance_roll_target_lateral_max_abs_target_rad": 0.0,
+      "balance_roll_target_lateral_max_box_tilt": 999.0,
+      "balance_roll_target_lateral_max_tilt": 999.0,
+      "balance_roll_target_lateral_ramp_steps": 0,
+      "balance_roll_target_lateral_sign": 1.0,
+      "balance_roll_target_lateral_source": "robot",
+      "balance_roll_target_lateral_start_after_hold_steps": 0,
+      "balance_roll_target_lateral_suppressed_by_hold_delay_steps": 0,
+      "balance_roll_target_lateral_suppressed_by_tilt_steps": 0,
+      "box_drop_events": 344,
+      "box_mass_kg": 0.5,
+      "box_pose_write_count_rollout": 0,
+      "box_retention_active_steps": 0,
+      "box_retention_blend_rate": 1.0,
+      "box_retention_first_active_step": null,
+      "box_retention_last_risk": 0.0,
+      "box_retention_max_risk": 0.0,
+      "box_retention_posture_controller_enabled": false,
+      "box_retention_rel_start_m": 0.1,
+      "box_retention_rel_stop_m": 0.28,
+      "box_retention_tilt_start_rad": 0.2,
+      "box_retention_tilt_stop_rad": 0.55,
+      "box_size_m": [
+        0.14,
+        0.12,
+        0.08
+      ],
+      "case_dir": "/public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_wide_y012_contact_retention/agile_low_cradle_freebox_walk",
+      "check_path": "/public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_wide_y012_contact_retention/agile_low_cradle_freebox_walk/check.json",
+      "check_status": "fail",
+      "completed_steps": 1000,
+      "cradle_chest_pad_collision_enabled_step": 380,
+      "cradle_chest_pad_enabled": true,
+      "cradle_final_cross_brace_box_tilt_min_box_target_travel_m": 0.9,
+      "cradle_final_cross_brace_box_tilt_min_step": 460,
+      "cradle_final_cross_brace_box_tilt_threshold_rad": 0.34,
+      "cradle_final_cross_brace_collision_enabled_reason": null,
+      "cradle_final_cross_brace_collision_enabled_step": null,
+      "cradle_final_cross_brace_enable_on_box_tilt": true,
+      "cradle_final_cross_brace_spawned_step": null,
+      "cradle_final_side_guard_box_tilt_min_box_target_travel_m": 0.7,
+      "cradle_final_side_guard_box_tilt_min_step": 420,
+      "cradle_final_side_guard_box_tilt_threshold_rad": 0.24,
+      "cradle_final_side_guard_collision_enabled_initial": false,
+      "cradle_final_side_guard_collision_enabled_reason": null,
+      "cradle_final_side_guard_collision_enabled_step": null,
+      "cradle_final_side_guard_collision_update_count": 0,
+      "cradle_final_side_guard_collision_update_error": null,
+      "cradle_final_side_guard_dynamic_friction": -1.0,
+      "cradle_final_side_guard_enable_on_box_tilt": true,
+      "cradle_final_side_guard_enable_on_final_hold": false,
+      "cradle_final_side_guard_enable_on_hold": false,
+      "cradle_final_side_guard_enable_on_target_window": false,
+      "cradle_final_side_guard_enable_on_terminal_hold": false,
+      "cradle_final_side_guard_half_spacing_m": 0.13,
+      "cradle_final_side_guard_local_pos0_m": [
+        -0.19,
+        0.0,
+        0.1
+      ],
+      "cradle_final_side_guard_mass_scale": 0.15,
+      "cradle_final_side_guard_restitution": 0.0,
+      "cradle_final_side_guard_size_m": [
+        0.18,
+        0.018,
+        0.18
+      ],
+      "cradle_final_side_guard_spawn_error": null,
+      "cradle_final_side_guard_spawn_on_trigger": true,
+      "cradle_final_side_guard_spawned_step": null,
+      "cradle_final_side_guard_static_friction": -1.0,
+      "cradle_final_side_guards_enabled": true,
+      "cradle_top_lid_collision_enabled_step": null,
+      "cradle_top_lid_enabled": true,
+      "failures": [
+        "fall_events 452 > 0",
+        "box_drop_events 344 > 0",
+        "min_robot_z_m 0.19108085334300995 < 0.45",
+        "min_box_z_m 0.05999999865889549 < 0.2",
+        "max_tilt_rad 1.684757910824547 > 0.35",
+        "max_box_tilt_rad 3.141287564845183 > 0.45",
+        "final_box_robot_relative_offset_error_m 2.995880421138252 > 0.25",
+        "final_robot_target_directed_travel_m -0.7445601970932443 < 0.02",
+        "final_box_target_directed_travel_m -0.6867550693224568 < 0.02",
+        "max_abs_robot_target_lateral_error_m 1.6636440441605316 > 0.8",
+        "max_abs_box_target_lateral_error_m 1.4292096944394794 > 0.8",
+        "abs(final_robot_target_lateral_error_m) 1.5839872034269704 > 0.6",
+        "abs(final_box_target_lateral_error_m) 1.3986547356296193 > 0.6",
+        "target_window_both_stable_steps 0 < 100",
+        "target_window_both_longest_streak_steps 0 < 100",
+        "target_window_both_streak_at_end_steps 0 < 100",
+        "fall_events 452 > 0",
+        "box_drop_events 344 > 0"
+      ],
+      "fall_events": 452,
+      "final_box_robot_relative_offset_error_m": 2.995880421138252,
+      "final_box_target_directed_travel_m": -0.6867550693224568,
+      "final_box_target_lateral_error_m": -1.3986547356296193,
+      "final_robot_target_directed_travel_m": -0.7445601970932443,
+      "final_robot_target_lateral_error_m": 1.5839872034269704,
+      "first_box_drop_step": 656,
+      "first_box_drop_time_s": 3.2800000000000002,
+      "first_fall_step": 548,
+      "first_fall_time_s": 2.74,
+      "max_abs_box_pitch_rad": 1.4940721406706312,
+      "max_abs_box_roll_rad": 3.141287564845183,
+      "max_abs_box_target_lateral_error_m": 1.4292096944394794,
+      "max_abs_pitch_rad": 1.4146863066824986,
+      "max_abs_robot_target_lateral_error_m": 1.6636440441605316,
+      "max_abs_roll_rad": 1.684757910824547,
+      "max_box_robot_relative_offset_error_m": 3.104221372950072,
+      "max_box_target_directed_travel_m": 0.47603957858245494,
+      "max_box_tilt_rad": 3.141287564845183,
+      "max_robot_target_directed_travel_m": 0.5027818643004381,
+      "max_tilt_rad": 1.684757910824547,
+      "passed": false,
+      "rollout_write_count_total": 0,
+      "root_pose_write_count_rollout": 0,
+      "root_velocity_write_count_rollout": 0,
+      "summary_path": "/public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_wide_y012_contact_retention/agile_low_cradle_freebox_walk/core_world_g1_box_scene_summary.json",
+      "target_window_both_final_hold_first_stable_step": null,
+      "target_window_both_final_hold_longest_streak_steps": 0,
+      "target_window_both_final_hold_stable_at_final_step": false,
+      "target_window_both_final_hold_stable_steps": 0,
+      "target_window_both_final_hold_streak_at_end_steps": 0,
+      "target_window_both_final_stand_first_stable_step": null,
+      "target_window_both_final_stand_longest_streak_steps": 0,
+      "target_window_both_final_stand_stable_at_final_step": false,
+      "target_window_both_final_stand_stable_steps": 0,
+      "target_window_both_final_stand_streak_at_end_steps": 0,
+      "target_window_both_first_stable_step": null,
+      "target_window_both_longest_streak_steps": 0,
+      "target_window_both_stable_at_final_step": false,
+      "target_window_both_stable_steps": 0,
+      "target_window_both_streak_at_end_steps": 0,
+      "target_window_box_first_stable_step": null,
+      "target_window_box_longest_streak_steps": 0,
+      "target_window_box_stable_steps": 0,
+      "target_window_center_m": 2.0,
+      "target_window_enabled": true,
+      "target_window_halfwidth_m": 0.35,
+      "target_window_robot_first_stable_step": null,
+      "target_window_robot_longest_streak_steps": 0,
+      "target_window_robot_stable_steps": 0,
+      "terminal_centroidal_support_active_steps": 0,
+      "terminal_centroidal_support_controller_enabled": false,
+      "terminal_centroidal_support_first_active_step": null,
+      "terminal_centroidal_support_last_lateral_error_m": 0.0,
+      "terminal_centroidal_support_last_pitch_adjust_rad": 0.0,
+      "terminal_centroidal_support_last_pitch_target_rad": 0.0,
+      "terminal_centroidal_support_last_progress_error_m": 0.0,
+      "terminal_centroidal_support_last_risk": 0.0,
+      "terminal_centroidal_support_last_roll_adjust_rad": 0.0,
+      "terminal_centroidal_support_last_roll_target_rad": 0.0,
+      "terminal_centroidal_support_max_abs_pitch_adjust_rad": 0.0,
+      "terminal_centroidal_support_max_abs_roll_adjust_rad": 0.0,
+      "terminal_centroidal_support_max_risk": 0.0,
+      "terminal_support_posture_active_steps": 0,
+      "terminal_support_posture_controller_enabled": false,
+      "terminal_support_posture_first_active_step": null,
+      "terminal_support_posture_last_risk": 0.0,
+      "terminal_support_posture_max_risk": 0.0
+    },
+    {
+      "agile_command_hold_active": false,
+      "agile_command_hold_active_steps": 0,
+      "agile_command_hold_adaptive_box_tilt_enabled": true,
+      "agile_command_hold_adaptive_last_risk": 0.0,
+      "agile_command_hold_adaptive_max_observed_scale": null,
+      "agile_command_hold_adaptive_min_observed_scale": null,
+      "agile_command_hold_adaptive_scale_enabled": false,
+      "agile_command_hold_applied_stand_joint_targets": {},
+      "agile_command_hold_final_active_steps": 0,
+      "agile_command_hold_final_box_drop_events": 0,
+      "agile_command_hold_final_box_target_travel_m": -1.0,
+      "agile_command_hold_final_brake_active_steps": 0,
+      "agile_command_hold_final_brake_command_x": 0.0,
+      "agile_command_hold_final_brake_delay_steps": 0,
+      "agile_command_hold_final_brake_first_active_step": null,
+      "agile_command_hold_final_brake_last_active_step": null,
+      "agile_command_hold_final_brake_max_abs_command_x": 0.0,
+      "agile_command_hold_final_brake_steps": 0,
+      "agile_command_hold_final_fall_events": 0,
+      "agile_command_hold_final_first_box_drop_step": null,
+      "agile_command_hold_final_first_fall_step": null,
+      "agile_command_hold_final_freeze_active_steps": 0,
+      "agile_command_hold_final_freeze_first_active_step": null,
+      "agile_command_hold_final_freeze_in_target_window": false,
+      "agile_command_hold_final_freeze_latched": false,
+      "agile_command_hold_final_freeze_latched_step": null,
+      "agile_command_hold_final_last_command_xyz_yaw": null,
+      "agile_command_hold_final_latch_enabled": false,
+      "agile_command_hold_final_latched": false,
+      "agile_command_hold_final_latched_step": null,
+      "agile_command_hold_final_lateral_suppressed_steps": 0,
+      "agile_command_hold_final_max_abs_command_x": 0.0,
+      "agile_command_hold_final_max_abs_command_y": 0.0,
+      "agile_command_hold_final_max_abs_command_yaw": 0.0,
+      "agile_command_hold_final_max_box_tilt_rad": 0.0,
+      "agile_command_hold_final_max_tilt_rad": 0.0,
+      "agile_command_hold_final_min_box_z_m": null,
+      "agile_command_hold_final_min_robot_z_m": null,
+      "agile_command_hold_final_scale": -1.0,
+      "agile_command_hold_final_stand_active_steps": 0,
+      "agile_command_hold_final_stand_box_drop_events": 0,
+      "agile_command_hold_final_stand_delay_steps": 0,
+      "agile_command_hold_final_stand_enabled": false,
+      "agile_command_hold_final_stand_fall_events": 0,
+      "agile_command_hold_final_stand_first_active_step": null,
+      "agile_command_hold_final_stand_first_box_drop_step": null,
+      "agile_command_hold_final_stand_first_fall_step": null,
+      "agile_command_hold_final_stand_max_box_tilt_rad": 0.0,
+      "agile_command_hold_final_stand_max_tilt_rad": 0.0,
+      "agile_command_hold_final_stand_min_box_z_m": null,
+      "agile_command_hold_final_stand_min_robot_z_m": null,
+      "agile_command_hold_final_tilt_escape_active_steps": 0,
+      "agile_command_hold_final_tilt_escape_box_tilt_rad": 999.0,
+      "agile_command_hold_final_tilt_escape_first_active_step": null,
+      "agile_command_hold_final_tilt_escape_max_scale": 0.0,
+      "agile_command_hold_final_tilt_escape_scale": -1.0,
+      "agile_command_hold_final_tilt_escape_suppress_after_target_window_streak": -1,
+      "agile_command_hold_final_tilt_escape_suppressed_by_target_window_steps": 0,
+      "agile_command_hold_final_tilt_escape_tilt_rad": 999.0,
+      "agile_command_hold_final_yaw_suppressed_steps": 0,
+      "agile_command_hold_final_zero_corrections_enabled": false,
+      "agile_command_hold_first_active_step": null,
+      "agile_command_hold_first_reason": null,
+      "agile_command_hold_lateral_error_start_m": 0.0,
+      "agile_command_hold_lateral_max_abs_command": 0.0,
+      "agile_command_hold_lateral_max_box_tilt_rad": 999.0,
+      "agile_command_hold_lateral_max_tilt_rad": 999.0,
+      "agile_command_hold_lateral_suppressed_by_tilt_steps": 0,
+      "agile_command_hold_lateral_terminal_only": false,
+      "agile_command_hold_lateral_use_excess_error": false,
+      "agile_command_hold_rescue_override_freeze_active_steps": 0,
+      "agile_command_hold_rescue_override_freeze_first_active_step": null,
+      "agile_command_hold_rescue_overrides_final_freeze": false,
+      "agile_command_hold_stand_override_freeze_active_steps": 0,
+      "agile_command_hold_stand_override_freeze_first_active_step": null,
+      "agile_command_hold_stand_overrides_final_freeze": false,
+      "agile_command_hold_stand_target_active_steps": 0,
+      "agile_command_hold_stand_target_overrides": {
+        "ankle_pitch": null,
+        "ankle_roll": null,
+        "hip_pitch": null,
+        "hip_roll": null,
+        "knee": null,
+        "waist_pitch": null
+      },
+      "agile_command_hold_terminal_latch_enabled": false,
+      "agile_command_hold_terminal_latched": false,
+      "agile_command_hold_terminal_latched_step": null,
+      "agile_command_stop_box_tilt_threshold_rad": 999.0,
+      "agile_command_stop_target_window_enabled": false,
+      "agile_command_stop_target_window_latched_step": null,
+      "agile_command_stop_target_window_min_step": -1,
+      "agile_command_stop_tilt_min_box_target_travel_m": -1.0,
+      "agile_command_stop_tilt_min_step": -1,
+      "agile_command_stop_tilt_threshold_rad": 999.0,
+      "agile_command_terminal_support_active_steps": 0,
+      "agile_command_terminal_support_controller_enabled": true,
+      "agile_command_terminal_support_final_zeroed_steps": 0,
+      "agile_command_terminal_support_first_active_step": null,
+      "agile_command_terminal_support_last_command_xyz_yaw": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "agile_command_terminal_support_last_lateral_error_m": 0.0,
+      "agile_command_terminal_support_last_progress_error_m": 0.0,
+      "agile_command_terminal_support_max_abs_command_x": 0.0,
+      "agile_command_terminal_support_max_abs_command_y": 0.0,
+      "agile_command_terminal_support_max_abs_command_yaw": 0.0,
+      "agile_command_terminal_support_start_box_target_travel_m": 1.25,
+      "agile_command_terminal_support_target_m": 2.0,
+      "agile_command_terminal_support_tilt_suppressed_steps": 0,
+      "approach_support_posture_active_steps": 0,
+      "approach_support_posture_ankle_pitch_offset": -0.04,
+      "approach_support_posture_blend_rate": 0.02,
+      "approach_support_posture_controller_enabled": false,
+      "approach_support_posture_disable_on_final_hold": false,
+      "approach_support_posture_first_active_step": null,
+      "approach_support_posture_hip_pitch_offset": -0.04,
+      "approach_support_posture_knee_offset": 0.08,
+      "approach_support_posture_last_scale": 0.0,
+      "approach_support_posture_max_scale": 0.0,
+      "approach_support_posture_travel_full_m": 1.8,
+      "approach_support_posture_travel_start_m": 1.2,
+      "approach_support_posture_waist_pitch_offset": -0.02,
+      "balance_roll_target_from_lateral": false,
+      "balance_roll_target_lateral_active_steps": 0,
+      "balance_roll_target_lateral_deadband": 0.0,
+      "balance_roll_target_lateral_first_active_step": null,
+      "balance_roll_target_lateral_gain": 0.0,
+      "balance_roll_target_lateral_last_error_m": 0.0,
+      "balance_roll_target_lateral_last_target_rad": 0.0,
+      "balance_roll_target_lateral_limit": 0.0,
+      "balance_roll_target_lateral_max_abs_target_rad": 0.0,
+      "balance_roll_target_lateral_max_box_tilt": 999.0,
+      "balance_roll_target_lateral_max_tilt": 999.0,
+      "balance_roll_target_lateral_ramp_steps": 0,
+      "balance_roll_target_lateral_sign": 1.0,
+      "balance_roll_target_lateral_source": "robot",
+      "balance_roll_target_lateral_start_after_hold_steps": 0,
+      "balance_roll_target_lateral_suppressed_by_hold_delay_steps": 0,
+      "balance_roll_target_lateral_suppressed_by_tilt_steps": 0,
+      "box_drop_events": 544,
+      "box_mass_kg": 0.5,
+      "box_pose_write_count_rollout": 0,
+      "box_retention_active_steps": 0,
+      "box_retention_blend_rate": 1.0,
+      "box_retention_first_active_step": null,
+      "box_retention_last_risk": 0.0,
+      "box_retention_max_risk": 0.0,
+      "box_retention_posture_controller_enabled": false,
+      "box_retention_rel_start_m": 0.1,
+      "box_retention_rel_stop_m": 0.28,
+      "box_retention_tilt_start_rad": 0.2,
+      "box_retention_tilt_stop_rad": 0.55,
+      "box_size_m": [
+        0.14,
+        0.1,
+        0.09
+      ],
+      "case_dir": "/public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_tall_z009_contact_retention/agile_low_cradle_freebox_walk",
+      "check_path": "/public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_tall_z009_contact_retention/agile_low_cradle_freebox_walk/check.json",
+      "check_status": "fail",
+      "completed_steps": 1000,
+      "cradle_chest_pad_collision_enabled_step": 380,
+      "cradle_chest_pad_enabled": true,
+      "cradle_final_cross_brace_box_tilt_min_box_target_travel_m": 0.9,
+      "cradle_final_cross_brace_box_tilt_min_step": 460,
+      "cradle_final_cross_brace_box_tilt_threshold_rad": 0.34,
+      "cradle_final_cross_brace_collision_enabled_reason": "box_tilt",
+      "cradle_final_cross_brace_collision_enabled_step": 461,
+      "cradle_final_cross_brace_enable_on_box_tilt": true,
+      "cradle_final_cross_brace_spawned_step": 461,
+      "cradle_final_side_guard_box_tilt_min_box_target_travel_m": 0.7,
+      "cradle_final_side_guard_box_tilt_min_step": 420,
+      "cradle_final_side_guard_box_tilt_threshold_rad": 0.24,
+      "cradle_final_side_guard_collision_enabled_initial": false,
+      "cradle_final_side_guard_collision_enabled_reason": "box_tilt",
+      "cradle_final_side_guard_collision_enabled_step": 426,
+      "cradle_final_side_guard_collision_update_count": 1,
+      "cradle_final_side_guard_collision_update_error": null,
+      "cradle_final_side_guard_dynamic_friction": -1.0,
+      "cradle_final_side_guard_enable_on_box_tilt": true,
+      "cradle_final_side_guard_enable_on_final_hold": false,
+      "cradle_final_side_guard_enable_on_hold": false,
+      "cradle_final_side_guard_enable_on_target_window": false,
+      "cradle_final_side_guard_enable_on_terminal_hold": false,
+      "cradle_final_side_guard_half_spacing_m": 0.12,
+      "cradle_final_side_guard_local_pos0_m": [
+        -0.19,
+        0.0,
+        0.1
+      ],
+      "cradle_final_side_guard_mass_scale": 0.25,
+      "cradle_final_side_guard_restitution": 0.0,
+      "cradle_final_side_guard_size_m": [
+        0.18,
+        0.018,
+        0.18
+      ],
+      "cradle_final_side_guard_spawn_error": null,
+      "cradle_final_side_guard_spawn_on_trigger": true,
+      "cradle_final_side_guard_spawned_step": 426,
+      "cradle_final_side_guard_static_friction": -1.0,
+      "cradle_final_side_guards_enabled": true,
+      "cradle_top_lid_collision_enabled_step": null,
+      "cradle_top_lid_enabled": true,
+      "failures": [
+        "fall_events 576 > 0",
+        "box_drop_events 544 > 0",
+        "min_robot_z_m 0.19442078471183777 < 0.45",
+        "min_box_z_m 0.049999989569187164 < 0.2",
+        "max_tilt_rad 1.8724764955137163 > 0.35",
+        "max_box_tilt_rad 3.138499329258431 > 0.45",
+        "final_box_robot_relative_offset_error_m 1.3873785583022196 > 0.25",
+        "max_abs_robot_target_lateral_error_m 0.8084992769193884 > 0.8",
+        "abs(final_robot_target_lateral_error_m) 0.7141206235831966 > 0.6",
+        "target_window_both_stable_steps 0 < 100",
+        "target_window_both_longest_streak_steps 0 < 100",
+        "target_window_both_streak_at_end_steps 0 < 100",
+        "fall_events 576 > 0",
+        "box_drop_events 544 > 0"
+      ],
+      "fall_events": 576,
+      "final_box_robot_relative_offset_error_m": 1.3873785583022196,
+      "final_box_target_directed_travel_m": 1.1242436607956086,
+      "final_box_target_lateral_error_m": 0.4664626740893295,
+      "final_robot_target_directed_travel_m": 0.4644088633413017,
+      "final_robot_target_lateral_error_m": -0.7141206235831966,
+      "first_box_drop_step": 456,
+      "first_box_drop_time_s": 2.2800000000000002,
+      "first_fall_step": 424,
+      "first_fall_time_s": 2.12,
+      "max_abs_box_pitch_rad": 1.4152670551193371,
+      "max_abs_box_roll_rad": 3.138499329258431,
+      "max_abs_box_target_lateral_error_m": 0.4677385875881174,
+      "max_abs_pitch_rad": 1.0310454022170361,
+      "max_abs_robot_target_lateral_error_m": 0.8084992769193884,
+      "max_abs_roll_rad": 1.8724764955137163,
+      "max_box_robot_relative_offset_error_m": 1.4588881279720638,
+      "max_box_target_directed_travel_m": 1.1257730474340994,
+      "max_box_tilt_rad": 3.138499329258431,
+      "max_robot_target_directed_travel_m": 0.8194247697443854,
+      "max_tilt_rad": 1.8724764955137163,
+      "passed": false,
+      "rollout_write_count_total": 0,
+      "root_pose_write_count_rollout": 0,
+      "root_velocity_write_count_rollout": 0,
+      "summary_path": "/public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260708_g1_closefront_heldout_geometry_box_tilt_contact_retention_cpu_tall_z009_contact_retention/agile_low_cradle_freebox_walk/core_world_g1_box_scene_summary.json",
+      "target_window_both_final_hold_first_stable_step": null,
+      "target_window_both_final_hold_longest_streak_steps": 0,
+      "target_window_both_final_hold_stable_at_final_step": false,
+      "target_window_both_final_hold_stable_steps": 0,
+      "target_window_both_final_hold_streak_at_end_steps": 0,
+      "target_window_both_final_stand_first_stable_step": null,
+      "target_window_both_final_stand_longest_streak_steps": 0,
+      "target_window_both_final_stand_stable_at_final_step": false,
+      "target_window_both_final_stand_stable_steps": 0,
+      "target_window_both_final_stand_streak_at_end_steps": 0,
+      "target_window_both_first_stable_step": null,
+      "target_window_both_longest_streak_steps": 0,
+      "target_window_both_stable_at_final_step": false,
+      "target_window_both_stable_steps": 0,
+      "target_window_both_streak_at_end_steps": 0,
+      "target_window_box_first_stable_step": null,
+      "target_window_box_longest_streak_steps": 0,
+      "target_window_box_stable_steps": 0,
+      "target_window_center_m": 2.0,
+      "target_window_enabled": true,
+      "target_window_halfwidth_m": 0.35,
+      "target_window_robot_first_stable_step": null,
+      "target_window_robot_longest_streak_steps": 0,
+      "target_window_robot_stable_steps": 0,
+      "terminal_centroidal_support_active_steps": 0,
+      "terminal_centroidal_support_controller_enabled": false,
+      "terminal_centroidal_support_first_active_step": null,
+      "terminal_centroidal_support_last_lateral_error_m": 0.0,
+      "terminal_centroidal_support_last_pitch_adjust_rad": 0.0,
+      "terminal_centroidal_support_last_pitch_target_rad": 0.0,
+      "terminal_centroidal_support_last_progress_error_m": 0.0,
+      "terminal_centroidal_support_last_risk": 0.0,
+      "terminal_centroidal_support_last_roll_adjust_rad": 0.0,
+      "terminal_centroidal_support_last_roll_target_rad": 0.0,
+      "terminal_centroidal_support_max_abs_pitch_adjust_rad": 0.0,
+      "terminal_centroidal_support_max_abs_roll_adjust_rad": 0.0,
+      "terminal_centroidal_support_max_risk": 0.0,
+      "terminal_support_posture_active_steps": 0,
+      "terminal_support_posture_controller_enabled": false,
+      "terminal_support_posture_first_active_step": null,
+      "terminal_support_posture_last_risk": 0.0,
+      "terminal_support_posture_max_risk": 0.0
+    }
+  ],
+  "failed_case_count": 2,
+  "passed_case_count": 0,
+  "scene_type": "core_world_g1_largerbox_strict_summary",
+  "status": "fail",
+  "success_claim": "diagnostic_summary_only_not_final_carrying_success"
+}
+srun: error: server01: task 0: Exited with exit code 1
+srun: launch/slurm: _step_signal: Terminating StepId=170665.0

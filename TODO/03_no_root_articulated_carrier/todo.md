@@ -10446,3 +10446,11 @@
   limited-retention diagnostic that delays/weakens box-retention activation
   and starts centroidal support earlier, with an explicit goal of preserving
   the no-fall/no-drop boundary before optimizing target-window dwell.
+- [x] Add tall limited-retention/centroidal diagnostic:
+  `scripts/isaac/run_core_world_g1_tall_limited_retention_centroidal_suite.sh`.
+  It tests `centroidal_early`, `retention_late_weak`, and `combined_limited`
+  under the same tall preintegrated cradle and strict no-rollout-write gates.
+- [ ] Run and record tall limited-retention/centroidal diagnostic through
+  tmux plus persistent `srun`. Do not interpret it until
+  `experiments/outputs/core_world_g1_tall_limited_retention_centroidal/<stamp>/g1_tall_limited_retention_centroidal_summary.json`
+  exists.

@@ -30,6 +30,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-height", type=float, default=0.56)
     parser.add_argument("--fall-height", type=float, default=0.30)
     parser.add_argument("--max-tilt-rad", type=float, default=0.55)
+    parser.add_argument("--assist-mode", choices=("body_force", "none"), default="body_force")
+    parser.add_argument("--max-assist-force-x", type=float, default=120.0)
+    parser.add_argument("--max-assist-force-z", type=float, default=250.0)
+    parser.add_argument("--max-assist-torque", type=float, default=80.0)
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -139,6 +143,15 @@ def main() -> None:
         "steps_requested": int(args.steps),
         "completed_steps": 0,
         "target_speed_mps": float(args.target_speed),
+        "assist_mode": str(args.assist_mode),
+        "external_stabilizer_enabled": args.assist_mode == "body_force",
+        "root_pose_write_count": 0,
+        "root_velocity_write_count": 0,
+        "external_force_write_count": 0,
+        "external_torque_write_count": 0,
+        "max_assist_force_x_n": float(args.max_assist_force_x),
+        "max_assist_force_z_n": float(args.max_assist_force_z),
+        "max_assist_torque_nm": float(args.max_assist_torque),
         "max_travel_x_m": 0.0,
         "min_torso_z_m": None,
         "max_tilt_rad": 0.0,
@@ -171,18 +184,22 @@ def main() -> None:
             roll, pitch = _quat_to_roll_pitch(qw, qx, qy, qz)
             tilt = math.hypot(roll, pitch)
 
-            # Explicit stabilizing controller. This makes the run a diagnostic,
-            # not an autonomous locomotion-policy result.
-            force_x = 240.0 * (args.target_speed - vx)
-            force_z = 900.0 * (args.target_height - torso_z) - 55.0 * float(data.qvel[2])
-            torque_x = -180.0 * roll - 25.0 * float(data.qvel[3])
-            torque_y = -180.0 * pitch - 25.0 * float(data.qvel[4])
             data.qfrc_applied[:] = 0.0
-            data.qfrc_applied[0] = np.clip(force_x, -180.0, 180.0)
-            data.xfrc_applied[torso_id, 0] = np.clip(force_x, -120.0, 120.0)
-            data.xfrc_applied[torso_id, 2] = np.clip(force_z, -250.0, 250.0)
-            data.xfrc_applied[torso_id, 3] = np.clip(torque_x, -80.0, 80.0)
-            data.xfrc_applied[torso_id, 4] = np.clip(torque_y, -80.0, 80.0)
+            data.xfrc_applied[:] = 0.0
+            if args.assist_mode == "body_force":
+                # Explicit stabilizing controller. This makes the run a diagnostic,
+                # not an autonomous locomotion-policy result.
+                force_x = 240.0 * (args.target_speed - vx)
+                force_z = 900.0 * (args.target_height - torso_z) - 55.0 * float(data.qvel[2])
+                torque_x = -180.0 * roll - 25.0 * float(data.qvel[3])
+                torque_y = -180.0 * pitch - 25.0 * float(data.qvel[4])
+                data.qfrc_applied[0] = np.clip(force_x, -float(args.max_assist_force_x), float(args.max_assist_force_x))
+                data.xfrc_applied[torso_id, 0] = np.clip(force_x, -float(args.max_assist_force_x), float(args.max_assist_force_x))
+                data.xfrc_applied[torso_id, 2] = np.clip(force_z, -float(args.max_assist_force_z), float(args.max_assist_force_z))
+                data.xfrc_applied[torso_id, 3] = np.clip(torque_x, -float(args.max_assist_torque), float(args.max_assist_torque))
+                data.xfrc_applied[torso_id, 4] = np.clip(torque_y, -float(args.max_assist_torque), float(args.max_assist_torque))
+                summary["external_force_write_count"] += 1
+                summary["external_torque_write_count"] += 1
             mujoco.mj_step(model, data)
 
             if initial_x is None:

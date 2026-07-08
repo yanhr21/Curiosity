@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$(hostname)" == mgmtserver* ]]; then
+  echo "Refusing to run staged-gait Isaac batch on login/management node: $(hostname)" >&2
+  exit 2
+fi
+
+ROOT_DIR="${ROOT_DIR:-/public/home/yanhongru/Curiosity}"
+ISAAC_VENV="${ISAAC_VENV:-/public/home/yanhongru/envs/isaac_arena_py312}"
+EXPERIENCE="${EXPERIENCE:-${ROOT_DIR}/external/IsaacLab-Arena/submodules/IsaacLab/apps/isaaclab.python.headless.kit}"
+OV_REGISTRY_MIRROR="${OV_REGISTRY_MIRROR:-/public/home/yanhongru/ov_registry_mirror}"
+KIT_ARGS="${KIT_ARGS:---/exts/omni.kit.registry.nucleus/registries/0/url=${OV_REGISTRY_MIRROR}/kit_prod_default --/exts/omni.kit.registry.nucleus/registries/1/url=${OV_REGISTRY_MIRROR}/kit_prod_sdk}"
+cd "${ROOT_DIR}"
+
+sleep "${COMPUTE_SIDE_STARTUP_SLEEP:-30}"
+python3 -m py_compile \
+  scripts/isaac/build_core_world_g1_box_scene.py \
+  scripts/isaac/check_core_world_g1_box_scene_summary.py
+
+run_diag() {
+  local diag="$1"
+  local cradle_mass="$2"
+  local amp="$3"
+  local ramp_start="$4"
+  local ramp_end="$5"
+  local min_scale="$6"
+  local recovery_threshold="$7"
+  local hip_offset="$8"
+  local knee_offset="$9"
+  local ankle_offset="${10}"
+  local waist_offset="${11}"
+  local stamp="20260705_core_world_g1_staged_${diag}_mass${cradle_mass}_amp${amp}_ramp${ramp_start}_${ramp_end}"
+  local output_dir="experiments/outputs/core_world_g1_box_scene/${stamp}"
+  echo "[BATCH] ${diag} cradle_mass=${cradle_mass} amp=${amp} ramp=${ramp_start}-${ramp_end} min_scale=${min_scale} recovery=${recovery_threshold}"
+  "${ISAAC_VENV}/bin/python" scripts/isaac/build_core_world_g1_box_scene.py \
+    --viz none \
+    --experience "${EXPERIENCE}" \
+    --device "${DEVICE:-cpu}" \
+    --kit_args "${KIT_ARGS}" \
+    --steps 420 \
+    --g1-usd "${G1_USD:-/public/home/yanhongru/isaac_asset_mirror/Assets/Isaac/6.0/g1_29dof_with_hand_rev_1_0.usd}" \
+    --box-mass 0.25 \
+    --box-size 0.10 0.08 0.06 \
+    --box-position 0.44 0.0 0.95 \
+    --g1-root-position 0.0 0.0 0.78 \
+    --g1-root-orientation-wxyz 1.0 0.0 0.0 0.0 \
+    --stand-hip-pitch -0.12 \
+    --stand-knee 0.30 \
+    --stand-ankle-pitch -0.15 \
+    --apply-arena-stand-gains \
+    --stand-drive-preset arena \
+    --stand-gain-scale 1.0 \
+    --gait-mode staged_march \
+    --gait-amplitude "${amp}" \
+    --gait-frequency-hz 0.7 \
+    --gait-ramp-down-start-step "${ramp_start}" \
+    --gait-ramp-down-end-step "${ramp_end}" \
+    --gait-min-amplitude-scale "${min_scale}" \
+    --recovery-pitch-threshold "${recovery_threshold}" \
+    --recovery-pitch-rate-threshold 999.0 \
+    --recovery-hip-pitch-offset "${hip_offset}" \
+    --recovery-knee-offset "${knee_offset}" \
+    --recovery-ankle-pitch-offset "${ankle_offset}" \
+    --recovery-waist-pitch-offset "${waist_offset}" \
+    --attach-box none \
+    --torso-cradle front_tray \
+    --require-box-no-drop \
+    --cradle-deck-size 0.24 0.26 0.025 \
+    --cradle-deck-local-pos0 0.44 0.0 0.10 \
+    --cradle-side-rail-height 0.07 \
+    --cradle-end-stop-height 0.08 \
+    --cradle-rail-thickness 0.018 \
+    --cradle-mass-scale "${cradle_mass}" \
+    --output-dir "${output_dir}"
+
+  python3 scripts/isaac/check_core_world_g1_box_scene_summary.py \
+    "${output_dir}/core_world_g1_box_scene_summary.json" \
+    --min-steps 420 \
+    --expect-attach-box none \
+    --expect-torso-cradle front_tray \
+    --expect-carry-box-spawned true \
+    --min-cradle-piece-count 5 \
+    --min-joint-count 40 \
+    --max-fall-events 0 \
+    --max-box-drop-events 0 \
+    --min-robot-z 0.45 \
+    --min-box-z 0.20 \
+    --max-tilt 0.85 \
+    --max-root-pose-write-count-rollout 0 \
+    --max-root-velocity-write-count-rollout 0 \
+    --max-box-pose-write-count-rollout 0 \
+    --min-final-box-target-directed-travel 0.10 \
+    --require-diagnostic-claim || true
+}
+
+run_diag diag67 0.35 0.16 160 280 0.20 0.14 -0.06 0.08 0.08 -0.05
+run_diag diag68 0.50 0.14 150 260 0.15 0.14 -0.08 0.10 0.10 -0.06
+run_diag diag69 0.75 0.12 130 230 0.05 0.12 -0.10 0.12 0.12 -0.08
+run_diag diag70 1.00 0.12 110 220 0.00 0.12 -0.10 0.12 0.12 -0.08

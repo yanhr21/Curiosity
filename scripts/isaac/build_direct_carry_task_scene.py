@@ -14,6 +14,7 @@ import csv
 import json
 import math
 import os
+import random
 from pathlib import Path
 
 from isaaclab.app import AppLauncher
@@ -27,8 +28,13 @@ def _refuse_login_node() -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Direct Isaac carrying-task scene diagnostic.")
     parser.add_argument("--steps", type=int, default=480)
+    parser.add_argument("--controller-mode", choices=("kinematic_proxy",), default="kinematic_proxy")
     parser.add_argument("--box-mass", type=float, default=6.0)
+    parser.add_argument("--box-mass-min", type=float, default=None)
+    parser.add_argument("--box-mass-max", type=float, default=None)
     parser.add_argument("--box-size", type=float, nargs=3, default=(0.55, 0.35, 0.35), metavar=("X", "Y", "Z"))
+    parser.add_argument("--box-size-jitter", type=float, default=0.0)
+    parser.add_argument("--box-seed", type=int, default=None)
     parser.add_argument("--walk-speed", type=float, default=0.32)
     parser.add_argument("--carry-height", type=float, default=0.84)
     parser.add_argument("--target-x", type=float, default=2.2)
@@ -42,8 +48,23 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _apply_box_randomization(args: argparse.Namespace) -> None:
+    """Apply explicit randomization only when requested by CLI flags."""
+    rng = random.Random(args.box_seed)
+    if args.box_mass_min is not None or args.box_mass_max is not None:
+        if args.box_mass_min is None or args.box_mass_max is None:
+            raise ValueError("--box-mass-min and --box-mass-max must be provided together.")
+        if float(args.box_mass_min) <= 0.0 or float(args.box_mass_max) < float(args.box_mass_min):
+            raise ValueError("Invalid box mass randomization range.")
+        args.box_mass = rng.uniform(float(args.box_mass_min), float(args.box_mass_max))
+    if float(args.box_size_jitter) > 0.0:
+        jitter = float(args.box_size_jitter)
+        args.box_size = tuple(max(0.05, float(v) * rng.uniform(1.0 - jitter, 1.0 + jitter)) for v in args.box_size)
+
+
 _refuse_login_node()
 args_cli = parse_args()
+_apply_box_randomization(args_cli)
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
@@ -272,14 +293,41 @@ def run_scene() -> Path:
         sim_dt = sim.get_physics_dt()
         initial_box_pose = None
         initial_torso_pose = None
+        robot_proxy_pose_write_count = 0
+        box_kinematic_pose_write_count = 0
         summary = {
             "scene_type": "direct_isaac_kinematic_humanoid_proxy_carry_task",
             "success_claim": "diagnostic_only_not_learned_balance_or_grasp_success",
+            "controller_mode": str(args_cli.controller_mode),
+            "controller_contract": {
+                "purpose": "task_scene_and_metric_interface_not_robot_controller",
+                "replaceable_controller_inputs": [
+                    "phase",
+                    "box_pose",
+                    "target_pose",
+                    "morphology_limits",
+                    "estimated_load_belief",
+                ],
+                "expected_controller_outputs": [
+                    "robot_joint_or_task_targets",
+                    "contact_mode",
+                    "probing_action",
+                    "carry_posture_label",
+                ],
+                "non_success_reason": "kinematic_proxy_writes_robot_and_box_poses",
+            },
             "steps_requested": int(args_cli.steps),
             "completed_steps": 0,
             "physics_dt": float(sim_dt),
             "box_mass_kg": float(args_cli.box_mass),
             "box_size_m": [float(v) for v in args_cli.box_size],
+            "box_seed": args_cli.box_seed,
+            "box_mass_randomization_range_kg": (
+                [float(args_cli.box_mass_min), float(args_cli.box_mass_max)]
+                if args_cli.box_mass_min is not None and args_cli.box_mass_max is not None
+                else None
+            ),
+            "box_size_jitter_fraction": float(args_cli.box_size_jitter),
             "target_x_m": float(args_cli.target_x),
             "max_torso_travel_xy_m": 0.0,
             "max_box_travel_xy_m": 0.0,
@@ -287,6 +335,11 @@ def run_scene() -> Path:
             "box_drop_events": 0,
             "carry_phase_steps": max(0, int(args_cli.steps) - int(0.44 * int(args_cli.steps))),
             "kinematic_box_pose_following": True,
+            "robot_proxy_pose_write_count": 0,
+            "box_kinematic_pose_write_count": 0,
+            "root_pose_write_count_rollout": 0,
+            "root_velocity_write_count_rollout": 0,
+            "box_dynamic_pose_write_count_rollout": 0,
             "final_phase": None,
             "final_box_target_distance_xy_m": None,
         }
@@ -316,7 +369,9 @@ def run_scene() -> Path:
                 robot = _robot_poses(step, args_cli.steps, sim_dt)
                 for part, pos in robot.items():
                     _set_translate(stage, f"/World/Robot/{part}", pos)
+                    robot_proxy_pose_write_count += 1
                 _set_translate(stage, "/World/CarryBox", _box_pose(step, args_cli.steps, robot))
+                box_kinematic_pose_write_count += 1
                 sim.step(render=args_cli.render)
 
                 if step % 10 == 0 or step == args_cli.steps - 1:
@@ -339,6 +394,8 @@ def run_scene() -> Path:
                     box_target_distance = math.hypot(box_pose[0] - args_cli.target_x, box_pose[1])
                     drop_flag = int(phase in ("lift", "carry") and box_pose[2] < 0.35)
                     summary["completed_steps"] = int(step + 1)
+                    summary["robot_proxy_pose_write_count"] = int(robot_proxy_pose_write_count)
+                    summary["box_kinematic_pose_write_count"] = int(box_kinematic_pose_write_count)
                     summary["max_torso_travel_xy_m"] = max(float(summary["max_torso_travel_xy_m"]), float(torso_travel))
                     summary["max_box_travel_xy_m"] = max(float(summary["max_box_travel_xy_m"]), float(box_travel))
                     summary["min_support_margin_m"] = (

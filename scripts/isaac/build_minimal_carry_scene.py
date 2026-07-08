@@ -390,11 +390,15 @@ def run_scene(
     wbc_driver: Optional[G1WBCDriver],
     robot_prim_path: str,
     box_prim_path: str,
+    payload_joint_path: str | None,
 ) -> Path:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = args.output_dir / "minimal_carry_scene_state.csv"
 
     joint_pos = None
+    root_pose_write_count_setup = 0
+    root_velocity_write_count_setup = 0
+    joint_state_write_count_setup = 0
     if robot is not None and not args.skip_explicit_state_reset:
         joint_pos = wp.to_torch(robot.data.default_joint_pos).clone()
         joint_vel = wp.to_torch(robot.data.default_joint_vel).clone()
@@ -402,8 +406,11 @@ def run_scene(
         root_vel = wp.to_torch(robot.data.default_root_vel).clone()
         robot.write_joint_position_to_sim_index(position=joint_pos)
         robot.write_joint_velocity_to_sim_index(velocity=joint_vel)
+        joint_state_write_count_setup += 2
         robot.write_root_pose_to_sim_index(root_pose=root_pose)
         robot.write_root_velocity_to_sim_index(root_velocity=root_vel)
+        root_pose_write_count_setup += 1
+        root_velocity_write_count_setup += 1
         robot.reset()
     elif robot is not None:
         joint_pos = wp.to_torch(robot.data.default_joint_pos).clone()
@@ -415,14 +422,29 @@ def run_scene(
     sim_dt = sim.get_physics_dt()
     initial_box_pose = None
     initial_robot_pose = None
+    joint_names = list(getattr(robot.data, "joint_names", [])) if robot is not None else []
     summary = {
+        "scene_type": "minimal_g1_wbc_carry_smoke",
+        "success_claim": "controller_backed_g1_wbc_smoke_not_free_box_carrying_success",
         "steps_requested": int(args.steps),
         "physics_dt": float(sim_dt),
         "robot_enabled": robot is not None,
+        "articulated_carrier_enabled": robot is not None,
+        "articulated_joint_count": len(joint_names),
+        "robot_prim_path": robot_prim_path if robot is not None else None,
+        "box_prim_path": box_prim_path,
         "wbc_mode": args.wbc_mode,
         "attach_box": args.attach_box,
+        "payload_joint_path": payload_joint_path,
+        "payload_joint_created": payload_joint_path is not None,
         "box_mass_kg": float(args.box_mass),
         "box_size_m": [float(value) for value in args.box_size],
+        "root_pose_write_count_setup": root_pose_write_count_setup,
+        "root_velocity_write_count_setup": root_velocity_write_count_setup,
+        "joint_state_write_count_setup": joint_state_write_count_setup,
+        "root_pose_write_count_rollout": 0,
+        "root_velocity_write_count_rollout": 0,
+        "box_pose_write_count_rollout": 0,
         "min_robot_base_z_m": None,
         "min_box_z_m": None,
         "max_robot_travel_xy_m": 0.0,
@@ -585,7 +607,17 @@ def main() -> None:
         print(f"[INFO] Skip explicit state reset: {args_cli.skip_explicit_state_reset}")
         print(f"[INFO] Box mass: {args_cli.box_mass} kg")
         print(f"[INFO] Box size: {tuple(args_cli.box_size)} m")
-        metrics_path = run_scene(sim, scene, robot, box, args_cli, wbc_driver, robot_prim_path, box_prim_path)
+        metrics_path = run_scene(
+            sim,
+            scene,
+            robot,
+            box,
+            args_cli,
+            wbc_driver,
+            robot_prim_path,
+            box_prim_path,
+            payload_joint_path,
+        )
         print(f"[INFO] Metrics written to: {metrics_path}")
 
 

@@ -23,13 +23,28 @@ check_summary() {
   local mode="$1"
   local output_dir="$2"
   local min_steps="$3"
+  local expected_wbc_mode="walk"
+  local expected_attach_box="none"
   if [[ "${CHECK_SUMMARY}" != "1" ]]; then
     return 0
+  fi
+  if [[ "${mode}" == "stand" ]]; then
+    expected_wbc_mode="stand"
+  fi
+  if [[ "${mode}" == "payload" ]]; then
+    expected_wbc_mode="walk"
+    expected_attach_box="fixed_torso"
   fi
   "${CHECKER_PYTHON}" scripts/isaac/check_carry_smoke_summary.py \
     "${output_dir}/minimal_carry_scene_summary.json" \
     --mode "${mode}" \
-    --min-steps "${min_steps}"
+    --min-steps "${min_steps}" \
+    --min-joint-count 20 \
+    --expect-wbc-mode "${expected_wbc_mode}" \
+    --expect-attach-box "${expected_attach_box}" \
+    --max-root-pose-writes-rollout 0 \
+    --max-root-velocity-writes-rollout 0 \
+    --max-box-pose-writes-rollout 0
 }
 
 echo "[SEQUENCE] G1 WBC stand smoke"

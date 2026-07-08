@@ -1,0 +1,98 @@
+{
+  "artifacts": {
+    "contact_check": {
+      "category": "control_fall_or_drop",
+      "exists": true,
+      "failures": [
+        "fall_events 104 > 0",
+        "min_robot_z_m 0.2364286184310913 < 0.45",
+        "max_tilt_rad 1.8426766960933354 > 0.35",
+        "max_box_tilt_rad 1.923876730713594 > 0.45",
+        "agile_command_hold_final_min_robot_z_m 0.2364286184310913 < 0.45",
+        "agile_command_hold_final_min_box_z_m 0.2299124002456665 < 0.45",
+        "final_box_robot_relative_offset_error_m 0.34432064098164455 > 0.25",
+        "max_abs_robot_target_lateral_error_m 0.9213434202745814 > 0.8",
+        "max_abs_box_target_lateral_error_m 1.1230842760065292 > 0.8",
+        "abs(final_robot_target_lateral_error_m) 0.8976693051886185 > 0.6",
+        "abs(final_box_target_lateral_error_m) 1.060917585886226 > 0.6",
+        "target_window_both_stable_steps 0 < 80",
+        "target_window_both_longest_streak_steps 0 < 50",
+        "target_window_both_streak_at_end_steps 0 < 40",
+        "target_window_both_final_hold_stable_steps 0 < 80",
+        "target_window_both_final_hold_longest_streak_steps 0 < 50",
+        "target_window_both_final_hold_streak_at_end_steps 0 < 40",
+        "agile_command_hold_final_active_steps 247 < 399"
+      ],
+      "label": "contact_check",
+      "path": "/public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260707_gpu_contact_next_chestpad_terminal_contact/agile_low_cradle_freebox_walk/check.json",
+      "status": "fail"
+    },
+    "contact_summary": {
+      "category": "control_fall_or_drop",
+      "exists": true,
+      "failures": [
+        "fall_events 104 > 0"
+      ],
+      "label": "contact_summary",
+      "path": "/public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260707_gpu_contact_next_chestpad_terminal_contact/agile_low_cradle_freebox_walk/core_world_g1_box_scene_summary.json",
+      "status": "fail"
+    },
+    "gauntlet_summary": {
+      "category": "json_status_failure",
+      "exists": true,
+      "failures": [],
+      "label": "gauntlet_summary",
+      "path": "/public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_posture_gauntlet/20260707_g1_posture_gauntlet_after_contact/g1_posture_gauntlet_summary.json",
+      "status": "fail"
+    },
+    "render_check": {
+      "category": "missing_dependency",
+      "exists": true,
+      "failures": [
+        "missing render summary: experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_q3/g1_replay_render_summary.json",
+        "frame count 0 < 10"
+      ],
+      "label": "render_check",
+      "path": "/public/home/yanhongru/Curiosity/experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_q3/g1_replay_showcase_check.json",
+      "status": "fail"
+    },
+    "render_summary": {
+      "category": "missing_artifact",
+      "exists": false,
+      "label": "render_summary",
+      "path": "/public/home/yanhongru/Curiosity/experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_q3/g1_replay_render_summary.json"
+    }
+  },
+  "categories": [
+    "queued",
+    "log_present_no_known_error",
+    "missing_dependency",
+    "missing_artifact",
+    "control_fall_or_drop",
+    "control_fall_or_drop",
+    "json_status_failure"
+  ],
+  "logs": {
+    "contact_log": {
+      "category": "log_present_no_known_error",
+      "exists": true,
+      "matched_patterns": [],
+      "path": "/public/home/yanhongru/Curiosity/logs/core_world_g1_low_cradle/20260707_g1_lowcarry_contact_next_gpu_srun.log",
+      "tail_excerpt": "end_steps\": 0,\n  \"target_window_both_final_stand_first_stable_step\": null,\n  \"target_window_both_final_stand_longest_streak_steps\": 0,\n  \"target_window_both_final_stand_stable_at_final_step\": false,\n  \"target_window_both_final_stand_stable_steps\": 0,\n  \"target_window_both_final_stand_streak_at_end_steps\": 0,\n  \"target_window_both_first_stable_step\": null,\n  \"target_window_both_longest_streak_steps\": 0,\n  \"target_window_both_stable_at_final_step\": false,\n  \"target_window_both_stable_steps\": 0,\n  \"target_window_both_streak_at_end_steps\": 0,\n  \"target_window_box_first_stable_step\": null,\n  \"target_window_box_longest_streak_steps\": 0,\n  \"target_window_box_stable_steps\": 0,\n  \"target_window_center_m\": 2.0,\n  \"target_window_enabled\": true,\n  \"target_window_halfwidth_m\": 0.35,\n  \"target_window_robot_first_stable_step\": null,\n  \"target_window_robot_longest_streak_steps\": 0,\n  \"target_window_robot_stable_steps\": 0,\n  \"target_xy_m\": [\n    -1.2,\n    0.0\n  ],\n  \"torso_cradle\": \"front_tray\"\n}\n[AGILE-SUITE] status file: /public/home/yanhongru/Curiosity/experiments/outputs/core_world_g1_agile_policy_low_cradle/20260707_gpu_contact_next_chestpad_terminal_contact/agile_policy_low_cradle_status.tsv\n"
+    },
+    "render_log": {
+      "category": "queued",
+      "exists": true,
+      "matched_patterns": [
+        "queued",
+        "isaac_startup_failure",
+        "render_capture_failure"
+      ],
+      "path": "/public/home/yanhongru/Curiosity/logs/core_world_g1_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_q3_srun.log",
+      "tail_excerpt": "licitly. Shutting down automatically\n[WARN] ffmpeg unavailable or no frames found; frames are under: experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_q3/rgb_frames\n{\n  \"annotated_mp4_exists\": false,\n  \"bad_frame_samples\": [],\n  \"checked_frame_count\": 0,\n  \"expected_height\": 720,\n  \"expected_width\": 1280,\n  \"failures\": [\n    \"missing render summary: experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_q3/g1_replay_render_summary.json\",\n    \"frame count 0 < 10\"\n  ],\n  \"frame_count\": 0,\n  \"min_frame_bytes\": 4096,\n  \"mp4_exists\": false,\n  \"record_box_drop_events\": 0,\n  \"record_dir\": \"experiments/outputs/core_world_g1_agile_policy_low_cradle/20260706_g1_lowcarry_168398_replay_record_retry2/agile_low_cradle_freebox_walk\",\n  \"record_fall_events\": 0,\n  \"record_replay_csv\": true,\n  \"record_status\": \"pass\",\n  \"render_dir\": \"experiments/visuals/g1_replay_showcase/20260707_g1_lowcarry_168398_replay_render_gpu_q3\",\n  \"render_status\": null,\n  \"render_success_claim\": null,\n  \"replay_rows\": 83,\n  \"status\": \"fail\"\n}\nsrun: error: server59: task 0: Exited with exit code 1\nsrun: launch/slurm: _step_signal: Terminating StepId=168801.0\n"
+    }
+  },
+  "scene_type": "core_world_g1_active_pipeline_failure_classification",
+  "status": "incomplete_or_failed",
+  "success_claim": "failure_classification_only_not_final_carrying_success"
+}
