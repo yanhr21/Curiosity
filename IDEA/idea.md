@@ -1,95 +1,69 @@
-# Video-Guided Active Carrying
+# SUGAR-Centered CarryBox Research Direction
 
-## Core Claim
+## Current Mainline
 
-As of 2026-07-02, the target is not solved by existing robotics systems:
+This workspace now treats official SUGAR CarryBox as the only active research
+mainline.
 
-```text
-A bipedal or humanoid robot with its own body proportions, mass, torque limits,
-arm reach, and carrying capacity faces a box of unknown weight and shape,
-actively probes it, chooses a stable low-cost posture for its own body, carries
-it for a long duration, and learns with human/robot/simulation video as a
-non-retargeting reference signal for RL.
-```
+SUGAR is the closest public baseline because it already combines the ingredients
+this project needs most:
 
-The research gap is:
+- human-video-driven humanoid loco-manipulation;
+- IsaacLab manager-based simulation;
+- G1-style humanoid embodiment;
+- CarryBox-like object interaction;
+- released official data, descriptions, and checkpoints.
 
-```text
-video reference + active probing of unknown object dynamics
-+ morphology-aware whole-body posture selection
-+ harder held-out carrying evaluation
-```
+The immediate goal is not to replace SUGAR. The immediate goal is to reproduce
+official SUGAR faithfully, then make carefully isolated changes on top of that
+baseline.
 
 ## Working Title
 
-Video-guided, embodiment-aware active loco-manipulation for unknown-load
-carrying.
+SUGAR-based video-guided humanoid CarryBox adaptation for unknown-load carrying.
 
-## Key Principle
+## First Claim Gate
 
-Video is a weak prior, not a motion target.
+No new Curiosity claim is allowed until the official SUGAR CarryBox baseline is
+reproduced with official code, assets, checkpoints, and training stage order.
 
-Allowed video information:
+Required baseline artifacts:
 
-- task semantics;
-- phase progress;
-- object motion;
-- coarse contact affordances;
-- visual success/failure cues.
+- official CarryBox inference video from official tracker/generator
+  checkpoints;
+- full official refiner checkpoint;
+- official refiner rollout and processed rollout data;
+- official tracker training output;
+- official tracker rollout and processed tracker data;
+- official generator training output;
+- audit log showing which artifacts are present and missing.
 
-Forbidden use:
+## Research Changes After Reproduction
 
-- human joint retargeting;
-- robot joint retargeting;
-- end-effector trajectory cloning;
-- teleoperation replay;
-- posture copying as the main claim.
+Once the faithful SUGAR reproduction is complete, modifications must be made on
+top of SUGAR rather than in separate local scaffolds.
 
-## Why Active Probing Is Required
+Allowed directions:
 
-RGB or RGB-D video cannot reliably reveal mass, center of mass, friction,
-internal fill, stiffness, or required grip force. Therefore video conditioning
-must be paired with probing actions such as micro-lift, push-pull, grip ramp,
-stance adjustment, hold-height adjustment, regrasp, contact redistribution, and
-slow one-step carry tests.
+- add unknown-load and object-geometry randomization inside SUGAR CarryBox;
+- add active probing observations/actions/rewards inside the SUGAR task;
+- add embodiment-aware support/contact features for G1-style carrying inside
+  the SUGAR environment;
+- evaluate whether video-conditioned SUGAR policies improve over no-video or
+  weakened-video ablations;
+- evaluate whether probing improves over video-only SUGAR policies.
 
-## What The Policy Must Learn
+Forbidden active directions:
 
-The policy must choose carrying strategies that fit the robot's own body:
+- reviving the old tactile-only path as the mainline;
+- continuing old AGILE/G1 scalar-tuning branches as the mainline;
+- using MuJoCo or prismatic proxy tasks as success evidence;
+- replacing SUGAR with toy policies, toy refiners, or simplified local
+  controllers.
 
-- front carry;
-- low carry;
-- chest or torso support;
-- forearm support;
-- asymmetric carry;
-- squat-depth adjustment;
-- stance widening;
-- walking-speed reduction;
-- regrasp before walking;
-- abort when unsafe.
+## Success Standard
 
-The same reference video should be allowed to produce different robot postures
-for different morphologies and loads.
-
-## Success Gate
-
-No success claim is allowed unless the method:
-
-- beats the strongest baseline on harder held-out objects and robot bodies;
-- improves carry distance, carry duration, and efficiency;
-- avoids safety regression in falls, drops, slip, contact loss, excessive
-  torque, and object acceleration;
-- proves video helps beyond no-video RL;
-- proves active probing helps beyond video-only reward;
-- proves it is not merely retargeting or behavior cloning.
-
-## Active References
-
-- Execution path: `docs/execution_path_2026-07-02.md`
-- Reference clone inventory:
-  `docs/reference_clone_inventory_2026-07-02.md`
-- Main survey: `docs/2026-07-02_research_overview.md`
-- Robot carrying review: `docs/robot_carrying_capability_review.md`
-- Video-conditioned learning review:
-  `docs/video_conditioned_rl_review.md`
-- Research program design: `docs/research_program_design.md`
+A valid result must beat the faithfully reproduced SUGAR CarryBox baseline on
+harder held-out carrying conditions without increasing falls, drops, contact
+loss, object instability, or rollout hacks. The comparison must make clear what
+changed in SUGAR and what remained official.

@@ -1,12 +1,11 @@
-# TODO Index
+# Active TODO Index
 
-Active task lists for the video-guided active carrying project.
+Only the SUGAR baseline task list is active:
 
-- `00_source_inventory/todo.md`
-- `01_sim_platform_preflight/todo.md`
-- `02_base_box_carry_env/todo.md`
-- `03_unknown_load_active_probing/todo.md`
-- `04_nonretargeting_video_prior/todo.md`
-- `05_morphology_generalization/todo.md`
-- `06_evaluation_claim_gates/todo.md`
+- `04_sugar_baseline/todo.md`
 
+Older non-SUGAR TODO lists were moved to:
+
+```text
+/public/home/yanhongru/Curiosity_legacy/20260712_pre_sugar_workspace_cleanup/TODO/
+```

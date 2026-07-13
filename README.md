@@ -1,87 +1,44 @@
-# Curiosity
+# Curiosity SUGAR Workspace
 
-This branch resets the project to a new research direction:
+This repository is now organized around one active mainline: faithful official
+SUGAR CarryBox reproduction, followed by modifications made directly on top of
+SUGAR.
+
+Active files and directories:
+
+- `IDEA/idea.md`: SUGAR-only research direction and claim gates.
+- `PLAN/04_sugar_baseline/plan.md`: official SUGAR reproduction plan.
+- `TODO/04_sugar_baseline/todo.md`: current SUGAR task list.
+- `scripts/sugar/`: compute-node-safe SUGAR setup, preflight, inference,
+  training, watcher, status, and audit scripts.
+- `SUGAR/`: active official SUGAR source tree at the workspace root.
+- `IsaacLab/`: active official IsaacLab source tree at the workspace root.
+- `experiments/sugar_reproduction/outputs/`: checkpoints, datasets, videos,
+  visualizations, and other reproduction outputs.
+- `experiments/sugar_reproduction/logs/`: active SUGAR logs.
+- `experiments/reports/sugar_baseline_status_20260711.md`: current SUGAR
+  baseline status report.
+- `DOCS/sugar_carrybox_reproduction_full_record.md`: end-to-end reproduction
+  and H200 rendering record.
+- `external/wheelhouse`: local dependency cache, not a research baseline.
+
+Archived non-SUGAR workspace contents are under:
 
 ```text
-Video-guided, embodiment-aware active loco-manipulation
-for unknown-load carrying.
+/public/home/yanhongru/Curiosity_legacy/20260712_pre_sugar_workspace_cleanup/
 ```
 
-The old dense-tactile Curiosity workspace has been moved out of the repository
-to:
+That archive contains old failed experiments, old plans/TODOs, non-SUGAR docs,
+old scripts, old logs, top-level artifacts, and external repos that are no
+longer active. It is outside this repository and must never be committed or
+pushed. These files are historical context only, not current success evidence.
 
-```text
-/public/home/yanhongru/Curiosity_archive_20260702_pre_video_guided_carrying/
-```
+Cluster rule: do not run simulation, rendering, training, dataset conversion,
+model loading, or other heavy Python work on the login node. Use the
+Curiosity-owned `tmux` plus persistent `srun`/`salloc` workflow for compute
+work.
 
-## Research Question
-
-A walking and balancing humanoid sees a box with unknown weight, shape, center
-of mass, and friction. The robot may receive a video of a human, another robot,
-or a simulation carrying the object, but it must not retarget that motion. It
-must actively probe the object and choose a stable, efficient posture suitable
-for its own body.
-
-## Current Conclusion
-
-As of 2026-07-02, existing systems provide important components but do not
-solve the full target. Humanoids can carry objects in constrained settings.
-Video reward and cross-embodiment imitation from observation exist. The missing
-piece is their combination with active unknown-load probing and
-morphology-aware posture selection.
-
-## Documents
-
-- `IDEA/idea.md`: concise active idea and success gate.
-- `docs/execution_path_2026-07-02.md`: concrete executable path, source
-  inventory, platform choice, and phase gates.
-- `docs/reference_clone_inventory_2026-07-02.md`: reference code/model clones
-  for Digit/MuJoCo and mc_rtc loco-manipulation lineage.
-- `docs/2026-07-02_research_overview.md`: main survey and conclusion.
-- `docs/robot_carrying_capability_review.md`: humanoid carrying capability
-  review.
-- `docs/video_conditioned_rl_review.md`: video-conditioned/non-retargeting
-  learning review.
-- `docs/research_program_design.md`: proposed experiment and evaluation
-  design.
-- `PLAN/`: staged execution plans.
-- `TODO/`: staged task lists.
-- `src/carrying_visualization/`: browser diagnostic visualization for
-  box-carrying posture adjustment.
-- `experiments/reports/carrying_visualization_completion_audit_2026-07-02.md`:
-  requirement-by-requirement audit for the first kinematic visualization step.
-- `scripts/isaac/`: strict Isaac Lab-Arena execution scripts for the real G1
-  brown-box loco-manipulation path plus the current direct carrying-task scene
-  diagnostic.
-- `scripts/isaac/run_official_policy_locomotion_smoke.py`: current
-  Isaac-native robot-control route using NVIDIA's installed Go2/H1 locomotion
-  policy examples and local official assets. It supports an optional Go2
-  `PAYLOAD_MODE=fixed_base` diagnostic for walking with a rigid box fixed to
-  the base link; this is not unknown-box grasping or final carrying success.
-- `scripts/isaac/build_adaptive_probe_carry_scene.py`: current direct Isaac
-  scaffold for active probing and morphology-dependent posture selection.
-- `scripts/isaac/run_adaptive_probe_carry_sweep.sh`: current direct Isaac
-  sweep runner. The 2026-07-04 sweep
-  `adaptive_probe_sweep_20260704_adaptive_direct_sweep1` completed 5/5
-  diagnostic scaffold cases with 0 drops and strategy diversity across
-  `front_carry`, `low_front_carry`, and `chest_supported_slow`. This is not a
-  dynamic robot-carrying success claim.
-- `experiments/reports/isaac_arena_g1_locomanip_preflight_2026-07-02.md`:
-  Isaac preflight status and current blockers.
-- `experiments/reports/direct_isaac_g1_wbc_carry_progress_2026-07-04.md`:
-  latest Isaac execution status, including the runnable
-  `direct_carry_task_scene` diagnostic and the still-blocked G1 articulation
-  path.
-- `AGENTS.md`: active project rules for future agents.
-
-## Non-Goal
-
-This project is not human-to-robot retargeting, teleoperation replay, motion
-shadowing, or table-top video-conditioned behavior cloning. Those methods may
-be baselines, but they are not the target claim.
-
-## Success Requirement
-
-A valid success claim must beat the strongest baseline on harder held-out
-object and robot settings without safety regression, and ablations must show
-that both video priors and active probing causally improve carrying.
+The entire `experiments/` tree is local-only and intentionally ignored by Git;
+do not commit or push its reports, models, datasets, logs, videos, or
+visualizations. Large downloaded SUGAR assets and runtime compatibility links
+under `SUGAR/` also remain ignored.

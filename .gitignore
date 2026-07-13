@@ -7,13 +7,23 @@ external/
 /legacy/
 runs/
 
-# Runtime outputs. Keep only directory READMEs.
+# Runtime outputs. Keep only the root logs README.
 logs/*
 !logs/README.md
-experiments/outputs/*
-!experiments/outputs/README.md
-experiments/visuals/*
-!experiments/visuals/README.md
+
+# All experiment reports, logs, checkpoints, datasets, videos, and
+# visualizations are local-only. Never commit or push anything below this tree.
+/experiments/
+
+# Root-level SUGAR is the active source tree. Keep downloaded/runtime material
+# out of the parent repository. Reproduction outputs and logs live under the
+# ignored local-only experiments/ tree.
+SUGAR/data/
+SUGAR/demo_ckpts/
+SUGAR/descriptions/
+SUGAR/downloads/
+SUGAR/outputs
+SUGAR/hydra.log
 
 # Python/build/editor noise
 __pycache__/
