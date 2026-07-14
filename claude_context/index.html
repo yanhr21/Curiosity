@@ -1,0 +1,1797 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Robot Baby · Demonstration-Conditioned RL for Vision-Tactile Robots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  :root {
+    --bg:        #fbfaf6;
+    --panel:     #ffffff;
+    --rule:      #e3dfd2;
+    --rule-soft: #efece2;
+    --ink:       #1d1c18;
+    --ink-soft:  #3a3833;
+    --mut:       #807a6c;
+    --mut-deep:  #5a564c;
+
+    /* dark counterpoint — nav, code, footer */
+    --dark-bg:        #1a1815;
+    --dark-panel:     #221f1b;
+    --dark-rule:      #3a3530;
+    --dark-rule-soft: #2a2622;
+    --dark-ink:       #ece6d5;
+    --dark-ink-soft:  #c4bda9;
+    --dark-mut:       #8a8273;
+
+    /* paradigm accents */
+    --rb:  #2f7d4f;   /* Ours — Robot Baby (demonstration-conditioned RL) · pinned hero */
+    --bc:  #1c5b8e;   /* teleop → behavior cloning */
+    --vr:  #8e3c5f;   /* video-reconstruction imitation */
+    --rl:  #9c5a2c;   /* pure RL / reward engineering */
+    --fs:  #6d3a9e;   /* prior demonstration-conditioned / few-shot imitation */
+    /* brighter on dark */
+    --rb-on-dark: #6fbf8f;
+    --bc-on-dark: #7eb6e8;
+
+    --tag-same:  #807a6c;
+    --tag-near:  #a87b22;
+    --tag-diff:  #b35a2a;
+    --tag-lose:  #b04020;
+    --tag-gain:  #1c5b8e;
+
+    --sans:    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --display: "Instrument Serif", Georgia, serif;
+    --mono:    "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box }
+  html, body { margin: 0; padding: 0 }
+  html { scroll-behavior: smooth; scroll-padding-top: 64px }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.65 var(--sans);
+    letter-spacing: -0.005em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .frame { max-width: 1180px; margin: 0 auto; padding: 0 48px }
+  @media (max-width: 760px) { .frame { padding: 0 22px } }
+
+  /* ---------- HEADER ---------- */
+  header.cover { padding: 76px 0 36px; border-bottom: 1px solid var(--rule) }
+  .eyebrow {
+    font: 500 11px/1 var(--mono);
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--mut);
+    margin: 0 0 28px;
+  }
+  h1.title {
+    font: 300 clamp(44px, 6.6vw, 84px)/1 var(--display);
+    letter-spacing: -0.015em;
+    margin: 0 0 16px;
+    color: var(--ink);
+  }
+  h1.title em { font-style: italic; color: var(--rb) }
+  h1.title .ar { color: var(--mut); padding: 0 0.06em; font-style: normal; font-size: 0.7em; vertical-align: 0.15em }
+  .lede {
+    font: 400 20px/1.5 var(--sans);
+    color: var(--mut-deep);
+    max-width: 760px;
+    margin: 0 0 34px;
+  }
+  .lede b { color: var(--ink-soft); font-weight: 600 }
+
+  .note {
+    background: var(--panel); border: 1px solid var(--rule);
+    padding: 14px 20px; margin: 0 0 22px;
+    font-size: 14.5px; line-height: 1.6; color: var(--ink-soft);
+  }
+  .note .k { font: 500 10px/1 var(--mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--mut); margin-bottom: 8px }
+  .note b { color: var(--ink); font-weight: 600 }
+
+  .strip { display: grid; grid-template-columns: 1fr 1fr 1fr 1.7fr; gap: 0;
+           border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule) }
+  .strip .cell { padding: 16px 22px 16px 0; border-right: 1px solid var(--rule) }
+  .strip .cell:last-child { border-right: none }
+  .strip .k { font: 500 10px/1 var(--mono); letter-spacing: 0.2em;
+              text-transform: uppercase; color: var(--mut); margin-bottom: 8px }
+  .strip .v { font: 400 15px/1.45 var(--sans); color: var(--ink) }
+  .strip .v code { font: 12.5px/1.4 var(--mono); color: var(--mut-deep); background: transparent }
+  .strip .v .rb { color: var(--rb); font-style: italic; font-weight: 500 }
+  @media (max-width: 900px) {
+    .strip { grid-template-columns: 1fr 1fr }
+    .strip .cell:nth-child(2) { border-right: none }
+    .strip .cell:nth-child(3), .strip .cell:nth-child(4) { border-top: 1px solid var(--rule) }
+    .strip .cell:nth-child(3) { padding-top: 16px }
+    .strip .cell:nth-child(4) { padding-top: 16px; grid-column: 1 / -1; border-right: none }
+  }
+
+  /* ---------- TOP BAR ---------- */
+  nav.topbar {
+    position: sticky; top: 0; z-index: 25;
+    background: var(--dark-bg);
+    border-bottom: 1px solid var(--dark-rule);
+  }
+  nav.topbar .inner {
+    max-width: 1180px; margin: 0 auto;
+    padding: 12px 48px;
+    display: flex; align-items: center; gap: 24px;
+  }
+  nav.topbar .repo-info {
+    display: flex; align-items: baseline; gap: 10px;
+    flex-shrink: 0;
+    font: 500 12px/1 var(--mono);
+  }
+  nav.topbar .repo-label { color: var(--dark-mut); font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase }
+  nav.topbar .repo-path { color: var(--dark-ink) }
+  nav.topbar .repo-sep  { color: var(--dark-mut); padding: 0 2px }
+  nav.topbar .repo-branch { color: var(--rb-on-dark); font-weight: 500 }
+
+  nav.topbar .nav-links {
+    flex: 1;
+    display: flex; gap: 26px; align-items: baseline;
+    justify-content: flex-end;
+    font: 500 11px/1 var(--mono);
+    letter-spacing: 0.16em; text-transform: uppercase;
+    overflow-x: auto; white-space: nowrap;
+  }
+  nav.topbar .nav-links a {
+    color: var(--dark-mut); text-decoration: none;
+    padding: 6px 0; border-bottom: 1px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  nav.topbar .nav-links a:hover { color: var(--dark-ink); border-bottom-color: var(--dark-ink-soft) }
+  nav.topbar .nav-links a.rel-link { color: var(--rb-on-dark) }
+  nav.topbar .nav-links a.rel-link:hover { border-bottom-color: var(--rb-on-dark) }
+  nav.topbar .nav-links a.docs-link { color: var(--dark-ink-soft) }
+  @media (max-width: 900px) {
+    nav.topbar .inner { padding: 10px 22px; gap: 16px; flex-wrap: wrap }
+    nav.topbar .nav-links { gap: 20px; justify-content: flex-start }
+  }
+
+  /* ---------- CHAPTER ---------- */
+  section.ch { padding: 68px 0 54px; border-bottom: 1px solid var(--rule); position: relative }
+  .chap-no { font: italic 300 54px/1 var(--display); color: var(--mut); margin: 0 0 8px }
+  h2.ch-h {
+    font: 400 clamp(30px, 4vw, 50px)/1.05 var(--display);
+    letter-spacing: -0.01em; margin: 0 0 10px; color: var(--ink);
+  }
+  h2.ch-h em { font-style: italic; color: var(--rb) }
+  .ch-sub { font: 400 17px/1.5 var(--sans); color: var(--mut); max-width: 720px; margin: 0 0 30px }
+  .ch-sub b { color: var(--mut-deep); font-weight: 600 }
+
+  h3.h3 {
+    font: 500 11px/1 var(--mono);
+    letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--mut); margin: 42px 0 14px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  h3.h3::before { content: ""; display: inline-block; width: 24px; height: 1px; background: var(--mut) }
+
+  p.body { max-width: 780px; margin: 0 0 16px; color: var(--ink-soft) }
+  p.body b { color: var(--ink); font-weight: 600 }
+  .lead-in { font-weight: 500; color: var(--ink) }
+
+  /* two-column story cards */
+  .cards2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 18px 0 8px }
+  @media (max-width: 820px) { .cards2 { grid-template-columns: 1fr } }
+  .card {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 5px;
+    padding: 20px 22px; border-top: 3px solid var(--mut);
+  }
+  .card.p1 { border-top-color: var(--rb) }
+  .card.p2 { border-top-color: var(--bc) }
+  .card .tag { font: 500 10px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--mut); margin-bottom: 8px }
+  .card h4 { font: 500 18px/1.25 var(--sans); margin: 0 0 6px; color: var(--ink) }
+  .card .who { font: 500 11px/1 var(--mono); color: var(--mut); margin: 0 0 12px }
+  .card p { margin: 0 0 10px; font-size: 14.5px; color: var(--ink-soft) }
+  .card p:last-child { margin-bottom: 0 }
+  .card b { color: var(--ink); font-weight: 600 }
+  .card ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--ink-soft) }
+  .card li { margin: 4px 0 }
+
+  /* ---------- TABLES ---------- */
+  .tbl-wrap { overflow-x: auto; margin: 4px 0 8px }
+  table.diff { width: 100%; border-collapse: collapse; margin: 4px 0 16px; font-size: 14px; min-width: 720px }
+  table.diff th, table.diff td {
+    text-align: left; vertical-align: top;
+    padding: 13px 14px 13px 0; border-bottom: 1px solid var(--rule-soft);
+  }
+  table.diff thead th {
+    font: 500 10px/1.2 var(--mono);
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--mut); padding-top: 0; padding-bottom: 12px;
+    border-bottom: 1px solid var(--ink-soft);
+  }
+  table.diff th.rb-h { color: var(--rb) }
+  table.diff th.bc-h { color: var(--bc) }
+  table.diff th.vr-h { color: var(--vr) }
+  table.diff th.rl-h { color: var(--rl) }
+  table.diff th.fs-h { color: var(--fs) }
+  table.diff td.dim { font: 500 13.5px/1.4 var(--sans); color: var(--ink); white-space: nowrap }
+  table.diff td.rb-c { background: rgba(47,125,79,0.045) }
+  table.diff td b { font-weight: 600 }
+  table.diff td .yes { color: var(--rb); font-weight: 600 }
+  table.diff td .no  { color: var(--tag-lose); font-weight: 600 }
+  table.diff td .part { color: var(--tag-near); font-weight: 600 }
+
+  /* ---------- PILLS ---------- */
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font: 500 9.5px/1 var(--mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 4px 8px; border-radius: 2px; margin: 0 4px 6px 0;
+    border: 1px solid; white-space: nowrap;
+  }
+  .pill.rb { color: var(--rb); border-color: rgba(47,125,79,0.5); background: rgba(47,125,79,0.06) }
+  .pill.bc { color: var(--bc); border-color: rgba(28,91,142,0.5); background: rgba(28,91,142,0.06) }
+  .pill.vr { color: var(--vr); border-color: rgba(142,60,95,0.5); background: rgba(142,60,95,0.06) }
+  .pill.rl { color: var(--rl); border-color: rgba(156,90,44,0.5); background: rgba(156,90,44,0.06) }
+  .pill.fs { color: var(--fs); border-color: rgba(109,58,158,0.5); background: rgba(109,58,158,0.06) }
+
+  .pull {
+    margin: 26px 0 4px; padding: 22px 26px;
+    background: var(--dark-panel); border-radius: 6px; color: var(--dark-ink-soft);
+    font: 400 17px/1.6 var(--display); font-style: italic;
+  }
+  .pull b { color: var(--dark-ink); font-weight: 400; font-style: normal }
+
+  /* ---------- ARCHITECTURE MAP (pinned hero + carousel) ---------- */
+  section.diagram { padding: 54px 0 54px; border-bottom: 1px solid var(--rule) }
+  .diag-wrap {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 24px 20px; margin: 16px 0 0; overflow-x: auto;
+    width: 100vw; max-width: 100vw; position: relative; left: 50%; margin-left: -50vw; margin-right: -50vw;
+  }
+  .flow-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 16px; max-width: 1100px; margin: 2px auto 16px; font: 400 10.5px/1 var(--sans); color: var(--ink-soft) }
+  .flow-legend .leg { display: inline-flex; align-items: center }
+  .flow-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; border: 1.5px solid; margin-right: 5px }
+
+  .flow-row { display: flex; align-items: stretch; width: 100%; margin: 4px 0 0; gap: 0; --colw: clamp(300px, 25vw, 380px) }
+  .flow-col { min-width: 0; padding: 0 16px }
+  .fc-h { font: 600 14px/1.25 var(--sans); text-align: center; padding-bottom: 4px; border-bottom: 2px solid; margin: 0 4px }
+  .fc-h.rb { color: var(--rb); border-color: var(--rb) }
+  .fc-h.bc { color: var(--bc); border-color: var(--bc) }
+  .fc-h.vr { color: var(--vr); border-color: var(--vr) }
+  .fc-h.rl { color: var(--rl); border-color: var(--rl) }
+  .fc-h.fs { color: var(--fs); border-color: var(--fs) }
+  .fc-sub { font: 400 9.5px/1.3 var(--mono); color: var(--mut); text-align: center; letter-spacing: .2px; margin: 3px 0 6px }
+
+  /* vertical pipe of expandable step nodes */
+  .pipe { display: flex; flex-direction: column; gap: 0; margin-top: 8px }
+  .pipe .step {
+    border: 1.3px solid var(--mut); border-radius: 7px; background: #fff; overflow: hidden; position: relative;
+  }
+  .pipe .step + .step { margin-top: 20px }
+  .pipe .step + .step::before {
+    content: "↓"; position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+    font-size: 14px; color: var(--mut); line-height: 1;
+  }
+  .pipe .step > summary {
+    cursor: pointer; list-style: none; padding: 9px 26px 9px 13px;
+    font: 600 12.5px/1.3 var(--sans); color: var(--ink); position: relative;
+  }
+  .pipe .step > summary::-webkit-details-marker { display: none }
+  .pipe .step > summary::after { content: "▸"; position: absolute; right: 11px; top: 10px; font-size: 11px; color: var(--mut); transition: transform .15s }
+  .pipe .step[open] > summary::after { transform: rotate(90deg) }
+  .pipe .step > summary .sub { display: block; font: 400 9.5px/1.35 var(--mono); color: var(--mut); margin-top: 3px; letter-spacing: .1px }
+  .pipe .step .nb { padding: 0 13px 11px; font-size: 11.5px; line-height: 1.55; color: var(--ink-soft) }
+  .pipe .step .nb b { color: var(--ink); font-weight: 600 }
+  .pipe .step .nb code { font: 10.5px/1.4 var(--mono); background: #f4f2ea; border: 1px solid #e0dac9; border-radius: 3px; padding: 0 3px }
+  .pipe .step.hot { border-style: dashed; background: #fbfdf9 }
+
+  /* pinned hero column (ours) */
+  .flow-pinned {
+    flex: 0 0 var(--colw); position: sticky; left: 0; z-index: 3;
+    background: var(--bg); padding: 0 18px;
+    border-right: 2.5px solid var(--rb); box-shadow: 10px 0 14px -10px rgba(47,125,79,.28);
+  }
+  .flow-pinned .fc-badge {
+    display: block; text-align: center; font: 500 8.5px/1 var(--mono);
+    letter-spacing: 1.4px; text-transform: uppercase; color: #fff;
+    background: var(--rb); border-radius: 3px; padding: 3px 0; margin: 0 4px 6px;
+  }
+  .flow-pinned .pipe .step { border-color: var(--rb) }
+  .flow-pinned .pipe .step + .step::before,
+  .flow-pinned .pipe .step > summary::after { color: var(--rb) }
+
+  /* the reference paradigms scroll in a carousel */
+  .flow-scroll {
+    flex: 1 1 auto; min-width: 0; display: flex; align-items: stretch;
+    overflow-x: auto; overflow-y: visible; scroll-snap-type: x proximity;
+    padding-bottom: 8px; scrollbar-color: #cabb9f #efece2;
+  }
+  .flow-scroll .flow-col { flex: 0 0 var(--colw); scroll-snap-align: start }
+  .flow-scroll .flow-col + .flow-col { border-left: 1.5px solid #cfcabb }
+  .flow-scroll::after { content: ''; flex: 0 0 max(0px, calc(100% - var(--colw))); align-self: stretch }
+  .flow-scroll::-webkit-scrollbar { height: 10px }
+  .flow-scroll::-webkit-scrollbar-track { background: #efece2; border-radius: 6px }
+  .flow-scroll::-webkit-scrollbar-thumb { background: #cabb9f; border-radius: 6px; border: 2px solid #efece2 }
+  .flow-scroll .flow-col:nth-child(1) .pipe .step { border-color: var(--bc) }
+  .flow-scroll .flow-col:nth-child(1) .pipe .step + .step::before,
+  .flow-scroll .flow-col:nth-child(1) .pipe .step > summary::after { color: var(--bc) }
+  .flow-scroll .flow-col:nth-child(2) .pipe .step { border-color: var(--vr) }
+  .flow-scroll .flow-col:nth-child(2) .pipe .step + .step::before,
+  .flow-scroll .flow-col:nth-child(2) .pipe .step > summary::after { color: var(--vr) }
+  .flow-scroll .flow-col:nth-child(3) .pipe .step { border-color: var(--rl) }
+  .flow-scroll .flow-col:nth-child(3) .pipe .step + .step::before,
+  .flow-scroll .flow-col:nth-child(3) .pipe .step > summary::after { color: var(--rl) }
+  .flow-scroll .flow-col:nth-child(4) .pipe .step { border-color: var(--fs) }
+  .flow-scroll .flow-col:nth-child(4) .pipe .step + .step::before,
+  .flow-scroll .flow-col:nth-child(4) .pipe .step > summary::after { color: var(--fs) }
+  .flow-hint { width: 100%; margin: 8px 0 0; text-align: right; font: 400 9.5px/1.4 var(--mono); letter-spacing: .3px; color: #a89e8b }
+  .flow-hint b { color: var(--rb) }
+  @media (max-width: 760px) {
+    .flow-row { flex-direction: column; --colw: 82vw }
+    .flow-pinned { position: static; flex: 0 0 auto; width: var(--colw); align-self: center;
+                   border-right: none; border-bottom: 2.5px solid var(--rb); box-shadow: none; padding: 0 0 14px }
+    .flow-hint { text-align: center }
+  }
+
+  /* ---------- RELATED WORK ---------- */
+  section.related { padding: 60px 0 54px; border-bottom: 1px solid var(--rule) }
+  .rel-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    padding: 14px 16px; margin: 6px 0 22px;
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+  }
+  .rel-toolbar .tb-label { font: 500 10px/1 var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--mut); margin-right: 2px }
+  .rel-chip {
+    font: 500 10.5px/1 var(--mono); letter-spacing: .04em;
+    padding: 6px 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--rule); background: #fff; color: var(--mut-deep);
+    transition: all .12s; user-select: none;
+  }
+  .rel-chip:hover { border-color: var(--mut) }
+  .rel-chip.active { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+  .rel-chip.cat[data-cat="dcrl"].active        { background: var(--rb); border-color: var(--rb) }
+  .rel-chip.cat[data-cat="human-video"].active { background: var(--bc); border-color: var(--bc) }
+  .rel-chip.cat[data-cat="video-reward"].active{ background: var(--vr); border-color: var(--vr) }
+  .rel-chip.cat[data-cat="tactile"].active     { background: var(--rl); border-color: var(--rl) }
+  .rel-chip.cat[data-cat="sim-sdg"].active      { background: var(--fs); border-color: var(--fs) }
+  .rel-chip.cat[data-cat="foundation"].active  { background: var(--mut-deep); border-color: var(--mut-deep) }
+  .rel-sort { margin-left: auto; display: flex; align-items: center; gap: 8px }
+  .rel-sort select { font: 500 11px/1 var(--mono); padding: 6px 8px; border: 1px solid var(--rule); border-radius: 5px; background: #fff; color: var(--ink-soft) }
+  .rel-reset { font: 500 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--mut); background: none; border: none; cursor: pointer; padding: 6px 4px }
+  .rel-reset:hover { color: var(--tag-lose) }
+
+  .rel-groups .rel-group-h {
+    font: 500 11px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--mut); margin: 28px 0 12px; display: flex; align-items: center; gap: 10px;
+  }
+  .rel-groups .rel-group-h .cnt { color: var(--mut); background: var(--rule-soft); border-radius: 999px; padding: 2px 8px; font-size: 10px }
+  .rel-groups .rel-group-h.pinned { color: var(--rb) }
+  .rel-list { display: grid; grid-template-columns: 1fr 1fr; gap: 14px }
+  @media (max-width: 860px) { .rel-list { grid-template-columns: 1fr } }
+
+  .work {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 16px 18px 14px; border-left: 3px solid var(--mut);
+    display: flex; flex-direction: column; gap: 8px; position: relative;
+  }
+  .work[data-cat="dcrl"]         { border-left-color: var(--rb) }
+  .work[data-cat="human-video"]  { border-left-color: var(--bc) }
+  .work[data-cat="video-reward"] { border-left-color: var(--vr) }
+  .work[data-cat="tactile"]      { border-left-color: var(--rl) }
+  .work[data-cat="sim-sdg"]      { border-left-color: var(--fs) }
+  .work[data-cat="foundation"]   { border-left-color: var(--mut-deep) }
+  .work.demoted { opacity: 0.72 }
+  .work .w-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px }
+  .work .w-cat { font: 500 9px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--mut) }
+  .work h4 { margin: 0; font: 500 15.5px/1.3 var(--sans); color: var(--ink) }
+  .work h4 a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule) }
+  .work h4 a:hover { border-bottom-color: var(--rb); color: var(--rb) }
+  .work .w-who { font: 500 10.5px/1.3 var(--mono); color: var(--mut) }
+  .work .w-desc { font-size: 13px; line-height: 1.5; color: var(--ink-soft); margin: 0 }
+  .work .w-find { font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); margin: 0;
+                  padding: 8px 10px; background: var(--rule-soft); border-radius: 4px }
+  .work .w-find b { color: var(--ink); font-weight: 600 }
+  .work .w-find .lbl { font: 500 8.5px/1 var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--mut); display: block; margin-bottom: 4px }
+  .work .w-ctl { display: flex; align-items: center; gap: 10px; margin-top: 2px; flex-wrap: wrap }
+  .work .stars { display: inline-flex; gap: 1px; cursor: pointer; font-size: 15px; line-height: 1 }
+  .work .stars .s { color: #d8d2c2; transition: color .1s }
+  .work .stars .s.on { color: #d6a516 }
+  .work .stars:hover .s { color: #e6ddc4 }
+  .work .stars .s:hover, .work .stars .s:hover ~ .s { color: #d6a516 }
+  .work .stars:hover .s:hover ~ .s { color: #e6ddc4 }
+  .work .w-btn {
+    font: 500 9.5px/1 var(--mono); letter-spacing: .06em;
+    border: 1px solid var(--rule); background: #fff; color: var(--mut-deep);
+    border-radius: 4px; padding: 5px 8px; cursor: pointer; transition: all .12s;
+  }
+  .work .w-btn:hover { border-color: var(--mut) }
+  .work .w-btn.on { background: var(--rb); color: #fff; border-color: var(--rb) }
+  .work .w-btn.demote:hover { color: var(--tag-lose); border-color: var(--tag-lose) }
+  .work .w-arxiv { margin-left: auto; font: 500 9.5px/1 var(--mono); color: var(--mut); text-decoration: none }
+  .work .w-arxiv:hover { color: var(--bc) }
+  .rel-empty { color: var(--mut); font-style: italic; padding: 10px 0 }
+  .rel-add-note { margin-top: 22px; font-size: 13px; color: var(--mut); line-height: 1.6 }
+  .rel-add-note code { font: 12px/1.4 var(--mono); background: var(--rule-soft); border-radius: 3px; padding: 1px 5px }
+
+  /* ---------- DOCS ---------- */
+  section.docs { padding: 60px 0 60px }
+  .docs-layout { display: grid; grid-template-columns: 260px 1fr; gap: 30px; margin-top: 18px }
+  @media (max-width: 860px) { .docs-layout { grid-template-columns: 1fr } }
+  .docs-sidebar { position: sticky; top: 70px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto }
+  .docs-sidebar .group-h { font: 500 10px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--mut); margin: 18px 0 8px }
+  .docs-sidebar ul { list-style: none; margin: 0 0 6px; padding: 0 }
+  .docs-sidebar a.doc-link {
+    display: block; text-decoration: none; padding: 8px 10px; border-left: 2px solid transparent;
+    color: var(--ink-soft); font-size: 13.5px; border-radius: 0 4px 4px 0; transition: all .12s;
+  }
+  .docs-sidebar a.doc-link code { font: 12px/1.3 var(--mono); color: var(--mut-deep) }
+  .docs-sidebar a.doc-link:hover { background: var(--rule-soft) }
+  .docs-sidebar a.doc-link.active { background: rgba(47,125,79,0.08); border-left-color: var(--rb) }
+  .docs-sidebar a.doc-link.active code { color: var(--rb) }
+  .docs-sidebar .doc-link-badge { display: inline-block; font: 500 8px/1 var(--mono); letter-spacing: 0.1em; color: var(--rb); border: 1px solid rgba(47,125,79,0.4); border-radius: 3px; padding: 2px 4px; margin-left: 6px; vertical-align: middle }
+  .docs-sidebar .doc-link-meta { display: block; font-size: 11px; color: var(--mut); margin-top: 3px; line-height: 1.4 }
+  .docs-pathbar { display: flex; align-items: center; gap: 10px; font: 500 11px/1 var(--mono); color: var(--mut); margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--rule) }
+  .docs-pathbar .raw-link { margin-left: auto; color: var(--mut); text-decoration: none; border: 1px solid var(--rule); border-radius: 4px; padding: 4px 8px }
+  .docs-pathbar .raw-link:hover { color: var(--bc); border-color: var(--bc) }
+  .docs-content { min-width: 0 }
+  .docs-content h1 { font: 400 30px/1.15 var(--display); color: var(--ink); margin: 4px 0 14px }
+  .docs-content h2 { font: 400 23px/1.2 var(--display); color: var(--ink); margin: 30px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--rule) }
+  .docs-content h3 { font: 500 12px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--mut); margin: 24px 0 10px }
+  .docs-content h4 { font: 600 15px/1.3 var(--sans); margin: 18px 0 8px }
+  .docs-content p { margin: 10px 0 14px; color: var(--ink-soft) }
+  .docs-content ul, .docs-content ol { margin: 10px 0 14px; padding-left: 22px; color: var(--ink-soft) }
+  .docs-content li { margin: 4px 0 }
+  .docs-content strong { font-weight: 600; color: var(--ink) }
+  .docs-content em { font-style: italic; color: var(--mut-deep) }
+  .docs-content a { color: var(--bc); text-decoration: none; border-bottom: 1px solid var(--rule) }
+  .docs-content a:hover { border-bottom-color: var(--bc) }
+  .docs-content blockquote { margin: 14px 0; padding: 6px 16px; border-left: 3px solid var(--rb); color: var(--mut-deep); font-style: italic }
+  .docs-content code { font: 12.5px/1.4 var(--mono); background: var(--rule-soft); border: 1px solid var(--rule); border-radius: 3px; padding: 1px 4px }
+  .docs-content pre { background: var(--dark-bg); color: var(--dark-ink); border-radius: 6px; padding: 14px 16px; overflow-x: auto; margin: 14px 0 }
+  .docs-content pre code { background: none; border: none; color: var(--dark-ink); padding: 0; font-size: 12.5px }
+  .docs-content table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px }
+  .docs-content th, .docs-content td { text-align: left; vertical-align: top; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--rule-soft) }
+  .docs-content th { font: 500 10px/1.2 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--mut) }
+  .docs-content hr { border: none; border-top: 1px solid var(--rule); margin: 26px 0 }
+  .docs-loading, .docs-error { color: var(--mut); font-style: italic; padding: 20px 0 }
+  .docs-error { color: var(--tag-lose) }
+
+  /* ---------- FOOTER ---------- */
+  .footer-band { background: var(--dark-bg); margin-top: 0 }
+  footer { max-width: 1180px; margin: 0 auto; padding: 26px 48px; display: flex; justify-content: space-between; align-items: center; gap: 16px;
+           color: var(--dark-mut); font-size: 13px; flex-wrap: wrap }
+  footer code { font: 12px/1.4 var(--mono); color: var(--dark-ink-soft) }
+  @media (max-width: 760px) { footer { padding: 22px } }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- TOP BAR                                                       -->
+<!-- ============================================================ -->
+<nav class="topbar">
+  <div class="inner">
+    <div class="repo-info">
+      <span class="repo-label">Repo</span>
+      <span class="repo-path" id="repo-path">users/shengzew/robot_baby</span>
+      <span class="repo-sep">·</span>
+      <span class="repo-branch" id="repo-branch">main</span>
+    </div>
+    <div class="nav-links">
+      <a href="#map">Map</a>
+      <a href="#why">① Motivation</a>
+      <a href="#framework">② Framework</a>
+      <a href="#roadmap">③ Roadmap</a>
+      <a href="#related" class="rel-link">★ Related Work</a>
+      <a href="#docs" class="docs-link">Docs</a>
+    </div>
+  </div>
+</nav>
+
+<div class="frame">
+
+<!-- ============================================================ -->
+<!-- COVER                                                        -->
+<!-- ============================================================ -->
+<header class="cover">
+  <p class="eyebrow">Human-like robot learning &nbsp;·&nbsp; NVIDIA Research &nbsp;·&nbsp; project brief · 2026·07</p>
+  <h1 class="title">Robot&nbsp;<em>Baby</em></h1>
+  <p class="lede">Teach a robot the way a child learns: <b>watch a third-person video, then figure out the rest by doing.</b> No teleoperation, no hand-labeled 2D/3D trajectories, no per-object 3D reconstruction, no physically-solved contact. Just two signals — <b>demonstration</b> and <b>reinforcement</b> — the same two that carry almost all of human and animal skill acquisition.</p>
+
+  <div class="note">
+    <div class="k">The pitch — in one paragraph</div>
+    <span>Today's robot-learning data pipeline is <b>too expensive</b>: it wants accurate 2D/3D trajectories, dense 3D reconstruction, and physically-correct contact and forces before a policy can learn anything. Humans need none of that. Hands-on teaching is <b>rare</b> for people and <b>almost never</b> how animals learn — they rely on (1) <b>demonstration</b>: imitate what a capable adult is doing, and (2) <b>reinforcement</b>: adjust from the actual situation until they reach a similar goal. <b>Robot Baby</b> builds exactly this: a robot that <b>imitates a third-person demonstration video</b> and reaches <b>similar task success through RL</b> in a physically-rich simulator — for <b>vision-tactile</b> manipulation.</span>
+  </div>
+
+  <div class="note">
+    <div class="k">Two parts · one framework</div>
+    <span><b>Part 1 — SDG engine (Shengze).</b> A <b>Newton / Isaac Sim</b>-based synthetic-data-generation engine: physically-enriched 3D assets arranged like real human environments (via <b>REST3D</b>-style simulation-ready reconstruction), giving demonstration-conditioned RL an unlimited, contact-rich playground. &nbsp;<b>Part 2 — Demonstration-conditioned RL (Hongru &amp; Shengze).</b> A vision-tactile policy <b>conditioned on a third-person demo video</b> that closes the gap to the demonstrated goal through reinforcement — improving on imperfect demos and coping with the human→robot embodiment gap.</span>
+  </div>
+
+  <div class="strip">
+    <div class="cell">
+      <div class="k">Part 1 — SDG engine</div>
+      <div class="v"><span class="rb">Newton · Isaac Sim</span><br><code>REST3D assets · human-arranged scenes</code></div>
+    </div>
+    <div class="cell">
+      <div class="k">Part 2 — the policy</div>
+      <div class="v"><span class="rb">Demo-conditioned RL</span><br><code>vision + tactile · 3rd-person video</code></div>
+    </div>
+    <div class="cell">
+      <div class="k">Status</div>
+      <div class="v">Project bring-up<br><code>scaffolding · scoping · lit review</code></div>
+    </div>
+    <div class="cell">
+      <div class="k">The two signals we rely on</div>
+      <div class="v" style="margin-top:4px">
+        <span class="pill rb">▶ Demonstration</span>
+        <span class="pill rl">↻ Reinforcement</span>
+        <span class="pill fs">✕ No teleop</span>
+        <span class="pill vr">✕ No 3D recon</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+
+<!-- ============================================================ -->
+<!-- ARCHITECTURE MAP                                             -->
+<!-- ============================================================ -->
+<section class="diagram" id="map">
+  <div class="chap-no">⌖</div>
+  <h2 class="ch-h">Paradigm <em>map</em></h2>
+  <p class="ch-sub">How skill is acquired, pipeline by pipeline (click any step to expand). <b>Pinned at the left: ours — <b style="color:#2f7d4f">Robot Baby</b>, demonstration-conditioned RL.</b> The reference paradigms scroll in the carousel beside it — each one is either <b>too expensive to curate</b> or <b>can't watch a third-person video</b>. Slide any of them flush against ours to compare.</p>
+
+  <div class="diag-wrap">
+    <div class="flow-legend">
+      <span class="leg"><i style="background:#eaf3ee;border-color:#2f7d4f"></i>ours · demo-conditioned RL</span>
+      <span class="leg"><i style="background:#e6eff5;border-color:#1c5b8e"></i>teleop → BC</span>
+      <span class="leg"><i style="background:#f6e9ef;border-color:#8e3c5f"></i>video-recon imitation</span>
+      <span class="leg"><i style="background:#f6ede2;border-color:#9c5a2c"></i>pure RL</span>
+      <span class="leg"><i style="background:#f0eaf6;border-color:#6d3a9e"></i>prior demo-conditioned</span>
+      <span class="leg"><i style="background:#fbfdf9;border-color:#2f7d4f;border-style:dashed"></i>cheap signal we keep</span>
+    </div>
+
+    <div class="flow-row">
+      <!-- ===================== PINNED: OURS ===================== -->
+      <div class="flow-col flow-pinned">
+        <div class="fc-badge">Ours · new · in bring-up</div>
+        <div class="fc-h rb">Robot Baby</div>
+        <div class="fc-sub">demonstration-conditioned RL · vision+tactile</div>
+        <div class="pipe">
+          <details class="step hot" open>
+            <summary>Third-person demo video<span class="sub">any adult / human / another robot</span></summary>
+            <div class="nb"><p>A single (or few) <b>third-person RGB video</b> of the task being done. <b>No</b> action labels, <b>no</b> 2D/3D hand-object trajectory, <b>no</b> per-frame 3D reconstruction, <b>no</b> solved contact forces. The demo defines <em>what</em> success looks like, not <em>how</em> to move.</p></div>
+          </details>
+          <details class="step">
+            <summary>Demo encoder → goal / intent<span class="sub">viewpoint- &amp; embodiment-invariant</span></summary>
+            <div class="nb"><p>Encode the demo into a <b>conditioning vector / goal</b> the policy can consume — leaning on video representations that are invariant to viewpoint and to the human↔robot embodiment gap. This is the demo-conditioning that replaces the expensive recon pipeline.</p></div>
+          </details>
+          <details class="step hot">
+            <summary>Demo-conditioned policy π(a | obs, demo)<span class="sub">vision + tactile observation</span></summary>
+            <div class="nb"><p>A policy that takes the <b>current vision + tactile observation</b> and the <b>demo conditioning</b>, and outputs actions. Tactile is first-class: contact is where imitation-from-video is blindest, so touch closes the loop.</p></div>
+          </details>
+          <details class="step hot">
+            <summary>RL in the SDG playground<span class="sub">Newton / Isaac · REST3D scenes</span></summary>
+            <div class="nb"><p>Roll out in <b>Part-1's physically-enriched simulator</b> (Newton/Isaac, human-arranged REST3D scenes). Reinforcement <b>closes the gap</b> to the demonstrated goal — improving on suboptimal demos and absorbing the embodiment shift.</p></div>
+          </details>
+          <details class="step">
+            <summary>Reward = similarity to demonstrated goal<span class="sub">video/goal-based, not hand-shaped</span></summary>
+            <div class="nb"><p>Reward derives from <b>reaching a similar outcome to the demo</b> (goal/video similarity, task success), not from a hand-engineered dense reward per task. The demo supplies the objective.</p></div>
+          </details>
+          <details class="step">
+            <summary>Task success · sim-to-real<span class="sub">domain randomization</span></summary>
+            <div class="nb"><p>Evaluate on <b>similar task success</b> to the adult demonstrator; transfer to hardware via domain randomization over the SDG distribution.</p></div>
+          </details>
+        </div>
+      </div>
+
+      <!-- ===================== CAROUSEL: REFERENCES ===================== -->
+      <div class="flow-scroll">
+
+        <!-- A: Teleop → BC -->
+        <div class="flow-col">
+          <div class="fc-h bc">Teleop → Behavior Cloning</div>
+          <div class="fc-sub">ALOHA · DROID · OXE · RT-2 · π0 · GR00T</div>
+          <div class="pipe">
+            <details class="step"><summary>Human teleoperates the robot<span class="sub">the expensive part</span></summary><div class="nb"><p><b>Hands-on teaching at scale</b> — exactly the signal humans almost never need. Puppeteering, VR, or lead-through, hours per skill.</p></div></details>
+            <details class="step"><summary>Collect (obs → action) pairs<span class="sub">on-embodiment, action-labeled</span></summary><div class="nb"><p>Every frame carries a ground-truth robot action. Data is <b>on the target embodiment</b>, so no embodiment gap — but no third-person video either.</p></div></details>
+            <details class="step"><summary>Supervised behavior cloning<span class="sub">diffusion / VLA head</span></summary><div class="nb"><p>Fit π(a|obs) by regression. Strong when data is plentiful; brittle off-distribution.</p></div></details>
+            <details class="step"><summary>No online adaptation<span class="sub">no reward, no RL</span></summary><div class="nb"><p>Cannot improve past the demonstrations; failures require <b>more teleop</b>. This is the cost curve we reject.</p></div></details>
+          </div>
+        </div>
+
+        <!-- B: Video-recon imitation -->
+        <div class="flow-col">
+          <div class="fc-h vr">Video-Recon Imitation</div>
+          <div class="fc-sub">DexMV · hand-object recon → retarget</div>
+          <div class="pipe">
+            <details class="step"><summary>Human video<span class="sub">third-person / egocentric</span></summary><div class="nb"><p>Starts from video, like us — but then pays a heavy curation tax to make it usable.</p></div></details>
+            <details class="step"><summary>2D/3D hand-object pose + 3D recon<span class="sub">the expensive tax</span></summary><div class="nb"><p>Estimate accurate <b>2D/3D trajectories</b>, reconstruct hand and object in 3D. Fragile, compute-heavy, error-prone under occlusion.</p></div></details>
+            <details class="step"><summary>Retarget + physically correct contact<span class="sub">forces, penetration, stability</span></summary><div class="nb"><p>Retarget to the robot and <b>solve contact/forces</b> so the trajectory is physical. This whole stage is what makes the pipeline <b>too expensive</b>.</p></div></details>
+            <details class="step"><summary>Imitate the reconstructed trajectory<span class="sub">± demo-augmented RL</span></summary><div class="nb"><p>Only now can a policy learn. Quality is capped by recon accuracy; every new object restarts the tax.</p></div></details>
+          </div>
+        </div>
+
+        <!-- C: Pure RL -->
+        <div class="flow-col">
+          <div class="fc-h rl">Pure RL / Reward Engineering</div>
+          <div class="fc-sub">from scratch in sim → sim-to-real</div>
+          <div class="pipe">
+            <details class="step"><summary>Hand-designed reward<span class="sub">per task, per objective</span></summary><div class="nb"><p>An expert crafts a dense reward. Reward design is its own research problem and doesn't scale to open task sets.</p></div></details>
+            <details class="step"><summary>RL from scratch<span class="sub">no demonstration prior</span></summary><div class="nb"><p>Explore from zero. <b>Sample-inefficient</b>; hard-exploration and long-horizon tasks stall without a demo to seed behavior.</p></div></details>
+            <details class="step"><summary>Sim-to-real<span class="sub">domain randomization</span></summary><div class="nb"><p>Transfers well when it converges — but the reward-design and exploration cost is the bottleneck, not the sim.</p></div></details>
+          </div>
+        </div>
+
+        <!-- D: Prior demonstration-conditioned / few-shot -->
+        <div class="flow-col">
+          <div class="fc-h fs">Prior Demo-Conditioned RL</div>
+          <div class="fc-sub">DCRL · One-Shot IL · DemoStart</div>
+          <div class="pipe">
+            <details class="step"><summary>Demonstrations as policy input<span class="sub">the right idea</span></summary><div class="nb"><p><b>Closest prior art.</b> Condition the policy on demos and train across tasks (DCRL, Dance 2021) — the framing we adopt and scale.</p></div></details>
+            <details class="step"><summary>RL / auto-curriculum over tasks<span class="sub">reward at train time</span></summary><div class="nb"><p>Improves on suboptimal demos; can use state-only demos and cope with domain shift (DCRL). DemoStart adds a sim auto-curriculum, 100× fewer demos.</p></div></details>
+            <details class="step"><summary>Mostly state-based / low-DoF<span class="sub">the gap we fill</span></summary><div class="nb"><p>Prior work is largely <b>state demonstrations, simple embodiments, no touch</b>. We push to <b>third-person video demos</b>, <b>vision+tactile</b>, human-arranged scenes.</p></div></details>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="flow-hint">◂ scroll the reference paradigms · every one either over-curates data or can't watch a third-person video &nbsp;·&nbsp; <b>ours keeps only the two cheap signals</b></div>
+  </div>
+</section>
+
+
+<!-- ============================================================ -->
+<!-- ① MOTIVATION                                                 -->
+<!-- ============================================================ -->
+<section class="ch" id="why">
+  <div class="chap-no">01</div>
+  <h2 class="ch-h">The <em>motivation</em></h2>
+  <p class="ch-sub">Why the current pipeline is the wrong cost curve — and what nature does instead.</p>
+
+  <p class="body"><span class="lead-in">The expensive status quo.</span> To make a robot learn a manipulation skill from human video today, the community first turns the video into something a controller can consume: <b>accurate 2D and 3D trajectories</b>, often a <b>dense 3D reconstruction</b> of hand and objects, then a <b>physically-correct pass</b> for contact, forces, and stability so the retargeted motion is executable. Each of these stages is fragile, compute-heavy, and object-specific — and the resulting policy quality is capped by the weakest link in the recon chain. Teleoperation avoids recon but replaces it with an even scarcer resource: <b>human hands-on time</b>, one skill at a time.</p>
+
+  <p class="body"><span class="lead-in">Nature disagrees.</span> A child does not receive labeled trajectories, and no one solves contact forces for them. Hands-on teaching — physically guiding a learner's limbs — is <b>rare</b> for humans and <b>almost absent</b> in animals. Skill instead flows through two channels: <b>demonstration</b> (watch a capable adult and imitate the intent) and <b>reinforcement</b> (try it, feel the outcome, adjust toward a similar goal). The demonstration is <b>third-person</b> and approximate; the correction comes from <b>acting in the world</b>, not from a pre-solved plan.</p>
+
+  <div class="pull"><p><b>Robot Baby's bet:</b> if two signals — third-person demonstration and reinforcement — are enough for a child, they are enough for a robot. Everything the expensive pipeline computes (trajectories, recon, contact) is either unnecessary or something the robot should <b>discover through its own interaction</b> in a rich enough simulator.</p></div>
+
+  <h3 class="h3">What we deliberately drop — and what we keep</h3>
+  <div class="cards2">
+    <div class="card p2">
+      <div class="tag">Drop — the curation tax</div>
+      <h4>No recon, no teleop, no solved contact</h4>
+      <ul>
+        <li>No accurate 2D/3D hand-object trajectory extraction.</li>
+        <li>No per-object dense 3D reconstruction of the demo.</li>
+        <li>No physically-correct contact/force solving of the demo motion.</li>
+        <li>No teleoperated, action-labeled data collection.</li>
+        <li>No per-task hand-engineered dense reward.</li>
+      </ul>
+    </div>
+    <div class="card p1">
+      <div class="tag">Keep — the two cheap signals</div>
+      <h4>Third-person demonstration + reinforcement</h4>
+      <ul>
+        <li><b>Demonstration:</b> an approximate third-person video of the goal being achieved.</li>
+        <li><b>Reinforcement:</b> the robot acts, observes vision+tactile outcome, and adjusts.</li>
+        <li><b>Contact is learned, not solved</b> — discovered through interaction, sensed by touch.</li>
+        <li><b>Reward = similarity to the demonstrated outcome</b>, not a bespoke reward.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================ -->
+<!-- ② FRAMEWORK                                                  -->
+<!-- ============================================================ -->
+<section class="ch" id="framework">
+  <div class="chap-no">02</div>
+  <h2 class="ch-h">The <em>framework</em></h2>
+  <p class="ch-sub">Two parts that feed each other: a synthetic-data engine that manufactures the world, and a demonstration-conditioned RL learner that lives in it.</p>
+
+  <div class="cards2">
+    <div class="card p1">
+      <div class="tag">Part 1 · SDG engine</div>
+      <h4>Newton / Isaac Sim world factory</h4>
+      <div class="who">owner: Shengze</div>
+      <p>A synthetic-data-generation engine that builds <b>physically-enriched 3D scenes arranged like real human environments</b> — kitchens, desks, workbenches — where every object is simulation-ready and contact-rich.</p>
+      <p><b>Assets:</b> <b>REST3D</b>-style reconstruction turns casual images into physically-stable, penetration-free, sim-ready 3D assets, then arranges them into human-plausible layouts.</p>
+      <p><b>Physics:</b> <b>Newton</b> (GPU physics on Warp + OpenUSD) and <b>Isaac Sim / Isaac Lab</b> give massively-parallel, contact-accurate rollouts — the playground where reinforcement actually happens.</p>
+      <p><b>Output:</b> unlimited randomized episodes with vision + tactile signals, ready for Part 2.</p>
+    </div>
+    <div class="card p2">
+      <div class="tag">Part 2 · the learner</div>
+      <h4>Demonstration-conditioned RL</h4>
+      <div class="who">owners: Hongru &amp; Shengze</div>
+      <p>A <b>vision-tactile policy conditioned on a third-person demo video</b>. The demo sets the goal; reinforcement in Part-1's world closes the gap to it.</p>
+      <p><b>Conditioning:</b> encode the demo into a viewpoint- and embodiment-invariant goal/intent the policy consumes at every step.</p>
+      <p><b>Learning:</b> RL improves on <b>suboptimal demos</b>, absorbs the <b>human→robot embodiment gap</b>, and learns contact through touch rather than from a solved plan.</p>
+      <p><b>Reward:</b> similarity to the demonstrated outcome — video/goal-based, not hand-shaped per task.</p>
+    </div>
+  </div>
+
+  <h3 class="h3">Paradigm comparison — signals &amp; assumptions</h3>
+  <div class="tbl-wrap">
+  <table class="diff">
+    <colgroup><col style="width:20%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:16%"></colgroup>
+    <thead>
+      <tr>
+        <th>Dimension</th>
+        <th class="bc-h">Teleop → BC</th>
+        <th class="vr-h">Video-recon imit.</th>
+        <th class="rl-h">Pure RL</th>
+        <th class="fs-h">Prior DCRL</th>
+        <th class="rb-h">Ours · Robot Baby</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="dim">Demo source</td>
+        <td>on-robot teleop</td>
+        <td>human video</td>
+        <td><span class="no">none</span></td>
+        <td>state / on-robot demos</td>
+        <td class="rb-c"><b>3rd-person video</b></td>
+      </tr>
+      <tr>
+        <td class="dim">Needs 2D/3D trajectory</td>
+        <td><span class="yes">no</span> (actions given)</td>
+        <td><span class="no">yes — accurate</span></td>
+        <td><span class="yes">no</span></td>
+        <td>partial (states)</td>
+        <td class="rb-c"><span class="yes">no</span></td>
+      </tr>
+      <tr>
+        <td class="dim">Needs 3D recon of demo</td>
+        <td><span class="yes">no</span></td>
+        <td><span class="no">yes</span></td>
+        <td><span class="yes">no</span></td>
+        <td><span class="yes">no</span></td>
+        <td class="rb-c"><span class="yes">no</span></td>
+      </tr>
+      <tr>
+        <td class="dim">Needs solved contact/forces</td>
+        <td><span class="yes">no</span></td>
+        <td><span class="no">yes</span></td>
+        <td><span class="yes">no</span></td>
+        <td><span class="yes">no</span></td>
+        <td class="rb-c"><span class="yes">no</span> — learned by touch</td>
+      </tr>
+      <tr>
+        <td class="dim">Online adaptation (RL)</td>
+        <td><span class="no">no</span></td>
+        <td class="part">sometimes</td>
+        <td><span class="yes">yes</span></td>
+        <td><span class="yes">yes</span></td>
+        <td class="rb-c"><span class="yes">yes</span></td>
+      </tr>
+      <tr>
+        <td class="dim">Reward</td>
+        <td>—</td>
+        <td>track trajectory</td>
+        <td><span class="no">hand-designed</span></td>
+        <td>task reward @train</td>
+        <td class="rb-c"><b>demo similarity</b></td>
+      </tr>
+      <tr>
+        <td class="dim">Vision + tactile</td>
+        <td class="part">vision-first</td>
+        <td class="part">vision-first</td>
+        <td class="part">varies</td>
+        <td class="part">mostly state</td>
+        <td class="rb-c"><span class="yes">both, first-class</span></td>
+      </tr>
+      <tr>
+        <td class="dim">Improves on bad demos</td>
+        <td><span class="no">no</span></td>
+        <td><span class="no">no</span></td>
+        <td>n/a</td>
+        <td><span class="yes">yes</span></td>
+        <td class="rb-c"><span class="yes">yes</span></td>
+      </tr>
+      <tr>
+        <td class="dim">Per-skill human cost</td>
+        <td><span class="no">high (teleop hrs)</span></td>
+        <td><span class="no">high (recon)</span></td>
+        <td><span class="no">high (reward design)</span></td>
+        <td>medium</td>
+        <td class="rb-c"><span class="yes">low (one video)</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="pull"><p>Every reference column pays a tax we refuse: teleop pays in <b>human hours</b>, video-recon pays in <b>reconstruction and contact-solving</b>, pure RL pays in <b>reward engineering</b>. Prior demo-conditioned RL has the right idea but stops at <b>state demos and simple embodiments</b>. Robot Baby keeps <b>one third-person video + reinforcement</b>, and pushes the idea to <b>vision-tactile manipulation in human-arranged worlds</b>.</p></div>
+</section>
+
+
+<!-- ============================================================ -->
+<!-- ③ ROADMAP                                                    -->
+<!-- ============================================================ -->
+<section class="ch" id="roadmap">
+  <div class="chap-no">03</div>
+  <h2 class="ch-h">The <em>roadmap</em></h2>
+  <p class="ch-sub">Where we are (bring-up) and the ordered path to a first demonstration-conditioned, vision-tactile RL result. The living version is <code>TODOs.md</code> in the Docs tab.</p>
+
+  <h3 class="h3">Part 1 — SDG engine (Shengze)</h3>
+  <ol class="body" style="max-width:820px">
+    <li><b>Stand up Newton + Isaac Lab</b> on the cluster; parallel-rollout smoke test with vision + tactile sensors wired.</li>
+    <li><b>REST3D asset path:</b> reconstruct a first batch of physically-stable, sim-ready assets and validate no float/penetration under simulation.</li>
+    <li><b>Human-arranged scene sampler:</b> procedurally place REST3D assets into plausible human layouts (kitchen/desk/workbench) with randomization.</li>
+    <li><b>Episode + sensor API:</b> emit randomized episodes carrying synchronized RGB, depth, proprioception, and <b>tactile</b> streams for Part 2.</li>
+  </ol>
+
+  <h3 class="h3">Part 2 — demonstration-conditioned RL (Hongru &amp; Shengze)</h3>
+  <ol class="body" style="max-width:820px">
+    <li><b>Demo encoder:</b> choose/adapt a viewpoint- &amp; embodiment-invariant video representation for third-person conditioning (survey in Related Work).</li>
+    <li><b>Reward from demo:</b> define demo-similarity reward (goal/video-based) that needs no per-task shaping.</li>
+    <li><b>Demo-conditioned policy:</b> π(a | vision, tactile, demo) trained with RL in the Part-1 world; verify it beats a demo-free RL baseline and improves on suboptimal demos.</li>
+    <li><b>Embodiment gap:</b> quantify human→robot transfer; ablate tactile vs. vision-only on contact-rich tasks.</li>
+    <li><b>Sim-to-real:</b> domain-randomized transfer of a first skill to hardware.</li>
+  </ol>
+
+  <h3 class="h3">Story milestones (for the community &amp; NVIDIA)</h3>
+  <ol class="body" style="max-width:820px">
+    <li><b>M1:</b> "one third-person video → sim task success" on a single contact-rich task, no recon anywhere in the loop.</li>
+    <li><b>M2:</b> tactile ablation showing touch closes the contact gap that vision-only imitation cannot.</li>
+    <li><b>M3:</b> generalization across REST3D-arranged scenes from a single demo.</li>
+    <li><b>M4:</b> sim-to-real transfer of the demonstration-conditioned policy.</li>
+  </ol>
+</section>
+
+
+<!-- ============================================================ -->
+<!-- RELATED WORK  (interactive tab)                              -->
+<!-- ============================================================ -->
+<section class="ch related" id="related">
+  <div class="chap-no">★</div>
+  <h2 class="ch-h">Related <em>work</em></h2>
+  <p class="ch-sub">A living map of the literature. <b>Star</b> to rank, <b>pin</b> to float to the top, or <b>demote</b> to <em>Less related</em>. Your ranking is saved in this browser (<code>localStorage</code>) — curate freely; we keep adding papers as we go.</p>
+
+  <div class="rel-toolbar" id="rel-toolbar">
+    <span class="tb-label">Filter</span>
+    <span class="rel-chip cat active" data-cat="all">All</span>
+    <span class="rel-chip cat" data-cat="dcrl">Demo-conditioned RL</span>
+    <span class="rel-chip cat" data-cat="human-video">Human / 3rd-person video</span>
+    <span class="rel-chip cat" data-cat="video-reward">Video → reward</span>
+    <span class="rel-chip cat" data-cat="tactile">Vision-tactile</span>
+    <span class="rel-chip cat" data-cat="sim-sdg">Sim / SDG / scenes</span>
+    <span class="rel-chip cat" data-cat="foundation">Foundation / world models</span>
+    <span class="rel-sort">
+      <label class="tb-label" for="rel-sortsel">Sort</label>
+      <select id="rel-sortsel">
+        <option value="pin-star">Pinned, then ★</option>
+        <option value="star">★ rating</option>
+        <option value="cat">Category</option>
+        <option value="title">Title A–Z</option>
+      </select>
+      <button class="rel-reset" id="rel-reset" title="Clear stars / pins / demotions saved in this browser">Reset</button>
+    </span>
+  </div>
+
+  <div class="rel-groups" id="rel-groups"><!-- rendered by JS --></div>
+
+  <p class="rel-add-note">To add a paper, append an entry to the <code>WORKS</code> array in <code>index.html</code> (fields: <code>id</code>, <code>title</code>, <code>authors</code>, <code>venue</code>, <code>year</code>, <code>url</code>, <code>cat</code>, <code>desc</code>, <code>finding</code>, <code>star</code>). Or drop notes in <code>related_works.md</code> (Docs tab) and we'll fold them in.</p>
+</section>
+
+
+<!-- ============================================================ -->
+<!-- DOCS                                                         -->
+<!-- ============================================================ -->
+<section class="ch docs" id="docs">
+  <div class="chap-no">¶</div>
+  <h2 class="ch-h"><em>Docs &amp; plan</em></h2>
+  <p class="ch-sub">All project markdown, rendered in place. <code>TODOs.md</code> is the active plan and opens by default.</p>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="group-h">Plan &amp; story</div>
+      <ul>
+        <li><a href="#" class="doc-link active" data-file="TODOs.md"><code>TODOs.md</code><span class="doc-link-badge">PLAN</span><span class="doc-link-meta">Active roadmap &amp; task list</span></a></li>
+        <li><a href="#" class="doc-link" data-file="overview.md"><code>overview.md</code><span class="doc-link-meta">The pitch / core story, long form (mirrors ../context.md)</span></a></li>
+      </ul>
+      <div class="group-h">Architecture</div>
+      <ul>
+        <li><a href="#" class="doc-link" data-file="architecture_sdg_engine.md"><code>architecture_sdg_engine.md</code><span class="doc-link-meta">Part 1 — Newton/Isaac SDG · REST3D assets</span></a></li>
+        <li><a href="#" class="doc-link" data-file="architecture_dcrl.md"><code>architecture_dcrl.md</code><span class="doc-link-meta">Part 2 — demonstration-conditioned RL</span></a></li>
+      </ul>
+      <div class="group-h">Reference</div>
+      <ul>
+        <li><a href="#" class="doc-link" data-file="related_works.md"><code>related_works.md</code><span class="doc-link-meta">Literature notes (mirror of the tab)</span></a></li>
+        <li><a href="#" class="doc-link" data-file="experiment_context.md"><code>experiment_context.md</code><span class="doc-link-meta">Paths, tools, infra quick-reference</span></a></li>
+      </ul>
+    </aside>
+
+    <div class="docs-main">
+      <div class="docs-pathbar"><span id="docs-pathbar-text">TODOs.md</span><a class="raw-link" id="docs-raw-link" href="TODOs.md" target="_blank" rel="noopener">raw ↗</a></div>
+      <div class="docs-content" id="docs-content"><div class="docs-loading">Loading&hellip;</div></div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /frame -->
+
+<div class="footer-band">
+  <footer>
+    <span>Project brief · Robot Baby — human-like learning for vision-tactile robots.</span>
+    <code>claude_context/index.html</code>
+  </footer>
+</div>
+
+<!-- ============================================================ -->
+<!-- RELATED-WORK DATA + INTERACTIVITY                            -->
+<!-- ============================================================ -->
+<script>
+/* Seed literature. cat ∈ dcrl | human-video | video-reward | tactile | sim-sdg | foundation.
+   star = default 1–5 relevance. Users override star/pin/demote locally (persisted). */
+var WORKS = [
+  { id:'dcrl21', cat:'dcrl', star:5,
+    title:'Demonstration-Conditioned Reinforcement Learning for Few-Shot Imitation',
+    authors:'Dance, Perez, Cachet (NAVER LABS Europe)', venue:'ICML', year:2021,
+    url:'https://proceedings.mlr.press/v139/dance21a.html',
+    desc:'The namesake formulation: a policy takes demonstrations as input and is trained to maximize reward across a distribution of tasks.',
+    finding:'Unlike BC/IRL few-shot methods, DCRL can improve on suboptimal demos, use state-only demonstrations, and cope with domain shift between demonstrator and agent — precisely our three needs.' },
+  { id:'demostart', cat:'dcrl', star:5,
+    title:'DemoStart: Demonstration-led Auto-Curriculum for Sim-to-Real Dexterity',
+    authors:'Google DeepMind', venue:'arXiv', year:2024,
+    url:'https://arxiv.org/abs/2409.06613',
+    desc:'Sparse reward + a handful of sim demonstrations drive an auto-curriculum on a multi-fingered hand.',
+    finding:'98%+ sim success with ~100× fewer demos than real-world collection, and zero-shot sim-to-real via domain randomization — a template for the RL half in our SDG world.' },
+  { id:'dapg', cat:'dcrl', star:4,
+    title:'Learning Complex Dexterous Manipulation with Deep RL and Demonstrations (DAPG)',
+    authors:'Rajeswaran et al.', venue:'RSS', year:2018,
+    url:'https://arxiv.org/abs/1709.10087',
+    desc:'Demo-augmented policy gradient: a few demos shape RL for high-DoF hands.',
+    finding:'A handful of demonstrations cuts dexterous-manipulation RL sample complexity by orders of magnitude — evidence that demo + RL beats either alone.' },
+  { id:'oneshot', cat:'dcrl', star:4,
+    title:'One-Shot Imitation Learning',
+    authors:'Duan et al.', venue:'NeurIPS', year:2017,
+    url:'https://arxiv.org/abs/1703.07326',
+    desc:'A single demonstration conditions a policy (via attention over the demo) to solve a new task instance.',
+    finding:'Early proof that conditioning-on-demo generalizes to unseen instances of a task family — the conditioning primitive we scale to video.' },
+  { id:'rlpd', cat:'dcrl', star:3,
+    title:'Efficient Online RL with Offline Data (RLPD)',
+    authors:'Ball, Smith, Kostrikov, Levine', venue:'ICML', year:2023,
+    url:'https://arxiv.org/abs/2302.02948',
+    desc:'Symmetric sampling of prior (demo/offline) and online data with a simple off-policy backbone.',
+    finding:'A robust recipe to fold demonstrations into online RL without pre-training — a candidate optimizer for the demo-conditioned RL loop.' },
+
+  { id:'thirdperson', cat:'human-video', star:4,
+    title:'Third-Person Imitation Learning',
+    authors:'Stadie, Abbeel, Sutskever', venue:'ICLR', year:2017,
+    url:'https://arxiv.org/abs/1703.01703',
+    desc:'Domain-adversarial features let an agent imitate from third-person observations without action labels.',
+    finding:'Foundational for our core premise: learn from a third-person viewpoint, not a first-person on-robot recording.' },
+  { id:'tcn', cat:'human-video', star:4,
+    title:'Time-Contrastive Networks (TCN): Self-Supervised Learning from Video',
+    authors:'Sermanet et al.', venue:'ICRA', year:2018,
+    url:'https://arxiv.org/abs/1704.06888',
+    desc:'Self-supervised, viewpoint-invariant embeddings from multi-view video, usable as an imitation reward.',
+    finding:'Viewpoint-invariant time-contrastive embeddings are a concrete demo-encoder + reward candidate for third-person conditioning.' },
+  { id:'dexmv', cat:'human-video', star:4,
+    title:'DexMV: Imitation Learning for Dexterous Manipulation from Human Videos',
+    authors:'Qin et al.', venue:'ECCV', year:2022,
+    url:'https://arxiv.org/abs/2108.05877',
+    desc:'Human hand video → 3D hand-object pose → retarget → demo-augmented RL for a dexterous hand.',
+    finding:'A clean exemplar of the expensive recon-then-retarget path we explicitly avoid — useful as the baseline/foil for our no-recon claim.' },
+  { id:'mimicplay', cat:'human-video', star:4,
+    title:'MimicPlay: Long-Horizon Imitation by Watching Human Play',
+    authors:'Wang et al.', venue:'CoRL (best paper)', year:2023,
+    url:'https://arxiv.org/abs/2302.12422',
+    desc:'Cheap human play video trains a latent planner that guides a low-level policy.',
+    finding:'Shows unstructured human video (no teleop, no recon) can supply a high-level plan — supports our cheap-signal thesis.' },
+  { id:'videodex', cat:'human-video', star:3,
+    title:'VideoDex: Learning Dexterity from Internet Videos',
+    authors:'Shaw, Bahl, Pathak', venue:'CoRL', year:2022,
+    url:'https://arxiv.org/abs/2212.04498',
+    desc:'Transfers visual, action, and physical priors from internet human video to a robot hand.',
+    finding:'Internet-scale human video is a viable prior source for dexterous behavior without on-robot demos.' },
+  { id:'vid2robot', cat:'human-video', star:4,
+    title:'Vid2Robot: End-to-End Video-Conditioned Policy Learning',
+    authors:'Jain et al.', venue:'arXiv', year:2024,
+    url:'https://arxiv.org/abs/2403.12943',
+    desc:'A cross-attention policy prompted directly by a human demonstration video.',
+    finding:'Closest architectural analog to our demo-conditioning: a video prompt drives actions end-to-end — but BC-only, no RL, no tactile.' },
+
+  { id:'r3m', cat:'video-reward', star:4,
+    title:'R3M: A Universal Visual Representation for Robot Manipulation',
+    authors:'Nair et al.', venue:'CoRL', year:2022,
+    url:'https://arxiv.org/abs/2203.12601',
+    desc:'Ego4D-pretrained representation (time-contrastive + video-language) that boosts downstream few-demo policies.',
+    finding:'A ready visual backbone whose features are demonstration- and viewpoint-aware — candidate encoder for demo + observation.' },
+  { id:'vip', cat:'video-reward', star:4,
+    title:'VIP: Value-Implicit Pre-training for Reward Specification',
+    authors:'Ma et al.', venue:'ICLR', year:2023,
+    url:'https://arxiv.org/abs/2210.00030',
+    desc:'Learns a goal-conditioned value from action-free human video, yielding a zero-shot dense reward.',
+    finding:'Directly answers "reward from a demo without shaping" — a leading candidate for our demo-similarity reward.' },
+  { id:'liv', cat:'video-reward', star:3,
+    title:'LIV: Language-Image Representations and Rewards',
+    authors:'Ma et al.', venue:'ICML', year:2023,
+    url:'https://arxiv.org/abs/2306.00958',
+    desc:'Unified vision-language value model giving language- or goal-conditioned rewards.',
+    finding:'Extends VIP with language grounding — lets a demo be specified by video and/or text goal.' },
+  { id:'roboclip', cat:'video-reward', star:4,
+    title:'RoboCLIP: One Demonstration Is Enough to Learn Robot Policies',
+    authors:'Sontakke et al.', venue:'NeurIPS', year:2023,
+    url:'https://arxiv.org/abs/2310.07899',
+    desc:'A pretrained video-language model scores video-text similarity to produce a reward from a single demo.',
+    finding:'One video (or text) demo → reward with no fine-tuning — a strong, simple baseline for our demo-conditioned reward.' },
+  { id:'diffreward', cat:'video-reward', star:3,
+    title:'Diffusion Reward: Learning Rewards via Conditional Video Diffusion',
+    authors:'Huang et al.', venue:'ECCV', year:2024,
+    url:'https://arxiv.org/abs/2312.14134',
+    desc:'Uses a conditional video diffusion model’s log-likelihood/entropy as a reward for expert-like behavior.',
+    finding:'A generative-video reward that rewards demo-consistent rollouts — an alternative to contrastive demo-similarity.' },
+
+  { id:'tacsl', cat:'tactile', star:5,
+    title:'TacSL: A Library for Visuotactile Sensor Simulation and Learning',
+    authors:'Akinola et al. (NVIDIA)', venue:'arXiv / Isaac', year:2024,
+    url:'https://arxiv.org/abs/2408.06506',
+    desc:'GPU-accelerated visuotactile sensor simulation in Isaac Gym with tactile RL and sim-to-real.',
+    finding:'Directly enables tactile signals inside our Newton/Isaac SDG engine — the touch channel of vision-tactile RL.' },
+  { id:'tdex', cat:'tactile', star:4,
+    title:'Dexterity from Touch: Self-Supervised Pre-Training of Tactile Representations (T-Dex)',
+    authors:'Guzey et al.', venue:'CoRL', year:2023,
+    url:'https://arxiv.org/abs/2303.12076',
+    desc:'Self-supervised tactile pretraining + nearest-neighbor policies for touch-critical tasks.',
+    finding:'Quantifies where touch beats vision — motivation for making tactile first-class rather than an add-on.' },
+  { id:'rotate', cat:'tactile', star:4,
+    title:'General In-Hand Object Rotation with Vision and Touch',
+    authors:'Qi et al.', venue:'CoRL', year:2023,
+    url:'https://arxiv.org/abs/2309.09979',
+    desc:'Multi-fingered in-hand rotation learned in sim from combined vision + touch, transferred to real.',
+    finding:'A vision+tactile RL result showing contact-rich manipulation needs touch — the regime Robot Baby targets.' },
+  { id:'humanoiddex', cat:'tactile', star:3,
+    title:'Sim-to-Real RL for Vision-Based Dexterous Manipulation on Humanoids',
+    authors:'Lin et al.', venue:'arXiv', year:2025,
+    url:'https://arxiv.org/abs/2502.20396',
+    desc:'Vision-based dexterous manipulation trained in sim and transferred to a humanoid, with auto real-to-sim.',
+    finding:'Evidence that vision-based dexterous RL scales to humanoid embodiments — the endpoint for our sim-to-real story.' },
+
+  { id:'newton', cat:'sim-sdg', star:5,
+    title:'Newton: Open-Source GPU Physics Engine for Robotics (Warp + OpenUSD)',
+    authors:'NVIDIA · Google DeepMind · Disney Research', venue:'NVIDIA / Linux Foundation', year:2025,
+    url:'https://developer.nvidia.com/newton-physics',
+    desc:'GPU-accelerated, differentiable-friendly physics on Warp + OpenUSD; DeepMind’s MuJoCo-Warp gives 70× humanoid / 100× in-hand speedups.',
+    finding:'The simulator substrate of Part 1 — massively-parallel contact-rich rollouts are what make demo-conditioned RL affordable.' },
+  { id:'isaaclab', cat:'sim-sdg', star:4,
+    title:'Isaac Lab: GPU-Accelerated Framework for Multi-Modal Robot Learning',
+    authors:'NVIDIA', venue:'arXiv', year:2025,
+    url:'https://arxiv.org/abs/2511.04831',
+    desc:'Unified RL/IL training framework on Isaac Sim with multi-modal sensing.',
+    finding:'The training harness we build Part 2 on — pairs directly with Newton and our SDG episodes.' },
+  { id:'rest3d', cat:'sim-sdg', star:5,
+    title:'REST3D: Reconstructing Physically Stable 3D Scenes from a Single Image',
+    authors:'Xu et al.', venue:'project page', year:2026,
+    url:'https://shirleymaxx.github.io/REST3D/',
+    desc:'Agentic scene-tree understanding + physics-constrained optimization turns one casual image into a penetration-free, simulation-ready scene.',
+    finding:'The named asset source for Part 1: casual images → physically-stable, human-arranged, sim-ready scenes with no floating/penetration.' },
+  { id:'robocasa', cat:'sim-sdg', star:4,
+    title:'RoboCasa: Large-Scale Simulation of Everyday Tasks for Generalist Robots',
+    authors:'Nasiriany et al.', venue:'RSS', year:2024,
+    url:'https://arxiv.org/abs/2406.02523',
+    desc:'120+ kitchen scenes with thousands of generative assets and task/scene generation.',
+    finding:'A reference for human-environment SDG at scale — layouts, assets, and task variety we want our engine to match and exceed.' },
+  { id:'internscenes', cat:'sim-sdg', star:3,
+    title:'InternScenes: Large-Scale Simulatable Indoor Scene Dataset with Realistic Layouts',
+    authors:'InternRobotics', venue:'NeurIPS', year:2025,
+    url:'https://arxiv.org/abs/2509.10813',
+    desc:'40k+ simulatable scenes fusing real, procedural, and synthetic sources with human-plausible layouts.',
+    finding:'A large corpus of human-arranged, simulatable scenes — complementary layout prior for the SDG engine.' },
+  { id:'physcene', cat:'sim-sdg', star:3,
+    title:'PhyScene: Physically Interactable 3D Scene Synthesis for Embodied AI',
+    authors:'Yang et al.', venue:'CVPR', year:2024,
+    url:'https://arxiv.org/abs/2404.09465',
+    desc:'Diffusion scene synthesis with physics, interactivity, and reachability guidance.',
+    finding:'Method for generating interactable, reachable scenes — a building block for procedurally arranging human environments.' },
+  { id:'infinigen', cat:'sim-sdg', star:3,
+    title:'Infinigen: Infinite Photorealistic Worlds Using Procedural Generation',
+    authors:'Raistrick et al.', venue:'CVPR', year:2023,
+    url:'https://arxiv.org/abs/2306.09310',
+    desc:'Fully procedural, parameterized generation of photorealistic assets and scenes.',
+    finding:'Procedural-generation backbone for unlimited asset/scene variety and domain randomization in SDG.' },
+
+  { id:'groot', cat:'foundation', star:4,
+    title:'GR00T N1: An Open Foundation Model for Generalist Humanoid Robots',
+    authors:'NVIDIA', venue:'arXiv', year:2025,
+    url:'https://arxiv.org/abs/2503.14734',
+    desc:'A dual-system VLA humanoid foundation model trained partly on simulated and neural-generated data.',
+    finding:'NVIDIA’s humanoid VLA — a downstream consumer of our SDG data and a policy backbone to condition on demos.' },
+  { id:'cosmos', cat:'foundation', star:3,
+    title:'Cosmos World Foundation Model Platform for Physical AI',
+    authors:'NVIDIA', venue:'arXiv', year:2025,
+    url:'https://arxiv.org/abs/2501.03575',
+    desc:'Video world-foundation models plus a data-curation pipeline for physical AI.',
+    finding:'A world-model source for demo generation, data augmentation, and policy evaluation adjacent to our SDG engine.' },
+  { id:'rt2', cat:'foundation', star:3,
+    title:'RT-2: Vision-Language-Action Models Transfer Web Knowledge to Control',
+    authors:'Google DeepMind', venue:'arXiv', year:2023,
+    url:'https://arxiv.org/abs/2307.15818',
+    desc:'Co-fine-tunes a VLM on robot trajectories so web semantics reach low-level actions.',
+    finding:'The scaled BC frontier — strong semantics, but no online RL and reliant on teleop data; a contrast point for our thesis.' },
+  { id:'pi0', cat:'foundation', star:3,
+    title:'π₀: A Vision-Language-Action Flow Model for General Robot Control',
+    authors:'Physical Intelligence', venue:'arXiv', year:2024,
+    url:'https://arxiv.org/abs/2410.24164',
+    desc:'Flow-matching VLA trained on large cross-embodiment teleoperation corpora.',
+    finding:'State of the art for teleop-scaled BC — quantifies the human-hours cost curve Robot Baby aims to sidestep.' }
+];
+
+(function () {
+  var CAT_LABEL = {
+    'dcrl':'Demo-conditioned RL', 'human-video':'Human / 3rd-person video',
+    'video-reward':'Video → reward', 'tactile':'Vision-tactile',
+    'sim-sdg':'Sim / SDG / scenes', 'foundation':'Foundation / world models'
+  };
+  var LS_KEY = 'robotbaby.related.v1';
+  var state = {};   // id -> { star, pinned, demoted }
+  try { state = JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; } catch (e) { state = {}; }
+  function save () { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} }
+  function st (id) { return state[id] || (state[id] = {}); }
+  function starOf (w) { var s = st(w.id); return (typeof s.star === 'number') ? s.star : w.star; }
+
+  var groups = document.getElementById('rel-groups');
+  var toolbar = document.getElementById('rel-toolbar');
+  var sortSel = document.getElementById('rel-sortsel');
+  var filter = 'all';
+
+  function esc (s) { return String(s).replace(/[&<>"]/g, function (c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function starHTML (w) {
+    var v = starOf(w), out = '<span class="stars" data-id="' + w.id + '" title="click to rate">';
+    for (var i = 1; i <= 5; i++) out += '<span class="s' + (i <= v ? ' on' : '') + '" data-v="' + i + '">★</span>';
+    return out + '</span>';
+  }
+
+  function cardHTML (w) {
+    var s = st(w.id), host = (w.url.split('/')[2] || '').replace(/^www\./, '');
+    return '<div class="work' + (s.demoted ? ' demoted' : '') + '" data-cat="' + w.cat + '" data-id="' + w.id + '">' +
+      '<div class="w-top"><span class="w-cat">' + esc(CAT_LABEL[w.cat] || w.cat) + '</span>' +
+        '<a class="w-arxiv" href="' + esc(w.url) + '" target="_blank" rel="noopener">' + esc(host) + ' ↗</a></div>' +
+      '<h4><a href="' + esc(w.url) + '" target="_blank" rel="noopener">' + esc(w.title) + '</a></h4>' +
+      '<div class="w-who">' + esc(w.authors) + ' · ' + esc(w.venue) + ' ' + w.year + '</div>' +
+      '<p class="w-desc">' + esc(w.desc) + '</p>' +
+      '<p class="w-find"><span class="lbl">Why it matters to us</span>' + esc(w.finding) + '</p>' +
+      '<div class="w-ctl">' + starHTML(w) +
+        '<button class="w-btn pin' + (s.pinned ? ' on' : '') + '" data-act="pin" data-id="' + w.id + '">' + (s.pinned ? '★ Pinned' : '☆ Pin') + '</button>' +
+        '<button class="w-btn demote" data-act="demote" data-id="' + w.id + '">' + (s.demoted ? '↑ Restore' : '↓ Less related') + '</button>' +
+      '</div></div>';
+  }
+
+  function sortWorks (list) {
+    var mode = sortSel.value;
+    var by = list.slice();
+    by.sort(function (a, b) {
+      if (mode === 'title') return a.title.localeCompare(b.title);
+      if (mode === 'cat') return (a.cat.localeCompare(b.cat)) || (starOf(b) - starOf(a));
+      if (mode === 'star') return (starOf(b) - starOf(a)) || a.title.localeCompare(b.title);
+      /* pin-star: pinned first, then star, then title */
+      var pa = st(a.id).pinned ? 1 : 0, pb = st(b.id).pinned ? 1 : 0;
+      return (pb - pa) || (starOf(b) - starOf(a)) || a.title.localeCompare(b.title);
+    });
+    return by;
+  }
+
+  function render () {
+    var visible = WORKS.filter(function (w) { return filter === 'all' || w.cat === filter; });
+    var pinned  = sortWorks(visible.filter(function (w) { return st(w.id).pinned && !st(w.id).demoted; }));
+    var main    = sortWorks(visible.filter(function (w) { return !st(w.id).pinned && !st(w.id).demoted; }));
+    var demoted = sortWorks(visible.filter(function (w) { return st(w.id).demoted; }));
+
+    var html = '';
+    if (pinned.length)
+      html += '<div class="rel-group-h pinned">★ Pinned <span class="cnt">' + pinned.length + '</span></div>' +
+              '<div class="rel-list">' + pinned.map(cardHTML).join('') + '</div>';
+    html += '<div class="rel-group-h">' + (filter === 'all' ? 'All related work' : esc(CAT_LABEL[filter])) +
+            ' <span class="cnt">' + main.length + '</span></div>';
+    html += main.length ? '<div class="rel-list">' + main.map(cardHTML).join('') + '</div>'
+                        : '<div class="rel-empty">Nothing here under this filter.</div>';
+    if (demoted.length)
+      html += '<div class="rel-group-h">↓ Less related <span class="cnt">' + demoted.length + '</span></div>' +
+              '<div class="rel-list">' + demoted.map(cardHTML).join('') + '</div>';
+    groups.innerHTML = html;
+  }
+
+  /* filter chips */
+  toolbar.addEventListener('click', function (ev) {
+    var chip = ev.target.closest('.rel-chip.cat');
+    if (!chip) return;
+    toolbar.querySelectorAll('.rel-chip.cat').forEach(function (c) { c.classList.remove('active'); });
+    chip.classList.add('active');
+    filter = chip.getAttribute('data-cat');
+    render();
+  });
+  sortSel.addEventListener('change', render);
+
+  /* card interactions: stars, pin, demote */
+  groups.addEventListener('click', function (ev) {
+    var starEl = ev.target.closest('.stars .s');
+    if (starEl) {
+      var wrap = starEl.closest('.stars');
+      st(wrap.getAttribute('data-id')).star = parseInt(starEl.getAttribute('data-v'), 10);
+      save(); render(); return;
+    }
+    var btn = ev.target.closest('.w-btn');
+    if (!btn) return;
+    var s = st(btn.getAttribute('data-id')), act = btn.getAttribute('data-act');
+    if (act === 'pin') { s.pinned = !s.pinned; if (s.pinned) s.demoted = false; }
+    if (act === 'demote') { s.demoted = !s.demoted; if (s.demoted) s.pinned = false; }
+    save(); render();
+  });
+
+  document.getElementById('rel-reset').addEventListener('click', function () {
+    state = {}; save(); render();
+  });
+
+  render();
+})();
+</script>
+
+<!-- ============================================================ -->
+<!-- DOCS LOADER                                                  -->
+<!-- ============================================================ -->
+
+<script type="text/markdown" data-doc="TODOs.md">
+# Robot Baby — Roadmap & TODOs
+
+**Status:** project bring-up (scaffolding · scoping · literature review). Nothing trained yet — this is the
+plan of record. Keep this file the single source of truth for "what's next"; the rendered page opens it by
+default.
+
+Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` open question / decision needed.
+
+---
+
+## Now (bring-up)
+
+- [x] Create project context scaffold (`context.md`, `claude_context/`, `index.html`, `serve.py`).
+- [x] Seed the Related Work tab with an initial literature map.
+- [~] Literature review: demonstration-conditioned RL, third-person/video imitation, video→reward, tactile RL,
+  simulation/SDG. (Living in `related_works.md` + the Related Work tab.)
+- [ ] Write a 1-page problem statement + success criteria to align with Hongru and stakeholders.
+- [?] **Decision — target embodiment(s):** dexterous hand vs. parallel gripper vs. humanoid arm+hand. Drives
+  the tactile sensor choice and the sim setup.
+- [?] **Decision — first task family:** which contact-rich task is milestone M1 (e.g. pick-place, pour, insert,
+  wipe, open-drawer)? Pick one where tactile clearly matters.
+
+## Part 1 — SDG engine (Shengze)
+
+- [ ] Stand up **Newton** + **Isaac Lab** on the cluster; run a parallel-rollout smoke test.
+- [ ] Wire **tactile sensing** into the sim (evaluate TacSL / Isaac tactile) alongside RGB, depth, proprio.
+- [ ] **REST3D asset path:** reconstruct a first batch of physically-stable, sim-ready assets; verify no
+  float/penetration under simulation; export to OpenUSD.
+- [ ] **Human-arranged scene sampler:** procedurally place assets into plausible human layouts
+  (kitchen/desk/workbench) with domain randomization (materials, lighting, poses, clutter).
+- [ ] **Episode + sensor API:** stable schema emitting synchronized RGB / depth / proprio / tactile per step,
+  consumable by Part 2.
+- [ ] Throughput target: quantify episodes/sec/GPU and scene-variety knobs.
+
+## Part 2 — Demonstration-conditioned RL (Hongru & Shengze)
+
+- [ ] **Demo encoder:** choose/adapt a viewpoint- & embodiment-invariant video representation for third-person
+  conditioning. Shortlist: R3M, TCN, VIP/LIV features, RoboCLIP video-text. (`related_works.md`)
+- [ ] **Reward from demo:** define a demo-similarity reward (goal/video-based) requiring no per-task shaping.
+  Candidates: VIP zero-shot value, RoboCLIP similarity, TCN embedding distance, Diffusion Reward.
+- [ ] **Demo-conditioned policy** π(a | vision, tactile, demo): pick RL backbone (candidates: DAPG-style
+  demo-augmented PG, RLPD, DemoStart-style auto-curriculum).
+- [ ] **Baselines to beat:** (a) demo-free RL, (b) BC-from-video, (c) vision-only ablation.
+- [ ] **Improve-on-bad-demos test:** show RL exceeds a deliberately suboptimal demonstration.
+- [ ] **Embodiment gap:** quantify human→robot transfer from third-person video.
+- [ ] **Tactile ablation:** vision+tactile vs. vision-only on the contact-rich M1 task.
+- [ ] **Sim-to-real:** domain-randomized transfer of the first skill to hardware.
+
+## Story milestones (for the community & NVIDIA)
+
+- [ ] **M1** — "one third-person video → sim task success" on a single contact-rich task, **no reconstruction
+  anywhere** in the loop.
+- [ ] **M2** — tactile ablation showing touch closes the contact gap vision-only imitation misses.
+- [ ] **M3** — generalization across REST3D-arranged scenes from a single demonstration.
+- [ ] **M4** — sim-to-real transfer of the demonstration-conditioned policy.
+
+## Open questions / risks
+
+- [?] **Reward fidelity vs. gaming:** does a video-similarity reward admit degenerate solutions? Need a
+  robustness plan (e.g. combine with sparse success).
+- [?] **Demo source realism:** human-hand demos vs. another-robot demos vs. rendered demos — how large is the
+  embodiment gap and does RL absorb it?
+- [?] **Tactile sim-to-real:** simulated touch is notoriously hard to transfer; is TacSL-grade sim enough?
+- [?] **Scene realism vs. throughput:** REST3D fidelity vs. episodes/sec — find the sweet spot.
+- [?] **Newton maturity:** feature/API stability for our contact + tactile needs at project timescale.
+
+## Deferred / later
+
+- [ ] Language-conditioned variant (demo video + text goal), leveraging LIV / VLA backbones.
+- [ ] Multi-demo aggregation and demo-quality weighting.
+- [ ] Connection to GR00T/Cosmos as downstream consumers of the SDG data + policies.
+
+</script>
+<script type="text/markdown" data-doc="overview.md">
+# Robot Baby — Overview & Core Story
+
+*The long-form pitch. This mirrors the top-level `../context.md` and is what the "Motivation" and "Framework"
+chapters of `index.html` are drawn from.*
+
+## The problem: the wrong cost curve
+
+Robot learning today buys skill at a steep price. The dominant recipes are:
+
+- **Teleoperation → behavior cloning.** A human puppeteers the robot to produce action-labeled data, then a
+  policy is fit by supervised regression. No embodiment gap, but the data costs **human hours per skill**, and
+  the policy cannot improve past its demonstrations.
+- **Imitation from human video via reconstruction.** Start from video (like us), then pay a heavy tax:
+  estimate accurate **2D/3D hand-object trajectories**, build a **dense 3D reconstruction**, **retarget** to
+  the robot, and **solve contact and forces** so the motion is physical. Fragile, compute-heavy, object-specific,
+  and quality-capped by reconstruction accuracy.
+- **Pure RL / reward engineering.** Hand-design a dense reward and learn from scratch. Reward design is its own
+  research problem; exploration is sample-inefficient on long-horizon, contact-rich tasks.
+
+All three pay a tax that nature never charges.
+
+## The insight: two signals are enough
+
+A child receives **no** labeled trajectories, and nobody solves contact forces on their behalf. Hands-on
+teaching — physically moving a learner's limbs — is **rare** for humans and **almost absent** in animals.
+Skill flows through two channels:
+
+1. **Demonstration** (third-person, approximate): *watch a capable adult and imitate the intent.*
+2. **Reinforcement** (interactive, corrective): *try it, feel the outcome, adjust toward a similar goal.*
+
+If two signals suffice for a child, they suffice for a robot. The trajectories, reconstruction, and contact
+solving that the expensive pipeline precomputes are either unnecessary or are exactly what the robot should
+**discover by acting** in a rich-enough world.
+
+## The bet, stated precisely
+
+> A **vision-tactile** policy, **conditioned on a third-person demonstration video**, can reach **similar task
+> success** to the demonstrator by **reinforcement** in a physically-rich simulator — without any 2D/3D
+> trajectory labels, 3D reconstruction, solved contact, or teleoperation.
+
+Corollaries we expect to demonstrate:
+- RL lets the robot **improve on suboptimal demonstrations** (the demo need not be expert or on-embodiment).
+- **Tactile sensing closes the contact gap** that vision-only imitation cannot see.
+- The demo supplies the **reward** (goal/video similarity), so no per-task reward engineering is needed.
+
+## Why this is an NVIDIA story
+
+The recipe is only affordable because of the simulation substrate:
+
+- **Newton** — open-source GPU physics on Warp + OpenUSD (NVIDIA · Google DeepMind · Disney Research), with
+  DeepMind's MuJoCo-Warp giving 70× humanoid / 100× in-hand speedups — enables thousands of parallel,
+  contact-rich rollouts.
+- **Isaac Sim / Isaac Lab** — the multi-modal RL/IL training framework.
+- **REST3D** — casual images → physically-stable, penetration-free, simulation-ready scenes, arranged like
+  real human environments.
+
+Downstream, the same synthetic data and demonstration-conditioned policies feed NVIDIA's humanoid/robot
+foundation-model efforts (GR00T, Cosmos). Robot Baby is **SDG in service of a cheaper learning recipe**.
+
+## The framework in two parts
+
+- **Part 1 — SDG engine (Shengze):** Newton/Isaac world factory + REST3D assets + human-arranged scene sampler,
+  emitting randomized vision+tactile episodes. See `architecture_sdg_engine.md`.
+- **Part 2 — Demonstration-conditioned RL (Hongru & Shengze):** a video-conditioned, vision-tactile policy that
+  closes the gap to the demonstrated goal by RL. See `architecture_dcrl.md`.
+
+## Positioning vs. prior art
+
+The name is deliberate: **demonstration-conditioned reinforcement learning** (DCRL) is an existing formulation
+(Dance et al., ICML 2021) in which a policy takes demonstrations as input and is trained to maximize reward
+across tasks — with the exact properties we want (improve on suboptimal demos, use state-only demos, cope with
+demonstrator↔agent domain shift). Prior DCRL and few-shot imitation work is mostly **state-based, low-DoF, and
+vision-only**. Robot Baby pushes the idea to **third-person video demonstrations**, **vision + tactile**
+manipulation, and **human-arranged simulated worlds**. See `related_works.md`.
+
+</script>
+<script type="text/markdown" data-doc="architecture_sdg_engine.md">
+# Part 1 — SDG Engine (Newton / Isaac Sim + REST3D)
+
+*Owner: Shengze. Status: design / bring-up. This document is the target architecture; it will diverge from
+reality as we build — keep it honest.*
+
+## Purpose
+
+Manufacture the **world** the demonstration-conditioned learner lives in: an endless stream of
+**physically-enriched, human-arranged 3D scenes** with **contact-rich** interaction and **vision + tactile**
+sensing. The engine exists so that reinforcement is *cheap* — thousands of parallel rollouts — and so that the
+scenes look like the environments where the demonstrations were filmed.
+
+## Design goals
+
+- **Human-plausible arrangement.** Objects placed the way people place them (reachable, supported, cluttered),
+  not random scatter — this is what makes third-person demos transferable.
+- **Physical validity.** Assets are stable, penetration-free, and simulation-ready; contact behaves.
+- **Massively parallel.** GPU physics, thousands of envs, high episodes/sec.
+- **Multi-modal sensing.** Synchronized RGB, depth, proprioception, and **tactile** per step.
+- **Randomizable.** Domain randomization over materials, lighting, poses, clutter, and physics params for
+  sim-to-real.
+
+## Pipeline
+
+```
+casual images ──► REST3D ──► physically-stable, sim-ready assets (OpenUSD)
+                                     │
+                                     ▼
+                        human-arranged scene sampler ──► randomized scenes
+                                     │
+                                     ▼
+                 Newton (GPU physics, Warp+OpenUSD) / Isaac Sim
+                                     │
+             ┌───────────────┬───────────────┬───────────────┐
+             ▼               ▼               ▼               ▼
+           RGB            depth          proprio          tactile
+             └───────────────┴───────────────┴───────────────┘
+                                     │
+                                     ▼
+                     episode + sensor API  ──►  Part 2 (learner)
+```
+
+## Components
+
+### 1. Assets — REST3D
+- **REST3D** ("Reconstructing Physically Stable 3D Scenes from a Single Image") builds an agentic scene-tree
+  from a single RGB image (object physical states + gravity-support relationships), initializes with
+  image-to-3D models, then runs scene-tree-guided alignment + **physics-constrained optimization** to remove
+  floating and penetration.
+- Output: **simulation-ready, physically-stable** assets/scenes we can drop straight into the physics engine.
+- Why it matters: it converts *casual images of real human environments* into sim assets **without** the
+  expensive manual asset/scene authoring pipeline — the asset-side analog of our cheap-signal thesis.
+
+### 2. Scene arrangement — human-like layouts
+- A procedural sampler that places REST3D assets into **plausible human layouts** (kitchen, desk, workbench),
+  respecting support, reachability, and typical co-occurrence.
+- Domain randomization: object identities/poses, clutter density, materials, lighting.
+- Complementary layout priors to survey: RoboCasa, InternScenes, PhyScene, Infinigen (see `related_works.md`).
+
+### 3. Physics — Newton / Isaac
+- **Newton:** open-source GPU physics on **Warp + OpenUSD** (NVIDIA · Google DeepMind · Disney Research;
+  Linux Foundation; Apache-2.0). DeepMind's **MuJoCo-Warp** contributes 70× humanoid / 100× in-hand speedups.
+- **Isaac Sim / Isaac Lab:** the multi-modal RL/IL training framework and renderer we build the env API on.
+- We need contact-accurate manipulation and stable grasps at high env counts.
+
+### 4. Tactile sensing
+- Vision-tactile is first-class, so the SDG engine must emit **touch**, not just pixels.
+- Evaluate **TacSL** (GPU visuotactile sensor simulation + learning in Isaac) as the tactile channel.
+- Open risk: tactile sim-to-real fidelity (tracked in `TODOs.md`).
+
+### 5. Episode + sensor API
+- Stable schema: per-step synchronized `{rgb, depth, proprio, tactile, reward_info, success}`, plus the
+  scene/task metadata Part 2 needs to attach a demonstration.
+- Must be fast to iterate on and decoupled from the learner.
+
+## Interfaces to Part 2
+
+- Provides the **environments** (reset/step, randomized), the **observation streams** (vision + tactile), and
+  the **rollout throughput** that demonstration-conditioned RL consumes.
+- Does **not** provide the demonstration or the reward model — those live in Part 2
+  (`architecture_dcrl.md`). The engine only needs to expose enough state for a demo-similarity reward to be
+  computed.
+
+## Open questions
+
+- Newton feature/API maturity for our contact + tactile needs on the project timeline.
+- REST3D fidelity vs. throughput trade-off (scene realism vs. episodes/sec).
+- How much scene realism is actually required for third-person-demo transfer — measure, don't assume.
+
+</script>
+<script type="text/markdown" data-doc="architecture_dcrl.md">
+# Part 2 — Demonstration-Conditioned RL for Vision-Tactile Robots
+
+*Owners: Hongru & Shengze. Status: design / scoping. Target architecture; expect revision as we experiment.*
+
+## Purpose
+
+A policy that **watches a third-person demonstration video** and **reaches a similar goal through
+reinforcement** — using **vision + tactile** observation, in the Part-1 SDG world. No 2D/3D trajectory labels,
+no 3D reconstruction of the demo, no solved contact, no teleoperation.
+
+## The formulation
+
+We adopt **demonstration-conditioned reinforcement learning (DCRL)**: the policy takes the demonstration as an
+*input* and is trained to maximize reward across a distribution of tasks/scenes.
+
+```
+π( a_t | o_t^vision , o_t^tactile , z_demo )      z_demo = Encode(third-person demo video)
+```
+
+- **`z_demo`** — a conditioning vector/goal from the demo, ideally invariant to **viewpoint** and to the
+  **human↔robot embodiment** gap.
+- **Reward** `r_t = sim(rollout, demo)` — similarity to the demonstrated outcome (goal/video-based), optionally
+  combined with a sparse success bonus. **No per-task hand-shaped reward.**
+- **RL** optimizes `π` in the Part-1 environments, so the policy **improves on the demo** rather than merely
+  copying it.
+
+Why DCRL (Dance et al., ICML 2021) is the right frame: relative to BC or IRL few-shot imitation, it can
+(a) **improve on suboptimal demonstrations**, (b) operate from **state-only / observation-only** demos, and
+(c) **cope with domain shift** between demonstrator and agent — the three properties a third-person, human
+demo forces on us.
+
+## Components (and candidate building blocks)
+
+### 1. Demo encoder → `z_demo`
+Requirements: viewpoint-invariant, embodiment-tolerant, temporally aware.
+Candidates to evaluate (see `related_works.md`):
+- **R3M** — Ego4D-pretrained manipulation representation (time-contrastive + video-language).
+- **TCN** — self-supervised, viewpoint-invariant time-contrastive embedding.
+- **VIP / LIV** — goal-conditioned value representations from action-free video.
+- **RoboCLIP** — video-language similarity from a single demo.
+- **Vid2Robot** — end-to-end video-conditioned policy (architectural reference for the conditioning path).
+
+### 2. Reward from demonstration
+Requirements: dense enough to guide RL, robust to gaming, no per-task shaping.
+Candidates:
+- **VIP** zero-shot goal-conditioned value as a dense reward.
+- **RoboCLIP** video/text-similarity reward (one demo is enough).
+- **TCN** embedding distance to demo frames.
+- **Diffusion Reward** — conditional video-diffusion likelihood/entropy.
+- Robustness plan: pair the learned reward with a **sparse success** term to prevent degenerate solutions.
+
+### 3. Policy & RL backbone
+- π consumes **vision + tactile + `z_demo`**; tactile is first-class because contact is where video imitation
+  is blindest.
+- RL candidates: **DAPG**-style demo-augmented policy gradient, **RLPD** (online RL with offline/demo data),
+  **DemoStart**-style demonstration-led **auto-curriculum** for hard-exploration, contact-rich tasks.
+
+### 4. Embodiment-gap handling
+- The demonstrator (human/other robot) ≠ the agent. Rely on RL to absorb the gap and on
+  embodiment-tolerant encoders; **measure** transfer explicitly (human-video demo → robot policy).
+
+### 5. Sim-to-real
+- Domain randomization over the Part-1 SDG distribution; transfer a first skill to hardware (M4).
+- Tactile sim-to-real is a known risk (tracked in `TODOs.md`).
+
+## Evaluation plan
+
+- **Primary:** task success on held-out scenes from a **single third-person demo**, vs.:
+  - demo-free RL (does the demo help?),
+  - BC-from-video (does RL help beyond copying?),
+  - vision-only ablation (does tactile help?).
+- **Improve-on-bad-demos:** RL success should exceed a deliberately suboptimal demonstration.
+- **Generalization:** across REST3D-arranged scene variations from one demo.
+
+## What this is *not*
+
+- Not teleoperation + behavior cloning (no action-labeled on-robot data).
+- Not video→reconstruction→retarget→track (no 2D/3D trajectory, no 3D recon, no solved contact).
+- Not pure RL with a hand-designed reward (the demo supplies the objective).
+
+## Open questions
+
+- Reward-gaming robustness of video-similarity rewards.
+- Best demo source (human hand vs. another robot vs. rendered) and the resulting embodiment gap.
+- How much the tactile channel actually buys on contact-rich tasks — the headline ablation (M2).
+
+</script>
+<script type="text/markdown" data-doc="related_works.md">
+# Related Work — Robot Baby
+
+*A living map. The interactive, rankable version is the **Related Work** tab in `index.html` (star / pin /
+demote, persisted in your browser). This file is the plain-text mirror — add papers here and we fold them into
+the tab's `WORKS` array. Stars below are default relevance (1–5), not consensus.*
+
+Categories: **DCRL** (demonstration-conditioned / few-shot imitation + RL) · **Human-Video** (3rd-person /
+human-video imitation) · **Video-Reward** (video → reward / representation) · **Tactile** (vision-tactile /
+tactile sim & RL) · **Sim-SDG** (simulation / SDG / scene & asset generation) · **Foundation** (robot
+foundation / world models).
+
+---
+
+## DCRL — demonstration-conditioned & few-shot imitation + RL
+
+- **★★★★★ Demonstration-Conditioned RL for Few-Shot Imitation** — Dance, Perez, Cachet (NAVER LABS), ICML 2021.
+  <https://proceedings.mlr.press/v139/dance21a.html>
+  *The namesake.* Policy takes demos as input, trained to maximize reward across tasks. **Key:** can improve on
+  suboptimal demos, use state-only demos, and cope with demonstrator↔agent domain shift — our exact needs.
+- **★★★★★ DemoStart** — Google DeepMind, 2024. <https://arxiv.org/abs/2409.06613>
+  Sparse reward + a handful of sim demos → auto-curriculum on a multi-fingered hand. **Key:** 98%+ sim success,
+  ~100× fewer demos, zero-shot sim-to-real via domain randomization. Template for our RL half.
+- **★★★★ DAPG — Dexterous Manipulation with Deep RL and Demonstrations** — Rajeswaran et al., RSS 2018.
+  <https://arxiv.org/abs/1709.10087> A few demos slash dexterous-RL sample complexity. Demo+RL > either alone.
+- **★★★★ One-Shot Imitation Learning** — Duan et al., NeurIPS 2017. <https://arxiv.org/abs/1703.07326>
+  Single demo (attention over it) conditions a policy to a new task instance. The conditioning primitive we
+  scale to video.
+- **★★★ RLPD — Efficient Online RL with Offline Data** — Ball et al., ICML 2023.
+  <https://arxiv.org/abs/2302.02948> Symmetric demo/online sampling; robust way to fold demos into online RL.
+
+## Human-Video — third-person / human-video imitation
+
+- **★★★★ Third-Person Imitation Learning** — Stadie, Abbeel, Sutskever, ICLR 2017.
+  <https://arxiv.org/abs/1703.01703> Domain-adversarial features → imitate from 3rd-person obs w/o actions.
+  Foundational to our premise.
+- **★★★★ Time-Contrastive Networks (TCN)** — Sermanet et al., ICRA 2018. <https://arxiv.org/abs/1704.06888>
+  Self-supervised viewpoint-invariant embedding from multi-view video → imitation reward. Demo-encoder + reward
+  candidate.
+- **★★★★ DexMV** — Qin et al., ECCV 2022. <https://arxiv.org/abs/2108.05877> Human hand video → 3D pose →
+  retarget → demo-augmented RL. Clean exemplar of the **expensive recon path we avoid** — our baseline/foil.
+- **★★★★ MimicPlay** — Wang et al., CoRL 2023 (best paper). <https://arxiv.org/abs/2302.12422> Human play video
+  → latent plan → low-level policy. Unstructured human video supplies a plan without teleop/recon.
+- **★★★ VideoDex** — Shaw, Bahl, Pathak, CoRL 2022. <https://arxiv.org/abs/2212.04498> Internet human-video
+  priors (hand pose, gaze) → robot hand.
+- **★★★★ Vid2Robot** — Jain et al., 2024. <https://arxiv.org/abs/2403.12943> Cross-attention policy prompted by
+  a human demo video. **Closest architectural analog** to our demo-conditioning — but BC-only, no RL, no tactile.
+
+## Video-Reward — video → reward / representation
+
+- **★★★★ R3M** — Nair et al., CoRL 2022. <https://arxiv.org/abs/2203.12601> Ego4D-pretrained manipulation
+  representation (time-contrastive + video-language). Candidate encoder for demo + observation.
+- **★★★★ VIP — Value-Implicit Pre-training** — Ma et al., ICLR 2023. <https://arxiv.org/abs/2210.00030>
+  Goal-conditioned value from action-free video → **zero-shot dense reward**. Leading reward candidate.
+- **★★★ LIV — Language-Image Value** — Ma et al., ICML 2023. <https://arxiv.org/abs/2306.00958> VIP + language
+  grounding; demo by video and/or text.
+- **★★★★ RoboCLIP** — Sontakke et al., NeurIPS 2023. <https://arxiv.org/abs/2310.07899> VLM video-text
+  similarity → reward from **one** demo, no fine-tuning. Strong simple baseline.
+- **★★★ Diffusion Reward** — Huang et al., ECCV 2024. <https://arxiv.org/abs/2312.14134> Conditional
+  video-diffusion likelihood/entropy as reward for expert-like behavior.
+
+## Tactile — vision-tactile / tactile sim & RL
+
+- **★★★★★ TacSL** — Akinola et al. (NVIDIA), 2024. <https://arxiv.org/abs/2408.06506> GPU visuotactile sensor
+  simulation + tactile RL/sim-to-real in Isaac. **The touch channel for our SDG engine.**
+- **★★★★ T-Dex — Dexterity from Touch** — Guzey et al., CoRL 2023. <https://arxiv.org/abs/2303.12076>
+  Self-supervised tactile pretraining + NN policies. Quantifies where touch beats vision.
+- **★★★★ General In-Hand Rotation with Vision and Touch** — Qi et al., CoRL 2023.
+  <https://arxiv.org/abs/2309.09979> Multi-fingered in-hand rotation from vision+touch, sim→real. The regime we
+  target.
+- **★★★ Sim-to-Real RL for Vision-Based Dexterous Manipulation on Humanoids** — Lin et al., 2025.
+  <https://arxiv.org/abs/2502.20396> Vision dexterous sim→real at humanoid scale.
+
+## Sim-SDG — simulation / SDG / scene & asset generation
+
+- **★★★★★ Newton** — NVIDIA · Google DeepMind · Disney Research, 2025. <https://developer.nvidia.com/newton-physics>
+  GPU physics on Warp + OpenUSD; MuJoCo-Warp 70× humanoid / 100× in-hand. **Part-1 substrate.**
+- **★★★★ Isaac Lab** — NVIDIA, 2025. <https://arxiv.org/abs/2511.04831> GPU RL/IL framework on Isaac Sim.
+  Part-2 training harness.
+- **★★★★★ REST3D** — 2026. <https://shirleymaxx.github.io/REST3D/> Single image → physically-stable,
+  penetration-free, **simulation-ready** scene via agentic scene-tree + physics-constrained optimization.
+  **Named asset source for Part 1.**
+- **★★★★ RoboCasa** — Nasiriany et al., RSS 2024. <https://arxiv.org/abs/2406.02523> 120+ kitchen scenes,
+  generative assets, task/scene SDG. Human-environment SDG reference.
+- **★★★ InternScenes** — InternRobotics, NeurIPS 2025. <https://arxiv.org/abs/2509.10813> 40k+ simulatable
+  scenes, realistic human layouts. Layout prior.
+- **★★★ PhyScene** — Yang et al., CVPR 2024. <https://arxiv.org/abs/2404.09465> Physically-interactable,
+  reachable scene synthesis via diffusion.
+- **★★★ Infinigen** — Raistrick et al., CVPR 2023. <https://arxiv.org/abs/2306.09310> Procedural photorealistic
+  worlds; unlimited asset/scene variety + domain randomization.
+
+## Foundation — robot foundation & world models (context / downstream)
+
+- **★★★★ GR00T N1** — NVIDIA, 2025. <https://arxiv.org/abs/2503.14734> Open humanoid VLA foundation model,
+  trained partly on sim/neural-generated data. Downstream consumer of our SDG data.
+- **★★★ Cosmos** — NVIDIA, 2025. <https://arxiv.org/abs/2501.03575> Video world-foundation models + data
+  pipeline for physical AI. Demo generation / augmentation / eval.
+- **★★★ RT-2** — Google DeepMind, 2023. <https://arxiv.org/abs/2307.15818> VLA transferring web knowledge to
+  control. Scaled BC frontier; no online RL — contrast point.
+- **★★★ π₀** — Physical Intelligence, 2024. <https://arxiv.org/abs/2410.24164> Flow-matching VLA over large
+  teleop corpora. Quantifies the teleop-hours cost curve we sidestep.
+
+---
+
+## To triage / add later
+
+*(Drop candidates here; we'll rank and fold them into the tab.)*
+
+- AVID (pixel-level human→robot video translation), Concept2Robot, DVD (Domain-agnostic Video Discriminator),
+  Rank2Reward, XSkill, MimicGen (data amplification), DexMimicGen, RialTo (real-to-sim), Eureka (LLM reward
+  design — as a *contrast* to demo-derived reward), Holodeck / ProcTHOR / Architect (scene generation),
+  GenSim, RoboGen, Genie/world-model demo synthesis.
+
+</script>
+<script type="text/markdown" data-doc="experiment_context.md">
+# Experiment Context — paths, tools, infra
+
+*Quick reference for the Robot Baby project. Bring-up stage — most of this is target/placeholder and will fill
+in as we build. Keep paths absolute; convert relative dates to absolute.*
+
+## Locations
+
+- **Project root:** `/lustre/fs12/portfolios/nvr/projects/nvr_nxp_visionconferencing/users/shengzew/robot_baby/`
+- **Mirror (fsw):** `/lustre/fsw/portfolios/nvr/users/shengzew/robot_baby/`
+- **Context site:** `claude_context/index.html` — serve with `python3 claude_context/serve.py`, open
+  `http://localhost:8090/`.
+- **This repo currently contains only the context scaffold** (no code yet).
+
+## The context site
+
+- `context.md` (repo root) — canonical top-level context.
+- `claude_context/index.html` — rendered brief: Map · Motivation · Framework · Roadmap · **Related Work** · Docs.
+- `claude_context/serve.py` — static server on `:8090` + `/branch` git auto-detect. Serves from
+  `claude_context/`; all Docs-tab markdown is fetched **same-dir**.
+- Docs tab renders (via marked.js): `TODOs.md`, `overview.md`, `architecture_sdg_engine.md`,
+  `architecture_dcrl.md`, `related_works.md`, `experiment_context.md`.
+- **Related Work tab** state (stars/pins/demotions) is stored in `localStorage` key `robotbaby.related.v1`
+  (per-browser; "Reset" clears it). To add a paper, edit the `WORKS` array in `index.html`.
+- Must be served over **HTTP** (not `file://`) or `fetch()` for the markdown/related data is blocked.
+
+## Tooling / stack (target)
+
+| Concern | Choice / candidate | Notes |
+|---|---|---|
+| Physics | **Newton** (Warp + OpenUSD) | GPU, MuJoCo-Warp; open-source, Apache-2.0 |
+| Sim framework | **Isaac Sim / Isaac Lab** | multi-modal RL/IL, rendering |
+| Assets | **REST3D** | image → physically-stable, sim-ready scenes |
+| Tactile | **TacSL** (Isaac) | GPU visuotactile sim — evaluate |
+| Demo encoder | R3M / TCN / VIP / RoboCLIP | TBD — see `related_works.md` |
+| Reward-from-demo | VIP / RoboCLIP / TCN dist / Diffusion Reward | TBD |
+| RL backbone | DAPG / RLPD / DemoStart-style curriculum | TBD |
+
+## People
+
+- **Shengze Wang** (shengzew@nvidia.com) — Part 1 SDG engine; co-lead Part 2.
+- **Hongru** — co-lead Part 2 (demonstration-conditioned RL).
+
+## Conventions
+
+- Keep `TODOs.md` the single source of truth for status.
+- Keep architecture docs *honest*: mark target vs. built; note when reality diverges.
+- Prefer absolute dates (e.g. "2026-07-13") over relative in all context files.
+
+</script>
+<script>
+  (function () {
+    var sidebar = document.querySelector('.docs-sidebar');
+    var content = document.getElementById('docs-content');
+    var pathbar = document.getElementById('docs-pathbar-text');
+    var rawLink = document.getElementById('docs-raw-link');
+    if (!sidebar || !content) return;
+
+    // inline snapshot of each doc (used when opened via file:// where fetch is blocked)
+    var DOCS = {};
+    document.querySelectorAll('script[type="text/markdown"]').forEach(function (s) {
+      var k = s.getAttribute('data-doc');
+      if (k) DOCS[k] = s.textContent.replace(/^\n/, '');
+    });
+
+    function setActive (link) {
+      sidebar.querySelectorAll('a.doc-link').forEach(function (a) { a.classList.remove('active'); });
+      link.classList.add('active');
+    }
+    function renderMd (md) {
+      if (window.marked && window.marked.setOptions) window.marked.setOptions({ gfm: true, breaks: false });
+      content.innerHTML = window.marked ? window.marked.parse(md)
+        : ('<pre>' + md.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre>');
+    }
+    function loadDoc (filename) {
+      pathbar.textContent = filename;
+      rawLink.setAttribute('href', filename);
+      content.innerHTML = '<div class="docs-loading">Loading ' + filename + '&hellip;</div>';
+      var inline = DOCS[filename];
+      // Prefer a live fetch (when served over HTTP); fall back to the inline snapshot
+      // (when opened directly as a local file, where fetch is blocked).
+      fetch(filename, { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+        .then(renderMd)
+        .catch(function () {
+          if (inline != null) renderMd(inline);
+          else content.innerHTML = '<div class="docs-error">Could not load ' + filename + '.</div>';
+        });
+    }
+    sidebar.querySelectorAll('a.doc-link').forEach(function (link) {
+      link.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        var f = this.getAttribute('data-file');
+        if (!f) return;
+        setActive(this); loadDoc(f);
+      });
+    });
+    var initial = sidebar.querySelector('a.doc-link.active') || sidebar.querySelector('a.doc-link');
+    if (initial) loadDoc(initial.getAttribute('data-file'));
+  })();
+</script>
+
+<!-- auto-detect git branch + repo dir from serve.py /branch -->
+<script>
+(function () {
+  fetch('branch').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    if (!d) return;
+    var b = document.getElementById('repo-branch'); if (b && d.branch) b.textContent = d.branch;
+    var p = document.getElementById('repo-path');   if (p && d.repo)   p.textContent = d.repo;
+  }).catch(function () {});
+})();
+</script>
+</body>
+</html>
