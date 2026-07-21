@@ -2,6 +2,20 @@
 
 Action items and pending work. Status notes in `claude_context/experimental_conclusions.md`.
 
+## SDG generation pipeline (PixelDiT→TRELLIS.2→Newton) — cluster bring-up
+Full guide + live state in `genpipe/RUNBOOK.md`.
+- [ ] **Finish `trellis2` env on the cluster** — re-run `genpipe/cluster_setup.sh "8.0;9.0"`
+      **inside a Slurm job** (login node SIGKILLs the heavy torch install). Account
+      `nvr_nxp_visionconferencing`, `-p backfill_singlenode --gres=gpu:1`.
+- [ ] **Check compute-node internet** (`srun … git ls-remote …`) — decides whether pip/clone can
+      run in the job or must be staged from the login node / offline wheels.
+- [ ] **Verify envs via GPU `srun`** — `import torch/xformers/nvdiffrast/o_voxel/flex_gemm/cumesh`,
+      `torch.cuda.is_available()` (task #15).
+- [ ] Build the **`newton` sim env** on the cluster (if sim will run cluster-side).
+- [ ] **Export `HF_TOKEN`** (DINOv3-authorized; account `McMvMc`) before any generation run.
+- [ ] First end-to-end generation on the cluster, then a **multi-GPU batch** (1 stream/GPU) for the
+      10k / 1M set; shard outputs into subdirs (7.7 TB / 1M files on Lustre).
+
 ## In progress
 - [ ] **Cup-scene deformable grasp**: extend `tactile_rod_franka.py` to the panda_hydro-style
       layout (rod + gripper + cup + table) — pick the deformable rod and place it **into a cup**.
@@ -36,3 +50,10 @@ Action items and pending work. Status notes in `claude_context/experimental_conc
 - [x] Proved MuJoCo+VBD couple (one-way: VBD reads body velocities) — corrects the earlier
       "only Featherstone drives VBD friction" note.
 - [x] Measured rigid-vs-soft render perf: ~82 fps (rigid, CUDA graph) vs ~5 fps (soft FEM, eager) — ~16×.
+- [x] **SDG generation pipeline** vendored (PixelDiT + TRELLIS.2 submodules + `genpipe/`), verified
+      end-to-end (text→image→GLB). Commits dbe55ef8/c21dfb3e/c87b3e01/c41254a1.
+- [x] **Metal clock Newton scene** (`example_panda_clock_metal.py`) + **tactile measurement video**
+      (`tactile_clock_metal.py` → `tactile_material_clock_metal.mp4`, compliant pad + auto-zoom).
+- [x] **Profiling + scaling study**: ~8 s/image, ~62 s/object, ~5 s sim; both stages compute-bound
+      (no batch/concurrency speedup on 1 GPU). Fleet: 10k ≈ 3 h/77 GB (8 nodes); 1M ≈ 13 days/7.7 TB.
+- [x] **`genpipe/RUNBOOK.md`** written; cluster (oci-ord) repo cloned + `pixeldit` env built.

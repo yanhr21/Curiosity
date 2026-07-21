@@ -227,7 +227,10 @@ so whichever solver updated those poses drives the friction:
   `third_party/{PixelDiT,TRELLIS.2}`. Newton clock scene: `example_panda_clock_metal.py` (fork of
   `example_robot_panda_hydro.py` — rigid TRELLIS-generated clock, metal material, grip + release-from-
   high into cup) and `tactile_clock_metal.py` (tactile measurement composite → `tactile_material_clock_metal.mp4`).
-  Profiling + fleet scaling (10k objects) in `claude_context/experimental_conclusions.md` §8 and `genpipe/README.md`.
+  Profiling + fleet scaling (10k/1M objects) in `claude_context/experimental_conclusions.md` §8 and `genpipe/README.md`.
+  **Setup+run+cluster guide: `genpipe/RUNBOOK.md`** (authoritative; env bootstrap `genpipe/cluster_setup.sh`).
+  Cluster (oci-ord Slurm) bring-up in progress — repo cloned + `pixeldit` env done; `trellis2` env must
+  finish inside a Slurm job (login node kills heavy builds). State in `experimental_conclusions.md` §9.
 - Generated (gitignored): `*.usd`, `results_*.csv`, plot/diagnostic `*.png`, `*.mp4`,
   `tactile_frames*/`, `fem_frames*/`, `rodfr_frames/`, `*.log`, `demo_logs/`, `pipeline_out/`,
   `tactile_clock_frames/`.

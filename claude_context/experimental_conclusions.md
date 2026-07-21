@@ -124,10 +124,32 @@ TRELLIS 4B ~47 s + ~64 s first-object JIT warmup. Tactile video cost is ~80 % ma
 
 **Scaling (measured):** both stages are **compute-bound** — batching (PixelDiT `--bs`, flat 8.6→9.6
 s/img) or concurrency (TRELLIS 1/2/3 procs, each slows ∝ N; GPU 100 % util) gives **no throughput
-gain** on one GPU; memory is not the limit (~6–22 GB of 48 GB). N objects ≈ N × single-object time →
-scale out across GPUs (1 stream/GPU optimal), not up on one.
+gain** on one GPU; memory is not the limit (~6–22 GB of 48 GB). (`num_samples>1` batching is broken
+in the 4B pipeline — tensor-shape bug 64≠128.) N objects ≈ N × single-object time → scale out across
+GPUs (1 stream/GPU optimal), not up on one.
 
-**Fleet estimate — 10k objects** (8 GPU/node, linear in total GPUs; Ada, H100 ~1.5–2× faster):
-~197 GPU-hr generation → **8 nodes ~3 h, 16 nodes ~1.5 h**; **~71 GB** GLBs (+0.75 GB images).
-**Hydroelastic-SDF conversion is near-free**: ~0.3 s/object build (+~1 GPU-hr, <1 %) and ~0.5 MB/object
-(~5 GB, or 0 if rebuilt at sim-load). **Grand total ≈ 3 h / 77 GB (8 nodes), 1.5 h / 77 GB (16 nodes).**
+**Fleet estimate** (~71 s/object; 8 GPU/node, linear in total GPUs; Ada, H100 ~1.5–2× faster).
+Hydroelastic-SDF conversion is near-free (~0.3 s/object build, ~0.5 MB/object, or 0 if rebuilt at
+sim-load):
+
+| objects | gen compute | 8 nodes (64 GPU) | 16 nodes (128 GPU) | storage (GLB+img+SDF) |
+|---|---|---|---|---|
+| 10k | ~197 GPU-hr | ~3 h | ~1.5 h | ~77 GB |
+| 1M | ~19,700 GPU-hr | ~13 days | ~6.4 days | **~7.7 TB** (7.1 TB GLB + 75 GB img + 0.5 TB SDF) |
+
+At 1M scale: budget for retries/failures and shard the output (subdirs) — 1M files on Lustre.
+
+## 9. Cluster setup (oci-ord Slurm) — in progress
+
+Bootstrapping the SDG pipeline on the OCI-ord cluster (`sdg/newton` under
+`/lustre/fsw/portfolios/nvr/users/shengzew`), driven via a `screen` session `ord_pod`. Full
+guide + gotchas + live state: **`genpipe/RUNBOOK.md`** (authoritative). Highlights:
+
+- Repo cloned (branch + submodules + eigen). **`pixeldit` env done** (torch 2.5.0+cu124 imports).
+- **`trellis2` env incomplete** — the **login node SIGKILLs heavy builds** (torch install died
+  mid-way). Fix: re-run `genpipe/cluster_setup.sh "8.0;9.0"` **inside a Slurm job** (account
+  `nvr_nxp_visionconferencing`, 8 GPU/node; no system nvcc → conda cuda-toolkit 12.4). Open
+  question: whether compute nodes have internet for the pip/clone steps.
+- Screen-channel gotchas (documented in RUNBOOK): shell vars come back empty → absolute paths;
+  ~64-col wrap mangles long lines → widen; avoid escaped quotes / regex brackets; background long
+  ops + poll logs.

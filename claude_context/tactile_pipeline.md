@@ -114,3 +114,21 @@ indexed by shape order, so a rebuild silently recolors the scene and drops piece
   projection moving within the window). `stitch_compare.sh` hstacks metal|wood|soft with FPS labels.
 - **Performance**: soft (MuJoCo + VBD 50 it, eager) ≈ **5 fps** vs rigid (MuJoCo + hydroelastic,
   CUDA graph) ≈ **82 fps** — ~16× slower (VBD iterations + eager + per-substep collision).
+
+## 7. Generation pipeline (PixelDiT→TRELLIS.2→Newton) — architecture
+
+Synthetic-data generation of rigid objects for Newton. Three isolated conda envs bridged by files
+on disk (their dependency stacks conflict): **pixeldit** (text→image) → **trellis2** (image→3D GLB)
+→ **newton** (rigid-body sim). Full setup/run/cluster guide: **`genpipe/RUNBOOK.md`**; architecture +
+per-item cost + fleet scaling: `genpipe/README.md`.
+
+- **PixelDiT** (`third_party/PixelDiT`, `t2i/inference.py`): 1024² pixel-space diffusion, 50 steps,
+  Gemma-2 text encoder (public `Efficient-Large-Model/gemma-2-2b-it` mirror — no gate). `--bs` batches
+  prompts (no throughput gain; compute-bound). Output PNG/JPG.
+- **TRELLIS.2-4B** (`third_party/TRELLIS.2`, driven by `genpipe/trellis_image_to_glb.py`):
+  DINOv3 image conditioning → sparse-structure flow → SLat flow (shape+texture) → mesh decode →
+  xatlas UV + PBR texture bake → GLB. Runner fixes (all baked in): xformers attn backend, gated
+  DINOv3 needs `HF_TOKEN`, RMBG-2.0 rembg → ungated `ZhengPeng7/BiRefNet`, einops/fp32, transformers-v5
+  `.layer` nesting patch, `sys.path` for the source package. `num_samples>1` batching is broken.
+- **Newton**: load the GLB as a rigid body (convex-hull collision + hydroelastic SDF, full mesh as
+  visual) — see `example_panda_clock_metal.py` and the scene-families table above.
