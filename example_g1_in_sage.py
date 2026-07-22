@@ -142,26 +142,11 @@ def build(args, viewer):
             builder.shape_flags[s] |= newton.ShapeFlags.HYDROELASTIC
     print(f"[g1_in_sage] tagged {len(foot_shapes)} foot shapes hydroelastic (mu={FOOT_MU})")  # CALIBRATE if 0
 
-    # ---- floor (hydroelastic ground) ----
-    floor_mu = mu_ovr if mu_ovr is not None else FLOOR_MU
-    # collision-only ground plane; its default grey visual would z-fight the GLB floor mesh (both at
-    # z=0) and hide the authentic olive texture, so hide it and let the GLB floor be the visual.
-    floor_cfg = replace(
-        builder.default_shape_cfg,
-        mu=floor_mu,
-        restitution=FLOOR_REST,
-        kh=RIGID_KH,
-        is_hydroelastic=True,
-        is_visible=False,
-    )
-    builder.add_ground_plane(cfg=floor_cfg)
-    print(f"[g1_in_sage] floor mu={floor_mu}")
-
     # ---- SAGE room + furniture from the pre-assembled GLB (authoritative baked UVs + textures) ----
     # The dataset ships an assembled GLB (_out/layout_<id>.glb) that its own reference previews are
     # rendered from, so its per-vertex UVs and baked textures are correct. Load those directly instead
     # of hand-parsing PLY texcoords (which mismap) or building floor/wall quads. Meshes are world-placed
-    # (glTF Y-up rotated to Newton Z-up in the loader) so the floor sits on the z=0 ground plane.
+    # (glTF Y-up rotated to Newton Z-up in the loader).
     # Furniture is static — it matches the reference layout and avoids tumbling; big pieces also get a
     # convex-hull collider so the robot collides with / touches them (tactile).
     import glob
@@ -175,6 +160,25 @@ def build(args, viewer):
         glb_path = next(iter(glob.glob(os.path.join(scene_dir, "_out", "*.glb"))), None)
     meshes = load_glb_scene(glb_path)
     print(f"[g1_in_sage] loaded {len(meshes)} meshes from {os.path.basename(glb_path)}")
+
+    # ---- floor collider: a hydroelastic ground plane placed exactly at the visible floor mesh's TOP
+    # surface, so the collision surface and the textured floor coincide and nothing sinks below the
+    # floor you see. Deriving the height from the mesh (not assuming z=0) guarantees the fit for any
+    # scene. An analytic plane rather than the mesh itself: the loco policy's foot contact is far more
+    # stable against an exact plane than a room-scale mesh SDF. Kept invisible so its default grey
+    # doesn't hide the authentic floor texture.
+    floor_top_z = max((float(m["verts"][:, 2].max()) for m in meshes if m["category"] == "floor"), default=0.0)
+    floor_mu = mu_ovr if mu_ovr is not None else FLOOR_MU
+    floor_cfg = replace(
+        builder.default_shape_cfg,
+        mu=floor_mu,
+        restitution=FLOOR_REST,
+        kh=RIGID_KH,
+        is_hydroelastic=True,
+        is_visible=False,
+    )
+    builder.add_ground_plane(height=floor_top_z, cfg=floor_cfg)
+    print(f"[g1_in_sage] floor mu={floor_mu}, ground plane at z={floor_top_z:.4f} (== floor mesh top)")
 
     # drop the ceiling + the wall nearest the camera so we can see into the room
     cpx, cpy = float(args.cam[0]), float(args.cam[1])
