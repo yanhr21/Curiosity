@@ -376,6 +376,9 @@ def download_git_folder(
                 repo.create_remote("origin", git_url)
                 repo.git.sparse_checkout("init")
                 repo.git.sparse_checkout("set", folder_path)
+                # Enable partial clone on this fresh repo so `fetch --filter` is allowed
+                # (older git requires extensions.partialClone to be set explicitly).
+                repo.git.config("extensions.partialClone", "origin")
                 repo.git.fetch("origin", ref, "--depth=1", "--filter=blob:none")
                 repo.git.checkout("FETCH_HEAD")
             finally:

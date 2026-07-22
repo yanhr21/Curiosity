@@ -16,6 +16,18 @@ Full guide + live state in `genpipe/RUNBOOK.md`.
 - [ ] First end-to-end generation on the cluster, then a **multi-GPU batch** (1 stream/GPU) for the
       10k / 1M set; shard outputs into subdirs (7.7 TB / 1M files on Lustre).
 
+## Dataset ingestion (SAGE-10k → Newton physics + tactile)
+Design: `claude_context/dataset_ingestion.md`. Code scaffold: `scene_ingest/` (`spec.py` IR,
+`adapters/sage.py` [runs on stdlib, validated on a real SAGE room], `newton_build.py` [reference,
+untested in the live `newton` env]). Browsable summary: `claude_context/index.html` (serve.py :8091).
+- [ ] Bring up the `newton` env; run one SAGE room through `newton_build.build_newton_scene` headless
+      → settle/stability report (mirror SAGE's `load_isaacsim_demo.py` + this repo's penetration metric).
+- [ ] Calibrate the SAGE `.ply` up-axis + bbox-fit (uniform vs. stretch) against live meshes.
+- [ ] Attach Franka + hydroelastic tactile pads (fork `example_panda_clock_metal.py`); pick one object
+      off a SAGE table → tactile video (reuse `tactile_video.py` composite).
+- [ ] Wire `RandomizationSpec` (mass/CoM/friction/compliance) — the physical-enrichment layer.
+- [ ] Second adapter (REST3D or a `genpipe` GLB scene) to prove the IR is dataset-agnostic.
+
 ## In progress
 - [ ] **Cup-scene deformable grasp**: extend `tactile_rod_franka.py` to the panda_hydro-style
       layout (rod + gripper + cup + table) — pick the deformable rod and place it **into a cup**.

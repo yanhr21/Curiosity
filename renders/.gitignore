@@ -1,0 +1,6 @@
+# Render outputs and run scratch — large/binary, regenerated on each run; not versioned.
+*.mp4
+*.mp4.frames/
+*.log
+*.txt
+_toolcache/
