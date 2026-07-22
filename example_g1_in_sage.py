@@ -47,7 +47,6 @@ FOOT_KH = 5.0e8  # compliant foot pad (broad contact patch; << rigid 1e12)
 FOOT_LINK_KEYS = ("ankle_roll", "foot", "sole")  # CALIBRATE: G1 foot link substrings
 DEFAULT_OBJ_DENSITY = 500.0
 # Room-shell / furniture rendering (GLB visual meshes).
-FLOOR_VIZ_LIFT = 0.012  # [m] lift the floor visual off the ground plane to avoid coplanar z-fight
 MIN_COLLIDER_EXTENT = 0.12  # [m] skip convex-hull colliders for clutter below this max AABB extent
 
 # SDF params for hydroelastic contact (feet + floor + touched objects)
@@ -197,14 +196,13 @@ def build(args, viewer):
         ):
             continue
         # visible mesh: authentic baked texture + UVs. White shape color so the shader shows the
-        # texture unmodified (albedo = ObjectColor * texture; a palette color would tint it).
-        verts = m["verts"]
-        if m["category"] == "floor":
-            verts = verts + np.array([0.0, 0.0, FLOOR_VIZ_LIFT], dtype=np.float32)  # avoid coplanar z-fight
+        # texture unmodified (albedo = ObjectColor * texture; a palette color would tint it). The
+        # floor stays at true z=0 (the collision ground plane is invisible, so nothing to z-fight) —
+        # lifting it would make anything resting on the ground (feet, a fallen limb) sink into the floor.
         if m["uvs"] is not None and m["texture"] is not None:
-            viz = newton.Mesh(verts, m["faces"], uvs=m["uvs"], texture=m["texture"], compute_inertia=False)
+            viz = newton.Mesh(m["verts"], m["faces"], uvs=m["uvs"], texture=m["texture"], compute_inertia=False)
         else:
-            viz = newton.Mesh(verts, m["faces"], compute_inertia=False)
+            viz = newton.Mesh(m["verts"], m["faces"], compute_inertia=False)
         builder.add_shape_mesh(body=-1, mesh=viz, cfg=viz_cfg, color=(1.0, 1.0, 1.0))
         n_viz += 1
         # static convex-hull collider for furniture big enough for the robot to bump (skip tiny clutter).
