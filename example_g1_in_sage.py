@@ -46,8 +46,6 @@ FOOT_REST = 0.0
 FOOT_KH = 5.0e8  # compliant foot pad (broad contact patch; << rigid 1e12)
 FOOT_LINK_KEYS = ("ankle_roll", "foot", "sole")  # CALIBRATE: G1 foot link substrings
 DEFAULT_OBJ_DENSITY = 500.0
-# Room-shell / furniture rendering (GLB visual meshes).
-MIN_COLLIDER_EXTENT = 0.12  # [m] skip convex-hull colliders for clutter below this max AABB extent
 
 # SDF params for hydroelastic contact (feet + floor + touched objects)
 SDF_MAX_RES = 48
@@ -147,8 +145,8 @@ def build(args, viewer):
     # rendered from, so its per-vertex UVs and baked textures are correct. Load those directly instead
     # of hand-parsing PLY texcoords (which mismap) or building floor/wall quads. Meshes are world-placed
     # (glTF Y-up rotated to Newton Z-up in the loader).
-    # Furniture is static — it matches the reference layout and avoids tumbling; big pieces also get a
-    # convex-hull collider so the robot collides with / touches them (tactile).
+    # Furniture is static; every furniture object also gets a hydroelastic SDF collider built from its
+    # own mesh (see the object loop below) for accurate concave contact + tactile pressure.
     import glob
 
     from scene_ingest.newton_build import load_glb_scene
@@ -191,45 +189,47 @@ def build(args, viewer):
         else None
     )
 
+    # Each SAGE object is ONE shape: its original textured mesh, which is ALSO the collision surface
+    # via a hydroelastic SDF built from that same (assumed-watertight) mesh — never a convex-hull
+    # approximation. This gives accurate concave contact + a dense per-face pressure field for tactile
+    # (dataset_ingestion.md 5-6 / example_panda_clock_metal.py). EVERY furniture object gets an SDF (we
+    # can't know which the robot will touch). Room shell (floor/walls) stays visual-only; the floor's
+    # collision is the ground plane.
     viz_cfg = replace(builder.default_shape_cfg, has_shape_collision=False, is_hydroelastic=False, density=0.0)
     obj_shapes: list[int] = []
-    n_viz = n_col = 0
+    n_viz = n_sdf = 0
     for m in meshes:
         if m["category"] == "ceiling" or (
             m["category"] == "wall" and (not getattr(args, "walls", True) or m["name"] == near_wall)
         ):
             continue
-        # visible mesh: authentic baked texture + UVs. White shape color so the shader shows the
-        # texture unmodified (albedo = ObjectColor * texture; a palette color would tint it). The
-        # floor stays at true z=0 (the collision ground plane is invisible, so nothing to z-fight) —
-        # lifting it would make anything resting on the ground (feet, a fallen limb) sink into the floor.
-        if m["uvs"] is not None and m["texture"] is not None:
-            viz = newton.Mesh(m["verts"], m["faces"], uvs=m["uvs"], texture=m["texture"], compute_inertia=False)
-        else:
-            viz = newton.Mesh(m["verts"], m["faces"], compute_inertia=False)
-        builder.add_shape_mesh(body=-1, mesh=viz, cfg=viz_cfg, color=(1.0, 1.0, 1.0))
-        n_viz += 1
-        # static convex-hull collider for furniture big enough for the robot to bump (skip tiny clutter).
-        # add_shape_convex_hull hulls the mesh itself into an efficient CONVEX_MESH shape.
-        if m["category"] == "furniture" and float(np.max(m["verts"].max(0) - m["verts"].min(0))) >= MIN_COLLIDER_EXTENT:
+        # white shape color so the shader shows the authentic texture unmodified (albedo = color * tex).
+        mesh = (
+            newton.Mesh(m["verts"], m["faces"], uvs=m["uvs"], texture=m["texture"], compute_inertia=False)
+            if (m["uvs"] is not None and m["texture"] is not None)
+            else newton.Mesh(m["verts"], m["faces"], compute_inertia=False)
+        )
+        if m["category"] == "furniture":
+            mesh.build_sdf(max_resolution=SDF_MAX_RES, narrow_band_range=SDF_NARROW_BAND, margin=0.01)
             obj_mu = mu_ovr if mu_ovr is not None else 0.8
-            col_cfg = replace(
+            cfg = replace(
                 builder.default_shape_cfg,
-                is_visible=False,
                 has_shape_collision=True,
-                is_hydroelastic=False,
+                is_hydroelastic=True,
                 mu=obj_mu,
                 restitution=0.0,
                 kh=RIGID_KH,
+                density=0.0,
             )
-            try:
-                hull = newton.Mesh(m["verts"], m["faces"], compute_inertia=False)
-                obj_shapes.append(builder.add_shape_convex_hull(body=-1, mesh=hull, cfg=col_cfg))
-                n_col += 1
-            except Exception:
-                pass
+            sh = builder.add_shape_mesh(body=-1, mesh=mesh, cfg=cfg, color=(1.0, 1.0, 1.0))
+            builder.shape_flags[sh] |= newton.ShapeFlags.HYDROELASTIC
+            obj_shapes.append(sh)
+            n_sdf += 1
+        else:
+            builder.add_shape_mesh(body=-1, mesh=mesh, cfg=viz_cfg, color=(1.0, 1.0, 1.0))
+        n_viz += 1
     print(
-        f"[g1_in_sage] room shell + furniture: {n_viz} visual meshes, {n_col} static colliders "
+        f"[g1_in_sage] room shell + furniture: {n_viz} meshes, {n_sdf} hydroelastic-SDF objects "
         f"(dropped ceiling + near wall '{near_wall}')"
     )
 
