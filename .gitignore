@@ -6,6 +6,11 @@ envs/
 external/
 /legacy/
 runs/
+slide/
+
+# Read-only official SMP upstream checkout. Project-owned adapters and method
+# records are tracked elsewhere; do not vendor its nested Git history.
+/MimicKit/
 
 # Runtime outputs. Keep only the root logs README.
 logs/*
