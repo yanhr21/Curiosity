@@ -1,5 +1,23 @@
 # Newton Development Guidelines
 
+## Active universal tactile work
+
+- The active feature branch is `yanhongru/universal-tactile`. Add a public
+  `newton.sensors.SensorTactile` that reads solved native contact wrenches and
+  native effective contact geometry. Do not turn the existing visualization
+  script's `kh * depth` heatmap or aggregate `SensorContact` result into the
+  sensor implementation.
+- Preserve raw per-contact values and signed patch-local force components.
+  Any dense patch grid must be a force-conserving spatial serialization of
+  those native values in a geometry-fixed metric frame.
+- Newton has no native GelSight optical deformation output. Mark optical data
+  unavailable; do not fabricate RGB/depth to match IsaacLab.
+- The paired slip detector consumes tactile history and timestamps only.
+  Simulator object/contact relative velocity is evaluation-only.
+- No policy training is in scope. Runtime completion requires both a box and
+  non-box Newton scene with synchronized world/tactile/slip video and numeric
+  sign/force/clock evidence.
+
 - `newton/_src/` is internal. Examples and docs must not import from `newton._src`. Expose user-facing symbols via public modules (`newton/geometry.py`, `newton/solvers.py`, etc.).
 - Breaking changes require a deprecation first. Do not remove or rename public API symbols without deprecating them in a prior release.
 - Prefix-first naming for autocomplete: `ActuatorPD` (not `PDActuator`), `add_shape_sphere()` (not `add_sphere_shape()`).

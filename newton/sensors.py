@@ -21,9 +21,15 @@ from ._src.sensors.sensor_tiled_camera import (
     SensorTiledCamera,
 )
 
+# Spatial tactile sensors
+from ._src.sensors.sensor_tactile import (
+    SensorTactile,
+)
+
 __all__ = [
     "SensorContact",
     "SensorFrameTransform",
     "SensorIMU",
+    "SensorTactile",
     "SensorTiledCamera",
 ]

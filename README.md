@@ -29,6 +29,37 @@ pip install "newton[examples]"
 python -m newton.examples
 ```
 
+## Native solved-contact tactile sensor
+
+This branch exports `newton.sensors.SensorTactile`. It preserves raw solved
+contact samples and conservatively rasterizes them into signed patch-local
+normal/XY-shear and penetration fields. Construct the sensor before creating
+the `Contacts` buffer so Newton allocates `Contacts.force`, then update in this
+order:
+
+```python
+sensor = newton.sensors.SensorTactile(
+    model,
+    sensing_shapes=[pad_shape],
+    counterpart_shapes=[object_shape],
+    grid_shape=(20, 25),
+    patch_size=(0.04, 0.06),
+)
+contacts = model.contacts()
+
+model.collide(state, contacts)
+solver.step(state, next_state, control, contacts, dt)
+solver.update_contacts(contacts, next_state)
+sensor.update(next_state, contacts, timestamp=sim_time)
+```
+
+Rows increase along patch-local X and columns along patch-local Y. The sensor
+uses native solved `Contacts.force`; it is not `kh * depth`, a binary contact
+label, or an aggregate body wrench. Newton does not produce GelSight
+RGB/elastomer depth, so optical output is explicitly unavailable. The root
+`tactile_video.py` reuses this sensor unchanged for Panda cube and pen scenes;
+`tactile_slip_demo.py` provides a controlled tactile-only stick-to-slide case.
+
 To install from source with [uv](https://docs.astral.sh/uv/), see the [installation guide](https://newton-physics.github.io/newton/latest/guide/installation.html).
 
 ## Examples

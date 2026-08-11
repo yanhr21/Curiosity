@@ -1291,6 +1291,10 @@ def create_convert_mjw_contacts_to_newton_kernel():
         rigid_contact_shape1: wp.array[wp.int32],
         rigid_contact_point0: wp.array[wp.vec3],
         rigid_contact_point1: wp.array[wp.vec3],
+        rigid_contact_offset0: wp.array[wp.vec3],
+        rigid_contact_offset1: wp.array[wp.vec3],
+        rigid_contact_margin0: wp.array[float],
+        rigid_contact_margin1: wp.array[float],
         rigid_contact_normal: wp.array[wp.vec3],
         contact_force: wp.array[wp.spatial_vector],
     ):
@@ -1338,6 +1342,14 @@ def create_convert_mjw_contacts_to_newton_kernel():
 
         rigid_contact_point0[contact_idx] = wp.transform_point(wp.transform_inverse(X_wb_a), point0_world)
         rigid_contact_point1[contact_idx] = wp.transform_point(wp.transform_inverse(X_wb_b), point1_world)
+        # These are already geometry-surface points recovered from MuJoCo's
+        # contact midpoint and signed distance. Clear Newton support-point
+        # offsets/margins so consumers do not apply the surface displacement
+        # a second time.
+        rigid_contact_offset0[contact_idx] = wp.vec3(0.0)
+        rigid_contact_offset1[contact_idx] = wp.vec3(0.0)
+        rigid_contact_margin0[contact_idx] = 0.0
+        rigid_contact_margin1[contact_idx] = 0.0
 
         if contact_force:
             # Negate: contact_force_fn returns force on geom2; Newton stores force on shape0 (geom1).

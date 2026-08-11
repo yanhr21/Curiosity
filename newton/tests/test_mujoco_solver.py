@@ -10116,6 +10116,15 @@ class TestUpdateContactsPointPositions(unittest.TestCase):
                 found_contacts = True
                 point0 = contacts.rigid_contact_point0.numpy()[:n]
                 point1 = contacts.rigid_contact_point1.numpy()[:n]
+                offset0 = contacts.rigid_contact_offset0.numpy()[:n]
+                offset1 = contacts.rigid_contact_offset1.numpy()[:n]
+                margin0 = contacts.rigid_contact_margin0.numpy()[:n]
+                margin1 = contacts.rigid_contact_margin1.numpy()[:n]
+
+                np.testing.assert_array_equal(offset0, 0.0)
+                np.testing.assert_array_equal(offset1, 0.0)
+                np.testing.assert_array_equal(margin0, 0.0)
+                np.testing.assert_array_equal(margin1, 0.0)
 
                 hx, hy, hz = 0.25, 0.25, 0.25
                 for i in range(n):
