@@ -16,6 +16,8 @@ parser.add_argument("--frames", type=int, default=240)
 parser.add_argument("--fps", type=int, default=50)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
+if args.frames < 240:
+    parser.error("--frames must be at least 240 to include every declared slip phase")
 simulation_app = AppLauncher(args).app
 
 import json
@@ -58,6 +60,11 @@ WIDTH, HEIGHT = 1280, 720
 OBJECT_RADIUS_M = 0.006
 CONTACT_INDENTATION_M = 0.0008
 FORCE_SCALE_N_PER_TAXEL = 0.0012
+SLOW_STEP_M = 0.00012  # 0.006 m/s at 50 Hz
+FAST_STEP_M = 0.00060  # 0.030 m/s, deliberately above the 0.020 m/s gross-slip label
+RETURN_STEP_M = 0.00020  # 0.010 m/s
+SLOW_END_M = SLOW_STEP_M * 50
+FAST_END_M = SLOW_END_M - FAST_STEP_M * 20
 
 
 class VideoWriter:
@@ -149,13 +156,49 @@ def force_rgb(normal: np.ndarray, maximum: float) -> np.ndarray:
 def object_x_and_label(frame: int) -> tuple[float, str]:
     if frame < 40:
         return 0.0, "fixed contact"
-    if frame < 100:
-        return 0.00012 * (frame - 40), "slow sweep"
+    if frame < 90:
+        return SLOW_STEP_M * (frame - 40), "slow sweep"
     if frame < 120:
-        return 0.0072 - 0.0004 * (frame - 100), "fast sweep"
+        return SLOW_END_M, "fixed after slow"
+    if frame < 140:
+        return SLOW_END_M - FAST_STEP_M * (frame - 120), "fast sweep"
     if frame < 180:
-        return -0.0008, "fixed after sweep"
-    return -0.0008 + 0.0002 * (frame - 180), "return sweep"
+        return FAST_END_M, "fixed after sweep"
+    return FAST_END_M + RETURN_STEP_M * (frame - 180), "return sweep"
+
+
+def onset_delay(
+    oracle_state: np.ndarray,
+    predicted_state: np.ndarray,
+    *,
+    start: int,
+    end: int,
+    threshold: SlipState,
+    fps: int,
+) -> dict[str, int | float | None]:
+    """Measure causal detector onset after the first held-out phase crossing."""
+    oracle_indices = np.flatnonzero(oracle_state[start:end] >= int(threshold))
+    if not len(oracle_indices):
+        return {
+            "oracle_onset_frame": None,
+            "predicted_onset_frame": None,
+            "delay_frames": None,
+            "delay_s": None,
+        }
+    oracle_frame = start + int(oracle_indices[0])
+    predicted_indices = np.flatnonzero(
+        predicted_state[oracle_frame:end] >= int(threshold)
+    )
+    predicted_frame = (
+        oracle_frame + int(predicted_indices[0]) if len(predicted_indices) else None
+    )
+    delay_frames = None if predicted_frame is None else predicted_frame - oracle_frame
+    return {
+        "oracle_onset_frame": oracle_frame,
+        "predicted_onset_frame": predicted_frame,
+        "delay_frames": delay_frames,
+        "delay_s": None if delay_frames is None else delay_frames / fps,
+    }
 
 
 def main() -> None:
@@ -309,6 +352,7 @@ def main() -> None:
     slip_rows = []
     oracle_speed_rows = []
     x_rows = []
+    phase_rows = []
     previous_x = 0.0
     for frame in range(args.frames):
         x, label = object_x_and_label(frame)
@@ -329,7 +373,11 @@ def main() -> None:
         contact_object.update(dt)
         sensor.update(dt, force_recompute=True)
         world_camera.update(dt, force_recompute=True)
-        tactile = adapter.update({"capsule": [sensor.data]}, timestamp_s=(frame + 1) * dt)
+        tactile = adapter.update(
+            {"capsule": [sensor.data]},
+            timestamp_s=(frame + 1) * dt,
+            optical_timestamp_s=(frame + 1) * dt,
+        )
         evidence = detector.update(tactile)
 
         normal = tactile.normal_force_n[0, 0].detach().cpu().numpy()
@@ -346,6 +394,7 @@ def main() -> None:
         slip_rows.append(int(evidence.state[0, 0]))
         oracle_speed_rows.append(oracle_speed)
         x_rows.append(x)
+        phase_rows.append(label)
 
         canvas = np.full((HEIGHT, WIDTH, 3), 255, dtype=np.uint8)
         world = world_camera.data.output["rgb"][0, ..., :3].detach().cpu().numpy().astype(np.uint8)
@@ -393,9 +442,66 @@ def main() -> None:
         tactile_only_slip_state=slip_array,
         heldout_relative_tangential_speed_m_s=oracle_speed_array,
         object_x_m=np.asarray(x_rows, dtype=np.float32),
+        command_phase=np.asarray(phase_rows),
     )
-    oracle_slip = oracle_speed_array >= 0.005
+    contact_array = np.any(penetration_array > 0.0, axis=(1, 2))
+    oracle_state = np.full(args.frames, int(SlipState.NO_CONTACT), dtype=np.int8)
+    oracle_state[contact_array] = int(SlipState.STICK)
+    oracle_state[contact_array & (oracle_speed_array >= 0.005)] = int(SlipState.INCIPIENT)
+    oracle_state[contact_array & (oracle_speed_array >= 0.020)] = int(SlipState.GROSS)
+    oracle_slip = oracle_state >= int(SlipState.INCIPIENT)
     predicted_slip = slip_array >= int(SlipState.INCIPIENT)
+    true_positive = int(np.count_nonzero(oracle_slip & predicted_slip))
+    false_positive = int(np.count_nonzero(~oracle_slip & predicted_slip))
+    false_negative = int(np.count_nonzero(oracle_slip & ~predicted_slip))
+    true_negative = int(np.count_nonzero(~oracle_slip & ~predicted_slip))
+    confusion = np.zeros((4, 4), dtype=np.int64)
+    np.add.at(confusion, (oracle_state, slip_array), 1)
+    phase_intervals = {
+        "fixed_contact": (0, 40),
+        "slow_sweep": (40, 90),
+        "fixed_after_slow": (90, 120),
+        "fast_sweep": (120, 140),
+        "fixed_after_sweep": (140, 180),
+        "return_sweep": (180, args.frames),
+    }
+    phase_evaluation = {}
+    for phase, (start, end) in phase_intervals.items():
+        phase_evaluation[phase] = {
+            "frame_interval": [start, end],
+            "command_speed_m_s": float(
+                np.median(np.abs(np.diff(np.asarray(x_rows)[max(start - 1, 0) : end])))
+                * args.fps
+            ) if end - start > 1 else 0.0,
+            "heldout_speed_m_s_median": float(np.median(oracle_speed_array[start:end])),
+            "heldout_speed_m_s_maximum": float(np.max(oracle_speed_array[start:end])),
+            "oracle_state_counts": {
+                SlipState(state).name: int(np.count_nonzero(oracle_state[start:end] == state))
+                for state in range(4)
+            },
+            "predicted_state_counts": {
+                SlipState(state).name: int(np.count_nonzero(slip_array[start:end] == state))
+                for state in range(4)
+            },
+        }
+    onset = {
+        "incipient_slow_sweep": onset_delay(
+            oracle_state,
+            slip_array,
+            start=40,
+            end=90,
+            threshold=SlipState.INCIPIENT,
+            fps=args.fps,
+        ),
+        "gross_fast_sweep": onset_delay(
+            oracle_state,
+            slip_array,
+            start=120,
+            end=140,
+            threshold=SlipState.GROSS,
+            fps=args.fps,
+        ),
+    }
     summary = {
         "schema": "isaaclab_r15_capsule_native_tactile_slip_v1",
         "frames": args.frames,
@@ -419,14 +525,17 @@ def main() -> None:
             SlipState(state).name: int(np.count_nonzero(slip_array == state))
             for state in range(4)
         },
-        "heldout_binary_precision": float(
-            np.count_nonzero(oracle_slip & predicted_slip)
-            / max(np.count_nonzero(predicted_slip), 1)
-        ),
-        "heldout_binary_recall": float(
-            np.count_nonzero(oracle_slip & predicted_slip)
-            / max(np.count_nonzero(oracle_slip), 1)
-        ),
+        "heldout_state_confusion_rows_oracle_columns_prediction": confusion.tolist(),
+        "heldout_binary": {
+            "true_positive": true_positive,
+            "false_positive": false_positive,
+            "false_negative": false_negative,
+            "true_negative": true_negative,
+            "precision": float(true_positive / max(true_positive + false_positive, 1)),
+            "recall": float(true_positive / max(true_positive + false_negative, 1)),
+        },
+        "phase_evaluation": phase_evaluation,
+        "onset_delay": onset,
         "maximum_heldout_relative_speed_m_s": float(oracle_speed_array.max()),
         "video": str(video_path),
         "trace": str(trace_path),

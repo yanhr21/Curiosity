@@ -54,6 +54,11 @@ surface is constructed and uses conservative bilinear accumulation from the
 actual solved contacts. No object pose, reward, contact label, or outcome is
 part of the tactile frame.
 
+World orientations use scalar-last `xyzw`, matching Warp/Newton. The thin
+IsaacLab adapter reorders the official scalar-first `wxyz` tensor without
+changing the represented rotation. Force and optical streams have independent
+sequence/timestamp state even when a scene explicitly samples them together.
+
 Optical RGB/depth is an optional, explicitly available modality with its own
 clock. Backend-specific diagnostic values may be recorded, but they remain
 outside the deployable tactile frame.
@@ -75,7 +80,8 @@ Add a public `SensorTactile` under `newton.sensors` on the feature branch
   transforms, sequence and time. Multiple sensing patches, counterparts and
   worlds must use the same class.
 - Test force sign, shape0/shape1 symmetry, translation/rotation invariance,
-  counterpart filtering, force conservation and reset behavior.
+  counterpart filtering, dynamic/kinematic/world-fixed patches, force
+  conservation and reset behavior.
 
 The first Newton task case is a box grasp/carry using physical pads. The
 second case reuses the same sensor without code changes on a non-box object

@@ -18,7 +18,7 @@ def _data(offset: float, *, optical: bool = False):
     shear[:, 1] = [0.25 + offset, -0.5]
     positions = np.arange(2 * taxels * 3, dtype=np.float32).reshape(2, taxels, 3)
     quaternions = np.zeros((2, taxels, 4), dtype=np.float32)
-    quaternions[..., 3] = 1.0
+    quaternions[..., 0] = 1.0  # official IsaacLab convention: wxyz
     return SimpleNamespace(
         penetration_depth=penetration,
         tactile_normal_force=normal,
@@ -43,6 +43,7 @@ class TestUniversalTacSLAdapter(unittest.TestCase):
                 "table": [_data(0.2), _data(0.3)],
             },
             timestamp_s=1.0,
+            optical_timestamp_s=0.95,
         )
         self.assertEqual(frame.backend, "isaaclab_tacsl")
         self.assertEqual(frame.normal_force_n.shape, (2, 2, 2, 3))
@@ -54,10 +55,36 @@ class TestUniversalTacSLAdapter(unittest.TestCase):
         self.assertEqual(frame.clock.sequence, 0)
         self.assertEqual(frame.clock.dt_s, 0.0)
         self.assertEqual(frame.optical.available, (True, False))
+        self.assertEqual(frame.optical.clock.sequence, 0)
+        self.assertEqual(frame.optical.clock.timestamp_s, 0.95)
+        np.testing.assert_allclose(
+            frame.taxel_orientation_w_xyzw[..., 3], 1.0
+        )
+        np.testing.assert_allclose(
+            frame.taxel_orientation_w_xyzw[..., :3], 0.0
+        )
 
         frame2 = adapter.update({"box": [_data(0.0), _data(0.1)]}, timestamp_s=1.02)
         self.assertEqual(frame2.clock.sequence, 1)
         self.assertAlmostEqual(frame2.clock.dt_s, 0.02)
+        self.assertIsNone(frame2.optical.clock)
+
+        frame3 = adapter.update(
+            {"box": [_data(0.0, optical=True), _data(0.1)]},
+            timestamp_s=1.04,
+            optical_timestamp_s=1.05,
+        )
+        self.assertEqual(frame3.clock.sequence, 2)
+        self.assertEqual(frame3.optical.clock.sequence, 1)
+        self.assertAlmostEqual(frame3.optical.clock.dt_s, 0.10)
+
+        cached_optical = adapter.update(
+            {"box": [_data(0.0, optical=True), _data(0.1)]},
+            timestamp_s=1.06,
+        )
+        self.assertEqual(cached_optical.clock.sequence, 3)
+        self.assertEqual(cached_optical.optical.clock.sequence, 1)
+        self.assertEqual(cached_optical.optical.clock.timestamp_s, 1.05)
 
 
 if __name__ == "__main__":

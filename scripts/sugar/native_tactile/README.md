@@ -11,7 +11,9 @@ is an active entry point.
 - `universal.py`: common native frame plus direct official TacSL and Newton
   solved-contact adapters. Dense scalar layout is
   `[batch,patch,row,column]`; signed shear appends two channels. Released TacSL
-  row/column order and signs are unchanged.
+  row/column order and signs are unchanged. The adapter explicitly converts
+  IsaacLab's `wxyz` taxel orientations to the common Newton-compatible `xyzw`
+  order and advances force and optical clocks independently.
 - `slip.py`: causal tactile-history-only load, friction utilization,
   center-of-pressure motion, footprint transport, load loss and hysteretic
   `NO_CONTACT/STICK/INCIPIENT/GROSS` state.
@@ -23,8 +25,9 @@ is an active entry point.
 - `render_sugar_whole_hand_carrybox.py`: synchronized world plus both complete
   anatomical hands, raw signed force/shear and per-patch slip state.
 - `run_isaaclab_r15_capsule_slip.py`: unchanged official R15 adapter on a
-  controlled swept capsule with fixed, slow, fast and return phases; simulator
-  relative velocity remains a held-out label.
+  controlled swept capsule with fixed, `0.006 m/s` incipient, `0.030 m/s`
+  gross and return phases; simulator relative velocity remains a held-out
+  label.
 - `Newton/tactile_video.py`: public `newton.sensors.SensorTactile` box/pen
   evidence entry point; no monkeypatch, `kh * depth`, aggregate wrench or
   fabricated optical output. Its world panel is synchronized directly from
@@ -34,6 +37,63 @@ is an active entry point.
   stationary, slow-stick, incipient and gross-slip intervals. The detector
   reads only `SensorTactile`; actual relative tangential velocity is displayed
   and scored only as a held-out label.
+
+## Reproduce Plan 14
+
+Run these commands serially inside an existing retained GPU allocation. They
+write only ignored files below `experiments/newton_universal_tactile/`.
+
+Newton cube, pen, controlled slip, and tests:
+
+```bash
+export PYTHONPATH="$PWD:$PWD/Newton"
+NEWTON_PY=/public/home/yanhongru/envs/tactile_genesis_snapshot_py312/bin/python
+
+"$NEWTON_PY" Newton/tactile_video.py --scene cube --frames 600 \
+  --normal-scale-n 5 --device cuda:0 \
+  --output experiments/newton_universal_tactile/newton_cube/native_tactile.mp4
+"$NEWTON_PY" Newton/tactile_video.py --scene pen --frames 600 \
+  --normal-scale-n 5 --device cuda:0 \
+  --output experiments/newton_universal_tactile/newton_pen/native_tactile.mp4
+"$NEWTON_PY" Newton/tactile_slip_demo.py --frames 300 --device cuda:0 \
+  --output experiments/newton_universal_tactile/newton_slip_control/native_tactile_slip.mp4
+"$NEWTON_PY" -m unittest newton.tests.test_sensor_tactile \
+  newton.tests.test_mujoco_solver.TestUpdateContactsPointPositions.test_contact_points_populated -v
+"$NEWTON_PY" tests/native_tactile/test_newton_adapter.py -v
+```
+
+IsaacLab CarryBox collection and post-processing:
+
+```bash
+export PYTHONPATH="$PWD:$PWD/IsaacLab/source/isaaclab:$PWD/IsaacLab/source/isaaclab_assets:$PWD/IsaacLab/source/isaaclab_contrib:$PWD/SUGAR/source/sugar_rl"
+ISAAC_PY=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
+CARRY=experiments/newton_universal_tactile/isaaclab_carrybox_universal_current
+
+"$ISAAC_PY" scripts/sugar/native_tactile/collect_sugar_whole_hand_carrybox.py \
+  --output-root "$CARRY" --scenario successful_grasp --max-steps 660 \
+  --headless --enable_cameras --device cuda:0
+"$ISAAC_PY" scripts/sugar/native_tactile/evaluate_tactile_only_slip.py \
+  --run-root "$CARRY" --output "$CARRY/slip_evaluation.json"
+"$ISAAC_PY" scripts/sugar/native_tactile/render_sugar_whole_hand_carrybox.py \
+  --run-root "$CARRY" --output "$CARRY/carrybox_native_tactile_slip.mp4" \
+  --title "IsaacLab native TacSL | SUGAR G1 CarryBox | tactile-only slip" --fps 50
+"$ISAAC_PY" scripts/sugar/native_tactile/render_sugar_force_kinematics_friction.py \
+  --run-root "$CARRY" --output "$CARRY/carrybox_force_kinematics_friction.mp4" \
+  --start-frame 230 --end-frame 520 --fps 50
+```
+
+IsaacLab official-R15 non-box controlled slip:
+
+```bash
+"$ISAAC_PY" scripts/sugar/native_tactile/run_isaaclab_r15_capsule_slip.py \
+  --output-root experiments/newton_universal_tactile/isaaclab_r15_capsule_slip \
+  --frames 240 --fps 50 --device cuda:0 --headless --enable_cameras
+```
+
+The Isaac Sim process can take time to shut down after writing a complete
+trace and video. When interruption is required, terminate only the recorded
+child process group; do not send a generic terminal `Ctrl+C` or exit the
+retained allocation shell.
 
 ## Paused no-RGB Tracker-command training
 

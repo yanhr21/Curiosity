@@ -436,6 +436,8 @@ def main() -> None:
             tactile_frame = tactile_adapter.update(
                 {"carrybox": [sensor.data for sensor in sensors]},
                 timestamp_s=(source_step + 1) * float(cfg.decimation * cfg.sim.dt),
+                optical_timestamp_s=(source_step + 1)
+                * float(cfg.decimation * cfg.sim.dt),
             )
             slip_evidence = slip_detector.update(tactile_frame)
             normal = cpu(tactile_frame.normal_force_n[0]).reshape(
@@ -714,6 +716,7 @@ def main() -> None:
             ],
             "taxel_position_shape": [len(normal_array), 2, 27, 20, 25, 3],
             "taxel_quaternion_shape": [len(normal_array), 2, 27, 20, 25, 4],
+            "taxel_quaternion_order": "xyzw (official IsaacLab wxyz reordered by common adapter)",
             "optical_rgb_shape": list(np.stack(optical_rgb_rows).shape),
             "optical_depth_shape": list(np.stack(optical_depth_rows).shape),
             "optical_baseline_rgb_shape": list(

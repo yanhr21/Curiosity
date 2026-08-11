@@ -27,6 +27,9 @@
   source timestamp and elapsed time. Any derived grid must conserve the raw
   force vector. Missing modalities are marked unavailable rather than filled
   with fabricated values; Newton has no native GelSight optical stream.
+  Common world quaternions are `xyzw`: reorder official IsaacLab `wxyz`
+  explicitly, while preserving the represented rotation. Force and optical
+  clocks remain independent even when a scene samples them synchronously.
 - Slip detection is causal and tactile-only. It may consume current/past
   signed normal/shear/penetration fields and timestamps. Object motion,
   relative contact velocity, SDF normals, outcome labels and rewards are

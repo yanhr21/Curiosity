@@ -49,6 +49,12 @@ class TestNewtonTactileAdapter(unittest.TestCase):
         self.assertEqual(frame.raw_samples.contact_index.tolist(), [0])
         self.assertEqual(frame.optical.available, (False,))
         self.assertEqual(frame.clock.sequence, 0)
+        np.testing.assert_allclose(
+            frame.taxel_orientation_w_xyzw[..., :3], 0.0, atol=1.0e-6
+        )
+        np.testing.assert_allclose(
+            frame.taxel_orientation_w_xyzw[..., 3], 1.0, atol=1.0e-6
+        )
 
 
 if __name__ == "__main__":

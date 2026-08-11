@@ -153,11 +153,19 @@ class IsaacLabTacSLAdapter:
         self._sequence = -1
         self._timestamp_s = 0.0
         self._has_timestamp = False
+        self._optical_sequence = -1
+        self._optical_timestamp_s = 0.0
+        self._has_optical_timestamp = False
+        self._optical_clock: TactileClock | None = None
 
     def reset(self) -> None:
         self._sequence = -1
         self._timestamp_s = 0.0
         self._has_timestamp = False
+        self._optical_sequence = -1
+        self._optical_timestamp_s = 0.0
+        self._has_optical_timestamp = False
+        self._optical_clock = None
 
     def _field(self, data_by_patch: Sequence[Any]) -> CounterpartTactileField:
         if len(data_by_patch) != len(self.patch_names):
@@ -185,6 +193,7 @@ class IsaacLabTacSLAdapter:
         data_by_counterpart: Mapping[str, Sequence[Any]],
         *,
         timestamp_s: float,
+        optical_timestamp_s: float | None = None,
     ) -> UniversalTactileFrame:
         """Create one frame from current official TacSL data objects."""
         if not data_by_counterpart:
@@ -205,9 +214,13 @@ class IsaacLabTacSLAdapter:
                 (*penetration.shape, 3)
             )
         if all(data.tactile_points_quat_w is not None for data in first_streams):
-            orientations = _stack([data.tactile_points_quat_w for data in first_streams], axis=1).reshape(
-                (*penetration.shape, 4)
-            )
+            # IsaacLab tensors use scalar-first wxyz; the common contract and
+            # Warp/Newton use scalar-last xyzw. This is an order conversion of
+            # the same native orientation, not a reconstructed pose.
+            orientations_wxyz = _stack(
+                [data.tactile_points_quat_w for data in first_streams], axis=1
+            ).reshape((*penetration.shape, 4))
+            orientations = orientations_wxyz[..., (1, 2, 3, 0)]
 
         optical_rgb: list[Any | None] = []
         optical_depth: list[Any | None] = []
@@ -224,6 +237,34 @@ class IsaacLabTacSLAdapter:
             optical_rgb.append(patch_rgb)
             optical_depth.append(patch_depth)
             optical_available.append(patch_rgb is not None and patch_depth is not None)
+
+        any_optical = any(optical_available)
+        optical_clock = None
+        if any_optical:
+            if optical_timestamp_s is None:
+                if self._optical_clock is None:
+                    raise ValueError(
+                        "The first available official RGB/depth frame requires an optical timestamp."
+                    )
+                optical_clock = self._optical_clock
+            else:
+                if self._has_optical_timestamp and optical_timestamp_s < self._optical_timestamp_s:
+                    raise ValueError("Optical source timestamps must be nondecreasing.")
+                if not self._has_optical_timestamp or optical_timestamp_s > self._optical_timestamp_s:
+                    optical_dt_s = (
+                        optical_timestamp_s - self._optical_timestamp_s
+                        if self._has_optical_timestamp
+                        else 0.0
+                    )
+                    self._optical_timestamp_s = float(optical_timestamp_s)
+                    self._has_optical_timestamp = True
+                    self._optical_sequence += 1
+                    self._optical_clock = TactileClock(
+                        self._optical_sequence,
+                        self._optical_timestamp_s,
+                        optical_dt_s,
+                    )
+                optical_clock = self._optical_clock
 
         dt_s = timestamp_s - self._timestamp_s if self._has_timestamp else 0.0
         self._timestamp_s = float(timestamp_s)
@@ -246,7 +287,7 @@ class IsaacLabTacSLAdapter:
                 available=tuple(optical_available),
                 rgb=tuple(optical_rgb),
                 depth=tuple(optical_depth),
-                clock=clock if any(optical_available) else None,
+                clock=optical_clock,
             ),
             raw_samples=None,
         )

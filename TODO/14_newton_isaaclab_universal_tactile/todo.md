@@ -14,6 +14,8 @@
 
 - [x] Implement the backend-neutral frame, patch geometry, availability and
   clock contract without object state or contact proxies.
+- [x] Standardize world quaternions as `xyzw` by explicitly converting the
+  official IsaacLab `wxyz` order, and maintain an independent optical clock.
 - [x] Implement conservative raw-sample-to-grid serialization and verify
   signed vector-force conservation.
 - [x] Add backend-neutral feature extraction used by visualization and slip
@@ -25,6 +27,7 @@
   wrenches and native effective contact points/separation.
 - [x] Support multiple patches, counterparts and worlds with fixed metric
   surface frames.
+- [x] Support dynamic, kinematic and world-fixed Newton sensing shapes.
 - [x] Expose raw contacts and dense signed normal/XY-shear/penetration fields
   with sequence and timestamp.
 - [x] Add Newton `unittest` coverage for signs, shape-order symmetry,
@@ -50,8 +53,8 @@
 - [x] Build an IsaacLab official-R15 controlled stick-to-slide capsule case;
   use relative tangential velocity only as a held-out diagnostic label.
 - [x] Build the corresponding controlled Newton stick-to-slide case.
-- [x] Report IsaacLab precision/recall and ordinal failure cases without
-  relabeling slip as curiosity or reward.
+- [x] Report IsaacLab precision/recall, false positives and measured onset
+  delay against real incipient and above-threshold gross intervals.
 - [x] Report the corresponding Newton delay, false positives and failures.
 
 ## F. Scene evidence

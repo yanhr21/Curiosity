@@ -47,10 +47,13 @@ Relative velocity is used only by the post-run evaluator, never by the
 detector.
 
 The unchanged official R15 adapter also runs on a non-box swept-capsule scene.
-The 240-frame record contains 227 contact frames, a zero-speed `STICK` phase,
-a slow `0.006 m/s` sweep dominated by `INCIPIENT`, and a fast `0.020 m/s`
-sweep classified `GROSS` on all 20 frames. Against held-out velocity its
-binary precision is `98.39%` and recall is `96.83%`. The video and raw trace
+The 240-frame record contains 240 contact frames, a zero-speed `STICK` phase,
+a slow `0.006 m/s` sweep dominated by `INCIPIENT`, and a fast `0.030 m/s`
+sweep containing 19 held-out `GROSS` frames; the detector reports `GROSS` on
+18 of the 20 commanded fast-phase frames. Against held-out velocity its binary
+precision is `96.88%` and recall is `96.12%`, with four false positives, five
+false negatives, a two-frame (`40 ms`) incipient onset delay and one-frame
+(`20 ms`) gross onset delay. The video and raw trace
 are under
 `experiments/newton_universal_tactile/isaaclab_r15_capsule_slip/`; the signal
 is the official R15 per-taxel force/shear/RGB/depth stream, not rigid-contact
@@ -108,11 +111,11 @@ precision; the box is not secretly supported by uninstrumented robot bodies.
 
 The clock-correct force audit is here:
 
-- [complete force, kinematics, and friction video](experiments/native_tactile_representation/whole_hand_carrybox_v3/successful_grasp/force_kinematics_friction_complete.mp4)
-- [machine-readable values](experiments/native_tactile_representation/whole_hand_carrybox_v3/successful_grasp/force_kinematics_friction_complete.audit.json)
+- [complete force, kinematics, and friction video](experiments/newton_universal_tactile/isaaclab_carrybox_universal_current/carrybox_force_kinematics_friction.mp4)
+- [machine-readable values](experiments/newton_universal_tactile/isaaclab_carrybox_universal_current/carrybox_force_kinematics_friction.audit.json)
 
 At the native `5 ms` physics clock, the PhysX force on the box and
-`m(a-g)` have a median full-vector residual of `8.78e-7` box weights. Friction
+`m(a-g)` have a median full-vector residual of `8.82e-7` box weights. Friction
 provides a median `2.568 N` of vertical support, with about `8.7%` global use
 against the patch coefficient `0.5`. The old control-sampled force plot mixed a
 last-substep contact force with a `20 ms` acceleration and is withdrawn as a
@@ -120,8 +123,8 @@ balance judgment.
 
 The official TacSL penalty law itself reconstructs from the raw arrays, and
 its contact localization is correct, but its raw taxel wrench is not calibrated
-to the PhysX box wrench: median magnitude is `32.754 N` and median residual is
-`11.533` box weights. These results are therefore high-fidelity simulated
+to the PhysX box wrench: median magnitude is `44.804 N` and median residual is
+`14.967` box weights. These results are therefore high-fidelity simulated
 contact-location/field evidence, not calibrated hardware force, FEM soft-body,
 sim-to-real, policy-benefit, or real-robot evidence. Explicit user acceptance
 of the videos remains the final completion gate.
