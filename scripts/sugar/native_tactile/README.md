@@ -69,6 +69,9 @@ are documented in
 - `summarize_native_tactile_common_horizon.py`: compares reward, tracking, and
   lift over the shorter rollout's exact transition count so unequal
   termination lengths cannot reverse the interpretation.
+- `compose_native_tactile_policy_pair.py`: scales two already completed policy
+  videos to equal panels, ends at the shorter rollout, writes browser-compatible
+  H.264, and fully decodes the result before reporting success.
 - `audit_canonical_trace_fusion.py` and `render_canonical_trace_fusion.py`:
   causal adapter inspection on the canonical CarryBox trace.
 - `launch_retained_child.sh`: records and isolates a child process group while

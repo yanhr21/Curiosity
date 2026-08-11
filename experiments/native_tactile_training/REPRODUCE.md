@@ -122,9 +122,9 @@ action residual to `0.1`. Its 16-update gate is mixed: common-horizon lift and
 tracking improve, while reward and termination worsen. Use
 `summarize_native_tactile_common_horizon.py` after frozen evaluation; do not
 compare cumulative rewards across unequal rollout lengths. The next admitted
-run is a fresh serial 64-update `residual_tactile`/`residual_zero` pair. Its
-live result remains separate from the static audit in
-`action_residual_fusion_static_audit_20260811/report.json`.
+run was the fresh serial 64-update `residual_tactile`/`residual_zero` pair. It
+is complete and negative at this seed. Its live result remains separate from
+the static audit in `action_residual_fusion_static_audit_20260811/report.json`.
 
 For a complete fresh 64-update action-residual pair, run exactly one arm at a
 time:
@@ -180,6 +180,23 @@ the result is interpreted. The pair summary must pass its matched-arm, seed,
 physics, reference, and disabled-event checks. Report the common-horizon task
 metrics and contact-supported teacher alignment separately; neither one seed
 nor a changed action is sufficient evidence that tactile generally helps.
+
+To reproduce the final human-review pair, evaluate both 64-update checkpoints
+again with `--record_bundle ABSOLUTE_BUNDLE_PATH --enable_cameras`, render each
+bundle with `render_native_tactile_policy_rollout.py`, passing both bundle roots
+as repeated `--scale-bundle-root` arguments, and compose them with:
+
+```bash
+python scripts/sugar/native_tactile/compose_native_tactile_policy_pair.py \
+  --left tactile_trained_world_and_bilateral_tactile.mp4 \
+  --right zero_trained_world_and_bilateral_tactile.mp4 \
+  --output tactile_trained_vs_zero_trained_side_by_side.mp4 \
+  --fps 50
+```
+
+The retained pair must report 348 fully decoded frames at `2560 x 720`. The
+record-bundle path must be absolute because the evaluator launches from the
+`SUGAR/` directory.
 
 ## Claim boundary
 

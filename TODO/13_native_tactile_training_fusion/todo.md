@@ -81,9 +81,19 @@
 - [x] Pass the action-residual route's live contact gate, then run its matched
   exact-zero arm and frozen comparison serially. Common-horizon lift and
   tracking improve, but reward and termination remain worse at one seed.
-- [ ] Extend the exact action-residual route to the declared 64-update endpoint
-  with a fresh matched zero arm; freeze and compare before any architecture
-  change or cross-task claim.
+- [x] Extend the exact action-residual route to the declared 64-update endpoint
+  with a fresh matched zero arm and freeze both. The tactile arm terminates 44
+  steps earlier and is worse on common-horizon reward, position tracking,
+  final lift, and contact-state teacher alignment; this route is closed as a
+  negative single-seed result.
+- [x] Render the 64-update tactile-trained and zero-trained frozen policies with
+  the actual CarryBox world view and both 27-patch anatomical maps, use one
+  shared display scale, and produce a fully decoded 348-frame side-by-side
+  H.264.
+- [ ] Test held-out contact-state teacher-residual predictability with the same
+  serious spatial encoder and exact-zero baseline before any new PPO run.
+- [ ] Only if that gate is positive, run a fresh matched multi-seed policy
+  experiment; otherwise revise the tactile target or fusion semantics first.
 - [ ] Decide whether tactile improves behavior, not merely optimization loss.
 
 ## D. RGB fusion after the no-RGB result

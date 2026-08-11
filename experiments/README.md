@@ -40,10 +40,11 @@ physics substeps.
   Only fresh continuous-frame-zero tactile/zero runs belong here. The earlier
   random mid-trajectory reset pair is archived because inserting physical skin
   directly into contact produced a nonphysical reset-time tactile burst. The
-  current update-63 pair and its nominal plus 1.0 kg/low-friction frozen
-  comparisons are indexed in the directory's own `README.md`; the outcome is
-  mixed and is not a tactile-benefit claim. Its exact training and three-video
-  reproduction route is in
+  completed action-residual update-63 tactile/zero pair is indexed in the
+  directory's own `README.md`; its common-horizon outcome is negative at one
+  seed. The direct synchronized video is
+  `action_residual_64u_policy_visualization_20260811/tactile_trained_vs_zero_trained_side_by_side.mp4`.
+  Its exact training and video reproduction route is in
   [`REPRODUCE.md`](native_tactile_training/REPRODUCE.md), and the compact file
   inventory is [`MANIFEST.json`](native_tactile_training/MANIFEST.json).
 

@@ -1,0 +1,106 @@
+{
+  "schema": "curiosity_active_experiment_package_manifest_v3",
+  "date": "2026-08-11",
+  "historical_package_limit": 5,
+  "historical_package_count": 5,
+  "historical_package_limit_passed": true,
+  "historical_packages": [
+    {
+      "id": 1,
+      "category": "demo_following",
+      "question": "correct versus wrong official demo under matched V3 authority",
+      "root": "experiments/sugar_demo_reward/policy_training/plan11_demo_conflict_authority_rework_seed130581_v3",
+      "final_checkpoints": [
+        "correct_demo/policy.pt",
+        "wrong_demo/policy.pt"
+      ]
+    },
+    {
+      "id": 2,
+      "category": "demo_following",
+      "question": "fixed unrelated KickBox teacher on CarryBox through update 1216",
+      "root": "experiments/sugar_demo_reward/policy_training/plan11_fixed_teacher_demo_identity_seed131581_v2/unrelated_teacher_update1216",
+      "final_checkpoints": [
+        "policy.pt"
+      ]
+    },
+    {
+      "id": 3,
+      "category": "curiosity",
+      "question": "original ICM concrete discovery semantics and declared controls",
+      "root": "experiments/sugar_smp_exploration/audits/plan11_original_icm_concrete_seed110381_v1",
+      "companions": [
+        "experiments/sugar_smp_exploration/audits/plan11_original_icm_concrete_seed110382_v1",
+        "experiments/sugar_smp_exploration/audits/plan11_original_icm_concrete_seed110383_v1",
+        "experiments/sugar_smp_exploration/audits/plan11_original_icm_concrete_seed110384_v1",
+        "experiments/sugar_smp_exploration/audits/plan11_original_icm_concrete_seed110385_v1",
+        "experiments/sugar_smp_exploration/audits/plan11_original_icm_fresh_noisy_tv_seed110381_v1"
+      ]
+    },
+    {
+      "id": 4,
+      "category": "curiosity",
+      "question": "original ICM policy-credit matched comparison",
+      "root": "experiments/sugar_smp_exploration/plan11_original_icm_policy_credit_zero_tactile_seed110381_v1",
+      "final_checkpoints": [
+        "icm_policy_on/policy.pt",
+        "icm_policy_weight_zero/policy.pt"
+      ]
+    },
+    {
+      "id": 5,
+      "category": "tactile_training_effect",
+      "question": "official Tactile Genesis corrected Stage-2 tactile distillation and frozen evaluation",
+      "root": "experiments/sugar_smp_exploration/official_tactile_genesis_pinned_de2bcc9",
+      "final_checkpoints": [
+        "stage2_runtime_cwd_v1/logs/plan11_tg_stage2_formal_layout_v1_pytnn50713d9-in_hand_repose-xhand1-med-hand/force_torque/train/model_5999.pt"
+      ]
+    }
+  ],
+  "shared_method_inputs_not_counted_as_experiments": {
+    "official_sugar": "experiments/sugar_reproduction/outputs/final/official_sugar",
+    "selected_demo_predictor": "experiments/sugar_demo_reward/predictors/prefailure_crossdemo_causal_predictor_formal_seed26072571_v2/checkpoints/validation_best.pt",
+    "official_tinymdm_prior": "experiments/sugar_smp_exploration/priors/sugar_g1_box_tinymdm_v1",
+    "render_assets": [
+      "experiments/sugar_reproduction/assets",
+      "experiments/sugar_reproduction/render_runtime"
+    ]
+  },
+  "active_native_tactile_outside_historical_quota": {
+    "representation": "experiments/native_tactile_representation/whole_hand_carrybox_v3",
+    "canonical_carrybox": "experiments/native_tactile_representation/whole_hand_carrybox_v3/successful_grasp",
+    "reproduction_record": "experiments/native_tactile_representation/whole_hand_carrybox_v3/REPRODUCE.md",
+    "single_entry_point": "scripts/sugar/native_tactile/run_complete_carrybox_visualization.sh",
+    "code_map": "scripts/sugar/native_tactile/README.md",
+    "canonical_review_videos": [
+      "successful_carrybox_whole_hand_tactile.mp4",
+      "left_detail.mp4",
+      "right_detail.mp4",
+      "palm_optical.mp4",
+      "force_kinematics_friction_complete.mp4"
+    ],
+    "runtime_boundary": "online causal simulator-clock sensing; slower than wall-clock real time; CarryBox validated, KickBox not yet validated",
+    "matched_training": "experiments/native_tactile_training",
+    "current_training_endpoint": {
+      "tactile": "experiments/native_tactile_training/matched_tactile_64u_seed13011_20260811/model_63.pt",
+      "zero": "experiments/native_tactile_training/matched_zero_64u_seed13011_20260811/model_63.pt",
+      "nominal_pair": "experiments/native_tactile_training/matched_64u_frozen_eval_20260811/nominal_comparison.json",
+      "heavy_low_friction_pair": "experiments/native_tactile_training/matched_64u_frozen_eval_20260811/heavy_low_friction_comparison.json",
+      "input_dependence": "experiments/native_tactile_training/matched_64u_tactile_dependence_20260811/summary.json",
+      "authority_curve": "experiments/native_tactile_training/matched_64u_tactile_authority_curve_20260811/summary.json",
+      "bounded_16u_negative": "experiments/native_tactile_training/bounded_contact_balanced_16u_frozen_eval_20260811/nominal_comparison.json",
+      "action_residual_static_audit": "experiments/native_tactile_training/action_residual_fusion_static_audit_20260811/report.json",
+      "action_residual_16u_mixed": "experiments/native_tactile_training/action_residual_16u_frozen_eval_20260811/common_horizon.json",
+      "action_residual_64u_tactile": "experiments/native_tactile_training/action_residual_tactile_64u_seed13011_20260811/model_63.pt",
+      "action_residual_64u_zero": "experiments/native_tactile_training/action_residual_zero_64u_seed13011_20260811/model_63.pt",
+      "action_residual_64u_common_horizon": "experiments/native_tactile_training/action_residual_64u_frozen_eval_20260811/common_horizon_summary.json",
+      "action_residual_64u_contact_alignment": "experiments/native_tactile_training/action_residual_64u_frozen_eval_20260811/contact_teacher_alignment.json",
+      "presentation_cohort": "experiments/native_tactile_training/action_residual_64u_policy_visualization_20260811",
+      "paired_video": "experiments/native_tactile_training/action_residual_64u_policy_visualization_20260811/tactile_trained_vs_zero_trained_side_by_side.mp4",
+      "reproduction": "experiments/native_tactile_training/REPRODUCE.md",
+      "manifest": "experiments/native_tactile_training/MANIFEST.json",
+      "status": "64-update action-residual route is a negative single-seed result; held-out contact-state residual predictability is the next gate before more PPO"
+    }
+  },
+  "archive_root": "/public/home/yanhongru/Curiosity_archive/current_workspace_experiments/20260810_native_tactile_reset"
+}

@@ -70,10 +70,11 @@ of the videos remains the final completion gate.
   and the one-command complete CarryBox reproduction entry point.
 - `experiments/native_tactile_representation/`: curated active raw data,
   videos, calibration, and checks.
-- `experiments/native_tactile_training/`: matched update-63 tactile/zero
-  checkpoints, camera-free evaluations, and synchronized live/zeroed/spatially
-  permuted policy videos. Start from its `REPRODUCE.md` rather than individual
-  runtime files.
+- `experiments/native_tactile_training/`: matched tactile/zero checkpoints,
+  camera-free evaluations, and synchronized policy videos. The current
+  64-update action-residual pair is negative at one seed; its tactile-trained
+  versus zero-trained video is indexed in the package README. Start from its
+  `REPRODUCE.md` rather than individual runtime files.
 - `PLAN/13_native_tactile_training_fusion/`: the active training/fusion plan.
 - `TODO/13_native_tactile_training_fusion/`: the active training/fusion TODO.
 - `PLAN/12_isaaclab_native_tactile_representation/` and its TODO: completed

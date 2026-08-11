@@ -1,0 +1,123 @@
+{
+  "schema": "native_whole_hand_tactile_training_package_v1",
+  "date": "2026-08-11",
+  "question": "Does online native whole-hand tactile help a serious SUGAR CarryBox policy without RGB or measured current object state?",
+  "actor_input": {
+    "reference_only_state_width": 890,
+    "included_non_tactile_information": [
+      "robot_state",
+      "commanded_motion_reference"
+    ],
+    "excluded_information": [
+      "RGB_or_depth",
+      "measured_current_object_pose_or_velocity",
+      "object_mass",
+      "friction",
+      "contact_labels",
+      "simulator_contact_velocity"
+    ],
+    "tactile_shape": [2, 4, 27, 3, 20, 25],
+    "tactile_width": 324000,
+    "tactile_channels": [
+      "signed_local_z_normal",
+      "signed_local_x_shear",
+      "signed_local_y_shear"
+    ]
+  },
+  "model": {
+    "base": "official SUGAR Refiner 512/256/128 actor",
+    "tactile_encoder": "existing SUGAR SpatialTactileEncoder with 32/64/64 convolutions and 128-D embedding per hand",
+    "fusion": "late concatenation before actor.0",
+    "trainable_actor_tensors": "spatial tactile encoder and actor.0 tactile columns only",
+    "tactile_checkpoint": "matched_tactile_64u_seed13011_20260811/model_63.pt",
+    "matched_zero_checkpoint": "matched_zero_64u_seed13011_20260811/model_63.pt"
+  },
+  "camera_free_numerical_evidence": {
+    "nominal_pair": "matched_64u_frozen_eval_20260811/nominal_comparison.json",
+    "heavy_low_friction_pair": "matched_64u_frozen_eval_20260811/heavy_low_friction_comparison.json",
+    "input_dependence": "matched_64u_tactile_dependence_20260811/summary.json",
+    "authority_curve": "matched_64u_tactile_authority_curve_20260811/summary.json",
+    "result": "The actor reads tactile and anatomical patch order matters. More authority increases lift but worsens tracking; no tested scale jointly improves reward, tracking, and lift."
+  },
+  "bounded_contact_balanced_16_update_result": {
+    "tactile_checkpoint": "bounded_contact_balanced_tactile_16u_seed13011_20260811/model_15.pt",
+    "zero_checkpoint": "bounded_contact_balanced_zero_16u_seed13011_20260811/model_15.pt",
+    "checkpoint_comparison": "bounded_contact_balanced_16u_endpoint_comparison_20260811.json",
+    "frozen_pair": "bounded_contact_balanced_16u_frozen_eval_20260811/nominal_comparison.json",
+    "contact_teacher_alignment": "bounded_contact_balanced_16u_frozen_eval_20260811/contact_teacher_alignment.json",
+    "result": "Negative stability result: tactile increases lift and slightly lowers final position error, but worsens reward, duration, and same-state contact teacher alignment."
+  },
+  "action_residual_route": {
+    "static_audit": "action_residual_fusion_static_audit_20260811/report.json",
+    "tactile_checkpoint_16u": "action_residual_tactile_16u_seed13011_20260811/model_15.pt",
+    "zero_checkpoint_16u": "action_residual_zero_16u_seed13011_20260811/model_15.pt",
+    "checkpoint_comparison_16u": "action_residual_16u_endpoint_comparison_20260811.json",
+    "frozen_pair_16u": "action_residual_16u_frozen_eval_20260811/nominal_comparison.json",
+    "common_horizon_16u": "action_residual_16u_frozen_eval_20260811/common_horizon.json",
+    "contact_teacher_alignment_16u": "action_residual_16u_frozen_eval_20260811/contact_teacher_alignment.json",
+    "hidden_preactivation_cap": 0.15,
+    "normalized_action_residual_cap": 0.1,
+    "distillation_reduction": "official all-sample mean",
+    "tactile_checkpoint_64u": "action_residual_tactile_64u_seed13011_20260811/model_63.pt",
+    "zero_checkpoint_64u": "action_residual_zero_64u_seed13011_20260811/model_63.pt",
+    "checkpoint_comparison_64u": "action_residual_64u_endpoint_comparison_20260811.json",
+    "frozen_pair_64u": "action_residual_64u_frozen_eval_20260811/frozen_pair_summary.json",
+    "common_horizon_64u": "action_residual_64u_frozen_eval_20260811/common_horizon_summary.json",
+    "contact_teacher_alignment_64u": "action_residual_64u_frozen_eval_20260811/contact_teacher_alignment.json",
+    "paired_video_64u": "action_residual_64u_policy_visualization_20260811/tactile_trained_vs_zero_trained_side_by_side.mp4",
+    "status": "Negative single-seed endpoint: tactile is worse on common-horizon reward, position tracking, final lift, termination, and contact-state teacher alignment. Test held-out residual predictability before more PPO."
+  },
+  "camera_enabled_presentation_cohort": {
+    "root": "matched_64u_tactile_dependence_videos_20260811",
+    "summary": "matched_64u_tactile_dependence_videos_20260811/summary.json",
+    "matched_checks_passed": true,
+    "display_scale": {
+      "semantics": "one shared active-taxel 95th-percentile scale across all three physical sensor traces",
+      "normal_abs_n": 0.02117449436336755,
+      "shear_magnitude_n": 0.02650373801589008
+    },
+    "videos": [
+      {
+        "actor_input": "live",
+        "path": "matched_64u_tactile_dependence_videos_20260811/live_policy_world_and_bilateral_tactile.mp4",
+        "frames": 363,
+        "fps": 50,
+        "resolution": [2560, 1440],
+        "full_decode": true
+      },
+      {
+        "actor_input": "zeroed",
+        "path": "matched_64u_tactile_dependence_videos_20260811/zeroed_policy_world_and_bilateral_tactile.mp4",
+        "frames": 361,
+        "fps": 50,
+        "resolution": [2560, 1440],
+        "full_decode": true,
+        "display_note": "The anatomical maps remain the real physical sensor output; only the actor input is exact zero."
+      },
+      {
+        "actor_input": "patch_permuted",
+        "path": "matched_64u_tactile_dependence_videos_20260811/patch_permuted_policy_world_and_bilateral_tactile.mp4",
+        "frames": 329,
+        "fps": 50,
+        "resolution": [2560, 1440],
+        "full_decode": true,
+        "display_note": "The maps stay anatomical; the actor receives a fixed within-hand permutation of the 27 patches."
+      }
+    ]
+  },
+  "reproduction": {
+    "instructions": "REPRODUCE.md",
+    "training_entry_point": "scripts/sugar/native_tactile/run_native_tactile_bcppo_training.sh",
+    "video_entry_point": "scripts/sugar/native_tactile/run_frozen_tactile_policy_visualizations.sh",
+    "authority_curve_entry_point": "scripts/sugar/native_tactile/run_native_tactile_authority_curve.sh"
+  },
+  "runtime_boundary": {
+    "online_causal_simulator_sensing": true,
+    "physics_rate_hz": 200,
+    "actor_and_video_rate_hz": 50,
+    "wall_clock_real_time": false,
+    "validated_task": "CarryBox motion 45",
+    "kickbox_validated": false,
+    "reason": "Official KickBox uses a different non-SDF box and normally contacts it with uninstrumented foot or leg bodies."
+  }
+}

@@ -65,7 +65,8 @@ to the released Refiner at zero tactile. Backpropagation leaves the official
 base input columns unchanged while reaching both the tactile input columns and
 the spatial encoder. The machine-readable result is
 `preflight_official_warmstart_static_20260811/report.json`. This is structural
-evidence only; the live continuous-contact gate remains pending.
+evidence only; the live continuous-contact gate and matched experiments are
+completed below.
 
 The same serious late-fusion path has also consumed the retained canonical
 CarryBox taxel trace without Isaac Sim. Across all `660` frames, current
@@ -240,6 +241,39 @@ live tactile teacher MAE remains `0.03087` worse than zeroed tactile. This is
 better controlled and promising for tracking, but it is still mixed and not a
 tactile-benefit claim. Records are under
 `action_residual_16u_frozen_eval_20260811/`.
+
+The fresh action-residual 64-update pair is also complete and closes this exact
+route as a negative single-seed result. The tactile and zero arms begin with
+all `31/31` tensors exactly equal; only the eight declared adapter tensors
+differ at update 63 (`L2=1.90453`). The tactile arm has 19 contact-bearing
+updates and 606 tactile-bearing rollout frames; zero remains exact throughout.
+
+In camera-free frozen evaluation, tactile ends at step 356 and zero at step
+400, both for object orientation. Over the common first 356 steps, tactile has
+`1.4274` lower reward, `0.00176 m` higher mean position error, `0.06442 m`
+higher final position error, and `0.02997 m` lower final lift. On the same 113
+physically tactile-supported states, live tactile teacher MAE is `0.07741`
+versus `0.05931` when the same frozen actor receives zeros. The direct 0.1
+action cap is active—the largest same-state live/zero difference is
+`0.09919`—but bounded authority alone does not make the correction useful.
+The numerical records are under
+`action_residual_64u_frozen_eval_20260811/`.
+
+Human-review evidence is under
+`action_residual_64u_policy_visualization_20260811/`. The most direct file is
+`tactile_trained_vs_zero_trained_side_by_side.mp4`: tactile-trained is left,
+zero-trained is right, each panel contains the actual CarryBox world rollout
+and both complete 27-patch hand maps, both use the same physical-taxel P95
+scale, and the paired H.264 fully decodes 348/348 frames. The separate full
+resolution videos are retained beside it. This camera-enabled cohort is for
+visual behavior/contact review; the camera-free pair above supplies the
+matched numerical comparison.
+
+The next gate is not a longer repeat of this PPO run. It must first test whether
+the unchanged serious spatial encoder can predict the official teacher's
+action residual better than an exact-zero residual on held-out physically
+supported states. A positive held-out result is required before another policy
+experiment.
 
 The earlier runtime diagnosis remains relevant. On 2026-08-11 `server56` and
 `server38` reported Vulkan `ERROR_DEVICE_LOST` during scene startup. A

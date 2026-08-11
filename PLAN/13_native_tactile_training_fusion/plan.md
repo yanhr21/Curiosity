@@ -186,6 +186,29 @@ tactile than with zeroed tactile. This is a materially improved but still
 mixed single-seed result. Extend this exact bounded-action route before
 changing architecture again; do not call the 16-update gate tactile benefit.
 
+The fresh 64-update action-residual pair is now complete. Both arms start with
+all `31/31` policy tensors exactly equal; only the same eight declared tactile
+adapter tensors differ at update 63. The tactile arm receives real signal in
+19 updates and 606 rollout frames, from update 9 through update 63. In the
+camera-free frozen evaluation it terminates at step 356 versus 400 for zero,
+both on object orientation. Over the matched first 356 steps, tactile changes
+reward by `-1.4274`, mean/final object-position error by
+`+0.00176/+0.06442 m`, and maximum/final lift by `-0.00277/-0.02997 m`. On the
+same 113 tactile-supported states, live tactile teacher MAE is `0.01810` worse
+than the zeroed counterfactual. The 0.1 action bound controls authority but
+does not make the learned correction useful at this endpoint. Do not extend
+this exact PPO route to more updates or call it tactile benefit.
+
+Before another policy run, the next gate is held-out contact-state
+predictability with the unchanged serious spatial encoder and official base
+actor. Train only the bounded tactile residual against the official privileged
+teacher residual on a declared training split, and require lower validation
+error than the exact-zero residual baseline on physically supported held-out
+states. This is a supervised fusion diagnostic, not policy success. Only a
+positive held-out result can authorize another matched closed-loop policy
+experiment; a negative result means the current tactile channels/target do not
+support this fusion objective.
+
 The offline canonical-trace check already constrains the fusion choice. The
 current route is late concatenation of the two `128-D` per-hand embeddings
 before `actor.0`; it preserves the official policy exactly at zero tactile and
