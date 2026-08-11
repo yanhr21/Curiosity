@@ -16,6 +16,8 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.utils import configclass
 
+import sugar_rl.tasks.locomanip.mdp as mdp
+from sugar_rl.tasks.locomanip import rgb_policy_observations as rgb_obs
 from sugar_rl.tasks.locomanip.native_whole_hand_tactile_history import (
     NATIVE_TACTILE_GRID_SHAPE,
     NATIVE_TACTILE_HISTORY_STEPS,
@@ -94,6 +96,45 @@ class ExactZeroTactileCfg(ObsGroup):
 
 
 @configclass
+class TrackerCommandPolicyCfg(ObsGroup):
+    """Official Tracker history without contact proxy or measured box state."""
+
+    # Deployable official Generator/Tracker prefix: 29 + 3 + 3 = 35.
+    # The 36th contact_label output is intentionally excluded.
+    ref_joint_pos = ObsTerm(func=mdp.joint_pos, params={"command_name": "motion"})
+    ref_root_lin_vel_b = ObsTerm(
+        func=mdp.root_lin_vel_b,
+        params={"command_name": "motion"},
+    )
+    ref_root_ang_vel_b = ObsTerm(
+        func=mdp.root_ang_vel_b,
+        params={"command_name": "motion"},
+    )
+    # Preserve the released Tracker's five-frame proprioception/action
+    # contract instead of collapsing it to a single frame.
+    base_ang_vel_history = ObsTerm(func=mdp.base_ang_vel, history_length=5)
+    joint_pos_history = ObsTerm(func=mdp.joint_pos_rel, history_length=5)
+    joint_vel_history = ObsTerm(func=mdp.joint_vel_rel, history_length=5)
+    actions_history = ObsTerm(func=mdp.last_action, history_length=5)
+    projected_gravity_history = ObsTerm(
+        func=mdp.project_gravity,
+        params={"command_name": "motion"},
+        history_length=5,
+    )
+    # Additional deployable current proprioception and motion phase have zero
+    # authority at the official Tracker warm start and are learned by BCPPO.
+    base_lin_vel = ObsTerm(func=mdp.base_lin_vel)
+    motion_phase = ObsTerm(
+        func=rgb_obs.normalized_motion_phase,
+        params={"command_name": "motion"},
+    )
+
+    def __post_init__(self):
+        self.enable_corruption = False
+        self.concatenate_terms = True
+
+
+@configclass
 class NativeTactileObservationsCfg:
     policy: ReferenceOnlyPolicyCfg = ReferenceOnlyPolicyCfg()
     native_whole_hand_tactile_history: NativeTactileCfg = NativeTactileCfg()
@@ -104,6 +145,22 @@ class NativeTactileObservationsCfg:
 @configclass
 class ExactZeroObservationsCfg:
     policy: ReferenceOnlyPolicyCfg = ReferenceOnlyPolicyCfg()
+    native_whole_hand_tactile_history: ExactZeroTactileCfg = ExactZeroTactileCfg()
+    critic: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
+    teacher: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
+
+
+@configclass
+class TrackerCommandNativeTactileObservationsCfg:
+    policy: TrackerCommandPolicyCfg = TrackerCommandPolicyCfg()
+    native_whole_hand_tactile_history: NativeTactileCfg = NativeTactileCfg()
+    critic: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
+    teacher: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
+
+
+@configclass
+class TrackerCommandExactZeroObservationsCfg:
+    policy: TrackerCommandPolicyCfg = TrackerCommandPolicyCfg()
     native_whole_hand_tactile_history: ExactZeroTactileCfg = ExactZeroTactileCfg()
     critic: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
     teacher: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
@@ -141,6 +198,20 @@ class ExactZeroRobotEnvCfg(NativeTactileRobotEnvCfg):
     observations: ExactZeroObservationsCfg = ExactZeroObservationsCfg()
 
 
+@configclass
+class TrackerCommandNativeTactileRobotEnvCfg(NativeTactileRobotEnvCfg):
+    observations: TrackerCommandNativeTactileObservationsCfg = (
+        TrackerCommandNativeTactileObservationsCfg()
+    )
+
+
+@configclass
+class TrackerCommandExactZeroRobotEnvCfg(NativeTactileRobotEnvCfg):
+    observations: TrackerCommandExactZeroObservationsCfg = (
+        TrackerCommandExactZeroObservationsCfg()
+    )
+
+
 class NativeTactileRobotPlayEnvCfg(NativeTactileRobotEnvCfg):
     def __post_init__(self):
         super().__post_init__()
@@ -149,6 +220,22 @@ class NativeTactileRobotPlayEnvCfg(NativeTactileRobotEnvCfg):
 
 
 class ExactZeroRobotPlayEnvCfg(ExactZeroRobotEnvCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.scene.num_envs = 1
+        self.episode_length_s = 1.0e9
+
+
+class TrackerCommandNativeTactileRobotPlayEnvCfg(
+    TrackerCommandNativeTactileRobotEnvCfg
+):
+    def __post_init__(self):
+        super().__post_init__()
+        self.scene.num_envs = 1
+        self.episode_length_s = 1.0e9
+
+
+class TrackerCommandExactZeroRobotPlayEnvCfg(TrackerCommandExactZeroRobotEnvCfg):
     def __post_init__(self):
         super().__post_init__()
         self.scene.num_envs = 1

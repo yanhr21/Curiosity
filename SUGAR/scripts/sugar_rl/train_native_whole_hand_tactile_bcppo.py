@@ -16,6 +16,9 @@ from native_whole_hand_tactile_bcppo_task_registration import (
 from sugar_rl.utils.reference_only_tactile_actor_critic import (
     ReferenceOnlyTactileActorCritic,
 )
+from sugar_rl.utils.tracker_command_tactile_actor_critic import (
+    TrackerCommandTactileActorCritic,
+)
 from sugar_rl.utils.native_tactile_training_bcppo import (
     NativeTactileTrainingBCPPO,
 )
@@ -27,6 +30,12 @@ setattr(
     on_policy_runner_module,
     "ReferenceOnlyTactileActorCritic",
     ReferenceOnlyTactileActorCritic,
+)
+setattr(builtins, "TrackerCommandTactileActorCritic", TrackerCommandTactileActorCritic)
+setattr(
+    on_policy_runner_module,
+    "TrackerCommandTactileActorCritic",
+    TrackerCommandTactileActorCritic,
 )
 setattr(builtins, "NativeTactileTrainingBCPPO", NativeTactileTrainingBCPPO)
 setattr(rsl_rl.algorithms, "NativeTactileTrainingBCPPO", NativeTactileTrainingBCPPO)

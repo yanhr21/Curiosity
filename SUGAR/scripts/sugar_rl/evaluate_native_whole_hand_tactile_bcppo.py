@@ -16,6 +16,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--arm",
     choices=(
+        "tracker_tactile",
+        "tracker_zero",
         "tactile",
         "zero",
         "bounded_tactile",
@@ -104,6 +106,9 @@ from sugar_rl.utils.parser_cfg import parse_env_cfg
 from sugar_rl.utils.reference_only_tactile_actor_critic import (
     ReferenceOnlyTactileActorCritic,
 )
+from sugar_rl.utils.tracker_command_tactile_actor_critic import (
+    TrackerCommandTactileActorCritic,
+)
 from sugar_rl.tasks.locomanip.native_whole_hand_tactile_history import (
     NATIVE_TACTILE_NORMAL_SCALE_N,
     NATIVE_TACTILE_SENSOR_NAMES,
@@ -119,6 +124,12 @@ from native_whole_hand_tactile_bcppo_task_registration import (
 
 
 TASKS = {
+    "tracker_tactile": (
+        "Sugar-G129dof-CarryBox-NativeWholeHand-TrackerCommand-TacSL-BCPPO"
+    ),
+    "tracker_zero": (
+        "Sugar-G129dof-CarryBox-NativeWholeHand-TrackerCommand-Zero-BCPPO"
+    ),
     "tactile": "Sugar-G129dof-CarryBox-NativeWholeHand-ProprioTaskTacSL-BCPPO",
     "zero": "Sugar-G129dof-CarryBox-NativeWholeHand-ProprioTaskZero-BCPPO",
     "bounded_tactile": (
@@ -193,6 +204,12 @@ def configure_runtime_classes() -> None:
         on_policy_runner_module,
         "ReferenceOnlyTactileActorCritic",
         ReferenceOnlyTactileActorCritic,
+    )
+    setattr(builtins, "TrackerCommandTactileActorCritic", TrackerCommandTactileActorCritic)
+    setattr(
+        on_policy_runner_module,
+        "TrackerCommandTactileActorCritic",
+        TrackerCommandTactileActorCritic,
     )
     setattr(builtins, "NativeTactileTrainingBCPPO", NativeTactileTrainingBCPPO)
     setattr(rsl_rl.algorithms, "NativeTactileTrainingBCPPO", NativeTactileTrainingBCPPO)
@@ -973,7 +990,12 @@ def main() -> None:
             "actor_tactile_mode": args.actor_tactile_mode,
             "actor_tactile_source": (
                 "exact_zero_no_sensor_read"
-                if args.arm in ("zero", "bounded_zero", "residual_zero")
+                if args.arm in (
+                    "tracker_zero",
+                    "zero",
+                    "bounded_zero",
+                    "residual_zero",
+                )
                 else {
                     "live": "live_physical_tactile",
                     "zeroed": "evaluation_time_exact_zero",

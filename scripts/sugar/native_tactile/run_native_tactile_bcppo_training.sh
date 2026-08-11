@@ -6,7 +6,7 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
   exit 2
 fi
 if [[ $# -ne 5 ]]; then
-  echo "Usage: $0 tactile|zero|bounded_tactile|bounded_zero|residual_tactile|residual_zero OUTPUT_DIR ITERATIONS NUM_ENVS SEED" >&2
+  echo "Usage: $0 tracker_tactile|tracker_zero|tracker_preflight_tactile|tracker_preflight_zero|tactile|zero|bounded_tactile|bounded_zero|residual_tactile|residual_zero OUTPUT_DIR ITERATIONS NUM_ENVS SEED" >&2
   exit 2
 fi
 
@@ -21,6 +21,18 @@ TEACHER="$ROOT/experiments/sugar_reproduction/outputs/final/official_sugar/basel
 MOTION="$ROOT/SUGAR/data/CarryBox/data_045"
 
 case "$ARM" in
+  tracker_tactile)
+    TASK="Sugar-G129dof-CarryBox-NativeWholeHand-TrackerCommand-TacSL-BCPPO"
+    ;;
+  tracker_zero)
+    TASK="Sugar-G129dof-CarryBox-NativeWholeHand-TrackerCommand-Zero-BCPPO"
+    ;;
+  tracker_preflight_tactile)
+    TASK="Sugar-G129dof-CarryBox-NativeWholeHand-TrackerCommand-Preflight-TacSL-BCPPO"
+    ;;
+  tracker_preflight_zero)
+    TASK="Sugar-G129dof-CarryBox-NativeWholeHand-TrackerCommand-Preflight-Zero-BCPPO"
+    ;;
   tactile)
     TASK="Sugar-G129dof-CarryBox-NativeWholeHand-ProprioTaskTacSL-BCPPO"
     ;;
@@ -80,12 +92,52 @@ export SUGAR_NATIVE_TACTILE_CONTACT_SIGNAL="$OUTPUT_DIR/training_signal_first_co
 export SUGAR_NATIVE_TACTILE_TRAINING_TRACE="$OUTPUT_DIR/training_tactile_trace.jsonl"
 export SUGAR_PRELEARN_CHECKPOINT="$OUTPUT_DIR/model_prelearn.pt"
 
+WARM_START_ARGS=()
+case "$ARM" in
+  tracker_tactile|tracker_zero|tracker_preflight_tactile|tracker_preflight_zero) ;;
+  *) WARM_START_ARGS=(--warm_start_checkpoint_path "$TEACHER") ;;
+esac
+if [[ -n "${CURIOSITY_TRACKER_WARM_START_CHECKPOINT:-}" ]]; then
+  case "$ARM" in
+    tracker_tactile|tracker_zero|tracker_preflight_tactile|tracker_preflight_zero) ;;
+    *)
+      echo "CURIOSITY_TRACKER_WARM_START_CHECKPOINT is only valid for tracker arms" >&2
+      exit 2
+      ;;
+  esac
+  if [[ ! -f "$CURIOSITY_TRACKER_WARM_START_CHECKPOINT" ]]; then
+    echo "Missing official Tracker warm-start checkpoint: $CURIOSITY_TRACKER_WARM_START_CHECKPOINT" >&2
+    exit 2
+  fi
+  WARM_START_ARGS=(--warm_start_checkpoint_path "$CURIOSITY_TRACKER_WARM_START_CHECKPOINT")
+fi
+RESUME_ARGS=()
+if [[ -n "${CURIOSITY_TRACKER_BASE_CHECKPOINT:-}" ]]; then
+  case "$ARM" in
+    tracker_tactile|tracker_zero|tracker_preflight_tactile|tracker_preflight_zero) ;;
+    *)
+      echo "CURIOSITY_TRACKER_BASE_CHECKPOINT is only valid for tracker arms" >&2
+      exit 2
+      ;;
+  esac
+  if [[ ! -f "$CURIOSITY_TRACKER_BASE_CHECKPOINT" ]]; then
+    echo "Missing Tracker-command base checkpoint: $CURIOSITY_TRACKER_BASE_CHECKPOINT" >&2
+    exit 2
+  fi
+  RESUME_ARGS=(--resume_checkpoint_path "$CURIOSITY_TRACKER_BASE_CHECKPOINT")
+fi
+if (( ${#WARM_START_ARGS[@]} > 0 && ${#RESUME_ARGS[@]} > 0 )); then
+  echo "Choose Tracker warm start or Tracker resume, not both" >&2
+  exit 2
+fi
+
 cd "$ROOT/SUGAR"
 "$PYTHON_BIN" scripts/sugar_rl/train_native_whole_hand_tactile_bcppo.py \
   --task "$TASK" \
   --motion_folder "$MOTION" \
   --teacher_ckpt "$TEACHER" \
-  --warm_start_checkpoint_path "$TEACHER" \
+  "${WARM_START_ARGS[@]}" \
+  "${RESUME_ARGS[@]}" \
   --num_envs "$NUM_ENVS" \
   --max_iterations "$ITERATIONS" \
   --seed "$SEED" \

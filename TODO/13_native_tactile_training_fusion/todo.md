@@ -2,11 +2,11 @@
 
 ## A. Active `35-D` Tracker-command comparison
 
-- [ ] Add the tactile and exact-zero/no-read observation groups around the
+- [x] Add the tactile and exact-zero/no-read observation groups around the
   official deployable `35-D` Tracker command, robot proprioception, last
   action, and normalized motion phase. Exclude RGB, measured/future object
   state, contact labels, contact velocity, mass, and friction from the actor.
-- [ ] Connect the existing `SpatialTactileEncoder` to the unchanged serious
+- [x] Connect the existing `SpatialTactileEncoder` to the unchanged serious
   `512/256/128` SUGAR actor and repository-native BCPPO teacher/student path.
 - [ ] Run the live one-update tactile preflight, then the matched exact-zero
   preflight, serially in the retained GPU allocation.

@@ -7,12 +7,13 @@ actor experiments from 2026-08-11. That actor replaces measured object state
 with full future reference state. It predates the active Plan-13 contract and
 is not the deployable `35-D` Tracker-command comparison.
 
-The active comparison must instead retain robot proprioception, last action,
-normalized motion phase, and the official `35-D` Tracker command while using
-either live native tactile or exact-zero/no-read tactile. Its task registration
-and live one-update preflight are still pending, so this guide deliberately
-does not invent an active training command. Use this file only to reproduce the
-existing diagnostic numbers and H.264 evidence.
+The active comparison instead uses a `504-D` non-tactile actor input: the
+official `35-D` Tracker command; the official five-frame robot, action, and
+gravity histories; current base linear velocity; and normalized motion phase.
+It uses either live native tactile or exact-zero/no-read tactile and excludes
+the official Tracker's contact label and measured box pose. Its live one-update
+preflight is still pending, so this guide remains limited to the completed
+historical numbers and H.264 evidence.
 
 ## Prerequisites and fixed inputs
 

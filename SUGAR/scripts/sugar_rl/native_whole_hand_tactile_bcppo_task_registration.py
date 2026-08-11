@@ -25,7 +25,37 @@ _ACTION_RESIDUAL_AGENT_CFG = (
     "rsl_rl_native_whole_hand_tactile_bcppo_cfg:"
     "ActionResidualNativeWholeHandTactileBCPPORunnerCfg"
 )
+_TRACKER_COMMAND_AGENT_CFG = (
+    "sugar_rl.tasks.locomanip.agents."
+    "rsl_rl_native_whole_hand_tactile_bcppo_cfg:"
+    "TrackerCommandNativeWholeHandTactileBCPPORunnerCfg"
+)
+_TRACKER_COMMAND_PREFLIGHT_AGENT_CFG = (
+    "sugar_rl.tasks.locomanip.agents."
+    "rsl_rl_native_whole_hand_tactile_bcppo_cfg:"
+    "TrackerCommandNativeWholeHandTactilePreflightBCPPORunnerCfg"
+)
 TASKS = {
+    "Sugar-G129dof-CarryBox-NativeWholeHand-TrackerCommand-Preflight-TacSL-BCPPO": (
+        "TrackerCommandNativeTactileRobotEnvCfg",
+        "TrackerCommandNativeTactileRobotPlayEnvCfg",
+        _TRACKER_COMMAND_PREFLIGHT_AGENT_CFG,
+    ),
+    "Sugar-G129dof-CarryBox-NativeWholeHand-TrackerCommand-Preflight-Zero-BCPPO": (
+        "TrackerCommandExactZeroRobotEnvCfg",
+        "TrackerCommandExactZeroRobotPlayEnvCfg",
+        _TRACKER_COMMAND_PREFLIGHT_AGENT_CFG,
+    ),
+    "Sugar-G129dof-CarryBox-NativeWholeHand-TrackerCommand-TacSL-BCPPO": (
+        "TrackerCommandNativeTactileRobotEnvCfg",
+        "TrackerCommandNativeTactileRobotPlayEnvCfg",
+        _TRACKER_COMMAND_AGENT_CFG,
+    ),
+    "Sugar-G129dof-CarryBox-NativeWholeHand-TrackerCommand-Zero-BCPPO": (
+        "TrackerCommandExactZeroRobotEnvCfg",
+        "TrackerCommandExactZeroRobotPlayEnvCfg",
+        _TRACKER_COMMAND_AGENT_CFG,
+    ),
     "Sugar-G129dof-CarryBox-NativeWholeHand-ProprioTaskTacSL-BCPPO": (
         "NativeTactileRobotEnvCfg",
         "NativeTactileRobotPlayEnvCfg",

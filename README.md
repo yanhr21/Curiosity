@@ -11,9 +11,11 @@ Plan 12 established the reusable IsaacLab-native whole-hand representation and
 synchronized CarryBox evidence. Plan 13 now tests whether that representation
 helps a serious policy and how to fuse it into training. The active first
 comparison uses no RGB and no measured object state at the actor. Both arms
-receive the same robot base/joint proprioception, last action, normalized
-motion phase, and deployable `35-D` official Tracker command (`29-D` reference
-joint position plus `3-D` reference root linear and `3-D` angular velocity).
+receive the official five-frame Tracker histories of base angular velocity,
+joint position/velocity, previous action, and projected gravity; current base
+linear velocity; normalized motion phase; and the deployable `35-D` official
+Tracker command (`29-D` reference joint position plus `3-D` reference root
+linear and `3-D` angular velocity). This is a `504-D` non-tactile actor input.
 The tactile arm additionally receives the four-frame bilateral native TacSL
 tensor; the matched control receives an exact-zero tensor and does not call the
 sensor. The privileged critic and released Refiner are training-only.
@@ -22,7 +24,7 @@ The completed policy experiments below predate this corrected contract and
 used an `890-D` reference-only actor containing full future reference state.
 They remain reproducible diagnostic evidence, but they are not the active
 deployable-input comparison and must not be used to claim completion of Plan
-13. The next runnable milestone is the live one-update `35-D` tactile preflight,
+13. The next runnable milestone is the live one-update `504-D` tactile preflight,
 followed serially by its exact-zero/no-read preflight.
 
 Only the official IsaacLab v2.3.2
@@ -121,11 +123,12 @@ camera-free JSON/NPZ results supply the numerical comparison.
 
 Use Python 3.11 with Isaac Sim 5.1 and the matching IsaacLab tree included in
 this repository. Obtain the official SUGAR CarryBox data and released Refiner
-checkpoint as described in [`SUGAR/README.md`](SUGAR/README.md). The active
-entry points expect these two local-only files/directories:
+checkpoints as described in [`SUGAR/README.md`](SUGAR/README.md). The active
+entry points expect these three local-only files/directories:
 
 ```text
 SUGAR/data/CarryBox/data_045/
+SUGAR/demo_ckpts/CarryBox/tracker.pt
 experiments/sugar_reproduction/outputs/final/official_sugar/baseline/ckpts/refiner_model10000.pt
 ```
 
@@ -153,12 +156,109 @@ follow
 That guide records the exact `890-D` inputs, warm-start export, serial training,
 five-condition held-out teacher-residual test, frozen closed-loop comparison,
 and synchronized live-versus-zero H.264 commands. It intentionally labels the
-route historical. No active `35-D` training command is published until its
-task registration and live input-shape preflight exist. Every long command can
-be launched through `launch_retained_child.sh`; the retained allocation stays
-alive when its recorded child completes.
+route historical. The active Tracker-command entry points and their exact
+warm-start/resume variables are listed in
+[`scripts/sugar/native_tactile/README.md`](scripts/sugar/native_tactile/README.md);
+the live input-shape preflight remains the admission gate. Every long command
+can be launched through `launch_retained_child.sh`; the retained allocation
+stays alive when its recorded child completes.
 All generated artifacts remain below the ignored `experiments/` tree and must
 not be committed.
+
+### Active `504-D` Tracker-command experiment
+
+The commands below are the complete active no-RGB route. Run them serially
+inside one retained GPU allocation from the repository root. Each output path
+must be new. The released Tracker is used only to initialize the common actor;
+the released Refiner remains the frozen BCPPO teacher and the `890-D` critic is
+training-only. Official Tracker observation normalization remains disabled,
+matching the released policy scale.
+
+First create one common proxy-free base from the released Tracker:
+
+```bash
+export CURIOSITY_ISAAC_PYTHON=/absolute/path/to/python
+export CURIOSITY_TRACKER_WARM_START_CHECKPOINT="$PWD/SUGAR/demo_ckpts/CarryBox/tracker.pt"
+
+bash scripts/sugar/native_tactile/launch_retained_child.sh \
+  --record experiments/native_tactile_training/runtime/tracker_base.process \
+  --status experiments/native_tactile_training/runtime/tracker_base.status \
+  --log experiments/native_tactile_training/runtime/tracker_base.log \
+  --tag tracker_base \
+  -- bash scripts/sugar/native_tactile/run_native_tactile_bcppo_training.sh \
+    tracker_zero \
+    experiments/native_tactile_training/reproduced_tracker504/base \
+    128 1 13011
+
+unset CURIOSITY_TRACKER_WARM_START_CHECKPOINT
+```
+
+Freeze-evaluate `base/model_127.pt` before continuing:
+
+```bash
+bash scripts/sugar/native_tactile/run_native_tactile_bcppo_evaluation.sh \
+  tracker_zero \
+  experiments/native_tactile_training/reproduced_tracker504/base/model_127.pt \
+  experiments/native_tactile_training/reproduced_tracker504/base_frozen.json
+```
+
+The common base is admitted only if this continuous frame-zero rollout reaches
+the physical CarryBox grasp/contact interval. If it does not, resume that same
+base checkpoint and optimizer; do not replace the architecture, add object
+state, or start the tactile comparison. Once admitted, run the live arm first
+and the exact-zero/no-read arm second from the identical checkpoint:
+
+```bash
+export CURIOSITY_TRACKER_BASE_CHECKPOINT="$PWD/experiments/native_tactile_training/reproduced_tracker504/base/model_127.pt"
+
+bash scripts/sugar/native_tactile/run_native_tactile_bcppo_training.sh \
+  tracker_preflight_tactile \
+  experiments/native_tactile_training/reproduced_tracker504/preflight_tactile \
+  1 1 13011
+
+bash scripts/sugar/native_tactile/run_native_tactile_bcppo_training.sh \
+  tracker_preflight_zero \
+  experiments/native_tactile_training/reproduced_tracker504/preflight_zero \
+  1 1 13011
+
+python scripts/sugar/native_tactile/summarize_tracker_command_preflights.py \
+  --tactile experiments/native_tactile_training/reproduced_tracker504/preflight_tactile \
+  --zero experiments/native_tactile_training/reproduced_tracker504/preflight_zero \
+  --output experiments/native_tactile_training/reproduced_tracker504/preflight_pair.json
+```
+
+The summary must pass real native signal and encoder optimization in the live
+arm, exact-zero/no-read behavior with zero encoder update in the control, equal
+pre-learning policy tensors, and the `504/324000/890-D` runtime shapes. Only
+then run the matched endpoints, still serially:
+
+```bash
+bash scripts/sugar/native_tactile/run_native_tactile_bcppo_training.sh \
+  tracker_tactile \
+  experiments/native_tactile_training/reproduced_tracker504/tactile \
+  512 1 13011
+
+bash scripts/sugar/native_tactile/run_native_tactile_bcppo_training.sh \
+  tracker_zero \
+  experiments/native_tactile_training/reproduced_tracker504/zero \
+  512 1 13011
+
+unset CURIOSITY_TRACKER_BASE_CHECKPOINT
+
+bash scripts/sugar/native_tactile/run_native_tactile_bcppo_evaluation.sh \
+  tracker_tactile \
+  experiments/native_tactile_training/reproduced_tracker504/tactile/model_511.pt \
+  experiments/native_tactile_training/reproduced_tracker504/tactile_frozen.json
+
+bash scripts/sugar/native_tactile/run_native_tactile_bcppo_evaluation.sh \
+  tracker_zero \
+  experiments/native_tactile_training/reproduced_tracker504/zero/model_511.pt \
+  experiments/native_tactile_training/reproduced_tracker504/zero_frozen.json
+```
+
+These commands define a reproducible experiment, not a pre-claimed result.
+Tactile benefit requires better matched frozen CarryBox behavior; a changed
+gradient, loss, action, or checkpoint alone is insufficient.
 
 ## Legacy and experiment curation
 

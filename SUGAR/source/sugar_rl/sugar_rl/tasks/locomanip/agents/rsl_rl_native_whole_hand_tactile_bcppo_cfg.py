@@ -30,6 +30,62 @@ class NativeTactileTrainingBCPPOCfg(BCPPOCfg):
 
 
 @configclass
+class TrackerCommandNativeWholeHandTactileActorCriticCfg(
+    NativeWholeHandTactileActorCriticCfg
+):
+    class_name: str = "TrackerCommandTactileActorCritic"
+
+
+@configclass
+class TrackerCommandNativeWholeHandTactileBCPPORunnerCfg(BCPPORunnerCfg):
+    """Official 24-step BCPPO schedule for the deployable no-RGB actor."""
+
+    experiment_name = "sugar_carrybox_tracker_command_native_tactile_bcppo"
+    save_interval = 16
+    obs_groups = {
+        "policy": ["policy", "native_whole_hand_tactile_history"],
+        "critic": ["critic"],
+        "teacher": ["teacher"],
+    }
+    policy = TrackerCommandNativeWholeHandTactileActorCriticCfg(
+        init_noise_std=0.5,
+        actor_hidden_dims=[512, 256, 128],
+        critic_hidden_dims=[512, 256, 128],
+        activation="elu",
+        # Released SUGAR Tracker and Refiner checkpoints do not use empirical
+        # observation normalization. Preserve that official input scale.
+        actor_obs_normalization=False,
+        critic_obs_normalization=False,
+    )
+    algorithm = NativeTactileTrainingBCPPOCfg(
+        value_loss_coef=1.0,
+        use_clipped_value_loss=True,
+        clip_param=0.2,
+        entropy_coef=0.005,
+        num_learning_epochs=5,
+        num_mini_batches=4,
+        learning_rate=1.0e-3,
+        schedule="adaptive",
+        gamma=0.99,
+        lam=0.95,
+        desired_kl=0.01,
+        max_grad_norm=1.0,
+    )
+
+
+@configclass
+class TrackerCommandNativeWholeHandTactilePreflightBCPPORunnerCfg(
+    TrackerCommandNativeWholeHandTactileBCPPORunnerCfg
+):
+    """One update whose continuous rollout spans the first grasp contact."""
+
+    experiment_name = "sugar_carrybox_tracker_command_native_tactile_preflight"
+    # Contact begins around control step 243 on the frame-zero CarryBox route.
+    num_steps_per_env = 288
+    save_interval = 1
+
+
+@configclass
 class NativeWholeHandTactileBCPPORunnerCfg(BCPPORunnerCfg):
     experiment_name = "sugar_carrybox_native_whole_hand_tactile_bcppo"
     save_interval = 64

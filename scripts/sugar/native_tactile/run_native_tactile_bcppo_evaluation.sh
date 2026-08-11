@@ -6,7 +6,7 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
   exit 2
 fi
 if [[ $# -lt 3 ]]; then
-  echo "Usage: $0 tactile|zero|bounded_tactile|bounded_zero|residual_tactile|residual_zero CHECKPOINT OUTPUT_JSON [EVALUATOR_ARGS...]" >&2
+  echo "Usage: $0 tracker_tactile|tracker_zero|tactile|zero|bounded_tactile|bounded_zero|residual_tactile|residual_zero CHECKPOINT OUTPUT_JSON [EVALUATOR_ARGS...]" >&2
   exit 2
 fi
 
@@ -19,7 +19,7 @@ PYTHON_BIN="${CURIOSITY_ISAAC_PYTHON:-/public/home/yanhongru/envs/sugar_py311_is
 TEACHER="$ROOT/experiments/sugar_reproduction/outputs/final/official_sugar/baseline/ckpts/refiner_model10000.pt"
 MOTION="$ROOT/SUGAR/data/CarryBox/data_045"
 
-case "$ARM" in tactile|zero|bounded_tactile|bounded_zero|residual_tactile|residual_zero) ;; *) echo "Unknown arm: $ARM" >&2; exit 2 ;; esac
+case "$ARM" in tracker_tactile|tracker_zero|tactile|zero|bounded_tactile|bounded_zero|residual_tactile|residual_zero) ;; *) echo "Unknown arm: $ARM" >&2; exit 2 ;; esac
 if [[ "$CHECKPOINT" != /* ]]; then CHECKPOINT="$ROOT/$CHECKPOINT"; fi
 if [[ "$OUTPUT" != /* ]]; then OUTPUT="$ROOT/$OUTPUT"; fi
 if [[ ! -f "$CHECKPOINT" ]]; then echo "Missing checkpoint: $CHECKPOINT" >&2; exit 2; fi

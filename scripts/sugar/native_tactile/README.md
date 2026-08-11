@@ -2,11 +2,36 @@
 
 This directory has one completed active foundation and one historical policy
 route. CarryBox visualization is the reusable native-sensor foundation. The
-existing tactile-versus-zero scripts reproduce the completed `890-D`
+existing tactile-versus-zero scripts also reproduce the completed `890-D`
 reference-only actor diagnostics; they do not satisfy the active deployable
-`35-D` Tracker-command contract. The new `35-D` runner is not listed until its
-task registration and live preflight exist. No numbered experiment ladder is
-an entry point.
+Tracker-command contract. No numbered experiment ladder is an entry point.
+
+## Active no-RGB Tracker-command training
+
+- `run_native_tactile_bcppo_training.sh tracker_preflight_tactile ...`: live
+  288-step one-update preflight from a shared base checkpoint.
+- `run_native_tactile_bcppo_training.sh tracker_preflight_zero ...`: matched
+  exact-zero/no-read preflight, run only after the live arm.
+- `run_native_tactile_bcppo_training.sh tracker_tactile ...` and
+  `tracker_zero`: official 24-step/update matched training arms.
+- `summarize_tracker_command_preflights.py`: requires the `504-D` non-tactile
+  actor, `324000-D` raw tactile tensor, `890-D` critic/teacher, real signal and
+  encoder optimization in the live arm, and exact-zero/no-update behavior in
+  the control.
+- `run_native_tactile_bcppo_evaluation.sh tracker_tactile|tracker_zero ...`:
+  deterministic frozen physical evaluation.
+
+The `504-D` non-tactile actor input preserves the official Tracker's `35-D`
+command and five-frame robot/action/gravity histories, then adds current base
+linear velocity and phase. It excludes contact label and measured box pose.
+Set `CURIOSITY_TRACKER_WARM_START_CHECKPOINT` to the released CarryBox
+`tracker.pt` only for the common base initialization; use
+`CURIOSITY_TRACKER_BASE_CHECKPOINT` to start both matched arms from that same
+saved base. The released Tracker and Refiner use their original unnormalized
+observation scale, so both actor and critic empirical normalization remain
+disabled. The root [`README`](../../../README.md#active-504-d-tracker-command-experiment)
+contains the exact common-base, frozen admission, serial preflight, training,
+and evaluation commands.
 
 ## Complete CarryBox visualization
 

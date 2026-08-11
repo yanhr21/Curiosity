@@ -253,6 +253,20 @@ class NativeTactileTrainingBCPPO(BCPPO):
                 "this proves signal entry, not policy benefit"
             ),
             "tactile_observation_group": tactile_group,
+            "observation_shapes": {
+                name: list(value.shape)
+                for name, value in self.storage.observations.items()
+            },
+            "actor_contract": {
+                "base_observation_width": int(self.policy.num_actor_base_obs),
+                "encoded_tactile_width": int(
+                    self.policy.actor_tactile_encoder.output_dim
+                ),
+                "raw_tactile_width": int(tactile.shape[-1]),
+                "policy_groups": list(self.policy.obs_groups["policy"]),
+                "critic_groups": list(self.policy.obs_groups["critic"]),
+                "teacher_groups": list(self.policy.obs_groups["teacher"]),
+            },
             "rollout": rollout_stats,
             "encoder_features_before_update": encoded_stats,
             "first_layer_tactile_correction_before_update": correction_stats,

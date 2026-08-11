@@ -8,15 +8,31 @@ representation enter the serious SUGAR training stack?
 
 ## First matched experiment
 
-Both actor arms preserve the same deployable SUGAR observation contract:
-robot base linear/angular velocity, relative joint position/velocity, last
-action, normalized motion phase, and the official `35-D` Tracker command. The
+Both actor arms preserve the same deployable SUGAR observation contract: the
+official five-frame histories of base angular velocity, relative joint
+position/velocity, previous action, and projected gravity; current base linear
+velocity; normalized motion phase; and the official `35-D` Tracker command. The
 command is exactly `29-D` reference joint position plus `3-D` reference root
 linear and `3-D` reference root angular velocity. The official Generator's
 36th `contact_label` output is excluded because it is a non-tactile proxy.
 Neither actor receives RGB, measured or future object state, mass, friction,
 rigid-contact labels, or simulator contact velocity. The privileged critic and
 frozen official Refiner teacher remain training-only.
+
+The resulting non-tactile actor input is `504-D`: `35-D` command, `465-D`
+official history, `3-D` current base linear velocity, and `1-D` phase. This
+retains the released Tracker's temporal structure. The withdrawn current-only
+`129-D` diagnostic reached only 33--38 deterministic steps and zero tactile
+contact, so it cannot initialize the tactile experiment.
+
+The common base initialization uses the released CarryBox `tracker.pt`.
+Command and history columns plus all later actor layers transfer directly;
+contact-label and measured-object columns are omitted, while base linear
+velocity, phase, and tactile columns begin with zero or low-gain authority.
+Both matched arms then use the same saved base checkpoint. The released
+Refiner remains the frozen BCPPO teacher rather than an actor input. Actor and
+critic empirical observation normalization remain disabled, as in the
+released SUGAR Tracker/Refiner BCPPO configuration.
 
 Every physical-skin episode starts at official motion frame zero and evolves
 continuously.  The ordinary SUGAR mid-trajectory reference-state reset is not
@@ -41,7 +57,7 @@ critic only during training; no new toy network is introduced.
 ## Execution order
 
 1. Run a live one-update preflight for the tactile arm and confirm the exact
-   deployable `35-D` command, retained proprioception/action/phase terms,
+   deployable `504-D` command/history/proprioception/phase contract,
    expected tactile dimensions, real contact signal, encoder gradients, and
    checkpoint creation.
 2. Run the matched one-update exact-zero arm and confirm identical non-tactile
@@ -60,9 +76,11 @@ positive result.
 ## Active status on 2026-08-11
 
 The reusable physical sensor, tensor serialization, and full CarryBox videos
-are complete. The active `35-D` Tracker-command tactile task registration and
-one-update live/zero preflights have not yet run. They are the next work; the
-older `890-D` route below cannot substitute for them.
+are complete. The active Tracker-command tactile task registration and serious
+spatial fusion code now exist. The history-preserving official-Tracker
+warm-start runtime gate and then the live/zero one-update preflights are the
+next work; the withdrawn `129-D` diagnostic and older `890-D` route below
+cannot substitute for them.
 
 ## Historical `890-D` diagnostic record
 
