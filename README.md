@@ -34,7 +34,8 @@ its initial height; 266 frames contain bilateral contact and 192 frames are
 both lifted and bilateral. The run keeps the raw `[660,2,27,20,25]` normal
 field, signed two-axis shear, real per-patch metric sizes, per-taxel poses,
 center-palm R15 RGB/depth and tactile-only slip evidence. Its ignored runtime
-package is
+package explicitly stores independent force and optical sequence/timestamp/dt
+fields and is
 `experiments/newton_universal_tactile/isaaclab_carrybox_universal_current/`.
 
 Against held-out simulator tangential velocity, the corrected tactile-only
@@ -57,17 +58,20 @@ false negatives, a two-frame (`40 ms`) incipient onset delay and one-frame
 are under
 `experiments/newton_universal_tactile/isaaclab_r15_capsule_slip/`; the signal
 is the official R15 per-taxel force/shear/RGB/depth stream, not rigid-contact
-force or a binary label.
+force or a binary label. The trace also preserves every taxel's world position,
+scalar-last `xyzw` orientation, RGB/depth frame and the independent tactile and
+optical clocks from sequence `0` through `239` (`0.02` through `4.80 s`).
 
 The Newton backend now completes the same generalization check with one public
 `SensorTactile` implementation and no scene-specific force formula. In the
 600-frame Panda cube run, both pads have native contact for `356/357` frames,
 the cube is lifted `0.224 m`, and the largest raw-force-to-grid conservation
 residual is `7.63e-6 N`. In the unchanged 600-frame pen run, both pads have
-contact for `351/349` frames, the pen is lifted `0.254 m`, and the maximum
-conservation residual is `5.72e-6 N`. Newton has no GelSight optical stream, so
-both records explicitly report optical unavailable rather than displaying a
-fabricated image.
+contact for `350/350` frames, the pen is lifted `0.254 m`, and the maximum
+conservation residual is `2.86e-6 N`. Both scene records explicitly preserve
+the sensor sequence `0...599`, source timestamp and elapsed time. Newton has no
+GelSight optical stream, so both records explicitly report optical unavailable
+rather than displaying a fabricated image.
 
 The controlled Newton plate/cube sequence physically separates stationary,
 slow-stick, incipient and fast gross-slip intervals at friction coefficient
@@ -115,7 +119,7 @@ The clock-correct force audit is here:
 - [machine-readable values](experiments/newton_universal_tactile/isaaclab_carrybox_universal_current/carrybox_force_kinematics_friction.audit.json)
 
 At the native `5 ms` physics clock, the PhysX force on the box and
-`m(a-g)` have a median full-vector residual of `8.82e-7` box weights. Friction
+`m(a-g)` have a median full-vector residual of `8.78e-7` box weights. Friction
 provides a median `2.568 N` of vertical support, with about `8.7%` global use
 against the patch coefficient `0.5`. The old control-sampled force plot mixed a
 last-substep contact force with a `20 ms` acceleration and is withdrawn as a
@@ -123,8 +127,8 @@ balance judgment.
 
 The official TacSL penalty law itself reconstructs from the raw arrays, and
 its contact localization is correct, but its raw taxel wrench is not calibrated
-to the PhysX box wrench: median magnitude is `44.804 N` and median residual is
-`14.967` box weights. These results are therefore high-fidelity simulated
+to the PhysX box wrench: median magnitude is `32.754 N` and median residual is
+`11.533` box weights. These results are therefore high-fidelity simulated
 contact-location/field evidence, not calibrated hardware force, FEM soft-body,
 sim-to-real, policy-benefit, or real-robot evidence. Explicit user acceptance
 of the videos remains the final completion gate.

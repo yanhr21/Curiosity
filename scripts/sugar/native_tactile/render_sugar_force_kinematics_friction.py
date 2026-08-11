@@ -80,10 +80,10 @@ def fit(frame: np.ndarray, width: int, height: int) -> np.ndarray:
     return result
 
 
-def quat_apply_wxyz(quaternion: np.ndarray, vector: np.ndarray) -> np.ndarray:
-    xyz = quaternion[..., 1:]
+def quat_apply_xyzw(quaternion: np.ndarray, vector: np.ndarray) -> np.ndarray:
+    xyz = quaternion[..., :3]
     cross = 2.0 * np.cross(xyz, vector)
-    return vector + quaternion[..., :1] * cross + np.cross(xyz, cross)
+    return vector + quaternion[..., 3:] * cross + np.cross(xyz, cross)
 
 
 def draw_plot(
@@ -206,7 +206,7 @@ def compute_tacsl_reaction(
             (np.asarray(shear[step], np.float64), np.asarray(normal[step], np.float64)[..., None]),
             axis=-1,
         )
-        world = quat_apply_wxyz(np.asarray(quaternion[step], np.float64), local)
+        world = quat_apply_xyzw(np.asarray(quaternion[step], np.float64), local)
         result[step] = -world.sum(axis=(0, 1, 2, 3))
     return result
 
@@ -249,6 +249,12 @@ def main() -> None:
                 "physics_dt_s",
                 "control_dt_s",
                 "patch_order",
+                "tactile_sequence",
+                "tactile_timestamp_s",
+                "tactile_dt_s",
+                "optical_sequence",
+                "optical_timestamp_s",
+                "optical_dt_s",
             )
         }
     if tuple(arrays["patch_order"].astype(str)) != PATCHES:
@@ -262,6 +268,29 @@ def main() -> None:
         raise RuntimeError("Expected exactly four ordered physics substeps per control frame")
     if not np.array_equal(physics_substep, np.tile(np.arange(4), frames)):
         raise RuntimeError("Physics substep order is not 0,1,2,3")
+    control_dt = float(arrays["control_dt_s"])
+    expected_sequence = np.arange(frames, dtype=np.int64)
+    expected_timestamp = (expected_sequence + 1) * control_dt
+    expected_dt = np.full(frames, control_dt, dtype=np.float64)
+    expected_dt[0] = 0.0
+    tactile_sequence = np.asarray(arrays["tactile_sequence"], np.int64)
+    tactile_timestamp = np.asarray(arrays["tactile_timestamp_s"], np.float64)
+    tactile_dt = np.asarray(arrays["tactile_dt_s"], np.float64)
+    optical_sequence = np.asarray(arrays["optical_sequence"], np.int64)
+    optical_timestamp = np.asarray(arrays["optical_timestamp_s"], np.float64)
+    optical_dt = np.asarray(arrays["optical_dt_s"], np.float64)
+    if not np.array_equal(tactile_sequence, expected_sequence):
+        raise RuntimeError("Tactile sequence is not contiguous from zero")
+    if not np.array_equal(optical_sequence, expected_sequence):
+        raise RuntimeError("Optical sequence is not contiguous from zero")
+    if not np.allclose(tactile_timestamp, expected_timestamp, atol=1.0e-12):
+        raise RuntimeError("Tactile timestamps do not match the source clock")
+    if not np.allclose(optical_timestamp, expected_timestamp, atol=1.0e-12):
+        raise RuntimeError("Optical timestamps do not match the source clock")
+    if not np.allclose(tactile_dt, expected_dt, atol=1.0e-12):
+        raise RuntimeError("Tactile elapsed times are inconsistent")
+    if not np.allclose(optical_dt, expected_dt, atol=1.0e-12):
+        raise RuntimeError("Optical elapsed times are inconsistent")
 
     mass = float(summary["box_mass_readback_kg"])
     gravity = np.asarray(arrays["gravity_w"], np.float64)
@@ -356,6 +385,25 @@ def main() -> None:
         "physics_substeps": int(len(physics_control)),
         "physics_dt_s": float(arrays["physics_dt_s"]),
         "control_dt_s": float(arrays["control_dt_s"]),
+        "persisted_clocks": {
+            "tactile_sequence": [
+                int(tactile_sequence[0]),
+                int(tactile_sequence[-1]),
+            ],
+            "tactile_timestamp_s": [
+                float(tactile_timestamp[0]),
+                float(tactile_timestamp[-1]),
+            ],
+            "optical_sequence": [
+                int(optical_sequence[0]),
+                int(optical_sequence[-1]),
+            ],
+            "optical_timestamp_s": [
+                float(optical_timestamp[0]),
+                float(optical_timestamp[-1]),
+            ],
+            "elapsed_time_matches_source_clock": True,
+        },
         "mass_kg": mass,
         "weight_n": weight,
         "lifted_bilateral_frames": int(np.count_nonzero(high_lift)),

@@ -58,6 +58,8 @@ World orientations use scalar-last `xyzw`, matching Warp/Newton. The thin
 IsaacLab adapter reorders the official scalar-first `wxyz` tensor without
 changing the represented rotation. Force and optical streams have independent
 sequence/timestamp state even when a scene explicitly samples them together.
+Runtime traces persist each stream's sequence, timestamp and elapsed time
+directly rather than requiring reconstruction from the control-step index.
 
 Optical RGB/depth is an optional, explicitly available modality with its own
 clock. Backend-specific diagnostic values may be recorded, but they remain

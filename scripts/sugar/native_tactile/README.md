@@ -13,7 +13,8 @@ is an active entry point.
   `[batch,patch,row,column]`; signed shear appends two channels. Released TacSL
   row/column order and signs are unchanged. The adapter explicitly converts
   IsaacLab's `wxyz` taxel orientations to the common Newton-compatible `xyzw`
-  order and advances force and optical clocks independently.
+  order and advances force and optical clocks independently. Active traces
+  save each clock's sequence, timestamp and elapsed time explicitly.
 - `slip.py`: causal tactile-history-only load, friction utilization,
   center-of-pressure motion, footprint transport, load loss and hysteretic
   `NO_CONTACT/STICK/INCIPIENT/GROSS` state.

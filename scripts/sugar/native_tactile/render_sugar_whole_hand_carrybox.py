@@ -65,10 +65,10 @@ def signed_normal_bgr(values: np.ndarray, maximum: float) -> np.ndarray:
     return image
 
 
-def quat_apply_wxyz(quaternion: np.ndarray, vector: np.ndarray) -> np.ndarray:
-    xyz = quaternion[..., 1:]
+def quat_apply_xyzw(quaternion: np.ndarray, vector: np.ndarray) -> np.ndarray:
+    xyz = quaternion[..., :3]
     cross = 2.0 * np.cross(xyz, vector)
-    return vector + quaternion[..., :1] * cross + np.cross(xyz, cross)
+    return vector + quaternion[..., 3:] * cross + np.cross(xyz, cross)
 
 
 def put(
@@ -502,7 +502,7 @@ def main() -> None:
             local_force = np.concatenate(
                 (shear[step], normal[step, ..., None]), axis=-1
             )
-            tacsl_reaction = -quat_apply_wxyz(
+            tacsl_reaction = -quat_apply_xyzw(
                 np.asarray(arrays["taxel_quaternion_w"][step], np.float64),
                 np.asarray(local_force, np.float64),
             ).sum(axis=(0, 1, 2, 3))

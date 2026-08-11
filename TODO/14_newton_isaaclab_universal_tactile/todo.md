@@ -16,6 +16,10 @@
   clock contract without object state or contact proxies.
 - [x] Standardize world quaternions as `xyzw` by explicitly converting the
   official IsaacLab `wxyz` order, and maintain an independent optical clock.
+- [x] Apply the same `xyzw` convention in every active force renderer and
+  force-balance calculation.
+- [x] Persist force and optical sequence/timestamp/dt fields directly in the
+  scene traces rather than reconstructing them from frame indices.
 - [x] Implement conservative raw-sample-to-grid serialization and verify
   signed vector-force conservation.
 - [x] Add backend-neutral feature extraction used by visualization and slip

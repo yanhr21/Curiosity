@@ -358,6 +358,12 @@ def main() -> None:
         relative_velocity_rows: list[np.ndarray] = []
         optical_rgb_rows: list[np.ndarray] = []
         optical_depth_rows: list[np.ndarray] = []
+        tactile_sequence_rows: list[int] = []
+        tactile_timestamp_rows: list[float] = []
+        tactile_dt_rows: list[float] = []
+        optical_sequence_rows: list[int] = []
+        optical_timestamp_rows: list[float] = []
+        optical_dt_rows: list[float] = []
         slip_state_rows: list[np.ndarray] = []
         slip_normal_load_rows: list[np.ndarray] = []
         slip_tangential_load_rows: list[np.ndarray] = []
@@ -439,6 +445,18 @@ def main() -> None:
                 optical_timestamp_s=(source_step + 1)
                 * float(cfg.decimation * cfg.sim.dt),
             )
+            if tactile_frame.optical.clock is None:
+                raise RuntimeError(
+                    "Available official RGB/depth has no optical clock"
+                )
+            tactile_sequence_rows.append(tactile_frame.clock.sequence)
+            tactile_timestamp_rows.append(tactile_frame.clock.timestamp_s)
+            tactile_dt_rows.append(tactile_frame.clock.dt_s)
+            optical_sequence_rows.append(tactile_frame.optical.clock.sequence)
+            optical_timestamp_rows.append(
+                tactile_frame.optical.clock.timestamp_s
+            )
+            optical_dt_rows.append(tactile_frame.optical.clock.dt_s)
             slip_evidence = slip_detector.update(tactile_frame)
             normal = cpu(tactile_frame.normal_force_n[0]).reshape(
                 2, 27, 20, 25
@@ -619,6 +637,16 @@ def main() -> None:
             optical_baseline_depth=np.stack(optical_baseline_depth).astype(
                 np.float32
             ),
+            tactile_sequence=np.asarray(tactile_sequence_rows, dtype=np.int64),
+            tactile_timestamp_s=np.asarray(
+                tactile_timestamp_rows, dtype=np.float64
+            ),
+            tactile_dt_s=np.asarray(tactile_dt_rows, dtype=np.float64),
+            optical_sequence=np.asarray(optical_sequence_rows, dtype=np.int64),
+            optical_timestamp_s=np.asarray(
+                optical_timestamp_rows, dtype=np.float64
+            ),
+            optical_dt_s=np.asarray(optical_dt_rows, dtype=np.float64),
             active_taxels=active.astype(np.int32),
             bilateral_contact=bilateral.astype(np.bool_),
             object_state_w=object_array,
@@ -717,6 +745,16 @@ def main() -> None:
             "taxel_position_shape": [len(normal_array), 2, 27, 20, 25, 3],
             "taxel_quaternion_shape": [len(normal_array), 2, 27, 20, 25, 4],
             "taxel_quaternion_order": "xyzw (official IsaacLab wxyz reordered by common adapter)",
+            "tactile_clock_fields": [
+                "tactile_sequence",
+                "tactile_timestamp_s",
+                "tactile_dt_s",
+            ],
+            "optical_clock_fields": [
+                "optical_sequence",
+                "optical_timestamp_s",
+                "optical_dt_s",
+            ],
             "optical_rgb_shape": list(np.stack(optical_rgb_rows).shape),
             "optical_depth_shape": list(np.stack(optical_depth_rows).shape),
             "optical_baseline_rgb_shape": list(

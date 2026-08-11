@@ -88,10 +88,10 @@ def signed_bgr(values: np.ndarray, maximum: float) -> np.ndarray:
     return image
 
 
-def quat_apply_wxyz(quaternion: np.ndarray, vector: np.ndarray) -> np.ndarray:
-    xyz = quaternion[..., 1:]
+def quat_apply_xyzw(quaternion: np.ndarray, vector: np.ndarray) -> np.ndarray:
+    xyz = quaternion[..., :3]
     cross = 2.0 * np.cross(xyz, vector)
-    return vector + quaternion[..., :1] * cross + np.cross(xyz, cross)
+    return vector + quaternion[..., 3:] * cross + np.cross(xyz, cross)
 
 
 def fit(frame: np.ndarray, width: int, height: int) -> np.ndarray:
@@ -334,7 +334,7 @@ def compute_force_series(arrays: dict[str, np.ndarray], mass: float) -> dict[str
     region_slices = (slice(0, 12), *(slice(12 + 3 * i, 15 + 3 * i) for i in range(5)))
     for step in range(frames):
         local = np.concatenate((shear[step], normal[step, ..., None]), axis=-1)
-        reaction = -quat_apply_wxyz(quaternion[step], local)
+        reaction = -quat_apply_xyzw(quaternion[step], local)
         tacsl_hand[step] = reaction.sum(axis=(1, 2, 3))
         for hand in range(2):
             for region_index, patch_slice in enumerate(region_slices):

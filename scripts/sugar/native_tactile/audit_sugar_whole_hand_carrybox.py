@@ -26,10 +26,10 @@ parser.add_argument("--output", type=Path, required=True)
 args = parser.parse_args()
 
 
-def quat_apply_wxyz(quaternion: np.ndarray, vector: np.ndarray) -> np.ndarray:
-    xyz = quaternion[..., 1:]
+def quat_apply_xyzw(quaternion: np.ndarray, vector: np.ndarray) -> np.ndarray:
+    xyz = quaternion[..., :3]
     t = 2.0 * np.cross(xyz, vector)
-    return vector + quaternion[..., :1] * t + np.cross(xyz, t)
+    return vector + quaternion[..., 3:] * t + np.cross(xyz, t)
 
 
 def longest_true_run(mask: np.ndarray) -> list[int]:
@@ -129,7 +129,7 @@ def main() -> None:
     lifted = lift >= 0.20
 
     local_force = np.concatenate((shear, normal[..., None]), axis=-1)
-    taxel_force_on_sensor_w = quat_apply_wxyz(quaternion, local_force)
+    taxel_force_on_sensor_w = quat_apply_xyzw(quaternion, local_force)
     tactile_force_on_object_w = -taxel_force_on_sensor_w.sum(
         axis=(1, 2, 3, 4)
     )

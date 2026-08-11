@@ -349,6 +349,16 @@ def main() -> None:
     normal_rows = []
     shear_rows = []
     penetration_rows = []
+    position_rows = []
+    orientation_rows = []
+    optical_rgb_rows = []
+    optical_depth_rows = []
+    tactile_sequence_rows = []
+    tactile_timestamp_rows = []
+    tactile_dt_rows = []
+    optical_sequence_rows = []
+    optical_timestamp_rows = []
+    optical_dt_rows = []
     slip_rows = []
     oracle_speed_rows = []
     x_rows = []
@@ -378,12 +388,26 @@ def main() -> None:
             timestamp_s=(frame + 1) * dt,
             optical_timestamp_s=(frame + 1) * dt,
         )
+        if tactile.optical.clock is None:
+            raise RuntimeError("Available official RGB/depth has no optical clock")
+        optical_tensor = tactile.optical.rgb[0]
+        depth_tensor = tactile.optical.depth[0]
+        if optical_tensor is None or depth_tensor is None:
+            raise RuntimeError("Official R15 optical data is unavailable")
         evidence = detector.update(tactile)
 
         normal = tactile.normal_force_n[0, 0].detach().cpu().numpy()
         shear = tactile.shear_force_xy_n[0, 0].detach().cpu().numpy()
         penetration = tactile.penetration_m[0, 0].detach().cpu().numpy()
-        relative = sensor.data.tactile_relative_tangential_velocity_w[0].reshape(20, 25, 3)
+        position = tactile.taxel_position_w_m[0, 0].detach().cpu().numpy()
+        orientation = (
+            tactile.taxel_orientation_w_xyzw[0, 0].detach().cpu().numpy()
+        )
+        optical = optical_tensor[0].detach().cpu().numpy().astype(np.uint8)
+        depth = depth_tensor[0, ..., 0].detach().cpu().numpy()
+        relative = sensor.data.tactile_relative_tangential_velocity_w[0].reshape(
+            20, 25, 3
+        )
         relative = relative.detach().cpu().numpy()
         oracle_speed = float(
             np.linalg.norm(relative[penetration > 0.0], axis=-1).max()
@@ -391,6 +415,16 @@ def main() -> None:
         normal_rows.append(normal)
         shear_rows.append(shear)
         penetration_rows.append(penetration)
+        position_rows.append(position)
+        orientation_rows.append(orientation)
+        optical_rgb_rows.append(optical)
+        optical_depth_rows.append(depth)
+        tactile_sequence_rows.append(tactile.clock.sequence)
+        tactile_timestamp_rows.append(tactile.clock.timestamp_s)
+        tactile_dt_rows.append(tactile.clock.dt_s)
+        optical_sequence_rows.append(tactile.optical.clock.sequence)
+        optical_timestamp_rows.append(tactile.optical.clock.timestamp_s)
+        optical_dt_rows.append(tactile.optical.clock.dt_s)
         slip_rows.append(int(evidence.state[0, 0]))
         oracle_speed_rows.append(oracle_speed)
         x_rows.append(x)
@@ -398,8 +432,6 @@ def main() -> None:
 
         canvas = np.full((HEIGHT, WIDTH, 3), 255, dtype=np.uint8)
         world = world_camera.data.output["rgb"][0, ..., :3].detach().cpu().numpy().astype(np.uint8)
-        optical = sensor.data.tactile_rgb_image[0].detach().cpu().numpy().astype(np.uint8)
-        depth = sensor.data.tactile_depth_image[0, ..., 0].detach().cpu().numpy()
         canvas[:360, :640] = fit(world, 640, 360)
         canvas[:360, 640:] = fit(optical, 640, 360)
         force = cv2.resize(
@@ -434,11 +466,47 @@ def main() -> None:
     penetration_array = np.stack(penetration_rows).astype(np.float32)
     slip_array = np.asarray(slip_rows, dtype=np.int8)
     oracle_speed_array = np.asarray(oracle_speed_rows, dtype=np.float32)
+    tactile_sequence_array = np.asarray(tactile_sequence_rows, dtype=np.int64)
+    tactile_timestamp_array = np.asarray(tactile_timestamp_rows, dtype=np.float64)
+    tactile_dt_array = np.asarray(tactile_dt_rows, dtype=np.float64)
+    optical_sequence_array = np.asarray(optical_sequence_rows, dtype=np.int64)
+    optical_timestamp_array = np.asarray(optical_timestamp_rows, dtype=np.float64)
+    optical_dt_array = np.asarray(optical_dt_rows, dtype=np.float64)
+    expected_sequence = np.arange(args.frames, dtype=np.int64)
+    expected_timestamp = (expected_sequence + 1) * dt
+    expected_dt = np.full(args.frames, dt, dtype=np.float64)
+    expected_dt[0] = 0.0
+    if not np.array_equal(tactile_sequence_array, expected_sequence):
+        raise RuntimeError("Tactile sequence is not contiguous from zero")
+    if not np.array_equal(optical_sequence_array, expected_sequence):
+        raise RuntimeError("Optical sequence is not contiguous from zero")
+    if not np.allclose(
+        tactile_timestamp_array, expected_timestamp, atol=1.0e-12
+    ):
+        raise RuntimeError("Tactile timestamps do not match the source clock")
+    if not np.allclose(
+        optical_timestamp_array, expected_timestamp, atol=1.0e-12
+    ):
+        raise RuntimeError("Optical timestamps do not match the source clock")
+    if not np.allclose(tactile_dt_array, expected_dt, atol=1.0e-12):
+        raise RuntimeError("Tactile elapsed times are inconsistent")
+    if not np.allclose(optical_dt_array, expected_dt, atol=1.0e-12):
+        raise RuntimeError("Optical elapsed times are inconsistent")
     np.savez_compressed(
         trace_path,
         normal_force=normal_array,
         signed_shear=np.stack(shear_rows).astype(np.float32),
         penetration=penetration_array,
+        taxel_position_w=np.stack(position_rows).astype(np.float32),
+        taxel_orientation_w_xyzw=np.stack(orientation_rows).astype(np.float32),
+        optical_rgb=np.stack(optical_rgb_rows).astype(np.uint8),
+        optical_depth=np.stack(optical_depth_rows).astype(np.float32),
+        tactile_sequence=tactile_sequence_array,
+        tactile_timestamp_s=tactile_timestamp_array,
+        tactile_dt_s=tactile_dt_array,
+        optical_sequence=optical_sequence_array,
+        optical_timestamp_s=optical_timestamp_array,
+        optical_dt_s=optical_dt_array,
         tactile_only_slip_state=slip_array,
         heldout_relative_tangential_speed_m_s=oracle_speed_array,
         object_x_m=np.asarray(x_rows, dtype=np.float32),
@@ -503,13 +571,49 @@ def main() -> None:
         ),
     }
     summary = {
-        "schema": "isaaclab_r15_capsule_native_tactile_slip_v1",
+        "schema": "isaaclab_r15_capsule_native_tactile_slip_v2",
         "frames": args.frames,
         "fps": args.fps,
         "backend": "official isaaclab v2.3.2 VisuoTactileSensor",
         "sensor": "official GELSIGHT_R15_CFG",
         "object": "local IsaacLab MeshCapsuleCfg with PhysX SDF collision",
         "grid_shape": [20, 25],
+        "taxel_position_shape": list(np.stack(position_rows).shape),
+        "taxel_orientation_shape": list(np.stack(orientation_rows).shape),
+        "taxel_quaternion_order": (
+            "xyzw (official IsaacLab wxyz reordered by common adapter)"
+        ),
+        "optical_rgb_shape": list(np.stack(optical_rgb_rows).shape),
+        "optical_depth_shape": list(np.stack(optical_depth_rows).shape),
+        "tactile_clock_fields": [
+            "tactile_sequence",
+            "tactile_timestamp_s",
+            "tactile_dt_s",
+        ],
+        "optical_clock_fields": [
+            "optical_sequence",
+            "optical_timestamp_s",
+            "optical_dt_s",
+        ],
+        "persisted_clocks": {
+            "tactile_sequence": [
+                int(tactile_sequence_array[0]),
+                int(tactile_sequence_array[-1]),
+            ],
+            "tactile_timestamp_s": [
+                float(tactile_timestamp_array[0]),
+                float(tactile_timestamp_array[-1]),
+            ],
+            "optical_sequence": [
+                int(optical_sequence_array[0]),
+                int(optical_sequence_array[-1]),
+            ],
+            "optical_timestamp_s": [
+                float(optical_timestamp_array[0]),
+                float(optical_timestamp_array[-1]),
+            ],
+            "elapsed_time_matches_source_clock": True,
+        },
         "contact_indentation_m": CONTACT_INDENTATION_M,
         "force_display_scale_n_per_taxel": FORCE_SCALE_N_PER_TAXEL,
         "patch_normal_w": [float(value) for value in patch_normal_w.tolist()],
