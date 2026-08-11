@@ -75,9 +75,11 @@ of the videos remains the final completion gate.
   64-update action-residual pair is negative at one seed. A later held-out
   information gate is positive: the same serious adapter reduces aggregate
   teacher-action MAE by `26.26%` on two untouched mass/friction conditions.
-  This is predictability evidence only; its frozen live-versus-zero behavior
-  gate remains the required policy test. Start from the package
-  `REPRODUCE.md` rather than individual runtime files.
+  Its frozen live-versus-zero behavior gate is negative: the heavy condition
+  loses reward and terminates earlier, while the low-friction condition has
+  worse tracking and lift. The result is useful tactile information without
+  established closed-loop benefit, so it does not authorize another PPO run.
+  Start from the package `REPRODUCE.md` rather than individual runtime files.
 - `PLAN/13_native_tactile_training_fusion/`: the active training/fusion plan.
 - `TODO/13_native_tactile_training_fusion/`: the active training/fusion TODO.
 - `PLAN/12_isaaclab_native_tactile_representation/` and its TODO: completed

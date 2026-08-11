@@ -291,9 +291,17 @@ This proves useful held-out information for teacher-action prediction, not
 closed-loop policy improvement. The task-default `0.5 kg` and heavier policy
 states show much broader TacSL contact than the separate `0.3023376 kg`
 canonical successful grasp and must not be presented as that sparse grasp.
-The selected checkpoint is therefore being tested frozen with live versus
-exact-zero/no-read tactile on both untouched conditions. No PPO continuation
-is authorized until that behavior gate passes.
+
+The subsequent frozen live-versus-exact-zero/no-read behavior gate is complete
+and negative. On held-out `1.0 kg`, live tactile improves common-horizon mean
+position error by `0.000713 m` and lift by `0.01521 m`, but reward is `2.19394`
+lower and the rollout terminates eight steps earlier. On held-out low friction,
+live tactile raises reward by `0.35444` and has equal duration, but mean
+position error is `0.000745 m` worse and lift is `0.03916 m` lower. All four
+rollouts terminate on object orientation. Neither condition satisfies the
+predeclared three-part rule, so the positive prediction result does not
+authorize PPO. Records are under
+`heldout_contact_residual_policy_gate_v1_20260811/`.
 
 The earlier runtime diagnosis remains relevant. On 2026-08-11 `server56` and
 `server38` reported Vulkan `ERROR_DEVICE_LOST` during scene startup. A

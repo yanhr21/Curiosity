@@ -243,6 +243,17 @@ higher common-horizon task reward, lower common-horizon mean object-position
 error, and at least as many completed steps as exact zero. Only a pass on all
 three checks in both conditions authorizes a later matched PPO experiment.
 
+The completed result separates information from control. The predictability
+gate passes with a `26.26%` aggregate held-out teacher-action MAE reduction,
+but the frozen behavior gate fails on both conditions. At `1.0 kg`, live
+tactile has better mean tracking and lift but `2.19394` lower common-horizon
+reward and terminates eight steps earlier. At low friction, live tactile has
+`0.35444` higher reward and equal duration but `0.000745 m` worse mean tracking
+and `0.03916 m` lower lift. This blocks PPO under the frozen rule. The next
+question must distinguish a teacher-action target mismatch from closed-loop
+distribution shift before changing the fusion architecture or collecting more
+policy updates.
+
 The offline canonical-trace check already constrains the fusion choice. The
 current route is late concatenation of the two `128-D` per-hand embeddings
 before `actor.0`; it preserves the official policy exactly at zero tactile and

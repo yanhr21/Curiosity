@@ -97,13 +97,17 @@
   pass rule are now frozen in Plan 13. This gate passes: combined held-out MAE
   is `0.06147` with live tactile versus `0.08335` with exact zero, a `26.26%`
   reduction; both individual tests improve and patch permutation removes the
-  advantage. Frozen closed-loop behavior remains the next gate.
-- [ ] Evaluate the selected checkpoint without learning on the two untouched
+  advantage.
+- [x] Evaluate the selected checkpoint without learning on the two untouched
   physical conditions using live tactile versus exact-zero/no-read input. The
-  reward, tracking, and termination pass rule is frozen in Plan 13 before the
-  rollouts.
-- [ ] Only if that gate is positive, run a fresh matched multi-seed policy
-  experiment; otherwise revise the tactile target or fusion semantics first.
+  frozen gate is negative on both: heavy improves tracking/lift but loses
+  reward and duration; low friction improves reward but worsens tracking/lift.
+  Do not start PPO from this adapter.
+- [ ] Distinguish teacher-action target mismatch from closed-loop distribution
+  shift with a frozen no-learning control before revising the target or fusion
+  semantics.
+- [ ] Only after a future frozen gate is positive, run a fresh matched
+  multi-seed policy experiment.
 - [ ] Decide whether tactile improves behavior, not merely optimization loss.
 
 ## D. RGB fusion after the no-RGB result

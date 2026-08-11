@@ -291,8 +291,12 @@ bash scripts/sugar/native_tactile/run_frozen_teacher_residual_policy_gate.sh \
 ```
 
 The entry point runs all four no-learning rollouts serially and applies the
-predeclared reward, tracking, and termination rule. Its outcome decides whether
-this supervised initialization may proceed to a matched PPO experiment.
+predeclared reward, tracking, and termination rule. The retained result is
+negative. On held-out `1.0 kg`, live tactile improves mean position error by
+`0.000713 m` but loses `2.19394` reward and terminates eight steps earlier. On
+held-out low friction, it gains `0.35444` reward with equal duration but has
+`0.000745 m` worse mean position error and `0.03916 m` less lift. Therefore
+this supervised initialization does not proceed to PPO.
 
 The corresponding human-review evidence is also one serial command. It reruns
 the same two untouched conditions with cameras, displays the actual CarryBox
