@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import inspect
+import logging
 import re
 from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
@@ -35,8 +36,50 @@ from isaaclab.utils.string import to_camel_case
 
 from . import schemas
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from .spawners.spawner_cfg import SpawnerCfg
+
+
+def update_stage() -> None:
+    """Trigger one application update cycle.
+
+    This is the exact v2.3.2 stage-update boundary required by the official
+    Fabric-backed ``XformPrimView``.
+    """
+
+    omni.kit.app.get_app_interface().update()
+
+
+def validate_standard_xform_ops(prim: Usd.Prim) -> bool:
+    """Validate the v2.3.2 canonical translate/orient/scale xform stack."""
+
+    if not prim.IsValid():
+        logger.error(
+            f"Prim at path '{prim.GetPath().pathString}' is not valid."
+        )
+        return False
+    if not prim.IsA(UsdGeom.Xformable):
+        logger.error(
+            f"Prim at path '{prim.GetPath().pathString}' is not an xformable."
+        )
+        return False
+    xform_op_order = [
+        op.GetOpName()
+        for op in UsdGeom.Xformable(prim).GetOrderedXformOps()
+    ]
+    expected = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    if xform_op_order != expected:
+        logger.error(
+            "Xform operation order for prim at path '%s' is not the "
+            "canonical form. Received order: %s Expected order: %s",
+            prim.GetPath().pathString,
+            xform_op_order,
+            expected,
+        )
+        return False
+    return True
 
 """
 Attribute - Setters.

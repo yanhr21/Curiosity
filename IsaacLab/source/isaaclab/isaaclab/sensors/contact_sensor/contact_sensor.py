@@ -164,6 +164,9 @@ class ContactSensor(SensorBase):
             self._data.contact_pos_w[env_ids, :] = torch.nan
             # buffer used during contact position aggregation
             self._contact_position_aggregate_buffer[env_ids, :] = torch.nan
+        # reset friction forces
+        if self.cfg.track_friction_forces:
+            self._data.friction_forces_w[env_ids, :] = 0.0
 
     def find_bodies(self, name_keys: str | Sequence[str], preserve_order: bool = False) -> tuple[list[int], list[str]]:
         """Find bodies in the articulation based on the name keys.
@@ -310,6 +313,19 @@ class ContactSensor(SensorBase):
         if self.cfg.track_pose:
             self._data.pos_w = torch.zeros(self._num_envs, self._num_bodies, 3, device=self._device)
             self._data.quat_w = torch.zeros(self._num_envs, self._num_bodies, 4, device=self._device)
+        if self.cfg.track_contact_points or self.cfg.track_friction_forces:
+            if len(self.cfg.filter_prim_paths_expr) == 0:
+                raise ValueError(
+                    "The 'filter_prim_paths_expr' is empty. Please specify a "
+                    "valid filter pattern to track "
+                    f"{'contact points' if self.cfg.track_contact_points else 'friction forces'}."
+                )
+            if self.cfg.max_contact_data_count_per_prim < 1:
+                raise ValueError(
+                    "The 'max_contact_data_count_per_prim' must be greater "
+                    "than zero to track "
+                    f"{'contact points' if self.cfg.track_contact_points else 'friction forces'}."
+                )
         # -- position of contact points
         if self.cfg.track_contact_points:
             self._data.contact_pos_w = torch.full(
@@ -321,6 +337,18 @@ class ContactSensor(SensorBase):
             self._contact_position_aggregate_buffer = torch.full(
                 (self._num_bodies * self._num_envs, self.contact_physx_view.filter_count, 3),
                 torch.nan,
+                device=self._device,
+            )
+        # -- friction forces at contact points
+        if self.cfg.track_friction_forces:
+            self._data.friction_forces_w = torch.full(
+                (
+                    self._num_envs,
+                    self._num_bodies,
+                    self.contact_physx_view.filter_count,
+                    3,
+                ),
+                0.0,
                 device=self._device,
             )
         # -- air/contact time between contacts
@@ -404,6 +432,40 @@ class ContactSensor(SensorBase):
             self._contact_position_aggregate_buffer[:] = agg.view(self._num_envs * self.num_bodies, -1, 3)
             self._data.contact_pos_w[env_ids] = self._contact_position_aggregate_buffer.view(
                 self._num_envs, self._num_bodies, self.contact_physx_view.filter_count, 3
+            )[env_ids]
+
+        # obtain friction forces
+        if self.cfg.track_friction_forces:
+            friction_forces, _, buffer_count, buffer_start_indices = (
+                self.contact_physx_view.get_friction_data(
+                    dt=self._sim_physics_dt
+                )
+            )
+            counts = buffer_count.view(-1)
+            starts = buffer_start_indices.view(-1)
+            n_rows, total = counts.numel(), int(counts.sum())
+            aggregate = torch.zeros(
+                (n_rows, 3),
+                device=self._device,
+                dtype=friction_forces.dtype,
+            )
+            if total > 0:
+                row_ids = torch.repeat_interleave(
+                    torch.arange(n_rows, device=self._device), counts
+                )
+                block_starts = counts.cumsum(0) - counts
+                deltas = (
+                    torch.arange(row_ids.numel(), device=counts.device)
+                    - block_starts.repeat_interleave(counts)
+                )
+                flat_indices = starts[row_ids] + deltas
+                points = friction_forces.index_select(0, flat_indices)
+                aggregate.index_add_(0, row_ids, points)
+            self._data.friction_forces_w[env_ids] = aggregate.view(
+                self._num_envs,
+                self._num_bodies,
+                self.contact_physx_view.filter_count,
+                3,
             )[env_ids]
 
         # obtain the air time

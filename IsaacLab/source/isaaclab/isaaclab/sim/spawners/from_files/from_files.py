@@ -21,6 +21,7 @@ except ModuleNotFoundError:
 from isaacsim.core.utils.stage import get_current_stage
 
 from isaaclab.sim import converters, schemas
+from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg
 from isaaclab.sim.utils import (
     bind_physics_material,
     bind_visual_material,
@@ -74,6 +75,58 @@ def spawn_from_usd(
     """
     # spawn asset from the given usd file
     return _spawn_from_usd_file(prim_path, cfg.usd_path, cfg, translation, orientation)
+
+
+@clone
+def spawn_from_usd_with_compliant_contact_material(
+    prim_path: str,
+    cfg: from_files_cfg.UsdFileWithCompliantContactCfg,
+    translation: tuple[float, float, float] | None = None,
+    orientation: tuple[float, float, float, float] | None = None,
+    **kwargs,
+) -> Usd.Prim:
+    """Spawn a USD asset and apply the official compliant-contact material.
+
+    This is the IsaacLab v2.3.2 implementation used by the official TacSL R15
+    test, adapted only to the workspace's older spawner imports.
+    """
+
+    prim = _spawn_from_usd_file(
+        prim_path, cfg.usd_path, cfg, translation, orientation
+    )
+    stiffness = cfg.compliant_contact_stiffness
+    damping = cfg.compliant_contact_damping
+    if cfg.physics_material_prim_path is None:
+        omni.log.warn(
+            "No physics material prim path specified. "
+            "Skipping physics material application."
+        )
+        return prim
+    if isinstance(cfg.physics_material_prim_path, str):
+        prim_paths = [cfg.physics_material_prim_path]
+    else:
+        prim_paths = cfg.physics_material_prim_path
+    if stiffness is not None or damping is not None:
+        material_kwargs = {}
+        if stiffness is not None:
+            material_kwargs["compliant_contact_stiffness"] = stiffness
+        if damping is not None:
+            material_kwargs["compliant_contact_damping"] = damping
+        material_cfg = RigidBodyMaterialCfg(**material_kwargs)
+        for path in prim_paths:
+            if not path.startswith("/"):
+                rigid_body_prim_path = f"{prim_path}/{path}"
+            else:
+                rigid_body_prim_path = path
+            material_path = f"{rigid_body_prim_path}/compliant_material"
+            material_cfg.func(material_path, material_cfg)
+            bind_physics_material(rigid_body_prim_path, material_path)
+            omni.log.info(
+                "Applied physics material to prim: "
+                f"{rigid_body_prim_path} with compliance stiffness: "
+                f"{stiffness} and compliance damping: {damping}."
+            )
+    return prim
 
 
 @clone

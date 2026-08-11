@@ -60,7 +60,16 @@ class MotionLoader:
         if motion_names is not None:
             motion_list = sorted([Path(motion_folder) / name for name in motion_names])
         else:
-            motion_list = sorted(list(Path(motion_folder).glob("data_*")))
+            motion_path = Path(motion_folder)
+            if motion_path.name.startswith("data_") and (motion_path / "robot_50hz.npz").is_file():
+                # Evaluation may select one official motion directory directly.
+                # The payload is unchanged; this only avoids instantiating a
+                # 100-motion batch when a one-environment audit is requested.
+                motion_list = [motion_path]
+            else:
+                motion_list = sorted(list(motion_path.glob("data_*")))
+        if not motion_list:
+            raise FileNotFoundError(f"No official SUGAR motions found under {motion_folder}")
         num_motion = len(motion_list)
         for i in range(num_motion):
             with np.load(f'{motion_list[i]}/robot_50hz.npz') as f:

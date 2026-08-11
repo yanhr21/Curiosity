@@ -35,6 +35,15 @@ from isaaclab.sim import SimulationContext
 from isaaclab.sim.utils import get_current_stage_id
 from isaaclab.terrains import TerrainImporter, TerrainImporterCfg
 
+# IsaacLab v2.3.2 temporarily special-cases the official contrib TacSL sensor
+# while its configuration still lives outside the core package.  Keep this
+# import optional so the v2.3.0 SUGAR control remains usable without contrib on
+# PYTHONPATH.
+try:
+    from isaaclab_contrib.sensors.tacsl_sensor import VisuoTactileSensorCfg
+except ImportError:
+    VisuoTactileSensorCfg = None
+
 from .interactive_scene_cfg import InteractiveSceneCfg
 
 
@@ -768,6 +777,20 @@ class InteractiveScene:
                     for filter_prim_path in asset_cfg.filter_prim_paths_expr:
                         updated_filter_prim_paths_expr.append(filter_prim_path.format(ENV_REGEX_NS=self.env_regex_ns))
                     asset_cfg.filter_prim_paths_expr = updated_filter_prim_paths_expr
+                elif VisuoTactileSensorCfg is not None and isinstance(asset_cfg, VisuoTactileSensorCfg):
+                    # Exact namespace resolution used by the official v2.3.2
+                    # InteractiveScene for the contrib TacSL sensor.
+                    if hasattr(asset_cfg, "camera_cfg") and asset_cfg.camera_cfg is not None:
+                        asset_cfg.camera_cfg.prim_path = asset_cfg.camera_cfg.prim_path.format(
+                            ENV_REGEX_NS=self.env_regex_ns
+                        )
+                    if (
+                        hasattr(asset_cfg, "contact_object_prim_path_expr")
+                        and asset_cfg.contact_object_prim_path_expr is not None
+                    ):
+                        asset_cfg.contact_object_prim_path_expr = asset_cfg.contact_object_prim_path_expr.format(
+                            ENV_REGEX_NS=self.env_regex_ns
+                        )
 
                 self._sensors[asset_name] = asset_cfg.class_type(asset_cfg)
             elif isinstance(asset_cfg, AssetBaseCfg):

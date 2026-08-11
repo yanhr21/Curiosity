@@ -76,13 +76,19 @@ class UnitreeUrdfFileCfg(sim_utils.UrdfFileCfg):
         This function will auto construct a complete `robot_description` file structure in the `/tmp` directory.
         Note: The mesh references inside the URDF should be in the same directory level as the URDF itself.
         """
-        tmp_meshes_dir = "/tmp/IsaacLab/unitree_rl_lab/meshes"
+        # Preserve the historical path by default, but allow concurrent
+        # evaluation shards to isolate this mutable symlink tree. Otherwise
+        # one Isaac process can unlink it while another is converting the URDF.
+        tmp_root = os.path.abspath(
+            os.environ.get("SUGAR_UNITREE_TMP_ROOT", "/tmp/IsaacLab/unitree_rl_lab")
+        )
+        tmp_meshes_dir = os.path.join(tmp_root, "meshes")
         if os.path.exists(tmp_meshes_dir):
             os.remove(tmp_meshes_dir)
-        os.makedirs("/tmp/IsaacLab/unitree_rl_lab", exist_ok=True)
+        os.makedirs(tmp_root, exist_ok=True)
         os.symlink(meshes_dir, tmp_meshes_dir)
 
-        self.asset_path = "/tmp/IsaacLab/unitree_rl_lab/robot.urdf"
+        self.asset_path = os.path.join(tmp_root, "robot.urdf")
         if os.path.exists(self.asset_path):
             os.remove(self.asset_path)
         os.symlink(urdf_path, self.asset_path)

@@ -111,6 +111,28 @@ class UsdFileCfg(FileCfg):
 
 
 @configclass
+class UsdFileWithCompliantContactCfg(UsdFileCfg):
+    """Configuration for spawning a USD asset with compliant contact physics material.
+
+    This is the exact IsaacLab v2.3.2 TacSL-supporting configuration boundary
+    backported to the workspace's older matching core. It extends
+    :class:`UsdFileCfg` to apply compliant-contact stiffness and damping to
+    selected prims in the spawned asset.
+    """
+
+    func: Callable = from_files.spawn_from_usd_with_compliant_contact_material
+
+    compliant_contact_stiffness: float | None = None
+    """Stiffness of the compliant contact. Defaults to None."""
+
+    compliant_contact_damping: float | None = None
+    """Damping of the compliant contact. Defaults to None."""
+
+    physics_material_prim_path: str | list[str] | None = None
+    """Prim path or paths to which the compliant physics material is applied."""
+
+
+@configclass
 class UrdfFileCfg(FileCfg, converters.UrdfConverterCfg):
     """URDF file to spawn asset from.
 

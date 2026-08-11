@@ -6,6 +6,9 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 class BCPPOCfg(RslRlPpoAlgorithmCfg):
     class_name = "BCPPO"
     teacher_ckpt = None
+    # Preserve official SUGAR behavior by default. Research ablations must set
+    # a nonzero value through a separately named runner/task.
+    stage3_distill_weight_floor = 0.0
 @configclass
 class BCPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24

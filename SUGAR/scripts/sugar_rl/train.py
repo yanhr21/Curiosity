@@ -9,6 +9,8 @@
 
 
 import gymnasium as gym
+import math
+import os
 import pathlib
 import sys
 
@@ -16,6 +18,14 @@ sys.path.insert(0, f"{pathlib.Path(__file__).parent.parent}")
 from list_envs import import_packages  # noqa: F401
 
 sys.path.pop(0)
+
+# The full100 research task is deliberately absent from the package-level Gym
+# registry.  Register it only inside an explicitly admitted training process,
+# and do so before argparse freezes its task choices.
+if os.environ.get("CURIOSITY_ENABLE_RGB_FULL100_STAGE0") == "1":
+    from rgb_full100_task_registration import register_rgb_full100_stage0_task
+
+    register_rgb_full100_stage0_task()
 
 tasks = []
 for task_spec in gym.registry.values():
@@ -67,6 +77,15 @@ parser.add_argument(
     default=None,
     help="Exact checkpoint path for resuming an interrupted run without regex-based run discovery.",
 )
+parser.add_argument(
+    "--warm_start_checkpoint_path",
+    type=str,
+    default=None,
+    help=(
+        "Official SUGAR checkpoint used to initialize a compatible research branch without "
+        "resuming its optimizer or iteration counter."
+    ),
+)
 
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
@@ -114,18 +133,23 @@ if args_cli.distributed and version.parse(installed_version) < version.parse(RSL
 
 import gymnasium as gym
 import inspect
+import json
 import os
 import shutil
 import torch
 from datetime import datetime
 
 from rsl_rl.runners import OnPolicyRunner  # TODO: Consider printing the experiment name in the terminal.
+import rsl_rl.runners.on_policy_runner as on_policy_runner_module
 
 import rsl_rl.algorithms
 import builtins
 from sugar_rl.utils.rsl_rl_bcppo import BCPPO
+from sugar_rl.utils.tactile_actor_critic import TactileActorCritic
 setattr(builtins, "BCPPO", BCPPO)
 setattr(rsl_rl.algorithms, "BCPPO", BCPPO)
+# OnPolicyRunner resolves the configured policy class in its own module.
+setattr(on_policy_runner_module, "TactileActorCritic", TactileActorCritic)
 
 import isaaclab_tasks  # noqa: F401
 from isaaclab.envs import (
@@ -152,6 +176,8 @@ torch.backends.cudnn.benchmark = False
 @hydra_task_config(args_cli.task, "rsl_rl_cfg_entry_point")
 def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: RslRlOnPolicyRunnerCfg):
     """Train with RSL-RL agent."""
+    if args_cli.resume_checkpoint_path is not None and args_cli.warm_start_checkpoint_path is not None:
+        raise ValueError("Choose either --resume_checkpoint_path or --warm_start_checkpoint_path, not both")
     # override configurations with non-hydra CLI arguments
     agent_cfg = cli_args.update_rsl_rl_cfg(agent_cfg, args_cli)
     if args_cli.resume_checkpoint_path is not None:
@@ -251,13 +277,108 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         print_dict(video_kwargs, nesting=4)
         env = gym.wrappers.RecordVideo(env, **video_kwargs)
 
-    # wrap around environment for rsl-rl
-    env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
+    # Wrap around the environment for RSL-RL.  Formal full100 runs can opt in
+    # to a transparent, fail-closed rollout telemetry wrapper; all ordinary
+    # SUGAR runs retain the upstream wrapper exactly.
+    if os.environ.get("SUGAR_RGB_TELEMETRY_OUTPUT"):
+        from sugar_rl.utils.rgb_training_telemetry import (
+            RGBTrainingTelemetryVecEnvWrapper,
+        )
+
+        env = RGBTrainingTelemetryVecEnvWrapper(
+            env, clip_actions=agent_cfg.clip_actions
+        )
+    else:
+        env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
 
     # create runner from rsl-rl
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
     # write git state to logs
     runner.add_git_repo_to_log(__file__)
+    if args_cli.warm_start_checkpoint_path is not None:
+        warm_start_path = os.path.abspath(args_cli.warm_start_checkpoint_path)
+        if not os.path.isfile(warm_start_path):
+            raise FileNotFoundError(f"Warm-start checkpoint does not exist: {warm_start_path}")
+        if not hasattr(runner.alg.policy, "load_sugar_warm_start"):
+            raise TypeError(
+                f"Policy {type(runner.alg.policy).__name__} does not support an official SUGAR warm start"
+            )
+        print(f"[INFO]: Warm-starting tactile branch from official SUGAR checkpoint: {warm_start_path}")
+        checkpoint = torch.load(warm_start_path, map_location=agent_cfg.device, weights_only=False)
+        warm_start_report = runner.alg.policy.load_sugar_warm_start(checkpoint["model_state_dict"])
+        if not hasattr(runner.alg.policy, "configure_tactile_actor_finetune"):
+            raise TypeError(
+                f"Policy {type(runner.alg.policy).__name__} does not expose the tactile finetune gate"
+            )
+        warm_start_report["actor_finetune"] = (
+            runner.alg.policy.configure_tactile_actor_finetune()
+        )
+        # The tactile adapter has different optimizer parameters, so the
+        # official optimizer state cannot be loaded. Preserve its converged
+        # learning-rate scalar instead of silently restarting the adapter at
+        # the configuration's 20x larger initial rate.
+        source_optimizer = checkpoint.get("optimizer_state_dict")
+        if not isinstance(source_optimizer, dict):
+            raise KeyError("Official SUGAR warm start is missing optimizer_state_dict")
+        source_lrs = {
+            float(group["lr"])
+            for group in source_optimizer.get("param_groups", [])
+            if "lr" in group
+        }
+        if len(source_lrs) != 1:
+            raise RuntimeError(
+                "Official SUGAR warm start requires one optimizer learning rate; "
+                f"got {sorted(source_lrs)}"
+            )
+        source_learning_rate = source_lrs.pop()
+        if not math.isfinite(source_learning_rate) or source_learning_rate <= 0.0:
+            raise RuntimeError(
+                f"Invalid official warm-start learning rate: {source_learning_rate}"
+            )
+        configured_learning_rate = float(runner.alg.learning_rate)
+        for group in runner.alg.optimizer.param_groups:
+            group["lr"] = source_learning_rate
+        runner.alg.learning_rate = source_learning_rate
+        warm_start_report.update(
+            {
+                "source_checkpoint": warm_start_path,
+                "source_iteration": checkpoint.get("iter"),
+                "optimizer_loaded": False,
+                "configured_learning_rate": configured_learning_rate,
+                "source_optimizer_learning_rate": source_learning_rate,
+                "active_learning_rate": float(runner.alg.learning_rate),
+                "learning_rate_semantics": (
+                    "official checkpoint scalar retained; optimizer moments not loaded"
+                ),
+                "iteration_resumed": False,
+            }
+        )
+        os.makedirs(log_dir, exist_ok=True)
+        pre_update_checkpoint = os.path.join(log_dir, "model_pre_update.pt")
+        torch.save(
+            {
+                "model_state_dict": runner.alg.policy.state_dict(),
+                "optimizer_state_dict": runner.alg.optimizer.state_dict(),
+                "iter": -1,
+                "infos": {
+                    "checkpoint_semantics": "official SUGAR warm start before any tactile PPO update",
+                    "source_checkpoint": warm_start_path,
+                    "source_iteration": checkpoint.get("iter"),
+                },
+            },
+            pre_update_checkpoint,
+        )
+        warm_start_report.update(
+            {
+                "pre_update_checkpoint": pre_update_checkpoint,
+                "pre_update_checkpoint_semantics": (
+                    "official SUGAR warm start after zero-tactile equivalence audit and before PPO"
+                ),
+            }
+        )
+        with open(os.path.join(log_dir, "sugar_warm_start.json"), "w", encoding="utf-8") as file:
+            json.dump(warm_start_report, file, indent=2, sort_keys=True)
+        print(f"[INFO]: SUGAR tactile warm-start report: {warm_start_report}")
     # load the checkpoint
     if agent_cfg.resume or agent_cfg.algorithm.class_name == "Distillation":
         print(f"[INFO]: Loading model checkpoint from: {resume_path}")
@@ -285,6 +406,164 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         else:
             # load previously trained model
             runner.load(resume_path)
+            # RSL-RL restores Adam's parameter groups but does not restore the
+            # separate adaptive-KL controller scalar.  Leaving that scalar at
+            # the configured 1e-3 while the checkpoint optimizer is at 1e-5
+            # makes the first resumed mini-batch overwrite the restored LR and
+            # can destroy a learned policy before KL adaptation reacts.  Keep
+            # resume semantics faithful by synchronizing the controller to the
+            # exact optimizer LR loaded from the checkpoint.
+            optimizer_lrs = {
+                float(group["lr"]) for group in runner.alg.optimizer.param_groups
+            }
+            if len(optimizer_lrs) != 1:
+                raise RuntimeError(
+                    "Resume requires one shared optimizer learning rate; got "
+                    f"{sorted(optimizer_lrs)}"
+                )
+            restored_learning_rate = optimizer_lrs.pop()
+            if not math.isfinite(restored_learning_rate) or restored_learning_rate <= 0.0:
+                raise RuntimeError(
+                    f"Invalid restored optimizer learning rate: {restored_learning_rate}"
+                )
+            configured_learning_rate = float(runner.alg.learning_rate)
+            runner.alg.learning_rate = restored_learning_rate
+            resume_optimizer_sync = {
+                "protocol": "rsl_rl_adaptive_kl_scalar_matches_loaded_optimizer_v1",
+                "resume_checkpoint": resume_path,
+                "configured_algorithm_learning_rate": configured_learning_rate,
+                "restored_optimizer_learning_rate": restored_learning_rate,
+                "synchronized_algorithm_learning_rate": float(runner.alg.learning_rate),
+                "overall_pass": float(runner.alg.learning_rate) == restored_learning_rate,
+            }
+            os.makedirs(log_dir, exist_ok=True)
+            with open(
+                os.path.join(log_dir, "resume_optimizer_sync.json"),
+                "w",
+                encoding="utf-8",
+            ) as file:
+                json.dump(resume_optimizer_sync, file, indent=2, sort_keys=True)
+            print(
+                "[INFO]: Synchronized resumed adaptive-KL learning rate: "
+                f"{resume_optimizer_sync}",
+                flush=True,
+            )
+            if isinstance(runner.alg, BCPPO):
+                # The upstream RSL-RL checkpoint stores the completed runner
+                # iteration but not SUGAR BCPPO's independent curriculum
+                # counter.  Reconstructing it from the checkpoint iteration
+                # preserves the official 500/1000/2000 BC-to-PPO boundaries
+                # instead of silently restarting pure behavior cloning.
+                configured_update_step = int(runner.alg.update_step)
+                restored_update_step = int(runner.current_learning_iteration) + 1
+                runner.alg.update_step = restored_update_step
+                stage3_distill_weight_floor = float(
+                    runner.alg.stage3_distill_weight_floor
+                )
+                if not 0.0 <= stage3_distill_weight_floor <= 1.0:
+                    raise RuntimeError(
+                        "Invalid resumed Stage-3 distillation floor: "
+                        f"{stage3_distill_weight_floor}"
+                    )
+                bcppo_stage_sync = {
+                    "protocol": (
+                        "modified_sugar_bcppo_persistent_distill_resume_v1"
+                        if stage3_distill_weight_floor > 0.0
+                        else "official_sugar_bcppo_update_step_from_checkpoint_iteration_v1"
+                    ),
+                    "resume_checkpoint": resume_path,
+                    "checkpoint_iteration": int(runner.current_learning_iteration),
+                    "configured_update_step": configured_update_step,
+                    "restored_update_step": int(runner.alg.update_step),
+                    "bc_only_steps": int(runner.alg.bc_only_steps),
+                    "critic_warmup_steps": int(runner.alg.critic_warmup_steps),
+                    "full_ppo_warmup_steps": int(runner.alg.full_ppo_warmup_steps),
+                    "stage3_distill_weight_floor": stage3_distill_weight_floor,
+                    "modified_persistent_distillation": (
+                        stage3_distill_weight_floor > 0.0
+                    ),
+                    "overall_pass": (
+                        int(runner.alg.update_step) == restored_update_step
+                        and 0.0 <= stage3_distill_weight_floor <= 1.0
+                    ),
+                }
+                with open(
+                    os.path.join(log_dir, "resume_bcppo_stage_sync.json"),
+                    "w",
+                    encoding="utf-8",
+                ) as file:
+                    json.dump(bcppo_stage_sync, file, indent=2, sort_keys=True)
+                print(
+                    f"[INFO]: Restored SUGAR BCPPO stage state: {bcppo_stage_sync}",
+                    flush=True,
+                )
+            # RSL-RL stores the label of the completed checkpoint iteration.
+            # Its default load path starts the next learn() loop at that same
+            # label, producing one extra optimizer update with a repeated file
+            # name.  Advance only the runner label after reconstructing BCPPO's
+            # independent stage counter above.
+            checkpoint_iteration = int(runner.current_learning_iteration)
+            runner.current_learning_iteration = checkpoint_iteration + 1
+            resume_iteration_sync = {
+                "protocol": "rsl_rl_resume_at_next_iteration_v1",
+                "resume_checkpoint": resume_path,
+                "checkpoint_iteration": checkpoint_iteration,
+                "next_learning_iteration": int(runner.current_learning_iteration),
+                "overall_pass": (
+                    int(runner.current_learning_iteration)
+                    == checkpoint_iteration + 1
+                ),
+            }
+            with open(
+                os.path.join(log_dir, "resume_iteration_sync.json"),
+                "w",
+                encoding="utf-8",
+            ) as file:
+                json.dump(resume_iteration_sync, file, indent=2, sort_keys=True)
+            print(
+                f"[INFO]: Advanced resume to the next iteration: {resume_iteration_sync}",
+                flush=True,
+            )
+
+    if (
+        args_cli.warm_start_checkpoint_path is None
+        and args_cli.resume_checkpoint_path is not None
+        and hasattr(runner.alg.policy, "configure_tactile_actor_finetune")
+    ):
+        resumed_finetune_report = runner.alg.policy.configure_tactile_actor_finetune()
+        resumed_finetune_report.update(
+            {
+                "resume_checkpoint": os.path.abspath(args_cli.resume_checkpoint_path),
+                "semantics": "reinstalled tactile-only actor gradient gate after checkpoint load",
+            }
+        )
+        os.makedirs(log_dir, exist_ok=True)
+        with open(os.path.join(log_dir, "tactile_finetune_resume.json"), "w", encoding="utf-8") as file:
+            json.dump(resumed_finetune_report, file, indent=2, sort_keys=True)
+
+    prelearn_checkpoint = os.environ.get("SUGAR_PRELEARN_CHECKPOINT")
+    if prelearn_checkpoint:
+        prelearn_checkpoint = os.path.abspath(prelearn_checkpoint)
+        if os.path.dirname(prelearn_checkpoint) != os.path.abspath(log_dir):
+            raise ValueError(
+                "SUGAR_PRELEARN_CHECKPOINT must be a direct child of log_dir"
+            )
+        if os.path.exists(prelearn_checkpoint):
+            raise FileExistsError(prelearn_checkpoint)
+        os.makedirs(log_dir, exist_ok=True)
+        torch.save(
+            {
+                "model_state_dict": runner.alg.policy.state_dict(),
+                "optimizer_state_dict": runner.alg.optimizer.state_dict(),
+                "iter": -1,
+                "infos": {
+                    "semantics": "policy and optimizer immediately before learn()",
+                    "seed": int(agent_cfg.seed),
+                },
+            },
+            prelearn_checkpoint,
+        )
+        print(f"[INFO]: Saved pre-learning checkpoint: {prelearn_checkpoint}")
 
     # dump the configuration into log-directory
     dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
@@ -298,6 +577,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # run training
     runner.learn(num_learning_iterations=agent_cfg.max_iterations, init_at_random_ep_len=True)
+
+    if hasattr(env, "finalize_telemetry"):
+        env.finalize_telemetry()
 
     # close the simulator
     env.close()

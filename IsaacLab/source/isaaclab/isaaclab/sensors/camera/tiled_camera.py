@@ -14,10 +14,10 @@ from typing import TYPE_CHECKING, Any
 
 import carb
 import warp as wp
-from isaacsim.core.prims import XFormPrim
 from isaacsim.core.version import get_version
 from pxr import UsdGeom
 
+from isaaclab.sim.views import XformPrimView
 from isaaclab.utils.warp.kernels import reshape_tiled_image
 
 from ..sensor_base import SensorBase
@@ -158,8 +158,9 @@ class TiledCamera(Camera):
         # Initialize parent class
         SensorBase._initialize_impl(self)
         # Create a view for the sensor
-        self._view = XFormPrim(self.cfg.prim_path, reset_xform_properties=False)
-        self._view.initialize()
+        self._view = XformPrimView(
+            self.cfg.prim_path, device=self._device, stage=self.stage
+        )
         # Check that sizes are correct
         if self._view.count != self._num_envs:
             raise RuntimeError(

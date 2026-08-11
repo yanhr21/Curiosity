@@ -64,9 +64,14 @@ class AssetConverterBase(abc.ABC):
 
         # resolve USD directory name
         if cfg.usd_dir is None:
-            # a folder in "/tmp/IsaacLab" by the name: usd_{date}_{time}_{random}
+            # Default to the historical /tmp/IsaacLab root. Concurrent
+            # evaluation shards can provide an isolated root because seeded
+            # processes may choose the same random suffix in the same second.
             time_tag = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self._usd_dir = f"/tmp/IsaacLab/usd_{time_tag}_{random.randrange(10000)}"
+            tmp_root = os.path.abspath(os.environ.get("ISAACLAB_TMP_ROOT", "/tmp/IsaacLab"))
+            self._usd_dir = os.path.join(
+                tmp_root, f"usd_{time_tag}_{random.randrange(10000)}"
+            )
         else:
             self._usd_dir = cfg.usd_dir
 

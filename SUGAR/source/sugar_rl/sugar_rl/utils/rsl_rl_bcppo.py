@@ -6,8 +6,21 @@ from rsl_rl.networks.mlp import MLP
 import copy
 
 class BCPPO(PPO):
-    def __init__(self, policy,teacher_ckpt=None, **kwargs):
+    def __init__(
+        self,
+        policy,
+        teacher_ckpt=None,
+        stage3_distill_weight_floor=0.0,
+        **kwargs,
+    ):
         super().__init__(policy, **kwargs)
+
+        self.stage3_distill_weight_floor = float(stage3_distill_weight_floor)
+        if not 0.0 <= self.stage3_distill_weight_floor <= 1.0:
+            raise ValueError(
+                "stage3_distill_weight_floor must lie in [0, 1], got "
+                f"{self.stage3_distill_weight_floor}"
+            )
         
         self.distill_loss_coef = 1.0
         self.bc_only_steps = 500
@@ -59,6 +72,12 @@ class BCPPO(PPO):
             print("[Warning] No teacher_ckpt provided")
             assert False
 
+    def _reduce_distill_loss(self, per_sample_loss, obs_batch):
+        """Reduce teacher KL without changing official SUGAR's default mean."""
+
+        del obs_batch
+        return per_sample_loss.mean()
+
     def update(self):  # noqa: C901
         if self.update_step >= self.bc_only_steps:
             self.schedule = "adaptive"
@@ -69,6 +88,7 @@ class BCPPO(PPO):
         mean_surrogate_loss = 0
         mean_entropy = 0
         mean_distill_loss = 0 # Teacher 统计
+        mean_distill_weight = 0
 
         # -- RND loss
         if self.rnd:
@@ -221,11 +241,14 @@ class BCPPO(PPO):
                 # KL(T||S) = log(std_s/std_t) + (std_t^2 + (mu_t-mu_s)^2)/(2*std_s^2) - 0.5
                 log_std_s = torch.log(sigma_batch + 1e-8)
                 log_std_t = torch.log(teacher_action_std + 1e-8)
-                distill_loss = (
+                distill_loss_per_sample = (
                     log_std_s - log_std_t + 
                     (teacher_action_std.pow(2) + (teacher_action_mean - mu_batch).pow(2)) / (2.0 * (sigma_batch.pow(2)+1e-7)) - 
                     0.5
-                ).sum(dim=-1).mean()
+                ).sum(dim=-1)
+                distill_loss = self._reduce_distill_loss(
+                    distill_loss_per_sample, obs_batch
+                )
                 mean_distill_loss += distill_loss.item()
 
 
@@ -235,6 +258,7 @@ class BCPPO(PPO):
             # Stage 1: Pure Distill
             # =========================
             if self.update_step < self.bc_only_steps:
+                distill_weight = 1.0
                 loss = self.distill_loss_coef * distill_loss
 
             # =========================
@@ -242,6 +266,7 @@ class BCPPO(PPO):
             # =========================
             elif self.update_step < self.critic_warmup_steps:
                 alpha = min((self.update_step - self.bc_only_steps) / (self.critic_warmup_steps - self.bc_only_steps), 1.0)
+                distill_weight = 1.0
                 loss = (
                     self.distill_loss_coef * distill_loss 
                     + alpha * self.value_loss_coef * value_loss
@@ -252,11 +277,14 @@ class BCPPO(PPO):
             # =========================
             else:
                 alpha = min((self.update_step - self.critic_warmup_steps) / (self.full_ppo_warmup_steps - self.critic_warmup_steps), 1.0)
+                distill_weight = max(
+                    1.0 - alpha, self.stage3_distill_weight_floor
+                )
                 loss = (
                     surrogate_loss * alpha
                     + self.value_loss_coef * value_loss 
                     - self.entropy_coef * entropy_batch.mean() * alpha 
-                    + self.distill_loss_coef * distill_loss * max(1.0-alpha, 0.0)
+                    + self.distill_loss_coef * distill_loss * distill_weight
                 )
 
 
@@ -333,6 +361,7 @@ class BCPPO(PPO):
             mean_value_loss += value_loss.item()
             mean_surrogate_loss += surrogate_loss.item()
             mean_entropy += entropy_batch.mean().item()
+            mean_distill_weight += distill_weight
             # -- RND loss
             if mean_rnd_loss is not None:
                 mean_rnd_loss += rnd_loss.item()
@@ -346,6 +375,7 @@ class BCPPO(PPO):
         mean_surrogate_loss /= num_updates
         mean_entropy /= num_updates
         mean_distill_loss /= num_updates
+        mean_distill_weight /= num_updates
         # -- For RND
         if mean_rnd_loss is not None:
             mean_rnd_loss /= num_updates
@@ -361,6 +391,7 @@ class BCPPO(PPO):
             "surrogate": mean_surrogate_loss,
             "entropy": mean_entropy,
             "distill": mean_distill_loss,
+            "distill_weight": mean_distill_weight,
         }
         if self.rnd:
             loss_dict["rnd"] = mean_rnd_loss

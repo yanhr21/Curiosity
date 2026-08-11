@@ -41,6 +41,19 @@ class ContactSensorData:
 
     """
 
+    friction_forces_w: torch.Tensor | None = None
+    """Sum of the friction forces between sensor body and filter prim in world frame.
+
+    Shape is (N, B, M, 3), where N is the number of sensors, B is number of bodies in each sensor
+    and M is the number of filtered bodies. Collision pairs not in contact will result in zero.
+
+    Note:
+
+        * If the :attr:`ContactSensorCfg.track_friction_forces` is False, then this quantity is None.
+        * If the :attr:`ContactSensorCfg.track_friction_forces` is True, a ValueError will be raised if the
+          filter expression is empty or the maximum contact-data count is less than one.
+    """
+
     quat_w: torch.Tensor | None = None
     """Orientation of the sensor origin in quaternion (w, x, y, z) in world frame.
 

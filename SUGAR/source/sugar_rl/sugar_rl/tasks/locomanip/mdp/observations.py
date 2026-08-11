@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import math
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab.utils.math import matrix_from_quat, subtract_frame_transforms, quat_apply, quat_inv
+from isaaclab.utils.math import (
+    matrix_from_quat,
+    quat_apply,
+    quat_apply_inverse,
+    quat_inv,
+    subtract_frame_transforms,
+)
 
 from sugar_rl.tasks.locomanip.mdp.commands import MotionCommand
 
@@ -23,6 +30,221 @@ def robot_body_pos_b(env: ManagerBasedEnv, command_name: str) -> torch.Tensor:
     )
 
     return pos_b.view(env.num_envs, -1)
+
+
+def tactile_force_maps(
+    env: ManagerBasedEnv,
+    left_sensor_name: str,
+    right_sensor_name: str,
+    grid_shape: tuple[int, int] = (20, 25),
+    taxel_area_m2: float = 1.18138624e-6,
+    stress_scale: float = 1.0e-5,
+) -> torch.Tensor:
+    """Return two spatial TacSL pressure/shear maps as a flat policy group.
+
+    The logical tensor before flattening is ``[env, hand, channel, row, col]``
+    with channels ``normal pressure, shear-x stress, shear-y stress``.  The
+    scalar scale is numerical conditioning only; it does not threshold,
+    integrate, pool, or otherwise remove the taxel layout.
+    """
+    if taxel_area_m2 <= 0.0:
+        raise ValueError(f"taxel_area_m2 must be positive, got {taxel_area_m2}")
+    expected_taxels = int(grid_shape[0]) * int(grid_shape[1])
+    hand_maps = []
+    for sensor_name in (left_sensor_name, right_sensor_name):
+        sensor_data = env.scene.sensors[sensor_name].data
+        normal_force = sensor_data.tactile_normal_force
+        shear_force = sensor_data.tactile_shear_force
+        if normal_force is None or shear_force is None:
+            raise RuntimeError(f"TacSL force field is not initialized for sensor '{sensor_name}'")
+        if normal_force.shape[-1] != expected_taxels or shear_force.shape[-2:] != (expected_taxels, 2):
+            raise RuntimeError(
+                f"Unexpected TacSL grid for '{sensor_name}': normal={tuple(normal_force.shape)}, "
+                f"shear={tuple(shear_force.shape)}, expected_taxels={expected_taxels}"
+            )
+        pressure = normal_force / taxel_area_m2
+        shear_stress = shear_force / taxel_area_m2
+        force_map = torch.cat((pressure.unsqueeze(-1), shear_stress), dim=-1)
+        force_map = force_map.transpose(1, 2).reshape(env.num_envs, 3, *grid_shape)
+        hand_maps.append(force_map)
+
+    tactile_maps = torch.stack(hand_maps, dim=1) * stress_scale
+    return torch.nan_to_num(tactile_maps).reshape(env.num_envs, -1)
+
+
+def _tacsl_single_contact_velocity_map_logical(
+    env: ManagerBasedEnv,
+    sensor_name: str,
+    grid_shape: tuple[int, int] = (20, 25),
+) -> torch.Tensor:
+    """Return one exact TacSL map as ``[env, 3, row, col]``.
+
+    Channels are contact-normal speed followed by signed taxel-frame tangent
+    X/Y.  TacSL's released internal convention is preserved: full relative
+    velocity is elastomer point minus contacted-object closest point.  The
+    normal scalar is its projection on the exact object-SDF normal; tangent
+    X/Y are the exact projected friction velocity rotated into the taxel
+    frame.  Inactive taxels remain zero.
+    """
+
+    expected_taxels = int(grid_shape[0]) * int(grid_shape[1])
+    sensor_data = env.scene.sensors[sensor_name].data
+    full_velocity_w = sensor_data.tactile_relative_velocity_w
+    tangential_velocity_w = sensor_data.tactile_relative_tangential_velocity_w
+    contact_normal_w = sensor_data.tactile_contact_normal_w
+    taxel_quat_w = sensor_data.tactile_points_quat_w
+    if (
+        full_velocity_w is None
+        or tangential_velocity_w is None
+        or contact_normal_w is None
+        or taxel_quat_w is None
+    ):
+        raise RuntimeError(
+            "TacSL full/tangential relative velocity, contact normal, or "
+            "taxel frame is not initialized "
+            f"for sensor '{sensor_name}'"
+        )
+    velocity_fields = {
+        "full_velocity": full_velocity_w,
+        "tangential_velocity": tangential_velocity_w,
+        "contact_normal": contact_normal_w,
+    }
+    for field_name, field_value in velocity_fields.items():
+        if field_value.shape[-2:] != (expected_taxels, 3):
+            raise RuntimeError(
+                f"Unexpected TacSL {field_name} grid for '{sensor_name}': "
+                f"value={tuple(field_value.shape)}, "
+                f"expected_taxels={expected_taxels}"
+            )
+    if full_velocity_w.shape[0] != env.num_envs:
+        raise RuntimeError(
+            f"Unexpected TacSL batch for '{sensor_name}': "
+            f"velocity={tuple(full_velocity_w.shape)}, num_envs={env.num_envs}"
+        )
+    if taxel_quat_w.shape[-2:] != (expected_taxels, 4):
+        raise RuntimeError(
+            f"Unexpected TacSL taxel-frame grid for '{sensor_name}': "
+            f"quaternion={tuple(taxel_quat_w.shape)}, "
+            f"expected_taxels={expected_taxels}"
+        )
+    normal_speed = torch.sum(full_velocity_w * contact_normal_w, dim=-1)
+    tangential_velocity_local = quat_apply_inverse(
+        taxel_quat_w, tangential_velocity_w
+    )
+    normal_tangent_xy = torch.cat(
+        (normal_speed.unsqueeze(-1), tangential_velocity_local[..., :2]),
+        dim=-1,
+    )
+    return torch.nan_to_num(
+        normal_tangent_xy.transpose(1, 2).reshape(
+            env.num_envs, 3, *grid_shape
+        )
+    )
+
+
+def _tacsl_contact_velocity_maps_logical(
+    env: ManagerBasedEnv,
+    left_sensor_name: str,
+    right_sensor_name: str,
+    grid_shape: tuple[int, int] = (20, 25),
+) -> torch.Tensor:
+    """Return exact TacSL relative velocity as ``[env, hand, 3, row, col]``."""
+
+    hand_maps = [
+        _tacsl_single_contact_velocity_map_logical(env, name, grid_shape)
+        for name in (left_sensor_name, right_sensor_name)
+    ]
+    return torch.stack(hand_maps, dim=1)
+
+
+def tactile_contact_velocity_patch_maps(
+    env: ManagerBasedEnv,
+    sensor_names_by_hand: tuple[tuple[str, ...], tuple[str, ...]],
+    grid_shape: tuple[int, int] = (20, 25),
+    velocity_scale: float = 1.0,
+) -> torch.Tensor:
+    """Return patch-preserving whole-hand contact velocity without degradation.
+
+    The logical tensor is
+    ``[env, hand, patch, (normal,tangent_x,tangent_y), row, col]``.  Both hands
+    must declare the same nonzero patch count and ordering.  The output uses
+    the explicit contacted-object-minus-sensor convention and preserves every
+    raw patch and taxel; it never fills missing patches or aggregates regions.
+    """
+
+    if len(sensor_names_by_hand) != 2:
+        raise ValueError("sensor_names_by_hand must contain exactly left and right")
+    patch_counts = tuple(len(names) for names in sensor_names_by_hand)
+    if patch_counts[0] < 1 or patch_counts[0] != patch_counts[1]:
+        raise ValueError(
+            "left/right TacSL patch counts must be equal and nonzero, got "
+            f"{patch_counts}"
+        )
+    if not math.isfinite(float(velocity_scale)):
+        raise ValueError(f"velocity_scale must be finite, got {velocity_scale}")
+    hands = []
+    for sensor_names in sensor_names_by_hand:
+        patch_maps = [
+            _tacsl_single_contact_velocity_map_logical(env, name, grid_shape)
+            for name in sensor_names
+        ]
+        hands.append(torch.stack(patch_maps, dim=1))
+    native_tacsl_velocity_maps = torch.stack(hands, dim=1)
+    contact_minus_sensor = -native_tacsl_velocity_maps * float(velocity_scale)
+    return torch.nan_to_num(contact_minus_sensor).reshape(env.num_envs, -1)
+
+
+def tactile_contact_velocity_maps(
+    env: ManagerBasedEnv,
+    left_sensor_name: str,
+    right_sensor_name: str,
+    grid_shape: tuple[int, int] = (20, 25),
+    velocity_scale: float = 1.0,
+) -> torch.Tensor:
+    """Return exact contact-minus-sensor normal and signed tangent-X/Y maps.
+
+    The logical tensor before flattening is
+    ``[env, hand, (normal, tangent_x, tangent_y), row, col]``.  The values are
+    simulator-oracle channels admitted only for the explicitly authorized
+    Plan-11 ablation.  They are not deployed tactile measurements, optical
+    flow, finite differences, or a sim-to-real claim.  TacSL internally uses
+    elastomer-minus-object velocity, so this callable applies one explicit
+    sign reversal to match Tactile Genesis KinematicTaxel's released
+    contact-link-minus-sensor-link convention.  The native TacSL-sign callable
+    remains available as ``tactile_relative_tangential_velocity_maps``.
+    """
+
+    if not math.isfinite(float(velocity_scale)):
+        raise ValueError(f"velocity_scale must be finite, got {velocity_scale}")
+    native_tacsl_velocity_maps = _tacsl_contact_velocity_maps_logical(
+        env,
+        left_sensor_name=left_sensor_name,
+        right_sensor_name=right_sensor_name,
+        grid_shape=grid_shape,
+    )
+    tactile_velocity_maps = -native_tacsl_velocity_maps * float(velocity_scale)
+    return torch.nan_to_num(tactile_velocity_maps).reshape(env.num_envs, -1)
+
+
+def tactile_relative_tangential_velocity_maps(
+    env: ManagerBasedEnv,
+    left_sensor_name: str,
+    right_sensor_name: str,
+    grid_shape: tuple[int, int] = (20, 25),
+    velocity_scale: float = 1.0,
+) -> torch.Tensor:
+    """Backward-compatible exact TacSL signed tangent-X/Y velocity maps."""
+
+    if not math.isfinite(float(velocity_scale)):
+        raise ValueError(f"velocity_scale must be finite, got {velocity_scale}")
+    tactile_velocity_maps = _tacsl_contact_velocity_maps_logical(
+        env,
+        left_sensor_name=left_sensor_name,
+        right_sensor_name=right_sensor_name,
+        grid_shape=grid_shape,
+    )[:, :, 1:]
+    tactile_velocity_maps = tactile_velocity_maps * float(velocity_scale)
+    return torch.nan_to_num(tactile_velocity_maps).reshape(env.num_envs, -1)
 
 
 def robot_body_ori_b(env: ManagerBasedEnv, command_name: str) -> torch.Tensor:
@@ -730,4 +952,3 @@ def project_gravity(env: ManagerBasedEnv, command_name: str) -> torch.Tensor:
 def joint_pos(env: ManagerBasedEnv, command_name: str) -> torch.Tensor:
     command: MotionCommand = env.command_manager.get_term(command_name)
     return command.joint_pos.reshape(env.num_envs, -1)
-

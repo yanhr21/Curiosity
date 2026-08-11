@@ -8,10 +8,21 @@
 Currently, the following spawners are supported:
 
 * :class:`UsdFileCfg`: Spawn an asset from a USD file.
+* :class:`UsdFileWithCompliantContactCfg`: Spawn a USD asset with compliant contact.
 * :class:`UrdfFileCfg`: Spawn an asset from a URDF file.
 * :class:`GroundPlaneCfg`: Spawn a ground plane using the grid-world USD file.
 
 """
 
-from .from_files import spawn_from_urdf, spawn_from_usd, spawn_ground_plane
-from .from_files_cfg import GroundPlaneCfg, UrdfFileCfg, UsdFileCfg
+from .from_files import (
+    spawn_from_urdf,
+    spawn_from_usd,
+    spawn_from_usd_with_compliant_contact_material,
+    spawn_ground_plane,
+)
+from .from_files_cfg import (
+    GroundPlaneCfg,
+    UrdfFileCfg,
+    UsdFileCfg,
+    UsdFileWithCompliantContactCfg,
+)
