@@ -1,11 +1,13 @@
 # Active Plan Index
 
-Only the SUGAR baseline plan is active:
+The only active plan is:
 
-- `04_sugar_baseline/plan.md`
+- `14_newton_isaaclab_universal_tactile/plan.md`
 
-Older non-SUGAR plans were moved to:
+It builds one native-signal tactile contract for Newton and IsaacLab, adds
+tactile-only slip detection, and validates CarryBox plus non-box scenes in
+both engines. Tactile-policy training is paused. Plan 12 is the completed
+IsaacLab sensor/visualization foundation; Plan 13 is retained read-only.
 
-```text
-/public/home/yanhongru/Curiosity_legacy/20260712_pre_sugar_workspace_cleanup/PLAN/
-```
+Plans 04--11 are preserved under `legacy/` as read-only scientific history.
+They are not active execution queues.

@@ -115,7 +115,12 @@ import imageio_ffmpeg  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
+sys.path.insert(0, str(ROOT))
+from scripts.sugar.native_tactile.slip import TactileSlipDetector  # noqa: E402
+from scripts.sugar.native_tactile.universal import IsaacLabTacSLAdapter  # noqa: E402
+
 from sugar_rl.assets.robots.anatomical_whole_hand_tacsl_g1 import (  # noqa: E402
+    ANATOMICAL_WHOLE_HAND_PATCH_SPECS,
     anatomical_whole_hand_sensor_names,
 )
 from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_official_refiner_anatomical_whole_hand_tacsl_audit_env_cfg import (  # noqa: E402
@@ -291,6 +296,23 @@ def main() -> None:
         sensors = [base_env.scene[name] for name in anatomical_whole_hand_sensor_names()]
         if len(sensors) != 54:
             raise RuntimeError(f"Expected 54 sensors, found {len(sensors)}")
+        common_patch_names = tuple(
+            f"{side}_{patch}" for side in SIDES for patch in PATCHES
+        )
+        common_patch_sizes_m = [
+            (spec.width_m, spec.length_m)
+            for _side in SIDES
+            for spec in ANATOMICAL_WHOLE_HAND_PATCH_SPECS
+        ]
+        tactile_adapter = IsaacLabTacSLAdapter(
+            common_patch_names,
+            grid_shape=(20, 25),
+            patch_size_m=common_patch_sizes_m,
+        )
+        slip_detector = TactileSlipDetector(
+            common_patch_names,
+            friction_coefficient=0.5,
+        )
         center_optical = [sensors[4], sensors[31]]
         optical_baseline_rgb: list[np.ndarray] = []
         optical_baseline_depth: list[np.ndarray] = []
@@ -336,6 +358,13 @@ def main() -> None:
         relative_velocity_rows: list[np.ndarray] = []
         optical_rgb_rows: list[np.ndarray] = []
         optical_depth_rows: list[np.ndarray] = []
+        slip_state_rows: list[np.ndarray] = []
+        slip_normal_load_rows: list[np.ndarray] = []
+        slip_tangential_load_rows: list[np.ndarray] = []
+        slip_friction_utilization_rows: list[np.ndarray] = []
+        slip_cop_speed_rows: list[np.ndarray] = []
+        slip_footprint_rate_rows: list[np.ndarray] = []
+        slip_normal_loss_rate_rows: list[np.ndarray] = []
         patch_box_force_rows: list[np.ndarray] = []
         patch_box_friction_rows: list[np.ndarray] = []
         robot_box_force_rows: list[np.ndarray] = []
@@ -404,20 +433,25 @@ def main() -> None:
                     f"{capture_state['substep']} at control step {source_step}"
                 )
 
-            normal = np.stack(
-                [cpu(sensor.data.tactile_normal_force[0]) for sensor in sensors]
-            ).reshape(2, 27, 20, 25)
-            shear = np.stack(
-                [cpu(sensor.data.tactile_shear_force[0]) for sensor in sensors]
-            ).reshape(2, 27, 20, 25, 2)
-            penetration = np.stack(
-                [cpu(sensor.data.penetration_depth[0]) for sensor in sensors]
-            ).reshape(2, 27, 20, 25)
-            position = np.stack(
-                [cpu(sensor.data.tactile_points_pos_w[0]) for sensor in sensors]
-            ).reshape(2, 27, 20, 25, 3)
-            quaternion = np.stack(
-                [cpu(sensor.data.tactile_points_quat_w[0]) for sensor in sensors]
+            tactile_frame = tactile_adapter.update(
+                {"carrybox": [sensor.data for sensor in sensors]},
+                timestamp_s=(source_step + 1) * float(cfg.decimation * cfg.sim.dt),
+            )
+            slip_evidence = slip_detector.update(tactile_frame)
+            normal = cpu(tactile_frame.normal_force_n[0]).reshape(
+                2, 27, 20, 25
+            )
+            shear = cpu(tactile_frame.shear_force_xy_n[0]).reshape(
+                2, 27, 20, 25, 2
+            )
+            penetration = cpu(tactile_frame.penetration_m[0]).reshape(
+                2, 27, 20, 25
+            )
+            position = cpu(tactile_frame.taxel_position_w_m[0]).reshape(
+                2, 27, 20, 25, 3
+            )
+            quaternion = cpu(
+                tactile_frame.taxel_orientation_w_xyzw[0]
             ).reshape(2, 27, 20, 25, 4)
             contact_normal = np.stack(
                 [cpu(sensor.data.tactile_contact_normal_w[0]) for sensor in sensors]
@@ -435,6 +469,25 @@ def main() -> None:
             quaternion_rows.append(quaternion)
             contact_normal_rows.append(contact_normal)
             relative_velocity_rows.append(relative_velocity)
+            slip_state_rows.append(slip_evidence.state.reshape(2, 27))
+            slip_normal_load_rows.append(
+                slip_evidence.normal_load_n.reshape(2, 27)
+            )
+            slip_tangential_load_rows.append(
+                slip_evidence.tangential_load_n.reshape(2, 27)
+            )
+            slip_friction_utilization_rows.append(
+                slip_evidence.friction_utilization.reshape(2, 27)
+            )
+            slip_cop_speed_rows.append(
+                slip_evidence.center_of_pressure_speed_m_s.reshape(2, 27)
+            )
+            slip_footprint_rate_rows.append(
+                slip_evidence.footprint_change_rate_s.reshape(2, 27)
+            )
+            slip_normal_loss_rate_rows.append(
+                slip_evidence.normal_loss_rate_s.reshape(2, 27)
+            )
             object_rows.append(cpu(obj.data.root_state_w[0]))
             object_velocity_rows.append(cpu(obj.data.root_vel_w[0]))
             joint_rows.append(cpu(robot.data.joint_pos[0]))
@@ -539,6 +592,25 @@ def main() -> None:
             tactile_relative_tangential_velocity_w=np.stack(
                 relative_velocity_rows
             ).astype(np.float32),
+            tactile_only_slip_state=np.stack(slip_state_rows).astype(np.int8),
+            tactile_only_slip_normal_load_n=np.stack(slip_normal_load_rows).astype(
+                np.float32
+            ),
+            tactile_only_slip_tangential_load_n=np.stack(
+                slip_tangential_load_rows
+            ).astype(np.float32),
+            tactile_only_slip_friction_utilization=np.stack(
+                slip_friction_utilization_rows
+            ).astype(np.float32),
+            tactile_only_slip_cop_speed_m_s=np.stack(slip_cop_speed_rows).astype(
+                np.float32
+            ),
+            tactile_only_slip_footprint_rate_s=np.stack(
+                slip_footprint_rate_rows
+            ).astype(np.float32),
+            tactile_only_slip_normal_loss_rate_s=np.stack(
+                slip_normal_loss_rate_rows
+            ).astype(np.float32),
             optical_rgb=np.stack(optical_rgb_rows).astype(np.uint8),
             optical_depth=np.stack(optical_depth_rows).astype(np.float32),
             optical_baseline_rgb=np.stack(optical_baseline_rgb).astype(np.uint8),
@@ -569,6 +641,9 @@ def main() -> None:
             patch_order=np.asarray(PATCHES),
             side_order=np.asarray(SIDES),
             sensor_names=np.asarray(anatomical_whole_hand_sensor_names()),
+            tactile_patch_size_m=np.asarray(common_patch_sizes_m, dtype=np.float32).reshape(
+                2, 27, 2
+            ),
             gravity_w=np.asarray(cfg.sim.gravity, dtype=np.float32),
             physics_dt_s=np.asarray(cfg.sim.dt, dtype=np.float64),
             control_dt_s=np.asarray(cfg.decimation * cfg.sim.dt, dtype=np.float64),
@@ -624,6 +699,19 @@ def main() -> None:
             ),
             "normal_shape": list(normal_array.shape),
             "shear_shape": list(shear_array.shape),
+            "common_tactile_backend": "isaaclab_tacsl",
+            "common_tactile_patch_count": len(common_patch_names),
+            "common_tactile_patch_size_shape": [2, 27, 2],
+            "common_tactile_patch_size_order": "row/local-X then column/local-Y",
+            "tactile_only_slip_state_shape": list(
+                np.stack(slip_state_rows).shape
+            ),
+            "tactile_only_slip_inputs": [
+                "signed_local_z_force",
+                "signed_local_xy_shear",
+                "penetration",
+                "timestamps",
+            ],
             "taxel_position_shape": [len(normal_array), 2, 27, 20, 25, 3],
             "taxel_quaternion_shape": [len(normal_array), 2, 27, 20, 25, 4],
             "optical_rgb_shape": list(np.stack(optical_rgb_rows).shape),

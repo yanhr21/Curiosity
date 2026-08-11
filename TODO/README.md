@@ -1,11 +1,13 @@
 # Active TODO Index
 
-Only the SUGAR baseline task list is active:
+The only active task list is:
 
-- `04_sugar_baseline/todo.md`
+- `14_newton_isaaclab_universal_tactile/todo.md`
 
-Older non-SUGAR TODO lists were moved to:
+It implements a common Newton/IsaacLab native tactile contract, causal
+tactile-only slip detection, and CarryBox/non-box evidence in both engines.
+TODO 12 retains the completed IsaacLab representation record and TODO 13 is
+paused as read-only training history.
 
-```text
-/public/home/yanhongru/Curiosity_legacy/20260712_pre_sugar_workspace_cleanup/TODO/
-```
+TODO 04--11 are preserved under `legacy/` and may not be resumed as active
+queues.

@@ -26,6 +26,13 @@ SEGMENTS_TOP_DOWN = ("distal", "middle", "proximal")
 WIDTH, HEIGHT = 2560, 1440
 WORLD_HEIGHT = 720
 HAND_WIDTH = WIDTH // 2
+SLIP_SHORT = ("-", "K", "I", "G")
+SLIP_BORDER_BGR = (
+    (155, 155, 155),
+    (55, 145, 55),
+    (0, 155, 230),
+    (40, 40, 210),
+)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -94,12 +101,13 @@ def draw_tile(
     normal: np.ndarray,
     shear: np.ndarray,
     penetration: np.ndarray,
+    slip_state: int,
     normal_max: float,
     shear_max: float,
 ) -> None:
     contact_mask = penetration > 0.0
     active = int(np.count_nonzero(contact_mask))
-    border_color = (0, 70, 190) if active else (155, 155, 155)
+    border_color = SLIP_BORDER_BGR[int(slip_state)] if active else SLIP_BORDER_BGR[0]
     border_thickness = 3 if active else 1
     cv2.rectangle(
         canvas,
@@ -111,7 +119,7 @@ def draw_tile(
     peak = float(normal.reshape(-1)[np.argmax(np.abs(normal))])
     put(
         canvas,
-        f"{label}  n={active:03d}  Z={peak:+.2f}",
+        f"{label} {SLIP_SHORT[int(slip_state)]} n={active:03d} Z={peak:+.2f}",
         (x + 4, y + 16),
         0.31,
     )
@@ -134,7 +142,9 @@ def draw_tile(
     )
     center = (x + w // 2, map_y + map_h // 2)
     delta = np.clip(vector / shear_max, -1.0, 1.0) * 18.0
-    end = (int(round(center[0] + delta[0])), int(round(center[1] - delta[1])))
+    # Released TacSL order is row/local-X then column/local-Y.  Video X is
+    # therefore shear Y; video Y is shear X (up is positive).
+    end = (int(round(center[0] + delta[1])), int(round(center[1] - delta[0])))
     if end != center:
         cv2.arrowedLine(canvas, center, end, (20, 20, 20), 2, cv2.LINE_AA, 0, 0.30)
     if active:
@@ -153,6 +163,7 @@ def draw_hand(
     normal: np.ndarray,
     shear: np.ndarray,
     penetration: np.ndarray,
+    slip_state: np.ndarray,
     normal_max: float,
     shear_max: float,
 ) -> None:
@@ -160,6 +171,7 @@ def draw_hand(
     side_name = "LEFT HAND" if side_index == 0 else "RIGHT HAND"
     total_active = int(np.count_nonzero(penetration > 0.0))
     active_patches = int(np.count_nonzero(np.any(penetration > 0.0, axis=(-2, -1))))
+    slip_counts = [int(np.count_nonzero(slip_state == value)) for value in (1, 2, 3)]
     cv2.rectangle(
         canvas,
         (x0, WORLD_HEIGHT),
@@ -169,7 +181,7 @@ def draw_hand(
     )
     put(
         canvas,
-        f"{side_name} | 27 PATCHES | ACTIVE {active_patches:02d} PATCHES / {total_active:04d} TAXELS",
+        f"{side_name} | ACTIVE {active_patches:02d} PATCHES / {total_active:04d} TAXELS | SLIP K/I/G {slip_counts[0]:02d}/{slip_counts[1]:02d}/{slip_counts[2]:02d}",
         (x0 + 24, 752),
         0.64,
         2,
@@ -221,6 +233,7 @@ def draw_hand(
                 normal[patch_index],
                 shear[patch_index],
                 penetration[patch_index],
+                int(slip_state[patch_index]),
                 normal_max,
                 shear_max,
             )
@@ -255,6 +268,7 @@ def draw_hand(
             normal[patch_index],
             shear[patch_index],
             penetration[patch_index],
+            int(slip_state[patch_index]),
             normal_max,
             shear_max,
         )
@@ -300,6 +314,7 @@ def draw_hand(
                 normal[patch_index],
                 shear[patch_index],
                 penetration[patch_index],
+                int(slip_state[patch_index]),
                 normal_max,
                 shear_max,
             )
@@ -366,12 +381,15 @@ def main() -> None:
     normal = np.asarray(arrays["normal_force"], np.float32)
     shear = np.asarray(arrays["signed_shear"], np.float32)
     penetration = np.asarray(arrays["penetration"], np.float32)
+    slip_state = np.asarray(arrays["tactile_only_slip_state"], np.int8)
     if normal.shape[1:] != (2, 27, 20, 25):
         raise RuntimeError(f"Unexpected normal shape: {normal.shape}")
     if shear.shape[1:] != (2, 27, 20, 25, 2):
         raise RuntimeError(f"Unexpected shear shape: {shear.shape}")
     if penetration.shape != normal.shape:
         raise RuntimeError(f"Unexpected penetration shape: {penetration.shape}")
+    if slip_state.shape != normal.shape[:3]:
+        raise RuntimeError(f"Unexpected slip-state shape: {slip_state.shape}")
     nonzero_normal = np.abs(normal[normal != 0.0])
     normal_max = args.normal_max or (
         float(np.quantile(nonzero_normal, 0.995)) if len(nonzero_normal) else 1.0
@@ -522,6 +540,7 @@ def main() -> None:
                 normal[step, 0],
                 shear[step, 0],
                 penetration[step, 0],
+                slip_state[step, 0],
                 normal_max,
                 shear_max,
             )
@@ -531,6 +550,7 @@ def main() -> None:
                 normal[step, 1],
                 shear[step, 1],
                 penetration[step, 1],
+                slip_state[step, 1],
                 normal_max,
                 shear_max,
             )
@@ -591,7 +611,8 @@ def main() -> None:
             "top: full SUGAR CarryBox and same-frame hand-box crop; bottom: "
             "both complete hands, five fingers x three segments plus an "
             "anatomically oriented palm with four patches across and three "
-            "patches from fingers to wrist"
+            "patches from fingers to wrist; K/I/G are tactile-history-only "
+            "stick, incipient-slip, and gross-slip states"
         ),
     }
     args.output.with_suffix(".render.json").write_text(

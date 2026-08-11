@@ -1,12 +1,41 @@
 # Native tactile: active code map
 
-This directory has one completed active foundation and one historical policy
-route. CarryBox visualization is the reusable native-sensor foundation. The
-existing tactile-versus-zero scripts also reproduce the completed `890-D`
-reference-only actor diagnostics; they do not satisfy the active deployable
-Tracker-command contract. No numbered experiment ladder is an entry point.
+The active Plan-14 path is a no-training native tactile and slip interface for
+IsaacLab and Newton. CarryBox visualization remains the IsaacLab foundation;
+the nested `Newton/` clone contains the solved-contact backend. Existing policy
+scripts reproduce historical diagnostics only. No numbered experiment ladder
+is an active entry point.
 
-## Active no-RGB Tracker-command training
+## Active universal tactile and slip
+
+- `universal.py`: common native frame plus direct official TacSL and Newton
+  solved-contact adapters. Dense scalar layout is
+  `[batch,patch,row,column]`; signed shear appends two channels. Released TacSL
+  row/column order and signs are unchanged.
+- `slip.py`: causal tactile-history-only load, friction utilization,
+  center-of-pressure motion, footprint transport, load loss and hysteretic
+  `NO_CONTACT/STICK/INCIPIENT/GROSS` state.
+- `evaluate_tactile_only_slip.py`: post-run comparison against simulator
+  relative tangential velocity. That velocity is evaluation-only and never
+  enters `slip.py`.
+- `collect_sugar_whole_hand_carrybox.py`: official SUGAR G1 CarryBox collector
+  using all 54 physical TacSL patches and the common adapter.
+- `render_sugar_whole_hand_carrybox.py`: synchronized world plus both complete
+  anatomical hands, raw signed force/shear and per-patch slip state.
+- `run_isaaclab_r15_capsule_slip.py`: unchanged official R15 adapter on a
+  controlled swept capsule with fixed, slow, fast and return phases; simulator
+  relative velocity remains a held-out label.
+- `Newton/tactile_video.py`: public `newton.sensors.SensorTactile` box/pen
+  evidence entry point; no monkeypatch, `kh * depth`, aggregate wrench or
+  fabricated optical output. Its world panel is synchronized directly from
+  Newton body state as top/side projections, while the lower panels retain the
+  two spatial force/shear fields and tactile-only slip state.
+- `Newton/tactile_slip_demo.py`: controlled Newton plate/cube sequence with
+  stationary, slow-stick, incipient and gross-slip intervals. The detector
+  reads only `SensorTactile`; actual relative tangential velocity is displayed
+  and scored only as a held-out label.
+
+## Paused no-RGB Tracker-command training
 
 - `run_native_tactile_bcppo_training.sh tracker_preflight_tactile ...`: live
   288-step one-update preflight from a shared base checkpoint.
@@ -29,7 +58,7 @@ Set `CURIOSITY_TRACKER_WARM_START_CHECKPOINT` to the released CarryBox
 `CURIOSITY_TRACKER_BASE_CHECKPOINT` to start both matched arms from that same
 saved base. The released Tracker and Refiner use their original unnormalized
 observation scale, so both actor and critic empirical normalization remain
-disabled. The root [`README`](../../../README.md#active-504-d-tracker-command-experiment)
+disabled. The root [`README`](../../../README.md#paused-historical-504-d-tracker-command-experiment)
 contains the exact common-base, frozen admission, serial preflight, training,
 and evaluation commands.
 
@@ -124,8 +153,9 @@ are documented in
 
 The tactile fields are read online and causally at the simulator physics clock.
 They are not reconstructed from the saved world video. The current 54-patch
-plus bilateral optical scene runs slower than wall-clock real time, and the
-validated object/task is CarryBox only. Reusing the sensor topology for another
-object requires a compatible SDF and sensors on the bodies that actually make
-contact. The sensor reports local contact; it does not identify the task or
-infer that a scene is CarryBox or KickBox.
+plus bilateral optical scene runs slower than wall-clock real time. IsaacLab
+has separately demonstrated the same official R15 adapter on CarryBox and a
+swept capsule; Newton uses its own solved-contact sensor on the Panda box/pen
+scenes. Reusing either sensor requires compatible contact geometry and sensors
+on the bodies that actually make contact. The sensor reports local contact; it
+does not identify a task or infer a scene label.

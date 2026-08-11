@@ -1,0 +1,461 @@
+#!/usr/bin/env python3
+"""Run the official R15 on a swept capsule and render native slip evidence."""
+
+from __future__ import annotations
+
+import argparse
+import os
+from pathlib import Path
+
+from isaaclab.app import AppLauncher
+
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--output-root", type=Path, required=True)
+parser.add_argument("--frames", type=int, default=240)
+parser.add_argument("--fps", type=int, default=50)
+AppLauncher.add_app_launcher_args(parser)
+args = parser.parse_args()
+simulation_app = AppLauncher(args).app
+
+import json
+import math
+import subprocess
+import sys
+import traceback
+
+import cv2
+import imageio_ffmpeg
+import numpy as np
+import torch
+from pxr import UsdGeom, UsdPhysics
+
+import omni.replicator.core as rep
+import isaacsim.core.utils.stage as stage_utils
+
+import isaaclab.sim as sim_utils
+from isaaclab.assets import Articulation, ArticulationCfg, RigidObject, RigidObjectCfg
+from isaaclab.sensors.camera import TiledCamera, TiledCameraCfg
+import isaaclab.utils.math as math_utils
+from isaaclab_assets.sensors import GELSIGHT_R15_CFG
+from isaaclab_contrib.sensors.tacsl_sensor import VisuoTactileSensor, VisuoTactileSensorCfg
+
+from scripts.sugar.native_tactile.slip import SlipState, TactileSlipDetector
+from scripts.sugar.native_tactile.universal import IsaacLabTacSLAdapter
+
+
+ROOT = Path(__file__).resolve().parents[3]
+R15_USD = (
+    ROOT
+    / "experiments/sugar_reproduction/assets/official_tacsl"
+    / "gelsight_r15_finger/gelsight_r15_finger.usd"
+)
+CALIBRATION = (
+    ROOT
+    / "experiments/sugar_reproduction/assets/official_tacsl/calibration"
+)
+WIDTH, HEIGHT = 1280, 720
+OBJECT_RADIUS_M = 0.006
+CONTACT_INDENTATION_M = 0.0008
+FORCE_SCALE_N_PER_TAXEL = 0.0012
+
+
+class VideoWriter:
+    def __init__(self, path: Path, fps: int) -> None:
+        self.process = subprocess.Popen(
+            [
+                imageio_ffmpeg.get_ffmpeg_exe(),
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-s:v",
+                f"{WIDTH}x{HEIGHT}",
+                "-r",
+                str(fps),
+                "-i",
+                "-",
+                "-an",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "18",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+                str(path),
+            ],
+            stdin=subprocess.PIPE,
+        )
+
+    def append(self, frame: np.ndarray) -> None:
+        if self.process.stdin is None:
+            raise RuntimeError("ffmpeg stdin is closed")
+        self.process.stdin.write(np.ascontiguousarray(frame, dtype=np.uint8).tobytes())
+
+    def close(self) -> None:
+        if self.process.stdin is not None:
+            self.process.stdin.close()
+        if self.process.wait() != 0:
+            raise RuntimeError("ffmpeg failed")
+
+
+def put(frame: np.ndarray, text: str, point: tuple[int, int], scale: float = 0.55) -> None:
+    cv2.putText(
+        frame,
+        text,
+        point,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        scale,
+        (20, 20, 20),
+        1,
+        cv2.LINE_AA,
+    )
+
+
+def fit(image: np.ndarray, width: int, height: int) -> np.ndarray:
+    scale = min(width / image.shape[1], height / image.shape[0])
+    resized = cv2.resize(
+        image,
+        (int(round(image.shape[1] * scale)), int(round(image.shape[0] * scale))),
+        interpolation=cv2.INTER_AREA,
+    )
+    output = np.full((height, width, 3), 245, dtype=np.uint8)
+    x = (width - resized.shape[1]) // 2
+    y = (height - resized.shape[0]) // 2
+    output[y : y + resized.shape[0], x : x + resized.shape[1]] = resized
+    return output
+
+
+def force_rgb(normal: np.ndarray, maximum: float) -> np.ndarray:
+    scaled = np.clip(normal / max(maximum, 1.0e-9), -1.0, 1.0)
+    magnitude = np.abs(scaled)
+    image = np.full((*normal.shape, 3), 255, dtype=np.uint8)
+    negative = scaled < 0.0
+    positive = scaled > 0.0
+    image[..., 1][negative] = np.rint(255.0 * (1.0 - 0.7 * magnitude[negative])).astype(np.uint8)
+    image[..., 2][negative] = np.rint(255.0 * (1.0 - magnitude[negative])).astype(np.uint8)
+    image[..., 0][positive] = np.rint(255.0 * (1.0 - magnitude[positive])).astype(np.uint8)
+    image[..., 1][positive] = np.rint(255.0 * (1.0 - 0.7 * magnitude[positive])).astype(np.uint8)
+    return image
+
+
+def object_x_and_label(frame: int) -> tuple[float, str]:
+    if frame < 40:
+        return 0.0, "fixed contact"
+    if frame < 100:
+        return 0.00012 * (frame - 40), "slow sweep"
+    if frame < 120:
+        return 0.0072 - 0.0004 * (frame - 100), "fast sweep"
+    if frame < 180:
+        return -0.0008, "fixed after sweep"
+    return -0.0008 + 0.0002 * (frame - 180), "return sweep"
+
+
+def main() -> None:
+    output_root = args.output_root.resolve()
+    output_root.mkdir(parents=True, exist_ok=True)
+    video_path = output_root / "isaaclab_r15_capsule_tactile_slip.mp4"
+    trace_path = output_root / "trace.npz"
+    summary_path = output_root / "summary.json"
+
+    stage_utils.create_new_stage()
+    dt = 1.0 / args.fps
+    sim = sim_utils.SimulationContext(
+        sim_utils.SimulationCfg(dt=dt, device=args.device)
+    )
+
+    robot_cfg = ArticulationCfg(
+        prim_path="/World/Robot",
+        spawn=sim_utils.UsdFileWithCompliantContactCfg(
+            usd_path=str(R15_USD),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(disable_gravity=True),
+            compliant_contact_stiffness=10.0,
+            compliant_contact_damping=1.0,
+            physics_material_prim_path="elastomer",
+        ),
+        actuators={},
+        init_state=ArticulationCfg.InitialStateCfg(
+            pos=(0.0, 0.0, 0.5),
+            rot=(math.sqrt(2.0) / 2.0, -math.sqrt(2.0) / 2.0, 0.0, 0.0),
+            joint_pos={},
+            joint_vel={},
+        ),
+    )
+    object_cfg = RigidObjectCfg(
+        prim_path="/World/Capsule",
+        spawn=sim_utils.MeshCapsuleCfg(
+            radius=OBJECT_RADIUS_M,
+            height=0.024,
+            axis="Z",
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                disable_gravity=True,
+                kinematic_enabled=True,
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(),
+            mass_props=sim_utils.MassPropertiesCfg(mass=0.1),
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(
+            pos=(0.0, 0.20, 0.52),
+            rot=(1.0, 0.0, 0.0, 0.0),
+        ),
+    )
+    render_cfg = GELSIGHT_R15_CFG.replace(base_data_path=str(CALIBRATION))
+    sensor_cfg = VisuoTactileSensorCfg(
+        prim_path="/World/Robot/elastomer/tactile_sensor",
+        update_period=dt,
+        debug_vis=False,
+        enable_camera_tactile=True,
+        enable_force_field=True,
+        camera_cfg=TiledCameraCfg(
+            height=render_cfg.image_height,
+            width=render_cfg.image_width,
+            prim_path="/World/Robot/elastomer_tip/cam",
+            update_period=dt,
+            data_types=["distance_to_image_plane"],
+            spawn=None,
+        ),
+        render_cfg=render_cfg,
+        tactile_array_size=(20, 25),
+        tactile_margin=0.003,
+        contact_object_prim_path_expr="/World/Capsule",
+        normal_contact_stiffness=1.0,
+        friction_coefficient=0.5,
+        tangential_stiffness=0.1,
+    )
+    world_camera_cfg = TiledCameraCfg(
+        prim_path="/World/WorldCamera",
+        update_period=dt,
+        height=360,
+        width=640,
+        data_types=["rgb"],
+        offset=TiledCameraCfg.OffsetCfg(),
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=30.0,
+            focus_distance=1.0,
+            horizontal_aperture=20.955,
+            clipping_range=(0.02, 5.0),
+        ),
+    )
+    sim_utils.update_stage()
+    robot = Articulation(robot_cfg)
+    contact_object = RigidObject(object_cfg)
+    collision_mesh_path = "/World/Capsule/geometry/mesh"
+    collision_mesh = stage_utils.get_current_stage().GetPrimAtPath(collision_mesh_path)
+    UsdPhysics.MeshCollisionAPI(collision_mesh).GetApproximationAttr().Set("sdf")
+    sim_utils.define_mesh_collision_properties(
+        collision_mesh_path,
+        sim_utils.SDFMeshPropertiesCfg(
+            sdf_margin=0.02,
+            sdf_narrow_band_thickness=0.05,
+            sdf_resolution=64,
+            sdf_subgrid_resolution=6,
+        ),
+    )
+    sensor = VisuoTactileSensor(sensor_cfg)
+    world_camera = TiledCamera(world_camera_cfg)
+    sim.reset()
+    world_camera.set_world_poses_from_view(
+        torch.tensor([[0.34, -0.38, 0.72]], device=args.device),
+        torch.tensor([[0.0, 0.04, 0.52]], device=args.device),
+    )
+    for _ in range(4):
+        sim.step()
+        sensor.update(dt, force_recompute=True)
+        world_camera.update(dt, force_recompute=True)
+    sensor.get_initial_render()
+    tactile_points = sensor.data.tactile_points_pos_w[0]
+    tactile_quaternions = sensor.data.tactile_points_quat_w[0]
+    local_z = torch.zeros_like(tactile_points)
+    local_z[:, 2] = 1.0
+    patch_normal_w = math_utils.quat_apply(tactile_quaternions, local_z).mean(dim=0)
+    patch_normal_w = patch_normal_w / torch.linalg.norm(patch_normal_w)
+    preferred_tangent_w = torch.tensor((1.0, 0.0, 0.0), device=args.device)
+    sweep_tangent_w = preferred_tangent_w - patch_normal_w * torch.dot(
+        preferred_tangent_w, patch_normal_w
+    )
+    sweep_tangent_w = sweep_tangent_w / torch.linalg.norm(sweep_tangent_w)
+    tactile_center_w = tactile_points.mean(dim=0)
+    normal_coordinates = tactile_points @ patch_normal_w
+    contact_center_w = tactile_center_w + patch_normal_w * (
+        normal_coordinates.max() - torch.dot(tactile_center_w, patch_normal_w)
+    )
+    object_mesh_points = torch.tensor(
+        np.asarray(UsdGeom.Mesh(collision_mesh).GetPointsAttr().Get()),
+        dtype=torch.float32,
+        device=args.device,
+    )
+    object_support_distance_m = torch.max(-(object_mesh_points @ patch_normal_w))
+    resting_object_center_w = contact_center_w + patch_normal_w * (
+        object_support_distance_m - CONTACT_INDENTATION_M
+    )
+
+    adapter = IsaacLabTacSLAdapter(
+        ("r15",),
+        grid_shape=(20, 25),
+        patch_size_m=((0.023977, 0.032001),),
+    )
+    detector = TactileSlipDetector(("r15",), friction_coefficient=0.5)
+    writer = VideoWriter(video_path, args.fps)
+    normal_rows = []
+    shear_rows = []
+    penetration_rows = []
+    slip_rows = []
+    oracle_speed_rows = []
+    x_rows = []
+    previous_x = 0.0
+    for frame in range(args.frames):
+        x, label = object_x_and_label(frame)
+        object_position_w = resting_object_center_w + sweep_tangent_w * x
+        pose = torch.cat(
+            (
+                object_position_w,
+                torch.tensor((1.0, 0.0, 0.0, 0.0), device=args.device),
+            )
+        ).unsqueeze(0)
+        velocity = torch.zeros((1, 6), dtype=torch.float32, device=args.device)
+        velocity[0, :3] = sweep_tangent_w * ((x - previous_x) / dt)
+        contact_object.write_root_pose_to_sim(pose)
+        contact_object.write_root_velocity_to_sim(velocity)
+        previous_x = x
+        sim.step()
+        robot.update(dt)
+        contact_object.update(dt)
+        sensor.update(dt, force_recompute=True)
+        world_camera.update(dt, force_recompute=True)
+        tactile = adapter.update({"capsule": [sensor.data]}, timestamp_s=(frame + 1) * dt)
+        evidence = detector.update(tactile)
+
+        normal = tactile.normal_force_n[0, 0].detach().cpu().numpy()
+        shear = tactile.shear_force_xy_n[0, 0].detach().cpu().numpy()
+        penetration = tactile.penetration_m[0, 0].detach().cpu().numpy()
+        relative = sensor.data.tactile_relative_tangential_velocity_w[0].reshape(20, 25, 3)
+        relative = relative.detach().cpu().numpy()
+        oracle_speed = float(
+            np.linalg.norm(relative[penetration > 0.0], axis=-1).max()
+        ) if np.any(penetration > 0.0) else 0.0
+        normal_rows.append(normal)
+        shear_rows.append(shear)
+        penetration_rows.append(penetration)
+        slip_rows.append(int(evidence.state[0, 0]))
+        oracle_speed_rows.append(oracle_speed)
+        x_rows.append(x)
+
+        canvas = np.full((HEIGHT, WIDTH, 3), 255, dtype=np.uint8)
+        world = world_camera.data.output["rgb"][0, ..., :3].detach().cpu().numpy().astype(np.uint8)
+        optical = sensor.data.tactile_rgb_image[0].detach().cpu().numpy().astype(np.uint8)
+        depth = sensor.data.tactile_depth_image[0, ..., 0].detach().cpu().numpy()
+        canvas[:360, :640] = fit(world, 640, 360)
+        canvas[:360, 640:] = fit(optical, 640, 360)
+        force = cv2.resize(
+            force_rgb(normal, FORCE_SCALE_N_PER_TAXEL),
+            (640, 360),
+            interpolation=cv2.INTER_NEAREST,
+        )
+        canvas[360:, :640] = force
+        finite = depth[np.isfinite(depth)]
+        low, high = (float(finite.min()), float(finite.max())) if len(finite) else (0.0, 1.0)
+        depth_u8 = np.rint(255.0 * np.clip((depth - low) / max(high - low, 1.0e-9), 0.0, 1.0)).astype(np.uint8)
+        depth_rgb = np.repeat(depth_u8[..., None], 3, axis=-1)
+        canvas[360:, 640:] = fit(depth_rgb, 640, 360)
+        cv2.rectangle(canvas, (0, 0), (1279, 719), (50, 50, 50), 1)
+        cv2.line(canvas, (640, 0), (640, 720), (70, 70, 70), 2)
+        cv2.line(canvas, (0, 360), (1280, 360), (70, 70, 70), 2)
+        for x0, title in ((0, "WORLD: official R15 + local capsule"), (640, "OFFICIAL R15 RGB")):
+            cv2.rectangle(canvas, (x0 + 8, 8), (x0 + 625, 38), (255, 255, 255), -1)
+            put(canvas, title, (x0 + 18, 30), 0.6)
+        cv2.rectangle(canvas, (8, 368), (628, 414), (255, 255, 255), -1)
+        put(canvas, f"SIGNED NORMAL FIELD | active {int(np.count_nonzero(penetration > 0.0))}/500", (18, 390), 0.52)
+        put(canvas, f"Fn {evidence.normal_load_n[0,0]:.3f} N | Ft {evidence.tangential_load_n[0,0]:.3f} N", (18, 410), 0.45)
+        cv2.rectangle(canvas, (648, 368), (1272, 452), (255, 255, 255), -1)
+        put(canvas, "OFFICIAL R15 DEPTH", (658, 390), 0.55)
+        put(canvas, f"frame {frame:03d} | command {label} | capsule x {x:+.4f} m", (658, 414), 0.46)
+        put(canvas, f"tactile-only {SlipState(int(evidence.state[0,0])).name}", (658, 434), 0.52)
+        put(canvas, f"held-out relative speed {oracle_speed:.4f} m/s", (658, 450), 0.46)
+        writer.append(canvas)
+    writer.close()
+
+    normal_array = np.stack(normal_rows).astype(np.float32)
+    penetration_array = np.stack(penetration_rows).astype(np.float32)
+    slip_array = np.asarray(slip_rows, dtype=np.int8)
+    oracle_speed_array = np.asarray(oracle_speed_rows, dtype=np.float32)
+    np.savez_compressed(
+        trace_path,
+        normal_force=normal_array,
+        signed_shear=np.stack(shear_rows).astype(np.float32),
+        penetration=penetration_array,
+        tactile_only_slip_state=slip_array,
+        heldout_relative_tangential_speed_m_s=oracle_speed_array,
+        object_x_m=np.asarray(x_rows, dtype=np.float32),
+    )
+    oracle_slip = oracle_speed_array >= 0.005
+    predicted_slip = slip_array >= int(SlipState.INCIPIENT)
+    summary = {
+        "schema": "isaaclab_r15_capsule_native_tactile_slip_v1",
+        "frames": args.frames,
+        "fps": args.fps,
+        "backend": "official isaaclab v2.3.2 VisuoTactileSensor",
+        "sensor": "official GELSIGHT_R15_CFG",
+        "object": "local IsaacLab MeshCapsuleCfg with PhysX SDF collision",
+        "grid_shape": [20, 25],
+        "contact_indentation_m": CONTACT_INDENTATION_M,
+        "force_display_scale_n_per_taxel": FORCE_SCALE_N_PER_TAXEL,
+        "patch_normal_w": [float(value) for value in patch_normal_w.tolist()],
+        "sweep_tangent_w": [float(value) for value in sweep_tangent_w.tolist()],
+        "sensor_surface_span_along_normal_m": float(
+            normal_coordinates.max() - normal_coordinates.min()
+        ),
+        "object_support_distance_along_negative_normal_m": float(
+            object_support_distance_m
+        ),
+        "contact_frames": int(np.count_nonzero(np.any(penetration_array > 0.0, axis=(1, 2)))),
+        "slip_state_counts": {
+            SlipState(state).name: int(np.count_nonzero(slip_array == state))
+            for state in range(4)
+        },
+        "heldout_binary_precision": float(
+            np.count_nonzero(oracle_slip & predicted_slip)
+            / max(np.count_nonzero(predicted_slip), 1)
+        ),
+        "heldout_binary_recall": float(
+            np.count_nonzero(oracle_slip & predicted_slip)
+            / max(np.count_nonzero(oracle_slip), 1)
+        ),
+        "maximum_heldout_relative_speed_m_s": float(oracle_speed_array.max()),
+        "video": str(video_path),
+        "trace": str(trace_path),
+        "claim_boundary": "No policy and no hardware claim; relative velocity is evaluation-only.",
+    }
+    capture = cv2.VideoCapture(str(video_path))
+    decoded = 0
+    while True:
+        ok, _ = capture.read()
+        if not ok:
+            break
+        decoded += 1
+    capture.release()
+    if decoded != args.frames:
+        raise RuntimeError(f"Video decoded {decoded}/{args.frames} frames")
+    summary["fully_decoded_frames"] = decoded
+    summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(summary, indent=2))
+
+    rep.vp_manager.destroy_hydra_textures("Replicator")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        traceback.print_exc()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(1)
+    else:
+        simulation_app.close()
