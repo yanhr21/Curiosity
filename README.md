@@ -9,12 +9,21 @@ with its executable
 
 Plan 12 established the reusable IsaacLab-native whole-hand representation and
 synchronized CarryBox evidence. Plan 13 now tests whether that representation
-helps a serious policy and how to fuse it into training. The first matched
-experiment warm-starts the official-width reference-only actor from the
-released Refiner, freezes its non-tactile mapping, and adds either current
-TacSL or exact-zero tactile through a spatial adapter. Neither arm receives RGB
-or measured current object state; the privileged critic and official Refiner
-teacher exist only during training.
+helps a serious policy and how to fuse it into training. The active first
+comparison uses no RGB and no measured object state at the actor. Both arms
+receive the same robot base/joint proprioception, last action, normalized
+motion phase, and deployable `35-D` official Tracker command (`29-D` reference
+joint position plus `3-D` reference root linear and `3-D` angular velocity).
+The tactile arm additionally receives the four-frame bilateral native TacSL
+tensor; the matched control receives an exact-zero tensor and does not call the
+sensor. The privileged critic and released Refiner are training-only.
+
+The completed policy experiments below predate this corrected contract and
+used an `890-D` reference-only actor containing full future reference state.
+They remain reproducible diagnostic evidence, but they are not the active
+deployable-input comparison and must not be used to claim completion of Plan
+13. The next runnable milestone is the live one-update `35-D` tactile preflight,
+followed serially by its exact-zero/no-read preflight.
 
 Only the official IsaacLab v2.3.2
 `isaaclab_contrib.sensors.tacsl_sensor.VisuoTactileSensor` and official
@@ -71,15 +80,17 @@ of the videos remains the final completion gate.
 - `experiments/native_tactile_representation/`: curated active raw data,
   videos, calibration, and checks.
 - `experiments/native_tactile_training/`: matched tactile/zero checkpoints,
-  camera-free evaluations, and synchronized policy videos. The current
-  64-update action-residual pair is negative at one seed. A later held-out
+  camera-free evaluations, and synchronized policy videos from the historical
+  `890-D` diagnostic route. Its 64-update action-residual pair is negative at
+  one seed. A later held-out
   information gate is positive: the same serious adapter reduces aggregate
   teacher-action MAE by `26.26%` on two untouched mass/friction conditions.
   Its frozen live-versus-zero behavior gate is negative: the heavy condition
   loses reward and terminates earlier, while the low-friction condition has
   worse tracking and lift. The result is useful tactile information without
-  established closed-loop benefit, so it does not authorize another PPO run.
-  Start from the package `REPRODUCE.md` rather than individual runtime files.
+  established closed-loop benefit. These results do not authorize another PPO
+  run and do not satisfy the active `35-D` actor contract. Start from the
+  package `REPRODUCE.md` rather than individual runtime files.
 - `PLAN/13_native_tactile_training_fusion/`: the active training/fusion plan.
 - `TODO/13_native_tactile_training_fusion/`: the active training/fusion TODO.
 - `PLAN/12_isaaclab_native_tactile_representation/` and its TODO: completed
@@ -92,6 +103,19 @@ The exact output tree and retained-allocation command are recorded in
 The sensor is online in simulation but is not currently wall-clock real-time;
 its force field is geometry-reusable, while the present task, object SDF, and
 official controller remain CarryBox-specific.
+
+The latest historical-policy human-review files are local experiment artifacts
+and therefore intentionally absent from Git:
+
+- `experiments/native_tactile_training/action_residual_64u_policy_visualization_20260811/tactile_trained_vs_zero_trained_side_by_side.mp4`
+- `experiments/native_tactile_training/heldout_contact_residual_policy_visualizations_v1_20260811/heldout_heavy_1p0kg_live_vs_zero.mp4`
+- `experiments/native_tactile_training/heldout_contact_residual_policy_visualizations_v1_20260811/heldout_low_friction_0p5kg_live_vs_zero.mp4`
+
+Each held-out comparison shows the CarryBox world state above both complete
+27-patch anatomical hand maps. The physical tactile field remains visible in
+the zero condition, while the header states that exact zero/no-read entered the
+actor. These camera-enabled videos are presentation evidence; the matched
+camera-free JSON/NPZ results supply the numerical comparison.
 
 ## Reproduce from this branch
 
@@ -122,13 +146,16 @@ bash scripts/sugar/native_tactile/launch_retained_child.sh \
 ```
 
 The command returns zero only after collection, all five renders, complete
-H.264 decoding, and source-frame-count checks pass. For policy training and
-matched tactile-versus-zero evaluation, follow
+H.264 decoding, and source-frame-count checks pass. For the completed
+historical policy diagnostics and matched tactile-versus-zero evaluation,
+follow
 [`experiments/native_tactile_training/REPRODUCE.md`](experiments/native_tactile_training/REPRODUCE.md).
-That guide includes the exact warm-start export, five-condition held-out
-teacher-residual gate, independent reconstruction, frozen closed-loop gate,
-and synchronized live-versus-zero H.264 commands. Every long command can be
-launched through `launch_retained_child.sh`; the retained allocation stays
+That guide records the exact `890-D` inputs, warm-start export, serial training,
+five-condition held-out teacher-residual test, frozen closed-loop comparison,
+and synchronized live-versus-zero H.264 commands. It intentionally labels the
+route historical. No active `35-D` training command is published until its
+task registration and live input-shape preflight exist. Every long command can
+be launched through `launch_retained_child.sh`; the retained allocation stays
 alive when its recorded child completes.
 All generated artifacts remain below the ignored `experiments/` tree and must
 not be committed.

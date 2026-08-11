@@ -1,6 +1,25 @@
 # TODO 13: Native Whole-Hand Tactile Training and Fusion
 
-## A. Serious fusion path
+## A. Active `35-D` Tracker-command comparison
+
+- [ ] Add the tactile and exact-zero/no-read observation groups around the
+  official deployable `35-D` Tracker command, robot proprioception, last
+  action, and normalized motion phase. Exclude RGB, measured/future object
+  state, contact labels, contact velocity, mass, and friction from the actor.
+- [ ] Connect the existing `SpatialTactileEncoder` to the unchanged serious
+  `512/256/128` SUGAR actor and repository-native BCPPO teacher/student path.
+- [ ] Run the live one-update tactile preflight, then the matched exact-zero
+  preflight, serially in the retained GPU allocation.
+- [ ] Run matched training and frozen CarryBox evaluation only after both
+  preflights pass; require physical behavior differences for a benefit claim.
+- [ ] Compare RGB and RGB+tactile only after the no-RGB result is resolved.
+
+## Historical `890-D` diagnostic record
+
+The checked items below reproduce the older full-reference actor experiments.
+They are retained evidence but do not complete the active `35-D` comparison.
+
+### B. Serious fusion path
 
 - [x] Define the four-frame 54-patch native force/shear tensor without RGB,
   contact proxy, object state, or simulator contact velocity.
@@ -12,7 +31,7 @@
 - [x] Define matched physical-tactile and exact-zero/no-read arms.
 - [x] Add process-local task registration and a retained-allocation launcher.
 
-## B. Live preflight
+### C. Live preflight
 
 - [x] Identify and reject random mid-trajectory physical-skin resets using the
   measured `37.46%` versus continuous `0.744%` nonzero-taxel mismatch.
@@ -40,7 +59,7 @@
 - [x] Run the fresh official-warm-start exact-zero update and confirm its
   observation is exact zero without calling the sensor-reading function.
 
-## C. Matched training and evaluation
+### D. Matched training and evaluation
 
 - [x] Train tactile and zero arms serially at identical declared endpoints.
   The update-63 pair is complete; initialization is exact and only the eight
@@ -103,14 +122,10 @@
   frozen gate is negative on both: heavy improves tracking/lift but loses
   reward and duration; low friction improves reward but worsens tracking/lift.
   Do not start PPO from this adapter.
-- [ ] Distinguish teacher-action target mismatch from closed-loop distribution
-  shift with a frozen no-learning control before revising the target or fusion
-  semantics.
-- [ ] Only after a future frozen gate is positive, run a fresh matched
-  multi-seed policy experiment.
-- [ ] Decide whether tactile improves behavior, not merely optimization loss.
+- [x] Stop this route after positive held-out teacher-action predictability but
+  negative frozen behavior; do not extend it into another PPO run.
 
-## D. RGB fusion after the no-RGB result
+## E. RGB fusion after the active no-RGB result
 
 - [ ] Compare the existing official ResNet18 RGB actor against tactile-only.
 - [ ] Fuse the RGB and tactile embeddings before the unchanged SUGAR actor MLP.

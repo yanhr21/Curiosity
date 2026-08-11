@@ -1,8 +1,12 @@
 # Native tactile: active code map
 
-This directory has two active routes. CarryBox visualization is the completed
-representation route; tactile-versus-zero training is the current policy route.
-No numbered experiment ladder is an entry point.
+This directory has one completed active foundation and one historical policy
+route. CarryBox visualization is the reusable native-sensor foundation. The
+existing tactile-versus-zero scripts reproduce the completed `890-D`
+reference-only actor diagnostics; they do not satisfy the active deployable
+`35-D` Tracker-command contract. The new `35-D` runner is not listed until its
+task registration and live preflight exist. No numbered experiment ladder is
+an entry point.
 
 ## Complete CarryBox visualization
 
@@ -33,7 +37,7 @@ implemented by `audit_sugar_whole_hand_carrybox.py` and
 are documented in
 `experiments/native_tactile_representation/whole_hand_carrybox_v3/REPRODUCE.md`.
 
-## Matched policy fusion
+## Historical `890-D` matched policy fusion
 
 - `run_native_tactile_bcppo_preflight.sh`: serious official-width warm-start
   and adapter structural check.

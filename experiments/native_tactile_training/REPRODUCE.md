@@ -1,4 +1,18 @@
-# Reproduce the no-vision tactile-policy result
+# Reproduce the historical `890-D` no-vision tactile-policy diagnostics
+
+## Compatibility notice
+
+Every command in this guide reproduces the completed `890-D` reference-only
+actor experiments from 2026-08-11. That actor replaces measured object state
+with full future reference state. It predates the active Plan-13 contract and
+is not the deployable `35-D` Tracker-command comparison.
+
+The active comparison must instead retain robot proprioception, last action,
+normalized motion phase, and the official `35-D` Tracker command while using
+either live native tactile or exact-zero/no-read tactile. Its task registration
+and live one-update preflight are still pending, so this guide deliberately
+does not invent an active training command. Use this file only to reproduce the
+existing diagnostic numbers and H.264 evidence.
 
 ## Prerequisites and fixed inputs
 

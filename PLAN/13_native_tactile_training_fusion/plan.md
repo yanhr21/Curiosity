@@ -8,12 +8,15 @@ representation enter the serious SUGAR training stack?
 
 ## First matched experiment
 
-Both actor arms preserve the official-width SUGAR reference-only observation
-contract. Robot state and the commanded motion plan remain; measured current
-object pose/velocity channels are replaced by their reference-plan
-counterparts. Neither actor receives RGB, measured current object state, mass,
-friction, rigid-contact labels, or simulator contact velocity. The privileged
-critic and frozen official Refiner teacher remain training-only.
+Both actor arms preserve the same deployable SUGAR observation contract:
+robot base linear/angular velocity, relative joint position/velocity, last
+action, normalized motion phase, and the official `35-D` Tracker command. The
+command is exactly `29-D` reference joint position plus `3-D` reference root
+linear and `3-D` reference root angular velocity. The official Generator's
+36th `contact_label` output is excluded because it is a non-tactile proxy.
+Neither actor receives RGB, measured or future object state, mass, friction,
+rigid-contact labels, or simulator contact velocity. The privileged critic and
+frozen official Refiner teacher remain training-only.
 
 Every physical-skin episode starts at official motion frame zero and evolves
 continuously.  The ordinary SUGAR mid-trajectory reference-state reset is not
@@ -29,18 +32,18 @@ The tactile tensor is serialized as
 `[hand,history,patch,channel,row,column]`. Each hand therefore supplies 324
 spatial channels. The existing serious SUGAR `SpatialTactileEncoder`
 (`32/64/64` convolutions and 128-D embedding per hand) feeds the unchanged
-`512/256/128` SUGAR actor MLP. The released Refiner initializes every existing
-actor/critic tensor exactly; zero tactile maps to an exact zero embedding.
-The official actor and its non-tactile input columns remain frozen, while the
-spatial encoder and the first-layer tactile columns are trainable. Official
-SUGAR BCPPO retains the frozen Refiner teacher and privileged critic; no new
-toy network is introduced.
+`512/256/128` SUGAR actor MLP. The two student arms use the same initialization
+and zero tactile maps to an exact-zero embedding. The existing spatial encoder
+and its fusion columns are the tactile extension. Repository-native SUGAR
+BCPPO retains the released Refiner as frozen teacher and uses the privileged
+critic only during training; no new toy network is introduced.
 
 ## Execution order
 
-1. Run a zero-update/one-update gate for the tactile arm and prove exact
-   official Refiner action recovery at zero tactile, frozen non-tactile actor
-   columns, expected observation dimensions, and checkpoint creation.
+1. Run a live one-update preflight for the tactile arm and confirm the exact
+   deployable `35-D` command, retained proprioception/action/phase terms,
+   expected tactile dimensions, real contact signal, encoder gradients, and
+   checkpoint creation.
 2. Run the matched one-update exact-zero arm and confirm identical non-tactile
    inputs with zero sensor observation.
 3. Run matched tactile/zero endpoints serially, first on the known motion-45
@@ -54,7 +57,20 @@ Tactile benefit requires a matched frozen-policy difference on physical task
 behavior. A nonzero encoder gradient or lower training loss alone is not a
 positive result.
 
-## Current gate
+## Active status on 2026-08-11
+
+The reusable physical sensor, tensor serialization, and full CarryBox videos
+are complete. The active `35-D` Tracker-command tactile task registration and
+one-update live/zero preflights have not yet run. They are the next work; the
+older `890-D` route below cannot substitute for them.
+
+## Historical `890-D` diagnostic record
+
+Everything in this section used the earlier reference-only actor containing
+full future reference state. It is retained to explain what was learned about
+the tactile representation and late-fusion failure, not as completion of the
+active deployable-input experiment. Any sentence describing a “next” gate
+records the historical sequence and is superseded by the active status above.
 
 The pure-model official warm-start audit passes: zero tactile reproduces the
 released Refiner actor and critic exactly, the official base columns receive
@@ -244,8 +260,8 @@ error, and at least as many completed steps as exact zero. Only a pass on all
 three checks in both conditions authorizes a later matched PPO experiment.
 
 The completed result separates information from control. The predictability
-gate passes with a `26.26%` aggregate held-out teacher-action MAE reduction,
-but the frozen behavior gate fails on both conditions. At `1.0 kg`, live
+test passes with a `26.26%` aggregate held-out teacher-action MAE reduction,
+but the frozen behavior comparison fails on both conditions. At `1.0 kg`, live
 tactile has better mean tracking and lift but `2.19394` lower common-horizon
 reward and terminates eight steps earlier. At low friction, live tactile has
 `0.35444` higher reward and equal duration but `0.000745 m` worse mean tracking
@@ -254,13 +270,11 @@ question must distinguish a teacher-action target mismatch from closed-loop
 distribution shift before changing the fusion architecture or collecting more
 policy updates.
 
-The offline canonical-trace check already constrains the fusion choice. The
-current route is late concatenation of the two `128-D` per-hand embeddings
+The offline canonical-trace check constrained the historical fusion choice.
+That route used late concatenation of the two `128-D` per-hand embeddings
 before `actor.0`; it preserves the official policy exactly at zero tactile and
 introduces only a small initial action perturbation on real CarryBox contact.
-Keep this fixed for the first tactile-versus-zero comparison. Alternative
-gating or FiLM fusion is considered only if the matched closed-loop result
-shows that this adapter receives contact but cannot acquire useful authority.
+Its later matched closed-loop result was negative, as recorded above.
 
 ## Withdrawn diagnostics
 
@@ -276,5 +290,6 @@ continuous frame-zero route above.
 The next random compressed-student route did use the correct continuous reset,
 but all 4,464 sampled environment-frames through update 92 remained zero
 tactile and mean episode length reached only 39.44 frames.  It never reached
-the contact interval and was stopped.  The active official-width warm-start
-removes that contact-exposure failure without reintroducing teleportation.
+the contact interval and was stopped. The later historical official-width
+warm-start removed that contact-exposure failure without reintroducing
+teleportation.
