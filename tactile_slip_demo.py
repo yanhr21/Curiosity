@@ -271,6 +271,9 @@ def main() -> None:
         records.append(
             {
                 "frame": frame,
+                "tactile_sequence": tactile.clock.sequence,
+                "tactile_timestamp_s": tactile.clock.timestamp_s,
+                "tactile_dt_s": tactile.clock.dt_s,
                 "phase": phase,
                 "commanded_plate_x_m": plate_x,
                 "commanded_plate_vx_m_s": plate_vx,
@@ -343,6 +346,11 @@ def main() -> None:
         "fps": fps,
         "sensor": "newton.sensors.SensorTactile",
         "tactile_input": "Contacts.force",
+        "clock_fields": [
+            "tactile_sequence",
+            "tactile_timestamp_s",
+            "tactile_dt_s",
+        ],
         "heldout_label": "vrel>=.005 m/s on contact",
         "mu": friction,
         "confusion": {"tp": tp, "fp": fp, "fn": fn, "tn": tn},

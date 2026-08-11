@@ -509,6 +509,9 @@ def main() -> None:
             {
                 "frame": frame_index,
                 "timestamp_s": example.sim_time,
+                "tactile_sequence": tactile.clock.sequence,
+                "tactile_timestamp_s": tactile.clock.timestamp_s,
+                "tactile_dt_s": tactile.clock.dt_s,
                 "object_lift_m": object_lift,
                 "raw_sample_count": raw_count,
                 "force_conservation_residual_n": residual_max,
@@ -558,6 +561,11 @@ def main() -> None:
         "fps": example.fps,
         "sensor": "newton.sensors.SensorTactile",
         "source": "Contacts.force after solver.update_contacts",
+        "clock_fields": [
+            "tactile_sequence",
+            "tactile_timestamp_s",
+            "tactile_dt_s",
+        ],
         "patch_shapes": pad_shapes,
         "patch_sizes_m": patch_sizes,
         "grid_shape": [20, 25],
