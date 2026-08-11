@@ -72,8 +72,11 @@ of the videos remains the final completion gate.
   videos, calibration, and checks.
 - `experiments/native_tactile_training/`: matched tactile/zero checkpoints,
   camera-free evaluations, and synchronized policy videos. The current
-  64-update action-residual pair is negative at one seed; its tactile-trained
-  versus zero-trained video is indexed in the package README. Start from its
+  64-update action-residual pair is negative at one seed. A later held-out
+  information gate is positive: the same serious adapter reduces aggregate
+  teacher-action MAE by `26.26%` on two untouched mass/friction conditions.
+  This is predictability evidence only; its frozen live-versus-zero behavior
+  gate remains the required policy test. Start from the package
   `REPRODUCE.md` rather than individual runtime files.
 - `PLAN/13_native_tactile_training_fusion/`: the active training/fusion plan.
 - `TODO/13_native_tactile_training_fusion/`: the active training/fusion TODO.
@@ -120,6 +123,11 @@ The command returns zero only after collection, all five renders, complete
 H.264 decoding, and source-frame-count checks pass. For policy training and
 matched tactile-versus-zero evaluation, follow
 [`experiments/native_tactile_training/REPRODUCE.md`](experiments/native_tactile_training/REPRODUCE.md).
+That guide includes the exact warm-start export, five-condition held-out
+teacher-residual gate, independent reconstruction, frozen closed-loop gate,
+and synchronized live-versus-zero H.264 commands. Every long command can be
+launched through `launch_retained_child.sh`; the retained allocation stays
+alive when its recorded child completes.
 All generated artifacts remain below the ignored `experiments/` tree and must
 not be committed.
 

@@ -9,6 +9,20 @@ evaluation use motion 45, seed 13011, two environments during training, and
 one deterministic environment during frozen evaluation. Output directories
 must not exist before launch.
 
+Run every command below from the repository root. The two local-only official
+inputs must exist at:
+
+```text
+SUGAR/data/CarryBox/data_045/
+experiments/sugar_reproduction/outputs/final/official_sugar/baseline/ckpts/refiner_model10000.pt
+```
+
+Do not launch a second experiment concurrently. Use
+`launch_retained_child.sh` for a long command so that it gets its own recorded
+process group and the retained Slurm shell remains available after completion.
+The launcher writes the child PID/PGID, log, and exit status; completion of a
+child never releases the allocation.
+
 ## Scope
 
 This package asks whether native whole-hand tactile changes, and eventually
@@ -197,6 +211,128 @@ python scripts/sugar/native_tactile/compose_native_tactile_policy_pair.py \
 The retained pair must report 348 fully decoded frames at `2560 x 720`. The
 record-bundle path must be absolute because the evaluator launches from the
 `SUGAR/` directory.
+
+## Reproduce the held-out teacher-residual gate
+
+The failed 64-update PPO route is not extended. The next experiment first asks
+whether the same serious spatial adapter contains useful information at all.
+One serial entry point collects five continuous frame-zero physical conditions,
+trains only the eight declared adapter tensors for 400 contact minibatches,
+selects without reading either test condition, and writes the selected model,
+per-row predictions, and result:
+
+```bash
+bash scripts/sugar/native_tactile/run_native_tactile_bcppo_training.sh \
+  residual_zero \
+  experiments/native_tactile_training/reproduced/warmstart_export \
+  1 2 13011
+
+bash scripts/sugar/native_tactile/run_native_tactile_teacher_residual_gate.sh \
+  experiments/native_tactile_training/reproduced/teacher_residual_gate \
+  experiments/native_tactile_training/reproduced/warmstart_export/model_prelearn.pt
+```
+
+The first command is only a reproducible export route for the exact
+pre-learning official warm start; the gate consumes `model_prelearn.pt`, not
+the one-update endpoint. If that exact pre-learning checkpoint already exists,
+pass it directly as the optional second argument and skip the export command.
+For an unattended retained-allocation launch, wrap the gate as follows:
+
+```bash
+bash scripts/sugar/native_tactile/launch_retained_child.sh \
+  --record experiments/native_tactile_training/runtime/reproduce_gate.process \
+  --status experiments/native_tactile_training/runtime/reproduce_gate.status \
+  --log experiments/native_tactile_training/runtime/reproduce_gate.log \
+  --tag reproduce_teacher_residual_gate \
+  -- bash scripts/sugar/native_tactile/run_native_tactile_teacher_residual_gate.sh \
+    experiments/native_tactile_training/reproduced/teacher_residual_gate \
+    experiments/native_tactile_training/reproduced/warmstart_export/model_prelearn.pt
+```
+
+The collection policy is always the exact-zero official actor. Live tactile is
+recorded pre-action and therefore cannot alter which state enters any split.
+Training conditions are `0.5/0.75 kg`, selection is `0.625 kg` with friction
+`0.40/0.30`, and untouched tests are `1.0 kg` at default friction and `0.5 kg`
+with friction `0.25/0.20`. These are training-task masses; the separate
+canonical successful visualization intentionally uses `0.3023376 kg`.
+
+The retained result is
+`heldout_contact_residual_gate_v1_20260811/training/report.json`. Live tactile
+reduces the combined held-out teacher-action MAE from `0.08335` to `0.06147`
+(`26.26%`), improves both individual tests, and loses the advantage when the
+27 anatomical patches are permuted. The entry point writes both
+`training/report.json` and `independent_audit.json`. To rerun only the
+independent reconstruction against an existing result, use:
+
+```bash
+python scripts/sugar/native_tactile/audit_native_tactile_teacher_residual_gate.py \
+  --result-root \
+    experiments/native_tactile_training/heldout_contact_residual_gate_v1_20260811 \
+  --output \
+    experiments/native_tactile_training/reproduced/teacher_residual_audit.json
+```
+
+That audit checks the saved predictions and the initial/selected model tensors;
+it passes every check without a hash workflow. The result establishes
+held-out predictability, not behavior improvement. Contact in these heavier
+closed-loop policy states is much broader than in the `0.3023376 kg` canonical
+successful trace, so it must not be presented as the sparse canonical grasp or
+as calibrated force.
+
+## Reproduce the frozen behavior gate
+
+Before PPO, compare the one selected checkpoint under live tactile and the
+exact-zero/no-read observation on both untouched conditions:
+
+```bash
+bash scripts/sugar/native_tactile/run_frozen_teacher_residual_policy_gate.sh \
+  experiments/native_tactile_training/heldout_contact_residual_gate_v1_20260811/training/model_best.pt \
+  experiments/native_tactile_training/reproduced/teacher_residual_policy_gate
+```
+
+The entry point runs all four no-learning rollouts serially and applies the
+predeclared reward, tracking, and termination rule. Its outcome decides whether
+this supervised initialization may proceed to a matched PPO experiment.
+
+The corresponding human-review evidence is also one serial command. It reruns
+the same two untouched conditions with cameras, displays the actual CarryBox
+world above all 54 physical patch maps, labels whether live tactile or exact
+zero/no-read enters the actor, and writes one side-by-side H.264 per condition:
+
+```bash
+bash scripts/sugar/native_tactile/run_teacher_residual_policy_visualizations.sh \
+  experiments/native_tactile_training/heldout_contact_residual_gate_v1_20260811/training/model_best.pt \
+  experiments/native_tactile_training/reproduced/teacher_residual_policy_videos
+```
+
+Expected final files are
+`heldout_heavy_1p0kg_live_vs_zero.mp4` and
+`heldout_low_friction_0p5kg_live_vs_zero.mp4`, plus the four full-resolution
+individual videos and their JSON/NPZ source records. Every H.264 is fully
+decoded before the script reports completion. Camera-enabled rollouts are
+presentation evidence; the camera-free policy gate supplies the matched
+numerical decision because rendering can alter simulator timing.
+
+## Output and interpretation checklist
+
+A valid reproduction has all of the following:
+
+- the exact `324000-D` `[2,4,27,3,20,25]` tactile history and no RGB in the
+  actor;
+- five distinct physical collection conditions with no held-out test used for
+  optimization or selection;
+- only the eight declared tactile-adapter tensors changed and the official
+  actor base columns unchanged;
+- saved selection/test predictions, `training/report.json`, and an independent
+  audit that reconstructs them;
+- four frozen camera-free behavior rollouts and the predeclared per-condition
+  gate report;
+- two synchronized live-versus-zero H.264 comparison videos for human review.
+
+The held-out prediction gate answers whether tactile contains information
+about the privileged teacher action. The frozen behavior gate separately asks
+whether that information improves closed-loop CarryBox behavior. A positive
+prediction result must never be reported as policy or task improvement.
 
 ## Claim boundary
 

@@ -269,11 +269,31 @@ resolution videos are retained beside it. This camera-enabled cohort is for
 visual behavior/contact review; the camera-free pair above supplies the
 matched numerical comparison.
 
-The next gate is not a longer repeat of this PPO run. It must first test whether
-the unchanged serious spatial encoder can predict the official teacher's
-action residual better than an exact-zero residual on held-out physically
-supported states. A positive held-out result is required before another policy
-experiment.
+## Held-out tactile information gate
+
+The next experiment does not repeat PPO. A continuous exact-zero actor first
+collects complete pre-action TacSL histories under two training conditions,
+one model-selection condition, and two untouched mass/friction tests. Only the
+same eight serious spatial-adapter tensors are optimized against the official
+privileged Refiner action; the official actor base columns remain bitwise
+unchanged.
+
+This gate is positive. The selected step-400 adapter lowers combined held-out
+teacher-action MAE from `0.08335` with exact-zero tactile to `0.06147` with
+live tactile, a `26.26%` reduction. The `1.0 kg` held-out test improves by
+`30.78%`; the `0.5 kg`, friction `0.25/0.20` test improves by `19.14%`.
+Live tactile also beats the fixed anatomical-patch permutation on both tests.
+The independent audit reconstructs the predictions, all eight changed tensors,
+and the unchanged official base actor. Records are under
+`heldout_contact_residual_gate_v1_20260811/`.
+
+This proves useful held-out information for teacher-action prediction, not
+closed-loop policy improvement. The task-default `0.5 kg` and heavier policy
+states show much broader TacSL contact than the separate `0.3023376 kg`
+canonical successful grasp and must not be presented as that sparse grasp.
+The selected checkpoint is therefore being tested frozen with live versus
+exact-zero/no-read tactile on both untouched conditions. No PPO continuation
+is authorized until that behavior gate passes.
 
 The earlier runtime diagnosis remains relevant. On 2026-08-11 `server56` and
 `server38` reported Vulkan `ERROR_DEVICE_LOST` during scene startup. A

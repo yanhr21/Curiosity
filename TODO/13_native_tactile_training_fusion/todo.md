@@ -90,8 +90,18 @@
   the actual CarryBox world view and both 27-patch anatomical maps, use one
   shared display scale, and produce a fully decoded 348-frame side-by-side
   H.264.
-- [ ] Test held-out contact-state teacher-residual predictability with the same
-  serious spatial encoder and exact-zero baseline before any new PPO run.
+- [x] Test held-out contact-state teacher-residual predictability with the same
+  serious spatial encoder and exact-zero baseline before any new PPO run. The
+  train/selection/test physical conditions, exact-zero collection policy,
+  400-step optimizer budget, 25-step model-selection cadence, and per-test
+  pass rule are now frozen in Plan 13. This gate passes: combined held-out MAE
+  is `0.06147` with live tactile versus `0.08335` with exact zero, a `26.26%`
+  reduction; both individual tests improve and patch permutation removes the
+  advantage. Frozen closed-loop behavior remains the next gate.
+- [ ] Evaluate the selected checkpoint without learning on the two untouched
+  physical conditions using live tactile versus exact-zero/no-read input. The
+  reward, tracking, and termination pass rule is frozen in Plan 13 before the
+  rollouts.
 - [ ] Only if that gate is positive, run a fresh matched multi-seed policy
   experiment; otherwise revise the tactile target or fusion semantics first.
 - [ ] Decide whether tactile improves behavior, not merely optimization loss.

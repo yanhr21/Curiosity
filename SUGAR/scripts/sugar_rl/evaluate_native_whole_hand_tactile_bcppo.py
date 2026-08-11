@@ -58,6 +58,15 @@ parser.add_argument(
     default=None,
     help="Optional actual world plus physical-taxel recording directory.",
 )
+parser.add_argument(
+    "--supervision_output",
+    type=Path,
+    default=None,
+    help=(
+        "Optional sparse NPZ of physically supported actor states for the "
+        "held-out tactile teacher-residual gate."
+    ),
+)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 
@@ -365,6 +374,11 @@ def main() -> None:
         if args.record_bundle is not None
         else None
     )
+    supervision_output = (
+        args.supervision_output.expanduser().resolve()
+        if args.supervision_output is not None
+        else None
+    )
     if record_bundle is not None:
         if not record_bundle.is_relative_to((PROJECT_ROOT / "experiments").resolve()):
             raise ValueError("record_bundle must remain below experiments")
@@ -372,6 +386,18 @@ def main() -> None:
             raise FileExistsError(f"refusing to overwrite {record_bundle}")
         if not args.enable_cameras:
             raise ValueError("record_bundle requires --enable_cameras")
+    if supervision_output is not None:
+        if supervision_output.suffix != ".npz":
+            raise ValueError("supervision_output must end in .npz")
+        if not supervision_output.is_relative_to(
+            (PROJECT_ROOT / "experiments").resolve()
+        ):
+            raise ValueError("supervision_output must remain below experiments")
+        supervision_metadata = supervision_output.with_suffix(".json")
+        if supervision_output.exists() or supervision_metadata.exists():
+            raise FileExistsError(
+                f"refusing to overwrite supervision output {supervision_output}"
+            )
     for path in (checkpoint, teacher):
         if not path.is_file():
             raise FileNotFoundError(path)
@@ -585,6 +611,23 @@ def main() -> None:
         "fed_actor_tactile_feature_abs_max": [],
         "fed_actor_tactile_feature_l2": [],
     }
+    supervision_rows: dict[str, list[np.ndarray]] | None = None
+    supervision_tactile_row_ptr: list[int] | None = None
+    supervision_tactile_indices: list[np.ndarray] | None = None
+    supervision_tactile_values: list[np.ndarray] | None = None
+    if supervision_output is not None:
+        supervision_rows = {
+            "policy_base_obs": [],
+            "teacher_action": [],
+            "zero_tactile_action": [],
+            "reference_frame": [],
+            "raw_tactile_nonzero_values": [],
+            "current_tactile_nonzero_values": [],
+            "current_active_normal_taxels": [],
+        }
+        supervision_tactile_row_ptr = [0]
+        supervision_tactile_indices = []
+        supervision_tactile_values = []
     deferred_resets: list[int] = []
     original_reset_idx = base_env._reset_idx
 
@@ -616,6 +659,82 @@ def main() -> None:
                     dim=-1,
                 )
                 teacher_action = runner.alg.teacher_model(teacher_obs)
+                current_tactile = raw_tactile.reshape(
+                    raw_tactile.shape[0], 2, 4, 27, 3, 20, 25
+                )[:, :, -1]
+                current_normal = current_tactile[:, :, :, 0]
+                current_nonzero = int(
+                    torch.count_nonzero(current_tactile[0]).item()
+                )
+                if supervision_rows is not None and current_nonzero > 0:
+                    policy_base_obs = torch.cat(
+                        [
+                            obs[name]
+                            for name in runner.alg.policy.actor_base_groups
+                        ],
+                        dim=-1,
+                    )
+                    nonzero_indices = torch.nonzero(
+                        raw_tactile[0], as_tuple=False
+                    ).squeeze(-1)
+                    nonzero_values = raw_tactile[0].index_select(
+                        0, nonzero_indices
+                    )
+                    supervision_rows["policy_base_obs"].append(
+                        policy_base_obs[0]
+                        .detach()
+                        .cpu()
+                        .numpy()
+                        .astype(np.float32, copy=True)
+                    )
+                    supervision_rows["teacher_action"].append(
+                        teacher_action[0]
+                        .detach()
+                        .cpu()
+                        .numpy()
+                        .astype(np.float32, copy=True)
+                    )
+                    supervision_rows["zero_tactile_action"].append(
+                        same_state_actions["zeroed"][0]
+                        .detach()
+                        .cpu()
+                        .numpy()
+                        .astype(np.float32, copy=True)
+                    )
+                    supervision_rows["reference_frame"].append(
+                        np.asarray(
+                            int(command.time_steps[0].item()), dtype=np.int64
+                        )
+                    )
+                    supervision_rows["raw_tactile_nonzero_values"].append(
+                        np.asarray(nonzero_indices.numel(), dtype=np.int64)
+                    )
+                    supervision_rows["current_tactile_nonzero_values"].append(
+                        np.asarray(current_nonzero, dtype=np.int64)
+                    )
+                    supervision_rows["current_active_normal_taxels"].append(
+                        torch.count_nonzero(current_normal[0], dim=(-3, -2, -1))
+                        .detach()
+                        .cpu()
+                        .numpy()
+                        .astype(np.int64, copy=True)
+                    )
+                    supervision_tactile_indices.append(
+                        nonzero_indices.detach()
+                        .cpu()
+                        .numpy()
+                        .astype(np.int32, copy=True)
+                    )
+                    supervision_tactile_values.append(
+                        nonzero_values.detach()
+                        .cpu()
+                        .numpy()
+                        .astype(np.float32, copy=True)
+                    )
+                    supervision_tactile_row_ptr.append(
+                        supervision_tactile_row_ptr[-1]
+                        + int(nonzero_indices.numel())
+                    )
                 append_record_frame(
                     raw_tactile,
                     fed_tactile,
@@ -778,6 +897,66 @@ def main() -> None:
         "final_object_position_error_m": float(arrays["object_pos_error"][-1, 0]),
         "trace": str(npz_path),
     }
+    if supervision_rows is not None:
+        if not supervision_rows["policy_base_obs"]:
+            raise RuntimeError(
+                "supervision export contains no physically supported actor states"
+            )
+        supervision_output.parent.mkdir(parents=True, exist_ok=True)
+        supervision_arrays = {
+            name: np.stack(values, axis=0)
+            for name, values in supervision_rows.items()
+        }
+        supervision_arrays.update(
+            {
+                "tactile_row_ptr": np.asarray(
+                    supervision_tactile_row_ptr, dtype=np.int64
+                ),
+                "tactile_indices": np.concatenate(
+                    supervision_tactile_indices, axis=0
+                ),
+                "tactile_values": np.concatenate(
+                    supervision_tactile_values, axis=0
+                ),
+                "tactile_width": np.asarray(
+                    raw_tactile.shape[-1], dtype=np.int64
+                ),
+            }
+        )
+        np.savez_compressed(supervision_output, **supervision_arrays)
+        supervision_record = {
+            "schema": "native_tactile_teacher_residual_sparse_dataset_v1",
+            "semantics": (
+                "pre-action states with nonzero current physical TacSL contact "
+                "from an online causal four-frame whole-hand tactile history; "
+                "sparse storage preserves every nonzero float32 value and "
+                "flattened index"
+            ),
+            "condition": physical_condition,
+            "arm": args.arm,
+            "actor_tactile_mode": args.actor_tactile_mode,
+            "checkpoint": str(checkpoint),
+            "teacher_checkpoint": str(teacher),
+            "seed": args.seed,
+            "reference": start,
+            "rows": int(supervision_arrays["policy_base_obs"].shape[0]),
+            "policy_base_width": int(
+                supervision_arrays["policy_base_obs"].shape[-1]
+            ),
+            "tactile_width": int(supervision_arrays["tactile_width"]),
+            "action_width": int(
+                supervision_arrays["teacher_action"].shape[-1]
+            ),
+            "stored_nonzero_values": int(
+                supervision_arrays["tactile_values"].shape[0]
+            ),
+            "npz": str(supervision_output),
+        }
+        supervision_output.with_suffix(".json").write_text(
+            json.dumps(supervision_record, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        result["supervision_dataset"] = supervision_record
     output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     if record_rows is not None and record_writer is not None and record_bundle is not None:
         record_writer.close()
@@ -789,7 +968,18 @@ def main() -> None:
         )
         record_summary = {
             "schema": "native_whole_hand_tactile_policy_rollout_bundle_v1",
+            "arm": args.arm,
+            "task": task,
             "actor_tactile_mode": args.actor_tactile_mode,
+            "actor_tactile_source": (
+                "exact_zero_no_sensor_read"
+                if args.arm in ("zero", "bounded_zero", "residual_zero")
+                else {
+                    "live": "live_physical_tactile",
+                    "zeroed": "evaluation_time_exact_zero",
+                    "patch_permuted": "fixed_anatomical_patch_permutation",
+                }[args.actor_tactile_mode]
+            ),
             "tactile_authority_scale": float(args.tactile_authority_scale),
             "checkpoint": str(checkpoint),
             "evaluation_result": str(output),

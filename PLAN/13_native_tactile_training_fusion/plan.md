@@ -209,6 +209,40 @@ positive held-out result can authorize another matched closed-loop policy
 experiment; a negative result means the current tactile channels/target do not
 support this fusion objective.
 
+The gate is fixed before its test outcomes. Every sample comes from a
+continuous motion-45 frame-zero rollout driven by the exact-zero official base
+actor; the physical 54-patch TacSL history is recorded pre-action but cannot
+change the collection trajectory. Only rows with nonzero current TacSL contact
+are retained, and the complete four-frame `324000-D` tensor is stored without
+pooling as exact sparse indices and float32 values. Training uses the task's
+default `0.5 kg` object and its `0.75 kg` mass-scaled condition. Checkpoint
+selection uses only `0.625 kg` with static/dynamic friction `0.40/0.30`.
+Untouched tests are `1.0 kg` at default friction and `0.5 kg` with
+static/dynamic friction `0.25/0.20`. These masses are the training-task object
+conditions; the canonical representation video deliberately used the separate
+`0.3023376 kg` successful-carry condition and must not be mislabeled as this
+gate's nominal mass.
+
+The model is the existing `32/64/64` per-hand spatial encoder, `128-D` per-hand
+embedding, frozen official `512/256/128` actor, `0.15` hidden tactile cap, and
+`0.1` normalized-action residual cap. Adam runs for exactly 400 contact-only
+minibatches at learning rate `1e-3`, batch size 16, and seed 13011. The lowest
+selection MAE at 25-step intervals selects the checkpoint. The gate passes
+only if a post-step-zero checkpoint beats the stored exact-zero official action
+on the selection condition, on each of the two untouched test conditions, and
+on their aggregate, while the official actor base columns remain bitwise
+unchanged. Patch-permuted error is reported as a spatial diagnostic but is not
+substituted for the exact-zero primary comparison.
+
+If the predictability gate passes, do not jump directly to PPO. Load its
+selected adapter as one frozen policy checkpoint and evaluate the two untouched
+conditions again with either live tactile or the exact-zero/no-sensor-read
+observation. The live and zero arms otherwise share the checkpoint, source
+state, seed, physics, and task. On each condition, live tactile must have
+higher common-horizon task reward, lower common-horizon mean object-position
+error, and at least as many completed steps as exact zero. Only a pass on all
+three checks in both conditions authorizes a later matched PPO experiment.
+
 The offline canonical-trace check already constrains the fusion choice. The
 current route is late concatenation of the two `128-D` per-hand embeddings
 before `actor.0`; it preserves the official policy exactly at zero tactile and

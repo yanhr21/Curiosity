@@ -140,11 +140,27 @@ def main() -> None:
         stdin=subprocess.PIPE,
     )
     mode = str(summary["actor_tactile_mode"])
+    source = str(summary.get("actor_tactile_source", ""))
     mode_label = {
-        "live": "ACTOR INPUT: LIVE PHYSICAL TACTILE",
-        "zeroed": "ACTOR INPUT: EXACT ZERO (DISPLAY IS PHYSICAL SENSOR ONLY)",
-        "patch_permuted": "ACTOR INPUT: FIXED ANATOMICAL PATCH PERMUTATION",
-    }[mode]
+        "exact_zero_no_sensor_read": (
+            "ACTOR INPUT: EXACT ZERO / NO SENSOR READ "
+            "(DISPLAY IS PHYSICAL DIAGNOSTIC)"
+        ),
+        "live_physical_tactile": "ACTOR INPUT: LIVE PHYSICAL TACTILE",
+        "evaluation_time_exact_zero": (
+            "ACTOR INPUT: EXACT ZERO (DISPLAY IS PHYSICAL SENSOR ONLY)"
+        ),
+        "fixed_anatomical_patch_permutation": (
+            "ACTOR INPUT: FIXED ANATOMICAL PATCH PERMUTATION"
+        ),
+    }.get(
+        source,
+        {
+            "live": "ACTOR INPUT: LIVE PHYSICAL TACTILE",
+            "zeroed": "ACTOR INPUT: EXACT ZERO (DISPLAY IS PHYSICAL SENSOR ONLY)",
+            "patch_permuted": "ACTOR INPUT: FIXED ANATOMICAL PATCH PERMUTATION",
+        }[mode],
+    )
     if args.scale_bundle_root:
         normal_max, shear_max = shared_display_scale(args.scale_bundle_root)
         scale_semantics = "shared matched-cohort active-taxel p95"
@@ -263,6 +279,7 @@ def main() -> None:
         "schema": "native_whole_hand_tactile_policy_rollout_render_v1",
         "bundle": str(root),
         "actor_tactile_mode": mode,
+        "actor_tactile_source": source or "legacy_bundle_mode_only",
         "frames": frame_count,
         "fps": args.fps,
         "resolution": [WIDTH, HEIGHT],

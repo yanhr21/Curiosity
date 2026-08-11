@@ -72,6 +72,20 @@ are documented in
 - `compose_native_tactile_policy_pair.py`: scales two already completed policy
   videos to equal panels, ends at the shorter rollout, writes browser-compatible
   H.264, and fully decodes the result before reporting success.
+- `run_native_tactile_teacher_residual_gate.sh`: collects the fixed
+  train/selection/two-test contact split with the exact-zero actor and trains
+  only the existing serious spatial adapter against the official teacher; it
+  then runs the independent prediction/checkpoint audit.
+- `audit_native_tactile_teacher_residual_gate.py`: independently reconstructs
+  the selected checkpoint changes and every saved held-out prediction metric.
+- `run_frozen_teacher_residual_policy_gate.sh`: evaluates that selected
+  checkpoint with live versus exact-zero/no-read tactile on the two untouched
+  physical conditions before any further PPO.
+- `summarize_native_tactile_teacher_residual_policy_gate.py`: applies the
+  predeclared common-horizon reward, tracking, and termination decision.
+- `run_teacher_residual_policy_visualizations.sh`: serially records and renders
+  live-versus-exact-zero behavior on both untouched physical conditions, with
+  the world view and all 54 anatomical patch maps synchronized in H.264.
 - `audit_canonical_trace_fusion.py` and `render_canonical_trace_fusion.py`:
   causal adapter inspection on the canonical CarryBox trace.
 - `launch_retained_child.sh`: records and isolates a child process group while
