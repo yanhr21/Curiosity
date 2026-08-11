@@ -51,6 +51,32 @@ def _make_contacts(
 
 
 class TestSensorTactile(unittest.TestCase):
+    def test_world_fixed_sensing_shape(self):
+        builder = newton.ModelBuilder()
+        builder.add_shape_box(body=-1, hx=0.02, hy=0.015, hz=0.005, label="fixed_patch")
+        body = builder.add_body(label="object")
+        builder.add_shape_box(body, hx=0.02, hy=0.015, hz=0.005, label="object_shape")
+        model = builder.finalize(device="cpu")
+        sensor = SensorTactile(
+            model,
+            sensing_shapes=[0],
+            grid_shape=(4, 5),
+            patch_size=(0.04, 0.03),
+        )
+        contacts = _make_contacts(
+            model,
+            point0=(0.005, -0.004, 0.0),
+            point1=(0.005, -0.004, -0.002),
+            force=(1.0, 2.0, 3.0),
+        )
+        sensor.update(model.state(), contacts, timestamp=0.0)
+        np.testing.assert_allclose(
+            sensor.force.numpy()[0].sum(axis=0), [1.0, 2.0, 3.0], atol=1.0e-6
+        )
+        np.testing.assert_allclose(
+            sensor.patch_transform_world.numpy()[0, :3], 0.0, atol=1.0e-6
+        )
+
     def test_cuda_patch_boundary_is_in_bounds(self):
         if not wp.is_cuda_available():
             self.skipTest("CUDA is unavailable")

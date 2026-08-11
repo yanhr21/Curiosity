@@ -40,6 +40,39 @@ def _plate_motion(frame: int, fps: int) -> tuple[str, float, float]:
     return "stationary_after", 0.0, 0.0
 
 
+def _onset_delay(
+    truth_state: np.ndarray,
+    predicted_state: np.ndarray,
+    *,
+    start: int,
+    end: int,
+    threshold: SlipState,
+    fps: int,
+) -> dict[str, int | float | None]:
+    truth_indices = np.flatnonzero(truth_state[start:end] >= int(threshold))
+    if not len(truth_indices):
+        return {
+            "heldout_onset_frame": None,
+            "predicted_onset_frame": None,
+            "delay_frames": None,
+            "delay_s": None,
+        }
+    truth_frame = start + int(truth_indices[0])
+    predicted_indices = np.flatnonzero(
+        predicted_state[truth_frame:end] >= int(threshold)
+    )
+    predicted_frame = (
+        truth_frame + int(predicted_indices[0]) if len(predicted_indices) else None
+    )
+    delay_frames = None if predicted_frame is None else predicted_frame - truth_frame
+    return {
+        "heldout_onset_frame": truth_frame,
+        "predicted_onset_frame": predicted_frame,
+        "delay_frames": delay_frames,
+        "delay_s": None if delay_frames is None else delay_frames / fps,
+    }
+
+
 def _render(
     output: Path,
     *,
@@ -157,6 +190,8 @@ def main() -> None:
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--frames", type=int, default=300)
     args = parser.parse_args()
+    if args.frames < 300:
+        parser.error("--frames must be at least 300 to include every declared slip phase")
     wp.set_device(args.device)
 
     friction = 0.005
@@ -278,6 +313,31 @@ def main() -> None:
     fp = int(np.sum(~truth & predicted))
     fn = int(np.sum(truth & ~predicted))
     tn = int(np.sum(~truth & ~predicted))
+    confusion = np.zeros((4, 4), dtype=np.int64)
+    np.add.at(confusion, (truth_state, predicted_state), 1)
+    phase_intervals = {
+        "stationary": (0, 60),
+        "slow": (60, 120),
+        "incipient": (120, 180),
+        "fast": (180, 240),
+        "stationary_after": (240, args.frames),
+    }
+    phase_evaluation = {}
+    for phase, (start, end) in phase_intervals.items():
+        phase_speed = speed[start:end]
+        phase_evaluation[phase] = {
+            "frame_interval": [start, end],
+            "heldout_speed_m_s_median": float(np.median(phase_speed)),
+            "heldout_speed_m_s_maximum": float(np.max(phase_speed)),
+            "heldout_state_counts": {
+                SlipState(state).name: int(np.count_nonzero(truth_state[start:end] == state))
+                for state in range(4)
+            },
+            "predicted_state_counts": {
+                SlipState(state).name: int(np.count_nonzero(predicted_state[start:end] == state))
+                for state in range(4)
+            },
+        }
     summary = {
         "frames": args.frames,
         "fps": fps,
@@ -289,9 +349,31 @@ def main() -> None:
         "precision": tp / (tp + fp) if tp + fp else None,
         "recall": tp / (tp + fn) if tp + fn else None,
         "ordinal_accuracy": float(np.mean(predicted_state == truth_state)),
+        "ordinal_confusion_rows_heldout_columns_prediction": confusion.tolist(),
+        "phase_evaluation": phase_evaluation,
+        "onset_delay": {
+            "incipient": _onset_delay(
+                truth_state,
+                predicted_state,
+                start=120,
+                end=180,
+                threshold=SlipState.INCIPIENT,
+                fps=fps,
+            ),
+            "gross": _onset_delay(
+                truth_state,
+                predicted_state,
+                start=180,
+                end=240,
+                threshold=SlipState.GROSS,
+                fps=fps,
+            ),
+        },
         "contact_frames": int(contact.sum()),
         "state_counts": np.bincount([int(row["detector_state"]) for row in records], minlength=4).tolist(),
         "max_heldout_vrel_m_s": max(float(row["heldout_relative_tangential_speed_m_s"]) for row in records),
+        "video": str(output),
+        "claim_boundary": "Relative velocity is a post-detector simulation label; this is not hardware slip validation.",
         "records": records,
     }
     output.with_suffix(".json").write_text(json.dumps(summary, indent=2) + "\n")

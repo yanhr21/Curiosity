@@ -26,7 +26,9 @@ def _compute_patch_transforms(
     patch = wp.tid()
     shape = patch_shapes[patch]
     body = shape_body[shape]
-    X_ws = wp.transform_multiply(body_q[body], shape_transform[shape])
+    X_ws = shape_transform[shape]
+    if body >= 0:
+        X_ws = wp.transform_multiply(body_q[body], X_ws)
     patch_transform_world[patch] = wp.transform_multiply(X_ws, patch_transform_shape[patch])
 
 
@@ -377,11 +379,6 @@ class SensorTactile:
             raise ValueError("`sensing_shapes` contains duplicate shape indices.")
         if any(index < 0 or index >= model.shape_count for index in sensing_indices):
             raise IndexError("`sensing_shapes` contains an out-of-range shape index.")
-
-        shape_body = model.shape_body.numpy()
-        global_shapes = [index for index in sensing_indices if shape_body[index] < 0]
-        if global_shapes:
-            raise ValueError(f"Global shapes cannot be tactile sensing patches: {global_shapes}")
 
         rows, columns = grid_shape
         if rows < 2 or columns < 2:

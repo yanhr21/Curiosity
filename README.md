@@ -59,6 +59,8 @@ label, or an aggregate body wrench. Newton does not produce GelSight
 RGB/elastomer depth, so optical output is explicitly unavailable. The root
 `tactile_video.py` reuses this sensor unchanged for Panda cube and pen scenes;
 `tactile_slip_demo.py` provides a controlled tactile-only stick-to-slide case.
+Sensing shapes may be dynamic, kinematic, or world-fixed; their patch frames
+remain fixed to the selected shape transform.
 
 To install from source with [uv](https://docs.astral.sh/uv/), see the [installation guide](https://newton-physics.github.io/newton/latest/guide/installation.html).
 
