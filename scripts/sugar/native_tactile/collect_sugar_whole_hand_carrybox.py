@@ -30,7 +30,7 @@ if not os.environ.get("SLURM_JOB_ID"):
 from isaaclab.app import AppLauncher
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(os.environ.get("CURIOSITY_ROOT", Path(__file__).resolve().parents[3])).resolve()
 TASK_ID = (
     "Sugar-G129dof-CarryBox-Official-Refiner-Anatomical27-"
     "WholeHand-TacSL-Audit"
@@ -351,6 +351,10 @@ def main() -> None:
         object_rows: list[np.ndarray] = []
         object_velocity_rows: list[np.ndarray] = []
         joint_rows: list[np.ndarray] = []
+        joint_velocity_rows: list[np.ndarray] = []
+        robot_root_state_rows: list[np.ndarray] = []
+        robot_root_velocity_rows: list[np.ndarray] = []
+        robot_body_state_rows: list[np.ndarray] = []
         action_rows: list[np.ndarray] = []
         position_rows: list[np.ndarray] = []
         quaternion_rows: list[np.ndarray] = []
@@ -511,6 +515,10 @@ def main() -> None:
             object_rows.append(cpu(obj.data.root_state_w[0]))
             object_velocity_rows.append(cpu(obj.data.root_vel_w[0]))
             joint_rows.append(cpu(robot.data.joint_pos[0]))
+            joint_velocity_rows.append(cpu(robot.data.joint_vel[0]))
+            robot_root_state_rows.append(cpu(robot.data.root_state_w[0]))
+            robot_root_velocity_rows.append(cpu(robot.data.root_vel_w[0]))
+            robot_body_state_rows.append(cpu(robot.data.body_state_w[0]))
             action_rows.append(cpu(action[0]))
             optical_rgb_rows.append(
                 np.stack(
@@ -663,6 +671,12 @@ def main() -> None:
                 base_env.scene["all_robot_box_contact"].body_names
             ),
             robot_joint_position=np.stack(joint_rows).astype(np.float32),
+            robot_joint_velocity=np.stack(joint_velocity_rows).astype(np.float32),
+            robot_joint_names=np.asarray(robot.joint_names),
+            robot_root_state_w=np.stack(robot_root_state_rows).astype(np.float32),
+            robot_root_velocity_w=np.stack(robot_root_velocity_rows).astype(np.float32),
+            robot_body_state_w=np.stack(robot_body_state_rows).astype(np.float32),
+            robot_body_names=np.asarray(robot.body_names),
             applied_action=np.stack(action_rows).astype(np.float32),
             source_step=np.arange(len(normal_array), dtype=np.int32),
             motion_frame_before_action=np.asarray(source_frames, dtype=np.int32),
@@ -771,6 +785,9 @@ def main() -> None:
             "robot_box_friction_force_shape": list(
                 np.stack(robot_box_friction_rows).shape
             ),
+            "robot_root_state_shape": list(np.stack(robot_root_state_rows).shape),
+            "robot_body_state_shape": list(np.stack(robot_body_state_rows).shape),
+            "robot_state_quaternion_order": "wxyz (native IsaacLab state; Newton bridge reorders to xyzw)",
             "physics_substeps_per_control_step": int(cfg.decimation),
             "physics_robot_box_force_shape": list(
                 np.stack(physics_robot_box_force_rows).shape

@@ -166,6 +166,8 @@ def draw_hand(
     slip_state: np.ndarray,
     normal_max: float,
     shear_max: float,
+    center_patch_note: str = "CENTER r1c1 = R15 RGB/DEPTH",
+    center_patch_label: str = "R15",
 ) -> None:
     x0 = side_index * HAND_WIDTH
     side_name = "LEFT HAND" if side_index == 0 else "RIGHT HAND"
@@ -288,7 +290,7 @@ def draw_hand(
 
     put(
         canvas,
-        "PALM - 4 ACROSS x 3 FROM FINGERS TO WRIST | CENTER r1c1 = R15 RGB/DEPTH",
+        f"PALM - 4 ACROSS x 3 FROM FINGERS TO WRIST | {center_patch_note}",
         (palm_start, 1090),
         0.50,
         1,
@@ -329,7 +331,7 @@ def draw_hand(
                 )
                 put(
                     canvas,
-                    "R15",
+                    center_patch_label,
                     (tile_x + tile_w - 39, palm_y[palm_y_index] + tile_h - 8),
                     0.36,
                     1,

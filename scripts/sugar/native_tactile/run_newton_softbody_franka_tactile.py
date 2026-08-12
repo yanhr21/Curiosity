@@ -412,8 +412,7 @@ def main() -> None:
         penetration = sensor.max_penetration.numpy().reshape((len(patch_names), 20, 25)).copy()
         dense_sum = force.sum(axis=(1, 2))
         total = sensor.total_force_patch.numpy()
-        unmapped = sensor.unmapped_force_patch.numpy()
-        residual = float(np.max(np.abs(total - dense_sum - unmapped)))
+        residual = float(np.max(np.abs(total - dense_sum)))
         max_residual = max(max_residual, residual)
         contact_frames += (np.linalg.norm(force, axis=-1) > 1.0e-8).any(axis=(1, 2))
 

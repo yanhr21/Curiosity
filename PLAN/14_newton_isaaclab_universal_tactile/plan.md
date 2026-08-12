@@ -51,8 +51,10 @@ the native `20 x 25` R15 ordering: the first tangent/shear axis increases with
 row and the second tangent/shear axis increases with column. Patch-size
 metadata follows that same row-then-column order. Newton declares the grid when the sensing
 surface is constructed and uses conservative bilinear accumulation from the
-actual solved contacts. No object pose, reward, contact label, or outcome is
-part of the tactile frame.
+actual solved contacts. A sample outside the declared planar bounds keeps its
+raw position and is accumulated on the nearest grid edge, so the derived grid
+still conserves its signed force vector. No object pose, reward, contact label,
+or outcome is part of the tactile frame.
 
 World orientations use scalar-last `xyzw`, matching Warp/Newton. The thin
 IsaacLab adapter reorders the official scalar-first `wxyz` tensor without
@@ -145,10 +147,20 @@ Routine hashes, version ladders and policy training are outside this plan.
 ## Current Newton result (2026-08-12)
 
 The native solved-force sensor, common adapter and causal detector are running
-on the exact SUGAR G1/rubber-hand/CarryBox geometry and on Newton's official
-Franka/deformable-duck scene. The full SUGAR motion-45 contact replay is
-continuous for all 660 source frames and conserves raw-to-grid force. It is a
-kinematic contact-field result, not a dynamic Newton carry: releasing the real
-0.302 kg box at source frames 200 or 214 makes it fall. Therefore the remaining
-Newton box question is physical grasp transfer, not sensor installation or
-video rendering. No policy training is authorized while that question remains.
+on the exact SUGAR G1/anatomical-54/CarryBox geometry, Newton's rigid Panda
+hydroelastic cube scene, and Newton's Franka/deformable-duck scene. The G1
+robot follows the recorded official motion kinematically, but the
+`0.3023376 kg` box is a free Newton body under gravity. Per-substep root/joint
+interpolation fixes the earlier 20-ms replay jump. In the continuous
+source-`260...515` result the box lifts `0.922 m` and returns to the ground;
+left/right native tactile is present on `255/256` and `256/256` frames, with a
+maximum independently reconstructed raw-to-grid difference of `2.74e-4 N`.
+
+The separately playable 128-frame H.264 uses actual Newton VTK state above
+both complete 27-patch hand maps. The late set-down is numerically stiff and
+must not be presented as a calibrated cross-engine or hardware force. The
+rigid Panda result lifts the cube `0.224 m`; the soft Franka result retains
+solved particle-rigid force. The common contract, slip tests and MuJoCo
+supplied-state contact-localization regression pass. Explicit human inspection
+of the retained scene videos is the remaining completion gate. No policy
+training is authorized in this plan.

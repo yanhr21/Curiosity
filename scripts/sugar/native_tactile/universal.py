@@ -100,6 +100,53 @@ class UniversalTactileFrame:
         return int(self.penetration_m.shape[0])
 
 
+def validate_universal_tactile_frame(frame: UniversalTactileFrame) -> UniversalTactileFrame:
+    """Validate the shared runtime layout without changing backend data."""
+    scalar_shape = tuple(frame.penetration_m.shape)
+    if len(scalar_shape) != 4:
+        raise ValueError("Universal scalar tactile fields must be [batch, patch, row, column].")
+    if tuple(frame.normal_force_n.shape) != scalar_shape or tuple(frame.active.shape) != scalar_shape:
+        raise ValueError("Penetration, normal force, and active mask must share one scalar layout.")
+    if tuple(frame.shear_force_xy_n.shape) != (*scalar_shape, 2):
+        raise ValueError("Signed shear must append local XY to the scalar tactile layout.")
+    if scalar_shape[1] != len(frame.patch_names):
+        raise ValueError("The tactile patch axis must match patch_names.")
+    if tuple(frame.patch_size_m.shape) != (scalar_shape[1], 2):
+        raise ValueError("patch_size_m must provide row/X and column/Y extents per patch.")
+    if frame.taxel_position_w_m is not None and tuple(frame.taxel_position_w_m.shape) != (*scalar_shape, 3):
+        raise ValueError("World taxel positions must append XYZ to the scalar layout.")
+    if frame.taxel_orientation_w_xyzw is not None and tuple(frame.taxel_orientation_w_xyzw.shape) != (
+        *scalar_shape,
+        4,
+    ):
+        raise ValueError("World taxel orientations must append an xyzw quaternion.")
+    patch_count = scalar_shape[1]
+    if not (
+        len(frame.optical.available)
+        == len(frame.optical.rgb)
+        == len(frame.optical.depth)
+        == patch_count
+    ):
+        raise ValueError("Optical availability, RGB, and depth entries must match the patch axis.")
+    if frame.clock.sequence < 0 or frame.clock.dt_s < 0.0:
+        raise ValueError("Tactile clock sequence and elapsed time must be nonnegative.")
+    for field in frame.counterpart_fields.values():
+        if tuple(field.penetration_m.shape) != scalar_shape:
+            raise ValueError("Every counterpart field must preserve the common scalar layout.")
+        if tuple(field.normal_force_n.shape) != scalar_shape or tuple(field.active.shape) != scalar_shape:
+            raise ValueError("Every counterpart scalar channel must preserve the common layout.")
+        if tuple(field.shear_force_xy_n.shape) != (*scalar_shape, 2):
+            raise ValueError("Every counterpart signed shear field must preserve the common layout.")
+    if frame.backend == "newton_native_contacts":
+        if frame.raw_samples is None:
+            raise ValueError("Newton frames must retain native solved contact samples.")
+        if any(frame.optical.available):
+            raise ValueError("Newton has no native GelSight optical stream.")
+    elif frame.backend == "isaaclab_tacsl" and frame.raw_samples is not None:
+        raise ValueError("IsaacLab TacSL frames must not be relabeled as Newton raw contacts.")
+    return frame
+
+
 def _stack(values: Sequence[Any], axis: int) -> Any:
     first = values[0]
     if type(first).__module__.startswith("torch"):
@@ -273,7 +320,7 @@ class IsaacLabTacSLAdapter:
         self._has_timestamp = True
         self._sequence += 1
         clock = TactileClock(self._sequence, self._timestamp_s, dt_s)
-        return UniversalTactileFrame(
+        return validate_universal_tactile_frame(UniversalTactileFrame(
             backend="isaaclab_tacsl",
             clock=clock,
             patch_names=self.patch_names,
@@ -292,7 +339,7 @@ class IsaacLabTacSLAdapter:
                 clock=optical_clock,
             ),
             raw_samples=None,
-        )
+        ))
 
 
 def _quat_rotate_xyzw(quaternion: np.ndarray, points: np.ndarray) -> np.ndarray:
@@ -355,7 +402,7 @@ class NewtonTactileAdapter:
             native_wrench_body0=sensor.raw_native_wrench_body0.numpy()[:raw_count].copy(),
             penetration_m=sensor.raw_penetration.numpy()[:raw_count].copy(),
         )
-        return UniversalTactileFrame(
+        return validate_universal_tactile_frame(UniversalTactileFrame(
             backend="newton_native_contacts",
             clock=TactileClock(sensor.sequence, sensor.timestamp, sensor.dt),
             patch_names=self.patch_names,
@@ -374,4 +421,4 @@ class NewtonTactileAdapter:
                 clock=None,
             ),
             raw_samples=raw,
-        )
+        ))

@@ -15,6 +15,8 @@ is an active entry point.
   IsaacLab's `wxyz` taxel orientations to the common Newton-compatible `xyzw`
   order and advances force and optical clocks independently. Active traces
   save each clock's sequence, timestamp and elapsed time explicitly.
+  Newton samples outside a planar patch bound retain their raw coordinates and
+  are conservatively accumulated on the nearest grid edge.
 - `slip.py`: causal tactile-history-only load, friction utilization,
   center-of-pressure motion, footprint transport, load loss and hysteretic
   `NO_CONTACT/STICK/INCIPIENT/GROSS` state.
@@ -29,6 +31,21 @@ is an active entry point.
   controlled swept capsule with fixed, `0.006 m/s` incipient, `0.030 m/s`
   gross and return phases; simulator relative velocity remains a held-out
   label.
+- `export_isaaclab_anatomical_patch_collision_asset.py`: exports the actual 54
+  enabled physical patch meshes and fixed surface frames from the spawned
+  IsaacLab G1 into Newton-readable geometry.
+- `derive_newton_root_bridge_from_taxels.py`: applies one rigid root-frame
+  correction from the 52 non-optical physical patch centers; it does not alter
+  the joint trajectory or tactile values.
+- `run_newton_sugar_g1_carrybox_tactile.py`: exact G1/anatomical-54 geometry,
+  kinematically driven robot and free dynamic CarryBox. Native VBD solved
+  forces are serialized into the same `20 x 25` patch contract.
+- `run_newton_sugar_g1_chunked_render.py`: actual VTK world plus both readable
+  27-patch hand maps, split into short EGL workers and joined as H.264.
+- `run_newton_panda_hydro_tactile.py` and its chunked renderer: actual rigid
+  Panda/cube hydroelastic case using solved SolverMuJoCo contact force.
+- `run_newton_softbody_franka_tactile.py` and its chunked renderer: actual
+  Franka/deformable-duck case using solved particle-rigid VBD force.
 - `Newton/tactile_video.py`: public `newton.sensors.SensorTactile` box/pen
   evidence entry point; no monkeypatch, `kh * depth`, aggregate wrench or
   fabricated optical output. Its world panel is synchronized directly from
@@ -48,7 +65,7 @@ Newton cube, pen, controlled slip, and tests:
 
 ```bash
 export PYTHONPATH="$PWD:$PWD/Newton"
-NEWTON_PY=/public/home/yanhongru/envs/tactile_genesis_snapshot_py312/bin/python
+NEWTON_PY=/public/home/yanhongru/envs/isaac_arena_py312/bin/python
 
 "$NEWTON_PY" Newton/tactile_video.py --scene cube --frames 600 \
   --normal-scale-n 5 --device cuda:0 \
@@ -58,10 +75,19 @@ NEWTON_PY=/public/home/yanhongru/envs/tactile_genesis_snapshot_py312/bin/python
   --output experiments/newton_universal_tactile/newton_pen/native_tactile.mp4
 "$NEWTON_PY" Newton/tactile_slip_demo.py --frames 300 --device cuda:0 \
   --output experiments/newton_universal_tactile/newton_slip_control/native_tactile_slip.mp4
-"$NEWTON_PY" -m unittest newton.tests.test_sensor_tactile \
-  newton.tests.test_mujoco_solver.TestUpdateContactsPointPositions.test_contact_points_populated -v
-"$NEWTON_PY" tests/native_tactile/test_newton_adapter.py -v
+"$NEWTON_PY" -m pytest -q \
+  Newton/newton/tests/test_sensor_tactile.py \
+  tests/native_tactile/test_newton_adapter.py \
+  tests/native_tactile/test_universal.py \
+  Newton/newton/tests/test_mujoco_solver.py::TestUpdateContactsPointPositions
 ```
+
+The exact G1 geometry export, root-frame bridge, continuous dynamic trace,
+chunked H.264, rigid Panda and soft Franka commands are in the root
+[`README`](../../../README.md#reproduce-from-this-branch). The retained current
+G1 result uses source frames `260...515`, four VBD substeps, eight iterations,
+`ke=1200 N/m`, `mu=2.0`, and a free `0.3023376 kg` box. These are simulation
+parameters, not hardware calibration constants.
 
 IsaacLab CarryBox collection and post-processing:
 
