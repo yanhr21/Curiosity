@@ -10108,7 +10108,7 @@ class TestUpdateContactsPointPositions(unittest.TestCase):
         for _ in range(200):
             state_0.clear_forces()
             solver.step(state_0, state_1, control, contacts, dt)
-            solver.update_contacts(contacts, state_0)
+            solver.update_contacts(contacts, state_1)
             state_0, state_1 = state_1, state_0
 
             n = contacts.rigid_contact_count.numpy()[0]
@@ -10139,6 +10139,42 @@ class TestUpdateContactsPointPositions(unittest.TestCase):
                     self.assertAlmostEqual(point1[i][2], -hz, delta=0.02)
                     self.assertLessEqual(abs(float(point1[i][0])), hx + 0.01)
                     self.assertLessEqual(abs(float(point1[i][1])), hy + 0.01)
+
+                original_body_q = state_0.body_q.numpy().copy()
+                translated_body_q = original_body_q.copy()
+                translation = np.array([0.31, -0.27, 0.19], dtype=np.float32)
+                translated_body_q[body, :3] += translation
+                translated_state = model.state()
+                translated_state.body_q.assign(translated_body_q)
+                solver.update_contacts(contacts, translated_state)
+                translated_point1 = contacts.rigid_contact_point1.numpy()[:n]
+
+                def transform_points_xyzw(pose, points):
+                    q_xyz = pose[3:6]
+                    q_w = pose[6]
+                    rotated = points + 2.0 * np.cross(
+                        q_xyz,
+                        np.cross(q_xyz, points) + q_w * points,
+                    )
+                    return rotated + pose[:3]
+
+                original_world = transform_points_xyzw(original_body_q[body], point1)
+                translated_world = transform_points_xyzw(
+                    translated_body_q[body], translated_point1
+                )
+                np.testing.assert_allclose(
+                    translated_world,
+                    original_world,
+                    atol=2.0e-5,
+                    err_msg=(
+                        "update_contacts(state) must localize MuJoCo support points "
+                        "in the supplied Newton state frame"
+                    ),
+                )
+                self.assertGreater(
+                    float(np.max(np.abs(translated_point1 - point1))),
+                    0.1,
+                )
                 break
 
         self.assertTrue(found_contacts, "No contacts detected after 200 steps")

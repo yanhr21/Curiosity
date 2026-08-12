@@ -3219,6 +3219,7 @@ class SolverMuJoCo(SolverBase):
             )
 
         super().__init__(model)
+        self._empty_body_q = wp.empty(0, dtype=wp.transform, device=model.device)
 
         # Import and cache MuJoCo modules (only happens once per class)
         mujoco, _ = self.import_mujoco()
@@ -4361,7 +4362,13 @@ class SolverMuJoCo(SolverBase):
 
     @override
     def update_contacts(self, contacts: Contacts, state: State | None = None) -> None:
-        """Update `contacts` from MuJoCo contacts when running with ``use_mujoco_contacts``."""
+        """Update ``contacts`` from solved MuJoCo constraints.
+
+        When ``state`` is provided, exported support points are expressed in
+        that Newton state's body frames. This keeps the public Contacts frame
+        convention intact even when MuJoCo uses a different internal body
+        decomposition for kinematic articulations.
+        """
         if self.use_mujoco_cpu:
             raise NotImplementedError()
 
@@ -4382,6 +4389,9 @@ class SolverMuJoCo(SolverBase):
             dim=mj_data.naconmax,
             inputs=[
                 self.mjc_geom_to_newton_shape,
+                self.model.shape_body,
+                state.body_q if state is not None else self._empty_body_q,
+                int(state is not None),
                 self.mjw_model.opt.cone,
                 mj_data.nacon,
                 mj_contact.pos,

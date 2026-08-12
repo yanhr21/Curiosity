@@ -1270,6 +1270,9 @@ def create_convert_mjw_contacts_to_newton_kernel():
     def convert_mjw_contacts_to_newton_kernel(
         # inputs
         mjc_geom_to_newton_shape: wp.array2d[wp.int32],
+        newton_shape_body: wp.array[wp.int32],
+        newton_body_q: wp.array[wp.transform],
+        use_newton_body_q: int,
         mj_opt_cone: int,
         mj_nacon: wp.array[wp.int32],
         mj_contact_pos: wp.array[wp.vec3],
@@ -1319,22 +1322,31 @@ def create_convert_mjw_contacts_to_newton_kernel():
         normal = mj_contact_frame[contact_idx][0]
         pos_world = mj_contact_pos[contact_idx]
 
-        rigid_contact_shape0[contact_idx] = mjc_geom_to_newton_shape[world, geoms_mjw[0]]
-        rigid_contact_shape1[contact_idx] = mjc_geom_to_newton_shape[world, geoms_mjw[1]]
+        shape0 = mjc_geom_to_newton_shape[world, geoms_mjw[0]]
+        shape1 = mjc_geom_to_newton_shape[world, geoms_mjw[1]]
+        rigid_contact_shape0[contact_idx] = shape0
+        rigid_contact_shape1[contact_idx] = shape1
         rigid_contact_normal[contact_idx] = normal
 
         # Convert contact position from world frame to body-local frame for each shape.
         # MuJoCo contact.pos is the midpoint in world frame; we transform it into each
         # body's local frame to match Newton's convention (see collide.py write_contact).
-        body_a = mj_geom_bodyid[geoms_mjw[0]]
-        body_b = mj_geom_bodyid[geoms_mjw[1]]
-
         X_wb_a = wp.transform_identity()
         X_wb_b = wp.transform_identity()
-        if body_a > 0:
-            X_wb_a = wp.transform(mj_xpos[world, body_a], quat_wxyz_to_xyzw(mj_xquat[world, body_a]))
-        if body_b > 0:
-            X_wb_b = wp.transform(mj_xpos[world, body_b], quat_wxyz_to_xyzw(mj_xquat[world, body_b]))
+        if use_newton_body_q != 0:
+            body_a = newton_shape_body[shape0]
+            body_b = newton_shape_body[shape1]
+            if body_a >= 0:
+                X_wb_a = newton_body_q[body_a]
+            if body_b >= 0:
+                X_wb_b = newton_body_q[body_b]
+        else:
+            body_a = mj_geom_bodyid[geoms_mjw[0]]
+            body_b = mj_geom_bodyid[geoms_mjw[1]]
+            if body_a > 0:
+                X_wb_a = wp.transform(mj_xpos[world, body_a], quat_wxyz_to_xyzw(mj_xquat[world, body_a]))
+            if body_b > 0:
+                X_wb_b = wp.transform(mj_xpos[world, body_b], quat_wxyz_to_xyzw(mj_xquat[world, body_b]))
 
         dist = mj_contact_dist[contact_idx]
         point0_world = pos_world - 0.5 * dist * normal

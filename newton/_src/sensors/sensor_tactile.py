@@ -99,7 +99,6 @@ def _record_tactile_sample(
     v = point_patch[1]
     if u < -0.5 * size[0] or u > 0.5 * size[0] or v < -0.5 * size[1] or v > 0.5 * size[1]:
         wp.atomic_add(unmapped_force_patch, patch, force_patch)
-        return
 
     row_f = wp.clamp((u / size[0] + 0.5) * float(rows - 1), 0.0, float(rows - 1))
     col_f = wp.clamp((v / size[1] + 0.5) * float(columns - 1), 0.0, float(columns - 1))
@@ -443,7 +442,7 @@ class SensorTactile:
     """Native contact force on each sensing shape [N], patch frame, shape ``(patch_count,)``."""
 
     unmapped_force_patch: wp.array[wp.vec3]
-    """Force outside the declared patch bounds [N], patch frame, shape ``(patch_count,)``."""
+    """Force whose points lie outside the patch bounds [N]; also accumulated on the nearest grid edge."""
 
     raw_count: wp.array[wp.int32]
     """Number of valid raw sensor-side samples, shape ``(1,)``."""

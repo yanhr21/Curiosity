@@ -189,7 +189,7 @@ class TestSensorTactile(unittest.TestCase):
         )
         contacts = _make_contacts(model, point0=(0.02, 0.0, 0.0), force=(4.0, 5.0, 6.0))
         sensor.update(model.state(), contacts, timestamp=0.0)
-        np.testing.assert_allclose(sensor.force.numpy(), 0.0, atol=1.0e-6)
+        np.testing.assert_allclose(sensor.force.numpy()[0].sum(axis=0), [4.0, 5.0, 6.0], atol=1.0e-6)
         np.testing.assert_allclose(sensor.unmapped_force_patch.numpy()[0], [4.0, 5.0, 6.0], atol=1.0e-6)
         np.testing.assert_allclose(sensor.total_force_patch.numpy()[0], [4.0, 5.0, 6.0], atol=1.0e-6)
 
