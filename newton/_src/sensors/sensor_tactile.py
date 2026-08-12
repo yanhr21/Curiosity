@@ -35,9 +35,11 @@ def _compute_patch_transforms(
 @wp.func
 def _record_tactile_sample(
     contact_index: int,
+    contact_kind: int,
     sensor_is_shape0: int,
     patch: int,
     counterpart: int,
+    counterpart_particle: int,
     point_world: wp.vec3,
     penetration: float,
     native_wrench_body0: wp.spatial_vector,
@@ -48,8 +50,10 @@ def _record_tactile_sample(
     # output
     raw_count: wp.array[wp.int32],
     raw_contact_index: wp.array[wp.int32],
+    raw_contact_kind: wp.array[wp.int32],
     raw_patch: wp.array[wp.int32],
     raw_counterpart_shape: wp.array[wp.int32],
+    raw_counterpart_particle: wp.array[wp.int32],
     raw_sensor_is_shape0: wp.array[wp.int32],
     raw_point_world: wp.array[wp.vec3],
     raw_point_patch: wp.array[wp.vec3],
@@ -75,8 +79,10 @@ def _record_tactile_sample(
 
     raw_index = wp.atomic_add(raw_count, 0, 1)
     raw_contact_index[raw_index] = contact_index
+    raw_contact_kind[raw_index] = contact_kind
     raw_patch[raw_index] = patch
     raw_counterpart_shape[raw_index] = counterpart
+    raw_counterpart_particle[raw_index] = counterpart_particle
     raw_sensor_is_shape0[raw_index] = sensor_is_shape0
     raw_point_world[raw_index] = point_world
     raw_point_patch[raw_index] = point_patch
@@ -108,6 +114,7 @@ def _record_tactile_sample(
     w01 = (1.0 - row_alpha) * col_alpha
     w10 = row_alpha * (1.0 - col_alpha)
     w11 = row_alpha * col_alpha
+    sample_active = penetration > 0.0 or wp.dot(force_patch, force_patch) > 0.0
 
     index00 = row0 * columns + col0
     index01 = row0 * columns + col1
@@ -117,19 +124,23 @@ def _record_tactile_sample(
     if w00 > 0.0:
         wp.atomic_add(force, patch, index00, w00 * force_patch)
         wp.atomic_max(max_penetration, patch, index00, penetration)
-        wp.atomic_max(active, patch, index00, 1)
+        if sample_active:
+            wp.atomic_max(active, patch, index00, 1)
     if w01 > 0.0:
         wp.atomic_add(force, patch, index01, w01 * force_patch)
         wp.atomic_max(max_penetration, patch, index01, penetration)
-        wp.atomic_max(active, patch, index01, 1)
+        if sample_active:
+            wp.atomic_max(active, patch, index01, 1)
     if w10 > 0.0:
         wp.atomic_add(force, patch, index10, w10 * force_patch)
         wp.atomic_max(max_penetration, patch, index10, penetration)
-        wp.atomic_max(active, patch, index10, 1)
+        if sample_active:
+            wp.atomic_max(active, patch, index10, 1)
     if w11 > 0.0:
         wp.atomic_add(force, patch, index11, w11 * force_patch)
         wp.atomic_max(max_penetration, patch, index11, penetration)
-        wp.atomic_max(active, patch, index11, 1)
+        if sample_active:
+            wp.atomic_max(active, patch, index11, 1)
 
 
 @wp.kernel(enable_backward=False)
@@ -156,8 +167,10 @@ def _rasterize_contacts(
     # output
     raw_count: wp.array[wp.int32],
     raw_contact_index: wp.array[wp.int32],
+    raw_contact_kind: wp.array[wp.int32],
     raw_patch: wp.array[wp.int32],
     raw_counterpart_shape: wp.array[wp.int32],
+    raw_counterpart_particle: wp.array[wp.int32],
     raw_sensor_is_shape0: wp.array[wp.int32],
     raw_point_world: wp.array[wp.vec3],
     raw_point_patch: wp.array[wp.vec3],
@@ -205,9 +218,11 @@ def _rasterize_contacts(
     if patch0 >= 0 and counterpart_allowed[shape1] != 0:
         _record_tactile_sample(
             contact_index,
+            0,
             1,
             patch0,
             shape1,
+            -1,
             point0_world,
             penetration,
             native_wrench,
@@ -217,8 +232,10 @@ def _rasterize_contacts(
             columns,
             raw_count,
             raw_contact_index,
+            raw_contact_kind,
             raw_patch,
             raw_counterpart_shape,
+            raw_counterpart_particle,
             raw_sensor_is_shape0,
             raw_point_world,
             raw_point_patch,
@@ -237,8 +254,10 @@ def _rasterize_contacts(
         _record_tactile_sample(
             contact_index,
             0,
+            0,
             patch1,
             shape0,
+            -1,
             point1_world,
             penetration,
             native_wrench,
@@ -248,8 +267,10 @@ def _rasterize_contacts(
             columns,
             raw_count,
             raw_contact_index,
+            raw_contact_kind,
             raw_patch,
             raw_counterpart_shape,
+            raw_counterpart_particle,
             raw_sensor_is_shape0,
             raw_point_world,
             raw_point_patch,
@@ -264,6 +285,104 @@ def _rasterize_contacts(
             total_force_patch,
             unmapped_force_patch,
         )
+
+
+@wp.kernel(enable_backward=False)
+def _rasterize_soft_contacts(
+    force_offset: int,
+    contact_count: wp.array[wp.int32],
+    contact_particle: wp.array[int],
+    contact_shape: wp.array[int],
+    contact_body_pos: wp.array[wp.vec3],
+    contact_normal: wp.array[wp.vec3],
+    contact_wrench: wp.array[wp.spatial_vector],
+    particle_q: wp.array[wp.vec3],
+    particle_radius: wp.array[float],
+    shape_body: wp.array[wp.int32],
+    body_q: wp.array[wp.transform],
+    shape_to_patch: wp.array[wp.int32],
+    include_soft_contacts: int,
+    patch_transform_world: wp.array[wp.transform],
+    patch_size: wp.array[wp.vec2],
+    rows: int,
+    columns: int,
+    # output
+    raw_count: wp.array[wp.int32],
+    raw_contact_index: wp.array[wp.int32],
+    raw_contact_kind: wp.array[wp.int32],
+    raw_patch: wp.array[wp.int32],
+    raw_counterpart_shape: wp.array[wp.int32],
+    raw_counterpart_particle: wp.array[wp.int32],
+    raw_sensor_is_shape0: wp.array[wp.int32],
+    raw_point_world: wp.array[wp.vec3],
+    raw_point_patch: wp.array[wp.vec3],
+    raw_force_world: wp.array[wp.vec3],
+    raw_force_patch: wp.array[wp.vec3],
+    raw_native_wrench_body0: wp.array[wp.spatial_vector],
+    raw_penetration: wp.array[float],
+    force: wp.array2d[wp.vec3],
+    max_penetration: wp.array2d[float],
+    active: wp.array2d[wp.int32],
+    total_force_world: wp.array[wp.vec3],
+    total_force_patch: wp.array[wp.vec3],
+    unmapped_force_patch: wp.array[wp.vec3],
+):
+    contact_index = wp.tid()
+    if contact_index >= contact_count[0] or include_soft_contacts == 0:
+        return
+
+    shape = contact_shape[contact_index]
+    particle = contact_particle[contact_index]
+    if shape < 0 or particle < 0:
+        return
+    patch = shape_to_patch[shape]
+    if patch < 0:
+        return
+
+    body = shape_body[shape]
+    X_wb = wp.transform_identity()
+    if body >= 0:
+        X_wb = body_q[body]
+    point_world = wp.transform_point(X_wb, contact_body_pos[contact_index])
+    penetration = wp.max(
+        0.0,
+        -(wp.dot(contact_normal[contact_index], particle_q[particle] - point_world) - particle_radius[particle]),
+    )
+
+    _record_tactile_sample(
+        force_offset + contact_index,
+        1,
+        1,
+        patch,
+        -1,
+        particle,
+        point_world,
+        penetration,
+        contact_wrench[force_offset + contact_index],
+        patch_transform_world,
+        patch_size,
+        rows,
+        columns,
+        raw_count,
+        raw_contact_index,
+        raw_contact_kind,
+        raw_patch,
+        raw_counterpart_shape,
+        raw_counterpart_particle,
+        raw_sensor_is_shape0,
+        raw_point_world,
+        raw_point_patch,
+        raw_force_world,
+        raw_force_patch,
+        raw_native_wrench_body0,
+        raw_penetration,
+        force,
+        max_penetration,
+        active,
+        total_force_world,
+        total_force_patch,
+        unmapped_force_patch,
+    )
 
 
 class SensorTactile:
@@ -332,11 +451,17 @@ class SensorTactile:
     raw_contact_index: wp.array[wp.int32]
     """Source Newton contact index per raw sample, shape ``(raw_capacity,)``."""
 
+    raw_contact_kind: wp.array[wp.int32]
+    """Zero for rigid-shape contact and one for particle-shape contact."""
+
     raw_patch: wp.array[wp.int32]
     """Patch index per raw sample, shape ``(raw_capacity,)``."""
 
     raw_counterpart_shape: wp.array[wp.int32]
     """Counterpart shape index per raw sample, shape ``(raw_capacity,)``."""
+
+    raw_counterpart_particle: wp.array[wp.int32]
+    """Counterpart particle index for soft contacts, otherwise ``-1``."""
 
     raw_sensor_is_shape0: wp.array[wp.int32]
     """One when the sensing shape is native shape0, zero for native shape1."""
@@ -412,6 +537,7 @@ class SensorTactile:
             counterpart_allowed[counterpart_indices] = 1
         else:
             counterpart_indices = list(range(model.shape_count))
+        self._include_soft_contacts = int(counterpart_shapes is None)
 
         shape_to_patch = np.full(model.shape_count, -1, dtype=np.int32)
         shape_to_patch[sensing_indices] = np.arange(patch_count, dtype=np.int32)
@@ -427,6 +553,7 @@ class SensorTactile:
         self.dt = 0.0
         self._has_timestamp = False
         self._raw_capacity = 0
+        self._empty_body_q = wp.empty(0, dtype=wp.transform, device=self.device)
 
         model.request_contact_attributes("force")
         self._patch_shapes = wp.array(sensing_indices, dtype=wp.int32, device=self.device)
@@ -449,13 +576,15 @@ class SensorTactile:
         """Logical dense shape ``(patch, row, column)``."""
         return (self.patch_count, *self.grid_shape)
 
-    def _allocate_raw(self, contact_capacity: int) -> None:
-        raw_capacity = max(1, 2 * contact_capacity)
+    def _allocate_raw(self, rigid_contact_capacity: int, soft_contact_capacity: int = 0) -> None:
+        raw_capacity = max(1, 2 * rigid_contact_capacity + soft_contact_capacity)
         self._raw_capacity = raw_capacity
         self.raw_count = wp.zeros(1, dtype=wp.int32, device=self.device)
         self.raw_contact_index = wp.full(raw_capacity, -1, dtype=wp.int32, device=self.device)
+        self.raw_contact_kind = wp.full(raw_capacity, -1, dtype=wp.int32, device=self.device)
         self.raw_patch = wp.full(raw_capacity, -1, dtype=wp.int32, device=self.device)
         self.raw_counterpart_shape = wp.full(raw_capacity, -1, dtype=wp.int32, device=self.device)
+        self.raw_counterpart_particle = wp.full(raw_capacity, -1, dtype=wp.int32, device=self.device)
         self.raw_sensor_is_shape0 = wp.zeros(raw_capacity, dtype=wp.int32, device=self.device)
         self.raw_point_world = wp.zeros(raw_capacity, dtype=wp.vec3, device=self.device)
         self.raw_point_patch = wp.zeros(raw_capacity, dtype=wp.vec3, device=self.device)
@@ -489,8 +618,10 @@ class SensorTactile:
         Raises:
             ValueError: If force data, device, state, or source time is invalid.
         """
-        if state is None or state.body_q is None:
-            raise ValueError("SensorTactile requires a state with `body_q`.")
+        if state is None:
+            raise ValueError("SensorTactile requires a simulation state.")
+        if self._model.body_count > 0 and state.body_q is None:
+            raise ValueError("SensorTactile requires body transforms for non-static patches.")
         if contacts.force is None:
             raise ValueError(
                 "SensorTactile requires `Contacts.force`; construct the sensor before creating the Contacts object."
@@ -500,8 +631,11 @@ class SensorTactile:
         if self._has_timestamp and timestamp < self.timestamp:
             raise ValueError("Tactile source timestamps must be nondecreasing.")
 
-        if 2 * contacts.rigid_contact_max > self._raw_capacity:
-            self._allocate_raw(contacts.rigid_contact_max)
+        rigid_contact_count = min(int(contacts.rigid_contact_count.numpy()[0]), contacts.rigid_contact_max)
+        soft_contact_count = min(int(contacts.soft_contact_count.numpy()[0]), contacts.soft_contact_max)
+        required_raw_capacity = 2 * rigid_contact_count + soft_contact_count
+        if required_raw_capacity > self._raw_capacity:
+            self._allocate_raw(rigid_contact_count, soft_contact_count)
 
         self.force.zero_()
         self.max_penetration.zero_()
@@ -511,6 +645,8 @@ class SensorTactile:
         self.unmapped_force_patch.zero_()
         self.raw_count.zero_()
 
+        body_q = state.body_q if state.body_q is not None else self._empty_body_q
+
         wp.launch(
             _compute_patch_transforms,
             dim=self.patch_count,
@@ -519,7 +655,7 @@ class SensorTactile:
                 self.patch_transform_shape,
                 self._model.shape_body,
                 self._model.shape_transform,
-                state.body_q,
+                body_q,
             ],
             outputs=[self.patch_transform_world],
             device=self.device,
@@ -527,7 +663,7 @@ class SensorTactile:
         )
         wp.launch(
             _rasterize_contacts,
-            dim=contacts.rigid_contact_max,
+            dim=rigid_contact_count,
             inputs=[
                 contacts.rigid_contact_count,
                 contacts.rigid_contact_shape0,
@@ -541,7 +677,7 @@ class SensorTactile:
                 contacts.rigid_contact_margin1,
                 contacts.force,
                 self._model.shape_body,
-                state.body_q,
+                body_q,
                 self._shape_to_patch,
                 self._counterpart_allowed,
                 self.patch_transform_world,
@@ -552,8 +688,10 @@ class SensorTactile:
             outputs=[
                 self.raw_count,
                 self.raw_contact_index,
+                self.raw_contact_kind,
                 self.raw_patch,
                 self.raw_counterpart_shape,
+                self.raw_counterpart_particle,
                 self.raw_sensor_is_shape0,
                 self.raw_point_world,
                 self.raw_point_patch,
@@ -571,6 +709,56 @@ class SensorTactile:
             device=self.device,
             record_tape=False,
         )
+
+        if soft_contact_count > 0:
+            if state.particle_q is None:
+                raise ValueError("Soft tactile contacts require particle positions in State.")
+            wp.launch(
+                _rasterize_soft_contacts,
+                dim=soft_contact_count,
+                inputs=[
+                    contacts.rigid_contact_max,
+                    contacts.soft_contact_count,
+                    contacts.soft_contact_particle,
+                    contacts.soft_contact_shape,
+                    contacts.soft_contact_body_pos,
+                    contacts.soft_contact_normal,
+                    contacts.force,
+                    state.particle_q,
+                    self._model.particle_radius,
+                    self._model.shape_body,
+                    body_q,
+                    self._shape_to_patch,
+                    self._include_soft_contacts,
+                    self.patch_transform_world,
+                    self.patch_size,
+                    self.grid_shape[0],
+                    self.grid_shape[1],
+                ],
+                outputs=[
+                    self.raw_count,
+                    self.raw_contact_index,
+                    self.raw_contact_kind,
+                    self.raw_patch,
+                    self.raw_counterpart_shape,
+                    self.raw_counterpart_particle,
+                    self.raw_sensor_is_shape0,
+                    self.raw_point_world,
+                    self.raw_point_patch,
+                    self.raw_force_world,
+                    self.raw_force_patch,
+                    self.raw_native_wrench_body0,
+                    self.raw_penetration,
+                    self.force,
+                    self.max_penetration,
+                    self.active,
+                    self.total_force_world,
+                    self.total_force_patch,
+                    self.unmapped_force_patch,
+                ],
+                device=self.device,
+                record_tape=False,
+            )
 
         self.dt = timestamp - self.timestamp if self._has_timestamp else 0.0
         self.timestamp = float(timestamp)

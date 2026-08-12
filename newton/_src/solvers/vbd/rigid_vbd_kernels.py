@@ -2821,6 +2821,106 @@ def compute_rigid_contact_forces(
 
 
 @wp.kernel
+def write_rigid_contact_wrenches(
+    rigid_contact_count: wp.array[int],
+    contact_body0: wp.array[wp.int32],
+    contact_point0_world: wp.array[wp.vec3],
+    force_on_body1: wp.array[wp.vec3],
+    body_q: wp.array[wp.transform],
+    body_com: wp.array[wp.vec3],
+    out_wrench_on_body0: wp.array[wp.spatial_vector],
+):
+    """Write solved rigid contact force as Newton's body0 wrench convention."""
+    contact_idx = wp.tid()
+    if contact_idx >= rigid_contact_count[0]:
+        out_wrench_on_body0[contact_idx] = wp.spatial_vector()
+        return
+
+    body0 = contact_body0[contact_idx]
+    force = -force_on_body1[contact_idx]
+    torque = wp.vec3(0.0)
+    if body0 >= 0:
+        com_world = wp.transform_point(body_q[body0], body_com[body0])
+        torque = wp.cross(contact_point0_world[contact_idx] - com_world, force)
+    out_wrench_on_body0[contact_idx] = wp.spatial_vector(force, torque)
+
+
+@wp.kernel
+def write_body_particle_contact_wrenches(
+    dt: float,
+    force_offset: int,
+    soft_contact_count: wp.array[int],
+    soft_contact_particle: wp.array[int],
+    soft_contact_shape: wp.array[int],
+    soft_contact_body_pos: wp.array[wp.vec3],
+    soft_contact_body_vel: wp.array[wp.vec3],
+    soft_contact_normal: wp.array[wp.vec3],
+    particle_q: wp.array[wp.vec3],
+    particle_q_prev: wp.array[wp.vec3],
+    particle_radius: wp.array[float],
+    shape_body: wp.array[int],
+    body_q: wp.array[wp.transform],
+    body_q_prev: wp.array[wp.transform],
+    body_com: wp.array[wp.vec3],
+    friction_epsilon: float,
+    contact_penalty_k: wp.array[float],
+    contact_material_kd: wp.array[float],
+    contact_material_mu: wp.array[float],
+    out_wrench_on_shape: wp.array[wp.spatial_vector],
+):
+    """Write the solved VBD particle contact wrench on the rigid shape."""
+    contact_idx = wp.tid()
+    output_idx = force_offset + contact_idx
+    if contact_idx >= soft_contact_count[0]:
+        out_wrench_on_shape[output_idx] = wp.spatial_vector()
+        return
+
+    particle_idx = soft_contact_particle[contact_idx]
+    shape_idx = soft_contact_shape[contact_idx]
+    if particle_idx < 0 or shape_idx < 0:
+        out_wrench_on_shape[output_idx] = wp.spatial_vector()
+        return
+
+    body_idx = shape_body[shape_idx]
+    X_wb = wp.transform_identity()
+    X_wb_prev = wp.transform_identity()
+    if body_idx >= 0:
+        X_wb = body_q[body_idx]
+        X_wb_prev = body_q_prev[body_idx]
+
+    point_world = wp.transform_point(X_wb, soft_contact_body_pos[contact_idx])
+    point_world_prev = wp.transform_point(X_wb_prev, soft_contact_body_pos[contact_idx])
+    normal = soft_contact_normal[contact_idx]
+    particle_pos = particle_q[particle_idx]
+    penetration = -(wp.dot(normal, particle_pos - point_world) - particle_radius[particle_idx])
+    if penetration <= 0.0:
+        out_wrench_on_shape[output_idx] = wp.spatial_vector()
+        return
+
+    body_displacement = point_world - point_world_prev
+    body_displacement += wp.transform_vector(X_wb, soft_contact_body_vel[contact_idx]) * dt
+    particle_displacement = particle_pos - particle_q_prev[particle_idx]
+    relative_translation = particle_displacement - body_displacement
+    force_on_particle, _ = _compute_body_particle_contact_force(
+        penetration,
+        normal,
+        relative_translation,
+        contact_penalty_k[contact_idx],
+        contact_material_kd[contact_idx],
+        contact_material_mu[contact_idx],
+        friction_epsilon,
+        dt,
+    )
+    force_on_shape = -force_on_particle
+
+    torque = wp.vec3(0.0)
+    if body_idx >= 0:
+        com_world = wp.transform_point(X_wb, body_com[body_idx])
+        torque = wp.cross(point_world - com_world, force_on_shape)
+    out_wrench_on_shape[output_idx] = wp.spatial_vector(force_on_shape, torque)
+
+
+@wp.kernel
 def accumulate_body_particle_contacts_per_body(
     dt: float,
     color_group: wp.array[wp.int32],

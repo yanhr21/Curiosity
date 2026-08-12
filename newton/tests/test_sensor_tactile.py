@@ -125,6 +125,19 @@ class TestSensorTactile(unittest.TestCase):
         self.assertEqual(int(active.sum()), 1)
         self.assertEqual(int(active[-1, 0]), 1)
 
+    def test_zero_force_separated_candidate_is_inactive(self):
+        model = _make_model()
+        sensor = SensorTactile(model, sensing_shapes=[0], grid_shape=(3, 5), patch_size=(0.04, 0.03))
+        contacts = _make_contacts(
+            model,
+            point0=(0.0, 0.0, 0.0),
+            point1=(0.0, 0.0, 0.002),
+            force=(0.0, 0.0, 0.0),
+        )
+        sensor.update(model.state(), contacts, timestamp=0.0)
+        self.assertEqual(int(sensor.raw_count.numpy()[0]), 1)
+        self.assertEqual(int(sensor.active.numpy().sum()), 0)
+
     def test_shape_order_symmetry(self):
         model = _make_model()
         sensor = SensorTactile(model, sensing_shapes=[0], grid_shape=(4, 5), patch_size=(0.04, 0.03))
@@ -210,6 +223,49 @@ class TestSensorTactile(unittest.TestCase):
         self.assertEqual(sensor.sequence, -1)
         self.assertEqual(int(sensor.raw_count.numpy()[0]), 0)
         np.testing.assert_allclose(sensor.force.numpy(), 0.0, atol=1.0e-6)
+
+    def test_vbd_soft_contact_native_force_and_conservation(self):
+        builder = newton.ModelBuilder(gravity=-9.81)
+        patch_shape = builder.add_shape_box(
+            -1,
+            wp.transform((0.0, 0.0, -0.05), wp.quat_identity()),
+            hx=0.2,
+            hy=0.2,
+            hz=0.05,
+            label="soft_contact_patch",
+        )
+        builder.add_particle((0.0, 0.0, 0.05), (0.0, 0.0, 0.0), 1.0, radius=0.1)
+        builder.color()
+        model = builder.finalize(device="cpu")
+        sensor = SensorTactile(
+            model,
+            sensing_shapes=[patch_shape],
+            grid_shape=(4, 4),
+            patch_size=(0.4, 0.4),
+            patch_transform_shape=[wp.transform((0.0, 0.0, 0.05), wp.quat_identity())],
+        )
+        collision_pipeline = newton.CollisionPipeline(model, soft_contact_margin=0.2)
+        contacts = collision_pipeline.contacts()
+        solver = newton.solvers.SolverVBD(model, iterations=3, particle_enable_tile_solve=False)
+        state_0 = model.state()
+        state_1 = model.state()
+
+        collision_pipeline.collide(state_0, contacts)
+        solver.step(state_0, state_1, model.control(), contacts, 1.0 / 60.0)
+        solver.update_contacts(contacts, state_1)
+        sensor.update(state_1, contacts, timestamp=1.0 / 60.0)
+
+        self.assertEqual(int(sensor.raw_count.numpy()[0]), 1)
+        self.assertEqual(int(sensor.raw_contact_kind.numpy()[0]), 1)
+        self.assertEqual(int(sensor.raw_counterpart_particle.numpy()[0]), 0)
+        force = sensor.raw_force_world.numpy()[0]
+        self.assertLess(force[2], 0.0)
+        self.assertGreater(np.linalg.norm(force), 1.0)
+        np.testing.assert_allclose(sensor.force.numpy()[0].sum(axis=0), force, atol=1.0e-5)
+        np.testing.assert_allclose(sensor.total_force_world.numpy()[0], force, atol=1.0e-5)
+        np.testing.assert_allclose(
+            contacts.force.numpy()[contacts.rigid_contact_max, :3], force, atol=1.0e-5
+        )
 
 
 if __name__ == "__main__":

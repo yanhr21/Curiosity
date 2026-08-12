@@ -76,6 +76,8 @@ from .rigid_vbd_kernels import (
     update_duals_body_body_contacts,
     update_duals_body_particle_contacts,
     update_duals_joint,
+    write_body_particle_contact_wrenches,
+    write_rigid_contact_wrenches,
 )
 from .tri_mesh_collision import (
     TriMeshCollisionDetector,
@@ -752,6 +754,9 @@ class SolverVBD(SolverBase):
         self._rigid_contact_point1_world = wp.zeros(0, dtype=wp.vec3, device=self.device)
         self._rigid_contact_zero_count = wp.zeros(1, dtype=wp.int32, device=self.device)
         self._rigid_contact_zero_force = wp.zeros(0, dtype=wp.vec3, device=self.device)
+        self._contact_report_body_q_prev = wp.clone(model.body_q, device=self.device)
+        self._last_contact_dt = 0.0
+        self._has_contact_step = False
 
         # Validation
         has_bodies = model.body_count > 0
@@ -1588,6 +1593,12 @@ class SolverVBD(SolverBase):
                 depend on this argument.
             dt: Time step size.
         """
+        if self.model.body_count > 0:
+            report_body_q_prev = state_in.body_q if self.integrate_with_external_rigid_solver else self.body_q_prev
+            self._contact_report_body_q_prev.assign(report_body_q_prev)
+        self._last_contact_dt = float(dt)
+        self._has_contact_step = True
+
         update_rigid = self._update_rigid_history
         self._update_rigid_history = True
 
@@ -1607,6 +1618,84 @@ class SolverVBD(SolverBase):
             state_in, state_out, dt, apply_stick_deadzone=contacts is not None and self.rigid_contact_hard
         )
         self._finalize_particles(state_out, dt)
+
+    @override
+    def update_contacts(self, contacts: Contacts, state: State | None = None) -> None:
+        """Populate native rigid and particle contact wrenches after :meth:`step`."""
+        if contacts.force is None:
+            raise ValueError(
+                "contacts.force is not allocated. Call model.request_contact_attributes('force') "
+                "before creating the Contacts object."
+            )
+        if not self._has_contact_step:
+            raise ValueError("No solved VBD contact data is available. Call step() before update_contacts().")
+        if state is None:
+            raise ValueError("SolverVBD.update_contacts requires the post-step State.")
+        if self.model.body_count > 0 and state.body_q is None:
+            raise ValueError("SolverVBD.update_contacts requires post-step body transforms.")
+        if contacts.soft_contact_max > 0 and state.particle_q is None:
+            raise ValueError("Soft contact reporting requires post-step particle positions.")
+
+        body_q = state.body_q if state.body_q is not None else self._empty_body_q
+
+        contacts.force.zero_()
+
+        body0, _body1, point0_world, _point1_world, force_on_body1, _count = self.collect_rigid_contact_forces(
+            body_q,
+            self._contact_report_body_q_prev,
+            contacts,
+            self._last_contact_dt,
+        )
+        rigid_report_capacity = min(
+            contacts.rigid_contact_max,
+            body0.shape[0],
+            point0_world.shape[0],
+            force_on_body1.shape[0],
+        )
+        if rigid_report_capacity > 0:
+            wp.launch(
+                kernel=write_rigid_contact_wrenches,
+                dim=rigid_report_capacity,
+                inputs=[
+                    contacts.rigid_contact_count,
+                    body0,
+                    point0_world,
+                    force_on_body1,
+                    body_q,
+                    self.model.body_com,
+                ],
+                outputs=[contacts.force],
+                device=self.device,
+            )
+
+        if contacts.soft_contact_max > 0:
+            wp.launch(
+                kernel=write_body_particle_contact_wrenches,
+                dim=contacts.soft_contact_max,
+                inputs=[
+                    self._last_contact_dt,
+                    contacts.rigid_contact_max,
+                    contacts.soft_contact_count,
+                    contacts.soft_contact_particle,
+                    contacts.soft_contact_shape,
+                    contacts.soft_contact_body_pos,
+                    contacts.soft_contact_body_vel,
+                    contacts.soft_contact_normal,
+                    state.particle_q,
+                    self.particle_q_prev,
+                    self.model.particle_radius,
+                    self.model.shape_body,
+                    body_q,
+                    self._contact_report_body_q_prev,
+                    self.model.body_com,
+                    self.friction_epsilon,
+                    self.body_particle_contact_penalty_k,
+                    self.body_particle_contact_material_kd,
+                    self.body_particle_contact_material_mu,
+                ],
+                outputs=[contacts.force],
+                device=self.device,
+            )
 
     def _snapshot_rigid_contact_history(self, contacts: Contacts | None):
         """Write solved contact state for next frame's match-index warm-start."""
