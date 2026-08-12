@@ -82,5 +82,5 @@
   outputs and claim boundaries for both engines.
 - [x] Confirm no tactile policy training, object-state input, proxy force,
   fabricated optical data, experiment artifact, or large binary enters Git.
-- [ ] Commit and push the root documentation/adapters and the Newton feature
+- [x] Commit and push the root documentation/adapters and the Newton feature
   branch separately.
