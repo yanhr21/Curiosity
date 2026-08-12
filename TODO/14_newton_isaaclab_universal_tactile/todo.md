@@ -66,7 +66,7 @@
 - [ ] Complete a dynamically load-bearing Newton SUGAR G1 CarryBox grasp with
   synchronized world, patch fields and slip state. The exact 660-frame
   kinematic contact replay is complete, but dynamic releases at source frames
-  200 and 214 fall rather than carry the box.
+  200, 214 and already-clamped frame 380 fall rather than carry the box.
 - [x] Run a Newton non-box scene with the unchanged sensor.
 - [x] Run IsaacLab SUGAR G1 CarryBox with the common adapter.
 - [x] Run an IsaacLab non-box swept-capsule scene with the unchanged official

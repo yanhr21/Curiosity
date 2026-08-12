@@ -72,12 +72,14 @@ works on the real SUGAR geometry and that the displayed contact locations follow
 the official motion. It is not a Newton dynamic-carry success: the robot and box
 are kinematically replayed and peak hand loads are consequently unphysical.
 
-Two explicit dynamic-box checks keep the G1 trajectory kinematic but release the
-real `0.3023376 kg` box. Starting at source frame 200 produces zero hand force
-before the box falls `5.02 m`; starting at frame 214 produces only 7/9
-left/right nonzero-force frames before it falls `4.96 m`. The official trajectory
-therefore does not directly transfer into a load-bearing Newton grasp. This
-negative is retained rather than being relabeled as force-balance evidence.
+Three explicit dynamic-box checks keep the G1 trajectory kinematic but release
+the real `0.3023376 kg` box. Starting at source frame 200 produces zero hand
+force before the box falls `5.02 m`; starting at frame 214 produces only 7/9
+left/right nonzero-force frames before it falls `4.96 m`. Releasing from the
+already-clamped frame 380 still produces zero post-step solved hand-force frames
+and `2.76 m` displacement. The official trajectory therefore does not directly
+transfer into a load-bearing Newton grasp. This negative is retained rather
+than being relabeled as force-balance evidence.
 
 The unchanged `SensorTactile` also runs on Newton's official Franka plus
 deformable rubber-duck example. Its native signal comes from solved
