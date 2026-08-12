@@ -47,6 +47,8 @@ class TestNewtonTactileAdapter(unittest.TestCase):
         np.testing.assert_allclose(frame.normal_force_n.sum(), 3.0, atol=1.0e-6)
         np.testing.assert_allclose(frame.shear_force_xy_n.sum(axis=(0, 1, 2, 3)), [1.0, -2.0], atol=1.0e-6)
         self.assertEqual(frame.raw_samples.contact_index.tolist(), [0])
+        self.assertEqual(frame.raw_samples.contact_kind.tolist(), [0])
+        self.assertEqual(frame.raw_samples.counterpart_particle.tolist(), [-1])
         self.assertEqual(frame.optical.available, (False,))
         self.assertEqual(frame.clock.sequence, 0)
         np.testing.assert_allclose(

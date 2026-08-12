@@ -62,16 +62,31 @@ force or a binary label. The trace also preserves every taxel's world position,
 scalar-last `xyzw` orientation, RGB/depth frame and the independent tactile and
 optical clocks from sequence `0` through `239` (`0.02` through `4.80 s`).
 
-The Newton backend now completes the same generalization check with one public
-`SensorTactile` implementation and no scene-specific force formula. In the
-600-frame Panda cube run, both pads have native contact for `356/357` frames,
-the cube is lifted `0.224 m`, and the largest raw-force-to-grid conservation
-residual is `7.63e-6 N`. In the unchanged 600-frame pen run, both pads have
-contact for `350/350` frames, the pen is lifted `0.254 m`, and the maximum
-conservation residual is `2.86e-6 N`. Both scene records explicitly preserve
-the sensor sequence `0...599`, source timestamp and elapsed time. Newton has no
-GelSight optical stream, so both records explicitly report optical unavailable
-rather than displaying a fabricated image.
+The current Newton SUGAR run uses the exact G1 URDF, exact rubber-hand collision
+meshes and exact CarryBox visual mesh from the repository. A full `660`-frame
+motion-45 replay has synchronized Newton world geometry and bilateral spatial
+force fields. Nonzero solved hand force occurs on `309/313` left/right frames
+(`309` bilateral), from source frames `231...540`; the maximum raw-force-to-grid
+conservation residual is `0.01953125 N`. This run proves that the public sensor
+works on the real SUGAR geometry and that the displayed contact locations follow
+the official motion. It is not a Newton dynamic-carry success: the robot and box
+are kinematically replayed and peak hand loads are consequently unphysical.
+
+Two explicit dynamic-box checks keep the G1 trajectory kinematic but release the
+real `0.3023376 kg` box. Starting at source frame 200 produces zero hand force
+before the box falls `5.02 m`; starting at frame 214 produces only 7/9
+left/right nonzero-force frames before it falls `4.96 m`. The official trajectory
+therefore does not directly transfer into a load-bearing Newton grasp. This
+negative is retained rather than being relabeled as force-balance evidence.
+
+The unchanged `SensorTactile` also runs on Newton's official Franka plus
+deformable rubber-duck example. Its native signal comes from solved
+particle-rigid VBD force. The retained 360-frame pinch/lift/hold interval has
+nonzero force on one left finger surface for `360/360` frames and the opposing
+right surface for `272/360`; the other six real collision surfaces correctly
+remain zero. Its maximum raw-force-to-grid conservation residual is
+`0.000610352 N`. Newton has no GelSight optical stream, so every Newton record
+reports optical unavailable rather than displaying a fabricated image.
 
 The controlled Newton plate/cube sequence physically separates stationary,
 slow-stick, incipient and fast gross-slip intervals at friction coefficient
@@ -83,17 +98,18 @@ comparison contains `23` false positives and `4` false negatives; most false
 positives are expected hysteresis around sinusoidal turning points. This is a
 simulator check, not hardware slip validation.
 
-The five retained Plan-14 videos are:
+The current human-review videos are:
 
 - `experiments/newton_universal_tactile/isaaclab_carrybox_universal_current/carrybox_native_tactile_slip.mp4`
 - `experiments/newton_universal_tactile/isaaclab_r15_capsule_slip/isaaclab_r15_capsule_tactile_slip.mp4`
-- `experiments/newton_universal_tactile/newton_cube/native_tactile.mp4`
-- `experiments/newton_universal_tactile/newton_pen/native_tactile.mp4`
+- `experiments/newton_universal_tactile/newton_sugar_g1_full660_chunked_v1/newton_sugar_g1_carrybox_native_tactile.mp4`
+- `experiments/newton_universal_tactile/newton_softbody_franka_240_600_v1/newton_softbody_franka_native_tactile.mp4`
 - `experiments/newton_universal_tactile/newton_slip_control/native_tactile_slip.mp4`
 
-The first four are the required box/non-box scene evidence across both engines;
-the fifth isolates Newton slip classification. All are local ignored artifacts
-and are intentionally absent from Git.
+The first four are the box/non-box scene presentations across both engines; the
+fifth isolates Newton slip classification. The Newton G1 presentation is a
+kinematic contact-field result, not completion of a dynamic Newton carry. All
+videos are local ignored artifacts and are intentionally absent from Git.
 
 The active result is the articulated SUGAR CarryBox scene with 27 physical
 TacSL patches on each hand. Every patch preserves its raw `20 x 25` signed
@@ -240,8 +256,8 @@ bash scripts/sugar/native_tactile/launch_retained_child.sh \
     --frames 240 --fps 50 --headless --enable_cameras --device cuda:0
 ```
 
-Newton uses the nested clone and its environment with Warp, MuJoCo/MJWarp,
-USD and headless GL available:
+Newton uses the nested clone plus an environment containing Warp, USD, VTK
+with EGL, Pillow and `imageio-ffmpeg`:
 
 ```bash
 git clone --branch yanhongru/universal-tactile --single-branch \
@@ -250,24 +266,43 @@ git clone --branch yanhongru/universal-tactile --single-branch \
 export CURIOSITY_NEWTON_PYTHON=/absolute/path/to/newton-python
 
 bash scripts/sugar/native_tactile/launch_retained_child.sh \
-  --record experiments/newton_universal_tactile/runtime/newton_cube.process \
-  --status experiments/newton_universal_tactile/runtime/newton_cube.status \
-  --log experiments/newton_universal_tactile/runtime/newton_cube.log \
-  --tag newton-native-tactile-cube \
-  -- env PYTHONPATH="$PWD:$PWD/Newton" "$CURIOSITY_NEWTON_PYTHON" \
-    Newton/tactile_video.py --scene cube --frames 600 --normal-scale-n 5 \
-    --output experiments/newton_universal_tactile/newton_cube/native_tactile.mp4 \
-    --device cuda:0
+  --record experiments/newton_universal_tactile/runtime/newton_sugar_g1.process \
+  --status experiments/newton_universal_tactile/runtime/newton_sugar_g1.status \
+  --log experiments/newton_universal_tactile/runtime/newton_sugar_g1.log \
+  --tag newton-sugar-g1-full660 \
+  -- env CURIOSITY_ROOT="$PWD" PYTHONPATH="$PWD:$PWD/Newton" \
+    "$CURIOSITY_NEWTON_PYTHON" \
+    scripts/sugar/native_tactile/run_newton_sugar_g1_chunked_render.py \
+    --output-root experiments/newton_universal_tactile/newton_sugar_g1_full660 \
+    --frame-start 0 --frame-stop 660 --chunk-size 50 --device cuda:0
+
+bash scripts/sugar/native_tactile/launch_retained_child.sh \
+  --record experiments/newton_universal_tactile/runtime/newton_soft_duck.process \
+  --status experiments/newton_universal_tactile/runtime/newton_soft_duck.status \
+  --log experiments/newton_universal_tactile/runtime/newton_soft_duck.log \
+  --tag newton-softbody-franka \
+  -- env CURIOSITY_ROOT="$PWD" PYTHONPATH="$PWD:$PWD/Newton" \
+    "$CURIOSITY_NEWTON_PYTHON" \
+    scripts/sugar/native_tactile/run_newton_softbody_franka_chunked_render.py \
+    --output-root experiments/newton_universal_tactile/newton_softbody_franka \
+    --frame-start 240 --frame-stop 600 --chunk-size 50 --device cuda:0
 ```
 
-Use `--scene pen` without changing the sensor or adapter for the non-box case.
 Every displayed Newton tactile cell comes from `Contacts.force` after
-`solver.update_contacts()`. The upper world panel uses synchronized top and
-side projections of the same Newton `State.body_q` frame, including the Panda
-joint chain, both finger bodies, object, table and cup; it is a state view, not
-a replayed or reconstructed trajectory. Generated traces and videos remain
-below the ignored `experiments/` tree and must not be committed. The retained
+`solver.update_contacts()`. The upper world panel is VTK/EGL rendering of the
+exact Newton model geometry and state used for that force update. The G1 runner
+replays official source geometry kinematically; the Franka runner advances the
+official soft-body simulation. On the current server, one long-lived VTK EGL
+process aborts after 51 render calls, so the two thin orchestrators run at most
+50 frames per worker and concatenate the resulting H.264 segments without
+changing simulation frames or force values. The final trace restores one
+continuous source clock and sequence. Generated traces and videos remain below
+the ignored `experiments/` tree and must not be committed. The retained
 allocation shell remains alive after each recorded child exits.
+
+To reproduce the negative dynamic-box check, invoke the single G1 worker for no
+more than 50 frames and add `--dynamic-box`, for example source frames
+`214...263`. This check must not be described as a successful carry.
 
 Run the controlled Newton slip sequence with the same native sensor and common
 detector:

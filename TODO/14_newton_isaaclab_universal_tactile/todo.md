@@ -63,14 +63,17 @@
 
 ## F. Scene evidence
 
-- [x] Run Newton CarryBox/box grasp with synchronized world, patch fields and
-  slip state.
+- [ ] Complete a dynamically load-bearing Newton SUGAR G1 CarryBox grasp with
+  synchronized world, patch fields and slip state. The exact 660-frame
+  kinematic contact replay is complete, but dynamic releases at source frames
+  200 and 214 fall rather than carry the box.
 - [x] Run a Newton non-box scene with the unchanged sensor.
 - [x] Run IsaacLab SUGAR G1 CarryBox with the common adapter.
 - [x] Run an IsaacLab non-box swept-capsule scene with the unchanged official
   R15 adapter.
-- [x] Produce four separately playable H.264 files and corresponding concise
-  numerical records.
+- [x] Produce separately playable H.264 scene files and corresponding concise
+  numerical records. Keep the Newton G1 file labeled as kinematic contact-field
+  evidence until the dynamic CarryBox item above is solved.
 - [ ] Obtain explicit human review of all four videos.
 
 ## G. Reproduction and handoff
@@ -79,5 +82,5 @@
   outputs and claim boundaries for both engines.
 - [x] Confirm no tactile policy training, object-state input, proxy force,
   fabricated optical data, experiment artifact, or large binary enters Git.
-- [x] Commit and push the root documentation/adapters and the Newton feature
+- [ ] Commit and push the root documentation/adapters and the Newton feature
   branch separately.

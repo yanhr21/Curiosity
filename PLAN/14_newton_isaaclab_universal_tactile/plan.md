@@ -141,3 +141,14 @@ Completion requires all of the following, not merely import or shape tests:
    or sim-to-real.
 
 Routine hashes, version ladders and policy training are outside this plan.
+
+## Current Newton result (2026-08-12)
+
+The native solved-force sensor, common adapter and causal detector are running
+on the exact SUGAR G1/rubber-hand/CarryBox geometry and on Newton's official
+Franka/deformable-duck scene. The full SUGAR motion-45 contact replay is
+continuous for all 660 source frames and conserves raw-to-grid force. It is a
+kinematic contact-field result, not a dynamic Newton carry: releasing the real
+0.302 kg box at source frames 200 or 214 makes it fall. Therefore the remaining
+Newton box question is physical grasp transfer, not sensor installation or
+video rendering. No policy training is authorized while that question remains.

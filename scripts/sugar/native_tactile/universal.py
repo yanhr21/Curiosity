@@ -50,8 +50,10 @@ class NewtonRawTactileSamples:
     """Unmodified Newton contact samples behind a derived patch raster."""
 
     contact_index: np.ndarray
+    contact_kind: np.ndarray
     patch_index: np.ndarray
     counterpart_shape: np.ndarray
+    counterpart_particle: np.ndarray
     sensor_is_shape0: np.ndarray
     point_world_m: np.ndarray
     point_patch_m: np.ndarray
@@ -341,8 +343,10 @@ class NewtonTactileAdapter:
         raw_count = int(sensor.raw_count.numpy()[0])
         raw = NewtonRawTactileSamples(
             contact_index=sensor.raw_contact_index.numpy()[:raw_count].copy(),
+            contact_kind=sensor.raw_contact_kind.numpy()[:raw_count].copy(),
             patch_index=sensor.raw_patch.numpy()[:raw_count].copy(),
             counterpart_shape=sensor.raw_counterpart_shape.numpy()[:raw_count].copy(),
+            counterpart_particle=sensor.raw_counterpart_particle.numpy()[:raw_count].copy(),
             sensor_is_shape0=sensor.raw_sensor_is_shape0.numpy()[:raw_count].copy(),
             point_world_m=sensor.raw_point_world.numpy()[:raw_count].copy(),
             point_patch_m=sensor.raw_point_patch.numpy()[:raw_count].copy(),
