@@ -160,3 +160,17 @@ def test_factor_one_uses_matched_event_clock_without_changing_mass():
     torch.testing.assert_close(
         env.scene["obj"].root_physx_view.get_masses(), before_mass
     )
+
+
+def test_training_assignment_cycles_all_mass_factors_per_env():
+    env = fake_env(4)
+    config = MassJumpConfig()
+    controller = OnlineMassJumpController(env, "obj", config)
+    assigned = []
+    for _ in range(len(config.mass_factors)):
+        controller.reset()
+        assigned.append(controller.diagnostics()["target_factor"].clone())
+    assigned = torch.stack(assigned, dim=0)
+    expected = sorted(config.mass_factors)
+    for env_index in range(env.num_envs):
+        assert sorted(assigned[:, env_index].tolist()) == expected
