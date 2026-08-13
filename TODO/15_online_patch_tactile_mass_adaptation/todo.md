@@ -94,9 +94,10 @@
   updates，不重复或延长到 3000 之外。
 - [x] mass-factor/delay assignment 继承对应 env seed，且每个 env 的连续五个
   episodes 各覆盖一次 `1.0x/1.5x/3x/6x/10x`。
-- [ ] task reward 只评价物理持稳/跌落/机器人稳定；不把 mass ID 或 jump flag
-  作为 actor 答案。
-- [ ] 冻结 3 个 paired formal seeds 和未参与训练的 frozen-evaluation profiles。
+- [x] 保持三个分支的官方 SUGAR CarryBox reward 完全一致；mass ID、jump flag、
+  patch/slip state 均不直接成为 reward 或 actor 答案。
+- [x] 冻结 3 个 formal training seeds，以及 3 个未参与训练的 evaluation seeds；
+  每个 evaluation seed/factor 固定 20 个 profile，共 300 matched rollouts/arm。
 
 ## G. 串行训练
 

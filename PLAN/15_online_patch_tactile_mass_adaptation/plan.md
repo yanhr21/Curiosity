@@ -223,7 +223,11 @@ mass/no-jump sampling、seed、physics、episode length 和 update budget。正�
 - frozen Refiner teacher 与 privileged critic 只在训练中使用；
 - task reward 可以读取 simulator object state 评价持稳、跌落、朝向和机器人
   稳定性，但不得把 mass ID/jump flag 作为 actor observation 或直接奖励答案；
-- 不加入 RGB、demo internal reward、ICM、T-Rex、contact proxy 或离线 tactile；
+- 三个分支原样共享官方 SUGAR CarryBox reward，包括机器人/物体 reference tracking、
+  action/torque regularization 和 training-only hand-contact term。后者是相同的
+  mass-independent task reward，不是 actor tactile input；Plan 15 不新增按质量给分
+  或按 slip state 给分的 reward；
+- 不加入 RGB、demo internal reward、ICM、T-Rex、actor contact proxy 或离线 tactile；
 - full 29-DoF action 保持可用，policy 可以加强握持、降低身体、改变双手受力或
   安全放下，具体反应不手工脚本化。
 
@@ -238,6 +242,11 @@ authority 从 0 线性升到 1，`2000--2999` 为 steady full PPO。原先的 51
 采样 no-jump、`1.5x/3x/6x/10x` jump；如果 feasibility 阶段
 确认某倍率物理不可恢复，该倍率仍保留为 safe-failure evaluation，但不主导
 hold-success reward。
+
+Frozen evaluation 对每个 Z/P/PS checkpoint 使用 seeds
+`152014/152015/152016`。每个 seed、每个 factor 各跑 20 个连续 profile；factor
+固定而 jump delay 由相同 seed 在 `10--50` 帧内确定，因而每支共
+`3 x 5 x 20 = 300` 个 matched rollouts。任何分支都不得单独补 profile。
 
 代码入口固定为三个 process-local Z/P/PS preflight task 和三个对应 formal task。
 所有入口复用同一个 runner 配置；启动器必须读取 live sweep 生成的 9-channel
@@ -295,7 +304,7 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。
 
-## 10. 串行执行顺序
+## 11. 串行执行顺序
 
 1. 实现 live mass/inertia jump 与 readback；
 2. 实现 54-patch online reducer；
