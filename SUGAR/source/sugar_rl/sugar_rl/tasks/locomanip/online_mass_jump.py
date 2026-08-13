@@ -74,6 +74,7 @@ class OnlineMassJumpController:
             (self.num_envs,), -1, dtype=torch.long, device=self.device
         )
         self.jump_applied = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        self.mass_changed = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         self.jump_step = torch.full(
             (self.num_envs,), -1, dtype=torch.long, device=self.device
         )
@@ -150,6 +151,7 @@ class OnlineMassJumpController:
         self.pending[ids] = False
         self.pending_step[ids] = -1
         self.jump_applied[ids] = False
+        self.mass_changed[ids] = False
         self.jump_step[ids] = -1
         delay, factor = self._deterministic_assignment(ids)
         self.target_delay[ids] = delay
@@ -192,7 +194,6 @@ class OnlineMassJumpController:
             self.qualified
             & (~self.pending)
             & (~self.jump_applied)
-            & (self.target_factor > 1.0)
         )
         self.wait_frames[waiting] += 1
         due = waiting & (self.wait_frames >= self.target_delay)
@@ -208,9 +209,14 @@ class OnlineMassJumpController:
         ids = self.pending.nonzero(as_tuple=False).flatten()
         if ids.numel() == 0:
             return ids
-        mass, inertia = self._write_mass(ids, self.target_factor[ids])
-        self.mass_readback_kg[ids] = mass
-        self.inertia_readback_kg_m2[ids] = inertia
+        changed_ids = ids[self.target_factor[ids] != 1.0]
+        if changed_ids.numel() > 0:
+            mass, inertia = self._write_mass(
+                changed_ids, self.target_factor[changed_ids]
+            )
+            self.mass_readback_kg[changed_ids] = mass
+            self.inertia_readback_kg_m2[changed_ids] = inertia
+            self.mass_changed[changed_ids] = True
         self.pending[ids] = False
         self.jump_applied[ids] = True
         self.jump_step[ids] = int(control_step)
@@ -226,6 +232,7 @@ class OnlineMassJumpController:
             "pending": self.pending.clone(),
             "pending_step": self.pending_step.clone(),
             "jump_applied": self.jump_applied.clone(),
+            "mass_changed": self.mass_changed.clone(),
             "jump_step": self.jump_step.clone(),
             "mass_readback_kg": self.mass_readback_kg.clone(),
             "inertia_readback_kg_m2": self.inertia_readback_kg_m2.clone(),

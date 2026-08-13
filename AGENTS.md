@@ -86,9 +86,11 @@
   had succeeded for 660 frames in job `231928`; it mounted all 54 patches and
   again failed with `VK_ERROR_DEVICE_LOST` while starting simulation, before
   the first physics or tactile step. This isolates the current blocker to the
-  Kit/Vulkan runtime rather than Plan-15 mass, observation or slip code. Keep
-  the allocation, but never report live Plan-15 evidence until a run reaches
-  real physics steps.
+  Kit/Vulkan runtime rather than Plan-15 mass, observation or slip code. A
+  second physical H200 in retained job `238055` reproduced the same pre-scene
+  failure with the force-only collector and with the exact camera/rendering
+  command route that had succeeded on 2026-08-11. Keep both allocations, but
+  never report live Plan-15 evidence until a run reaches real physics steps.
 - Every active object tactile demo must run in IsaacLab/PhysX with the complete
   SUGAR G1 physically moving the object with its hands. Detached R15 fixtures,
   standalone plates, schematic hands, or kinematically moved sensor supports

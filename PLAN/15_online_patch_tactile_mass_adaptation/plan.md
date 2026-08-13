@@ -79,6 +79,9 @@ frames”后，再随机等待 `10--50` 个 control frames。随后：
 mesh、材质、颜色、相机参数和 reference motion 均不改变；不重置物体、机器人、
 触觉历史或上一动作。随机 jump 时间防止 policy 只根据 phase 提前背答案。
 训练条件同时保留 no-jump nominal episodes，避免所有策略无条件用最大握力。
+为使离线泄漏分析拥有完全相同的对齐时钟，`1.0x` 条件在相同阶段记录一个
+placebo event；该事件不调用 PhysX mass/inertia write，实际质量始终保持 nominal，
+并以独立的 `mass_changed=false` 诊断字段与真实 jump 区分。
 
 ## 4. Policy 的 54-patch 在线触觉合同
 
@@ -227,6 +230,11 @@ seed。训练分布平衡采样 no-jump、`1.5x/3x/6x/10x` jump；如果 feasibi
 确认某倍率物理不可恢复，该倍率仍保留为 safe-failure evaluation，但不主导
 hold-success reward。
 
+代码入口固定为三个 process-local Z/P/PS preflight task 和三个对应 formal task。
+所有入口复用同一个 runner 配置；启动器必须读取 live sweep 生成的 9-channel
+scale JSON，禁止用猜测常数代替真实在线归一化尺度。该接线完成只代表训练路径
+已准备好，不越过 leakage/slip/live-physics 准入顺序。
+
 ## 8. Frozen-policy 测试与判据
 
 训练结束后冻结 policy，在未参与训练 rollout 的 paired seeds 和随机 jump 时间上
@@ -258,6 +266,20 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 - 左右手各 27 个 patch 单元，显示 contact、pressure、signed shear 和 slip state；
 - mass jump 的真实时刻与倍率作为**评价 overlay**，明确注明 actor 看不到；
 - box height/orientation、action-response latency 和 drop/fall 状态。
+
+## 10. 2026-08-14 当前执行状态
+
+- mass/inertia action-boundary controller、54-patch online reducer、causal slip
+  callable、anatomical Transformer 和 Z/P/PS BCPPO 入口已经实现；相关 27 个
+  非仿真单元/结构测试通过。
+- H200 上已确认 official Tracker 的 zero-patch action 映射误差为
+  `1.31e-6`，live synthetic patch 可反向传播到 encoder；这只说明结构与梯度，
+  不说明传感器在线、slip 正确或触觉有训练收益。
+- 真正的 paired rollout/leakage audit 仍未开始。两块不同的 server13 H200 上，
+  原始 collector、force-only 路径和曾成功的 camera/rendering 命令都在场景创建前
+  遇到相同 `VK_ERROR_DEVICE_LOST`。CUDA 计算正常，故当前证据指向 Kit/Vulkan
+  runtime 状态，而不是 patch、mass 或 slip 实现。保留现有 allocation，等待另一
+  节点的 retained job 后直接复测；在真实 physics step 恢复前不启动训练。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

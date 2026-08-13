@@ -198,6 +198,7 @@ def main() -> None:
             "pending": [],
             "pending_step": [],
             "jump_applied": [],
+            "mass_changed": [],
             "jump_step": [],
         }
         for step in range(args.max_steps):
@@ -245,6 +246,7 @@ def main() -> None:
             rows["pending"].append(bool(diagnostics["pending"][0]))
             rows["pending_step"].append(int(diagnostics["pending_step"][0]))
             rows["jump_applied"].append(bool(diagnostics["jump_applied"][0]))
+            rows["mass_changed"].append(bool(diagnostics["mass_changed"][0]))
             rows["jump_step"].append(int(diagnostics["jump_step"][0]))
 
         arrays = {name: np.asarray(values) for name, values in rows.items()}
@@ -270,6 +272,7 @@ def main() -> None:
             "nominal_mass_kg": float(arrays["mass_readback_kg"][0]),
             "target_mass_factor": float(args.mass_factor),
             "first_jump_frame": first_jump_frame,
+            "mass_changed": bool(arrays["mass_changed"][-1]),
             "final_mass_readback_kg": float(arrays["mass_readback_kg"][-1]),
             "bilateral_contact_frames": int(
                 np.count_nonzero(contact[:, 0].any(axis=-1) & contact[:, 1].any(axis=-1))

@@ -136,7 +136,7 @@ def test_mass_jump_requires_consecutive_lifted_bilateral_frames():
     assert controller.advance(torch.tensor([True]), control_step=6).tolist() == [0]
 
 
-def test_factor_one_is_a_true_no_jump_episode():
+def test_factor_one_uses_matched_event_clock_without_changing_mass():
     env = fake_env(1)
     config = MassJumpConfig(
         mass_factors=(1.0,),
@@ -147,8 +147,16 @@ def test_factor_one_is_a_true_no_jump_episode():
     controller.reset()
     controller.advance(torch.tensor([True]), control_step=0)
     env.scene["obj"].data.root_pos_w[:, 2] = 0.1
-    controller.advance(torch.tensor([True]), control_step=1)
+    scheduled = controller.advance(torch.tensor([True]), control_step=1)
+    assert scheduled.tolist() == [0]
+    before_mass = env.scene["obj"].root_physx_view.get_masses()
+    applied = controller.apply_pending(control_step=1)
+    assert applied.tolist() == [0]
     diagnostics = controller.diagnostics()
     assert diagnostics["target_factor"].tolist() == [1.0]
-    assert diagnostics["jump_applied"].item() is False
-    assert diagnostics["jump_step"].tolist() == [-1]
+    assert diagnostics["jump_applied"].item() is True
+    assert diagnostics["mass_changed"].item() is False
+    assert diagnostics["jump_step"].tolist() == [1]
+    torch.testing.assert_close(
+        env.scene["obj"].root_physx_view.get_masses(), before_mass
+    )

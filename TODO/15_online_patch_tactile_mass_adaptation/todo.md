@@ -18,8 +18,11 @@
   history 或上一动作。
 - [x] 实现每个 jump 后的实际 mass/inertia readback 和 event timestamp 评价字段。
 - [x] 实现从 frame 0 连续运行、稳定抬升/双手接触 10 帧后随机等待 10--50 帧再 jump。
-- [ ] 在真实 IsaacLab physics step 中确认上述四项；当前原始 collector 和 Plan-15
-  env 均在 simulation start 遇到相同 `VK_ERROR_DEVICE_LOST`。
+- [x] 为 `1.0x` no-jump 条件加入 matched placebo event clock；不写 PhysX mass/
+  inertia，并单独记录 `mass_changed=false`。
+- [ ] 在真实 IsaacLab physics step 中确认上述各项；两块不同 H200 上的原始
+  collector、force-only 和曾成功的 rendering 路径均在 scene creation 前遇到
+  相同 `VK_ERROR_DEVICE_LOST`，不能误记成 Plan-15 sensor/mass/slip 失败。
 - [ ] 完成 no-jump、`1.5x/3x/6x/10x` 的无学习物理可恢复性 sweep。
 
 ## C. 54-patch online observation
@@ -29,6 +32,8 @@
   `shear_x_n`、`shear_y_n` 和 `friction_utilization`。
 - [x] 固定 `[B,4,2,27,9]` contract、anatomical order、单位和符号；公共归一化
   尺度须等 live sweep 后冻结。
+- [x] 实现从 live mass-sweep trace 统一拟合 9-channel 公共尺度的工具；真实 scale
+  JSON 仍必须等 live sweep，禁止先填猜测值。
 - [x] 保证 actor observation 中不存在 20x25 taxel 维度、普通 ContactSensor、
   `hands_contact_label` 或 object-state proxy。
 - [x] 实现 exact-zero no-sensor-read observation，保证 zero encoder output 也为零。
@@ -68,11 +73,12 @@
 - [x] 接入已有 SUGAR `512/256/128` actor、29-D action 和官方 510-D Tracker warm
   start；H200 structural preflight 已确认 zero-patch action error `1.31e-6`、encoder
   gradient 非零。
-- [ ] 将新 policy class 注册到 frozen Refiner teacher 和 repository-native BCPPO
-  runner；归一化尺度必须等 live sweep 后再填写。
-- [ ] 定义并冻结三个完全匹配分支：`Z`、`P`、`PS`。
-- [ ] 保持 critic、teacher、optimizer、reward、physics、mass sampling、seeds 和
-  512-update budget 一致。
+- [x] 将新 policy class 注册到 frozen Refiner teacher 和 repository-native BCPPO
+  runner；启动器在 scale JSON 缺失时拒绝训练。
+- [x] 定义三个共享 policy/runner 配置的 process-local 分支：`Z`、`P`、`PS`，
+  并分别提供 one-update preflight 与 512-update formal task。
+- [x] 在配置层保持 critic、teacher、optimizer、reward、physics、mass sampling
+  和 512-update budget 一致；live runner 实例化仍待 Kit/Vulkan 恢复。
 - [ ] task reward 只评价物理持稳/跌落/机器人稳定；不把 mass ID 或 jump flag
   作为 actor 答案。
 - [ ] 冻结 3 个 paired formal seeds 和未参与训练的 frozen-evaluation profiles。
