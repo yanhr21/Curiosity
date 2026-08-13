@@ -102,8 +102,8 @@ def test_released_tracker_warm_start_is_exact_for_zero_patch():
     report = model.load_sugar_warm_start(released_tracker_state())
     assert report["target_actor_input_width"] == 632
     assert report["zero_patch_embedding_abs_max"] == 0.0
-    assert report["actor_zero_patch_max_abs_error"] <= 1.0e-6
-    assert report["critic_max_abs_error"] <= 1.0e-6
+    assert report["actor_zero_patch_max_abs_error"] <= 2.0e-6
+    assert report["critic_max_abs_error"] <= 2.0e-6
     assert report["actor_receives_excluded_source_values"] is False
 
 

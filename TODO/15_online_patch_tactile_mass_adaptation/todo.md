@@ -65,8 +65,11 @@
 
 - [x] 实现 shared anatomical patch-token encoder：9->128 projection、hand/patch/
   time embedding、3-layer 4-head Transformer、128-D pooled output。
-- [ ] 接入已有 SUGAR `512/256/128` actor、29-D action、官方 Tracker warm start、
-  frozen Refiner teacher 和 repository-native BCPPO。
+- [x] 接入已有 SUGAR `512/256/128` actor、29-D action 和官方 510-D Tracker warm
+  start；H200 structural preflight 已确认 zero-patch action error `1.31e-6`、encoder
+  gradient 非零。
+- [ ] 将新 policy class 注册到 frozen Refiner teacher 和 repository-native BCPPO
+  runner；归一化尺度必须等 live sweep 后再填写。
 - [ ] 定义并冻结三个完全匹配分支：`Z`、`P`、`PS`。
 - [ ] 保持 critic、teacher、optimizer、reward、physics、mass sampling、seeds 和
   512-update budget 一致。

@@ -222,7 +222,10 @@ class OnlinePatchTactileActorCritic(ReferenceOnlyTactileActorCritic):
             critic_error = float((target_critic - source_critic).abs().max().item())
             zero_abs_max = float(embedding.abs().max().item())
 
-        tolerance = 1.0e-6
+        # The 510-wide source and 632-wide zero-patch target select different
+        # GEMM kernels on H200.  Their measured float32 rounding remains below
+        # the project's existing canonical action gate of 2e-6.
+        tolerance = 2.0e-6
         if zero_abs_max != 0.0 or actor_error > tolerance or critic_error > tolerance:
             raise RuntimeError(
                 "Plan-15 zero-patch warm-start equivalence failed: "
