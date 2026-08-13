@@ -4,21 +4,13 @@ checkpoints/
 data/
 envs/
 external/
-/legacy/
+legacy/
 /Newton/
 runs/
 slide/
 
-# The local legacy documentation shelf preserves all dated working records.
-# Only its index and explicitly selected historical references are tracked.
-/DOCS/legacy/*
-!/DOCS/legacy/README.md
-/IDEA/legacy/*
-!/IDEA/legacy/README.md
-/PLAN/legacy/*
-!/PLAN/legacy/README.md
-/TODO/legacy/*
-!/TODO/legacy/README.md
+# Every directory named legacy is local read-only history. New active work must
+# live outside legacy; no legacy content should be newly added to Git.
 
 # Read-only official SMP upstream checkout. Project-owned adapters and method
 # records are tracked elsewhere; do not vendor its nested Git history.

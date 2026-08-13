@@ -1,6 +1,16 @@
 # Curiosity
 
-当前主线是在 **IsaacLab/PhysX** 中为完整 SUGAR G1 构建可复用的原生整手触觉演示。每只手固定安装 27 个官方 TacSL/R15 patch：掌心 `4 x 3`，拇指、食指、中指、无名指和小指各 3 段。Newton 只允许提供 USD/mesh 资产，不再作为新演示的模拟器；当前不训练策略。
+当前最高优先级是在 **IsaacLab/PhysX** 中验证在线整手触觉能否帮助完整 SUGAR G1 应对持物过程中的突然质量变化。每只手固定安装 27 个官方 TacSL/R15 patch：掌心 `4 x 3`，拇指、食指、中指、无名指和小指各 3 段。policy 以 patch 为单元，不以 taxel 为单元；Newton 不参与新实验。
+
+## 当前活动实验
+
+在 G1 已抬起 `0.3023375869 kg` CarryBox 后，保持几何和视觉不变，将质量在线改为 `1.5x/3x/6x/10x`。正式比较三个同架构分支：proprio-only exact-zero tactile、online patch tactile、online patch tactile 加 causal slip。
+
+官方 Refiner `890-D` observation 中的 `obj_lin_vel_b` 不能进入部署 actor；正式 actor 使用不含 measured object state 的 `504-D` Tracker-command/proprioception contract。`joint_pos/joint_vel` 仍可能泄漏负载，因此训练前必须先完成 time-resolved leakage audit，最终只按证据声称“触觉独有”或“在本体感受上的增量帮助”。
+
+- 当前计划：[PLAN/15_online_patch_tactile_mass_adaptation/plan.md](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)
+- 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
+- 当前状态：文档合同已完成，尚未开始实现、仿真或训练。
 
 ## 当前结果
 
@@ -58,8 +68,8 @@ bash scripts/sugar/native_tactile/run_pickbottle_whole_hand_visualization.sh \
   `experiments/isaaclab_g1_anatomical27_object_demos/report_isaaclab_native_tactile_20260813/IsaacLab原生触觉与跨场景验证_20260813.pptx`
 - 当前实验索引：[experiments/README.md](experiments/README.md)
 - 采集、渲染与字段说明：[scripts/sugar/native_tactile/README.md](scripts/sugar/native_tactile/README.md)
-- 当前唯一执行计划：[PLAN/14_newton_isaaclab_universal_tactile/plan.md](PLAN/14_newton_isaaclab_universal_tactile/plan.md)
-- 当前任务状态：[TODO/14_newton_isaaclab_universal_tactile/todo.md](TODO/14_newton_isaaclab_universal_tactile/todo.md)
+- 当前唯一执行计划：[PLAN/15_online_patch_tactile_mass_adaptation/plan.md](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)
+- 当前任务状态：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
 - 官方 SUGAR 复现记录：[DOCS/sugar_carrybox_reproduction_full_record.md](DOCS/sugar_carrybox_reproduction_full_record.md)
 
-`experiments/` 被 Git 忽略，实验 trace、视频、checkpoint 和 PPT 不进入提交。历史实验和旧文档统一归档在 `/public/home/yanhongru/Curiosity_archive/`，不在仓库内建立第二个归档根。
+`experiments/` 被 Git 忽略，实验 trace、视频、checkpoint 和 PPT 不进入提交。被否决或不再活动的本地工作可移入对应 `legacy/`；所有 `legacy/` 均由 Git 忽略。既有大体积历史包继续保存在 `/public/home/yanhongru/Curiosity_archive/`。

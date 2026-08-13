@@ -1,5 +1,72 @@
 # Global Agent Rules
 
+## Highest-Priority Online 54-Patch Tactile Mass-Adaptation Training (2026-08-14)
+
+- This section supersedes every older prohibition or execution queue concerning
+  policy training. The only active plan and TODO are
+  `PLAN/15_online_patch_tactile_mass_adaptation/plan.md` and
+  `TODO/15_online_patch_tactile_mass_adaptation/todo.md`. Plan 14 and all older
+  plans are read-only legacy. Do not resume RGB, demo following, ICM/Curiosity,
+  Newton simulation, deformable demos or any unrelated training while Plan 15
+  is active.
+- The scientific question is whether live whole-hand tactile improves frozen
+  physical behavior when a complete SUGAR G1 has already lifted CarryBox and
+  the PhysX mass changes online without changing geometry or appearance. Start
+  from `0.3023375869 kg` and audit/train/evaluate the predeclared
+  `1.5x/3x/6x/10x` sweep. Change mass and inertia between control actions,
+  continue the same episode, and never reset/replay the sensor history at the
+  jump.
+- Policy tactile space is exactly bilateral `27-patch` anatomy, never taxels:
+  palm `4 x 3`, then proximal/middle/distal on thumb, index, middle, ring and
+  little finger. Official R15 taxels remain the physical sensor backend and
+  raw audit source, but each control step must reduce them online to one record
+  per patch. Every patch record contains TacSL-derived contact, normal load,
+  mean pressure, signed local-XY shear and friction utilization. Do not replace
+  any field with `hands_contact_label`, ordinary ContactSensor output, object
+  state, generated values or an offline trace.
+- Add one causal, batch-stateful IsaacLab callable
+  `PatchSlipDetector.update(...)`. It operates on current/past 54-patch
+  contact/pressure/shear/friction plus timestamps and reset masks, and returns
+  per-patch slip evidence and `NO_CONTACT/STICK/INCIPIENT/GROSS` state. Object
+  motion, relative contact velocity, mass factor, jump flag, reward and future
+  frames are evaluation labels only and may never enter the callable or actor.
+- Official Refiner `890-D` observation contains measured object state such as
+  `obj_lin_vel_b`, and robot `joint_pos/joint_vel` can also leak load after the
+  hands sag. The deployed actor must therefore use the existing `504-D`
+  no-measured-object-state Tracker-command/proprioception contract. The
+  official `890-D` Refiner and privileged critic are training-only. Before any
+  policy training, run the Plan-15 time-resolved leakage audit and report
+  object-state, proprio-only, patch-tactile and patch-tactile-plus-slip onset.
+  Never claim that only tactile senses mass unless the evidence supports it;
+  otherwise test and report incremental benefit over proprioception.
+- Run exactly three serious matched branches, serially: `Z` uses exact-zero
+  patch/slip tensors and does not read sensors; `P` uses live patch
+  contact/load/shear/friction with zero slip fields; `PS` uses the same live
+  patch signal plus the causal slip callable. They share the anatomical
+  patch-token encoder, official Tracker warm start, unchanged SUGAR
+  `512/256/128` actor, official frozen Refiner teacher, repository BCPPO,
+  optimizer, reward, physics, mass sampling, seeds and update budget. No toy
+  MLP, offline tactile replay or taxel-CNN substitute is allowed.
+- A positive result requires matched frozen-policy improvement in physical
+  post-jump hold/recovery/safe-lower behavior with nominal no-jump behavior
+  reported separately. Gradients, training loss, predicted reward, nonzero
+  action difference or a single favorable video prove signal use only. Final
+  H.264 evidence must show complete G1/CarryBox motion and both readable
+  27-patch maps with contact, pressure, signed shear and slip on the same
+  clock; the mass/jump overlay is evaluator-only and must be labeled as hidden
+  from the actor.
+- All sensing and slip inference used by training must be generated inside the
+  current IsaacLab rollout before the next actor call. Saved traces may be used
+  for audit and rendering only. Complete the Plan-15 documentation and leakage
+  audit before training, execute one branch at a time, keep retained GPU
+  allocations alive, and do not add routine hashes or defensive version
+  ladders.
+- Keep active documents and admitted experiments outside `legacy/`. Superseded
+  documents belong in their directory-local `legacy/`; rejected or no-longer-
+  needed local experiment packages belong under repository-root
+  `legacy/experiments/`. Every directory named `legacy` is ignored by Git and
+  may not be cited as an active result.
+
 ## Highest-Priority Full-G1 IsaacLab Object-Demo Reset (2026-08-13)
 
 - H200 is an accepted IsaacLab runtime on this cluster: retained job `231928`

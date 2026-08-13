@@ -1,6 +1,7 @@
 # Legacy Plan Index
 
-Plans 04--13 are preserved here as read-only scientific history. Plan 12 is
-the completed IsaacLab representation foundation and Plan 13 is the paused
-training investigation; every experiment queue in this directory is
-superseded and must not be resumed unless the user explicitly reactivates it.
+Plans 04--14 are preserved here as read-only scientific history. Plan 12 is
+the IsaacLab representation foundation, Plan 13 is the withdrawn taxel-level
+training investigation, and Plan 14 is the completed demo/cross-engine record.
+Every queue here is superseded by Plan 15 and must not be resumed unless the
+user explicitly reactivates it.

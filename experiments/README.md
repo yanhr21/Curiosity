@@ -2,6 +2,11 @@
 
 `experiments/` 只保存当前 IsaacLab G1 触觉证据和最小 SUGAR 运行依赖；整个目录被 Git 忽略，输出不会被 push。
 
+Plan 15 开始运行后，新的正式输出统一写入
+`online_patch_tactile_mass_adaptation/`。只有 leakage audit、`Z/P/PS` 正式训练、
+frozen evaluation 和同步视频可以进入该根；失败的实现版本和不再需要的中间
+输出移入仓库根 `legacy/experiments/`，不得继续堆在活动实验根。
+
 ## 保留的实验
 
 `isaaclab_g1_anatomical27_object_demos/` 目前只保留：

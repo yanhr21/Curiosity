@@ -6,4 +6,4 @@
 /public/home/yanhongru/Curiosity_archive/repo_cleanup_20260814/workspace/DOCS_legacy/
 ```
 
-当前工作只应从仓库根 [`README.md`](../../README.md)、Plan 14 和 TODO 14 开始。
+当前工作只应从仓库根 [`README.md`](../../README.md)、Plan 15 和 TODO 15 开始。

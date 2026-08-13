@@ -2,12 +2,11 @@
 
 The only active task list is:
 
-- `14_newton_isaaclab_universal_tactile/todo.md`
+- `15_online_patch_tactile_mass_adaptation/todo.md`
 
-Its newest section executes complete-G1 object demonstrations only in
-IsaacLab/PhysX: rigid success, matched physical failure, another rigid shape,
-and soft compatibility last. Policy training remains paused.
+It executes, serially: live mass/inertia jump, 54-patch online aggregation,
+IsaacLab causal slip callable, leakage audit, then matched `Z/P/PS` serious
+SUGAR training and frozen physical evaluation.
 
-TODO 04--13 are preserved under `legacy/`. TODO 12 retains the completed
-IsaacLab representation record and TODO 13 is paused training history; neither
-may be resumed as an active queue.
+TODO 04--14 are preserved under ignored `legacy/` and may not be resumed as
+active queues.

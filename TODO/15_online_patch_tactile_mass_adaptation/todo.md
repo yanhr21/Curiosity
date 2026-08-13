@@ -1,0 +1,95 @@
+# TODO 15: Online Whole-Hand Patch Tactile for Sudden-Mass Adaptation
+
+## A. 文档与冻结合同
+
+- [x] 将 Plan/TODO 15 设为唯一活动队列，并把 Plan/TODO 14 移入各自 `legacy/`。
+- [x] 在 `AGENTS.md` 顶部写明 online、54-patch、causal slip、leakage audit 和
+  serious matched-training 规则。
+- [x] 固定 nominal mass `0.3023375869 kg` 与 `1.5x/3x/6x/10x` sweep。
+- [x] 固定 actor/teacher/critic 边界：`504-D` deployable actor 禁止 measured
+  object state；官方 `890-D` Refiner 只能作为 training-only teacher/critic。
+- [x] 固定 policy 的空间单元为每手 27 patches；taxel 只留在官方 sensor 内部
+  和 sensor debug，不得作为 actor 单元。
+
+## B. IsaacLab live mass jump
+
+- [ ] 在完整 G1 CarryBox env 中加入 runtime mass/inertia change event。
+- [ ] 确认 jump 不改变 object geometry、material、RGB、pose、reference、sensor
+  history 或上一动作。
+- [ ] 在每个 jump 后读回实际 mass/inertia，并保留 event timestamp 作为评价字段。
+- [ ] 从 frame 0 连续运行；稳定抬升/双手接触 10 帧后随机等待 10--50 帧再 jump。
+- [ ] 完成 no-jump、`1.5x/3x/6x/10x` 的无学习物理可恢复性 sweep。
+
+## C. 54-patch online observation
+
+- [ ] 从官方 bilateral 27-patch `VisuoTactileSensor` 当前帧在线读取 raw tensor。
+- [ ] 在 GPU 上逐 patch 归并 `contact`、`normal_load_n`、`mean_pressure_pa`、
+  `shear_x_n`、`shear_y_n` 和 `friction_utilization`。
+- [ ] 固定 `[B,4,2,27,9]` contract、anatomical order、单位、符号和公共归一化。
+- [ ] 保证 actor observation 中不存在 20x25 taxel 维度、普通 ContactSensor、
+  `hands_contact_label` 或 object-state proxy。
+- [ ] 实现 exact-zero no-sensor-read observation，保证 zero encoder output 也为零。
+- [ ] 用 synchronized patch visualization 检查压力/剪切变化与世界接触同钟对应。
+
+## D. IsaacLab patch slip callable
+
+- [ ] 实现 batch-stateful `PatchSlipDetector.update(...)` 与 reset mask。
+- [ ] 输入仅限当前/历史 patch contact、pressure、signed shear、friction utilization
+  和 timestamp。
+- [ ] 输出每个 patch 的 `NO_CONTACT/STICK/INCIPIENT/GROSS`、`slip_score`、
+  `incipient_slip` 和 `gross_slip`。
+- [ ] 将 callable 接入 IsaacLab observation term，确认 policy 每步读取 live result。
+- [ ] 在 controlled stick-to-slide 与 CarryBox jump/slip 中评价 precision、recall、
+  false positives 和 detection delay；relative velocity 仅作标签。
+- [ ] 确认没有 offline replay、future frame、mass/jump flag 或 object motion 输入。
+
+## E. 质量信息泄漏审计
+
+- [ ] 用同一 frozen nominal controller 采集 paired no-jump 与四倍率 jump。
+- [ ] 分别导出 object-state、proprio-only、patch-tactile、patch-tactile+slip 信号组。
+- [ ] 在 jump 前 0.5 s/后 1.0 s 窗口报告原始变化、mass-factor linear-probe
+  balanced accuracy 和 change-onset latency。
+- [ ] 明确证明 deployed actor 没有 `obj_lin_vel_b`、mass、jump flag、RGB 或
+  simulator contact velocity。
+- [ ] 根据审计结果把最终问题标为“触觉独有感知”或“在 proprioception 上的
+  增量帮助”；不允许预先选择前者。
+- [ ] 若 live patch load 对质量变化无响应，先修 sensor/aggregation/physics，
+  不开始训练。
+
+## F. Serious matched training implementation
+
+- [ ] 实现 shared anatomical patch-token encoder：9->128 projection、hand/patch/
+  time embedding、3-layer 4-head Transformer、128-D pooled output。
+- [ ] 接入已有 SUGAR `512/256/128` actor、29-D action、官方 Tracker warm start、
+  frozen Refiner teacher 和 repository-native BCPPO。
+- [ ] 定义并冻结三个完全匹配分支：`Z`、`P`、`PS`。
+- [ ] 保持 critic、teacher、optimizer、reward、physics、mass sampling、seeds 和
+  512-update budget 一致。
+- [ ] task reward 只评价物理持稳/跌落/机器人稳定；不把 mass ID 或 jump flag
+  作为 actor 答案。
+- [ ] 冻结 3 个 paired formal seeds 和未参与训练的 frozen-evaluation profiles。
+
+## G. 串行训练
+
+- [ ] `Z`：one-update preflight，确认不读取 sensor、patch/slip exact zero；随后
+  完成 512 updates。
+- [ ] `P`：one-update preflight，确认 live patch signal 和 encoder gradient；随后
+  完成匹配 512 updates。
+- [ ] `PS`：one-update preflight，确认 live patch 与 callable slip 同时进入；随后
+  完成匹配 512 updates。
+- [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
+- [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
+
+## H. Frozen evaluation 与报告
+
+- [ ] 对 no-jump 和每个 mass factor 分别比较 hold success、drop/fall、height loss、
+  orientation、recovery latency 和 safe-lower outcome。
+- [ ] 比较 `P-Z`、`PS-P` 和主要的 `PS-Z` paired 95% confidence intervals。
+- [ ] 检查 action divergence 只发生在 jump 后 live observation 更新之后。
+- [ ] 报告 nominal no-jump 是否因无条件强握/降姿而退化。
+- [ ] 为每个正式 factor 制作 `Z/P/PS` 同钟 H.264：完整 G1 世界画面、左右 27
+  patch contact/pressure/shear/slip、jump overlay 和物理结果。
+- [ ] 视频主图只使用 patch 单元；taxel detail 只能进入独立 debug 视频。
+- [ ] 只有 frozen physical behavior 改善才能写“触觉帮助训练”；gradient/loss/
+  action difference 只能写“触觉被使用”。
+

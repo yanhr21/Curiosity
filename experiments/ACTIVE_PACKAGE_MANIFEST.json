@@ -2,7 +2,10 @@
   "schema": "curiosity_active_experiments_v4",
   "date": "2026-08-14",
   "active_backend": "IsaacLab/PhysX",
+  "active_plan": "PLAN/15_online_patch_tactile_mass_adaptation/plan.md",
   "policy_training_active": false,
+  "policy_training_status": "documentation complete; leakage audit and implementation not started",
+  "planned_experiment_root": "experiments/online_patch_tactile_mass_adaptation",
   "experiment_roots": [
     "experiments/isaaclab_g1_anatomical27_object_demos",
     "experiments/sugar_reproduction"

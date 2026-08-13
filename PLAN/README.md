@@ -2,13 +2,14 @@
 
 The only active plan is:
 
-- `14_newton_isaaclab_universal_tactile/plan.md`
+- `15_online_patch_tactile_mass_adaptation/plan.md`
 
-Its newest reset runs every new object demonstration in IsaacLab/PhysX with
-the complete SUGAR G1 and bilateral anatomical 27-patch TacSL hands. Newton is
-an asset source and historical contract record only. Policy training is
-paused.
+It tests whether online bilateral 27-patch TacSL pressure/shear plus causal
+patch slip improves a serious SUGAR policy after CarryBox mass changes during
+an ongoing lift. The first execution item is a measured-object/proprioception/
+tactile information-leakage audit; training may not start before that audit.
 
-Plans 04--13 are preserved under `legacy/` as read-only scientific history.
-Plan 12 is the completed IsaacLab representation foundation and Plan 13 is the
-paused training investigation; neither is an active execution queue.
+Plans 04--14 are preserved under ignored `legacy/` as read-only scientific
+history. Plan 12 is the sensor representation foundation, Plan 13 is the
+withdrawn taxel-level training record, and Plan 14 is the completed demo/
+cross-engine history; none is an active execution queue.
