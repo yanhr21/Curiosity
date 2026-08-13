@@ -37,3 +37,14 @@ def test_onset_delay_is_causal_and_counts_missed_events():
     delays, missed = module.onset_delays(oracle, predicted)
     assert delays == [2]
     assert missed == 1
+
+
+def test_binary_slip_metrics_exclude_no_contact_loss_alerts():
+    oracle = np.array([module.STICK, module.INCIPIENT, module.NO_CONTACT])
+    predicted = np.array([module.INCIPIENT, module.INCIPIENT, module.GROSS])
+    contact = np.array([True, True, False])
+    counts = module.binary_slip_counts(oracle, predicted, contact)
+    assert counts["true_positive"] == 1
+    assert counts["false_positive"] == 1
+    assert counts["false_negative"] == 0
+    assert counts["contact_supported_samples"] == 2

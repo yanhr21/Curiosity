@@ -53,6 +53,33 @@ def onset_delays(
     return delays, missed
 
 
+def binary_slip_counts(
+    oracle: np.ndarray,
+    predicted: np.ndarray,
+    contact: np.ndarray,
+) -> dict[str, int | float]:
+    """Score velocity-defined slip only where a taxel contact still exists."""
+
+    supported = np.asarray(contact, dtype=bool)
+    truth = np.asarray(oracle) >= INCIPIENT
+    estimate = np.asarray(predicted) >= INCIPIENT
+    if truth.shape != estimate.shape or truth.shape != supported.shape:
+        raise ValueError("oracle, predicted and contact shapes must match")
+    true_positive = int(np.count_nonzero(truth & estimate & supported))
+    false_positive = int(np.count_nonzero((~truth) & estimate & supported))
+    false_negative = int(np.count_nonzero(truth & (~estimate) & supported))
+    precision = true_positive / max(true_positive + false_positive, 1)
+    recall = true_positive / max(true_positive + false_negative, 1)
+    return {
+        "true_positive": true_positive,
+        "false_positive": false_positive,
+        "false_negative": false_negative,
+        "precision": precision,
+        "recall": recall,
+        "contact_supported_samples": int(np.count_nonzero(supported)),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trace", type=Path, action="append", required=True)
@@ -71,6 +98,15 @@ def main() -> None:
     missed_onsets = 0
     frames_total = 0
     source_traces = []
+    contact_supported_counts = {
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 0,
+        "contact_supported_samples": 0,
+    }
+    loaded_contact_loss_events = 0
+    loaded_contact_loss_gross_alerts = 0
+    no_contact_nonloss_slip_alerts = 0
     for value in args.trace:
         path = value.expanduser().resolve()
         with np.load(path, allow_pickle=False) as source:
@@ -91,6 +127,26 @@ def main() -> None:
             gross_speed_m_s=float(args.gross_speed),
         )
         np.add.at(confusion, (oracle.reshape(-1), predicted.reshape(-1)), 1)
+        trace_counts = binary_slip_counts(oracle, predicted, contact)
+        for name in contact_supported_counts:
+            contact_supported_counts[name] += int(trace_counts[name])
+        previous_contact = np.concatenate(
+            (np.zeros_like(contact[:1]), contact[:-1]), axis=0
+        )
+        previous_load = np.concatenate(
+            (np.zeros_like(patch[:1, ..., 1]), patch[:-1, ..., 1]), axis=0
+        )
+        loaded_contact_loss = (
+            previous_contact & (~contact) & (previous_load >= 0.02)
+        )
+        no_contact_nonloss = (~contact) & (~loaded_contact_loss)
+        loaded_contact_loss_events += int(np.count_nonzero(loaded_contact_loss))
+        loaded_contact_loss_gross_alerts += int(
+            np.count_nonzero(loaded_contact_loss & (predicted == GROSS))
+        )
+        no_contact_nonloss_slip_alerts += int(
+            np.count_nonzero(no_contact_nonloss & (predicted >= INCIPIENT))
+        )
         trace_delays, trace_missed = onset_delays(
             oracle >= INCIPIENT,
             predicted >= INCIPIENT,
@@ -100,11 +156,9 @@ def main() -> None:
         frames_total += len(patch)
         source_traces.append(str(path))
 
-    oracle_slip_count = int(confusion[INCIPIENT:, :].sum())
-    predicted_slip_count = int(confusion[:, INCIPIENT:].sum())
-    true_positive = int(confusion[INCIPIENT:, INCIPIENT:].sum())
-    false_positive = predicted_slip_count - true_positive
-    false_negative = oracle_slip_count - true_positive
+    true_positive = contact_supported_counts["true_positive"]
+    false_positive = contact_supported_counts["false_positive"]
+    false_negative = contact_supported_counts["false_negative"]
     precision = true_positive / max(true_positive + false_positive, 1)
     recall = true_positive / max(true_positive + false_negative, 1)
     delay_array = np.asarray(delays, dtype=np.float64)
@@ -124,12 +178,30 @@ def main() -> None:
         "source_traces": source_traces,
         "frames": frames_total,
         "confusion_rows_oracle_columns_prediction": confusion.tolist(),
-        "binary_slip": {
+        "binary_slip_contact_supported": {
             "true_positive": true_positive,
             "false_positive": false_positive,
             "false_negative": false_negative,
             "precision": precision,
             "recall": recall,
+            "samples": contact_supported_counts["contact_supported_samples"],
+            "semantics": (
+                "relative-velocity slip is scored only while current taxel "
+                "contact exists"
+            ),
+        },
+        "loaded_contact_loss_alert": {
+            "events": loaded_contact_loss_events,
+            "gross_alerts": loaded_contact_loss_gross_alerts,
+            "gross_alert_rate": (
+                loaded_contact_loss_gross_alerts
+                / max(loaded_contact_loss_events, 1)
+            ),
+            "no_contact_nonloss_slip_alerts": no_contact_nonloss_slip_alerts,
+            "semantics": (
+                "loaded contact loss is reported separately because the "
+                "active-taxel velocity oracle is undefined after contact ends"
+            ),
         },
         "onset_detection": {
             "detected": len(delays),

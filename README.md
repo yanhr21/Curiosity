@@ -12,7 +12,7 @@
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
 - 当前状态：mass/inertia action-boundary jump、bilateral 27-patch reducer、causal
   slip callable、anatomical Transformer、Z/P/PS BCPPO 入口和 paired leakage sweep
-  已实现，35 个相关非仿真测试通过；live collector 还会逐帧保存 54 个官方
+  已实现，36 个相关非仿真测试通过；live collector 还会逐帧保存 54 个官方
   TacSL 更新时钟，用于确认 observation 确实来自当前 simulation step。真实
   Plan-15 rollout 与训练尚未开始：server13 两块 H200 与 server38 第三块 H200
   都在 scene creation 前发生 `VK_ERROR_DEVICE_LOST`。该故障发生在 patch、mass

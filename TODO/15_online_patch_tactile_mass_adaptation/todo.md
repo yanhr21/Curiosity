@@ -56,6 +56,8 @@
 - [x] 实现独立 evaluation-only oracle：逐 patch 最大 active-taxel simulator
   tangential speed，并输出 precision、recall 和 onset delay；oracle 与 detector/
   actor/mass scheduler 隔离。
+- [x] velocity oracle 只在 current-contact samples 上评价滑动；有载 contact-loss
+  gross alert 单独报告，避免把接触结束后不存在的 taxel velocity 当 false positive。
 - [ ] 在 controlled stick-to-slide 与 CarryBox jump/slip 中评价 precision、recall、
   false positives 和 detection delay；relative velocity 仅作标签。
 - [ ] 确认没有 offline replay、future frame、mass/jump flag 或 object motion 输入。
