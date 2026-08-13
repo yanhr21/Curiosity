@@ -76,6 +76,7 @@ from sugar_rl.tasks.locomanip.online_patch_tactile import (  # noqa: E402
     BASE_PATCH_CHANNELS,
     current_whole_hand_patch_features,
     current_whole_hand_patch_oracle_tangential_speed,
+    current_whole_hand_patch_timestamps_s,
     online_patch_tactile_contract,
 )
 import sugar_rl.tasks.locomanip.mdp as mdp  # noqa: E402
@@ -187,6 +188,7 @@ def main() -> None:
             "slip_features": [],
             "slip_state": [],
             "oracle_patch_tangential_speed_m_s": [],
+            "patch_sensor_timestamp_s": [],
             "actor_policy_observation": [],
             "actor_patch_history": [],
             "object_pos_w": [],
@@ -222,6 +224,7 @@ def main() -> None:
                 )
             observation, _, _, _, _ = env.step(action)
             patches = current_whole_hand_patch_features(base_env)
+            patch_timestamp = current_whole_hand_patch_timestamps_s(base_env)
             oracle_speed = current_whole_hand_patch_oracle_tangential_speed(
                 base_env
             )
@@ -241,6 +244,7 @@ def main() -> None:
             rows["oracle_patch_tangential_speed_m_s"].append(
                 cpu(oracle_speed[0])
             )
+            rows["patch_sensor_timestamp_s"].append(cpu(patch_timestamp[0]))
             rows["actor_policy_observation"].append(cpu(observation["policy"][0]))
             rows["actor_patch_history"].append(
                 cpu(observation["online_patch_tactile_history"][0])
@@ -288,6 +292,14 @@ def main() -> None:
             pre_jump_bilateral_10 = bool(
                 np.all(bilateral[first_jump_frame - 10 : first_jump_frame])
             )
+        patch_timestamps = arrays["patch_sensor_timestamp_s"]
+        timestamp_spread_s = np.ptp(patch_timestamps, axis=(1, 2))
+        mean_patch_timestamp_s = patch_timestamps.mean(axis=(1, 2))
+        timestamp_steps_s = np.diff(mean_patch_timestamp_s)
+        timestamp_synchronized = bool(np.max(timestamp_spread_s) <= 1.0e-6)
+        timestamp_strictly_online = bool(
+            len(timestamp_steps_s) > 0 and np.all(timestamp_steps_s > 0.0)
+        )
         summary = {
             "schema": "plan15_online_patch_mass_jump_preflight_v1",
             "semantics": "live IsaacLab rollout; no learning; no offline replay",
@@ -319,6 +331,17 @@ def main() -> None:
             "maximum_object_lift_m": float(
                 arrays["object_pos_w"][:, 2].max() - arrays["object_pos_w"][0, 2]
             ),
+            "patch_sensor_clock": {
+                "source": "official TacSL SensorBase._timestamp_last_update",
+                "first_timestamp_s": float(mean_patch_timestamp_s[0]),
+                "last_timestamp_s": float(mean_patch_timestamp_s[-1]),
+                "maximum_bilateral_54_patch_skew_s": float(
+                    np.max(timestamp_spread_s)
+                ),
+                "minimum_frame_advance_s": float(np.min(timestamp_steps_s)),
+                "all_54_patches_synchronized": timestamp_synchronized,
+                "strictly_advances_each_control_frame": timestamp_strictly_online,
+            },
             "actor_mass_observation": False,
             "actor_jump_flag_observation": False,
             "actor_measured_object_state": False,
@@ -336,6 +359,10 @@ def main() -> None:
             raise RuntimeError(
                 "CarryBox was not in bilateral TacSL contact for the ten frames "
                 "before the lift-timed mass event"
+            )
+        if not timestamp_synchronized or not timestamp_strictly_online:
+            raise RuntimeError(
+                "official TacSL timestamps are not synchronized and online"
             )
     finally:
         if original_reset_idx is not None:

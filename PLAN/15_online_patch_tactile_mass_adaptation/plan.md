@@ -290,8 +290,10 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 ## 10. 2026-08-14 当前执行状态
 
 - mass/inertia action-boundary controller、54-patch online reducer、causal slip
-  callable、anatomical Transformer 和 Z/P/PS BCPPO 入口已经实现；相关 34 个
-  非仿真单元/结构测试通过。
+  callable、anatomical Transformer 和 Z/P/PS BCPPO 入口已经实现；相关 35 个
+  非仿真单元/结构测试通过。live collector 逐帧保存官方 TacSL
+  `SensorBase._timestamp_last_update` 的双手 54-patch 时钟，并要求同帧同步且每个
+  control frame 严格前进；真实 runtime 结果仍待跨节点 canary 恢复后生成。
 - H200 上已确认 official Tracker 的 zero-patch action 映射误差为
   `1.31e-6`，live synthetic patch 可反向传播到 encoder；这只说明结构与梯度，
   不说明传感器在线、slip 正确或触觉有训练收益。

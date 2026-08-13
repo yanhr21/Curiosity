@@ -12,7 +12,9 @@
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
 - 当前状态：mass/inertia action-boundary jump、bilateral 27-patch reducer、causal
   slip callable、anatomical Transformer、Z/P/PS BCPPO 入口和 paired leakage sweep
-  已实现，34 个相关非仿真测试通过。真实 Plan-15 rollout 与训练尚未开始：当前在
+  已实现，35 个相关非仿真测试通过；live collector 还会逐帧保存 54 个官方
+  TacSL 更新时钟，用于确认 observation 确实来自当前 simulation step。真实
+  Plan-15 rollout 与训练尚未开始：当前在
   两块不同 H200 上，Isaac Kit 均在 scene creation 前发生
   `VK_ERROR_DEVICE_LOST`；跨节点 retained jobs 正在排队。该故障发生在 patch、
   mass 和 slip 代码运行前；全新 portable root、单 renderer-GPU 设置和完整

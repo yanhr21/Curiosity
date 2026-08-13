@@ -34,6 +34,9 @@ reduce_patch_taxels = module.reduce_patch_taxels
 current_whole_hand_patch_oracle_tangential_speed = (
     module.current_whole_hand_patch_oracle_tangential_speed
 )
+current_whole_hand_patch_timestamps_s = (
+    module.current_whole_hand_patch_timestamps_s
+)
 
 
 def test_patch_contract_uses_54_patch_tokens_not_taxels():
@@ -146,6 +149,22 @@ def test_evaluation_oracle_reduces_max_active_taxel_speed_per_patch():
     output = current_whole_hand_patch_oracle_tangential_speed(env, names)
     assert output.shape == (2, 2, 27)
     torch.testing.assert_close(output, torch.full_like(output, 5.0))
+
+
+def test_collection_timestamps_preserve_all_54_official_sensor_clocks():
+    names = tuple(tuple(names) for names in module.SENSOR_NAMES_BY_HAND)
+    sensors = {}
+    expected = torch.tensor([0.24, 0.48])
+    for hand_names in names:
+        for sensor_name in hand_names:
+            sensors[sensor_name] = SimpleNamespace(
+                data=SimpleNamespace(),
+                _timestamp_last_update=expected.clone(),
+            )
+    env = SimpleNamespace(num_envs=2, scene=SimpleNamespace(sensors=sensors))
+    output = current_whole_hand_patch_timestamps_s(env, names)
+    assert output.shape == (2, 2, 27)
+    torch.testing.assert_close(output, expected[:, None, None].expand_as(output))
 
 
 @pytest.mark.parametrize("area", [0.0, -0.1, float("nan")])

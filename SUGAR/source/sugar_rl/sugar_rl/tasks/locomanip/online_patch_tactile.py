@@ -275,6 +275,44 @@ def current_whole_hand_patch_features(
     return output
 
 
+def current_whole_hand_patch_timestamps_s(
+    env,
+    sensor_names_by_hand: tuple[tuple[str, ...], tuple[str, ...]] = (
+        SENSOR_NAMES_BY_HAND
+    ),
+) -> torch.Tensor:
+    """Return the last official TacSL update time as ``[B,2,27]``.
+
+    This is collection telemetry, not an actor feature.  Reading ``data`` first
+    forces IsaacLab's lazy sensor buffer to the current simulation timestamp;
+    the private timestamp is the same clock used by ``SensorBase`` and its
+    upstream update-period test.
+    """
+
+    sensor_names_by_hand = tuple(tuple(names) for names in sensor_names_by_hand)
+    if len(sensor_names_by_hand) != 2 or any(
+        len(names) != 27 for names in sensor_names_by_hand
+    ):
+        raise ValueError("expected two hands with 27 sensor names each")
+    hands = []
+    for names in sensor_names_by_hand:
+        patches = []
+        for sensor_name in names:
+            sensor = _sensor_data(env, sensor_name)
+            _ = sensor.data
+            timestamp = getattr(sensor, "_timestamp_last_update", None)
+            if timestamp is None or tuple(timestamp.shape) != (env.num_envs,):
+                raise RuntimeError(
+                    f"official TacSL timestamp unavailable for {sensor_name}"
+                )
+            patches.append(timestamp.clone())
+        hands.append(torch.stack(patches, dim=1))
+    output = torch.stack(hands, dim=1)
+    if output.shape != (env.num_envs, 2, 27) or not torch.isfinite(output).all():
+        raise RuntimeError(f"invalid patch timestamp shape {tuple(output.shape)}")
+    return output
+
+
 def current_whole_hand_patch_oracle_tangential_speed(
     env,
     sensor_names_by_hand: tuple[tuple[str, ...], tuple[str, ...]] = (

@@ -36,6 +36,8 @@
   尺度须等 live sweep 后冻结。
 - [x] 实现从 live mass-sweep trace 统一拟合 9-channel 公共尺度的工具；真实 scale
   JSON 仍必须等 live sweep，禁止先填猜测值。
+- [x] live collector 逐帧保存 54 个 official TacSL source timestamps，并检查
+  同帧双手同步和逐 control-frame 严格前进；真实 timestamp 报告仍待 runtime。
 - [x] 保证 actor observation 中不存在 20x25 taxel 维度、普通 ContactSensor、
   `hands_contact_label` 或 object-state proxy。
 - [x] 实现 exact-zero no-sensor-read observation，保证 zero encoder output 也为零。
