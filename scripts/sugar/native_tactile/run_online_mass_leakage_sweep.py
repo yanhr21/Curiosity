@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[3]
 COLLECTOR = ROOT / "scripts/sugar/native_tactile/preflight_online_patch_mass_jump.py"
 ANALYZER = ROOT / "scripts/sugar/native_tactile/analyze_online_mass_leakage.py"
 SCALE_FITTER = ROOT / "scripts/sugar/native_tactile/fit_online_patch_channel_scales.py"
+SLIP_EVALUATOR = ROOT / "scripts/sugar/native_tactile/evaluate_online_patch_slip.py"
 FACTORS = (1.0, 1.5, 3.0, 6.0, 10.0)
 DEFAULT_SEEDS = (150814, 150815, 150816)
 
@@ -99,6 +100,14 @@ def main() -> None:
     analyzer_command.extend(("--output", str(leakage_output)))
     run(analyzer_command)
 
+    slip_output = output_root / "slip_evaluation.json"
+    slip_command = [sys.executable, str(SLIP_EVALUATOR)]
+    for factor in FACTORS:
+        for trace in traces[factor]:
+            slip_command.extend(("--trace", str(trace)))
+    slip_command.extend(("--output", str(slip_output)))
+    run(slip_command)
+
     scale_output = output_root / "patch_channel_scales.json"
     scale_command = [sys.executable, str(SCALE_FITTER)]
     for factor in FACTORS:
@@ -119,6 +128,7 @@ def main() -> None:
             for factor in FACTORS
         },
         "leakage_audit": str(leakage_output),
+        "slip_evaluation": str(slip_output),
         "patch_channel_scales": str(scale_output),
     }
     (output_root / "manifest.json").write_text(

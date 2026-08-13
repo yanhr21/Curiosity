@@ -12,7 +12,7 @@
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
 - 当前状态：mass/inertia action-boundary jump、bilateral 27-patch reducer、causal
   slip callable、anatomical Transformer、Z/P/PS BCPPO 入口和 paired leakage sweep
-  已实现，28 个相关非仿真测试通过。真实 Plan-15 rollout 与训练尚未开始：当前在
+  已实现，31 个相关非仿真测试通过。真实 Plan-15 rollout 与训练尚未开始：当前在
   两块不同 H200 上，Isaac Kit 均在 scene creation 前发生
   `VK_ERROR_DEVICE_LOST`；第三节点 retained job 正在排队。该故障发生在 patch、
   mass 和 slip 代码运行前，不能写成触觉实验负结果。
@@ -46,7 +46,9 @@ bash scripts/sugar/native_tactile/launch_retained_child.sh \
 该命令固定使用 leakage seeds `150814/150815/150816`。每个 seed 先在线生成
 `1.0x` nominal action，再逐帧重放到 `1.5x/3x/6x/10x`；输出 exact Refiner
 object-state、504-D proprio、54-patch tactile、causal slip 的时序泄漏结果，以及仅
-从这些 live trace 拟合的 9-channel 公共尺度。若 jump 前没有连续 10 帧 bilateral
+从这些 live trace 拟合的 9-channel 公共尺度。simulator relative tangential
+velocity 只在 collection 后评价 slip precision/recall/detection delay，绝不进入
+detector 或 actor。若 jump 前没有连续 10 帧 bilateral
 TacSL contact，命令直接判定该 rollout 不可用于训练。
 
 只有该结果确认在线压力/剪切有响应、slip 时序有效且 actor 无 object-state 泄漏后，

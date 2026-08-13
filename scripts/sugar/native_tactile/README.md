@@ -11,7 +11,9 @@ SUGAR BCPPO launcher 启动训练。每只 G1 手固定使用 27 个物理解剖
 seeds，对每个 seed 先采集 nominal `1.0x` 动作，再重放到
 `1.5x/3x/6x/10x`。mass scheduler 只读取 evaluator-side object lift，不读取
 TacSL；collector 独立要求 jump 前连续 10 帧双手 patch contact。完成后生成
-`leakage_audit.json` 和 `patch_channel_scales.json`，不启动 policy training。
+`leakage_audit.json`、`slip_evaluation.json` 和 `patch_channel_scales.json`，不启动
+policy training。slip evaluator 使用的 simulator relative tangential velocity
+只存在于保存后的评价字段，不进入 causal detector 或 actor。
 
 正式命令见仓库根 [README.md](../../../README.md)。
 

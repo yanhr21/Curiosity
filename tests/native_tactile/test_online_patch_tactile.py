@@ -31,6 +31,9 @@ exact_zero_online_patch_tactile_actor_history = (
 )
 online_patch_tactile_contract = module.online_patch_tactile_contract
 reduce_patch_taxels = module.reduce_patch_taxels
+current_whole_hand_patch_oracle_tangential_speed = (
+    module.current_whole_hand_patch_oracle_tangential_speed
+)
 
 
 def test_patch_contract_uses_54_patch_tokens_not_taxels():
@@ -89,6 +92,27 @@ def test_exact_zero_does_not_touch_scene_sensors():
     output = exact_zero_online_patch_tactile_actor_history(env)
     assert output.shape == (3, 1944)
     assert torch.count_nonzero(output).item() == 0
+
+
+def test_evaluation_oracle_reduces_max_active_taxel_speed_per_patch():
+    names = tuple(tuple(names) for names in module.SENSOR_NAMES_BY_HAND)
+    sensors = {}
+    for hand_names in names:
+        for sensor_name in hand_names:
+            penetration = torch.zeros(2, 4)
+            velocity = torch.full((2, 4, 3), 99.0)
+            penetration[:, 1] = 0.001
+            velocity[:, 1] = torch.tensor([3.0, 4.0, 0.0])
+            sensors[sensor_name] = SimpleNamespace(
+                data=SimpleNamespace(
+                    penetration_depth=penetration,
+                    tactile_relative_tangential_velocity_w=velocity,
+                )
+            )
+    env = SimpleNamespace(num_envs=2, scene=SimpleNamespace(sensors=sensors))
+    output = current_whole_hand_patch_oracle_tangential_speed(env, names)
+    assert output.shape == (2, 2, 27)
+    torch.testing.assert_close(output, torch.full_like(output, 5.0))
 
 
 @pytest.mark.parametrize("area", [0.0, -0.1, float("nan")])

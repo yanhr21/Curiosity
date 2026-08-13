@@ -225,6 +225,53 @@ def current_whole_hand_patch_features(
     return output
 
 
+def current_whole_hand_patch_oracle_tangential_speed(
+    env,
+    sensor_names_by_hand: tuple[tuple[str, ...], tuple[str, ...]] = (
+        SENSOR_NAMES_BY_HAND
+    ),
+) -> torch.Tensor:
+    """Return evaluation-only maximum active-taxel speed as ``[B,2,27]``.
+
+    This simulator oracle is deliberately separate from every actor and slip
+    callable path.  It may only label saved traces after the detector has run.
+    """
+
+    sensor_names_by_hand = tuple(tuple(names) for names in sensor_names_by_hand)
+    if len(sensor_names_by_hand) != 2 or any(
+        len(names) != 27 for names in sensor_names_by_hand
+    ):
+        raise ValueError("expected two hands with 27 sensor names each")
+    hands = []
+    for names in sensor_names_by_hand:
+        patches = []
+        for sensor_name in names:
+            data = _sensor_data(env, sensor_name).data
+            penetration = data.penetration_depth
+            velocity = data.tactile_relative_tangential_velocity_w
+            if penetration is None or velocity is None:
+                raise RuntimeError(
+                    f"simulator slip oracle unavailable for {sensor_name}"
+                )
+            if velocity.shape != (*penetration.shape, 3):
+                raise RuntimeError(
+                    f"{sensor_name} oracle velocity shape {tuple(velocity.shape)} "
+                    f"does not match penetration {tuple(penetration.shape)}"
+                )
+            speed = torch.linalg.vector_norm(torch.nan_to_num(velocity), dim=-1)
+            active_speed = torch.where(
+                torch.nan_to_num(penetration) > 0.0,
+                speed,
+                torch.zeros_like(speed),
+            )
+            patches.append(active_speed.amax(dim=-1))
+        hands.append(torch.stack(patches, dim=1))
+    output = torch.stack(hands, dim=1)
+    if output.shape != (env.num_envs, 2, 27) or not torch.isfinite(output).all():
+        raise RuntimeError(f"invalid patch slip oracle shape {tuple(output.shape)}")
+    return output
+
+
 def _patch_history(
     env,
     sensor_names_by_hand: tuple[tuple[str, ...], tuple[str, ...]],

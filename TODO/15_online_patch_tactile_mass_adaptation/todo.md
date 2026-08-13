@@ -49,6 +49,9 @@
   `incipient_slip` 和 `gross_slip`。
 - [x] 将 callable 接入 IsaacLab observation term；真实 GPU runtime 逐步读取仍待
   Kit/Vulkan 恢复后确认。
+- [x] 实现独立 evaluation-only oracle：逐 patch 最大 active-taxel simulator
+  tangential speed，并输出 precision、recall 和 onset delay；oracle 与 detector/
+  actor/mass scheduler 隔离。
 - [ ] 在 controlled stick-to-slide 与 CarryBox jump/slip 中评价 precision、recall、
   false positives 和 detection delay；relative velocity 仅作标签。
 - [ ] 确认没有 offline replay、future frame、mass/jump flag 或 object motion 输入。

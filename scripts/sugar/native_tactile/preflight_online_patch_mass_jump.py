@@ -75,6 +75,7 @@ from official_refiner_anatomical_whole_hand_tacsl_audit_task_registration import
 from sugar_rl.tasks.locomanip.online_patch_tactile import (  # noqa: E402
     BASE_PATCH_CHANNELS,
     current_whole_hand_patch_features,
+    current_whole_hand_patch_oracle_tangential_speed,
     online_patch_tactile_contract,
 )
 import sugar_rl.tasks.locomanip.mdp as mdp  # noqa: E402
@@ -185,6 +186,7 @@ def main() -> None:
             "patch_features": [],
             "slip_features": [],
             "slip_state": [],
+            "oracle_patch_tangential_speed_m_s": [],
             "actor_policy_observation": [],
             "actor_patch_history": [],
             "object_pos_w": [],
@@ -220,6 +222,9 @@ def main() -> None:
                 )
             observation, _, _, _, _ = env.step(action)
             patches = current_whole_hand_patch_features(base_env)
+            oracle_speed = current_whole_hand_patch_oracle_tangential_speed(
+                base_env
+            )
             diagnostics = base_env._online_mass_jump_diagnostics
             slip = base_env._online_patch_slip_diagnostics
             slip_features = torch.stack(
@@ -233,6 +238,9 @@ def main() -> None:
             rows["patch_features"].append(cpu(patches[0]))
             rows["slip_features"].append(cpu(slip_features[0]))
             rows["slip_state"].append(cpu_native(slip["state"][0]))
+            rows["oracle_patch_tangential_speed_m_s"].append(
+                cpu(oracle_speed[0])
+            )
             rows["actor_policy_observation"].append(cpu(observation["policy"][0]))
             rows["actor_patch_history"].append(
                 cpu(observation["online_patch_tactile_history"][0])
