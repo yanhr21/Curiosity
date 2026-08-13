@@ -1,5 +1,19 @@
 # SUGAR CarryBox 完整复现记录
 
+> 2026-07-23 artifact curation: SUGAR RGB was stopped and downgraded to P2.
+> The canonical retained baseline is now
+> `experiments/sugar_reproduction/outputs/final/official_sugar/baseline/`.
+> Historical log, smoke, intermediate-checkpoint, raw-rollout, and failed-run
+> paths later in this chronological record were intentionally pruned. Final
+> checkpoints, processed Refiner data, metrics, figures, and videos remain.
+
+> 2026-07-29 tactile correction: the frozen physical whole-hand TacSL
+> installation gate is negative. The strict result and human-review evidence
+> are recorded in
+> `DOCS/legacy/sugar_physical_whole_hand_tacsl_negative_result_20260729.md`.
+> This does not change the accepted official state-only SUGAR baseline; it
+> blocks tactile-success, slip, and tactile-policy claims.
+
 ## 0. 文档信息与结论边界
 
 - 工作区：`/public/home/yanhongru/Curiosity`
@@ -12,11 +26,11 @@
 - IsaacLab 上游 commit：`3c6e67bb5c7ada942a6d1884ab69338f57596f77`
 - 运行环境：`/public/home/yanhongru/envs/sugar_py311_isaacsim510`
 - 主要输出目录：
-  `experiments/sugar_reproduction/outputs/CarryBox_20260712_official_carrybox_full`
+  `experiments/sugar_reproduction/outputs/final/official_sugar/baseline`
 
-2026-07-13 目录整理后，`SUGAR/` 是根目录主线源码；所有复现 outputs 和
-logs 的实体分别位于 `experiments/sugar_reproduction/outputs/` 与
-`experiments/sugar_reproduction/logs/`。整个 `experiments/` 目录是本地
+2026-07-23 最终清理后，`SUGAR/` 是根目录冻结基线源码；保留的复现产物位于
+`experiments/sugar_reproduction/outputs/final/`，临时顶层 logs 已删除。
+整个 `experiments/` 目录是本地
 实验资产，必须由 `.gitignore` 排除，不能 commit 或 push。
 旧的 `external/SUGAR`、`SUGAR/outputs`、`logs/sugar` 只是不中断活跃
 Tracker 训练所保留的兼容软链接。
@@ -32,7 +46,9 @@ Tracker 训练所保留的兼容软链接。
 
 1. 官方论文默认 Refiner 训练终点是 `model_30000.pt`；本次按用户指令将本地 Refiner 固定在 `model_10000.pt`，没有继续训练到 30000，也没有产生 `model_11000.pt`。
 2. `model_10000.pt` 使用官方 SUGAR 代码、任务、数据、机器人与物体资产训练，后续导出没有修改 checkpoint 内容。
-3. Refiner 的完整 1000 环境 rollout 和数据处理已经完成；Tracker 与 Generator 的本地完整产物链仍在继续构建。
+3. Refiner 的完整 1000 环境 rollout 和数据处理已经完成；Tracker 与 Generator
+   的本地完整产物链没有完成，也没有活跃续训任务。清理后只保留最终 Refiner
+   checkpoint、处理后 dataset 和可视化证据。
 4. 因此本项目可以称为“用户验收通过的功能复现”，但不能声称“严格复现了论文的全部训练时长与论文表格数值”。
 5. 本文中的“完整渲染”是指官方 SUGAR `play.py --headless --video` 离屏渲染、策略推理和 MP4 写出链路完整成功；它不等价于已经修复 Isaac Sim 所有交互式 viewport/Rendering Manager 扩展依赖。
 
@@ -830,6 +846,262 @@ bash scripts/sugar/request_official_sugar_downstream_refiner10000.sh
 8. **可视化必须在计算节点生成。** 登录节点只做轻量文本/文件审计。
 9. **指标定义不能混用。** rollout-window complete rate 和派生物体相对位置误差不是论文 CarryBox 最终 SR/Err。
 10. **SUGAR 当前只有粗粒度接触检测。** 不应把 ContactSensor 的阈值标签描述成高分辨率触觉。
+
+### 10.1 RGB 训练零成功率排查的当前 fixed16 证据（2026-07-22）
+
+在 few-sample overfit 已经通过后，当前使用 16 个固定 motion、512 个并行环境和
+`stage3_distill_weight_floor=0.25` 从更新 0 重新建立训练链。首次 segment-1
+allocation `191695` 的失败来自 launcher 过早读取尚未写完的 metadata 文件；该作业
+没有进入训练，也没有产生 checkpoint，不能归类为策略训练失败。修复后的独立恢复
+作业 `191696` 使用原算法、原数据与原教师 checkpoint，在完整 57 行 metadata
+通过后从绝对 iteration 2001 继续。
+
+截至 2026-07-22 11:14 CST，作业在 `server13` 上运行到 iteration 3235，已稳定写出
+`model_2250.pt`、`model_2500.pt`、`model_2750.pt` 和 `model_3000.pt`。四个边界的
+`trajectory_complete` 约为 0.52--0.55，mean reward 分别为 9.31、8.26、10.05、
+10.31；因此没有出现原先所担心的 0 成功或数值塌陷。2,676 个五秒 GPU 样本的平均
+利用率为 48.43%，低于 30% 的最长连续窗口只有 110 秒；日志没有 traceback、CUDA
+OOM 或 NaN。`model_3000.pt` SHA256 为
+`61aa5216796be790450609e6422a18917b86d567c509b2400040c84dd74b374b`。
+
+segment 1 随后在预声明的 `model_4000.pt` 完整闭环，其 SHA256 为
+`794880d67591292bd63ae7ff733cf7c42d24f1fbb6bb3557724a1587a5a8dd12`。
+compute-side checkpoint 审计确认 actor/critic 输入宽度 6,273/890、17 个优化器状态、
+Adam step 70,020--80,020，且模型与优化器张量均有限；更新审计确认 2,000 个续训
+update、4,001 个累计 update、无重复 iteration label。该段完整记录 48,000 个控制步、
+24,576,000 次 actor camera observation、94,430 次真实 render call，frame、render
+step、render hook、protected assignment 和直接 camera feature mismatch 全为 0。
+
+链随后绑定该 exact SHA 自动启动 segment 2，从 iteration 4001、BCPPO update step
+4001 恢复，并把 checkpoint 中的 adaptive-KL learning rate `1.5e-5` 同步回算法；
+distillation floor 仍为 0.25。第一个新进程统计窗口 completion 为 0、mean episode
+length 仅 14.2，属于启动短窗口；随后 iteration 4003、4006、4009、4012、4014、
+4017 的 completion 依次恢复到 0.0208、0.1143、0.1799、0.2191、0.3206、0.4507，
+不能把首条 0 误报为 checkpoint 退化。
+
+预声明的中间边界 `model_4750.pt` 随后按时写出，大小 48,119,093 bytes，SHA256 为
+`5bc332d212ba189cedc1a3a3a675bb3ac6ea880db447178faa9393b2c230f60f`。iteration
+4651--4750 的 mean reward、`trajectory_complete`、object-position error 和
+joint-position error 均值分别为 9.0527、0.566596、0.163180 和 1.132360，distill
+weight 继续保持 0.25。冻结源码 manifest 与 48 个 motion payload 均通过；1,667 个
+五秒 GPU 样本平均利用率 47.30%，低于 30% 的最长连续窗口为 120 秒，日志无 fatal
+runtime signature。这只证明 segment 2 截至该边界持续、有限且没有重新归零；不能
+替代 `model_6000`/`model_8000` 闭环或逐 motion raw-v3 最终 gate。
+
+下一个固定保存边界 `model_5000.pt` 也正常闭合，保存后进程已经继续到 iteration
+5002，排除了“只写出文件但训练链已断”的假阳性。checkpoint 大小 48,119,093 bytes，
+SHA256 为
+`54c4224c30d160244ba25cc6c61ed762c8e7fb13b02a969503e12a61424ffe61`。
+iteration 4901--5000 的 reward、trajectory completion、object-position error、
+joint-position error 与 distillation loss 均值分别为 9.1815、0.552861、0.164686、
+1.134250、2.100423；iteration 5000 单点 completion 为 0.5885，distill weight 仍为
+0.2500。35-entry source manifest 与 48-entry motion manifest 均通过；截至该边界的
+2,206 个五秒 GPU 样本平均 47.29%，低于 30% 的最长连续窗口仍为 120 秒，日志无
+fatal signature。这仍是连续性/完整性证据，不是选择的性能端点。
+
+`model_5250.pt` 再次给出一致边界：大小 48,119,093 bytes，SHA256 为
+`6eabef8435dc882d44ca13bc3d157c63c69043ce0dd0853aa810a934637b617b`，保存后
+进程继续到 iteration 5251。iteration 5151--5250 的 reward、completion、object
+error、joint error 与 distillation loss 均值分别为 9.2204、0.552212、0.163909、
+1.136303、2.087753；iteration 5250 单点 completion 为 0.5927，weight 为 0.2500。
+同一 35/48 manifests 通过，2,750 个 GPU 样本平均 47.38%，最长低于 30% 仍为
+120 秒，日志无 fatal。这是第三个连续性边界，仍不是性能端点选择。
+
+`model_5500.pt` 同样通过一致检查：大小 48,119,093 bytes，SHA256 为
+`c7c2895e610ab575c4a885393bc529e13955025cc33cc427ea769a61959340f9`，保存后训练
+继续到 iteration 5503。iteration 5401--5500 的 reward、completion、object
+error、joint error 与 distillation loss 均值分别为 9.1615、0.559470、0.165162、
+1.133666、2.073965；iteration 5500 单点 completion 为 0.5724，weight 为 0.2500。
+35/48 manifests 通过，3,301 个 GPU 样本平均 47.51%，最长低于 30% 仍为 120 秒，
+日志无 fatal。这是第四个中间连续性边界，不是 segment endpoint 或性能 gate。
+
+最后一个中间保存点 `model_5750.pt` 仍一致：大小 48,119,093 bytes，SHA256 为
+`5060be7d07fe0f715190ae9a7173aecfddd376f54f43795b8aa67c84caec845d`，训练继续到
+iteration 5751。iteration 5651--5750 的 reward、completion、object error、joint
+error 与 distillation loss 均值分别为 9.2391、0.559232、0.165028、1.136874、
+2.064280；iteration 5750 单点 completion 为 0.5388，weight 为 0.2500。35/48
+manifests 通过，3,843 个 GPU 样本平均 47.48%，最长低于 30% 仍为 120 秒，日志无
+fatal。
+
+segment 2 随后在固定终点 `model_6000.pt` 正式闭环。checkpoint 大小
+48,119,093 bytes，SHA256 为
+`1915213a792d03aadebe38f371af807bd2b9e7a6e38fa75c2a53f06d8e48af62`。
+checkpoint/accounting 审计确认 2,000 个 continuation update、6,001 个累计
+update、Adam step 110,020--120,020、actor/critic 输入宽度 6,273/890，模型和
+optimizer tensor 均有限。该段记录 48,000 个控制步、24,576,000 次 actor camera
+observation 和 94,336 次真实 render；全部 24,576,000 次 frame comparison、
+6,144,000 次 protected assignment 以及 render-step/render-hook/direct-feature
+mismatch 均为 0。iteration 5901--6000 的 reward、completion、object error、joint
+error 与 distillation loss 均值分别为 9.3824、0.566448、0.165164、1.123571、
+2.082518。4,394 个五秒 GPU 样本平均 47.44%，最长连续低于 30% 为 120 秒。
+
+第一次 segment 3 进程从 exact `model_6000` 正确恢复到 iteration/BCPPO step
+6001，并完成第一次 optimizer update，但随后在上游 RSL-RL 的辅助
+`store_code_state()` GitPython `git diff` 调用中抛出异常。异常不来自模型
+forward、optimizer、renderer 或 simulator，且没有写出任何 `model_6001` 或更晚
+checkpoint；失败输出与日志已移动到
+`_failed_gitpython_store_code_state_attempt1` 后缀完整保存。Python 退出后旧 PTY
+持续卡住，保留证据后取消作业 191696。
+
+新的 retained allocation 作业 192334 仍在 server13，从同一个 model-6000 SHA
+重新启动 canonical segment 3。新旧 35-entry source manifest SHA 都是
+`843ca31bc4390d99e93383f03a680dbb43a9879dbfff7e723d1e1dff6419fc63`，
+48-entry motion manifest SHA 都是
+`2844a910e2699425491abae99ea1db48c272aeba50f1c8a91c319f2782fa9985`，
+证明没有更换训练代码或数据。两个输出防覆盖 gate 通过后，在 RSL-RL git 目录写入
+明确标注的 recovery sentinel，仅使上游 helper 跳过脆弱的辅助 git snapshot；训练
+身份仍由 source/motion manifests 强制校验。retry 已连续通过 iteration
+6001--6006，无 traceback，恢复 LR `1e-5`、BCPPO step 6001 和 distill floor
+0.25；启动窗口 completion 从 0 恢复到 0.108。recovery handoff
+summary/input-manifest SHA256 分别为
+`3c0170a5da544b4205040e5e9795c25d9816b9c2aaf87bd60f6911f6044ae1bb` 和
+`68dab0ff2156770c47fb03d35016d878c39d5ed808c9170fffa4ee40cc0d3150`。
+该 handoff 只授权继续跑到固定 model-8000，不构成性能 gate。
+
+原自动 chain 已随第一次 segment 3 异常退出，因此另启登录节点轻量 tmux
+`curiosity_rgb_floor025_segment3_gate_watch_0722`。其 watcher 脚本 SHA256 为
+`f9c4effabb9f6926b013bd569c9448a6ecd1ef0559a151ea0dd777dc830fb3e1`；脚本不申请、
+取消或替换 GPU allocation。它只在 recovery handoff、segment-3 input/source/motion
+manifest、固定 model-8000 checkpoint/update 计数及 schema-7 RGB telemetry 全部通过，
+并确认作业 192334 的原 compute tmux 已回到空闲 prompt 后，才把现有 fixed16 raw-v3
+gate 注入同一个 allocation。无论性能 gate 通过或失败，它都会先要求完整结构证据并在
+此后停止，不会自动启动 full100；如果 segment 3 在闭环证据不合法时提前返回空闲
+shell，watcher 会立即失败关闭而不会无限等待。
+
+同时在登录节点执行了纯 shell/text 的 full100 原子迁移静态 verifier。它按设计以
+exit 1 失败，并精确报告 90 条问题，覆盖旧 persistent-distill task、旧 `0.001`
+floor、旧 20260721 raw-smoke/gate validator/output，以及缺失的新 quarter-floor task/
+agent 绑定。这是 gate 前的预期负基线，证明 full100 仍被硬阻断，不是 segment-3
+训练失败。verifier 自身目前也仍写着从未产出的 `v1_rawterm` 目标；fixed16 raw-v3
+通过后，必须把它和六个 gate consumer 一并改到实际
+`v2_launcher_race_recovery_rawterm` 身份，并通过 gate-to-full100 provenance handoff，
+不能提前修改共享 evaluator。
+
+recovery segment 3 随后稳定写出中间 checkpoint `model_6250.pt`，大小
+48,119,093 bytes，SHA256 为
+`a356d8ea365fa7bc85f1dbed20b6f30713160ac5c3857b8ed67235fa6e221bf0`，并继续到
+iteration 6256。35-entry source 和 48-entry motion manifest 再次逐项通过。
+iteration 6151--6250 的 reward、completion、object error、joint error 与
+distillation loss 均值分别为 9.246400、0.563210、0.162866、1.126281、2.075248，
+distill weight 精确为 0.25。603 个五秒 GPU 样本平均利用率 44.509%，最长连续低于
+30% 仍只有 165 秒，日志无 fatal。该 checkpoint 只证明 recovery 连续性，不是可选
+性能终点，也不能替代 model-8000 raw-v3 gate。
+
+下一个固定连续性边界 `model_6500.pt` 同样稳定，大小 48,119,093 bytes，SHA256 为
+`dc05bb1d14ed762535fc753bbc8120a67700a4eb6de95d1f409117cbf3604e34`，训练继续到
+iteration 6507。相同 35/48 manifests 全部通过。iteration 6401--6500 的 reward、
+completion、object error、joint error 与 distillation loss 均值分别为 9.060300、
+0.568697、0.164940、1.134109、2.066333，weight 为 0.25。1,165 个 GPU 样本平均
+45.767%，最长低于 30% 仍为 165 秒，无 fatal。它仍只是连续性证据。
+
+`model_6750.pt` 也稳定为 48,119,093 bytes，SHA256 为
+`18f4a81976558aae888b5f72601b38d2c9c0b0ceb8eac320555a46ea89beff8a`，训练继续到
+iteration 6760。35/48 manifests 通过；iteration 6651--6750 的 reward、completion、
+object error、joint error 与 distillation loss 均值分别为 9.149600、0.564414、
+0.164296、1.125591、2.055183，weight 为 0.25。1,731 个 GPU 样本平均 45.819%，
+最长低于 30% 仍为 165 秒，无 fatal。它同样不是可选性能终点。
+
+`model_7000.pt` 稳定为 48,119,093 bytes，SHA256 为
+`d00021964afdfc1f53e61d558af70ae1977b15fa738b0a6099be429618b67736`，训练继续到
+iteration 7004。35/48 manifests 通过；iteration 6901--7000 的 reward、completion、
+object error、joint error 与 distillation loss 均值分别为 9.133800、0.569022、
+0.163597、1.125222、2.033284，weight 为 0.25。2,281 个 GPU 样本平均 46.135%，
+最长低于 30% 仍为 165 秒，无 fatal。它仍只是连续性证据。
+
+`model_7250.pt` 稳定为 48,119,093 bytes，SHA256 为
+`91f3f99f067edb17b183baaab01e4196a07428df4cd414b3f22ca2d86685d50f`，训练继续到
+iteration 7253。35/48 manifests 通过。完整保留其中两个 completion 低谷后，
+iteration 7151--7250 的 reward、completion、object error、joint error 与
+distillation loss 均值分别为 9.127900、0.564780、0.162277、1.124474、2.014357，
+weight 为 0.25。2,841 个 GPU 样本平均 46.081%，最长低于 30% 仍为 165 秒，无
+fatal。它仍只是连续性证据。
+
+最终 gate 的统计路径也已在运行前逐项复核。它把
+`start_init_env_ratio` 固定为 1.0；冻结 command 源码的
+`eval_random_motion=false`，因此 512 个 protected environment 按
+`env_id % 16` 确定性分配，理论与 gate 都要求每个 motion 恰好 32 条。一次必须使
+512 个环境全部 reset 的 startup warmup 后，evaluator 使用显式保存的
+`last_reset_motion_id/last_reset_timestep` 分组，而不是使用自动 reset 后可能变化的
+post-step command ID。raw termination capture 在第一条计分 step 前安装；success 只在
+raw pre-reset `trajectory_complete` 为真且 terminal reason 总数恰好为 1 时成立，并发
+completion/failure 一律算失败。current-source compute smoke 在 4 个环境、64 steps 中
+观测到 11 次自动终止，done union mismatch 为 0，patch callable 均恢复。正式 outer
+gate 必须再验证 512/512 exclusive outcomes、零 censor、零 simultaneous reason、16
+个 ID 每个 32 条、aggregate >=90% 且每个 motion >=80%。内部 evaluator 的
+`MIN_SUCCESS_RATE=0` 只用于保证固定失败端点也能保存数组供审计，不具有 admission
+效力；性能放行只由 outer gate 决定。
+
+“全量 sample 是否因为渲染太少而失败”不能只靠配置推断。历史 V7 的保存证据确实
+暴露过 reset 时序缺陷：`rerender_on_reset=false` 会让 reset 后返回的第一帧仍是
+终止前画面，并把该陈旧特征复制进三个 history slot；旧五步审计也记录到第一次
+capture 转换的 camera frame 没有递增。这个缺陷已经修复为 reset 后额外 render。
+同源码、同 512 环境的当前 floor-0.25 segment 0 直接累计 48,024 个训练控制步和
+24,588,288 次 actor camera observation，严格等于 `48,024 * 512`；底层实际
+`SimulationContext.render()` 调用为 94,973 次，frame、render-hook、protected
+motion assignment、仿真/render step 和直接 camera feature 的 mismatch 全部为 0。
+独立 64-step 长覆盖审计还对 32,768 次 actor 图像观测逐环境验证：所有非 reset
+转换的 camera frame 恰好递增一次，RGB 与最新 spatial feature 均持续变化，三帧
+history 在全部 eligible observation 中可区分，并且每次 capture 覆盖全部 100 个
+motion。因此当前管线不是稀疏渲染或重复喂早期帧；最终 full100 仍须按相同 schema-7
+telemetry 重新给出其自身的全程计数，不能用 fixed16 的证据代替。
+
+full100 的验收合同已经预先冻结，而不是训练结束后再挑口径：六段依次执行
+5,000、5,000、5,000、5,000、5,000、5,001 个 update，共 30,001 个；每个 update
+24 个控制步，因此必须得到 720,024 个控制步和 368,652,288 次 actor RGB
+observation，其中 384 个自由环境贡献 276,489,216 次。每段都必须逐控制步证明真实
+render call 等于一次正常 render 加上发生 reset 时的一次额外 render，并以 100 个
+motion×16 个时间 bin 保存 actor/reset 直方图；全链 gate 要求每个 motion 的自由
+actor observation 至少达到 720,024、每个自由 motion-time bin 至少 600，并拒绝
+任意帧、render hook、motion assignment、时间范围或 reset provenance mismatch。
+所以未来 full100 若通过，将有其自身的全程非稀疏渲染证据；若任一段少渲染则必须
+fail closed，而不能用 fixed16 结果补足。
+
+总帧数也没有掩盖逐 motion 或逐时间的稀疏性。segment 1 的 16 个 motion 总 actor
+observation 直方图最小值为 940,543；去掉每步固定覆盖的 128 个 protected 环境后，
+384 个自由采样环境的逐 motion 最小值仍为 556,543。自由 reset 的每 motion 计数为
+8,947--9,452，最大相对均值偏差仅 2.88%。在每个 motion 划分 16 个时间 bin 后，
+自由 actor observation 的最小 bin 计数为 6,215，自由 reset 的最小 bin 计数为
+474，分别远高于预声明阈值 100 和 10；motion ID 越界、时间步越界和 reset provenance
+错配均为 0。由此 fixed16 已直接证明训练既不是只渲染部分 motion，也不是只反复
+渲染每段轨迹的早期帧。
+
+这些仍只是训练中间证据，不可据此选择 checkpoint 或宣布全量问题解决。必须保持
+预声明的固定终点 `model_8000`，完成 512 环境、每 motion 32 个 outcome 的 raw-v3
+门禁，并同时达到 aggregate 90% 和每 motion 80% 后，才允许迁移到 full100；在此
+之前不得用中间曲线替代正式门禁，也不得用 full100 重新启动绕过 fixed16 结论。
+
+### 10.2 用户停止点与全状态报告（2026-07-23）
+
+用户明确要求停止继续训练并先交付全部状态和渲染可视化。登录侧 automatic gate
+watcher 先被关闭，随后只终止 Curiosity floor-0.25 segment-3 trainer。训练日志最后
+完整打印 iteration 7322；最后稳定落盘 checkpoint 是 `model_7250.pt`，SHA256 为
+`91f3f99f067edb17b183baaab01e4196a07428df4cd414b3f22ca2d86685d50f`。
+没有 `model_8000.pt`，没有启动预声明的 512-episode raw-v3 gate，也没有启动
+full100。计算节点 tmux 已回到空闲 shell；之后没有恢复训练。
+
+外层 runner 返回 shell 并不等于所有子进程都已退出。最终 process audit 发现同一
+segment-3 的 orphan `timeout/train.py`（PID 2212293/2212298）仍保留 11.6 GiB
+GPU context，但日志时间戳停在 00:03:45、SHA256 仍为
+`851da6ef82d22f78cadd68dd92ca0a91c0a4a52d616718f1364f522d7fe21c76`，
+没有 `model_7500` 或更晚 checkpoint。普通 SIGTERM 无效后，只对已核实的 Curiosity
+process group 2212293 执行 SIGKILL；最终该 allocation 的 Curiosity trainer 和
+`nvidia-smi` compute process 均为 0。节点上其他项目进程未被触碰。
+
+为满足报告中的真实可视化要求，只从该停止点做了两个 reporting-only raw pre-reset
+诊断。两次都用 16 个固定 frame-zero environment，每个 motion 一条 episode；独立
+Isaac/RTX launch 分别完成 15/16 和 13/16，均无 censor，失败 motion 分别为 `{14}`
+和 `{6,9,14}`。这种 81.25%--93.75% 的小样本 launch variation 本身就是不能选择
+最好结果、不能替代正式 model8000 gate 的证据。
+
+两条真实 actor RGB 视频、训练曲线、评估阶梯、render/GPU accounting、触觉
+optimizer-clean 负结果图和总览已经在 compute host `server13` 生成并人工检查。
+总览为
+`experiments/sugar_reproduction/outputs/CarryBox_20260723_all_status_report_v1/visualizations/all_major_visual_evidence_overview.png`，
+SHA256
+`d3c343049f71958ca61d45fa5d118f1a986680b114611cf37b8b4519266273c7`；
+完整本地报告为
+`experiments/reports/curiosity_sugar_full_status_20260723.md`。这些文件都位于被 Git
+忽略的 `experiments/` 下，不得提交或推送。
 
 ## 11. 最终结论
 

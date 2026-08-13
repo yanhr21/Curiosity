@@ -54,7 +54,16 @@ def spawn_from_usd_with_sdf(
             current = current.GetParent()
 
     if not collision_meshes:
-        raise RuntimeError(f"Official SUGAR object has no collision mesh below {prim_path}")
+        if not cfg.add_collision_to_mesh_if_absent:
+            raise RuntimeError(f"Object has no collision mesh below {prim_path}")
+        for prim in Usd.PrimRange(root_prim):
+            if not prim.IsA(UsdGeom.Mesh):
+                continue
+            UsdPhysics.CollisionAPI.Apply(prim).CreateCollisionEnabledAttr().Set(True)
+            UsdPhysics.MeshCollisionAPI.Apply(prim)
+            collision_meshes.append(prim)
+        if not collision_meshes:
+            raise RuntimeError(f"Object has no mesh that can become collision below {prim_path}")
 
     sdf_cfg = sim_utils.SDFMeshPropertiesCfg(
         sdf_margin=cfg.sdf_margin,
@@ -205,6 +214,7 @@ class SdfUsdFileCfg(UsdFileCfg):
     sdf_resolution: int = 128
     sdf_subgrid_resolution: int = 6
     solid_outer_shell_only: bool = False
+    add_collision_to_mesh_if_absent: bool = False
 
 
 SMALLBOX_SDF_CFG = RigidObjectCfg(
@@ -218,3 +228,19 @@ SMALLBOX_SDF_CFG = RigidObjectCfg(
     init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
 )
 """The official SUGAR CarryBox object with only its collision approximation changed to SDF."""
+
+
+BOTTLE_SDF_CFG = RigidObjectCfg(
+    spawn=SdfUsdFileCfg(
+        usd_path="descriptions/objects/bottle/obj_aligned.usd",
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=False,
+            angular_damping=0.2,
+        ),
+        scale=(1.0, 1.0, 1.0),
+        mass_props=sim_utils.MassPropertiesCfg(mass=0.75),
+        solid_outer_shell_only=True,
+    ),
+    init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
+)
+"""The official SUGAR PickBottle object with only its collision approximation changed to SDF."""

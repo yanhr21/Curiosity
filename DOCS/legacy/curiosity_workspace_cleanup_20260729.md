@@ -2,6 +2,40 @@
 
 Date: 2026-07-29
 
+## Current state after the 2026-08-10 tactile reset
+
+The July whitelist below is historical. The current `experiments/` root has
+four active top-level directories:
+
+```text
+native_tactile_representation
+sugar_demo_reward
+sugar_reproduction
+sugar_smp_exploration
+```
+
+For the user-specified combined cap on Curiosity, demo following, and
+"does tactile help training" experiments, only three main experiment packages
+remain:
+
+1. `sugar_demo_reward`: the retained demo-following package;
+2. the matched original-ICM policy-credit pair inside
+   `sugar_smp_exploration`; and
+3. `official_tactile_genesis_pinned_de2bcc9`, the retained tactile-training
+   comparison inside `sugar_smp_exploration`.
+
+Supporting `audits/` and `priors/` directories are not separate experiments.
+The combined retained count is therefore three, below the maximum of five.
+Plan/TODO 04--11 are under their respective `legacy/` directories; Plan/TODO
+12 is the only active execution queue.
+
+The completed native-tactile launch logs and the two superseded
+`native_audit.json` files were moved into the existing single archive root at
+`current_workspace_experiments/20260810_native_tactile_reset/`. The active
+native-tactile directory now contains only its README, three raw CarryBox
+traces, three world videos, three final main videos, and the useful success /
+release-failure detail videos.
+
 ## Outcome
 
 The cleanup was move-only. No experiment or sibling workspace was deleted.

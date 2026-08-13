@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render SUGAR CarryBox plus both complete anatomical tactile hands."""
+"""Render a SUGAR G1 object demo plus both complete anatomical tactile hands."""
 
 from __future__ import annotations
 
@@ -372,12 +372,14 @@ def main() -> None:
     args = parse_args()
     run_root = args.run_root.resolve()
     trace_path = run_root / "whole_hand_trace.npz"
-    world_path = run_root / "world_carrybox.mp4"
+    summary = json.loads((run_root / "summary.json").read_text(encoding="utf-8"))
+    object_kind = str(summary.get("object_kind", "carrybox"))
+    object_label = object_kind.replace("_", " ").upper()
+    world_path = run_root / f"world_{object_kind}.mp4"
     if not trace_path.is_file() or not world_path.is_file():
         raise FileNotFoundError("The trace and world video must both exist")
     with np.load(trace_path, allow_pickle=False) as source:
         arrays = {key: source[key] for key in source.files}
-    summary = json.loads((run_root / "summary.json").read_text(encoding="utf-8"))
     if tuple(arrays["patch_order"].astype(str)) != PATCHES:
         raise RuntimeError("Patch ordering does not match the anatomical layout")
     normal = np.asarray(arrays["normal_force"], np.float32)
@@ -449,7 +451,12 @@ def main() -> None:
     object_z = arrays["object_state_w"][:, 2]
     object_velocity = np.asarray(arrays["object_velocity_w"], np.float64)
     gravity = np.asarray(arrays["gravity_w"], np.float64)
-    mass = float(summary["box_mass_readback_kg"])
+    mass = float(
+        summary.get(
+            "object_mass_readback_kg",
+            summary["box_mass_readback_kg"],
+        )
+    )
     control_dt = float(arrays["control_dt_s"])
     acceleration = np.full((len(normal), 3), np.nan, dtype=np.float64)
     if len(normal) >= 3:
@@ -457,10 +464,14 @@ def main() -> None:
             object_velocity[2:, :3] - object_velocity[:-2, :3]
         ) / (2.0 * control_dt)
     required_force = mass * (acceleration - gravity[None])
-    physx_force = -(
-        np.asarray(arrays["robot_box_force_w"], np.float64)
-        + np.asarray(arrays["robot_box_friction_force_w"], np.float64)
-    ).sum(axis=1)
+    physx_available = bool(summary.get("physx_contact_audit_available", True))
+    if physx_available:
+        physx_force = -(
+            np.asarray(arrays["robot_box_force_w"], np.float64)
+            + np.asarray(arrays["robot_box_friction_force_w"], np.float64)
+        ).sum(axis=1)
+    else:
+        physx_force = None
     weight_n = mass * float(np.linalg.norm(gravity))
     try:
         for step in range(start, end):
@@ -495,7 +506,7 @@ def main() -> None:
             )
             put(
                 canvas,
-                "SAME FRAME - CLOSE VIEW OF BOTH HANDS AND BOX",
+                f"SAME FRAME - CLOSE VIEW OF BOTH HANDS AND {object_label}",
                 (HAND_WIDTH + 30, 46),
                 0.72,
                 2,
@@ -511,12 +522,17 @@ def main() -> None:
             cv2.rectangle(
                 canvas, (14, 620), (WIDTH - 14, 664), (25, 25, 25), -1
             )
+            physx_text = (
+                f"{physx_force[step, 2]:+.2f} N"
+                if physx_force is not None
+                else "unavailable in force-only collection"
+            )
             put(
                 canvas,
                 (
-                    "same-step Fz on box: "
+                    f"same-step Fz on {object_label}: "
                     f"TacSL reaction {tacsl_reaction[2]:+.2f} N   "
-                    f"PhysX normal+friction {physx_force[step, 2]:+.2f} N   "
+                    f"PhysX normal+friction {physx_text}   "
                     f"required m(a-g) {required_force[step, 2]:+.2f} N   "
                     f"m*g {weight_n:.2f} N"
                 ),
@@ -530,7 +546,7 @@ def main() -> None:
             )
             put(
                 canvas,
-                f"frame {step:03d}   box lift {lift:+.3f} m   red=negative raw local-Z   blue=positive Z   arrow=signed XY   fixed scales: |Z| {normal_max:.3f} N, |XY| {shear_max:.3f} N",
+                f"frame {step:03d}   {object_label} lift {lift:+.3f} m   red=negative raw local-Z   blue=positive Z   arrow=signed XY   fixed scales: |Z| {normal_max:.3f} N, |XY| {shear_max:.3f} N",
                 (28, 698),
                 0.54,
                 1,
@@ -591,7 +607,8 @@ def main() -> None:
         raise RuntimeError(f"Unexpected decoded frame shapes: {sorted(decoded_shapes)}")
 
     render_record = {
-        "schema": "sugar_whole_hand_carrybox_render_v2",
+        "schema": "sugar_g1_anatomical27_object_render_v1",
+        "object_kind": object_kind,
         "output": str(args.output.resolve()),
         "frames": int(end - start),
         "source_frame_interval": [start, end],
@@ -610,7 +627,7 @@ def main() -> None:
             "untouched signed local-Z force: negative/red, positive/blue, zero/white"
         ),
         "layout": (
-            "top: full SUGAR CarryBox and same-frame hand-box crop; bottom: "
+            f"top: full SUGAR G1 with {object_label} and same-frame hand-object crop; bottom: "
             "both complete hands, five fingers x three segments plus an "
             "anatomically oriented palm with four patches across and three "
             "patches from fingers to wrist; K/I/G are tactile-history-only "

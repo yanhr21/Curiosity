@@ -6,8 +6,41 @@ The active work is
 [`PLAN/14_newton_isaaclab_universal_tactile/plan.md`](PLAN/14_newton_isaaclab_universal_tactile/plan.md)
 with its executable
 [`TODO`](TODO/14_newton_isaaclab_universal_tactile/todo.md). Policy training is
-paused; Plan 14 builds one causal tactile and slip interface for IsaacLab and
-Newton and demonstrates it on box and non-box scenes.
+paused. As of 2026-08-13, all newly requested tactile demonstrations run only
+in IsaacLab with the complete SUGAR G1 physically moving the object and exactly
+27 anatomical TacSL patches on each hand. The existing G1 CarryBox run is the
+foundation. Detached two-R15 cup/block/soft-body runs are diagnostics only and
+do not count as completed object demos.
+Newton results below are retained historical contract evidence, and Newton
+assets may supply geometry, but no new demo uses Newton as its simulator. The
+active serial order is rigid pickups and physical failures first, followed by
+soft-object compatibility only after the rigid cases are complete.
+
+The first non-box route is implemented around official PickBottle
+`data_017` and its released Tracker, with the same full-G1 anatomical-54 TacSL
+contract. H200 is a proven runtime here: retained job `231928` on `server13`
+completed the full 660-frame IsaacLab CarryBox collection and all six videos.
+On 2026-08-13 both explicit system-ICD and Vulkan-loader-default starts failed
+before scene construction on `server13`, including the official IsaacLab camera
+demo and the previously successful CarryBox entry point; a loader-default
+formal start then failed identically on `server53`. This is a current cross-node
+Kit/Vulkan runtime failure, not evidence against H200, PickBottle, or TacSL.
+The failed starts are diagnostics, not tactile results. A separate clean Isaac
+Sim 5.1 runtime is prepared, and retained job `237668` is queued for the final
+H200 canary before formal PickBottle collection.
+
+Inside that retained allocation, the complete PickBottle route is one command:
+
+```bash
+CURIOSITY_ISAAC_PYTHON=/public/home/yanhongru/envs/sugar_py311_isaacsim510_clean/bin/python \
+  bash scripts/sugar/native_tactile/run_pickbottle_whole_hand_visualization.sh \
+  experiments/isaaclab_g1_anatomical27_object_demos/pickbottle_success_native_v1
+```
+
+The script sets empty `DISPLAY`, selects the cluster NVIDIA Vulkan ICD, runs
+the released PickBottle Tracker for all 270 official motion frames, records
+native bilateral 27-patch TacSL fields and world RGB, and renders the combined
+H.264. It does not allocate or release the retained GPU.
 
 IsaacLab uses only the official v2.3.2
 `isaaclab_contrib.sensors.tacsl_sensor.VisuoTactileSensor`. Newton uses the
@@ -23,6 +56,68 @@ timestamps. Simulator relative contact velocity is recorded separately and is
 used only after a run as a held-out evaluation label. Object pose, reward,
 success labels, aggregate rigid-contact wrenches and thresholded contact labels
 never enter the deployable tactile frame.
+
+## IsaacLab-only rigid demo expansion
+
+Four new IsaacLab/PhysX runs now exercise the same dual-official-R15 collector
+on two rigid geometries and two distinct failure mechanisms:
+
+- [cup stable bottom-support lift](experiments/isaaclab_rigid_tactile_demos/cup_bottom_support_success/isaaclab_cup_stable_lift_world_tactile.mp4):
+  `0.1667 m` lift, `380/400` bilateral-contact frames and `204` lifted
+  bilateral-contact frames;
+- [cup post-lift physical drop](experiments/isaaclab_rigid_tactile_demos/cup_postlift_drop/isaaclab_cup_postlift_drop_world_tactile.mp4):
+  the cup reaches `0.1753 m`, support is withdrawn physically, both tactile
+  fields become zero, and the cup falls to the IsaacLab ground;
+- [flat-block stable bottom-support lift](experiments/isaaclab_rigid_tactile_demos/flat_block_bottom_support_success/isaaclab_flat_block_bottom_support_success.mp4):
+  `0.1667 m` lift with bilateral contact on `400/400` frames and median lifted
+  active areas of `126/500` and `128/500` taxels;
+- [flat-block dense side-pinch failure](experiments/isaaclab_rigid_tactile_demos/flat_block_side_pinch_no_pickup/isaaclab_flat_block_dense_pinch_no_pickup.mp4):
+  the flat faces reach up to `442/500` and `385/500` active taxels, but the
+  object slips during upward motion and never leaves the table.
+
+The cup mesh is imported from the Newton asset cache as geometry only; all
+body creation, SDF collision, gravity, motion and tactile computation are in
+IsaacLab. The flat block is an IsaacLab mesh. Each video is a fully decoded
+400-frame H.264 with one trace-driven world view above the left/right native
+`20 x 25` signed normal-force and signed two-axis shear maps. Those force-only
+collections explicitly disabled optical capture, so official R15 RGB/depth is
+marked unavailable rather than fabricated. Exact commands and claim boundaries are in the
+[rigid-demo reproduction guide](experiments/isaaclab_rigid_tactile_demos/REPRODUCE.md).
+
+## IsaacLab-only deformable demo expansion
+
+Official IsaacLab v2.3.2 TacSL binds its contact object through a rigid SDF,
+while native IsaacLab deformables expose `SoftBodyView`. The local
+deformable-surface extension keeps the official R15 `20 x 25` taxel geometry,
+frames, output contract and TacSL normal/friction equations, but performs the
+surface query against the current PhysX collision-tetrahedron boundary. It
+therefore follows the actual deforming surface and its causal surface velocity;
+there is no hidden rigid core, rigid-contact wrench or generated taxel field.
+This is explicitly a project extension, not an upstream claim that official
+v2.3.2 TacSL supports deformables out of the box.
+
+The [stable soft-block lift](experiments/isaaclab_soft_tactile_demos/soft_block_bottom_support_success/isaaclab_soft_block_stable_lift_world_tactile.mp4)
+raises the native `DeformableObject` by `0.1656 m`. Both R15s report contact on
+all `400/400` frames, and the lifted interval has median active areas of
+`386/500` and `417/500` taxels. Maximum surface-extent change is `1.9 mm` and
+maximum R15 penetration is `0.47 mm`.
+
+The matched [post-lift soft-block drop](experiments/isaaclab_soft_tactile_demos/soft_block_postlift_drop/isaaclab_soft_block_postlift_drop_world_tactile.mp4)
+first reaches `0.1656 m`, then physically pulls both supports downward and
+clear. Bilateral contact disappears on the next recorded frame and the object
+falls `0.2734 m`; the peak collision stress occurs at ground impact, while
+maximum R15 penetration remains below `0.46 mm`. Both H.264 videos show the
+recorded deforming collision surface above the two synchronized signed
+normal/shear maps. Reproduction and claim boundaries are in the
+[soft-demo guide](experiments/isaaclab_soft_tactile_demos/REPRODUCE.md).
+
+The stable interval's taxel forces reconstruct to about `0.139 N` upward on
+the object, versus its `0.196 N` weight. This is not a hidden force-balance
+success claim: official TacSL is a separately parameterized penalty sensor,
+while PhysX compliant collision supplies the actual supporting wrench. The
+maps are valid TacSL force/shear signals and spatial contact evidence, but
+their absolute Newton scale remains uncalibrated to the PhysX solver or real
+GelSight hardware.
 
 ## Representation foundation
 
@@ -196,7 +291,7 @@ of the videos remains the final completion gate.
 - `PLAN/14_newton_isaaclab_universal_tactile/`: the active no-training plan.
 - `TODO/14_newton_isaaclab_universal_tactile/`: the active executable queue.
 - Plan 13 is a read-only record of the paused training investigation.
-- `PLAN/12_isaaclab_native_tactile_representation/` and its TODO: completed
+- `PLAN/legacy/12_isaaclab_native_tactile_representation/` and its TODO: completed
   representation foundation plus pending explicit visual acceptance record.
 
 The active collector/renderer/training code is indexed in
@@ -514,6 +609,6 @@ the current workspace. Other historical and superseded artifacts are under the
 single `/public/home/yanhongru/Curiosity_archive` tree. The active native
 tactile representation is outside that historical five-package quota but is
 also pruned to distinct scientific cases rather than version ladders. See
-[`DOCS/curiosity_workspace_cleanup_20260810.md`](DOCS/curiosity_workspace_cleanup_20260810.md)
+[`DOCS/legacy/curiosity_workspace_cleanup_20260810.md`](DOCS/legacy/curiosity_workspace_cleanup_20260810.md)
 and the experiment-local
 [`README`](experiments/native_tactile_representation/README.md).

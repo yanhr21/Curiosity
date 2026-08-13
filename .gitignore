@@ -5,8 +5,20 @@ data/
 envs/
 external/
 /legacy/
+/Newton/
 runs/
 slide/
+
+# The local legacy documentation shelf preserves all dated working records.
+# Only its index and explicitly selected historical references are tracked.
+/DOCS/legacy/*
+!/DOCS/legacy/README.md
+/IDEA/legacy/*
+!/IDEA/legacy/README.md
+/PLAN/legacy/*
+!/PLAN/legacy/README.md
+/TODO/legacy/*
+!/TODO/legacy/README.md
 
 # Read-only official SMP upstream checkout. Project-owned adapters and method
 # records are tracked elsewhere; do not vendor its nested Git history.

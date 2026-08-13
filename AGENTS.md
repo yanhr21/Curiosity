@@ -1,5 +1,61 @@
 # Global Agent Rules
 
+## Highest-Priority Full-G1 IsaacLab Object-Demo Reset (2026-08-13)
+
+- H200 is an accepted IsaacLab runtime on this cluster: retained job `231928`
+  on `server13` completed the full 660-frame CarryBox collection and rendering.
+  Do not reject H200 from a generic support table. The Reflex cluster note is
+  a SAPIEN recipe; its empty `DISPLAY` remains applicable, but selecting
+  `/etc/vulkan/icd.d/nvidia_icd.json` explicitly is not an IsaacLab fix by
+  itself. On 2026-08-13 both explicit-ICD and loader-default IsaacLab camera
+  starts failed before scene construction on two `server13` H200s, and a later
+  loader-default start failed identically on `server53`, while the same
+  physical H200/driver/software environment had completed the earlier run.
+  Treat this as a current cross-node Kit/Vulkan runtime failure; do not call
+  the H200 architecture unsupported or misattribute a pre-scene crash to TacSL.
+  A separate clean Isaac Sim 5.1 runtime with fresh Kit binaries, extension
+  caches and official base components was prepared on 2026-08-13. Its final
+  H200 canary remains pending retained job `237668`; do not claim either
+  recovery or continued device loss until that GPU run finishes.
+- Every active object tactile demo must run in IsaacLab/PhysX with the complete
+  SUGAR G1 physically moving the object with its hands. Detached R15 fixtures,
+  standalone plates, schematic hands, or kinematically moved sensor supports
+  are diagnostics only and cannot satisfy the object-demo goal.
+- Each G1 hand must use exactly 27 physical anatomical TacSL patches: palm
+  `4 x 3`, plus proximal/middle/distal patches on thumb, index, middle, ring,
+  and little fingers. The main H.264 must show the full G1/object world motion
+  and both readable 27-patch maps on the same clock.
+- Use the existing successful sensorized G1 CarryBox trace and collector as the
+  foundation. First finish varied rigid-object pickups and physical failure
+  samples, then another rigid shape. Investigate deformable assets only after
+  those rigid G1 cases pass numerical and human-visible checks.
+- Newton may supply USD/mesh geometry only. Do not start another Newton
+  simulation for the active demos. Do not start policy training.
+- The previously retained detached dual-R15 cup/block/soft-body runs are
+  fixture diagnostics, not completed G1 pickup, failure, or soft-object demos.
+  Do not cite them as satisfying this reset.
+
+## Highest-Priority IsaacLab-Only Tactile Demo Expansion (2026-08-12)
+
+- Every new tactile demonstration requested after this reset must execute in
+  IsaacLab. Assets may be imported from the cloned `Newton/` repository, but
+  the Newton simulator may not be used for these new demonstrations. Existing
+  Newton results remain historical evidence only.
+- Execute the expansion serially: first complete varied rigid-object pickups
+  with large contact areas, then physical rigid-object failure cases such as
+  post-lift slip or drop, then another rigid shape. Investigate deformable or
+  soft-body pickup only after the rigid cases are complete.
+- IsaacLab demonstrations continue to use the official v2.3.2
+  `VisuoTactileSensor` and `GELSIGHT_R15_CFG` native fields. Do not replace
+  them with rigid-contact proxies, generated taxels, labels, or object state.
+- For native IsaacLab deformables, retain the official R15 taxel geometry,
+  frames, data contract and TacSL normal/friction law, but query the current
+  PhysX `SoftBodyView` collision-tetrahedron boundary instead of a rigid SDF.
+  This must be labeled as the local deformable-surface TacSL extension, not as
+  upstream v2.3.2 deformable support. A hidden rigid core remains forbidden.
+- These are sensor/generalization demonstrations, not policy-training runs.
+  Do not start training while this expansion is active.
+
 ## Highest-Priority Newton/IsaacLab Universal Tactile Reset (2026-08-11)
 
 - This section supersedes the Plan-13 tactile-training execution queue. The
@@ -134,8 +190,8 @@
   superseded for execution by the 2026-08-11 training extension above. It had
   superseded every older experiment queue, including the 2026-08-03 Plan-11
   reset below. The only active plan and TODO are now
-  `PLAN/13_native_tactile_training_fusion/plan.md` and
-  `TODO/13_native_tactile_training_fusion/todo.md`.
+  `PLAN/legacy/13_native_tactile_training_fusion/plan.md` and
+  `TODO/legacy/13_native_tactile_training_fusion/todo.md`.
 - User correction on 2026-08-10: the final visualization must run on the
   sensorized SUGAR G1 CarryBox scene and show both complete hands. Detached
   dual-R15 fixtures are diagnostics only and cannot satisfy the goal. Each
@@ -523,7 +579,7 @@
   Tactile work must use the official IsaacLab/TacSL sensor path described below
   and preserve its spatial pressure/shear signal.
 - Whole-hand tactile is governed exclusively by
-  `DOCS/sugar_whole_hand_tactile_non_degradation_standard_20260729.md`.
+  `DOCS/legacy/sugar_whole_hand_tactile_non_degradation_standard_20260729.md`.
   The raw topology is frozen at 27 physical load-bearing elastomer patches per
   hand, 20 x 25 normal plus signed-XY-shear taxels per patch, and one
   geometry-fixed official R15 RGB/depth palm module per hand. Never reduce it
@@ -588,7 +644,7 @@ plan and TODO are Plan/TODO 12 declared above.
   `experiments/reports/curiosity_sugar_full_status_20260723.md`
   (ignored; never commit or push it).
 - Active workspace-cleanup record:
-  `DOCS/curiosity_workspace_cleanup_20260729.md`.
+  `DOCS/legacy/curiosity_workspace_cleanup_20260729.md`.
 - Active dependency cache: `external/wheelhouse` for local dependency cache
   only. `external/noreward-rl`, `external/ICML2019-TREX`, and
   `external/google-research-xirl`, and `external/RoboCLIP` are pinned
@@ -750,7 +806,7 @@ complete.
   `12.2222967` against source action 103. Jobs `201895`/`201925`, their
   checkpoints, and partial grid traces must not be reused. The next allowed
   experiment is the V2 two-update gate in
-  `DOCS/sugar_causal_contact_bootstrap_v2_protocol_20260727.md`, followed only
+  `DOCS/legacy/sugar_causal_contact_bootstrap_v2_protocol_20260727.md`, followed only
   on a pass by fresh matched no-demo/internal-reward initialization. Slip stays
   a direct-TacSL policy belief and separate external constraint; the frozen
   demo predictor stays a pre-failure potential; original ICM stays
@@ -1179,7 +1235,7 @@ complete.
   calibration without a newly approved protocol. Its synchronized H.264
   videos are negative human-review evidence only.
 - The newly approved single repair is P1 in
-  `DOCS/sugar_conformal_whole_hand_tacsl_skin_protocol_20260729.md`. The exact
+  `DOCS/legacy/sugar_conformal_whole_hand_tacsl_skin_protocol_20260729.md`. The exact
   official R15 reference has now been audited: its released spawner binds
   compliant stiffness/damping `10/1`, static/dynamic friction `0.5/0.5`,
   restitution zero, and neither its source USD nor spawned collision authors
@@ -1217,7 +1273,7 @@ complete.
   response is absent. Official normal and signed-shear arithmetic reconstructs
   with `0.0 N` maximum error, so this is not a visualization repair. The
   authoritative evidence is
-  `DOCS/sugar_conformal_whole_hand_tacsl_p1_gate_c_negative_result_20260729.md`.
+  `DOCS/legacy/sugar_conformal_whole_hand_tacsl_p1_gate_c_negative_result_20260729.md`.
   Do not run P1 Gate D, finish the other zones as an acceptance path, train
   from P1, or claim whole-hand tactile solved. The synchronized videos are
   negative human-review evidence only.
@@ -1228,7 +1284,7 @@ complete.
   still produces left/right `10/10` sign failures, `46/48` full-range
   monotonic failures, and `7/7` cooked-gradient alignment failures. The
   authoritative cloned-buffer result is
-  `DOCS/sugar_exact_sdf_whole_hand_tacsl_p2_gate_b_negative_result_20260729.md`.
+  `DOCS/legacy/sugar_exact_sdf_whole_hand_tacsl_p2_gate_b_negative_result_20260729.md`.
   Do not run P2 contact/behavior gates or reinterpret its diagnostic as a
   pass.
 - P3 and the later native-surface `4 mm` query-skin path are both withdrawn as
@@ -1241,7 +1297,7 @@ complete.
   anatomical tactile, pressure, slip, policy, reward, recovery, or strategy
   evidence.
 - The only admitted successor is
-  `DOCS/sugar_whole_hand_tactile_non_degradation_standard_20260729.md`:
+  `DOCS/legacy/sugar_whole_hand_tactile_non_degradation_standard_20260729.md`:
   27 physical load-bearing patches per hand, all raw 20 x 25 normal and
   channel-last signed-XY-shear maps, symmetric geometry-fixed R15 palm
   RGB/depth, 54/54 separate controlled probes, held-out calibration,
@@ -1341,5 +1397,5 @@ These rules override all other project instructions.
   Do not add updates to the same contract or open cross-seed/positive-render
   gates. The next allowed runtime is the no-learning exact-grid failure
   visualization declared in
-  `DOCS/sugar_causal_posture_grid_v2_negative_result_20260727.md`; failed
+  `DOCS/legacy/sugar_causal_posture_grid_v2_negative_result_20260727.md`; failed
   videos remain diagnosis only. Old V1 checkpoints remain forbidden.

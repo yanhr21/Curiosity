@@ -84,3 +84,60 @@
   fabricated optical data, experiment artifact, or large binary enters Git.
 - [x] Commit and push the root documentation/adapters and the Newton feature
   branch separately.
+
+## H. IsaacLab-only diverse tactile demos (2026-08-12)
+
+- [x] Freeze the new-demo backend to IsaacLab; allow Newton repository assets
+  only as imported assets, never as the simulator for these runs.
+- [x] Complete a dual-official-R15, large-contact rigid cup/container pickup
+  in IsaacLab with synchronized world and force/shear video; preserve optical
+  availability explicitly. That force-only run disabled optical capture and
+  therefore marks RGB/depth unavailable.
+- [x] Reuse that exact IsaacLab path for a physical post-lift slip/drop caused
+  by grip relaxation; do not zero or fabricate tactile data.
+- [x] Complete at least one additional rigid-object shape with the same native
+  tactile collector.
+- [x] Start the official IsaacLab deformable-object runtime on the retained
+  GPU as the soft-body baseline. This validates `SoftBodyView` execution only
+  and is not counted as a tactile demo.
+- [x] Resolve the official-TacSL/deformable compatibility boundary with a
+  labeled project extension: preserve official R15 taxels, frames, data and
+  TacSL force law while querying the current native `SoftBodyView`
+  collision-tetrahedron surface. No rigid hidden core or rigid-contact proxy.
+- [x] Complete a native IsaacLab deformable pickup and a matched physical
+  post-lift drop. The success has `400/400` bilateral frames and a `0.1656 m`
+  lift; the failure loses both tactile fields after physical support removal
+  and falls `0.2734 m`.
+- [x] Record direct reproduction commands and concise physical/tactile results
+  for every retained success and failure video. No training is authorized.
+
+These checked items are retained detached-fixture diagnostics and no longer
+count as the active object-demo deliverable after the 2026-08-13 correction.
+
+## I. Complete-G1 IsaacLab object demos (active, 2026-08-13)
+
+- [x] Freeze the runtime to IsaacLab/PhysX and the robot to complete SUGAR G1;
+  Newton is permitted only as an object-asset source.
+- [x] Reuse the existing G1 CarryBox collector with exactly 27 physical TacSL
+  patches per hand; reject detached R15 fixtures as completion evidence.
+- [x] Add the official PickBottle `data_017`/released 510-D Tracker route, a
+  bottle outer-shell SDF asset, object-swappable trace collection, and a
+  renderer that consumes recorded full-G1/object/taxel states. No CarryBox
+  action trace is accepted for this route.
+- [ ] Restore a working retained H200 Kit/Vulkan runtime, then run the formal
+  PickBottle collector with empty `DISPLAY`. H200 viability is already proven
+  by complete CarryBox job `231928`; current starts fail before scene creation
+  across `server13` and `server53`, so do not call H200 unsupported or
+  misattribute the failure to PickBottle/TacSL. A separate clean Isaac Sim 5.1
+  runtime is prepared; retained job `237668` is queued to run its final H200
+  canary and then the formal collector.
+- [ ] Complete one varied rigid-object pickup in which the full G1 physically
+  moves the object and record the full-G1 plus bilateral 27-patch H.264.
+- [ ] Complete a physical rigid-object failure with the identical G1 scene,
+  collector and tactile contract.
+- [ ] Complete another rigid shape using that unchanged complete-G1 path.
+- [ ] Obtain human-visible review of the rigid success/failure videos.
+- [ ] Only after the rigid cases pass, begin the complete-G1 soft-body case.
+- [ ] Use the released official PickBottle Tracker and one exact official
+  PickBottle motion for the non-box rigid case; never replay CarryBox actions
+  on the bottle. Preserve the official 510-D Tracker input and 29-D output.

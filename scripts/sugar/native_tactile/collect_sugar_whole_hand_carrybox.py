@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record native anatomical whole-hand tactile fields on SUGAR CarryBox.
+"""Record native anatomical whole-hand tactile fields on a SUGAR G1 object task.
 
 This is a no-learning visualization collector. The official frozen SUGAR
 Refiner controls the sensorized G1. A release failure relaxes every joint
@@ -27,19 +27,23 @@ if HOST.startswith(("mgmtserver", "login")):
 if not os.environ.get("SLURM_JOB_ID"):
     raise SystemExit("A retained Slurm allocation is required")
 
+os.environ.setdefault("DISPLAY", "")
+
 from isaaclab.app import AppLauncher
 
 
 ROOT = Path(os.environ.get("CURIOSITY_ROOT", Path(__file__).resolve().parents[3])).resolve()
-TASK_ID = (
+REFINER_TASK_ID = (
     "Sugar-G129dof-CarryBox-Official-Refiner-Anatomical27-"
     "WholeHand-TacSL-Audit"
 )
-CHECKPOINT = (
+REFINER_CHECKPOINT = (
     ROOT
     / "experiments/sugar_reproduction/outputs/final/official_sugar/"
     "baseline/ckpts/refiner_model10000.pt"
 )
+PICKBOTTLE_TASK_ID = "Sugar-G129dof-PickBottle-Tracker"
+PICKBOTTLE_TRACKER_CHECKPOINT = ROOT / "SUGAR/demo_ckpts/PickBottle/tracker.pt"
 PATCHES = (
     *(f"palm_r{row}_c{column}" for row in range(4) for column in range(3)),
     *(
@@ -53,6 +57,26 @@ SIDES = ("left", "right")
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-root", type=Path, required=True)
 parser.add_argument(
+    "--object-kind",
+    choices=("carrybox", "bottle", "cup"),
+    default="carrybox",
+    help="Dynamic IsaacLab object grasped by the complete sensorized G1.",
+)
+parser.add_argument(
+    "--object-scale",
+    type=float,
+    nargs=3,
+    default=None,
+    metavar=("SX", "SY", "SZ"),
+    help="Optional root scale override for bottle/cup assets.",
+)
+parser.add_argument(
+    "--action-trace",
+    type=Path,
+    default=None,
+    help="Replay applied_action from a completed G1 trace instead of querying the teacher online.",
+)
+parser.add_argument(
     "--scenario",
     choices=("successful_grasp", "failed_grasp", "failed_closure"),
     required=True,
@@ -62,8 +86,18 @@ parser.add_argument("--motion-id", type=int, default=45)
 parser.add_argument("--max-steps", type=int, default=660)
 parser.add_argument("--release-step", type=int, default=360)
 parser.add_argument("--closure-fault-step", type=int, default=210)
-parser.add_argument("--mass-kg", type=float, default=0.3023375868797302)
+parser.add_argument(
+    "--mass-kg",
+    type=float,
+    default=None,
+    help="Object mass. Defaults to the official task mass for each object.",
+)
 parser.add_argument("--fps", type=int, default=50)
+parser.add_argument(
+    "--force-only",
+    action="store_true",
+    help="Disable RTX/world and optical cameras while retaining all native TacSL force fields.",
+)
 parser.add_argument("--physical-stiffness", type=float, default=1500.0)
 parser.add_argument("--physical-damping", type=float, default=300.0)
 parser.add_argument("--normal-stiffness", type=float, default=199.35014495534745)
@@ -72,13 +106,27 @@ AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 
 output_root = args.output_root.expanduser().resolve()
+action_trace_path = (
+    args.action_trace.expanduser().resolve() if args.action_trace is not None else None
+)
 experiment_root = (ROOT / "experiments").resolve()
 if not output_root.is_relative_to(experiment_root):
     raise SystemExit("Output must remain below experiments/")
 if output_root.exists():
     raise SystemExit(f"Refusing overwrite: {output_root}")
-if not CHECKPOINT.is_file():
-    raise SystemExit(f"Missing official SUGAR checkpoint: {CHECKPOINT}")
+active_checkpoint = (
+    PICKBOTTLE_TRACKER_CHECKPOINT
+    if args.object_kind == "bottle"
+    else REFINER_CHECKPOINT
+)
+if args.action_trace is None and not active_checkpoint.is_file():
+    raise SystemExit(f"Missing official SUGAR checkpoint: {active_checkpoint}")
+if action_trace_path is not None and not action_trace_path.is_file():
+    raise SystemExit(f"Missing G1 action trace: {action_trace_path}")
+if args.object_kind == "bottle" and args.action_trace is not None:
+    raise SystemExit(
+        "PickBottle must use its released official Tracker, not a CarryBox action trace"
+    )
 if args.max_steps < 120:
     raise SystemExit("At least 120 recorded control steps are required")
 if args.scenario == "failed_grasp" and not 1 <= args.release_step < args.max_steps:
@@ -100,6 +148,7 @@ os.environ["CURIOSITY_ANATOMICAL_TACSL_TANGENTIAL_STIFFNESS"] = str(
 )
 os.environ["CURIOSITY_ANATOMICAL_TACSL_FRICTION_COEFFICIENT"] = "0.5"
 os.environ["CURIOSITY_ENABLE_ANATOMICAL27_WHOLE_HAND_TACSL_AUDIT"] = "1"
+os.environ["SUGAR_DISABLE_TRAIN_DEBUG_VIS"] = "1"
 os.environ["CURIOSITY_TACSL_CALIBRATION_DIR"] = str(
     ROOT / "experiments/sugar_reproduction/assets/official_tacsl/calibration"
 )
@@ -115,6 +164,9 @@ import imageio_ffmpeg  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
+import isaaclab.sim as sim_utils  # noqa: E402
+from isaaclab.assets import RigidObjectCfg  # noqa: E402
+
 sys.path.insert(0, str(ROOT))
 from scripts.sugar.native_tactile.slip import TactileSlipDetector  # noqa: E402
 from scripts.sugar.native_tactile.universal import IsaacLabTacSLAdapter  # noqa: E402
@@ -123,8 +175,15 @@ from sugar_rl.assets.robots.anatomical_whole_hand_tacsl_g1 import (  # noqa: E40
     ANATOMICAL_WHOLE_HAND_PATCH_SPECS,
     anatomical_whole_hand_sensor_names,
 )
+from sugar_rl.assets.objects.tactile_objects import SdfUsdFileCfg  # noqa: E402
 from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_official_refiner_anatomical_whole_hand_tacsl_audit_env_cfg import (  # noqa: E402
     OfficialRefinerAnatomicalWholeHandTacSLAuditEnvCfg,
+)
+from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_official_refiner_anatomical_whole_hand_tacsl_env_cfg import (  # noqa: E402
+    OfficialRefinerAnatomicalWholeHandTacSLEnvCfg,
+)
+from sugar_rl.tasks.locomanip.robots.g129dof.train_tracker.pick_bottle_anatomical_whole_hand_tacsl_env_cfg import (  # noqa: E402
+    PickBottleAnatomicalWholeHandTacSLEnvCfg,
 )
 from sugar_rl.utils.official_refiner_nominal_teacher import (  # noqa: E402
     FrozenOfficialRefinerTeacher,
@@ -138,6 +197,37 @@ from official_refiner_anatomical_whole_hand_tacsl_audit_task_registration import
 
 def cpu(tensor: torch.Tensor, dtype: torch.dtype = torch.float32) -> np.ndarray:
     return tensor.detach().to(device="cpu", dtype=dtype).numpy()
+
+
+def load_official_pickbottle_tracker(device: torch.device) -> torch.nn.Module:
+    """Load the released deterministic 510-D PickBottle Tracker actor."""
+
+    payload = torch.load(
+        PICKBOTTLE_TRACKER_CHECKPOINT,
+        map_location=device,
+        weights_only=False,
+    )
+    actor = torch.nn.Sequential(
+        torch.nn.Linear(510, 512),
+        torch.nn.ELU(),
+        torch.nn.Linear(512, 256),
+        torch.nn.ELU(),
+        torch.nn.Linear(256, 128),
+        torch.nn.ELU(),
+        torch.nn.Linear(128, 29),
+    ).to(device)
+    actor.load_state_dict(
+        {
+            name.removeprefix("actor."): value
+            for name, value in payload["model_state_dict"].items()
+            if name.startswith("actor.")
+        },
+        strict=True,
+    )
+    actor.eval()
+    for parameter in actor.parameters():
+        parameter.requires_grad_(False)
+    return actor
 
 
 def termination_after_grace(
@@ -202,14 +292,68 @@ class FfmpegRgbWriter:
 def main() -> None:
     output_root.mkdir(parents=True)
     trace_path = output_root / "whole_hand_trace.npz"
-    world_path = output_root / "world_carrybox.mp4"
+    world_path = output_root / f"world_{args.object_kind}.mp4"
     summary_path = output_root / "summary.json"
 
     register_official_refiner_anatomical_whole_hand_tacsl_audit_task()
-    cfg = OfficialRefinerAnatomicalWholeHandTacSLAuditEnvCfg()
+    # The audit scene adds three large raw ContactSensors for force-balance
+    # figures. They are not part of the 54-patch native tactile signal, so the
+    # force-only runtime uses the sensorized G1 scene without them.
+    if args.object_kind == "bottle":
+        cfg = PickBottleAnatomicalWholeHandTacSLEnvCfg()
+        task_id = PICKBOTTLE_TASK_ID
+    else:
+        cfg = (
+            OfficialRefinerAnatomicalWholeHandTacSLEnvCfg()
+            if args.force_only
+            else OfficialRefinerAnatomicalWholeHandTacSLAuditEnvCfg()
+        )
+        task_id = REFINER_TASK_ID
+    actual_object_scale = (1.0, 1.0, 1.0)
+    if args.object_kind == "cup":
+        default_scales = {
+            # The Newton asset is a 6-cm tabletop cup.  A two-handed G1
+            # container uses the same geometry at the CarryBox hand span.
+            "cup": (6.2, 6.2, 4.6),
+        }
+        object_paths = {
+            "cup": Path(
+                "/public/home/yanhongru/.cache/newton/"
+                "newton-assets_manipulation_objects_cup_f7f64ec3_8e8df07d/"
+                "manipulation_objects/cup/model.usda"
+            ),
+        }
+        object_path = object_paths[args.object_kind]
+        if not object_path.is_file():
+            raise FileNotFoundError(object_path)
+        object_scale = tuple(args.object_scale or default_scales[args.object_kind])
+        actual_object_scale = object_scale
+        cfg.scene.obj = RigidObjectCfg(
+            prim_path="{ENV_REGEX_NS}/Obj",
+            spawn=SdfUsdFileCfg(
+                usd_path=str(object_path),
+                rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                    disable_gravity=False,
+                    angular_damping=0.2,
+                ),
+                mass_props=sim_utils.MassPropertiesCfg(mass=0.5),
+                scale=object_scale,
+                solid_outer_shell_only=False,
+                add_collision_to_mesh_if_absent=args.object_kind == "cup",
+            ),
+            init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
+        )
     cfg.seed = args.seed
     cfg.sim.device = args.device
-    cfg.commands.motion.motion_folder = "data/CarryBox"
+    if args.object_kind == "bottle":
+        motion_folder = ROOT / f"SUGAR/data/PickBottle/data_{args.motion_id:03d}"
+        if not motion_folder.is_dir():
+            raise FileNotFoundError(motion_folder)
+        cfg.commands.motion.motion_folder = str(motion_folder)
+        fixed_motion_index = 0
+    else:
+        cfg.commands.motion.motion_folder = "data/CarryBox"
+        fixed_motion_index = args.motion_id
     cfg.commands.motion.init_with_ref = True
     cfg.commands.motion.start_init_env_ratio = 1.0
     cfg.commands.motion.pose_range = {
@@ -220,7 +364,10 @@ def main() -> None:
     cfg.events.push_object = None
     cfg.scene.left_hand_camera = None
     cfg.scene.right_hand_camera = None
-    mass_scale = float(args.mass_kg) / 0.5
+    default_mass_kg = 0.75 if args.object_kind == "bottle" else 0.3023375868797302
+    object_mass_kg = float(args.mass_kg or default_mass_kg)
+    source_mass_kg = 0.75 if args.object_kind == "bottle" else 0.5
+    mass_scale = object_mass_kg / source_mass_kg
     cfg.events.obj_mass.params["mass_distribution_params"] = (
         mass_scale,
         mass_scale,
@@ -248,15 +395,33 @@ def main() -> None:
             "grace_steps": 2,
         }
     for sensor_name in anatomical_whole_hand_sensor_names():
-        getattr(cfg.scene, sensor_name).update_period = float(cfg.sim.dt)
+        sensor_cfg = getattr(cfg.scene, sensor_name)
+        sensor_cfg.update_period = float(cfg.sim.dt)
+        if args.force_only:
+            sensor_cfg.enable_camera_tactile = False
+            sensor_cfg.camera_cfg = None
+    if args.force_only:
+        cfg.scene.world_camera = None
 
-    env = gym.make(TASK_ID, cfg=cfg, render_mode="rgb_array")
+    env = gym.make(
+        task_id,
+        cfg=cfg,
+        render_mode=None if args.force_only else "rgb_array",
+    )
     writer: FfmpegRgbWriter | None = None
     original_reset_idx = None
     original_scene_update = None
     try:
         base_env = env.unwrapped
         command = base_env.command_manager.get_term("motion")
+        official_motion_frames = int(
+            command.motion.time_step_total_permotion[fixed_motion_index].item()
+        )
+        if args.max_steps > official_motion_frames:
+            raise RuntimeError(
+                f"Requested {args.max_steps} steps, but official motion "
+                f"{args.motion_id} has {official_motion_frames} robot frames"
+            )
 
         def fixed_start(env_ids) -> None:
             ids = (
@@ -264,7 +429,7 @@ def main() -> None:
                 if isinstance(env_ids, torch.Tensor)
                 else torch.as_tensor(env_ids, dtype=torch.long, device=base_env.device)
             )
-            command.motion_id[ids] = args.motion_id
+            command.motion_id[ids] = fixed_motion_index
             command.time_steps[ids] = 0
             command._use_motion_data[ids] = True
 
@@ -275,11 +440,26 @@ def main() -> None:
         # This visualization task loads the official checkpoint directly and
         # deliberately skips the historical hash gate.  Architecture, weights,
         # observations, and deterministic inference remain unchanged.
-        teacher = FrozenOfficialRefinerTeacher(
-            base_env,
-            CHECKPOINT,
-            expected_sha256=None,
-        )
+        teacher = None
+        tracker_actor = None
+        replay_actions = None
+        if args.object_kind == "bottle":
+            tracker_actor = load_official_pickbottle_tracker(base_env.device)
+        elif args.action_trace is None:
+            teacher = FrozenOfficialRefinerTeacher(
+                base_env,
+                REFINER_CHECKPOINT,
+                expected_sha256=None,
+            )
+        else:
+            with np.load(action_trace_path, allow_pickle=False) as replay:
+                replay_actions = np.asarray(replay["applied_action"], dtype=np.float32)
+            if replay_actions.ndim != 2 or replay_actions.shape[1] != 29:
+                raise RuntimeError(f"Unexpected replay action shape: {replay_actions.shape}")
+            if len(replay_actions) < args.max_steps:
+                raise RuntimeError(
+                    f"Action trace has {len(replay_actions)} rows, need {args.max_steps}"
+                )
         action_term = base_env.action_manager.get_term("JointPositionAction")
         action_joint_names = tuple(action_term._joint_names)
         right_arm_action_indices = tuple(
@@ -313,37 +493,39 @@ def main() -> None:
             common_patch_names,
             friction_coefficient=0.5,
         )
-        center_optical = [sensors[4], sensors[31]]
         optical_baseline_rgb: list[np.ndarray] = []
         optical_baseline_depth: list[np.ndarray] = []
-        for side, sensor in zip(SIDES, center_optical, strict=True):
-            if int(torch.count_nonzero(sensor.data.tactile_normal_force).item()) != 0:
-                raise RuntimeError(
-                    f"{side} center R15 baseline was requested under contact"
+        if not args.force_only:
+            center_optical = [sensors[4], sensors[31]]
+            for side, sensor in zip(SIDES, center_optical, strict=True):
+                if int(torch.count_nonzero(sensor.data.tactile_normal_force).item()) != 0:
+                    raise RuntimeError(
+                        f"{side} center R15 baseline was requested under contact"
+                    )
+                camera = sensor._camera_sensor
+                depth = None
+                for _ in range(16):
+                    base_env.sim.render()
+                    camera.update(0.0, force_recompute=True)
+                    depth = camera.data.output["distance_to_image_plane"]
+                    if bool(torch.isfinite(depth).all().item()):
+                        break
+                if depth is None or not bool(torch.isfinite(depth).all().item()):
+                    raise RuntimeError(f"{side} R15 no-contact baseline is non-finite")
+                sensor.get_initial_render()
+                zero_deformation = torch.zeros_like(depth[..., 0])
+                optical_baseline_rgb.append(
+                    cpu(
+                        sensor._tactile_rgb_render.render(zero_deformation)[0],
+                        torch.uint8,
+                    )
                 )
-            camera = sensor._camera_sensor
-            depth = None
-            for _ in range(16):
-                base_env.sim.render()
-                camera.update(0.0, force_recompute=True)
-                depth = camera.data.output["distance_to_image_plane"]
-                if bool(torch.isfinite(depth).all().item()):
-                    break
-            if depth is None or not bool(torch.isfinite(depth).all().item()):
-                raise RuntimeError(f"{side} R15 no-contact baseline is non-finite")
-            sensor.get_initial_render()
-            zero_deformation = torch.zeros_like(depth[..., 0])
-            optical_baseline_rgb.append(
-                cpu(
-                    sensor._tactile_rgb_render.render(zero_deformation)[0],
-                    torch.uint8,
-                )
-            )
-            optical_baseline_depth.append(cpu(depth[0]))
-        world_camera = base_env.scene["world_camera"]
+                optical_baseline_depth.append(cpu(depth[0]))
+        world_camera = None if args.force_only else base_env.scene["world_camera"]
         robot = base_env.scene["robot"]
         obj = base_env.scene["obj"]
-        writer = FfmpegRgbWriter(world_path, 1280, 720, args.fps)
+        if not args.force_only:
+            writer = FfmpegRgbWriter(world_path, 1280, 720, args.fps)
 
         normal_rows: list[np.ndarray] = []
         shear_rows: list[np.ndarray] = []
@@ -390,7 +572,17 @@ def main() -> None:
         truncated_rows: list[bool] = []
         termination_names = tuple(base_env.termination_manager.active_terms)
         termination_rows = {name: [] for name in termination_names}
-        all_robot_box_contact = base_env.scene["all_robot_box_contact"]
+        audit_contacts_available = (
+            not args.force_only
+            and "all_robot_box_contact" in base_env.scene.sensors
+            and "left_patch_box_contact" in base_env.scene.sensors
+            and "right_patch_box_contact" in base_env.scene.sensors
+        )
+        all_robot_box_contact = (
+            base_env.scene["all_robot_box_contact"]
+            if audit_contacts_available
+            else None
+        )
         object_material_properties = cpu(obj.root_physx_view.get_material_properties())
         capture_state = {"enabled": False, "control_step": -1, "substep": 0}
         original_scene_update = base_env.scene.update
@@ -399,17 +591,21 @@ def main() -> None:
             original_scene_update(dt)
             if not capture_state["enabled"]:
                 return
-            contact = all_robot_box_contact.data
-            if contact.force_matrix_w is None or contact.friction_forces_w is None:
-                raise RuntimeError("Substep robot/box force data is absent")
             physics_object_state_rows.append(cpu(obj.data.root_state_w[0]))
             physics_object_velocity_rows.append(cpu(obj.data.root_vel_w[0]))
-            physics_robot_box_force_rows.append(
-                cpu(contact.force_matrix_w[0, :, 0])
-            )
-            physics_robot_box_friction_rows.append(
-                cpu(contact.friction_forces_w[0, :, 0])
-            )
+            if all_robot_box_contact is None:
+                physics_robot_box_force_rows.append(np.empty((0, 3), np.float32))
+                physics_robot_box_friction_rows.append(np.empty((0, 3), np.float32))
+            else:
+                contact = all_robot_box_contact.data
+                if contact.force_matrix_w is None or contact.friction_forces_w is None:
+                    raise RuntimeError("Substep robot/object force data is absent")
+                physics_robot_box_force_rows.append(
+                    cpu(contact.force_matrix_w[0, :, 0])
+                )
+                physics_robot_box_friction_rows.append(
+                    cpu(contact.friction_forces_w[0, :, 0])
+                )
             physics_control_steps.append(int(capture_state["control_step"]))
             physics_substeps.append(int(capture_state["substep"]))
             capture_state["substep"] += 1
@@ -418,7 +614,22 @@ def main() -> None:
 
         for source_step in range(args.max_steps):
             source_frames.append(int(command.time_steps[0]))
-            _, action = teacher.action()
+            if tracker_actor is not None:
+                policy_observation = base_env.observation_manager.compute()["policy"]
+                if tuple(policy_observation.shape) != (1, 510):
+                    raise RuntimeError(
+                        "Unexpected official PickBottle Tracker observation shape: "
+                        f"{tuple(policy_observation.shape)}"
+                    )
+                action = tracker_actor(policy_observation)
+            elif replay_actions is None:
+                assert teacher is not None
+                _, action = teacher.action()
+            else:
+                action = torch.as_tensor(
+                    replay_actions[source_step : source_step + 1],
+                    device=base_env.device,
+                )
             if args.scenario == "failed_grasp" and source_step >= args.release_step:
                 action = torch.zeros_like(action)
             elif (
@@ -444,23 +655,27 @@ def main() -> None:
                 )
 
             tactile_frame = tactile_adapter.update(
-                {"carrybox": [sensor.data for sensor in sensors]},
+                {args.object_kind: [sensor.data for sensor in sensors]},
                 timestamp_s=(source_step + 1) * float(cfg.decimation * cfg.sim.dt),
-                optical_timestamp_s=(source_step + 1)
-                * float(cfg.decimation * cfg.sim.dt),
+                optical_timestamp_s=(
+                    None
+                    if args.force_only
+                    else (source_step + 1) * float(cfg.decimation * cfg.sim.dt)
+                ),
             )
-            if tactile_frame.optical.clock is None:
+            if not args.force_only and tactile_frame.optical.clock is None:
                 raise RuntimeError(
                     "Available official RGB/depth has no optical clock"
                 )
             tactile_sequence_rows.append(tactile_frame.clock.sequence)
             tactile_timestamp_rows.append(tactile_frame.clock.timestamp_s)
             tactile_dt_rows.append(tactile_frame.clock.dt_s)
-            optical_sequence_rows.append(tactile_frame.optical.clock.sequence)
-            optical_timestamp_rows.append(
-                tactile_frame.optical.clock.timestamp_s
-            )
-            optical_dt_rows.append(tactile_frame.optical.clock.dt_s)
+            if tactile_frame.optical.clock is not None:
+                optical_sequence_rows.append(tactile_frame.optical.clock.sequence)
+                optical_timestamp_rows.append(
+                    tactile_frame.optical.clock.timestamp_s
+                )
+                optical_dt_rows.append(tactile_frame.optical.clock.dt_s)
             slip_evidence = slip_detector.update(tactile_frame)
             normal = cpu(tactile_frame.normal_force_n[0]).reshape(
                 2, 27, 20, 25
@@ -520,54 +735,61 @@ def main() -> None:
             robot_root_velocity_rows.append(cpu(robot.data.root_vel_w[0]))
             robot_body_state_rows.append(cpu(robot.data.body_state_w[0]))
             action_rows.append(cpu(action[0]))
-            optical_rgb_rows.append(
-                np.stack(
-                    [
-                        cpu(
-                            sensors[hand_index * 27 + 4].data.tactile_rgb_image[0],
-                            torch.uint8,
-                        )
-                        for hand_index in range(2)
-                    ]
-                )
-            )
-            optical_depth_rows.append(
-                np.stack(
-                    [
-                        cpu(
-                            sensors[hand_index * 27 + 4].data.tactile_depth_image[0]
-                        )
-                        for hand_index in range(2)
-                    ]
-                )
-            )
-            robot_contact = base_env.scene["all_robot_box_contact"].data
-            if robot_contact.force_matrix_w is None:
-                raise RuntimeError("All-robot box-contact force matrix is absent")
-            robot_box_force_rows.append(cpu(robot_contact.force_matrix_w[0, :, 0]))
-            if robot_contact.friction_forces_w is None:
-                raise RuntimeError("All-robot box friction-force matrix is absent")
-            robot_box_friction_rows.append(
-                cpu(robot_contact.friction_forces_w[0, :, 0])
-            )
-            patch_force_by_hand = []
-            patch_friction_by_hand = []
-            for side in SIDES:
-                patch_contact = base_env.scene[f"{side}_patch_box_contact"].data
-                if patch_contact.force_matrix_w is None:
-                    raise RuntimeError(f"{side} patch box-contact force matrix is absent")
-                if patch_contact.friction_forces_w is None:
-                    raise RuntimeError(
-                        f"{side} patch box friction-force matrix is absent"
+            if not args.force_only:
+                optical_rgb_rows.append(
+                    np.stack(
+                        [
+                            cpu(
+                                sensors[hand_index * 27 + 4].data.tactile_rgb_image[0],
+                                torch.uint8,
+                            )
+                            for hand_index in range(2)
+                        ]
                     )
-                patch_force_by_hand.append(
-                    cpu(patch_contact.force_matrix_w[0, :, 0])
                 )
-                patch_friction_by_hand.append(
-                    cpu(patch_contact.friction_forces_w[0, :, 0])
+                optical_depth_rows.append(
+                    np.stack(
+                        [
+                            cpu(
+                                sensors[hand_index * 27 + 4].data.tactile_depth_image[0]
+                            )
+                            for hand_index in range(2)
+                        ]
+                    )
                 )
-            patch_box_force_rows.append(np.stack(patch_force_by_hand))
-            patch_box_friction_rows.append(np.stack(patch_friction_by_hand))
+            if audit_contacts_available:
+                robot_contact = base_env.scene["all_robot_box_contact"].data
+                if robot_contact.force_matrix_w is None:
+                    raise RuntimeError("All-robot object-contact force matrix is absent")
+                robot_box_force_rows.append(cpu(robot_contact.force_matrix_w[0, :, 0]))
+                if robot_contact.friction_forces_w is None:
+                    raise RuntimeError("All-robot object friction-force matrix is absent")
+                robot_box_friction_rows.append(
+                    cpu(robot_contact.friction_forces_w[0, :, 0])
+                )
+                patch_force_by_hand = []
+                patch_friction_by_hand = []
+                for side in SIDES:
+                    patch_contact = base_env.scene[f"{side}_patch_box_contact"].data
+                    if patch_contact.force_matrix_w is None:
+                        raise RuntimeError(f"{side} patch object-contact force matrix is absent")
+                    if patch_contact.friction_forces_w is None:
+                        raise RuntimeError(
+                            f"{side} patch object friction-force matrix is absent"
+                        )
+                    patch_force_by_hand.append(
+                        cpu(patch_contact.force_matrix_w[0, :, 0])
+                    )
+                    patch_friction_by_hand.append(
+                        cpu(patch_contact.friction_forces_w[0, :, 0])
+                    )
+                patch_box_force_rows.append(np.stack(patch_force_by_hand))
+                patch_box_friction_rows.append(np.stack(patch_friction_by_hand))
+            else:
+                robot_box_force_rows.append(np.empty((0, 3), np.float32))
+                robot_box_friction_rows.append(np.empty((0, 3), np.float32))
+                patch_box_force_rows.append(np.empty((2, 0, 3), np.float32))
+                patch_box_friction_rows.append(np.empty((2, 0, 3), np.float32))
             terminated_rows.append(bool(terminated[0].item()))
             truncated_rows.append(bool(truncated[0].item()))
             for name in termination_names:
@@ -575,14 +797,15 @@ def main() -> None:
                     bool(base_env.termination_manager.get_term(name)[0].item())
                 )
 
-            rgb = cpu(world_camera.data.output["rgb"][0, ..., :3], torch.uint8)
-            writer.append(rgb)
+            if world_camera is not None and writer is not None:
+                rgb = cpu(world_camera.data.output["rgb"][0, ..., :3], torch.uint8)
+                writer.append(rgb)
             if source_step % 50 == 0:
                 print(
                     json.dumps(
                         {
                             "source_step": source_step,
-                            "box_z_m": float(object_rows[-1][2]),
+                            "object_z_m": float(object_rows[-1][2]),
                             "active_taxels_left": int(np.count_nonzero(normal[0])),
                             "active_taxels_right": int(np.count_nonzero(normal[1])),
                         }
@@ -590,13 +813,15 @@ def main() -> None:
                     flush=True,
                 )
             if (
-                args.scenario != "failed_closure"
+                args.object_kind == "carrybox"
+                and args.scenario != "failed_closure"
                 and (terminated_rows[-1] or truncated_rows[-1])
             ):
                 break
 
-        writer.close()
-        writer = None
+        if writer is not None:
+            writer.close()
+            writer = None
         normal_array = np.stack(normal_rows).astype(np.float32)
         shear_array = np.stack(shear_rows).astype(np.float32)
         penetration_array = np.stack(penetration_rows).astype(np.float32)
@@ -639,11 +864,25 @@ def main() -> None:
             tactile_only_slip_normal_loss_rate_s=np.stack(
                 slip_normal_loss_rate_rows
             ).astype(np.float32),
-            optical_rgb=np.stack(optical_rgb_rows).astype(np.uint8),
-            optical_depth=np.stack(optical_depth_rows).astype(np.float32),
-            optical_baseline_rgb=np.stack(optical_baseline_rgb).astype(np.uint8),
-            optical_baseline_depth=np.stack(optical_baseline_depth).astype(
-                np.float32
+            optical_rgb=(
+                np.stack(optical_rgb_rows).astype(np.uint8)
+                if optical_rgb_rows
+                else np.empty((len(normal_array), 2, 0), dtype=np.uint8)
+            ),
+            optical_depth=(
+                np.stack(optical_depth_rows).astype(np.float32)
+                if optical_depth_rows
+                else np.empty((len(normal_array), 2, 0), dtype=np.float32)
+            ),
+            optical_baseline_rgb=(
+                np.stack(optical_baseline_rgb).astype(np.uint8)
+                if optical_baseline_rgb
+                else np.empty((2, 0), dtype=np.uint8)
+            ),
+            optical_baseline_depth=(
+                np.stack(optical_baseline_depth).astype(np.float32)
+                if optical_baseline_depth
+                else np.empty((2, 0), dtype=np.float32)
             ),
             tactile_sequence=np.asarray(tactile_sequence_rows, dtype=np.int64),
             tactile_timestamp_s=np.asarray(
@@ -669,6 +908,8 @@ def main() -> None:
             ),
             robot_box_force_body_names=np.asarray(
                 base_env.scene["all_robot_box_contact"].body_names
+                if audit_contacts_available
+                else []
             ),
             robot_joint_position=np.stack(joint_rows).astype(np.float32),
             robot_joint_velocity=np.stack(joint_velocity_rows).astype(np.float32),
@@ -713,11 +954,22 @@ def main() -> None:
         ]
         lifted_and_bilateral = (relative_lift >= 0.20) & bilateral
         summary = {
-            "schema": "sugar_whole_hand_carrybox_native_tactile_v2",
+            "schema": "sugar_g1_anatomical27_object_native_tactile_v1",
             "scenario": args.scenario,
+            "object_kind": args.object_kind,
+            "object_scale": list(actual_object_scale),
+            "action_source": (
+                "released_official_pickbottle_tracker"
+                if tracker_actor is not None
+                else (
+                    "frozen_official_refiner"
+                    if args.action_trace is None
+                    else str(action_trace_path)
+                )
+            ),
             "host": HOST,
             "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
-            "task_id": TASK_ID,
+            "task_id": task_id,
             "motion_id": args.motion_id,
             "seed": args.seed,
             "source_frames": int(len(normal_array)),
@@ -735,12 +987,17 @@ def main() -> None:
                 else None
             ),
             "continued_after_task_termination_for_visualization": (
-                args.scenario == "failed_closure"
+                args.scenario == "failed_closure" or args.object_kind != "carrybox"
             ),
-            "box_mass_requested_kg": args.mass_kg,
+            "box_mass_requested_kg": object_mass_kg,
             "box_mass_readback_kg": float(
                 cpu(obj.root_physx_view.get_masses())[0].sum()
             ),
+            "object_mass_requested_kg": object_mass_kg,
+            "object_mass_readback_kg": float(
+                cpu(obj.root_physx_view.get_masses())[0].sum()
+            ),
+            "physx_contact_audit_available": audit_contacts_available,
             "normal_shape": list(normal_array.shape),
             "shear_shape": list(shear_array.shape),
             "common_tactile_backend": "isaaclab_tacsl",
@@ -769,13 +1026,31 @@ def main() -> None:
                 "optical_timestamp_s",
                 "optical_dt_s",
             ],
-            "optical_rgb_shape": list(np.stack(optical_rgb_rows).shape),
-            "optical_depth_shape": list(np.stack(optical_depth_rows).shape),
-            "optical_baseline_rgb_shape": list(
-                np.stack(optical_baseline_rgb).shape
+            "optical_available": not args.force_only,
+            "optical_unavailable_reason": (
+                "Force-only collection explicitly disabled the optical cameras."
+                if args.force_only
+                else None
             ),
-            "optical_baseline_depth_shape": list(
-                np.stack(optical_baseline_depth).shape
+            "optical_rgb_shape": (
+                list(np.stack(optical_rgb_rows).shape)
+                if optical_rgb_rows
+                else [len(normal_array), 2, 0]
+            ),
+            "optical_depth_shape": (
+                list(np.stack(optical_depth_rows).shape)
+                if optical_depth_rows
+                else [len(normal_array), 2, 0]
+            ),
+            "optical_baseline_rgb_shape": (
+                list(np.stack(optical_baseline_rgb).shape)
+                if optical_baseline_rgb
+                else [2, 0]
+            ),
+            "optical_baseline_depth_shape": (
+                list(np.stack(optical_baseline_depth).shape)
+                if optical_baseline_depth
+                else [2, 0]
             ),
             "patch_box_force_shape": list(np.stack(patch_box_force_rows).shape),
             "patch_box_friction_force_shape": list(
@@ -799,7 +1074,7 @@ def main() -> None:
             "maximum_active_taxels_left": int(active[:, 0].sum(axis=-1).max()),
             "maximum_active_taxels_right": int(active[:, 1].sum(axis=-1).max()),
             "termination_reasons": reasons,
-            "world_video": str(world_path),
+            "world_video": None if args.force_only else str(world_path),
             "trace": str(trace_path),
             "claim_boundary": (
                 "No-learning native-sensor behavior trace. Final success/failure "
