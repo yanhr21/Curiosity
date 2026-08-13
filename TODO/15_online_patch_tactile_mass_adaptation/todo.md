@@ -94,6 +94,8 @@
   updates，不重复或延长到 3000 之外。
 - [x] mass-factor/delay assignment 继承对应 env seed，且每个 env 的连续五个
   episodes 各覆盖一次 `1.0x/1.5x/3x/6x/10x`。
+- [x] Plan-15 runner 禁用通用的 random episode-length initialization，确保
+  one-update preflight 和 formal episodes 都从 motion frame 0 连续进入抓取。
 - [x] 保持三个分支的官方 SUGAR CarryBox reward 完全一致；mass ID、jump flag、
   patch/slip state 均不直接成为 reward 或 actor 答案。
 - [x] 冻结 3 个 formal training seeds，以及 3 个未参与训练的 evaluation seeds；

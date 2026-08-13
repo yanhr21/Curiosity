@@ -592,7 +592,13 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             f"total={total_iteration_budget}, remaining={learning_iterations}",
             flush=True,
         )
-    runner.learn(num_learning_iterations=learning_iterations, init_at_random_ep_len=True)
+    init_at_random_ep_len = (
+        os.environ.get("SUGAR_INIT_AT_RANDOM_EP_LEN", "1") != "0"
+    )
+    runner.learn(
+        num_learning_iterations=learning_iterations,
+        init_at_random_ep_len=init_at_random_ep_len,
+    )
 
     if hasattr(env, "finalize_telemetry"):
         env.finalize_telemetry()
