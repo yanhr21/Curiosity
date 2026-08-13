@@ -54,11 +54,28 @@ PATCHES = (
 )
 SIDES = ("left", "right")
 
+# Exact principal frame of the official SUGAR CarryBox rigid mesh. Columns are
+# the PCA axes in the object root frame; bounds are measured over all 50,004
+# mesh vertices. The open-loop demo uses PCA2 as the physical bottom/top axis
+# and PCA0 for the braced side.
+CARRYBOX_PCA_CENTER_B = (-0.0011075759, -0.0005471044, 0.0052253723)
+CARRYBOX_PCA_BASIS_B = (
+    (-0.0745516238, 0.9870564599, -0.1419915504),
+    (0.9083135305, 0.0084440003, -0.4182047694),
+    (-0.4115927425, -0.1601506911, -0.8971862518),
+)
+CARRYBOX_PCA0_MAX_M = 0.2197713927
+CARRYBOX_PCA1_EDGE_INSET_M = 0.075
+# The scanned CarryBox bottom is not planar. At the selected palm-support
+# strip (PCA1=-0.075 m), the outer shell is at PCA2=-0.179 m; using the global
+# -0.189 m vertex leaves the palm about a centimetre below the local surface.
+CARRYBOX_LOCAL_SUPPORT_PCA2_M = -0.179
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-root", type=Path, required=True)
 parser.add_argument(
     "--object-kind",
-    choices=("carrybox", "bottle", "cup"),
+    choices=("carrybox", "bottle", "cup", "palm_fixture", "palm_grip"),
     default="carrybox",
     help="Dynamic IsaacLab object grasped by the complete sensorized G1.",
 )
@@ -68,7 +85,7 @@ parser.add_argument(
     nargs=3,
     default=None,
     metavar=("SX", "SY", "SZ"),
-    help="Optional root scale override for bottle/cup assets.",
+    help="Optional root scale override for the selected rigid object.",
 )
 parser.add_argument(
     "--action-trace",
@@ -78,12 +95,41 @@ parser.add_argument(
 )
 parser.add_argument(
     "--scenario",
-    choices=("successful_grasp", "failed_grasp", "failed_closure"),
+    choices=(
+        "unmodified_official_policy",
+        "successful_grasp",
+        "failed_grasp",
+        "failed_closure",
+        "bottom_support_lift",
+    ),
     required=True,
 )
 parser.add_argument("--seed", type=int, default=4263)
 parser.add_argument("--motion-id", type=int, default=45)
+parser.add_argument(
+    "--start-step",
+    type=int,
+    default=0,
+    help="Initialize robot and object together from this official motion frame.",
+)
 parser.add_argument("--max-steps", type=int, default=660)
+parser.add_argument(
+    "--continue-after-termination",
+    action="store_true",
+    help=(
+        "Keep recording the same physical rollout after a task termination "
+        "signal. The environment reset path remains disabled; actions, "
+        "physics, and native tactile sensing are unchanged."
+    ),
+)
+parser.add_argument(
+    "--bottom-support-open-loop",
+    action="store_true",
+    help=(
+        "Use bilateral IsaacLab DLS IK to place the left palm under the plain "
+        "CarryBox, brace its side with the right palm, and lift both hands."
+    ),
+)
 parser.add_argument("--release-step", type=int, default=360)
 parser.add_argument("--closure-fault-step", type=int, default=210)
 parser.add_argument(
@@ -98,10 +144,60 @@ parser.add_argument(
     action="store_true",
     help="Disable RTX/world and optical cameras while retaining all native TacSL force fields.",
 )
+parser.add_argument(
+    "--disable-optical",
+    action="store_true",
+    help="Keep the world camera but disable GelSight optical cameras.",
+)
+parser.add_argument(
+    "--hold-reset-pose",
+    action="store_true",
+    help="Hold the exact reset joint pose for a controlled rigid palm-press sample.",
+)
 parser.add_argument("--physical-stiffness", type=float, default=1500.0)
 parser.add_argument("--physical-damping", type=float, default=300.0)
 parser.add_argument("--normal-stiffness", type=float, default=199.35014495534745)
 parser.add_argument("--tangential-stiffness", type=float, default=19.935014495534745)
+parser.add_argument(
+    "--contact-friction",
+    type=float,
+    default=None,
+    help=(
+        "Exact physical patch/object friction and TacSL Coulomb coefficient. "
+        "Omit to retain the task's seeded object-material draw and nominal 0.5 patch/TacSL value."
+    ),
+)
+parser.add_argument(
+    "--wrist-yaw-target-offset-rad",
+    type=float,
+    nargs=2,
+    default=(0.0, 0.0),
+    metavar=("LEFT", "RIGHT"),
+    help=(
+        "Constant left/right wrist-yaw joint-target offsets in radians, applied "
+        "after the official policy action."
+    ),
+)
+parser.add_argument(
+    "--shoulder-pitch-target-offset-rad",
+    type=float,
+    nargs=2,
+    default=(0.0, 0.0),
+    metavar=("LEFT", "RIGHT"),
+)
+parser.add_argument(
+    "--shoulder-roll-target-offset-rad",
+    type=float,
+    nargs=2,
+    default=(0.0, 0.0),
+    metavar=("LEFT", "RIGHT"),
+)
+parser.add_argument(
+    "--joint-offset-ramp-steps",
+    type=int,
+    default=0,
+    help="Linearly introduce the declared joint-target offsets over this many control steps.",
+)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 
@@ -127,8 +223,24 @@ if args.object_kind == "bottle" and args.action_trace is not None:
     raise SystemExit(
         "PickBottle must use its released official Tracker, not a CarryBox action trace"
     )
-if args.max_steps < 120:
-    raise SystemExit("At least 120 recorded control steps are required")
+if args.max_steps < 30:
+    raise SystemExit("At least 30 recorded control steps are required")
+if args.start_step < 0:
+    raise SystemExit("start-step must be nonnegative")
+if args.contact_friction is not None and not 0.0 <= args.contact_friction <= 2.0:
+    raise SystemExit("contact-friction must lie in [0, 2]")
+if args.mass_kg is not None and args.mass_kg <= 0.0:
+    raise SystemExit("mass-kg must be positive")
+if args.joint_offset_ramp_steps < 0:
+    raise SystemExit("joint-offset-ramp-steps must be nonnegative")
+if args.bottom_support_open_loop and args.object_kind != "carrybox":
+    raise SystemExit("bottom-support-open-loop requires object-kind=carrybox")
+if args.bottom_support_open_loop and args.action_trace is not None:
+    raise SystemExit("bottom-support-open-loop does not accept an action trace")
+if args.bottom_support_open_loop != (args.scenario == "bottom_support_lift"):
+    raise SystemExit(
+        "scenario=bottom_support_lift and --bottom-support-open-loop must be used together"
+    )
 if args.scenario == "failed_grasp" and not 1 <= args.release_step < args.max_steps:
     raise SystemExit("release_step must lie inside the failed-grasp rollout")
 if args.scenario == "failed_closure" and not 1 <= args.closure_fault_step < args.max_steps:
@@ -146,7 +258,17 @@ os.environ["CURIOSITY_ANATOMICAL_TACSL_NORMAL_STIFFNESS"] = str(
 os.environ["CURIOSITY_ANATOMICAL_TACSL_TANGENTIAL_STIFFNESS"] = str(
     args.tangential_stiffness
 )
-os.environ["CURIOSITY_ANATOMICAL_TACSL_FRICTION_COEFFICIENT"] = "0.5"
+contact_friction = 0.5 if args.contact_friction is None else args.contact_friction
+os.environ["CURIOSITY_ANATOMICAL_TACSL_FRICTION_COEFFICIENT"] = str(
+    contact_friction
+)
+if args.contact_friction is not None:
+    os.environ["CURIOSITY_ANATOMICAL_PHYSX_STATIC_FRICTION"] = str(
+        args.contact_friction
+    )
+    os.environ["CURIOSITY_ANATOMICAL_PHYSX_DYNAMIC_FRICTION"] = str(
+        args.contact_friction
+    )
 os.environ["CURIOSITY_ENABLE_ANATOMICAL27_WHOLE_HAND_TACSL_AUDIT"] = "1"
 os.environ["SUGAR_DISABLE_TRAIN_DEBUG_VIS"] = "1"
 os.environ["CURIOSITY_TACSL_CALIBRATION_DIR"] = str(
@@ -165,7 +287,12 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
 import isaaclab.sim as sim_utils  # noqa: E402
+import isaaclab.utils.math as math_utils  # noqa: E402
 from isaaclab.assets import RigidObjectCfg  # noqa: E402
+from isaaclab.controllers import (  # noqa: E402
+    DifferentialIKController,
+    DifferentialIKControllerCfg,
+)
 
 sys.path.insert(0, str(ROOT))
 from scripts.sugar.native_tactile.slip import TactileSlipDetector  # noqa: E402
@@ -294,6 +421,16 @@ def main() -> None:
     trace_path = output_root / "whole_hand_trace.npz"
     world_path = output_root / f"world_{args.object_kind}.mp4"
     summary_path = output_root / "summary.json"
+    default_mass_kg = {
+        "bottle": 0.75,
+        "carrybox": 0.3023375868797302,
+        "cup": 0.5,
+        "palm_fixture": 0.3023375868797302,
+        "palm_grip": 0.5,
+    }[args.object_kind]
+    object_mass_kg = float(
+        default_mass_kg if args.mass_kg is None else args.mass_kg
+    )
 
     register_official_refiner_anatomical_whole_hand_tacsl_audit_task()
     # The audit scene adds three large raw ContactSensors for force-balance
@@ -301,20 +438,31 @@ def main() -> None:
     # force-only runtime uses the sensorized G1 scene without them.
     if args.object_kind == "bottle":
         cfg = PickBottleAnatomicalWholeHandTacSLEnvCfg()
+        # The released Tracker actor consumes only the 510-D policy group.
+        # The base training config also declares Refiner-only critic/teacher
+        # groups that require a separate teacher-motion dataset; they are not
+        # used during this frozen no-learning Tracker rollout.
+        cfg.observations.critic = None
+        cfg.observations.teacher = None
         task_id = PICKBOTTLE_TASK_ID
     else:
         cfg = (
             OfficialRefinerAnatomicalWholeHandTacSLEnvCfg()
-            if args.force_only
+            if args.force_only or args.object_kind == "palm_grip"
             else OfficialRefinerAnatomicalWholeHandTacSLAuditEnvCfg()
         )
         task_id = REFINER_TASK_ID
     actual_object_scale = (1.0, 1.0, 1.0)
-    if args.object_kind == "cup":
+    if args.object_kind == "carrybox" and args.object_scale is not None:
+        actual_object_scale = tuple(args.object_scale)
+        cfg.scene.obj.spawn.scale = actual_object_scale
+    if args.object_kind in ("cup", "palm_fixture", "palm_grip"):
         default_scales = {
             # The Newton asset is a 6-cm tabletop cup.  A two-handed G1
             # container uses the same geometry at the CarryBox hand span.
             "cup": (6.2, 6.2, 4.6),
+            "palm_fixture": (1.0, 1.0, 1.0),
+            "palm_grip": (1.0, 1.0, 1.0),
         }
         object_paths = {
             "cup": Path(
@@ -322,6 +470,10 @@ def main() -> None:
                 "newton-assets_manipulation_objects_cup_f7f64ec3_8e8df07d/"
                 "manipulation_objects/cup/model.usda"
             ),
+            "palm_fixture": ROOT
+            / "SUGAR/descriptions/objects/palm_fit_fixture/palm_fit_fixture.usda",
+            "palm_grip": ROOT
+            / "SUGAR/descriptions/objects/palm_fit_fixture/palm_grip_object.usda",
         }
         object_path = object_paths[args.object_kind]
         if not object_path.is_file():
@@ -333,10 +485,12 @@ def main() -> None:
             spawn=SdfUsdFileCfg(
                 usd_path=str(object_path),
                 rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                    disable_gravity=False,
-                    angular_damping=0.2,
+                    disable_gravity=args.object_kind == "palm_fixture",
+                    linear_damping=2.0 if args.object_kind == "palm_grip" else 0.0,
+                    angular_damping=2.0 if args.object_kind == "palm_grip" else 0.2,
+                    kinematic_enabled=args.object_kind == "palm_fixture",
                 ),
-                mass_props=sim_utils.MassPropertiesCfg(mass=0.5),
+                mass_props=sim_utils.MassPropertiesCfg(mass=object_mass_kg),
                 scale=object_scale,
                 solid_outer_shell_only=False,
                 add_collision_to_mesh_if_absent=args.object_kind == "cup",
@@ -362,12 +516,33 @@ def main() -> None:
     cfg.commands.motion.joint_position_range = (0.0, 0.0)
     cfg.events.push_robot = None
     cfg.events.push_object = None
+    if args.contact_friction is not None:
+        cfg.events.obj_physics_material.params.update(
+            static_friction_range=(args.contact_friction, args.contact_friction),
+            dynamic_friction_range=(args.contact_friction, args.contact_friction),
+            restitution_range=(0.0, 0.0),
+            num_buckets=1,
+        )
+    if args.hold_reset_pose:
+        cfg.scene.robot.spawn.articulation_props.fix_root_link = True
+        arm_drive = cfg.scene.robot.actuators["arms"]
+        arm_drive.effort_limit_sim = 200.0
+        arm_drive.stiffness = 1000.0
+        arm_drive.damping = 50.0
     cfg.scene.left_hand_camera = None
     cfg.scene.right_hand_camera = None
-    default_mass_kg = 0.75 if args.object_kind == "bottle" else 0.3023375868797302
-    object_mass_kg = float(args.mass_kg or default_mass_kg)
-    source_mass_kg = 0.75 if args.object_kind == "bottle" else 0.5
-    mass_scale = object_mass_kg / source_mass_kg
+    source_mass_kg = {
+        "bottle": 0.75,
+        "carrybox": 0.5,
+        "cup": 0.5,
+        "palm_fixture": 0.3023375868797302,
+        "palm_grip": 0.3023375868797302,
+    }[args.object_kind]
+    mass_scale = (
+        1.0
+        if args.object_kind in ("cup", "palm_fixture", "palm_grip")
+        else object_mass_kg / source_mass_kg
+    )
     cfg.events.obj_mass.params["mass_distribution_params"] = (
         mass_scale,
         mass_scale,
@@ -397,7 +572,7 @@ def main() -> None:
     for sensor_name in anatomical_whole_hand_sensor_names():
         sensor_cfg = getattr(cfg.scene, sensor_name)
         sensor_cfg.update_period = float(cfg.sim.dt)
-        if args.force_only:
+        if args.force_only or args.disable_optical:
             sensor_cfg.enable_camera_tactile = False
             sensor_cfg.camera_cfg = None
     if args.force_only:
@@ -417,10 +592,12 @@ def main() -> None:
         official_motion_frames = int(
             command.motion.time_step_total_permotion[fixed_motion_index].item()
         )
-        if args.max_steps > official_motion_frames:
+        if args.start_step + args.max_steps >= official_motion_frames:
             raise RuntimeError(
-                f"Requested {args.max_steps} steps, but official motion "
-                f"{args.motion_id} has {official_motion_frames} robot frames"
+                f"Requested frames {args.start_step} through "
+                f"{args.start_step + args.max_steps - 1}, but env.step computes the "
+                f"next observation and official motion {args.motion_id} has "
+                f"{official_motion_frames} indexable robot frames"
             )
 
         def fixed_start(env_ids) -> None:
@@ -430,11 +607,21 @@ def main() -> None:
                 else torch.as_tensor(env_ids, dtype=torch.long, device=base_env.device)
             )
             command.motion_id[ids] = fixed_motion_index
-            command.time_steps[ids] = 0
+            command.time_steps[ids] = args.start_step
             command._use_motion_data[ids] = True
 
         command._sample_init_state = fixed_start
         env.reset()
+        # ManagerBasedRLEnv.reset() may complete without resampling this command
+        # term when a previously constructed environment is reused.  Invoke the
+        # official command reset path once explicitly so --start-step controls
+        # the actual robot/object state, not only the command counters.
+        reset_env_ids = torch.arange(
+            base_env.num_envs, dtype=torch.long, device=base_env.device
+        )
+        command._resample_command(reset_env_ids)
+        base_env.scene.write_data_to_sim()
+        base_env.sim.forward()
         original_reset_idx = base_env._reset_idx
         base_env._reset_idx = lambda env_ids: None
         # This visualization task loads the official checkpoint directly and
@@ -445,6 +632,8 @@ def main() -> None:
         replay_actions = None
         if args.object_kind == "bottle":
             tracker_actor = load_official_pickbottle_tracker(base_env.device)
+        elif args.hold_reset_pose:
+            pass
         elif args.action_trace is None:
             teacher = FrozenOfficialRefinerTeacher(
                 base_env,
@@ -460,8 +649,28 @@ def main() -> None:
                 raise RuntimeError(
                     f"Action trace has {len(replay_actions)} rows, need {args.max_steps}"
                 )
+        robot = base_env.scene["robot"]
+        obj = base_env.scene["obj"]
         action_term = base_env.action_manager.get_term("JointPositionAction")
         action_joint_names = tuple(action_term._joint_names)
+        offset_action_indices = tuple(
+            action_joint_names.index(f"{side}_{joint}_joint")
+            for joint in ("wrist_yaw", "shoulder_pitch", "shoulder_roll")
+            for side in SIDES
+        )
+        target_offset_rad = torch.as_tensor(
+            (
+                *args.wrist_yaw_target_offset_rad,
+                *args.shoulder_pitch_target_offset_rad,
+                *args.shoulder_roll_target_offset_rad,
+            ),
+            dtype=torch.float32,
+            device=base_env.device,
+        ).reshape(1, 6)
+        action_offset = (
+            target_offset_rad
+            / action_term._scale[:, offset_action_indices]
+        )
         right_arm_action_indices = tuple(
             index
             for index, name in enumerate(action_joint_names)
@@ -473,6 +682,232 @@ def main() -> None:
                 "Expected seven right-arm action indices, got "
                 f"{right_arm_action_indices} from {action_joint_names}"
             )
+        bottom_support = None
+        if args.bottom_support_open_loop:
+            device = base_env.device
+            dtype = robot.data.joint_pos.dtype
+            palm_center_h = {
+                "left": torch.tensor(
+                    (0.040, -0.0149731754, -0.010), device=device, dtype=dtype
+                ),
+                "right": torch.tensor(
+                    (0.040, 0.0149688583, -0.010), device=device, dtype=dtype
+                ),
+            }
+            hand_body_ids = {}
+            hand_jacobian_ids = {}
+            arm_joint_ids = {}
+            arm_action_indices = {}
+            lift_controllers = {}
+            for side in SIDES:
+                body_ids = robot.find_bodies(f"{side}_rubber_hand")[0]
+                if len(body_ids) != 1:
+                    raise RuntimeError(
+                        f"Expected one {side} rubber hand, got {body_ids}"
+                    )
+                body_id = int(body_ids[0])
+                joint_names = [
+                    f"{side}_shoulder_pitch_joint",
+                    f"{side}_shoulder_roll_joint",
+                    f"{side}_shoulder_yaw_joint",
+                    f"{side}_elbow_joint",
+                    f"{side}_wrist_roll_joint",
+                    f"{side}_wrist_pitch_joint",
+                    f"{side}_wrist_yaw_joint",
+                ]
+                ids = [int(value) for value in robot.find_joints(joint_names)[0]]
+                if len(ids) != 7:
+                    raise RuntimeError(f"Expected seven {side} arm joints, got {ids}")
+                hand_body_ids[side] = body_id
+                hand_jacobian_ids[side] = body_id - 1
+                arm_joint_ids[side] = ids
+                arm_action_indices[side] = [
+                    action_joint_names.index(name) for name in joint_names
+                ]
+                lift_controllers[side] = DifferentialIKController(
+                    DifferentialIKControllerCfg(
+                        command_type="pose", use_relative_mode=False, ik_method="dls"
+                    ),
+                    num_envs=1,
+                    device=device,
+                )
+
+            # Initial configuration only: move the box away and rotate the
+            # two wrists to a reachable mixed-support pose derived from
+            # official CarryBox motion 45, frame 380. The left palm faces
+            # upward; the right palm faces horizontally toward the left.
+            far_object_state = obj.data.root_state_w.clone()
+            far_object_state[:, :3] = torch.tensor(
+                (5.0, 5.0, 1.0), device=device, dtype=dtype
+            )
+            far_object_state[:, 7:] = 0.0
+            obj.write_root_state_to_sim(far_object_state)
+            base_env.scene.write_data_to_sim()
+            base_env.sim.forward()
+            robot.update(0.0)
+
+            # Wrist targets solved at official motion-45 frame 249 so the
+            # Refiner keeps its original stable whole-body/arm trajectory:
+            # left palm faces upward and right palm braces the side.
+            wrist_setup_rad = {
+                "left": (-0.527079, -0.001817, -1.570921),
+                "right": (0.334558, -1.604436, -0.025278),
+            }
+            wrist_joint_ids = {}
+            for side in SIDES:
+                ids = [
+                    int(value)
+                    for value in robot.find_joints(
+                        [
+                            f"{side}_wrist_roll_joint",
+                            f"{side}_wrist_pitch_joint",
+                            f"{side}_wrist_yaw_joint",
+                        ]
+                    )[0]
+                ]
+                wrist_joint_ids[side] = ids
+                target = torch.tensor(
+                    wrist_setup_rad[side], device=device, dtype=dtype
+                ).unsqueeze(0)
+                robot.write_joint_state_to_sim(
+                    target,
+                    torch.zeros_like(target),
+                    joint_ids=ids,
+                )
+            base_env.scene.write_data_to_sim()
+            base_env.sim.forward()
+            robot.update(0.0)
+
+            hand_rotation_w = {
+                side: math_utils.matrix_from_quat(
+                    robot.data.body_quat_w[:, hand_body_ids[side]]
+                )[0]
+                for side in SIDES
+            }
+            palm_center_w = {
+                side: robot.data.body_pos_w[0, hand_body_ids[side]].clone()
+                + hand_rotation_w[side] @ palm_center_h[side]
+                for side in SIDES
+            }
+            palm_outward_w = {
+                "left": hand_rotation_w["left"]
+                @ torch.tensor((0.0, -1.0, 0.0), device=device, dtype=dtype),
+                "right": hand_rotation_w["right"]
+                @ torch.tensor((0.0, 1.0, 0.0), device=device, dtype=dtype),
+            }
+            up_w = torch.tensor((0.0, 0.0, 1.0), device=device, dtype=dtype)
+            support_axis_w = palm_center_w["right"] - palm_center_w["left"]
+            support_axis_w[2] = 0.0
+            support_axis_w = support_axis_w / torch.linalg.vector_norm(support_axis_w)
+            transverse_w = torch.linalg.cross(up_w, support_axis_w)
+            box_pca_basis_b = torch.tensor(
+                CARRYBOX_PCA_BASIS_B, device=device, dtype=dtype
+            )
+            desired_pca_frame_w = torch.stack(
+                (support_axis_w, transverse_w, up_w), dim=1
+            )
+            box_rotation_w = desired_pca_frame_w @ box_pca_basis_b.T
+            box_quaternion_w = math_utils.quat_from_matrix(
+                box_rotation_w.unsqueeze(0)
+            )[0]
+            box_pca_center_w = palm_center_w["right"] - support_axis_w * (
+                CARRYBOX_PCA0_MAX_M - 0.001
+            )
+            # Put both contact points near the PCA1 edge. The palm remains on
+            # the bottom face while the four protruding distal finger regions
+            # lie beyond that edge instead of intercepting the flat bottom.
+            box_pca_center_w += (
+                CARRYBOX_PCA1_EDGE_INSET_M * transverse_w
+            )
+            box_pca_center_w[2] = (
+                palm_center_w["left"][2]
+                - CARRYBOX_LOCAL_SUPPORT_PCA2_M
+                - 0.003
+            )
+            box_root_position_w = box_pca_center_w - box_rotation_w @ torch.tensor(
+                CARRYBOX_PCA_CENTER_B, device=device, dtype=dtype
+            )
+            object_state = obj.data.root_state_w.clone()
+            object_state[0, :3] = box_root_position_w
+            object_state[0, 3:7] = box_quaternion_w
+            object_state[0, 7:] = 0.0
+            obj.write_root_state_to_sim(object_state)
+            base_env.scene.write_data_to_sim()
+            base_env.sim.forward()
+            robot.update(0.0)
+            obj.update(0.0)
+            for controller in lift_controllers.values():
+                controller.reset()
+            target_hand_position_w = {
+                side: robot.data.body_pos_w[0, hand_body_ids[side]].clone()
+                for side in SIDES
+            }
+            target_hand_quaternion_w = {
+                side: robot.data.body_quat_w[0, hand_body_ids[side]].clone()
+                for side in SIDES
+            }
+            bottom_support = {
+                "hand_body_ids": hand_body_ids,
+                "hand_jacobian_ids": hand_jacobian_ids,
+                "arm_joint_ids": arm_joint_ids,
+                "arm_action_indices": arm_action_indices,
+                "controllers": lift_controllers,
+                "target_hand_position_w": target_hand_position_w,
+                "target_hand_quaternion_w": target_hand_quaternion_w,
+                "setup_position_error_m": {"left": 0.0, "right": 0.0},
+                "setup_rotation_error_rad": {"left": 0.0, "right": 0.0},
+                "wrist_setup_rad": wrist_setup_rad,
+                "wrist_joint_ids": wrist_joint_ids,
+                "wrist_action_indices": {
+                    side: [
+                        action_joint_names.index(
+                            f"{side}_wrist_{axis}_joint"
+                        )
+                        for axis in ("roll", "pitch", "yaw")
+                    ]
+                    for side in SIDES
+                },
+                "left_palm_target_w": palm_center_w["left"],
+                "right_palm_target_w": palm_center_w["right"],
+                "palm_outward_w": palm_outward_w,
+                "box_pca_center_w": box_pca_center_w,
+                "box_root_position_w": box_root_position_w,
+                "setup_joint_position": robot.data.joint_pos.clone(),
+                "initial_reference_object_position_w": command.obj_ref_pos_w[
+                    0
+                ].clone(),
+                "settle_steps": 0,
+                "lift_steps": 0,
+                "lift_height_m": 0.0,
+            }
+            print(
+                json.dumps(
+                    {
+                        "bottom_support_wrist_setup_rad": wrist_setup_rad,
+                        "left_palm_target_w": cpu(palm_center_w["left"]).tolist(),
+                        "right_palm_target_w": cpu(palm_center_w["right"]).tolist(),
+                        "left_palm_outward_w": cpu(palm_outward_w["left"]).tolist(),
+                        "right_palm_outward_w": cpu(palm_outward_w["right"]).tolist(),
+                        "box_pca_center_w": cpu(box_pca_center_w).tolist(),
+                    }
+                ),
+                flush=True,
+            )
+        hold_action = None
+        if args.hold_reset_pose:
+            reset_joint_position = robot.data.joint_pos.clone()
+            reset_root_state = robot.data.root_state_w.clone()
+            reset_root_state[:, 7:] = 0.0
+            robot.write_joint_state_to_sim(
+                reset_joint_position,
+                torch.zeros_like(reset_joint_position),
+            )
+            robot.write_root_state_to_sim(reset_root_state)
+            base_env.scene.write_data_to_sim()
+            base_env.sim.forward()
+            hold_action = (
+                reset_joint_position[:, action_term._joint_ids] - action_term._offset
+            ) / action_term._scale
         sensors = [base_env.scene[name] for name in anatomical_whole_hand_sensor_names()]
         if len(sensors) != 54:
             raise RuntimeError(f"Expected 54 sensors, found {len(sensors)}")
@@ -489,13 +924,53 @@ def main() -> None:
             grid_shape=(20, 25),
             patch_size_m=common_patch_sizes_m,
         )
+        # Save the exact post-reset geometry before the first policy/physics
+        # step. This is the correct frame for constructing controlled contact
+        # fixtures; a later rollout pose can already differ by millimeters.
+        reset_adapter = IsaacLabTacSLAdapter(
+            common_patch_names,
+            grid_shape=(20, 25),
+            patch_size_m=common_patch_sizes_m,
+        )
+        for sensor in sensors:
+            sensor.update(0.0, force_recompute=True)
+        reset_tactile = reset_adapter.update(
+            {args.object_kind: [sensor.data for sensor in sensors]},
+            timestamp_s=0.0,
+            optical_timestamp_s=None,
+        )
+        np.savez_compressed(
+            output_root / "reset_geometry.npz",
+            taxel_position_w=cpu(reset_tactile.taxel_position_w_m[0]).reshape(
+                2, 27, 20, 25, 3
+            ),
+            taxel_quaternion_w=cpu(reset_tactile.taxel_orientation_w_xyzw[0]).reshape(
+                2, 27, 20, 25, 4
+            ),
+            penetration=cpu(reset_tactile.penetration_m[0]).reshape(
+                2, 27, 20, 25
+            ),
+            normal_force=cpu(reset_tactile.normal_force_n[0]).reshape(
+                2, 27, 20, 25
+            ),
+            signed_shear=cpu(reset_tactile.shear_force_xy_n[0]).reshape(
+                2, 27, 20, 25, 2
+            ),
+            tactile_patch_size_m=np.asarray(common_patch_sizes_m, np.float32).reshape(
+                2, 27, 2
+            ),
+            object_state_w=cpu(obj.data.root_state_w[0]),
+            motion_frame=np.asarray(int(command.time_steps[0]), np.int64),
+            patch_order=np.asarray(PATCHES),
+            side_order=np.asarray(SIDES),
+        )
         slip_detector = TactileSlipDetector(
             common_patch_names,
             friction_coefficient=0.5,
         )
         optical_baseline_rgb: list[np.ndarray] = []
         optical_baseline_depth: list[np.ndarray] = []
-        if not args.force_only:
+        if not args.force_only and not args.disable_optical:
             center_optical = [sensors[4], sensors[31]]
             for side, sensor in zip(SIDES, center_optical, strict=True):
                 if int(torch.count_nonzero(sensor.data.tactile_normal_force).item()) != 0:
@@ -522,8 +997,6 @@ def main() -> None:
                 )
                 optical_baseline_depth.append(cpu(depth[0]))
         world_camera = None if args.force_only else base_env.scene["world_camera"]
-        robot = base_env.scene["robot"]
-        obj = base_env.scene["obj"]
         if not args.force_only:
             writer = FfmpegRgbWriter(world_path, 1280, 720, args.fps)
 
@@ -573,8 +1046,7 @@ def main() -> None:
         termination_names = tuple(base_env.termination_manager.active_terms)
         termination_rows = {name: [] for name in termination_names}
         audit_contacts_available = (
-            not args.force_only
-            and "all_robot_box_contact" in base_env.scene.sensors
+            "all_robot_box_contact" in base_env.scene.sensors
             and "left_patch_box_contact" in base_env.scene.sensors
             and "right_patch_box_contact" in base_env.scene.sensors
         )
@@ -612,9 +1084,88 @@ def main() -> None:
 
         base_env.scene.update = scene_update_with_physics_balance
 
+        def bottom_support_action(source_step: int) -> torch.Tensor:
+            assert bottom_support is not None
+            assert teacher is not None
+            reference_offset_w = (
+                command.obj_ref_pos_w[0]
+                - bottom_support["initial_reference_object_position_w"]
+            )
+            root_pose_w = robot.data.root_pose_w
+            base_rotation = math_utils.matrix_from_quat(
+                math_utils.quat_inv(root_pose_w[:, 3:7])
+            )
+            desired_joint_position = bottom_support[
+                "setup_joint_position"
+            ].clone()
+            for side in SIDES:
+                target_position_w = (
+                    bottom_support["target_hand_position_w"][side]
+                    + reference_offset_w
+                )
+                target_quaternion_w = bottom_support[
+                    "target_hand_quaternion_w"
+                ][side]
+                desired_pos_b, desired_quat_b = math_utils.subtract_frame_transforms(
+                    root_pose_w[:, :3],
+                    root_pose_w[:, 3:7],
+                    target_position_w.unsqueeze(0),
+                    target_quaternion_w.unsqueeze(0),
+                )
+                controller = bottom_support["controllers"][side]
+                controller.set_command(
+                    torch.cat((desired_pos_b, desired_quat_b), dim=1)
+                )
+                arm_ids = bottom_support["arm_joint_ids"][side]
+                jacobian = robot.root_physx_view.get_jacobians()[
+                    :,
+                    bottom_support["hand_jacobian_ids"][side],
+                    :,
+                    arm_ids,
+                ].clone()
+                jacobian[:, :3, :] = torch.bmm(
+                    base_rotation, jacobian[:, :3, :]
+                )
+                jacobian[:, 3:, :] = torch.bmm(
+                    base_rotation, jacobian[:, 3:, :]
+                )
+                ee_pose_w = robot.data.body_pose_w[
+                    :, bottom_support["hand_body_ids"][side]
+                ]
+                ee_pos_b, ee_quat_b = math_utils.subtract_frame_transforms(
+                    root_pose_w[:, :3],
+                    root_pose_w[:, 3:7],
+                    ee_pose_w[:, :3],
+                    ee_pose_w[:, 3:7],
+                )
+                desired = controller.compute(
+                    ee_pos_b,
+                    ee_quat_b,
+                    jacobian,
+                    robot.data.joint_pos[:, arm_ids],
+                )
+                limits = robot.data.joint_pos_limits[0, arm_ids]
+                desired_joint_position[:, arm_ids] = torch.clamp(
+                    desired, limits[:, 0], limits[:, 1]
+                )
+            desired_action = (
+                desired_joint_position[:, action_term._joint_ids]
+                - action_term._offset
+            ) / action_term._scale
+            _, action = teacher.action()
+            action = action.clone()
+            for side in SIDES:
+                indices = bottom_support["arm_action_indices"][side]
+                action[:, indices] = desired_action[:, indices]
+            return action
+
         for source_step in range(args.max_steps):
             source_frames.append(int(command.time_steps[0]))
-            if tracker_actor is not None:
+            if bottom_support is not None:
+                action = bottom_support_action(source_step)
+            elif hold_action is not None:
+                action = hold_action
+            elif tracker_actor is not None:
                 policy_observation = base_env.observation_manager.compute()["policy"]
                 if tuple(policy_observation.shape) != (1, 510):
                     raise RuntimeError(
@@ -630,6 +1181,17 @@ def main() -> None:
                     replay_actions[source_step : source_step + 1],
                     device=base_env.device,
                 )
+            if bool(torch.any(target_offset_rad != 0.0).item()):
+                ramp = (
+                    1.0
+                    if args.joint_offset_ramp_steps == 0
+                    else min(
+                        (source_step + 1) / float(args.joint_offset_ramp_steps),
+                        1.0,
+                    )
+                )
+                action = action.clone()
+                action[:, offset_action_indices] += ramp * action_offset
             if args.scenario == "failed_grasp" and source_step >= args.release_step:
                 action = torch.zeros_like(action)
             elif (
@@ -653,17 +1215,31 @@ def main() -> None:
                     f"{cfg.decimation} physics samples, got "
                     f"{capture_state['substep']} at control step {source_step}"
                 )
+            if hold_action is not None:
+                # This is a controlled contact-calibration sample: keep the
+                # complete G1 at the declared reset pose after each physics
+                # interval, then recompute the official TacSL SDF field at
+                # that real geometry. No taxel value is generated or copied.
+                robot.write_joint_state_to_sim(
+                    reset_joint_position,
+                    torch.zeros_like(reset_joint_position),
+                )
+                robot.write_root_state_to_sim(reset_root_state)
+                base_env.scene.write_data_to_sim()
+                base_env.sim.forward()
+                for sensor in sensors:
+                    sensor.update(0.0, force_recompute=True)
 
             tactile_frame = tactile_adapter.update(
                 {args.object_kind: [sensor.data for sensor in sensors]},
                 timestamp_s=(source_step + 1) * float(cfg.decimation * cfg.sim.dt),
                 optical_timestamp_s=(
                     None
-                    if args.force_only
+                    if args.force_only or args.disable_optical
                     else (source_step + 1) * float(cfg.decimation * cfg.sim.dt)
                 ),
             )
-            if not args.force_only and tactile_frame.optical.clock is None:
+            if not args.force_only and not args.disable_optical and tactile_frame.optical.clock is None:
                 raise RuntimeError(
                     "Available official RGB/depth has no optical clock"
                 )
@@ -735,7 +1311,7 @@ def main() -> None:
             robot_root_velocity_rows.append(cpu(robot.data.root_vel_w[0]))
             robot_body_state_rows.append(cpu(robot.data.body_state_w[0]))
             action_rows.append(cpu(action[0]))
-            if not args.force_only:
+            if not args.force_only and not args.disable_optical:
                 optical_rgb_rows.append(
                     np.stack(
                         [
@@ -815,6 +1391,7 @@ def main() -> None:
             if (
                 args.object_kind == "carrybox"
                 and args.scenario != "failed_closure"
+                and not args.continue_after_termination
                 and (terminated_rows[-1] or truncated_rows[-1])
             ):
                 break
@@ -829,6 +1406,9 @@ def main() -> None:
         object_velocity_array = np.stack(object_velocity_rows).astype(np.float32)
         active = np.count_nonzero(penetration_array > 0.0, axis=(-1, -2))
         bilateral = np.all(np.any(active > 0, axis=-1), axis=-1)
+        active_palm_patches = np.count_nonzero(active[:, :, :12] > 0, axis=-1)
+        bilateral_palm_contact = np.all(active_palm_patches > 0, axis=-1)
+        bilateral_six_palm_patches = np.all(active_palm_patches >= 6, axis=-1)
         relative_lift = object_array[:, 2] - object_array[0, 2]
         termination_arrays = {
             f"termination_{name}": np.asarray(values, dtype=np.bool_)
@@ -958,19 +1538,66 @@ def main() -> None:
             "scenario": args.scenario,
             "object_kind": args.object_kind,
             "object_scale": list(actual_object_scale),
+            "wrist_yaw_target_offset_rad": list(
+                map(float, args.wrist_yaw_target_offset_rad)
+            ),
+            "shoulder_pitch_target_offset_rad": list(
+                map(float, args.shoulder_pitch_target_offset_rad)
+            ),
+            "shoulder_roll_target_offset_rad": list(
+                map(float, args.shoulder_roll_target_offset_rad)
+            ),
+            "joint_offset_ramp_steps": int(args.joint_offset_ramp_steps),
             "action_source": (
-                "released_official_pickbottle_tracker"
-                if tracker_actor is not None
+                "official_refiner_body_plus_bilateral_isaaclab_dls_arms"
+                if bottom_support is not None
                 else (
-                    "frozen_official_refiner"
-                    if args.action_trace is None
-                    else str(action_trace_path)
+                    "controlled_reset_pose_hold"
+                    if hold_action is not None
+                    else (
+                        "released_official_pickbottle_tracker"
+                        if tracker_actor is not None
+                        else (
+                            "frozen_official_refiner"
+                            if args.action_trace is None
+                            else str(action_trace_path)
+                        )
+                    )
                 )
+            ),
+            "bottom_support_open_loop": args.bottom_support_open_loop,
+            "bottom_support_setup": (
+                None
+                if bottom_support is None
+                else {
+                    "left_palm_target_w_m": cpu(
+                        bottom_support["left_palm_target_w"]
+                    ).tolist(),
+                    "right_palm_target_w_m": cpu(
+                        bottom_support["right_palm_target_w"]
+                    ).tolist(),
+                    "box_pca_center_w_m": cpu(
+                        bottom_support["box_pca_center_w"]
+                    ).tolist(),
+                    "box_root_position_w_m": cpu(
+                        bottom_support["box_root_position_w"]
+                    ).tolist(),
+                    "ik_position_error_m": bottom_support[
+                        "setup_position_error_m"
+                    ],
+                    "ik_rotation_error_rad": bottom_support[
+                        "setup_rotation_error_rad"
+                    ],
+                    "settle_steps": bottom_support["settle_steps"],
+                    "lift_steps": bottom_support["lift_steps"],
+                    "commanded_lift_m": bottom_support["lift_height_m"],
+                }
             ),
             "host": HOST,
             "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
             "task_id": task_id,
             "motion_id": args.motion_id,
+            "source_start_step": args.start_step,
             "seed": args.seed,
             "source_frames": int(len(normal_array)),
             "release_step": (
@@ -987,7 +1614,9 @@ def main() -> None:
                 else None
             ),
             "continued_after_task_termination_for_visualization": (
-                args.scenario == "failed_closure" or args.object_kind != "carrybox"
+                args.continue_after_termination
+                or args.scenario == "failed_closure"
+                or args.object_kind != "carrybox"
             ),
             "box_mass_requested_kg": object_mass_kg,
             "box_mass_readback_kg": float(
@@ -1026,11 +1655,15 @@ def main() -> None:
                 "optical_timestamp_s",
                 "optical_dt_s",
             ],
-            "optical_available": not args.force_only,
+            "optical_available": not args.force_only and not args.disable_optical,
             "optical_unavailable_reason": (
                 "Force-only collection explicitly disabled the optical cameras."
                 if args.force_only
-                else None
+                else (
+                    "Controlled force visualization disabled optical cameras."
+                    if args.disable_optical
+                    else None
+                )
             ),
             "optical_rgb_shape": (
                 list(np.stack(optical_rgb_rows).shape)
@@ -1073,6 +1706,16 @@ def main() -> None:
             "lifted_bilateral_frames": int(lifted_and_bilateral.sum()),
             "maximum_active_taxels_left": int(active[:, 0].sum(axis=-1).max()),
             "maximum_active_taxels_right": int(active[:, 1].sum(axis=-1).max()),
+            "maximum_active_palm_patches_left": int(
+                active_palm_patches[:, 0].max()
+            ),
+            "maximum_active_palm_patches_right": int(
+                active_palm_patches[:, 1].max()
+            ),
+            "bilateral_palm_contact_frames": int(bilateral_palm_contact.sum()),
+            "bilateral_six_or_more_palm_patch_frames": int(
+                bilateral_six_palm_patches.sum()
+            ),
             "termination_reasons": reasons,
             "world_video": None if args.force_only else str(world_path),
             "trace": str(trace_path),

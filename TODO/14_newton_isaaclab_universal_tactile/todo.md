@@ -1,4 +1,4 @@
-# TODO 14: Newton/IsaacLab Universal Native Tactile and Slip
+# TODO 14: IsaacLab Native Whole-Hand Tactile Demos
 
 ## A. Reset and sources
 
@@ -124,20 +124,61 @@ count as the active object-demo deliverable after the 2026-08-13 correction.
   bottle outer-shell SDF asset, object-swappable trace collection, and a
   renderer that consumes recorded full-G1/object/taxel states. No CarryBox
   action trace is accepted for this route.
-- [ ] Restore a working retained H200 Kit/Vulkan runtime, then run the formal
-  PickBottle collector with empty `DISPLAY`. H200 viability is already proven
-  by complete CarryBox job `231928`; current starts fail before scene creation
-  across `server13` and `server53`, so do not call H200 unsupported or
-  misattribute the failure to PickBottle/TacSL. A separate clean Isaac Sim 5.1
-  runtime is prepared; retained job `237668` is queued to run its final H200
-  canary and then the formal collector.
-- [ ] Complete one varied rigid-object pickup in which the full G1 physically
+- [x] Restore a working retained H200 Kit/Vulkan runtime and run the formal
+  PickBottle collector with empty `DISPLAY` on retained job `237783`.
+- [x] Complete one varied rigid-object pickup in which the full G1 physically
   moves the object and record the full-G1 plus bilateral 27-patch H.264.
-- [ ] Complete a physical rigid-object failure with the identical G1 scene,
-  collector and tactile contract.
-- [ ] Complete another rigid shape using that unchanged complete-G1 path.
+  Motion 12 remains lifted by 0.771 m with continuous bilateral tactile contact
+  on frames 282--318.
+- [x] Complete a physical rigid-object failure with the identical G1 scene,
+  collector and tactile contract. Motion 17 makes brief contact and then
+  releases the bottle ballistically.
+- [x] Complete another rigid shape using that unchanged complete-G1 path. A
+  `0.5 kg` free palm-grip rigid body rises `0.57655 m`, retains bilateral
+  native tactile on `80/80` frames and bilateral palm contact on `79/80`.
+- [x] Demonstrate that both complete palms can respond continuously: the
+  controlled calibration activates `12/12` palm patches on both hands for
+  `100/100` frames. Keep it labeled as pose-clamped calibration, not pickup.
+- [x] Produce a matched complete-G1 physical release failure without altering
+  tactile values. After the frame-30 neutral action, the object falls from a
+  `0.50933 m` peak to `0.11565 m` final relative height and bilateral palm
+  contact decreases to 32 frames.
+- [x] Add the palm calibration, free-body lift and matched release failure to
+  the white Chinese PPT as separately playable synchronized H.264 evidence.
+- [x] Keep the successful action fixed and record a `mu=0.03` complete-G1
+  degradation sample. It does not drop, but object rotation grows from
+  `25.53` to `43.06 deg` and the final right-hand footprint falls to one patch;
+  report this as posture/load degradation only.
+- [x] Keep the same action and record a verified `2.0 kg` heavy-object failure.
+  Bilateral palms remain in contact for `80/80` frames, but the object reaches
+  only `0.14944 m` and ends `0.17919 m` below its initial height.
+- [x] Add the verified `1.0 kg` intermediate point and report the matched mass
+  response. Final relative height is `+0.57655/+0.32534/-0.17919 m` for
+  `0.5/1.0/2.0 kg`, while bilateral palm contact remains `79/79/80` frames.
+- [x] Add the mass-response comparison to page 18 of the white Chinese PPT,
+  with the complete-G1 1.0 kg H.264 embedded and speaker notes defining the
+  fixed-action comparison and its non-adaptive conclusion.
+- [x] Run and render an ordinary flat-sided CarryBox geometry sample. The
+  `1.6x` local-X box rises `0.54840 m` with bilateral tactile on `76/80`
+  frames, but peak palm coverage is only `0/2` patches left/right.
+- [x] Establish that simple box scaling is not the full-palm solution. The
+  measured `2--3 cm` fixed-hand palm/distal offset persists under a `2.4x`
+  box and tested wrist/arm corrections; those variants reduce stability and
+  are retained only as rejected diagnostics.
+- [x] Add the flat-box result to page 19 of the white Chinese PPT and retain a
+  one-command IsaacLab reproduction route with a fully decoded synchronized
+  H.264.
+- [ ] Produce a complete-G1 bottom-support posture in which a palm contacts a
+  plain box bottom face while the other hand stabilizes a side; do not reuse
+  the palm-fitting object as evidence for this item.
 - [ ] Obtain human-visible review of the rigid success/failure videos.
 - [ ] Only after the rigid cases pass, begin the complete-G1 soft-body case.
-- [ ] Use the released official PickBottle Tracker and one exact official
+- [x] Use the released official PickBottle Tracker and one exact official
   PickBottle motion for the non-box rigid case; never replay CarryBox actions
   on the bottle. Preserve the official 510-D Tracker input and 29-D output.
+- [ ] Calibrate or explain the absolute TacSL-force scale against the native
+  PhysX support before claiming absolute tactile load accuracy. Spatial and
+  temporal contact correspondence alone does not close this item.
+- [x] Prune the active workspace to two experiment roots, archive superseded
+  traces/docs/slides under the single `Curiosity_archive` root, and reduce the
+  root README to the shortest complete-G1 CarryBox reproduction path.

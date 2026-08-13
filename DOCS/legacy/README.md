@@ -1,9 +1,9 @@
-# Legacy documentation
+# Archived documentation
 
-This directory contains dated scientific records that are no longer active
-instructions. The repository tracks only the records still referenced by the
-current README, AGENTS, CarryBox reproduction record, or retained Plan/TODO
-history. Additional local working notes may exist here without being pushed.
+旧协议与日期化调查记录已迁入：
 
-Do not use a file in this directory to restart an experiment. Current work is
-defined only by the root README and Plan/TODO 14.
+```text
+/public/home/yanhongru/Curiosity_archive/repo_cleanup_20260814/workspace/DOCS_legacy/
+```
+
+当前工作只应从仓库根 [`README.md`](../../README.md)、Plan 14 和 TODO 14 开始。

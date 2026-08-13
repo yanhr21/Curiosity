@@ -19,6 +19,10 @@ from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_official_re
     _patch_sensor_cfg,
     _review_camera,
 )
+from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_official_refiner_anatomical_whole_hand_tacsl_audit_env_cfg import (
+    _all_robot_box_contact_cfg,
+    _box_contact_cfg,
+)
 
 from .pick_bottle_tracker_env_cfg import RobotPlayEnvCfg as OfficialPickBottlePlayEnvCfg
 from .pick_bottle_tracker_env_cfg import RobotSceneCfg as OfficialPickBottleSceneCfg
@@ -69,6 +73,9 @@ class PickBottleAnatomicalWholeHandTacSLSceneCfg(OfficialPickBottleSceneCfg):
         width=960,
         height=540,
     )
+    left_patch_box_contact = _box_contact_cfg("left")
+    right_patch_box_contact = _box_contact_cfg("right")
+    all_robot_box_contact = _all_robot_box_contact_cfg()
 
     def __post_init__(self):
         for side in ("left", "right"):

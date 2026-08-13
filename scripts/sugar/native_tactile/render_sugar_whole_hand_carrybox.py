@@ -375,6 +375,9 @@ def main() -> None:
     summary = json.loads((run_root / "summary.json").read_text(encoding="utf-8"))
     object_kind = str(summary.get("object_kind", "carrybox"))
     object_label = object_kind.replace("_", " ").upper()
+    if object_kind == "palm_fixture":
+        object_label = "PALM PRESS FIXTURE"
+    controlled_pose_clamp = summary.get("action_source") == "controlled_reset_pose_hold"
     world_path = run_root / f"world_{object_kind}.mp4"
     if not trace_path.is_file() or not world_path.is_file():
         raise FileNotFoundError("The trace and world video must both exist")
@@ -463,6 +466,13 @@ def main() -> None:
         acceleration[1:-1] = (
             object_velocity[2:, :3] - object_velocity[:-2, :3]
         ) / (2.0 * control_dt)
+    if len(normal) >= 2:
+        acceleration[0] = (
+            object_velocity[1, :3] - object_velocity[0, :3]
+        ) / control_dt
+        acceleration[-1] = (
+            object_velocity[-1, :3] - object_velocity[-2, :3]
+        ) / control_dt
     required_force = mass * (acceleration - gravity[None])
     physx_available = bool(summary.get("physx_contact_audit_available", True))
     if physx_available:
@@ -527,15 +537,35 @@ def main() -> None:
                 if physx_force is not None
                 else "unavailable in force-only collection"
             )
-            put(
-                canvas,
-                (
+            if controlled_pose_clamp:
+                palm_load = np.abs(normal[step, :, :12]).sum(axis=(1, 2, 3))
+                force_line = (
+                    "controlled pose clamp - native TacSL |Fnormal|: "
+                    f"left {palm_load[0]:.2f} N, right {palm_load[1]:.2f} N   "
+                    f"PhysX constraint reaction Fz {physx_text}   "
+                    "not a free-body balance test"
+                )
+                state_line = (
+                    f"frame {step:03d}   fixed G1 pose + kinematic fixture   "
+                    "red=negative raw local-Z   blue=positive Z   arrow=signed XY   "
+                    f"fixed scales: |Z| {normal_max:.3f} N, |XY| {shear_max:.3f} N"
+                )
+            else:
+                force_line = (
                     f"same-step Fz on {object_label}: "
                     f"TacSL reaction {tacsl_reaction[2]:+.2f} N   "
                     f"PhysX normal+friction {physx_text}   "
                     f"required m(a-g) {required_force[step, 2]:+.2f} N   "
                     f"m*g {weight_n:.2f} N"
-                ),
+                )
+                state_line = (
+                    f"frame {step:03d}   {object_label} lift {lift:+.3f} m   "
+                    "red=negative raw local-Z   blue=positive Z   arrow=signed XY   "
+                    f"fixed scales: |Z| {normal_max:.3f} N, |XY| {shear_max:.3f} N"
+                )
+            put(
+                canvas,
+                force_line,
                 (28, 650),
                 0.56,
                 1,
@@ -546,7 +576,7 @@ def main() -> None:
             )
             put(
                 canvas,
-                f"frame {step:03d}   {object_label} lift {lift:+.3f} m   red=negative raw local-Z   blue=positive Z   arrow=signed XY   fixed scales: |Z| {normal_max:.3f} N, |XY| {shear_max:.3f} N",
+                state_line,
                 (28, 698),
                 0.54,
                 1,

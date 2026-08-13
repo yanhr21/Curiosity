@@ -1,4 +1,4 @@
-# Plan 14: Newton/IsaacLab Universal Native Tactile and Slip
+# Plan 14: IsaacLab Native Whole-Hand Tactile Demos
 
 ## Active full-G1 IsaacLab reset (2026-08-13)
 
@@ -17,20 +17,26 @@ fixtures below remain useful sensor diagnostics, but they do not satisfy any
 of these four active milestones and must not be reported as complete object
 demos. No policy training is authorized.
 
-The object-swappable PickBottle route is implemented. H200 is known to work:
-retained job `231928` on `server13` completed the full 660-frame IsaacLab
-CarryBox collection and all renderings on 2026-08-11. The later failures reused
-two different H200s on `server13` and one on `server53`, all before any SUGAR
-scene was built. They therefore establish a current cross-node Kit/Vulkan
-runtime failure, not an H200 incompatibility or a PickBottle/TacSL failure.
-The Reflex cluster note is for SAPIEN: its empty `DISPLAY` is retained, but
-explicit system ICD and default Vulkan-loader selection both reproduced the
-same IsaacLab device loss. Do not switch the simulation to Newton as a
-workaround. A separate clean Isaac Sim 5.1 runtime with fresh Kit binaries,
-extension caches and official base components is now ready. The previous three
-allocations were revoked by the scheduler rather than voluntarily released;
-retained job `237668` is queued to run the final clean H200 canary before the
-formal PickBottle collection.
+The object-swappable PickBottle route now has real H200 runtime evidence on
+retained job `237783`. Official motion 12 yields a 319-frame non-box lift with
+continuous bilateral native tactile contact from frames 282--318 and a final
+relative lift of 0.771 m. The median PhysX vertical support over that interval
+is 7.63 N versus median required `m(a-g)` 7.32 N; all robot/object contact force
+is on sensor patch bodies. Official motion 17 supplies the physical negative:
+brief contact followed by ballistic release. The two results use the same
+complete-G1 scene, 54 physical patches, collector, clocks, renderer and fixed
+display scales. The next scientific task is absolute TacSL-force calibration,
+because its summed reaction does not yet match the independently balanced
+PhysX support, followed by a second rigid object shape. Do not switch the
+simulation to Newton.
+
+The active workspace was pruned on 2026-08-14. `experiments/` now retains only
+the complete-G1 IsaacLab object-demo package and the minimum official SUGAR
+checkpoint/R15 assets. The formal report preserves the PickBottle,
+mass/friction, palm-coverage and physical-failure videos; bulky raw traces and
+all superseded training/Newton/fixture runs are under the single
+`/public/home/yanhongru/Curiosity_archive/` root. The shortest active entry is
+`scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh`.
 
 ## Objective
 
@@ -268,3 +274,60 @@ the object's `0.196 N` weight. This is a measured calibration gap: TacSL's
 penalty force is not the PhysX solver wrench. Preserve the native signal and
 report the gap rather than tuning stiffness after the fact to manufacture
 force balance.
+
+## Current complete-G1 palm-contact result (2026-08-13)
+
+The complete sensorized SUGAR G1 now has two complementary palm-contact
+results in IsaacLab. A controlled pose-clamped calibration keeps all `12/12`
+palm patches active on both hands for `100/100` frames. It proves that the
+palm sensors and visualization can represent continuous full-palm contact,
+but the object is kinematic and the pose is held, so it is not a pickup or a
+free-body force test.
+
+The matched free-body result uses a single `0.5 kg` dynamic rigid object whose
+two broad faces are constructed from the fresh official motion-45 frame-249
+palm geometry. The complete G1 executes the retained official Refiner action
+sequence without pose clamping. The object rises `0.57655 m`; bilateral native
+tactile remains present for `80/80` frames and bilateral palm contact for
+`79/80`. Peak palm coverage is `9/12` left and `12/12` right, so this is a
+large-palm free-body lift, not continuous bilateral `12/12` loading.
+
+A matched physical release failure changes only the action target to neutral
+after frame 30. Tactile remains a live native read. The object reaches
+`0.50933 m` and returns to `0.11565 m`; bilateral palm contact falls to 32
+frames as the right hand unloads first. The white Chinese review deck contains
+the controlled calibration, free-body lift and release failure as separate
+embedded H.264 pages so their claim boundaries remain visible.
+
+Two matched robustness samples keep the successful action fixed. With the
+physical patch/object and TacSL friction coefficients all reduced to `0.03`,
+the object still rises `0.51285 m` but rotates `43.06 deg` versus `25.53 deg`
+nominal and finishes with only one active right-hand patch. This is a
+low-friction posture/load-distribution degradation, not a drop. With nominal
+friction and mass changed from `0.5 kg` to a verified `2.0 kg`, the same
+posture reaches only `0.14944 m` and finishes `0.17919 m` below the initial
+height even though bilateral palm contact remains present for `80/80` frames.
+This is the concrete heavy-object failure needed to motivate a lower-center-
+of-mass or bottom-support strategy rather than equating dense contact with
+successful support.
+
+A verified `1.0 kg` run fills the interval between those endpoints without
+changing the G1, start, action, geometry, friction or sensor contract. Across
+`0.5/1.0/2.0 kg`, final relative height changes monotonically from
+`+0.57655` to `+0.32534` to `-0.17919 m`, while bilateral palm contact remains
+`79/79/80` frames. This is a fixed-posture load-response result, not an
+adaptive-policy result: it demonstrates why a later strategy selector must
+distinguish dense contact from adequate support and switch posture as load
+increases.
+
+The ordinary flat-sided CarryBox test resolves why the original behavior is
+finger-dominant. Extending only the official box local-X length to `1.6x`
+still gives a real `0.54840 m` lift and bilateral tactile on `76/80` frames,
+but peak palm coverage remains left `0`, right `2` patches. The saved taxel
+and link poses place the fixed-hand palm plane roughly `2--3 cm` behind the
+distal contact surface. A `2.4x` box and measured wrist/arm target corrections
+did not create left-palm contact and destabilized the box. Therefore future
+plain-box work must use a different support posture, such as a palm under the
+bottom face, rather than further box scaling. The positive palm-fitting object
+remains valid sensor evidence but must not be represented as an ordinary flat
+CarryBox.

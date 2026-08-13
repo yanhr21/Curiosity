@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Collect and render one full IsaacLab SUGAR G1 PickBottle rollout with the
-# official bilateral 27-patch whole-hand TacSL configuration.
+# Reproduce one complete-G1 free palm-grip sample with the official Refiner
+# and both anatomical 27-patch TacSL hands.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PYTHON_BIN="${CURIOSITY_ISAAC_PYTHON:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python}"
@@ -11,14 +11,14 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
   echo "Run inside the retained H200 Slurm allocation." >&2
   exit 2
 fi
-if [[ $# -lt 1 || $# -gt 3 ]]; then
-  echo "Usage: $0 OUTPUT_ROOT [MOTION_ID] [MAX_STEPS]" >&2
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+  echo "Usage: $0 OUTPUT_ROOT MASS_KG [CONTACT_FRICTION]" >&2
   exit 2
 fi
 
 OUTPUT_ROOT="$1"
-MOTION_ID="${2:-17}"
-MAX_STEPS="${3:-269}"
+MASS_KG="$2"
+CONTACT_FRICTION="${3:-}"
 if [[ "$OUTPUT_ROOT" != /* ]]; then
   OUTPUT_ROOT="$ROOT/$OUTPUT_ROOT"
 fi
@@ -36,30 +36,41 @@ export DISPLAY=
 export PYTHONPATH="$ROOT:$ROOT/IsaacLab/source/isaaclab:$ROOT/IsaacLab/source/isaaclab_assets:$ROOT/IsaacLab/source/isaaclab_contrib:$ROOT/SUGAR/source/sugar_rl"
 cd "$ROOT"
 
+FRICTION_ARGS=()
+if [[ -n "$CONTACT_FRICTION" ]]; then
+  FRICTION_ARGS=(--contact-friction "$CONTACT_FRICTION")
+fi
+
 "$PYTHON_BIN" scripts/sugar/native_tactile/collect_sugar_whole_hand_carrybox.py \
   --output-root "$OUTPUT_ROOT" \
-  --object-kind bottle \
-  --motion-id "$MOTION_ID" \
+  --object-kind palm_grip \
+  --motion-id 45 \
+  --start-step 249 \
   --scenario unmodified_official_policy \
-  --max-steps "$MAX_STEPS" \
+  --max-steps 80 \
+  --mass-kg "$MASS_KG" \
+  "${FRICTION_ARGS[@]}" \
+  --disable-optical \
+  --physical-stiffness 100 \
+  --physical-damping 20 \
+  --normal-stiffness 20 \
+  --tangential-stiffness 2 \
   --headless \
   --enable_cameras \
   --device cuda:0
 
-END_FRAME="$($PYTHON_BIN -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_frames"])' "$OUTPUT_ROOT/summary.json")"
+mkdir -p "$OUTPUT_ROOT/videos"
 "$PYTHON_BIN" scripts/sugar/native_tactile/render_sugar_whole_hand_carrybox.py \
   --run-root "$OUTPUT_ROOT" \
-  --output "$OUTPUT_ROOT/pickbottle_bilateral_27patch_native_tactile.mp4" \
-  --title "IsaacLab SUGAR G1 PickBottle motion $MOTION_ID - world motion and bilateral whole-hand TacSL" \
-  --normal-max 0.1694514982402323 \
-  --shear-max 0.09577531702816477 \
-  --scale-note "fixed from motion 17 for cross-motion comparison" \
-  --start-frame 0 \
-  --end-frame "$END_FRAME" \
+  --output "$OUTPUT_ROOT/videos/palm_grip_world_bilateral_taxels.mp4" \
+  --title "IsaacLab native TacSL | complete G1 palm grip, ${MASS_KG} kg" \
+  --normal-max 0.033457712326198805 \
+  --shear-max 0.029537918334826826 \
+  --scale-note "fixed to the retained 0.5-kg nominal sample" \
   --fps 50
 
 FFMPEG="$($PYTHON_BIN -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')"
-"$FFMPEG" -v error -i "$OUTPUT_ROOT/world_bottle.mp4" -f null -
-"$FFMPEG" -v error -i "$OUTPUT_ROOT/pickbottle_bilateral_27patch_native_tactile.mp4" -f null -
+"$FFMPEG" -v error -i "$OUTPUT_ROOT/world_palm_grip.mp4" -f null -
+"$FFMPEG" -v error -i "$OUTPUT_ROOT/videos/palm_grip_world_bilateral_taxels.mp4" -f null -
 
-echo "PickBottle whole-hand tactile visualization: $OUTPUT_ROOT"
+echo "Complete-G1 palm-grip visualization: $OUTPUT_ROOT"

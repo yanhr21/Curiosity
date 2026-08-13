@@ -100,8 +100,14 @@ _COMPLIANT_DAMPING = _nonnegative_finite_environment_parameter(
     "CURIOSITY_ANATOMICAL_PHYSX_COMPLIANT_DAMPING",
     1.0,
 )
-_STATIC_FRICTION = 0.5
-_DYNAMIC_FRICTION = 0.5
+_STATIC_FRICTION = _nonnegative_finite_environment_parameter(
+    "CURIOSITY_ANATOMICAL_PHYSX_STATIC_FRICTION",
+    0.5,
+)
+_DYNAMIC_FRICTION = _nonnegative_finite_environment_parameter(
+    "CURIOSITY_ANATOMICAL_PHYSX_DYNAMIC_FRICTION",
+    0.5,
+)
 _RESTITUTION = 0.0
 _CUSTOM_TACTILE_MARGIN_M = 0.0004
 # PhysX must contact the same object-facing surface that the official TacSL

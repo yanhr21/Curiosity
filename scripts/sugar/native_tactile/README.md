@@ -1,248 +1,64 @@
-# Native tactile: active code map
+# IsaacLab native whole-hand tactile
 
-The active Plan-14 path is a no-training native tactile and slip interface for
-IsaacLab and Newton. CarryBox visualization remains the IsaacLab foundation;
-the nested `Newton/` clone contains the solved-contact backend. Existing policy
-scripts reproduce historical diagnostics only. No numbered experiment ladder
-is an active entry point.
+当前入口只运行 IsaacLab/PhysX，不启动训练。每只 G1 手固定使用 27 个物理解剖 TacSL patch：掌心 `4 x 3`，五指各 proximal/middle/distal 三段。每个 patch 使用官方 `VisuoTactileSensor` 和 `GELSIGHT_R15_CFG` 字段。
 
-## Active universal tactile and slip
+## 一条命令复现 CarryBox
 
-- `universal.py`: common native frame plus direct official TacSL and Newton
-  solved-contact adapters. Dense scalar layout is
-  `[batch,patch,row,column]`; signed shear appends two channels. Released TacSL
-  row/column order and signs are unchanged. The adapter explicitly converts
-  IsaacLab's `wxyz` taxel orientations to the common Newton-compatible `xyzw`
-  order and advances force and optical clocks independently. Active traces
-  save each clock's sequence, timestamp and elapsed time explicitly.
-  Newton samples outside a planar patch bound retain their raw coordinates and
-  are conservatively accumulated on the nearest grid edge.
-- `slip.py`: causal tactile-history-only load, friction utilization,
-  center-of-pressure motion, footprint transport, load loss and hysteretic
-  `NO_CONTACT/STICK/INCIPIENT/GROSS` state.
-- `evaluate_tactile_only_slip.py`: post-run comparison against simulator
-  relative tangential velocity. That velocity is evaluation-only and never
-  enters `slip.py`.
-- `collect_sugar_whole_hand_carrybox.py`: official SUGAR G1 CarryBox collector
-  using all 54 physical TacSL patches and the common adapter.
-- `render_sugar_whole_hand_carrybox.py`: synchronized world plus both complete
-  anatomical hands, raw signed force/shear and per-patch slip state.
-- `run_isaaclab_r15_capsule_slip.py`: unchanged official R15 adapter on a
-  controlled swept capsule with fixed, `0.006 m/s` incipient, `0.030 m/s`
-  gross and return phases; simulator relative velocity remains a held-out
-  label.
-- `export_isaaclab_anatomical_patch_collision_asset.py`: exports the actual 54
-  enabled physical patch meshes and fixed surface frames from the spawned
-  IsaacLab G1 into Newton-readable geometry.
-- `derive_newton_root_bridge_from_taxels.py`: applies one rigid root-frame
-  correction from the 52 non-optical physical patch centers; it does not alter
-  the joint trajectory or tactile values.
-- `run_newton_sugar_g1_carrybox_tactile.py`: exact G1/anatomical-54 geometry,
-  kinematically driven robot and free dynamic CarryBox. Native VBD solved
-  forces are serialized into the same `20 x 25` patch contract.
-- `run_newton_sugar_g1_chunked_render.py`: actual VTK world plus both readable
-  27-patch hand maps, split into short EGL workers and joined as H.264.
-- `run_newton_panda_hydro_tactile.py` and its chunked renderer: actual rigid
-  Panda/cube hydroelastic case using solved SolverMuJoCo contact force.
-- `run_newton_softbody_franka_tactile.py` and its chunked renderer: actual
-  Franka/deformable-duck case using solved particle-rigid VBD force.
-- `Newton/tactile_video.py`: public `newton.sensors.SensorTactile` box/pen
-  evidence entry point; no monkeypatch, `kh * depth`, aggregate wrench or
-  fabricated optical output. Its world panel is synchronized directly from
-  Newton body state as top/side projections, while the lower panels retain the
-  two spatial force/shear fields and tactile-only slip state.
-- `Newton/tactile_slip_demo.py`: controlled Newton plate/cube sequence with
-  stationary, slow-stick, incipient and gross-slip intervals. The detector
-  reads only `SensorTactile`; actual relative tangential velocity is displayed
-  and scored only as a held-out label.
-
-## Reproduce Plan 14
-
-Run these commands serially inside an existing retained GPU allocation. They
-write only ignored files below `experiments/newton_universal_tactile/`.
-
-Newton cube, pen, controlled slip, and tests:
+在保留的 GPU Slurm shell 中运行：
 
 ```bash
-export PYTHONPATH="$PWD:$PWD/Newton"
-NEWTON_PY=/public/home/yanhongru/envs/isaac_arena_py312/bin/python
-
-"$NEWTON_PY" Newton/tactile_video.py --scene cube --frames 600 \
-  --normal-scale-n 5 --device cuda:0 \
-  --output experiments/newton_universal_tactile/newton_cube/native_tactile.mp4
-"$NEWTON_PY" Newton/tactile_video.py --scene pen --frames 600 \
-  --normal-scale-n 5 --device cuda:0 \
-  --output experiments/newton_universal_tactile/newton_pen/native_tactile.mp4
-"$NEWTON_PY" Newton/tactile_slip_demo.py --frames 300 --device cuda:0 \
-  --output experiments/newton_universal_tactile/newton_slip_control/native_tactile_slip.mp4
-"$NEWTON_PY" -m pytest -q \
-  Newton/newton/tests/test_sensor_tactile.py \
-  tests/native_tactile/test_newton_adapter.py \
-  tests/native_tactile/test_universal.py \
-  Newton/newton/tests/test_mujoco_solver.py::TestUpdateContactsPointPositions
+bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh \
+  experiments/isaaclab_g1_anatomical27_object_demos/reproduce_plain_carrybox
 ```
 
-The exact G1 geometry export, root-frame bridge, continuous dynamic trace,
-chunked H.264, rigid Panda and soft Franka commands are in the root
-[`README`](../../../README.md#reproduce-from-this-branch). The retained current
-G1 result uses source frames `260...515`, four VBD substeps, eight iterations,
-`ke=1200 N/m`, `mu=2.0`, and a free `0.3023376 kg` box. These are simulation
-parameters, not hardware calibration constants.
+该入口依次执行：
 
-IsaacLab CarryBox collection and post-processing:
+1. `collect_sugar_whole_hand_carrybox.py`：完整 G1 和自由 CarryBox 的同钟采集；
+2. `render_sugar_whole_hand_carrybox.py`：世界画面和双手 27-patch 图；
+3. FFmpeg 全文件解码检查。
+
+输出目录中最重要的文件是 `whole_hand_trace.npz`、`summary.json` 和
+`videos/plain_carrybox_world_bilateral_taxels.mp4`。
+
+## 其他当前入口
+
+整掌贴合刚体，可改变真实质量和摩擦：
 
 ```bash
-export PYTHONPATH="$PWD:$PWD/IsaacLab/source/isaaclab:$PWD/IsaacLab/source/isaaclab_assets:$PWD/IsaacLab/source/isaaclab_contrib:$PWD/SUGAR/source/sugar_rl"
-ISAAC_PY=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
-CARRY=experiments/newton_universal_tactile/isaaclab_carrybox_universal_current
+bash scripts/sugar/native_tactile/run_palm_grip_whole_hand_visualization.sh \
+  experiments/isaaclab_g1_anatomical27_object_demos/reproduce_palm_05kg 0.5
 
-"$ISAAC_PY" scripts/sugar/native_tactile/collect_sugar_whole_hand_carrybox.py \
-  --output-root "$CARRY" --scenario successful_grasp --max-steps 660 \
-  --headless --enable_cameras --device cuda:0
-"$ISAAC_PY" scripts/sugar/native_tactile/evaluate_tactile_only_slip.py \
-  --run-root "$CARRY" --output "$CARRY/slip_evaluation.json"
-"$ISAAC_PY" scripts/sugar/native_tactile/render_sugar_whole_hand_carrybox.py \
-  --run-root "$CARRY" --output "$CARRY/carrybox_native_tactile_slip.mp4" \
-  --title "IsaacLab native TacSL | SUGAR G1 CarryBox | tactile-only slip" --fps 50
-"$ISAAC_PY" scripts/sugar/native_tactile/render_sugar_force_kinematics_friction.py \
-  --run-root "$CARRY" --output "$CARRY/carrybox_force_kinematics_friction.mp4" \
-  --start-frame 230 --end-frame 520 --fps 50
+bash scripts/sugar/native_tactile/run_palm_grip_whole_hand_visualization.sh \
+  experiments/isaaclab_g1_anatomical27_object_demos/reproduce_palm_2kg 2.0
 ```
 
-IsaacLab official-R15 non-box controlled slip:
+官方 PickBottle Tracker：
 
 ```bash
-"$ISAAC_PY" scripts/sugar/native_tactile/run_isaaclab_r15_capsule_slip.py \
-  --output-root experiments/newton_universal_tactile/isaaclab_r15_capsule_slip \
-  --frames 240 --fps 50 --device cuda:0 --headless --enable_cameras
+bash scripts/sugar/native_tactile/run_pickbottle_whole_hand_visualization.sh \
+  experiments/isaaclab_g1_anatomical27_object_demos/reproduce_pickbottle 12 319
 ```
 
-The Isaac Sim process can take time to shut down after writing a complete
-trace and video. When interruption is required, terminate only the recorded
-child process group; do not send a generic terminal `Ctrl+C` or exit the
-retained allocation shell.
+完整历史 CarryBox 五视频包仍可由 `run_complete_carrybox_visualization.sh` 生成；当前最快人眼检查优先使用上面的单视频入口。
 
-## Paused no-RGB Tracker-command training
+## Trace contract
 
-- `run_native_tactile_bcppo_training.sh tracker_preflight_tactile ...`: live
-  288-step one-update preflight from a shared base checkpoint.
-- `run_native_tactile_bcppo_training.sh tracker_preflight_zero ...`: matched
-  exact-zero/no-read preflight, run only after the live arm.
-- `run_native_tactile_bcppo_training.sh tracker_tactile ...` and
-  `tracker_zero`: official 24-step/update matched training arms.
-- `summarize_tracker_command_preflights.py`: requires the `504-D` non-tactile
-  actor, `324000-D` raw tactile tensor, `890-D` critic/teacher, real signal and
-  encoder optimization in the live arm, and exact-zero/no-update behavior in
-  the control.
-- `run_native_tactile_bcppo_evaluation.sh tracker_tactile|tracker_zero ...`:
-  deterministic frozen physical evaluation.
+采集器直接保存官方 sensor tensor，不从物体状态或刚体 contact label 生成触觉：
 
-The `504-D` non-tactile actor input preserves the official Tracker's `35-D`
-command and five-frame robot/action/gravity histories, then adds current base
-linear velocity and phase. It excludes contact label and measured box pose.
-Set `CURIOSITY_TRACKER_WARM_START_CHECKPOINT` to the released CarryBox
-`tracker.pt` only for the common base initialization; use
-`CURIOSITY_TRACKER_BASE_CHECKPOINT` to start both matched arms from that same
-saved base. The released Tracker and Refiner use their original unnormalized
-observation scale, so both actor and critic empirical normalization remain
-disabled. The root [`README`](../../../README.md#paused-historical-504-d-tracker-command-experiment)
-contains the exact common-base, frozen admission, serial preflight, training,
-and evaluation commands.
+- taxel 世界位置与 `xyzw` 姿态；
+- penetration；
+- signed local-Z normal force；
+- signed local-XY shear；
+- force sequence、timestamp、dt；
+- optical 可用时保存独立 RGB/depth 时钟与数据。
 
-## Complete CarryBox visualization
+物体位姿、PhysX 接触力、相对速度和成败标签只用于诊断，不属于可部署触觉输入。渲染器按解剖顺序显示左右手全部 patch；未接触区域必须保持空白，不能插值成接触。
 
-Run only this shell entry point inside an existing retained GPU allocation:
+## 当前边界
 
-```bash
-bash scripts/sugar/native_tactile/run_complete_carrybox_visualization.sh \
-  experiments/native_tactile_representation/reproduced_complete_carrybox \
-  successful_grasp
-```
+- 普通平面 CarryBox 当前主要由指端承载；它证明整套 sensor 在真实 G1 搬箱轨迹中工作，但不证明整掌受力。
+- 掌面覆盖由单独的掌形贴合自由刚体证明，不能冒充普通箱子托底动作。
+- TacSL 与 PhysX 支撑力的绝对尺度仍待标定；空间和时间对应正确不等于绝对力已经校准。
+- 所有结果是模拟触觉，不是硬件 GelSight 或 sim-to-real 结果。
 
-It executes the following fixed sequence:
-
-1. `collect_sugar_whole_hand_carrybox.py` records the official frozen SUGAR
-   motion-45 CarryBox rollout and all native tactile/physical fields.
-2. `render_sugar_whole_hand_carrybox.py` renders the synchronized world plus
-   bilateral anatomical overview.
-3. `render_sugar_whole_hand_supplement.py` renders left detail, right detail,
-   and bilateral palm R15 RGB/depth.
-4. `render_sugar_force_kinematics_friction.py` renders the native-clock force,
-   friction, kinematics, and calibration audit.
-5. `validate_complete_carrybox_bundle.sh` fully decodes every H.264 file and
-   checks its frame count against the recorded source interval.
-
-Shared tensor/layout code is in `representation.py`. Physical cross-checks are
-implemented by `audit_sugar_whole_hand_carrybox.py` and
-`audit_sugar_whole_hand_pair.py`. The exact output contract and current result
-are documented in
-`experiments/native_tactile_representation/whole_hand_carrybox_v3/REPRODUCE.md`.
-
-## Historical `890-D` matched policy fusion
-
-- `run_native_tactile_bcppo_preflight.sh`: serious official-width warm-start
-  and adapter structural check.
-- `run_native_tactile_bcppo_training.sh`: matched native-tactile or exact-zero
-  training arm.
-- `run_native_tactile_bcppo_evaluation.sh`: deterministic frozen evaluation.
-- `compare_native_tactile_training_endpoints.py`: endpoint comparison; it does
-  not by itself establish tactile usefulness.
-- `summarize_native_tactile_frozen_pair.py`: validates that one frozen
-  tactile/zero pair uses the same seed, reference, disabled events, and
-  physical condition, then writes the direct metric differences.
-- `summarize_native_tactile_dependence.py`: validates one checkpoint under
-  live, evaluation-time zeroed, and fixed anatomical-patch-permuted tactile;
-  it reports same-state action dependence and closed-loop trajectory changes.
-- `run_frozen_tactile_policy_visualizations.sh`: one serial reproduction entry
-  point for those three frozen rollouts, their synchronized world plus
-  bilateral 27-patch videos, full-decode records, and matched summary.
-- `summarize_native_tactile_authority_curve.py`: validates the predeclared
-  `0/0.25/0.5/0.75/1.0` evaluation-only tactile-column response curve and
-  reports common-horizon reward, tracking, lift, and action authority.
-- `run_native_tactile_authority_curve.sh`: one serial retained-allocation
-  entry point that evaluates all five authority scales and writes that checked
-  summary.
-- `audit_bounded_native_tactile_fusion.py`: CPU audit for exact official
-  zero-tactile recovery, the `0.15` first-layer correction cap, frozen base
-  gradients, live tactile-path gradients, and supported-sample distillation.
-- `audit_action_residual_native_tactile_fusion.py`: CPU audit for the next
-  direct `0.1` normalized-action tactile residual bound while retaining exact
-  official behavior at zero tactile.
-- `summarize_native_tactile_contact_teacher_alignment.py`: compares live,
-  zeroed, and patch-permuted tactile against the same privileged teacher on
-  the same physically supported states in a frozen rollout.
-- `summarize_native_tactile_common_horizon.py`: compares reward, tracking, and
-  lift over the shorter rollout's exact transition count so unequal
-  termination lengths cannot reverse the interpretation.
-- `compose_native_tactile_policy_pair.py`: scales two already completed policy
-  videos to equal panels, ends at the shorter rollout, writes browser-compatible
-  H.264, and fully decodes the result before reporting success.
-- `run_native_tactile_teacher_residual_gate.sh`: collects the fixed
-  train/selection/two-test contact split with the exact-zero actor and trains
-  only the existing serious spatial adapter against the official teacher; it
-  then runs the independent prediction/checkpoint audit.
-- `audit_native_tactile_teacher_residual_gate.py`: independently reconstructs
-  the selected checkpoint changes and every saved held-out prediction metric.
-- `run_frozen_teacher_residual_policy_gate.sh`: evaluates that selected
-  checkpoint with live versus exact-zero/no-read tactile on the two untouched
-  physical conditions before any further PPO.
-- `summarize_native_tactile_teacher_residual_policy_gate.py`: applies the
-  predeclared common-horizon reward, tracking, and termination decision.
-- `run_teacher_residual_policy_visualizations.sh`: serially records and renders
-  live-versus-exact-zero behavior on both untouched physical conditions, with
-  the world view and all 54 anatomical patch maps synchronized in H.264.
-- `audit_canonical_trace_fusion.py` and `render_canonical_trace_fusion.py`:
-  causal adapter inspection on the canonical CarryBox trace.
-- `launch_retained_child.sh`: records and isolates a child process group while
-  leaving the retained Slurm shell alive.
-
-## Capability boundary
-
-The tactile fields are read online and causally at the simulator physics clock.
-They are not reconstructed from the saved world video. The current 54-patch
-plus bilateral optical scene runs slower than wall-clock real time. IsaacLab
-has separately demonstrated the same official R15 adapter on CarryBox and a
-swept capsule; Newton uses its own solved-contact sensor on the Panda box/pen
-scenes. Reusing either sensor requires compatible contact geometry and sensors
-on the bodies that actually make contact. The sensor reports local contact; it
-does not identify a task or infer a scene label.
+实验输出必须写入忽略的 `experiments/`。不要提交 trace、视频、checkpoint 或 PPT；不要为常规结果增加哈希清单。
