@@ -165,7 +165,10 @@ def main() -> None:
             if not action_trace.is_file():
                 raise FileNotFoundError(action_trace)
             with np.load(action_trace, allow_pickle=False) as replay:
-                replay_actions = np.asarray(replay["applied_action"], dtype=np.float32)
+                action_key = (
+                    "applied_action" if "applied_action" in replay.files else "action"
+                )
+                replay_actions = np.asarray(replay[action_key], dtype=np.float32)
             if replay_actions.ndim != 2 or replay_actions.shape[1] != 29:
                 raise RuntimeError(
                     f"action trace must be [frames,29], got {replay_actions.shape}"
@@ -187,7 +190,7 @@ def main() -> None:
             "object_ang_vel_w": [],
             "joint_pos": [],
             "joint_vel": [],
-            "action": [],
+            "applied_action": [],
             "mass_readback_kg": [],
             "inertia_readback_kg_m2": [],
             "target_factor": [],
@@ -232,7 +235,7 @@ def main() -> None:
             rows["object_ang_vel_w"].append(cpu(obj.data.root_ang_vel_w[0]))
             rows["joint_pos"].append(cpu(robot.data.joint_pos[0]))
             rows["joint_vel"].append(cpu(robot.data.joint_vel[0]))
-            rows["action"].append(cpu(action[0]))
+            rows["applied_action"].append(cpu(action[0]))
             rows["mass_readback_kg"].append(float(diagnostics["mass_readback_kg"][0]))
             rows["inertia_readback_kg_m2"].append(
                 cpu(diagnostics["inertia_readback_kg_m2"][0])
