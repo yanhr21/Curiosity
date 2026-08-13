@@ -149,8 +149,11 @@ def main() -> None:
             "joint_vel": [],
             "action": [],
             "mass_readback_kg": [],
+            "inertia_readback_kg_m2": [],
             "target_factor": [],
             "qualified": [],
+            "pending": [],
+            "pending_step": [],
             "jump_applied": [],
             "jump_step": [],
         }
@@ -166,8 +169,13 @@ def main() -> None:
             rows["joint_vel"].append(cpu(robot.data.joint_vel[0]))
             rows["action"].append(cpu(action[0]))
             rows["mass_readback_kg"].append(float(diagnostics["mass_readback_kg"][0]))
+            rows["inertia_readback_kg_m2"].append(
+                cpu(diagnostics["inertia_readback_kg_m2"][0])
+            )
             rows["target_factor"].append(float(diagnostics["target_factor"][0]))
             rows["qualified"].append(bool(diagnostics["qualified"][0]))
+            rows["pending"].append(bool(diagnostics["pending"][0]))
+            rows["pending_step"].append(int(diagnostics["pending_step"][0]))
             rows["jump_applied"].append(bool(diagnostics["jump_applied"][0]))
             rows["jump_step"].append(int(diagnostics["jump_step"][0]))
 

@@ -18,6 +18,9 @@ from sugar_rl.tasks.locomanip.online_mass_jump import (
     reset_online_mass_jump,
     step_online_mass_jump,
 )
+from sugar_rl.tasks.locomanip.online_mass_jump_action import (
+    OnlineMassJumpJointPositionAction,
+)
 from sugar_rl.tasks.locomanip.online_patch_tactile import (
     PATCH_AREAS_M2,
     PATCH_HISTORY_STEPS,
@@ -28,7 +31,7 @@ from sugar_rl.tasks.locomanip.online_patch_tactile import (
     online_patch_tactile_with_slip_actor_history,
 )
 
-from .base_refiner_env_cfg import BaseObservationsCfg
+from .base_refiner_env_cfg import BaseActionsCfg, BaseObservationsCfg
 from .carry_box_official_refiner_anatomical_whole_hand_tacsl_env_cfg import (
     OfficialRefinerAnatomicalWholeHandTacSLSceneCfg,
 )
@@ -103,6 +106,13 @@ class TrackerCommandPolicyCfg(ObsGroup):
     def __post_init__(self):
         self.enable_corruption = False
         self.concatenate_terms = True
+
+
+@configclass
+class OnlineMassJumpActionsCfg(BaseActionsCfg):
+    JointPositionAction = BaseActionsCfg.JointPositionAction.replace(
+        class_type=OnlineMassJumpJointPositionAction
+    )
 
 
 @configclass
@@ -197,6 +207,7 @@ class OnlinePatchMassRobotEnvCfg(OfficialCarryBoxRobotEnvCfg):
         env_spacing=2.5,
     )
     observations: LivePatchObservationsCfg = LivePatchObservationsCfg()
+    actions: OnlineMassJumpActionsCfg = OnlineMassJumpActionsCfg()
     events: OnlineMassJumpEventCfg = OnlineMassJumpEventCfg()
 
     def __post_init__(self):

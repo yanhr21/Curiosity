@@ -69,12 +69,19 @@ class OnlineMassJumpController:
         self.wait_frames = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
         self.target_delay = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
         self.target_factor = torch.ones(self.num_envs, device=self.device)
+        self.pending = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        self.pending_step = torch.full(
+            (self.num_envs,), -1, dtype=torch.long, device=self.device
+        )
         self.jump_applied = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         self.jump_step = torch.full(
             (self.num_envs,), -1, dtype=torch.long, device=self.device
         )
         self.mass_readback_kg = torch.full(
             (self.num_envs,), config.nominal_mass_kg, device=self.device
+        )
+        self.inertia_readback_kg_m2 = torch.zeros(
+            (self.num_envs, 9), device=self.device
         )
 
     def _ids(self, env_ids) -> torch.Tensor:
@@ -100,7 +107,9 @@ class OnlineMassJumpController:
         )[choice]
         return delay, factors
 
-    def _write_mass(self, ids: torch.Tensor, factors: torch.Tensor) -> torch.Tensor:
+    def _write_mass(
+        self, ids: torch.Tensor, factors: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         ids_cpu = ids.detach().cpu().to(torch.long)
         factors_cpu = factors.detach().cpu().to(self.default_mass.dtype)
         masses = self.asset.root_physx_view.get_masses().clone()
@@ -114,13 +123,19 @@ class OnlineMassJumpController:
         )
         self.asset.root_physx_view.set_masses(masses, ids_cpu)
         self.asset.root_physx_view.set_inertias(inertias, ids_cpu)
-        readback = self.asset.root_physx_view.get_masses()[ids_cpu, 0]
-        if not torch.allclose(readback, target_mass, rtol=1.0e-6, atol=1.0e-7):
+        mass_readback = self.asset.root_physx_view.get_masses()[ids_cpu, 0]
+        inertia_readback = self.asset.root_physx_view.get_inertias()[ids_cpu]
+        target_inertia = inertias[ids_cpu]
+        if not torch.allclose(mass_readback, target_mass, rtol=1.0e-6, atol=1.0e-7):
             raise RuntimeError(
                 f"PhysX mass readback mismatch: target={target_mass.tolist()} "
-                f"readback={readback.tolist()}"
+                f"readback={mass_readback.tolist()}"
             )
-        return readback.to(self.device)
+        if not torch.allclose(
+            inertia_readback, target_inertia, rtol=1.0e-6, atol=1.0e-8
+        ):
+            raise RuntimeError("PhysX inertia readback mismatch after mass jump")
+        return mass_readback.to(self.device), inertia_readback.to(self.device)
 
     def reset(self, env_ids=None) -> None:
         ids = self._ids(env_ids)
@@ -132,14 +147,18 @@ class OnlineMassJumpController:
         self.qualified[ids] = False
         self.qualification_step[ids] = -1
         self.wait_frames[ids] = 0
+        self.pending[ids] = False
+        self.pending_step[ids] = -1
         self.jump_applied[ids] = False
         self.jump_step[ids] = -1
         delay, factor = self._deterministic_assignment(ids)
         self.target_delay[ids] = delay
         self.target_factor[ids] = factor
-        self.mass_readback_kg[ids] = self._write_mass(
+        mass, inertia = self._write_mass(
             ids, torch.ones(ids.numel(), device=self.device)
         )
+        self.mass_readback_kg[ids] = mass
+        self.inertia_readback_kg_m2[ids] = inertia
 
     def advance(
         self,
@@ -169,14 +188,32 @@ class OnlineMassJumpController:
         )
         self.qualified |= newly_qualified
         self.qualification_step[newly_qualified] = int(control_step)
-        waiting = self.qualified & (~self.jump_applied) & (self.target_factor > 1.0)
+        waiting = (
+            self.qualified
+            & (~self.pending)
+            & (~self.jump_applied)
+            & (self.target_factor > 1.0)
+        )
         self.wait_frames[waiting] += 1
         due = waiting & (self.wait_frames >= self.target_delay)
         ids = due.nonzero(as_tuple=False).flatten()
         if ids.numel() > 0:
-            self.mass_readback_kg[ids] = self._write_mass(ids, self.target_factor[ids])
-            self.jump_applied[ids] = True
-            self.jump_step[ids] = int(control_step)
+            self.pending[ids] = True
+            self.pending_step[ids] = int(control_step)
+        return ids
+
+    def apply_pending(self, *, control_step: int) -> torch.Tensor:
+        """Apply a due jump after actor inference and before physics substeps."""
+
+        ids = self.pending.nonzero(as_tuple=False).flatten()
+        if ids.numel() == 0:
+            return ids
+        mass, inertia = self._write_mass(ids, self.target_factor[ids])
+        self.mass_readback_kg[ids] = mass
+        self.inertia_readback_kg_m2[ids] = inertia
+        self.pending[ids] = False
+        self.jump_applied[ids] = True
+        self.jump_step[ids] = int(control_step)
         return ids
 
     def diagnostics(self) -> dict[str, torch.Tensor]:
@@ -186,9 +223,12 @@ class OnlineMassJumpController:
             "target_delay_frames": self.target_delay.clone(),
             "qualified": self.qualified.clone(),
             "qualification_step": self.qualification_step.clone(),
+            "pending": self.pending.clone(),
+            "pending_step": self.pending_step.clone(),
             "jump_applied": self.jump_applied.clone(),
             "jump_step": self.jump_step.clone(),
             "mass_readback_kg": self.mass_readback_kg.clone(),
+            "inertia_readback_kg_m2": self.inertia_readback_kg_m2.clone(),
         }
 
 

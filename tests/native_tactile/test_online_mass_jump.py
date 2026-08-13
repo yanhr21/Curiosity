@@ -82,6 +82,16 @@ def test_mass_jump_scales_mass_and_inertia_without_touching_pose():
     assert controller.advance(torch.tensor([True]), control_step=2).numel() == 0
     jumped = controller.advance(torch.tensor([True]), control_step=3)
     assert jumped.tolist() == [0]
+    # Scheduling occurs after the nominal physics step.  The write is delayed
+    # to the next action boundary so the new mass affects physics before the
+    # actor can observe its tactile consequence.
+    torch.testing.assert_close(
+        env.scene["obj"].root_physx_view.get_masses(),
+        torch.tensor([[config.nominal_mass_kg]]),
+    )
+    assert controller.diagnostics()["pending"].item() is True
+    applied = controller.apply_pending(control_step=3)
+    assert applied.tolist() == [0]
     expected_mass = torch.tensor([[config.nominal_mass_kg * 3.0]])
     torch.testing.assert_close(
         env.scene["obj"].root_physx_view.get_masses(), expected_mass
@@ -95,8 +105,14 @@ def test_mass_jump_scales_mass_and_inertia_without_touching_pose():
     )
     diagnostics = controller.diagnostics()
     assert diagnostics["jump_step"].tolist() == [3]
+    assert diagnostics["pending_step"].tolist() == [3]
+    assert diagnostics["pending"].item() is False
     torch.testing.assert_close(
         diagnostics["mass_readback_kg"], expected_mass.flatten()
+    )
+    torch.testing.assert_close(
+        diagnostics["inertia_readback_kg_m2"],
+        env.scene["obj"].root_physx_view.get_inertias(),
     )
 
 
