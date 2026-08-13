@@ -168,6 +168,37 @@ def _sensor_data(env, sensor_name: str):
     return getattr(env.scene, sensor_name)
 
 
+def _runtime_diagnostics(env) -> dict[str, Any]:
+    diagnostics = getattr(env, "_online_patch_tactile_runtime_diagnostics", None)
+    if diagnostics is None:
+        diagnostics = {
+            "live_feature_updates": 0,
+            "live_env_samples": 0,
+            "patch_sensor_reads": 0,
+            "zero_observation_calls": 0,
+            "zero_env_samples": 0,
+            "slip_updates": 0,
+            "any_contact_env_samples": torch.zeros((), dtype=torch.long, device=env.device),
+            "bilateral_contact_env_samples": torch.zeros(
+                (), dtype=torch.long, device=env.device
+            ),
+            "maximum_active_patches_per_hand": torch.zeros(
+                2, dtype=torch.long, device=env.device
+            ),
+            "maximum_normal_load_n": torch.zeros((), device=env.device),
+            "maximum_abs_shear_n": torch.zeros((), device=env.device),
+            "incipient_patch_samples": torch.zeros(
+                (), dtype=torch.long, device=env.device
+            ),
+            "gross_patch_samples": torch.zeros(
+                (), dtype=torch.long, device=env.device
+            ),
+            "maximum_slip_score": torch.zeros((), device=env.device),
+        }
+        setattr(env, "_online_patch_tactile_runtime_diagnostics", diagnostics)
+    return diagnostics
+
+
 def current_whole_hand_patch_features(
     env,
     sensor_names_by_hand: tuple[tuple[str, ...], tuple[str, ...]] = (
@@ -221,6 +252,25 @@ def current_whole_hand_patch_features(
     if output.shape != expected or not torch.isfinite(output).all():
         raise RuntimeError(
             f"online whole-hand patch features are invalid: {tuple(output.shape)}"
+        )
+    with torch.no_grad():
+        diagnostics = _runtime_diagnostics(env)
+        active = output[..., 0] > 0.5
+        active_per_hand = active.sum(dim=-1)
+        diagnostics["live_feature_updates"] += 1
+        diagnostics["live_env_samples"] += int(env.num_envs)
+        diagnostics["patch_sensor_reads"] += 54
+        diagnostics["any_contact_env_samples"] += active.any(dim=(-1, -2)).sum()
+        diagnostics["bilateral_contact_env_samples"] += active.any(dim=-1).all(dim=-1).sum()
+        diagnostics["maximum_active_patches_per_hand"] = torch.maximum(
+            diagnostics["maximum_active_patches_per_hand"],
+            active_per_hand.amax(dim=0),
+        )
+        diagnostics["maximum_normal_load_n"] = torch.maximum(
+            diagnostics["maximum_normal_load_n"], output[..., 1].amax()
+        )
+        diagnostics["maximum_abs_shear_n"] = torch.maximum(
+            diagnostics["maximum_abs_shear_n"], output[..., 3:5].abs().amax()
         )
     return output
 
@@ -403,6 +453,14 @@ def _online_patch_slip_history(
         "gross_slip": output.gross_slip,
         "timestamp_s": timestamp_s,
     }
+    with torch.no_grad():
+        diagnostics = _runtime_diagnostics(env)
+        diagnostics["slip_updates"] += 1
+        diagnostics["incipient_patch_samples"] += output.incipient_slip.sum()
+        diagnostics["gross_patch_samples"] += output.gross_slip.sum()
+        diagnostics["maximum_slip_score"] = torch.maximum(
+            diagnostics["maximum_slip_score"], output.slip_score.amax()
+        )
     return cache["history"]
 
 
@@ -448,5 +506,99 @@ def exact_zero_online_patch_tactile_actor_history(
         raise ValueError("expected 27 physical patch areas")
     if friction_coefficient <= 0.0 or history_steps != PATCH_HISTORY_STEPS:
         raise ValueError("invalid exact-zero patch contract")
+    diagnostics = _runtime_diagnostics(env)
+    diagnostics["zero_observation_calls"] += 1
+    diagnostics["zero_env_samples"] += int(env.num_envs)
     width = history_steps * 2 * 27 * PATCH_FEATURE_WIDTH
     return torch.zeros((env.num_envs, width), dtype=torch.float32, device=env.device)
+
+
+def online_patch_preflight_runtime_report(env, branch: str) -> dict[str, Any]:
+    """Summarize direct Z/P/PS live-path evidence after one training update."""
+
+    if branch not in ("Z", "P", "PS"):
+        raise ValueError("Plan-15 preflight branch must be Z, P, or PS")
+    diagnostics = _runtime_diagnostics(env)
+
+    def scalar(name: str) -> int | float:
+        value = diagnostics[name]
+        if isinstance(value, torch.Tensor):
+            value = value.detach().cpu().item()
+        return value
+
+    maximum_active = diagnostics["maximum_active_patches_per_hand"].detach().cpu().tolist()
+    controller = getattr(env, "_online_mass_jump_controller", None)
+    if controller is None:
+        mass_events = 0
+        mass_changes = 0
+        mass_events_by_factor: list[int] = []
+    else:
+        mass_events = int(controller.cumulative_jump_events.sum().item())
+        mass_changes = int(controller.cumulative_mass_changes.sum().item())
+        mass_events_by_factor = (
+            controller.cumulative_factor_events.sum(dim=0).detach().cpu().tolist()
+        )
+
+    checks = {
+        "mass_event_seen": mass_events > 0,
+        "physical_mass_change_seen": mass_changes > 0,
+        "zero_branch_never_read_tacsl": (
+            branch != "Z" or int(scalar("patch_sensor_reads")) == 0
+        ),
+        "zero_branch_observation_executed": (
+            branch != "Z" or int(scalar("zero_observation_calls")) > 0
+        ),
+        "live_branch_read_all_54_patches": (
+            branch == "Z"
+            or (
+                int(scalar("live_feature_updates")) > 0
+                and int(scalar("patch_sensor_reads"))
+                == 54 * int(scalar("live_feature_updates"))
+            )
+        ),
+        "live_branch_observed_bilateral_contact": (
+            branch == "Z" or int(scalar("bilateral_contact_env_samples")) > 0
+        ),
+        "live_branch_observed_nonzero_load": (
+            branch == "Z" or float(scalar("maximum_normal_load_n")) > 0.0
+        ),
+        "p_branch_did_not_call_slip": (
+            branch != "P" or int(scalar("slip_updates")) == 0
+        ),
+        "ps_branch_called_causal_slip": (
+            branch != "PS" or int(scalar("slip_updates")) > 0
+        ),
+    }
+    return {
+        "schema": "plan15_live_training_preflight_v1",
+        "branch": branch,
+        "tactile_runtime": {
+            "live_feature_updates": int(scalar("live_feature_updates")),
+            "live_env_samples": int(scalar("live_env_samples")),
+            "patch_sensor_reads": int(scalar("patch_sensor_reads")),
+            "zero_observation_calls": int(scalar("zero_observation_calls")),
+            "zero_env_samples": int(scalar("zero_env_samples")),
+            "slip_updates": int(scalar("slip_updates")),
+            "any_contact_env_samples": int(scalar("any_contact_env_samples")),
+            "bilateral_contact_env_samples": int(
+                scalar("bilateral_contact_env_samples")
+            ),
+            "maximum_active_patches_per_hand": [int(value) for value in maximum_active],
+            "maximum_normal_load_n": float(scalar("maximum_normal_load_n")),
+            "maximum_abs_shear_n": float(scalar("maximum_abs_shear_n")),
+            "incipient_patch_samples": int(scalar("incipient_patch_samples")),
+            "gross_patch_samples": int(scalar("gross_patch_samples")),
+            "maximum_slip_score": float(scalar("maximum_slip_score")),
+        },
+        "mass_runtime": {
+            "jump_events": mass_events,
+            "mass_changes": mass_changes,
+            "events_by_factor": mass_events_by_factor,
+        },
+        "checks": checks,
+        "overall_pass": all(checks.values()),
+        "claim_boundary": (
+            "This proves the declared online path executed during one update; "
+            "it does not prove tactile training benefit."
+        ),
+    }

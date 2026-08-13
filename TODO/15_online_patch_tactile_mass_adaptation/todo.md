@@ -97,6 +97,9 @@
   episodes 各覆盖一次 `1.0x/1.5x/3x/6x/10x`。
 - [x] Plan-15 runner 禁用通用的 random episode-length initialization，确保
   one-update preflight 和 formal episodes 都从 motion frame 0 连续进入抓取。
+- [x] one-update preflight 自动记录并检查 Z 的零 TacSL read、P/PS 的在线
+  54-patch read/双手接触/非零负载、PS callable execution 及真实 mass event；
+  live report 仍待 Kit/Vulkan 恢复后生成。
 - [x] 保持三个分支的官方 SUGAR CarryBox reward 完全一致；mass ID、jump flag、
   patch/slip state 均不直接成为 reward 或 actor 答案。
 - [x] 冻结 3 个 formal training seeds，以及 3 个未参与训练的 evaluation seeds；

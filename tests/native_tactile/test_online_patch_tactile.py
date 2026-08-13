@@ -92,6 +92,39 @@ def test_exact_zero_does_not_touch_scene_sensors():
     output = exact_zero_online_patch_tactile_actor_history(env)
     assert output.shape == (3, 1944)
     assert torch.count_nonzero(output).item() == 0
+    diagnostics = env._online_patch_tactile_runtime_diagnostics
+    assert diagnostics["zero_observation_calls"] == 1
+    assert diagnostics["zero_env_samples"] == 3
+    assert diagnostics["patch_sensor_reads"] == 0
+
+
+@pytest.mark.parametrize("branch", ["Z", "P", "PS"])
+def test_live_preflight_report_enforces_each_branch_path(branch):
+    env = SimpleNamespace(device="cpu")
+    diagnostics = module._runtime_diagnostics(env)
+    if branch == "Z":
+        diagnostics["zero_observation_calls"] = 2
+        diagnostics["zero_env_samples"] = 8
+    else:
+        diagnostics["live_feature_updates"] = 2
+        diagnostics["live_env_samples"] = 8
+        diagnostics["patch_sensor_reads"] = 108
+        diagnostics["bilateral_contact_env_samples"] += 3
+        diagnostics["maximum_normal_load_n"] += 1.5
+        diagnostics["maximum_active_patches_per_hand"][:] = torch.tensor([4, 5])
+    if branch == "PS":
+        diagnostics["slip_updates"] = 2
+    env._online_mass_jump_controller = SimpleNamespace(
+        cumulative_jump_events=torch.tensor([1, 1, 0, 0]),
+        cumulative_mass_changes=torch.tensor([0, 1, 0, 0]),
+        cumulative_factor_events=torch.tensor(
+            [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+        ),
+    )
+    report = module.online_patch_preflight_runtime_report(env, branch)
+    assert report["overall_pass"] is True
+    assert report["mass_runtime"]["jump_events"] == 2
+    assert report["mass_runtime"]["mass_changes"] == 1
 
 
 def test_evaluation_oracle_reduces_max_active_taxel_speed_per_patch():

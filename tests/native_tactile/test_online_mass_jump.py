@@ -115,6 +115,9 @@ def test_mass_jump_scales_mass_and_inertia_without_touching_pose():
         diagnostics["inertia_readback_kg_m2"],
         env.scene["obj"].root_physx_view.get_inertias(),
     )
+    assert diagnostics["cumulative_jump_events"].tolist() == [1]
+    assert diagnostics["cumulative_mass_changes"].tolist() == [1]
+    assert diagnostics["cumulative_factor_events"].tolist() == [[1]]
 
 
 def test_mass_jump_requires_consecutive_lifted_frames_without_tactile_read():

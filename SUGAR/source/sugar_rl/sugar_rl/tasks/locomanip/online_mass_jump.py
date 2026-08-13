@@ -84,6 +84,17 @@ class OnlineMassJumpController:
         self.inertia_readback_kg_m2 = torch.zeros(
             (self.num_envs, 9), device=self.device
         )
+        self.cumulative_jump_events = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self.cumulative_mass_changes = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self.cumulative_factor_events = torch.zeros(
+            (self.num_envs, len(config.mass_factors)),
+            dtype=torch.long,
+            device=self.device,
+        )
 
     def _ids(self, env_ids) -> torch.Tensor:
         if env_ids is None or isinstance(env_ids, slice):
@@ -208,6 +219,15 @@ class OnlineMassJumpController:
             self.mass_readback_kg[changed_ids] = mass
             self.inertia_readback_kg_m2[changed_ids] = inertia
             self.mass_changed[changed_ids] = True
+            self.cumulative_mass_changes[changed_ids] += 1
+        factors = torch.as_tensor(
+            self.config.mass_factors, dtype=torch.float32, device=self.device
+        )
+        factor_indices = torch.argmin(
+            (self.target_factor[ids, None] - factors[None]).abs(), dim=1
+        )
+        self.cumulative_jump_events[ids] += 1
+        self.cumulative_factor_events[ids, factor_indices] += 1
         self.pending[ids] = False
         self.jump_applied[ids] = True
         self.jump_step[ids] = int(control_step)
@@ -227,6 +247,9 @@ class OnlineMassJumpController:
             "jump_step": self.jump_step.clone(),
             "mass_readback_kg": self.mass_readback_kg.clone(),
             "inertia_readback_kg_m2": self.inertia_readback_kg_m2.clone(),
+            "cumulative_jump_events": self.cumulative_jump_events.clone(),
+            "cumulative_mass_changes": self.cumulative_mass_changes.clone(),
+            "cumulative_factor_events": self.cumulative_factor_events.clone(),
         }
 
 

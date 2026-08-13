@@ -600,6 +600,24 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         init_at_random_ep_len=init_at_random_ep_len,
     )
 
+    plan15_preflight_branch = os.environ.get("SUGAR_PLAN15_PREFLIGHT_BRANCH")
+    if plan15_preflight_branch:
+        from sugar_rl.tasks.locomanip.online_patch_tactile import (
+            online_patch_preflight_runtime_report,
+        )
+
+        report = online_patch_preflight_runtime_report(
+            env.unwrapped, plan15_preflight_branch
+        )
+        report_path = os.path.join(log_dir, "plan15_live_preflight.json")
+        with open(report_path, "w", encoding="utf-8") as file:
+            json.dump(report, file, indent=2, sort_keys=True)
+        print(f"[INFO]: Plan-15 live preflight: {report}", flush=True)
+        if not report["overall_pass"]:
+            raise RuntimeError(
+                f"Plan-15 live preflight failed; see {report_path}"
+            )
+
     if hasattr(env, "finalize_telemetry"):
         env.finalize_telemetry()
 
