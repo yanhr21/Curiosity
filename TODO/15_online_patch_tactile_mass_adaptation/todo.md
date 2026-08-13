@@ -13,22 +13,25 @@
 
 ## B. IsaacLab live mass jump
 
-- [ ] 在完整 G1 CarryBox env 中加入 runtime mass/inertia change event。
-- [ ] 确认 jump 不改变 object geometry、material、RGB、pose、reference、sensor
+- [x] 在完整 G1 CarryBox env 中加入 runtime mass/inertia change event。
+- [x] 代码路径保证 jump 不改变 object geometry、material、RGB、pose、reference、sensor
   history 或上一动作。
-- [ ] 在每个 jump 后读回实际 mass/inertia，并保留 event timestamp 作为评价字段。
-- [ ] 从 frame 0 连续运行；稳定抬升/双手接触 10 帧后随机等待 10--50 帧再 jump。
+- [x] 实现每个 jump 后的实际 mass/inertia readback 和 event timestamp 评价字段。
+- [x] 实现从 frame 0 连续运行、稳定抬升/双手接触 10 帧后随机等待 10--50 帧再 jump。
+- [ ] 在真实 IsaacLab physics step 中确认上述四项；当前原始 collector 和 Plan-15
+  env 均在 simulation start 遇到相同 `VK_ERROR_DEVICE_LOST`。
 - [ ] 完成 no-jump、`1.5x/3x/6x/10x` 的无学习物理可恢复性 sweep。
 
 ## C. 54-patch online observation
 
-- [ ] 从官方 bilateral 27-patch `VisuoTactileSensor` 当前帧在线读取 raw tensor。
-- [ ] 在 GPU 上逐 patch 归并 `contact`、`normal_load_n`、`mean_pressure_pa`、
+- [x] 从官方 bilateral 27-patch `VisuoTactileSensor` 当前帧在线读取 raw tensor。
+- [x] 在 GPU 上逐 patch 归并 `contact`、`normal_load_n`、`mean_pressure_pa`、
   `shear_x_n`、`shear_y_n` 和 `friction_utilization`。
-- [ ] 固定 `[B,4,2,27,9]` contract、anatomical order、单位、符号和公共归一化。
-- [ ] 保证 actor observation 中不存在 20x25 taxel 维度、普通 ContactSensor、
+- [x] 固定 `[B,4,2,27,9]` contract、anatomical order、单位和符号；公共归一化
+  尺度须等 live sweep 后冻结。
+- [x] 保证 actor observation 中不存在 20x25 taxel 维度、普通 ContactSensor、
   `hands_contact_label` 或 object-state proxy。
-- [ ] 实现 exact-zero no-sensor-read observation，保证 zero encoder output 也为零。
+- [x] 实现 exact-zero no-sensor-read observation，保证 zero encoder output 也为零。
 - [ ] 用 synchronized patch visualization 检查压力/剪切变化与世界接触同钟对应。
 
 ## D. IsaacLab patch slip callable
@@ -46,7 +49,8 @@
 
 ## E. 质量信息泄漏审计
 
-- [ ] 用同一 frozen nominal controller 采集 paired no-jump 与四倍率 jump。
+- [ ] 先记录 nominal controller action sequence，再开环重放同一 sequence 采集
+  paired no-jump 与四倍率 jump，避免 teacher object-state action 泄漏。
 - [ ] 分别导出 object-state、proprio-only、patch-tactile、patch-tactile+slip 信号组。
 - [ ] 在 jump 前 0.5 s/后 1.0 s 窗口报告原始变化、mass-factor linear-probe
   balanced accuracy 和 change-onset latency。

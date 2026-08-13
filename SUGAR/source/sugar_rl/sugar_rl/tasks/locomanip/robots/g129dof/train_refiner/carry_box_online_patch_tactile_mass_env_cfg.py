@@ -247,3 +247,11 @@ class ExactZeroPatchMassRobotPlayEnvCfg(ExactZeroPatchMassRobotEnvCfg):
         super().__post_init__()
         self.scene.num_envs = 1
         self.episode_length_s = 1.0e9
+
+
+@configclass
+class OnlinePatchSlipMassRobotPlayEnvCfg(OnlinePatchSlipMassRobotEnvCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.scene.num_envs = 1
+        self.episode_length_s = 1.0e9

@@ -174,8 +174,10 @@ function，确认 state、timestamp 和 patch 位置都对应。保存的 trace 
 
 ## 6. 泄漏审计
 
-用同一 frozen nominal controller 采集 no-jump 和四种 mass jump，保持动作、初态、
-jump 时刻和随机种子配对。以 jump 前 `0.5 s` 到 jump 后 `1.0 s` 为窗口，分别检查：
+先用 frozen nominal controller 记录一条 nominal action sequence，再把同一 sequence
+开环重放到 no-jump 和四种 mass jump；保持动作、初态、jump 时刻和随机种子配对，
+避免 privileged controller 根据 object state 改动作而污染泄漏比较。以 jump 前
+`0.5 s` 到 jump 后 `1.0 s` 为窗口，分别检查：
 
 - `object-state`：`obj_lin_vel_b` 等，仅作为泄漏上界；
 - `proprio-only`：正式 actor 的 robot state/history，不含触觉；

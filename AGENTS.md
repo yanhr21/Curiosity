@@ -81,9 +81,14 @@
   Treat this as a current cross-node Kit/Vulkan runtime failure; do not call
   the H200 architecture unsupported or misattribute a pre-scene crash to TacSL.
   A separate clean Isaac Sim 5.1 runtime with fresh Kit binaries, extension
-  caches and official base components was prepared on 2026-08-13. Its final
-  H200 canary remains pending retained job `237668`; do not claim either
-  recovery or continued device loss until that GPU run finishes.
+  caches and official base components also failed in retained job `237668`.
+  On 2026-08-14 retained job `238022` then reran the unchanged collector that
+  had succeeded for 660 frames in job `231928`; it mounted all 54 patches and
+  again failed with `VK_ERROR_DEVICE_LOST` while starting simulation, before
+  the first physics or tactile step. This isolates the current blocker to the
+  Kit/Vulkan runtime rather than Plan-15 mass, observation or slip code. Keep
+  the allocation, but never report live Plan-15 evidence until a run reaches
+  real physics steps.
 - Every active object tactile demo must run in IsaacLab/PhysX with the complete
   SUGAR G1 physically moving the object with its hands. Detached R15 fixtures,
   standalone plates, schematic hands, or kinematically moved sensor supports

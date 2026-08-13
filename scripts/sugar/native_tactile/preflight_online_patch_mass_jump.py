@@ -17,6 +17,16 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-root", type=Path, required=True)
 parser.add_argument("--motion-id", type=int, default=45)
 parser.add_argument("--mass-factor", type=float, default=3.0)
+parser.add_argument(
+    "--action-trace",
+    type=Path,
+    default=None,
+    help=(
+        "Optional nominal trace containing applied_action.  Replaying this "
+        "same sequence across mass factors isolates observation leakage from "
+        "controller action changes."
+    ),
+)
 parser.add_argument("--max-steps", type=int, default=420)
 parser.add_argument("--minimum-lift", type=float, default=0.05)
 parser.add_argument("--stable-frames", type=int, default=10)
@@ -24,8 +34,8 @@ parser.add_argument("--delay-frames", type=int, nargs=2, default=(10, 50))
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 
-if args.mass_factor <= 1.0:
-    raise SystemExit("preflight mass factor must be greater than one")
+if args.mass_factor < 1.0:
+    raise SystemExit("preflight mass factor must be at least one")
 if args.max_steps < 1:
     raise SystemExit("max-steps must be positive")
 
@@ -67,7 +77,7 @@ from sugar_rl.tasks.locomanip.online_patch_tactile import (  # noqa: E402
     online_patch_tactile_contract,
 )
 from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_online_patch_tactile_mass_env_cfg import (  # noqa: E402
-    OnlinePatchMassRobotPlayEnvCfg,
+    OnlinePatchSlipMassRobotPlayEnvCfg,
 )
 from sugar_rl.utils.official_refiner_nominal_teacher import (  # noqa: E402
     FrozenOfficialRefinerTeacher,
@@ -85,6 +95,10 @@ def cpu(value: torch.Tensor) -> np.ndarray:
     return value.detach().to(device="cpu", dtype=torch.float32).numpy()
 
 
+def cpu_native(value: torch.Tensor) -> np.ndarray:
+    return value.detach().to(device="cpu").numpy()
+
+
 def main() -> None:
     output_root = args.output_root
     if not output_root.is_absolute():
@@ -92,7 +106,7 @@ def main() -> None:
     output_root.mkdir(parents=True, exist_ok=False)
 
     register_official_refiner_anatomical_whole_hand_tacsl_audit_task()
-    cfg = OnlinePatchMassRobotPlayEnvCfg()
+    cfg = OnlinePatchSlipMassRobotPlayEnvCfg()
     cfg.seed = 150814
     cfg.sim.device = args.device
     cfg.commands.motion.motion_folder = "data/CarryBox"
@@ -134,17 +148,43 @@ def main() -> None:
         original_reset_idx = base_env._reset_idx
         base_env._reset_idx = lambda env_ids: None
 
-        teacher = FrozenOfficialRefinerTeacher(
-            base_env,
-            REFINER_CHECKPOINT,
-            expected_sha256=None,
+        teacher = (
+            FrozenOfficialRefinerTeacher(
+                base_env,
+                REFINER_CHECKPOINT,
+                expected_sha256=None,
+            )
+            if args.action_trace is None
+            else None
         )
         obj = base_env.scene["obj"]
         robot = base_env.scene["robot"]
+        replay_actions = None
+        if args.action_trace is not None:
+            action_trace = args.action_trace.expanduser().resolve()
+            if not action_trace.is_file():
+                raise FileNotFoundError(action_trace)
+            with np.load(action_trace, allow_pickle=False) as replay:
+                replay_actions = np.asarray(replay["applied_action"], dtype=np.float32)
+            if replay_actions.ndim != 2 or replay_actions.shape[1] != 29:
+                raise RuntimeError(
+                    f"action trace must be [frames,29], got {replay_actions.shape}"
+                )
+            if len(replay_actions) < args.max_steps:
+                raise RuntimeError(
+                    f"action trace has {len(replay_actions)} frames, need {args.max_steps}"
+                )
+
         rows: dict[str, list[np.ndarray | int | float | bool]] = {
             "patch_features": [],
+            "slip_features": [],
+            "slip_state": [],
+            "actor_policy_observation": [],
+            "actor_patch_history": [],
             "object_pos_w": [],
+            "object_quat_w": [],
             "object_lin_vel_w": [],
+            "object_ang_vel_w": [],
             "joint_pos": [],
             "joint_vel": [],
             "action": [],
@@ -157,14 +197,39 @@ def main() -> None:
             "jump_applied": [],
             "jump_step": [],
         }
-        for _ in range(args.max_steps):
-            _, action = teacher.action()
-            _, _, _, _, _ = env.step(action)
+        for step in range(args.max_steps):
+            if replay_actions is None:
+                assert teacher is not None
+                _, action = teacher.action()
+            else:
+                action = torch.as_tensor(
+                    replay_actions[step : step + 1],
+                    dtype=torch.float32,
+                    device=base_env.device,
+                )
+            observation, _, _, _, _ = env.step(action)
             patches = current_whole_hand_patch_features(base_env)
             diagnostics = base_env._online_mass_jump_diagnostics
+            slip = base_env._online_patch_slip_diagnostics
+            slip_features = torch.stack(
+                (
+                    slip["slip_score"],
+                    slip["incipient_slip"].to(torch.float32),
+                    slip["gross_slip"].to(torch.float32),
+                ),
+                dim=-1,
+            )
             rows["patch_features"].append(cpu(patches[0]))
+            rows["slip_features"].append(cpu(slip_features[0]))
+            rows["slip_state"].append(cpu_native(slip["state"][0]))
+            rows["actor_policy_observation"].append(cpu(observation["policy"][0]))
+            rows["actor_patch_history"].append(
+                cpu(observation["online_patch_tactile_history"][0])
+            )
             rows["object_pos_w"].append(cpu(obj.data.root_pos_w[0]))
+            rows["object_quat_w"].append(cpu(obj.data.root_quat_w[0]))
             rows["object_lin_vel_w"].append(cpu(obj.data.root_lin_vel_w[0]))
+            rows["object_ang_vel_w"].append(cpu(obj.data.root_ang_vel_w[0]))
             rows["joint_pos"].append(cpu(robot.data.joint_pos[0]))
             rows["joint_vel"].append(cpu(robot.data.joint_vel[0]))
             rows["action"].append(cpu(action[0]))
@@ -189,6 +254,14 @@ def main() -> None:
         summary = {
             "schema": "plan15_online_patch_mass_jump_preflight_v1",
             "semantics": "live IsaacLab rollout; no learning; no offline replay",
+            "action_source": (
+                "online_frozen_official_refiner"
+                if replay_actions is None
+                else "fixed_nominal_applied_action_trace"
+            ),
+            "action_trace": (
+                None if args.action_trace is None else str(args.action_trace.expanduser().resolve())
+            ),
             "motion_id": int(args.motion_id),
             "source_frames": int(args.max_steps),
             "nominal_mass_kg": float(arrays["mass_readback_kg"][0]),
@@ -210,6 +283,7 @@ def main() -> None:
             "actor_measured_object_state": False,
             "patch_contract": online_patch_tactile_contract(),
             "base_patch_channels": list(BASE_PATCH_CHANNELS),
+            "slip_callable_live": True,
         }
         (output_root / "summary.json").write_text(
             json.dumps(summary, indent=2) + "\n", encoding="utf-8"
