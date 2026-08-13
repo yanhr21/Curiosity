@@ -56,6 +56,7 @@ def fake_env(num_envs=2):
     return SimpleNamespace(
         num_envs=num_envs,
         device="cpu",
+        cfg=SimpleNamespace(seed=150814),
         scene={"obj": obj},
     )
 

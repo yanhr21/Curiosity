@@ -53,6 +53,8 @@ TacSL contact，命令直接判定该 rollout 不可用于训练。
 
 只有该结果确认在线压力/剪切有响应、slip 时序有效且 actor 无 object-state 泄漏后，
 才可用 `SUGAR/scripts/sugar_rl/train_online_patch_mass_bcppo.py` 串行运行 Z、P、PS。
+每支正式预算为 3000 updates；BCPPO 在 update 1000 前不会给 actor task-reward PPO，
+所以旧的 512-update 草案不能用于该科学问题。
 
 ## 历史整手可视化最短复现路径
 

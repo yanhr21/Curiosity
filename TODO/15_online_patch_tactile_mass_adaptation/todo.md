@@ -86,9 +86,14 @@
 - [x] 将新 policy class 注册到 frozen Refiner teacher 和 repository-native BCPPO
   runner；启动器在 scale JSON 缺失时拒绝训练。
 - [x] 定义三个共享 policy/runner 配置的 process-local 分支：`Z`、`P`、`PS`，
-  并分别提供 one-update preflight 与 512-update formal task。
+  并分别提供 one-update preflight 与 3000-update formal task。
 - [x] 在配置层保持 critic、teacher、optimizer、reward、physics、mass sampling
-  和 512-update budget 一致；live runner 实例化仍待 Kit/Vulkan 恢复。
+  和 3000-update budget 一致；live runner 实例化仍待 Kit/Vulkan 恢复。
+- [x] launcher 自动绑定 official Refiner teacher 和 official Tracker warm start，
+  formal run 只接受冻结 seeds `151014/151015/151016`；resume 按总预算计算剩余
+  updates，不重复或延长到 3000 之外。
+- [x] mass-factor/delay assignment 继承对应 env seed，且每个 env 的连续五个
+  episodes 各覆盖一次 `1.0x/1.5x/3x/6x/10x`。
 - [ ] task reward 只评价物理持稳/跌落/机器人稳定；不把 mass ID 或 jump flag
   作为 actor 答案。
 - [ ] 冻结 3 个 paired formal seeds 和未参与训练的 frozen-evaluation profiles。
@@ -96,11 +101,11 @@
 ## G. 串行训练
 
 - [ ] `Z`：one-update preflight，确认不读取 sensor、patch/slip exact zero；随后
-  完成 512 updates。
+  完成 3000 updates。
 - [ ] `P`：one-update preflight，确认 live patch signal 和 encoder gradient；随后
-  完成匹配 512 updates。
+  完成匹配 3000 updates。
 - [ ] `PS`：one-update preflight，确认 live patch 与 callable slip 同时进入；随后
-  完成匹配 512 updates。
+  完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
 

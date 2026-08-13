@@ -48,7 +48,9 @@ MASS_JUMP_PARAMS = {
     "minimum_lift_m": 0.05,
     "stable_lift_frames": 10,
     "delay_frames": (10, 50),
-    "seed": 150814,
+    # Formal runs inherit the matched RSL-RL/env seed. The fixed-action
+    # leakage collector overrides this explicitly with its frozen audit seed.
+    "seed": None,
 }
 PATCH_TERM_PARAMS = {
     "sensor_names_by_hand": SENSOR_NAMES_BY_HAND,

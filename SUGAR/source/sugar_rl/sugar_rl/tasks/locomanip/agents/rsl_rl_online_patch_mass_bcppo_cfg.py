@@ -45,8 +45,10 @@ class OnlinePatchMassBCPPORunnerCfg(BCPPORunnerCfg):
     """The unchanged serious SUGAR schedule shared by Z, P, and PS."""
 
     experiment_name = "sugar_carrybox_online_patch_mass_bcppo"
-    max_iterations = 512
-    save_interval = 64
+    # BCPPO gives the actor no task-reward PPO before update 1000. Complete
+    # the 1000-update PPO ramp and retain 1000 steady full-PPO updates.
+    max_iterations = 3000
+    save_interval = 250
     obs_groups = {
         "policy": ["policy", "online_patch_tactile_history"],
         "critic": ["critic"],

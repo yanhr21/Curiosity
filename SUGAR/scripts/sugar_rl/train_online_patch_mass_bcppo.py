@@ -14,11 +14,74 @@ from pathlib import Path
 import rsl_rl.runners.on_policy_runner as on_policy_runner_module
 
 from online_patch_mass_bcppo_task_registration import (
+    TASKS,
     register_online_patch_mass_bcppo_tasks,
 )
 from sugar_rl.utils.online_patch_tactile_actor_critic import (
     OnlinePatchTactileActorCritic,
 )
+
+
+ROOT = Path(__file__).resolve().parents[3]
+OFFICIAL_TRACKER = ROOT / "SUGAR/demo_ckpts/CarryBox/tracker.pt"
+OFFICIAL_REFINER = (
+    ROOT
+    / "experiments/sugar_reproduction/outputs/final/official_sugar/"
+    "baseline/ckpts/refiner_model10000.pt"
+)
+FORMAL_SEEDS = (151014, 151015, 151016)
+
+
+def _option_value(argv: list[str], option: str) -> str | None:
+    if option in argv:
+        index = argv.index(option)
+        if index + 1 >= len(argv):
+            raise ValueError(f"{option} requires a value")
+        return argv[index + 1]
+    prefix = option + "="
+    matches = [value[len(prefix) :] for value in argv if value.startswith(prefix)]
+    if len(matches) > 1:
+        raise ValueError(f"{option} was provided more than once")
+    return matches[0] if matches else None
+
+
+def _inject_official_training_contract(argv: list[str]) -> list[str]:
+    if "--help" in argv or "-h" in argv:
+        return argv
+    task = _option_value(argv, "--task")
+    if task not in TASKS:
+        raise ValueError("Plan-15 launcher requires one registered Z/P/PS task")
+    seed_text = _option_value(argv, "--seed")
+    if seed_text is None:
+        raise ValueError("Plan-15 requires an explicit matched --seed")
+    seed = int(seed_text)
+    preflight = "-Preflight-" in task
+    if not preflight and seed not in FORMAL_SEEDS:
+        raise ValueError(f"formal Plan-15 seed must be one of {FORMAL_SEEDS}")
+    os.environ["SUGAR_TOTAL_ITERATION_BUDGET"] = "1" if preflight else "3000"
+
+    output = list(argv)
+    teacher = _option_value(output, "--teacher_ckpt")
+    if teacher is None:
+        output.extend(("--teacher_ckpt", str(OFFICIAL_REFINER)))
+    elif Path(teacher).expanduser().resolve() != OFFICIAL_REFINER.resolve():
+        raise ValueError("Plan-15 teacher must be the official frozen Refiner")
+
+    resume = _option_value(output, "--resume_checkpoint_path")
+    warm_start = _option_value(output, "--warm_start_checkpoint_path")
+    if resume is None:
+        if warm_start is None:
+            output.extend(
+                ("--warm_start_checkpoint_path", str(OFFICIAL_TRACKER))
+            )
+        elif Path(warm_start).expanduser().resolve() != OFFICIAL_TRACKER.resolve():
+            raise ValueError("Plan-15 warm start must be the official Tracker")
+    elif warm_start is not None:
+        raise ValueError("resume and warm start are mutually exclusive")
+    for checkpoint in (OFFICIAL_REFINER, OFFICIAL_TRACKER):
+        if not checkpoint.is_file():
+            raise FileNotFoundError(checkpoint)
+    return output
 
 
 def _consume_scale_file(argv: list[str]) -> list[str]:
@@ -46,6 +109,7 @@ def _consume_scale_file(argv: list[str]) -> list[str]:
 
 
 sys.argv = _consume_scale_file(sys.argv)
+sys.argv = _inject_official_training_contract(sys.argv)
 register_online_patch_mass_bcppo_tasks()
 setattr(builtins, "OnlinePatchTactileActorCritic", OnlinePatchTactileActorCritic)
 setattr(

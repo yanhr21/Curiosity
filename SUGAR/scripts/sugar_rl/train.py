@@ -575,8 +575,24 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         os.path.join(log_dir, "params", os.path.basename(inspect.getfile(env_cfg.__class__))),
     )
 
-    # run training
-    runner.learn(num_learning_iterations=agent_cfg.max_iterations, init_at_random_ep_len=True)
+    # Run training. Plan-15 declares a total matched budget rather than
+    # "N more" updates, so a resumed arm finishes at the same endpoint as an
+    # uninterrupted arm.
+    total_iteration_budget = os.environ.get("SUGAR_TOTAL_ITERATION_BUDGET")
+    learning_iterations = int(agent_cfg.max_iterations)
+    if total_iteration_budget is not None:
+        total_iteration_budget = int(total_iteration_budget)
+        learning_iterations = max(
+            0,
+            total_iteration_budget - int(runner.current_learning_iteration),
+        )
+        print(
+            "[INFO]: Fixed total iteration budget: "
+            f"current={runner.current_learning_iteration}, "
+            f"total={total_iteration_budget}, remaining={learning_iterations}",
+            flush=True,
+        )
+    runner.learn(num_learning_iterations=learning_iterations, init_at_random_ep_len=True)
 
     if hasattr(env, "finalize_telemetry"):
         env.finalize_telemetry()

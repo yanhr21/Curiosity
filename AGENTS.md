@@ -48,6 +48,11 @@
   `512/256/128` actor, official frozen Refiner teacher, repository BCPPO,
   optimizer, reward, physics, mass sampling, seeds and update budget. No toy
   MLP, offline tactile replay or taxel-CNN substitute is allowed.
+- Repository BCPPO gives the actor no task-reward PPO before update 1000:
+  updates 0--499 are pure distillation, 500--999 add only critic warmup, and
+  1000--1999 ramp PPO authority. Each formal Z/P/PS run is therefore exactly
+  3000 updates, including 1000 steady full-PPO updates. The withdrawn
+  512-update Plan-15 draft cannot answer tactile training benefit.
 - Schedule the mass event from sustained object lift and a matched random
   delay, not from tactile. Separately require live P/PS traces to show
   bilateral patch contact throughout the ten frames before the event. This

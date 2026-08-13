@@ -227,7 +227,11 @@ mass/no-jump sampling、seed、physics、episode length 和 update budget。正�
 - full 29-DoF action 保持可用，policy 可以加强握持、降低身体、改变双手受力或
   安全放下，具体反应不手工脚本化。
 
-每个分支先做一次 live one-update preflight，随后使用相同的 `512` update budget。
+每个分支先做一次 live one-update preflight，随后使用相同的 `3000` update budget。
+这是 repository-native BCPPO schedule 所需的完整阶段：updates `0--499` 为 teacher
+distillation，`500--999` 加入 critic warmup，`1000--1999` 将 task-reward PPO
+authority 从 0 线性升到 1，`2000--2999` 为 steady full PPO。原先的 512-update
+草案在 actor 收到 task-reward PPO 之前就结束，不能回答触觉是否帮助训练，已撤销。
 泄漏审计固定使用 `150814/150815/150816`；正式训练固定使用
 `151014/151015/151016`；frozen evaluation 固定使用
 `152014/152015/152016`。不得看到结果后延长单一分支或更换 seed。训练分布平衡
@@ -238,7 +242,9 @@ hold-success reward。
 代码入口固定为三个 process-local Z/P/PS preflight task 和三个对应 formal task。
 所有入口复用同一个 runner 配置；启动器必须读取 live sweep 生成的 9-channel
 scale JSON，禁止用猜测常数代替真实在线归一化尺度。该接线完成只代表训练路径
-已准备好，不越过 leakage/slip/live-physics 准入顺序。
+已准备好，不越过 leakage/slip/live-physics 准入顺序。启动器自动绑定 official
+Refiner teacher 和 official Tracker warm start，formal seed 只能来自冻结的三项；
+中断恢复以 3000 为总 endpoint 计算 remaining updates，而不是重新多跑 3000。
 
 ## 8. Frozen-policy 测试与判据
 
@@ -296,9 +302,9 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 3. 实现并验证 IsaacLab `PatchSlipDetector` callable；
 4. 完成 leakage audit，明确 actor/teacher/critic 边界；
 5. 固定 task、reward、patch encoder、seeds 和 frozen evaluation；
-6. `Z` one-update preflight 与 512 updates；
-7. `P` one-update preflight 与 512 updates；
-8. `PS` one-update preflight 与 512 updates；
+6. `Z` one-update preflight 与 3000 updates；
+7. `P` one-update preflight 与 3000 updates；
+8. `PS` one-update preflight 与 3000 updates；
 9. 三分支 frozen evaluation、同步视频和结论报告。
 
 不得并行启动后续分支，不得在 leakage audit 前训练，不得恢复旧 RGB/demo/ICM/

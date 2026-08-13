@@ -249,15 +249,16 @@ def reset_online_mass_jump(
     minimum_lift_m: float = 0.05,
     stable_lift_frames: int = 10,
     delay_frames: tuple[int, int] = (10, 50),
-    seed: int = 150814,
+    seed: int | None = None,
 ) -> None:
+    resolved_seed = int(env.cfg.seed if seed is None else seed)
     config = MassJumpConfig(
         nominal_mass_kg=nominal_mass_kg,
         mass_factors=tuple(mass_factors),
         minimum_lift_m=minimum_lift_m,
         stable_lift_frames=stable_lift_frames,
         delay_frames=tuple(delay_frames),
-        seed=seed,
+        seed=resolved_seed,
     )
     _controller(env, asset_name, config).reset(env_ids)
 
@@ -271,18 +272,19 @@ def step_online_mass_jump(
     minimum_lift_m: float = 0.05,
     stable_lift_frames: int = 10,
     delay_frames: tuple[int, int] = (10, 50),
-    seed: int = 150814,
+    seed: int | None = None,
 ) -> None:
     """Manager interval event: physics -> jump -> next live observation."""
 
     del env_ids
+    resolved_seed = int(env.cfg.seed if seed is None else seed)
     config = MassJumpConfig(
         nominal_mass_kg=nominal_mass_kg,
         mass_factors=tuple(mass_factors),
         minimum_lift_m=minimum_lift_m,
         stable_lift_frames=stable_lift_frames,
         delay_frames=tuple(delay_frames),
-        seed=seed,
+        seed=resolved_seed,
     )
     controller = _controller(env, asset_name, config)
     controller.advance(control_step=int(env.common_step_counter))
