@@ -10,7 +10,12 @@
 
 - 当前计划：[PLAN/15_online_patch_tactile_mass_adaptation/plan.md](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
-- 当前状态：文档合同已完成，尚未开始实现、仿真或训练。
+- 当前状态：mass/inertia action-boundary jump、bilateral 27-patch reducer、causal
+  slip callable、anatomical Transformer、Z/P/PS BCPPO 入口和 paired leakage sweep
+  已实现，28 个相关非仿真测试通过。真实 Plan-15 rollout 与训练尚未开始：当前在
+  两块不同 H200 上，Isaac Kit 均在 scene creation 前发生
+  `VK_ERROR_DEVICE_LOST`；第三节点 retained job 正在排队。该故障发生在 patch、
+  mass 和 slip 代码运行前，不能写成触觉实验负结果。
 
 ## 当前结果
 
@@ -22,7 +27,32 @@
 
 这些结果只能称为**高保真模拟触觉**，不是硬件 GelSight 标定，也不是 sim-to-real。
 
-## 最短复现路径
+## Plan 15 最短执行路径
+
+Kit/Vulkan 恢复后，第一条正式命令只能是 paired live leakage sweep，不得直接训练：
+
+```bash
+bash scripts/sugar/native_tactile/launch_retained_child.sh \
+  --record experiments/online_patch_tactile_mass_adaptation/runtime/leakage_sweep.process \
+  --status experiments/online_patch_tactile_mass_adaptation/runtime/leakage_sweep.status \
+  --log experiments/online_patch_tactile_mass_adaptation/runtime/leakage_sweep.log \
+  --tag plan15-leakage-sweep -- \
+  /public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/native_tactile/run_online_mass_leakage_sweep.py \
+  --output-root experiments/online_patch_tactile_mass_adaptation/paired_leakage_v1 \
+  --device cuda:0
+```
+
+该命令固定使用 leakage seeds `150814/150815/150816`。每个 seed 先在线生成
+`1.0x` nominal action，再逐帧重放到 `1.5x/3x/6x/10x`；输出 exact Refiner
+object-state、504-D proprio、54-patch tactile、causal slip 的时序泄漏结果，以及仅
+从这些 live trace 拟合的 9-channel 公共尺度。若 jump 前没有连续 10 帧 bilateral
+TacSL contact，命令直接判定该 rollout 不可用于训练。
+
+只有该结果确认在线压力/剪切有响应、slip 时序有效且 actor 无 object-state 泄漏后，
+才可用 `SUGAR/scripts/sugar_rl/train_online_patch_mass_bcppo.py` 串行运行 Z、P、PS。
+
+## 历史整手可视化最短复现路径
 
 在已保留的 H200 Slurm shell 中，从仓库根目录运行：
 

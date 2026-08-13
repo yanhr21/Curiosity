@@ -1,6 +1,19 @@
 # IsaacLab native whole-hand tactile
 
-当前入口只运行 IsaacLab/PhysX，不启动训练。每只 G1 手固定使用 27 个物理解剖 TacSL patch：掌心 `4 x 3`，五指各 proximal/middle/distal 三段。每个 patch 使用官方 `VisuoTactileSensor` 和 `GELSIGHT_R15_CFG` 字段。
+当前入口只运行 IsaacLab/PhysX。Plan 15 必须先完成在线泄漏审计，再由独立的
+SUGAR BCPPO launcher 启动训练。每只 G1 手固定使用 27 个物理解剖 TacSL patch：
+掌心 `4 x 3`，五指各 proximal/middle/distal 三段。每个 patch 使用官方
+`VisuoTactileSensor` 和 `GELSIGHT_R15_CFG` 字段。
+
+## Plan 15 在线质量 sweep
+
+`run_online_mass_leakage_sweep.py` 是当前第一执行入口。它固定运行三个 paired
+seeds，对每个 seed 先采集 nominal `1.0x` 动作，再重放到
+`1.5x/3x/6x/10x`。mass scheduler 只读取 evaluator-side object lift，不读取
+TacSL；collector 独立要求 jump 前连续 10 帧双手 patch contact。完成后生成
+`leakage_audit.json` 和 `patch_channel_scales.json`，不启动 policy training。
+
+正式命令见仓库根 [README.md](../../../README.md)。
 
 ## 一条命令复现 CarryBox
 
