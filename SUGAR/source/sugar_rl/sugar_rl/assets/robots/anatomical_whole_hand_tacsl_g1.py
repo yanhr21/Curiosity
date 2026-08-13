@@ -36,7 +36,7 @@ from isaacsim.core.utils.stage import get_current_stage
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade, Vt
 
 import isaaclab.sim as sim_utils
-from isaaclab.sim.spawners.from_files import spawn_from_urdf
+from isaaclab.sim.spawners.from_files import spawn_from_urdf, spawn_from_usd
 
 
 _WORKSPACE_ROOT = Path(__file__).resolve().parents[6]
@@ -1826,13 +1826,42 @@ def spawn_g1_with_anatomical_whole_hand_tacsl(
 ) -> Usd.Prim:
     """Spawn the official G1 and attach 27 physical patches to each hand."""
 
-    robot_prim = spawn_from_urdf.__wrapped__(
-        prim_path,
-        cfg,
-        translation=translation,
-        orientation=orientation,
-        **kwargs,
-    )
+    preconverted_usd = os.environ.get("CURIOSITY_G1_PRECONVERTED_USD")
+    if preconverted_usd:
+        preconverted_usd = str(Path(preconverted_usd).expanduser().resolve())
+        if not Path(preconverted_usd).is_file():
+            raise FileNotFoundError(
+                f"Preconverted official G1 USD is unavailable: {preconverted_usd}"
+            )
+        usd_cfg = sim_utils.UsdFileCfg(
+            usd_path=preconverted_usd,
+            scale=cfg.scale,
+            articulation_props=cfg.articulation_props,
+            fixed_tendons_props=cfg.fixed_tendons_props,
+            spatial_tendons_props=cfg.spatial_tendons_props,
+            joint_drive_props=cfg.joint_drive_props,
+            visual_material_path=cfg.visual_material_path,
+            visual_material=cfg.visual_material,
+            mass_props=cfg.mass_props,
+            rigid_props=cfg.rigid_props,
+            collision_props=cfg.collision_props,
+            activate_contact_sensors=cfg.activate_contact_sensors,
+        )
+        robot_prim = spawn_from_usd.__wrapped__(
+            prim_path,
+            usd_cfg,
+            translation=translation,
+            orientation=orientation,
+            **kwargs,
+        )
+    else:
+        robot_prim = spawn_from_urdf.__wrapped__(
+            prim_path,
+            cfg,
+            translation=translation,
+            orientation=orientation,
+            **kwargs,
+        )
     r15_path = Path(
         os.environ.get("CURIOSITY_TACSL_R15_USD", _DEFAULT_R15_USD)
     ).expanduser().resolve()

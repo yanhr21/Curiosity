@@ -112,7 +112,7 @@ class TrackerCommandPolicyCfg(ObsGroup):
 
 @configclass
 class OnlineMassJumpActionsCfg(BaseActionsCfg):
-    JointPositionAction = BaseActionsCfg.JointPositionAction.replace(
+    JointPositionAction = BaseActionsCfg().JointPositionAction.replace(
         class_type=OnlineMassJumpJointPositionAction
     )
 

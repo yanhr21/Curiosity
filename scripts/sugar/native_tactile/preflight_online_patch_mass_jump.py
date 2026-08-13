@@ -57,6 +57,14 @@ os.environ.setdefault(
     "ISAACLAB_GROUND_PLANE_USD",
     str(ROOT / "SUGAR/descriptions/terrain/sugar_ground_plane.usda"),
 )
+cached_g1_usd = (
+    ROOT
+    / "experiments/online_patch_tactile_mass_adaptation/runtime_assets"
+    / "g1_29dof_preconverted_isaacsim510"
+    / "g1_29dof_rev_1_0_with_rubber_hand.usd"
+)
+if cached_g1_usd.is_file():
+    os.environ.setdefault("CURIOSITY_G1_PRECONVERTED_USD", str(cached_g1_usd))
 os.chdir(ROOT / "SUGAR")
 
 app_launcher = AppLauncher(args)
@@ -275,6 +283,18 @@ def main() -> None:
             rows["jump_applied"].append(bool(diagnostics["jump_applied"][0]))
             rows["mass_changed"].append(bool(diagnostics["mass_changed"][0]))
             rows["jump_step"].append(int(diagnostics["jump_step"][0]))
+            if step % 20 == 0 or step + 1 == args.max_steps:
+                print(
+                    "[PLAN15] live frame",
+                    step + 1,
+                    "/",
+                    args.max_steps,
+                    "mass_kg=",
+                    rows["mass_readback_kg"][-1],
+                    "jump=",
+                    rows["jump_applied"][-1],
+                    flush=True,
+                )
 
         arrays = {name: np.asarray(values) for name, values in rows.items()}
         np.savez_compressed(output_root / "online_mass_jump_trace.npz", **arrays)
@@ -299,6 +319,11 @@ def main() -> None:
         timestamp_synchronized = bool(np.max(timestamp_spread_s) <= 1.0e-6)
         timestamp_strictly_online = bool(
             len(timestamp_steps_s) > 0 and np.all(timestamp_steps_s > 0.0)
+        )
+        minimum_frame_advance_s = (
+            None
+            if len(timestamp_steps_s) == 0
+            else float(np.min(timestamp_steps_s))
         )
         summary = {
             "schema": "plan15_online_patch_mass_jump_preflight_v1",
@@ -338,7 +363,7 @@ def main() -> None:
                 "maximum_bilateral_54_patch_skew_s": float(
                     np.max(timestamp_spread_s)
                 ),
-                "minimum_frame_advance_s": float(np.min(timestamp_steps_s)),
+                "minimum_frame_advance_s": minimum_frame_advance_s,
                 "all_54_patches_synchronized": timestamp_synchronized,
                 "strictly_advances_each_control_frame": timestamp_strictly_online,
             },

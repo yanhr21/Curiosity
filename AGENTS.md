@@ -74,6 +74,15 @@
   audit before training, execute one branch at a time, keep retained GPU
   allocations alive, and do not add routine hashes or defensive version
   ladders.
+- Live runtime is restored as of 2026-08-14. Official AppLauncher on retained
+  job `238128` completed a 420-frame full-G1/54-patch CarryBox rollout by
+  reusing the already converted official G1 USD instead of rerunning the URDF
+  importer during scene construction. At frame 299 PhysX changed and read back
+  mass from `0.3023376` to `0.9070128 kg`; bilateral contact was present for the
+  preceding ten frames, all 54 official TacSL clocks remained synchronized and
+  strictly advanced, and the lifted box later dropped. This is live online
+  evidence, not replay. Continue with the paired leakage sweep; do not resume
+  generic Vulkan diagnosis or start training before its gates pass.
 - Keep active documents and admitted experiments outside `legacy/`. Superseded
   documents belong in their directory-local `legacy/`; rejected or no-longer-
   needed local experiment packages belong under repository-root
@@ -109,9 +118,10 @@
   a third physical H200 on `server38`; the minimal single-GPU SimulationApp
   canary again ended with `VK_ERROR_DEVICE_LOST` before returning from app
   construction. This is now a real cross-node reproduction, not a server13-
-  local result. Keep all allocations, but never report live Plan-15 evidence
-  until a run reaches real physics steps. Retained server01 job `238054`
-  remains pending as the next distinct-node check.
+  local result. This historical outage was superseded later on 2026-08-14 by
+  the successful job `238128` official-AppLauncher run recorded in the active
+  Plan-15 section above; do not resume generic Vulkan diagnosis while that
+  recovered path remains usable.
 - Every active object tactile demo must run in IsaacLab/PhysX with the complete
   SUGAR G1 physically moving the object with its hands. Detached R15 fixtures,
   standalone plates, schematic hands, or kinematically moved sensor supports

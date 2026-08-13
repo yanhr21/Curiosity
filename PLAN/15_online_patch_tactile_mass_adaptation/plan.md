@@ -290,25 +290,26 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 ## 10. 2026-08-14 当前执行状态
 
 - mass/inertia action-boundary controller、54-patch online reducer、causal slip
-  callable、anatomical Transformer 和 Z/P/PS BCPPO 入口已经实现；相关 36 个
+  callable、anatomical Transformer 和 Z/P/PS BCPPO 入口已经实现；相关 37 个
   非仿真单元/结构测试通过。live collector 逐帧保存官方 TacSL
   `SensorBase._timestamp_last_update` 的双手 54-patch 时钟，并要求同帧同步且每个
-  control frame 严格前进；真实 runtime 结果仍待跨节点 canary 恢复后生成。
+  control frame 严格前进。
 - H200 上已确认 official Tracker 的 zero-patch action 映射误差为
   `1.31e-6`，live synthetic patch 可反向传播到 encoder；这只说明结构与梯度，
   不说明传感器在线、slip 正确或触觉有训练收益。
-- 真正的 paired rollout/leakage audit 仍未开始。两块不同的 server13 H200 上，
-  原始 collector、force-only 路径和曾成功的 camera/rendering 命令都在场景创建前
-  遇到相同 `VK_ERROR_DEVICE_LOST`。CUDA 计算正常，故当前证据指向 Kit/Vulkan
-  runtime 状态，而不是 patch、mass 或 slip 实现。全新 portable root 和显式关闭
-  renderer multi-GPU 也复现同一错误。进一步将完整 `25.7 GB` Python/Isaac runtime
-  复制到 server13 本地磁盘、排除共享文件系统读取后，最小 SimulationApp 仍在同一
-  `Simulation App Starting` 边界报错，因此共享文件系统不是该 Vulkan 崩溃的根因。
-  server38 retained job `238092` 随后在第三块物理 H200 上运行最小 single-GPU
-  SimulationApp canary，也在 app construction 返回前复现
-  `VK_ERROR_DEVICE_LOST`，因此已确认是跨节点现象。保留 jobs
-  `238022/238055/238092`；server01 job `238054` 仍在排队。真实 physics step
-  恢复前不启动训练。
+- 2026-08-14 已恢复真实 runtime：复用同一官方 G1 转换 USD，避免在场景构建中
+  重复启动 URDF importer/renderer，随后通过 official AppLauncher 在 server13
+  H200 上完成完整 G1、54 个 physical patches、GPU PhysX 和全部 manager 初始化。
+  首个真实 control frame 已推进，54 个 official TacSL source timestamps 同步为
+  `0.02 s`；这排除了“当前 TacSL/54-patch 场景根本不能运行”的解释。随后完整
+  420 帧在线 preflight 通过：第 299 帧质量从 `0.3023376 kg` 变为
+  `0.9070128 kg`，jump 前连续 10 帧双手均有 patch contact，54-patch 最大时钟偏差
+  为零且每帧严格前进，箱子最高抬升 `0.7469 m` 后失持。CarryBox velocity-oracle
+  对当前 slip callable 的 contact-supported precision/recall 为
+  `1.000/0.9909`，median onset delay 为 0 帧；但该轨迹没有 incipient-oracle 样本，
+  且多数接触已处于 gross sliding，因此它不能替代后续 controlled stick-to-slide
+  校准。3 seeds x 5 factors 的 fixed-action paired leakage sweep 已串行启动；训练仍
+  未启动。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

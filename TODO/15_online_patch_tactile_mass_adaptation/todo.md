@@ -21,11 +21,12 @@
   scheduler 不读取 TacSL，双手连续接触 10 帧由 live trace 独立检查。
 - [x] 为 `1.0x` no-jump 条件加入 matched placebo event clock；不写 PhysX mass/
   inertia，并单独记录 `mass_changed=false`。
-- [ ] 在真实 IsaacLab physics step 中确认上述各项；两块不同 H200 上的原始
-  collector、force-only 和曾成功的 rendering 路径均在 scene creation 前遇到
-  相同 `VK_ERROR_DEVICE_LOST`；完整 node-local Python/Isaac runtime 与 server38
-  第三块物理 H200 的最小 canary 也在同一启动边界失败，不能误记成 Plan-15
-  sensor/mass/slip 失败。
+- [x] 在 official AppLauncher/H200 上完成完整 G1、54 个 physical patches、GPU
+  PhysX 和全部 manager 初始化，并真实推进一个 control frame；54 个 official
+  TacSL source clocks 在该帧同步为 `0.02 s`。
+- [x] 420 帧 live preflight 确认 lift-gated mass/inertia write/readback：第 299 帧
+  `0.3023376 -> 0.9070128 kg`，jump 前连续 10 帧双手接触，54-patch clock 零偏差
+  且逐帧严格前进；箱子最高抬升 `0.7469 m` 后物理失持。
 - [ ] 完成 no-jump、`1.5x/3x/6x/10x` 的无学习物理可恢复性 sweep。
 
 ## C. 54-patch online observation
@@ -60,6 +61,9 @@
   gross alert 单独报告，避免把接触结束后不存在的 taxel velocity 当 false positive。
 - [ ] 在 controlled stick-to-slide 与 CarryBox jump/slip 中评价 precision、recall、
   false positives 和 detection delay；relative velocity 仅作标签。
+- [x] CarryBox 3x jump trace 的 contact-supported velocity-oracle 评价为 precision
+  `1.000`、recall `0.9909`、median onset delay `0` 帧；该轨迹没有 incipient-oracle
+  样本且多数接触已 gross sliding，不能替代 controlled stick-to-slide 校准。
 - [ ] 确认没有 offline replay、future frame、mass/jump flag 或 object motion 输入。
 
 ## E. 质量信息泄漏审计
@@ -71,7 +75,8 @@
   `151014/151015/151016` 与 frozen-evaluation seeds
   `152014/152015/152016`。
 - [ ] 先记录 nominal controller action sequence，再开环重放同一 sequence 采集
-  paired no-jump 与四倍率 jump，避免 teacher object-state action 泄漏。
+  paired no-jump 与四倍率 jump，避免 teacher object-state action 泄漏；完整
+  `3 seeds x 5 factors` 串行 sweep 已启动。
 - [ ] 分别导出 object-state、proprio-only、patch-tactile、patch-tactile+slip 信号组。
 - [ ] 在 jump 前 0.5 s/后 1.0 s 窗口报告原始变化、mass-factor linear-probe
   balanced accuracy 和 change-onset latency。
