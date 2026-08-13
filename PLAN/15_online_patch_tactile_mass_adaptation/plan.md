@@ -65,8 +65,10 @@ ICM、RGB、Newton 和软体任务。实现和实验必须严格按本文的串�
 ### 3.2 jump 顺序
 
 每个 episode 从 motion frame 0 连续运行，禁止把带 elastomer skin 的手直接
-teleport 到中段接触状态。环境在满足“箱子已抬升且双手持续接触 10 个 control
-frames”后，再随机等待 `10--50` 个 control frames。随后：
+teleport 到中段接触状态。为了让 `Z` 分支完全不读取 TacSL，mass scheduler 只在
+评价侧检查“箱子已连续抬升 10 个 control frames”，再随机等待 `10--50` 个
+control frames。双手 TacSL contact 不参与触发；live preflight 必须独立确认 jump
+前连续 10 帧双手都存在 patch contact，否则该 rollout 不准进入训练。随后：
 
 1. actor 在 nominal mass 下输出当前动作；
 2. 在两个 control actions 之间，用 PhysX runtime API 同步更新 box mass 和

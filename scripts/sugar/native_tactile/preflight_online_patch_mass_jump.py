@@ -126,7 +126,7 @@ def main() -> None:
         params = getattr(cfg.events, term_name).params
         params["mass_factors"] = (float(args.mass_factor),)
         params["minimum_lift_m"] = float(args.minimum_lift)
-        params["stable_bilateral_frames"] = int(args.stable_frames)
+        params["stable_lift_frames"] = int(args.stable_frames)
         params["delay_frames"] = tuple(int(value) for value in args.delay_frames)
         params["seed"] = int(args.seed)
 
@@ -271,6 +271,15 @@ def main() -> None:
         pressure = arrays["patch_features"][..., 2]
         jump_indices = np.flatnonzero(arrays["jump_applied"])
         first_jump_frame = int(jump_indices[0]) if len(jump_indices) else None
+        bilateral = contact[:, 0].any(axis=-1) & contact[:, 1].any(axis=-1)
+        bilateral_at_jump = (
+            False if first_jump_frame is None else bool(bilateral[first_jump_frame])
+        )
+        pre_jump_bilateral_10 = False
+        if first_jump_frame is not None and first_jump_frame >= 10:
+            pre_jump_bilateral_10 = bool(
+                np.all(bilateral[first_jump_frame - 10 : first_jump_frame])
+            )
         summary = {
             "schema": "plan15_online_patch_mass_jump_preflight_v1",
             "semantics": "live IsaacLab rollout; no learning; no offline replay",
@@ -291,8 +300,10 @@ def main() -> None:
             "mass_changed": bool(arrays["mass_changed"][-1]),
             "final_mass_readback_kg": float(arrays["mass_readback_kg"][-1]),
             "bilateral_contact_frames": int(
-                np.count_nonzero(contact[:, 0].any(axis=-1) & contact[:, 1].any(axis=-1))
+                np.count_nonzero(bilateral)
             ),
+            "bilateral_contact_at_jump": bilateral_at_jump,
+            "bilateral_contact_for_10_frames_before_jump": pre_jump_bilateral_10,
             "maximum_active_patches_left": int(contact[:, 0].sum(axis=-1).max()),
             "maximum_active_patches_right": int(contact[:, 1].sum(axis=-1).max()),
             "maximum_patch_normal_load_n": float(normal_load.max()),
@@ -313,6 +324,11 @@ def main() -> None:
         print(json.dumps(summary, indent=2))
         if first_jump_frame is None:
             raise RuntimeError("mass jump never triggered in the requested rollout")
+        if not pre_jump_bilateral_10:
+            raise RuntimeError(
+                "CarryBox was not in bilateral TacSL contact for the ten frames "
+                "before the lift-timed mass event"
+            )
     finally:
         if original_reset_idx is not None:
             env.unwrapped._reset_idx = original_reset_idx

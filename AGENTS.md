@@ -40,13 +40,18 @@
   Never claim that only tactile senses mass unless the evidence supports it;
   otherwise test and report incremental benefit over proprioception.
 - Run exactly three serious matched branches, serially: `Z` uses exact-zero
-  patch/slip tensors and does not read sensors; `P` uses live patch
+  patch/slip tensors and neither its actor observation nor the mass scheduler
+  reads TacSL; `P` uses live patch
   contact/load/shear/friction with zero slip fields; `PS` uses the same live
   patch signal plus the causal slip callable. They share the anatomical
   patch-token encoder, official Tracker warm start, unchanged SUGAR
   `512/256/128` actor, official frozen Refiner teacher, repository BCPPO,
   optimizer, reward, physics, mass sampling, seeds and update budget. No toy
   MLP, offline tactile replay or taxel-CNN substitute is allowed.
+- Schedule the mass event from sustained object lift and a matched random
+  delay, not from tactile. Separately require live P/PS traces to show
+  bilateral patch contact throughout the ten frames before the event. This
+  keeps the event clock matched while preserving Z as a no-TacSL-read arm.
 - A positive result requires matched frozen-policy improvement in physical
   post-jump hold/recovery/safe-lower behavior with nominal no-jump behavior
   reported separately. Gradients, training loss, predicted reward, nonzero

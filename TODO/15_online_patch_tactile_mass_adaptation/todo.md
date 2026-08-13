@@ -17,7 +17,8 @@
 - [x] 代码路径保证 jump 不改变 object geometry、material、RGB、pose、reference、sensor
   history 或上一动作。
 - [x] 实现每个 jump 后的实际 mass/inertia readback 和 event timestamp 评价字段。
-- [x] 实现从 frame 0 连续运行、稳定抬升/双手接触 10 帧后随机等待 10--50 帧再 jump。
+- [x] 实现从 frame 0 连续运行、稳定抬升 10 帧后随机等待 10--50 帧再 jump；
+  scheduler 不读取 TacSL，双手连续接触 10 帧由 live trace 独立检查。
 - [x] 为 `1.0x` no-jump 条件加入 matched placebo event clock；不写 PhysX mass/
   inertia，并单独记录 `mass_changed=false`。
 - [ ] 在真实 IsaacLab physics step 中确认上述各项；两块不同 H200 上的原始

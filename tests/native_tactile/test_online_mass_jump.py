@@ -66,7 +66,7 @@ def test_mass_jump_scales_mass_and_inertia_without_touching_pose():
         nominal_mass_kg=0.3023375869,
         mass_factors=(3.0,),
         minimum_lift_m=0.05,
-        stable_bilateral_frames=2,
+        stable_lift_frames=2,
         delay_frames=(1, 1),
     )
     controller = OnlineMassJumpController(env, "obj", config)
@@ -77,10 +77,10 @@ def test_mass_jump_scales_mass_and_inertia_without_touching_pose():
         torch.eye(3).reshape(1, 9) * nominal_inertia_scale,
     )
     original_pose = env.scene["obj"].data.root_pos_w.clone()
-    controller.advance(torch.tensor([True]), control_step=1)
+    controller.advance(control_step=1)
     env.scene["obj"].data.root_pos_w[:, 2] = 0.06
-    assert controller.advance(torch.tensor([True]), control_step=2).numel() == 0
-    jumped = controller.advance(torch.tensor([True]), control_step=3)
+    assert controller.advance(control_step=2).numel() == 0
+    jumped = controller.advance(control_step=3)
     assert jumped.tolist() == [0]
     # Scheduling occurs after the nominal physics step.  The write is delayed
     # to the next action boundary so the new mass affects physics before the
@@ -116,38 +116,40 @@ def test_mass_jump_scales_mass_and_inertia_without_touching_pose():
     )
 
 
-def test_mass_jump_requires_consecutive_lifted_bilateral_frames():
+def test_mass_jump_requires_consecutive_lifted_frames_without_tactile_read():
     env = fake_env(1)
     config = MassJumpConfig(
         mass_factors=(1.5,),
-        stable_bilateral_frames=3,
+        stable_lift_frames=3,
         delay_frames=(2, 2),
     )
     controller = OnlineMassJumpController(env, "obj", config)
     controller.reset()
-    controller.advance(torch.tensor([True]), control_step=0)
+    controller.advance(control_step=0)
     env.scene["obj"].data.root_pos_w[:, 2] = 0.06
-    controller.advance(torch.tensor([True]), control_step=1)
-    controller.advance(torch.tensor([False]), control_step=2)
-    controller.advance(torch.tensor([True]), control_step=3)
-    controller.advance(torch.tensor([True]), control_step=4)
-    controller.advance(torch.tensor([True]), control_step=5)
+    controller.advance(control_step=1)
+    env.scene["obj"].data.root_pos_w[:, 2] = 0.0
+    controller.advance(control_step=2)
+    env.scene["obj"].data.root_pos_w[:, 2] = 0.06
+    controller.advance(control_step=3)
+    controller.advance(control_step=4)
+    controller.advance(control_step=5)
     assert controller.diagnostics()["qualified"].item() is True
-    assert controller.advance(torch.tensor([True]), control_step=6).tolist() == [0]
+    assert controller.advance(control_step=6).tolist() == [0]
 
 
 def test_factor_one_uses_matched_event_clock_without_changing_mass():
     env = fake_env(1)
     config = MassJumpConfig(
         mass_factors=(1.0,),
-        stable_bilateral_frames=1,
+        stable_lift_frames=1,
         delay_frames=(0, 0),
     )
     controller = OnlineMassJumpController(env, "obj", config)
     controller.reset()
-    controller.advance(torch.tensor([True]), control_step=0)
+    controller.advance(control_step=0)
     env.scene["obj"].data.root_pos_w[:, 2] = 0.1
-    scheduled = controller.advance(torch.tensor([True]), control_step=1)
+    scheduled = controller.advance(control_step=1)
     assert scheduled.tolist() == [0]
     before_mass = env.scene["obj"].root_physx_view.get_masses()
     applied = controller.apply_pending(control_step=1)

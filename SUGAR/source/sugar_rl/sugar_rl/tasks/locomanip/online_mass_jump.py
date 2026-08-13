@@ -19,7 +19,7 @@ class MassJumpConfig:
     nominal_mass_kg: float = NOMINAL_CARRYBOX_MASS_KG
     mass_factors: tuple[float, ...] = MASS_FACTORS
     minimum_lift_m: float = 0.05
-    stable_bilateral_frames: int = 10
+    stable_lift_frames: int = 10
     delay_frames: tuple[int, int] = (10, 50)
     seed: int = 150814
 
@@ -28,8 +28,8 @@ class MassJumpConfig:
             raise ValueError("nominal mass must be positive")
         if not self.mass_factors or any(value < 1.0 for value in self.mass_factors):
             raise ValueError("mass factors must be non-empty and at least one")
-        if self.stable_bilateral_frames < 1:
-            raise ValueError("stable bilateral frame count must be positive")
+        if self.stable_lift_frames < 1:
+            raise ValueError("stable lift frame count must be positive")
         low, high = self.delay_frames
         if low < 0 or high < low:
             raise ValueError("invalid post-qualification delay range")
@@ -162,31 +162,22 @@ class OnlineMassJumpController:
         self.mass_readback_kg[ids] = mass
         self.inertia_readback_kg_m2[ids] = inertia
 
-    def advance(
-        self,
-        bilateral_contact: torch.Tensor,
-        *,
-        control_step: int,
-    ) -> torch.Tensor:
-        """Advance after physics and apply due jumps before the next actor observation."""
+    def advance(self, *, control_step: int) -> torch.Tensor:
+        """Advance from object lift only; never read tactile to schedule a jump."""
 
-        bilateral = torch.as_tensor(
-            bilateral_contact, dtype=torch.bool, device=self.device
-        ).reshape(self.num_envs)
         positions = self.asset.data.root_pos_w[:, 2]
         first = ~self.initialized
         if first.any():
             self.initial_height_m[first] = positions[first]
             self.initialized[first] = True
         lifted = positions - self.initial_height_m >= float(self.config.minimum_lift_m)
-        stable_now = lifted & bilateral
         self.stable_count = torch.where(
-            stable_now,
+            lifted,
             self.stable_count + 1,
             torch.zeros_like(self.stable_count),
         )
         newly_qualified = (~self.qualified) & (
-            self.stable_count >= int(self.config.stable_bilateral_frames)
+            self.stable_count >= int(self.config.stable_lift_frames)
         )
         self.qualified |= newly_qualified
         self.qualification_step[newly_qualified] = int(control_step)
@@ -256,7 +247,7 @@ def reset_online_mass_jump(
     nominal_mass_kg: float = NOMINAL_CARRYBOX_MASS_KG,
     mass_factors: tuple[float, ...] = MASS_FACTORS,
     minimum_lift_m: float = 0.05,
-    stable_bilateral_frames: int = 10,
+    stable_lift_frames: int = 10,
     delay_frames: tuple[int, int] = (10, 50),
     seed: int = 150814,
 ) -> None:
@@ -264,7 +255,7 @@ def reset_online_mass_jump(
         nominal_mass_kg=nominal_mass_kg,
         mass_factors=tuple(mass_factors),
         minimum_lift_m=minimum_lift_m,
-        stable_bilateral_frames=stable_bilateral_frames,
+        stable_lift_frames=stable_lift_frames,
         delay_frames=tuple(delay_frames),
         seed=seed,
     )
@@ -278,28 +269,21 @@ def step_online_mass_jump(
     nominal_mass_kg: float = NOMINAL_CARRYBOX_MASS_KG,
     mass_factors: tuple[float, ...] = MASS_FACTORS,
     minimum_lift_m: float = 0.05,
-    stable_bilateral_frames: int = 10,
+    stable_lift_frames: int = 10,
     delay_frames: tuple[int, int] = (10, 50),
     seed: int = 150814,
 ) -> None:
     """Manager interval event: physics -> jump -> next live observation."""
 
     del env_ids
-    from sugar_rl.tasks.locomanip.online_patch_tactile import (
-        current_whole_hand_patch_features,
-    )
-
     config = MassJumpConfig(
         nominal_mass_kg=nominal_mass_kg,
         mass_factors=tuple(mass_factors),
         minimum_lift_m=minimum_lift_m,
-        stable_bilateral_frames=stable_bilateral_frames,
+        stable_lift_frames=stable_lift_frames,
         delay_frames=tuple(delay_frames),
         seed=seed,
     )
-    patches = current_whole_hand_patch_features(env)
-    contact = patches[..., 0].bool()
-    bilateral = contact[:, 0].any(dim=-1) & contact[:, 1].any(dim=-1)
     controller = _controller(env, asset_name, config)
-    controller.advance(bilateral, control_step=int(env.common_step_counter))
+    controller.advance(control_step=int(env.common_step_counter))
     env._online_mass_jump_diagnostics = controller.diagnostics()

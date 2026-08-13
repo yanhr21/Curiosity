@@ -46,7 +46,7 @@ MASS_JUMP_PARAMS = {
     "nominal_mass_kg": NOMINAL_CARRYBOX_MASS_KG,
     "mass_factors": MASS_FACTORS,
     "minimum_lift_m": 0.05,
-    "stable_bilateral_frames": 10,
+    "stable_lift_frames": 10,
     "delay_frames": (10, 50),
     "seed": 150814,
 }
