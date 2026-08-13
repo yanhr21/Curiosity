@@ -54,6 +54,12 @@
 
 ## E. 质量信息泄漏审计
 
+- [x] 实现串行 paired sweep 入口：每个预定 seed 先采集 nominal `1.0x` 动作，
+  再把同一动作逐帧重放到 `1.5x/3x/6x/10x`，完成后运行 leakage analyzer 与
+  live scale fitter；真实 trace 尚待 IsaacLab runtime 恢复。
+- [x] 冻结 leakage seeds `150814/150815/150816`、training seeds
+  `151014/151015/151016` 与 frozen-evaluation seeds
+  `152014/152015/152016`。
 - [ ] 先记录 nominal controller action sequence，再开环重放同一 sequence 采集
   paired no-jump 与四倍率 jump，避免 teacher object-state action 泄漏。
 - [ ] 分别导出 object-state、proprio-only、patch-tactile、patch-tactile+slip 信号组。

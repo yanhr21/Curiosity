@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-root", type=Path, required=True)
 parser.add_argument("--motion-id", type=int, default=45)
+parser.add_argument("--seed", type=int, default=150814)
 parser.add_argument("--mass-factor", type=float, default=3.0)
 parser.add_argument(
     "--action-trace",
@@ -107,7 +108,7 @@ def main() -> None:
 
     register_official_refiner_anatomical_whole_hand_tacsl_audit_task()
     cfg = OnlinePatchSlipMassRobotPlayEnvCfg()
-    cfg.seed = 150814
+    cfg.seed = int(args.seed)
     cfg.sim.device = args.device
     cfg.commands.motion.motion_folder = "data/CarryBox"
     cfg.commands.motion.pose_range = {
@@ -126,6 +127,7 @@ def main() -> None:
         params["minimum_lift_m"] = float(args.minimum_lift)
         params["stable_bilateral_frames"] = int(args.stable_frames)
         params["delay_frames"] = tuple(int(value) for value in args.delay_frames)
+        params["seed"] = int(args.seed)
 
     env = gym.make(REFINER_TASK_ID, cfg=cfg, render_mode=None)
     original_reset_idx = None
@@ -268,6 +270,7 @@ def main() -> None:
                 None if args.action_trace is None else str(args.action_trace.expanduser().resolve())
             ),
             "motion_id": int(args.motion_id),
+            "seed": int(args.seed),
             "source_frames": int(args.max_steps),
             "nominal_mass_kg": float(arrays["mass_readback_kg"][0]),
             "target_mass_factor": float(args.mass_factor),

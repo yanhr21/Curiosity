@@ -225,8 +225,10 @@ mass/no-jump sampling、seed、physics、episode length 和 update budget。正�
   安全放下，具体反应不手工脚本化。
 
 每个分支先做一次 live one-update preflight，随后使用相同的 `512` update budget。
-正式比较使用 3 个预先固定的 paired seeds；不得看到结果后延长单一分支或更换
-seed。训练分布平衡采样 no-jump、`1.5x/3x/6x/10x` jump；如果 feasibility 阶段
+泄漏审计固定使用 `150814/150815/150816`；正式训练固定使用
+`151014/151015/151016`；frozen evaluation 固定使用
+`152014/152015/152016`。不得看到结果后延长单一分支或更换 seed。训练分布平衡
+采样 no-jump、`1.5x/3x/6x/10x` jump；如果 feasibility 阶段
 确认某倍率物理不可恢复，该倍率仍保留为 safe-failure evaluation，但不主导
 hold-success reward。
 
