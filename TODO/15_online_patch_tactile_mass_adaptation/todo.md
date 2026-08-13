@@ -33,12 +33,13 @@
 
 ## D. IsaacLab patch slip callable
 
-- [ ] 实现 batch-stateful `PatchSlipDetector.update(...)` 与 reset mask。
-- [ ] 输入仅限当前/历史 patch contact、pressure、signed shear、friction utilization
+- [x] 实现 batch-stateful `PatchSlipDetector.update(...)` 与 reset mask。
+- [x] 输入仅限当前/历史 patch contact、pressure、signed shear、friction utilization
   和 timestamp。
-- [ ] 输出每个 patch 的 `NO_CONTACT/STICK/INCIPIENT/GROSS`、`slip_score`、
+- [x] 输出每个 patch 的 `NO_CONTACT/STICK/INCIPIENT/GROSS`、`slip_score`、
   `incipient_slip` 和 `gross_slip`。
-- [ ] 将 callable 接入 IsaacLab observation term，确认 policy 每步读取 live result。
+- [x] 将 callable 接入 IsaacLab observation term；真实 GPU runtime 逐步读取仍待
+  Kit/Vulkan 恢复后确认。
 - [ ] 在 controlled stick-to-slide 与 CarryBox jump/slip 中评价 precision、recall、
   false positives 和 detection delay；relative velocity 仅作标签。
 - [ ] 确认没有 offline replay、future frame、mass/jump flag 或 object motion 输入。
@@ -58,7 +59,7 @@
 
 ## F. Serious matched training implementation
 
-- [ ] 实现 shared anatomical patch-token encoder：9->128 projection、hand/patch/
+- [x] 实现 shared anatomical patch-token encoder：9->128 projection、hand/patch/
   time embedding、3-layer 4-head Transformer、128-D pooled output。
 - [ ] 接入已有 SUGAR `512/256/128` actor、29-D action、官方 Tracker warm start、
   frozen Refiner teacher 和 repository-native BCPPO。
@@ -92,4 +93,3 @@
 - [ ] 视频主图只使用 patch 单元；taxel detail 只能进入独立 debug 视频。
 - [ ] 只有 frozen physical behavior 改善才能写“触觉帮助训练”；gradient/loss/
   action difference 只能写“触觉被使用”。
-
