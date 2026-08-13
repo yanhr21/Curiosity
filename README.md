@@ -15,7 +15,8 @@
   已实现，31 个相关非仿真测试通过。真实 Plan-15 rollout 与训练尚未开始：当前在
   两块不同 H200 上，Isaac Kit 均在 scene creation 前发生
   `VK_ERROR_DEVICE_LOST`；第三节点 retained job 正在排队。该故障发生在 patch、
-  mass 和 slip 代码运行前，不能写成触觉实验负结果。
+  mass 和 slip 代码运行前；全新 portable root 和单 renderer-GPU 设置也未恢复，
+  不能写成触觉实验负结果。server01/server38 跨节点 jobs 正在排队。
 
 ## 当前结果
 

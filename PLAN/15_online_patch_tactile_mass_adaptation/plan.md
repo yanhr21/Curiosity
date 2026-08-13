@@ -298,8 +298,10 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 - 真正的 paired rollout/leakage audit 仍未开始。两块不同的 server13 H200 上，
   原始 collector、force-only 路径和曾成功的 camera/rendering 命令都在场景创建前
   遇到相同 `VK_ERROR_DEVICE_LOST`。CUDA 计算正常，故当前证据指向 Kit/Vulkan
-  runtime 状态，而不是 patch、mass 或 slip 实现。保留现有 allocation，等待另一
-  节点的 retained job 后直接复测；在真实 physics step 恢复前不启动训练。
+  runtime 状态，而不是 patch、mass 或 slip 实现。全新 portable root 和显式关闭
+  renderer multi-GPU 也复现同一错误。保留 jobs `238022/238055`；server01 job
+  `238054` 和 server38 job `238092` 正在排队，任一启动后先跑跨节点 canary；在
+  真实 physics step 恢复前不启动训练。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。
