@@ -102,8 +102,11 @@
   Kit/Vulkan runtime rather than Plan-15 mass, observation or slip code. A
   second physical H200 in retained job `238055` reproduced the same pre-scene
   failure with the force-only collector and with the exact camera/rendering
-  command route that had succeeded on 2026-08-11. Keep both allocations, but
-  never report live Plan-15 evidence until a run reaches real physics steps.
+  command route that had succeeded on 2026-08-11. A complete 25.7 GB copy of
+  the Python/Isaac runtime on server13 node-local storage also failed at the
+  same `Simulation App Starting` boundary, so shared-filesystem reads are not
+  the cause of this Vulkan crash. Keep both allocations, but never report live
+  Plan-15 evidence until a run reaches real physics steps.
 - Every active object tactile demo must run in IsaacLab/PhysX with the complete
   SUGAR G1 physically moving the object with its hands. Detached R15 fixtures,
   standalone plates, schematic hands, or kinematically moved sensor supports

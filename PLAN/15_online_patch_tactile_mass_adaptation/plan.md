@@ -299,7 +299,10 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   原始 collector、force-only 路径和曾成功的 camera/rendering 命令都在场景创建前
   遇到相同 `VK_ERROR_DEVICE_LOST`。CUDA 计算正常，故当前证据指向 Kit/Vulkan
   runtime 状态，而不是 patch、mass 或 slip 实现。全新 portable root 和显式关闭
-  renderer multi-GPU 也复现同一错误。保留 jobs `238022/238055`；server01 job
+  renderer multi-GPU 也复现同一错误。进一步将完整 `25.7 GB` Python/Isaac runtime
+  复制到 server13 本地磁盘、排除共享文件系统读取后，最小 SimulationApp 仍在同一
+  `Simulation App Starting` 边界报错，因此共享文件系统不是该 Vulkan 崩溃的根因。
+  保留 jobs `238022/238055`；server01 job
   `238054` 和 server38 job `238092` 正在排队，任一启动后先跑跨节点 canary；在
   真实 physics step 恢复前不启动训练。
 

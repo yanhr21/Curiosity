@@ -14,9 +14,10 @@
   slip callable、anatomical Transformer、Z/P/PS BCPPO 入口和 paired leakage sweep
   已实现，31 个相关非仿真测试通过。真实 Plan-15 rollout 与训练尚未开始：当前在
   两块不同 H200 上，Isaac Kit 均在 scene creation 前发生
-  `VK_ERROR_DEVICE_LOST`；第三节点 retained job 正在排队。该故障发生在 patch、
-  mass 和 slip 代码运行前；全新 portable root 和单 renderer-GPU 设置也未恢复，
-  不能写成触觉实验负结果。server01/server38 跨节点 jobs 正在排队。
+  `VK_ERROR_DEVICE_LOST`；跨节点 retained jobs 正在排队。该故障发生在 patch、
+  mass 和 slip 代码运行前；全新 portable root、单 renderer-GPU 设置和完整
+  node-local Python/Isaac runtime 均未恢复，不能写成触觉实验负结果。
+  server01/server38 跨节点 jobs 正在排队。
 
 ## 当前结果
 
