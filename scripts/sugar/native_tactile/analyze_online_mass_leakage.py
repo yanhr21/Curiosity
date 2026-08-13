@@ -62,10 +62,10 @@ def feature_groups(trace: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
     return {
         "object_state": np.concatenate(
             (
-                trace["object_pos_w"],
-                trace["object_quat_w"],
-                trace["object_lin_vel_w"],
-                trace["object_ang_vel_w"],
+                trace["object_pos_b"],
+                trace["object_ori_b"],
+                trace["object_lin_vel_b"],
+                trace["object_ang_vel_b"],
             ),
             axis=-1,
         ),
@@ -116,10 +116,10 @@ def main() -> None:
         "patch_features",
         "slip_features",
         "actor_policy_observation",
-        "object_pos_w",
-        "object_quat_w",
-        "object_lin_vel_w",
-        "object_ang_vel_w",
+        "object_pos_b",
+        "object_ori_b",
+        "object_lin_vel_b",
+        "object_ang_vel_b",
         "applied_action",
         "jump_applied",
     }
@@ -252,7 +252,7 @@ def main() -> None:
         }
 
     result = {
-        "schema": "plan15_online_mass_leakage_audit_v1",
+        "schema": "plan15_online_mass_leakage_audit_v2",
         "mass_factors": list(FACTORS),
         "paired_repeats": repeats,
         "relative_offsets_frames": offsets.tolist(),
@@ -262,6 +262,12 @@ def main() -> None:
         "actor_observation_width": 504,
         "actor_contains_measured_object_state": False,
         "object_state_is_evaluation_only": True,
+        "object_state_group": [
+            "obj_pos_b",
+            "obj_ori_b",
+            "obj_lin_vel_b",
+            "obj_ang_vel_b",
+        ],
         "raw_change": raw_change,
         "linear_probe": probe,
     }

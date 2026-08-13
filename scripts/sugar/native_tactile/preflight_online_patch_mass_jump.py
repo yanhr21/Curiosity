@@ -77,6 +77,7 @@ from sugar_rl.tasks.locomanip.online_patch_tactile import (  # noqa: E402
     current_whole_hand_patch_features,
     online_patch_tactile_contract,
 )
+import sugar_rl.tasks.locomanip.mdp as mdp  # noqa: E402
 from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_online_patch_tactile_mass_env_cfg import (  # noqa: E402
     OnlinePatchSlipMassRobotPlayEnvCfg,
 )
@@ -190,6 +191,10 @@ def main() -> None:
             "object_quat_w": [],
             "object_lin_vel_w": [],
             "object_ang_vel_w": [],
+            "object_pos_b": [],
+            "object_ori_b": [],
+            "object_lin_vel_b": [],
+            "object_ang_vel_b": [],
             "joint_pos": [],
             "joint_vel": [],
             "applied_action": [],
@@ -236,6 +241,14 @@ def main() -> None:
             rows["object_quat_w"].append(cpu(obj.data.root_quat_w[0]))
             rows["object_lin_vel_w"].append(cpu(obj.data.root_lin_vel_w[0]))
             rows["object_ang_vel_w"].append(cpu(obj.data.root_ang_vel_w[0]))
+            rows["object_pos_b"].append(cpu(mdp.obj_pos_b(base_env, "motion")[0]))
+            rows["object_ori_b"].append(cpu(mdp.obj_ori_b(base_env, "motion")[0]))
+            rows["object_lin_vel_b"].append(
+                cpu(mdp.obj_lin_vel_b(base_env, "motion")[0])
+            )
+            rows["object_ang_vel_b"].append(
+                cpu(mdp.obj_ang_vel_b(base_env, "motion")[0])
+            )
             rows["joint_pos"].append(cpu(robot.data.joint_pos[0]))
             rows["joint_vel"].append(cpu(robot.data.joint_vel[0]))
             rows["applied_action"].append(cpu(action[0]))

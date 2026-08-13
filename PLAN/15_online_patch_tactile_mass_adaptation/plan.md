@@ -182,7 +182,8 @@ function，确认 state、timestamp 和 patch 位置都对应。保存的 trace 
 避免 privileged controller 根据 object state 改动作而污染泄漏比较。以 jump 前
 `0.5 s` 到 jump 后 `1.0 s` 为窗口，分别检查：
 
-- `object-state`：`obj_lin_vel_b` 等，仅作为泄漏上界；
+- `object-state`：直接记录 Refiner privileged contract 中的 `obj_pos_b`、
+  `obj_ori_b`、`obj_lin_vel_b` 和 `obj_ang_vel_b`，仅作为泄漏上界；
 - `proprio-only`：正式 actor 的 robot state/history，不含触觉；
 - `patch tactile`：54-patch 基础特征；
 - `patch tactile + slip`：基础特征和 callable 输出。
