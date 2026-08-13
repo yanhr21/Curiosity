@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 import torch
@@ -18,12 +19,21 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--tracker", type=Path, required=True)
 parser.add_argument("--output", type=Path, required=True)
 parser.add_argument("--batch-size", type=int, default=256)
+parser.add_argument(
+    "--iterations",
+    type=int,
+    default=1,
+    help="Repeated forward/backward steps for CUDA-path stability measurement.",
+)
+parser.add_argument("--log-every", type=int, default=100)
 args = parser.parse_args()
 
 
 def main() -> None:
     if args.batch_size < 1:
         raise ValueError("batch-size must be positive")
+    if args.iterations < 1 or args.log_every < 1:
+        raise ValueError("iterations and log-every must be positive")
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is required for this preflight")
     device = torch.device("cuda:0")
@@ -66,31 +76,62 @@ def main() -> None:
     tactile[..., 7:9] = (
         torch.rand_like(tactile[..., 7:9]) > 0.8
     ).to(torch.float32)
-    action = model.act_inference(observations)
-    value = model.evaluate(observations)
-    loss = action.square().mean() + value.square().mean()
-    loss.backward()
-    encoder_gradient_l2 = float(
-        torch.sqrt(
-            sum(
-                parameter.grad.detach().square().sum()
-                for parameter in model.actor_tactile_encoder.parameters()
-                if parameter.grad is not None
+    torch.cuda.synchronize(device)
+    started = time.perf_counter()
+    encoder_gradient_l2_min = float("inf")
+    encoder_gradient_l2_max = 0.0
+    for iteration in range(1, args.iterations + 1):
+        model.zero_grad(set_to_none=True)
+        tactile[..., 1:7].uniform_(0.0, 1.0)
+        tactile[..., 7:9].copy_(
+            (torch.rand_like(tactile[..., 7:9]) > 0.8).to(torch.float32)
+        )
+        action = model.act_inference(observations)
+        value = model.evaluate(observations)
+        loss = action.square().mean() + value.square().mean()
+        loss.backward()
+        encoder_gradient_l2 = float(
+            torch.sqrt(
+                sum(
+                    parameter.grad.detach().square().sum()
+                    for parameter in model.actor_tactile_encoder.parameters()
+                    if parameter.grad is not None
+                )
+            ).item()
+        )
+        if not torch.isfinite(action).all() or not torch.isfinite(value).all():
+            raise RuntimeError(f"non-finite policy output at iteration {iteration}")
+        if not torch.isfinite(loss) or encoder_gradient_l2 <= 0.0:
+            raise RuntimeError(
+                f"invalid patch Transformer gradient at iteration {iteration}"
             )
-        ).item()
-    )
-    if not torch.isfinite(action).all() or not torch.isfinite(value).all():
-        raise RuntimeError("non-finite policy output")
-    if encoder_gradient_l2 <= 0.0:
-        raise RuntimeError("patch Transformer received no actor gradient")
+        encoder_gradient_l2_min = min(
+            encoder_gradient_l2_min, encoder_gradient_l2
+        )
+        encoder_gradient_l2_max = max(
+            encoder_gradient_l2_max, encoder_gradient_l2
+        )
+        if iteration % args.log_every == 0 or iteration == args.iterations:
+            print(
+                f"iteration={iteration}/{args.iterations} "
+                f"encoder_gradient_l2={encoder_gradient_l2:.8f}",
+                flush=True,
+            )
+    torch.cuda.synchronize(device)
+    elapsed_s = time.perf_counter() - started
 
     result = {
         "schema": "plan15_online_patch_policy_gpu_preflight_v1",
         "device": torch.cuda.get_device_name(device),
         "batch_size": args.batch_size,
+        "iterations": args.iterations,
+        "elapsed_s": elapsed_s,
+        "samples_per_second": args.batch_size * args.iterations / elapsed_s,
         "actor_output_shape": list(action.shape),
         "critic_output_shape": list(value.shape),
         "encoder_gradient_l2": encoder_gradient_l2,
+        "encoder_gradient_l2_min": encoder_gradient_l2_min,
+        "encoder_gradient_l2_max": encoder_gradient_l2_max,
         "warm_start": warm_start,
         "finetune": finetune,
         "normalization_semantics": (
