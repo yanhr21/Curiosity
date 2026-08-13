@@ -304,9 +304,11 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   renderer multi-GPU 也复现同一错误。进一步将完整 `25.7 GB` Python/Isaac runtime
   复制到 server13 本地磁盘、排除共享文件系统读取后，最小 SimulationApp 仍在同一
   `Simulation App Starting` 边界报错，因此共享文件系统不是该 Vulkan 崩溃的根因。
-  保留 jobs `238022/238055`；server01 job
-  `238054` 和 server38 job `238092` 正在排队，任一启动后先跑跨节点 canary；在
-  真实 physics step 恢复前不启动训练。
+  server38 retained job `238092` 随后在第三块物理 H200 上运行最小 single-GPU
+  SimulationApp canary，也在 app construction 返回前复现
+  `VK_ERROR_DEVICE_LOST`，因此已确认是跨节点现象。保留 jobs
+  `238022/238055/238092`；server01 job `238054` 仍在排队。真实 physics step
+  恢复前不启动训练。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

@@ -23,8 +23,9 @@
   inertia，并单独记录 `mass_changed=false`。
 - [ ] 在真实 IsaacLab physics step 中确认上述各项；两块不同 H200 上的原始
   collector、force-only 和曾成功的 rendering 路径均在 scene creation 前遇到
-  相同 `VK_ERROR_DEVICE_LOST`；完整 node-local Python/Isaac runtime canary 也在
-  同一启动边界失败，不能误记成 Plan-15 sensor/mass/slip 失败。
+  相同 `VK_ERROR_DEVICE_LOST`；完整 node-local Python/Isaac runtime 与 server38
+  第三块物理 H200 的最小 canary 也在同一启动边界失败，不能误记成 Plan-15
+  sensor/mass/slip 失败。
 - [ ] 完成 no-jump、`1.5x/3x/6x/10x` 的无学习物理可恢复性 sweep。
 
 ## C. 54-patch online observation

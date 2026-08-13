@@ -14,12 +14,11 @@
   slip callable、anatomical Transformer、Z/P/PS BCPPO 入口和 paired leakage sweep
   已实现，35 个相关非仿真测试通过；live collector 还会逐帧保存 54 个官方
   TacSL 更新时钟，用于确认 observation 确实来自当前 simulation step。真实
-  Plan-15 rollout 与训练尚未开始：当前在
-  两块不同 H200 上，Isaac Kit 均在 scene creation 前发生
-  `VK_ERROR_DEVICE_LOST`；跨节点 retained jobs 正在排队。该故障发生在 patch、
-  mass 和 slip 代码运行前；全新 portable root、单 renderer-GPU 设置和完整
-  node-local Python/Isaac runtime 均未恢复，不能写成触觉实验负结果。
-  server01/server38 跨节点 jobs 正在排队。
+  Plan-15 rollout 与训练尚未开始：server13 两块 H200 与 server38 第三块 H200
+  都在 scene creation 前发生 `VK_ERROR_DEVICE_LOST`。该故障发生在 patch、mass
+  和 slip 代码运行前；全新 portable root、单 renderer-GPU 设置和完整 node-local
+  Python/Isaac runtime 均未恢复，不能写成触觉实验负结果。server01 retained job
+  仍在排队。
 
 ## 当前结果
 

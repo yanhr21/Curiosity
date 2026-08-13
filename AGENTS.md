@@ -105,8 +105,13 @@
   command route that had succeeded on 2026-08-11. A complete 25.7 GB copy of
   the Python/Isaac runtime on server13 node-local storage also failed at the
   same `Simulation App Starting` boundary, so shared-filesystem reads are not
-  the cause of this Vulkan crash. Keep both allocations, but never report live
-  Plan-15 evidence until a run reaches real physics steps.
+  the cause of this Vulkan crash. On 2026-08-14 retained job `238092` supplied
+  a third physical H200 on `server38`; the minimal single-GPU SimulationApp
+  canary again ended with `VK_ERROR_DEVICE_LOST` before returning from app
+  construction. This is now a real cross-node reproduction, not a server13-
+  local result. Keep all allocations, but never report live Plan-15 evidence
+  until a run reaches real physics steps. Retained server01 job `238054`
+  remains pending as the next distinct-node check.
 - Every active object tactile demo must run in IsaacLab/PhysX with the complete
   SUGAR G1 physically moving the object with its hands. Detached R15 fixtures,
   standalone plates, schematic hands, or kinematically moved sensor supports
