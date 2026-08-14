@@ -100,6 +100,17 @@
   gross patch states. These results admit new formal Z training only; they do
   not prove tactile benefit or authorize P formal training before valid Z
   endpoints.
+- Replacement handoff-Z formal training is in progress and has not produced an
+  endpoint. Seed `151014` has a complete `model_1500.pt`; its allocation
+  `238253` was externally `CANCELLED by 0` after iteration 1711. Seed `151015`
+  has a complete `model_2250.pt`; its allocation `238620` was externally
+  `CANCELLED by 0` after iteration 2339. Both restart checkpoints contain 59
+  model tensors and 58 optimizer states and are finite. Unsaved iterations are
+  excluded. Resume `151014` at iteration 1501 and `151015` at iteration 2251
+  while keeping the total endpoint at 3000. Five-day recovery jobs
+  `238934/239098` and eight-hour backfill jobs `239105/239106` are queued.
+  These are interrupted Z training milestones, not mass-adaptation results;
+  P and PS remain unstarted.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may

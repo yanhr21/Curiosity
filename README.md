@@ -50,6 +50,12 @@
   change，并只给 142/143 个 post-handoff transitions PPO credit；Z 保持 0 次 TacSL
   read，P/PS 各完成 19,494 次官方 patch read，PS 实际执行 361 次 causal slip
   update。它们只准入新的 formal Z，不是触觉收益结论，也没有启动 P/PS formal。
+  replacement handoff-Z 正式训练随后开始：seed `151014` 的完整恢复点为
+  `model_1500.pt`，seed `151015` 为 `model_2250.pt`；两份均含 59 个模型张量、58
+  项 optimizer state 且数值有限。对应 allocations `238253/238620` 分别在打印
+  iteration 1711/2339 后被调度器外部 `CANCELLED by 0`，没有训练 Traceback/OOM；
+  未保存迭代不计。五天恢复 jobs `238934/239098` 和 8 小时 backfill jobs
+  `239105/239106` 已排队，总 endpoint 仍为 3000。P/PS formal 仍未启动。
   Frozen evaluator 已修正为
   motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
   中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手

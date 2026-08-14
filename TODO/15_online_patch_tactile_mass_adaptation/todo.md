@@ -172,6 +172,10 @@
   post-handoff transitions 计入 PPO，并屏蔽 1298/1297 个 teacher transitions。
 - [ ] 新 `Z`：三个冻结 seed 各完成匹配 3000 updates 与 endpoint frozen evaluation；
   只有存在 eligible post-jump profiles 才允许进入 P。
+- [ ] 恢复 replacement handoff-Z：`151014` 从完整 `model_1500.pt` 的下一 iteration
+  1501 接续；`151015` 从完整 `model_2250.pt` 的下一 iteration 2251 接续。jobs
+  `238253/238620` 均为外部 `CANCELLED by 0`，不是训练异常；未保存区间不计，最终
+  endpoint 不变。恢复 jobs `238934/239098/239105/239106` 当前排队。
 - [ ] 新 `P`：完成匹配 3000 updates。
 - [ ] 新 `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
