@@ -424,6 +424,10 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   复核确认有效区间严格为 frame `0--63`、其后 action 全零且有限；该中间策略仍未
   接触箱子。下一次阶段检查固定在 PPO authority ramp 结束的 update 2000，避免
   形成中间 checkpoint 版本梯子。
+- 与正式 sweep 相同的 `num_envs=4` 结构预检也已通过：四个 profile 的首次
+  termination 为 frame `63/46/90/70`，对应有效帧独立锁存，termination 后 action
+  全部 exact zero，输出仍保持 `[420,4,...]` 便于批次拼接。四条都没有到达箱子
+  contact；这仍是 update-1250 阶段诊断，不是 Z endpoint 结果。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。离线布局
   与 H.264 全解码已通过，但 `238354`/`server38` 的真实 camera run 在场景构建前

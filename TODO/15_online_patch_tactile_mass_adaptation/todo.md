@@ -187,6 +187,9 @@
 - [x] Frozen evaluator 锁存首次 termination 并保存 `valid_frame`；update-1250 Z
   live 复核的有效帧为 `0--63`，终止后 action exact zero 且全为有限值。旧的无效
   termination 后缀轨迹已移入根目录 `legacy/`。
+- [x] 用正式 `num_envs=4` 形状完成在线结构预检：四个 profile 的 termination
+  frame 为 `63/46/90/70`，逐 profile mask 和 `[420,4,...]` 拼接正确，终止后 action
+  全零。活动目录只保留该 4-env 证据。
 - [x] 在 endpoint 结果出现前固定 paired hierarchical bootstrap：先重采样三个
   seed pairs，再重采样每 seed 的 matched profiles，`10,000` 次、analysis seed
   `153015`；比较入口要求 Z/P/PS 各自正好 300 profiles。
