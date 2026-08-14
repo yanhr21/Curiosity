@@ -499,6 +499,14 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   `frame_prim.usd`。环境合同现已移到 task registration 之前，并与 frozen evaluator
   统一固定 TacSL/PhysX 参数、本地 calibration、关闭 debug marker 和 anatomy audit；
   这既移除远端 marker 依赖，也保证训练和冻结评测使用同一传感器物理合同。
+- 修正后的 anchored runtime 已真实进入训练。seed `151014` 从 update 2000 恢复，
+  日志确认 BCPPO step 2001、optimizer LR `1e-5`、distill floor `0.25`，并写出有限
+  `model_2250.pt`（59 model tensors、58 optimizer states）；seed `151016` 从 750
+  恢复并写出有限 `model_1000.pt`。job `239105` 在151014打印 iteration 2337后被
+  调度器外部取消。随后只终止239106中151016记录的 child PGID，在同一 allocation
+  优先恢复151014；该 job 又在 iteration 2304后被外部取消。未保存更新全部舍弃，
+  当前精确恢复点为 anchored151014/update2250 与151016/update1000，anchored151015
+  尚未启动。五天 `238934/239098` 和四小时 `239435/239436` 均保留排队。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。Frozen
   evaluator 已加入 one-profile 同钟 world-camera 录制和 handoff overlay，renderer

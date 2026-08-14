@@ -71,6 +71,10 @@
   Plan-15 training launcher 已与 frozen evaluator 统一绑定本地 ground-plane USD 和
   预转换 G1 USD；同一环境合同在 task import 前关闭远端 debug marker，并固定相同
   TacSL/PhysX 参数，不再依赖当前不可用的 ground/marker 远端 assets。
+  Anchored Z 已真实恢复并保存151014/update2250与151016/update1000；两份 checkpoint
+  均有限。jobs239105/239106随后均被调度器外部取消，未保存更新不计。当前精确续跑
+  点就是这两份文件，anchored151015未启动；5天238934/239098和4小时239435/239436
+  保留排队，P/PS仍禁止启动。
   Frozen evaluator 已修正为
   motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
   中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手

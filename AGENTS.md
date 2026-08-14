@@ -123,6 +123,20 @@
   the zero-floor update-2999 endpoints as formal Z results. Replacement Z now
   resumes from update 2000 with the shared `0.25` BC anchor; P/PS remain
   forbidden until anchored Z endpoints yield eligible post-jump profiles.
+  The first anchored recoveries passed their runtime contracts: seed `151014`
+  restored BCPPO step 2001 with optimizer LR `1e-5`, produced a finite
+  `model_2250.pt` with 59 model tensors and 58 optimizer states, and retained
+  simultaneous full-PPO updates plus distillation weight `0.25`. Seed `151016`
+  restored step 751 and produced a finite `model_1000.pt`. Job `239105` was
+  externally cancelled after seed `151014` printed iteration 2337. On retained
+  `239106`, only seed `151016`'s recorded child PGID was then stopped after its
+  update-1000 checkpoint so seed `151014` could resume from 2250; that job was
+  externally cancelled after iteration 2304. The authoritative restart points
+  are therefore anchored `151014/model_2250.pt` and `151016/model_1000.pt`;
+  unsaved iterations are excluded and anchored seed `151015` has not started.
+  Five-day requests `238934/239098` and four-hour requests `239435/239436`
+  remain queued. Do not call either external cancellation a training failure,
+  and do not restart from older checkpoints when an allocation begins.
   Historical allocation details follow. Seed `151014` has a
   complete `model_1500.pt`; its allocation
   `238253` was externally `CANCELLED by 0` after iteration 1711. Seed `151015`

@@ -180,6 +180,10 @@
   `stage3_distill_weight_floor=0.25` 重跑到固定 update-2999 endpoint；P/PS 必须使用
   完全相同的 floor、BCPPO、optimizer、seed 和预算，不得选取中间 checkpoint 作为
   正式结果。
+- [ ] 从调度器中断后的精确 anchored checkpoints 继续：151014=`model_2250.pt`，
+  151016=`model_1000.pt`，151015尚未启动。239105/239106 分别在打印151014 iteration
+  2337/2304后被外部取消；未保存更新不计。等待中的238934/239098/239435/239436
+  必须继续使用 retained-child PGID 方案，不得主动释放 allocation。
 - [x] 训练 launcher 与冻结 evaluator 统一使用本地 ground-plane USD 和已转换 G1
   USD；双节点同时失败后，单节点复现证明远端默认 ground asset 返回空 Plane prim，
   不是 BCPPO floor 或 TacSL 失败。
