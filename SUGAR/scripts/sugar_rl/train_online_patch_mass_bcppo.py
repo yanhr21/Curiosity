@@ -31,6 +31,25 @@ OFFICIAL_REFINER = (
 )
 FORMAL_SEEDS = (151014, 151015, 151016)
 
+# Keep the formal trainer on the same local IsaacLab assets as the admitted
+# frozen evaluator.  Falling back to the remote default ground USD can create
+# an empty terrain prim when the Nucleus asset is unavailable, and rerunning
+# the URDF importer is unnecessary because this exact G1 USD already exists.
+os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "Y")
+os.environ.setdefault("DISPLAY", "")
+os.environ.setdefault(
+    "ISAACLAB_GROUND_PLANE_USD",
+    str(ROOT / "SUGAR/descriptions/terrain/sugar_ground_plane.usda"),
+)
+_CACHED_G1_USD = (
+    ROOT
+    / "experiments/online_patch_tactile_mass_adaptation/runtime_assets"
+    / "g1_29dof_preconverted_isaacsim510"
+    / "g1_29dof_rev_1_0_with_rubber_hand.usd"
+)
+if _CACHED_G1_USD.is_file():
+    os.environ.setdefault("CURIOSITY_G1_PRECONVERTED_USD", str(_CACHED_G1_USD))
+
 
 def _option_value(argv: list[str], option: str) -> str | None:
     if option in argv:

@@ -180,6 +180,9 @@
   `stage3_distill_weight_floor=0.25` 重跑到固定 update-2999 endpoint；P/PS 必须使用
   完全相同的 floor、BCPPO、optimizer、seed 和预算，不得选取中间 checkpoint 作为
   正式结果。
+- [x] 训练 launcher 与冻结 evaluator 统一使用本地 ground-plane USD 和已转换 G1
+  USD；双节点同时失败后，单节点复现证明远端默认 ground asset 返回空 Plane prim，
+  不是 BCPPO floor 或 TacSL 失败。
 - [x] 恢复 replacement handoff-Z：`151014` 从完整 `model_1500.pt` 的下一 iteration
   1501 接续；`151015` 从完整 `model_2250.pt` 的下一 iteration 2251 接续。jobs
   `238253/238620` 均为外部 `CANCELLED by 0`，不是训练异常；未保存区间不计，最终

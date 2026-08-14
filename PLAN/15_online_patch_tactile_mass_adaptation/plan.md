@@ -489,6 +489,11 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   `stage3_distill_weight_floor=0.25`，保留完整 3000-update budget 和 update 2000 后
   full PPO authority；Z 从各自 update-2000 checkpoint 重跑最后 1000 updates，旧的
   zero-floor update-2999 endpoint 不进入正式比较。
+- Anchored-Z 首次双节点并发恢复在 runner 加载前均因远端默认 ground-plane USD
+  没有生成 Plane prim 而退出；单节点复现了同一 `Stage.GetPrimAtPath(NoneType)`，
+  排除 BCPPO floor。正式 training launcher 现与已通过的 frozen evaluator 一致，
+  显式使用仓库本地 `sugar_ground_plane.usda` 和已转换的官方 G1 USD。该修改只消除
+  外部 asset 加载失败，不改变 physics、observation、reward 或训练预算。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。Frozen
   evaluator 已加入 one-profile 同钟 world-camera 录制和 handoff overlay，renderer

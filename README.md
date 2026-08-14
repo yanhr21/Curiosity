@@ -68,6 +68,8 @@
   因此 Z/P/PS 现统一使用仓库已有 `stage3_distill_weight_floor=0.25`，保持 full PPO
   authority 和 3000-update endpoint；三个 Z 从 update 2000 重跑最后 1000 updates。
   五天恢复 jobs `238934/239098` 继续保留，P/PS formal 仍未启动。
+  Plan-15 training launcher 已与 frozen evaluator 统一绑定本地 ground-plane USD 和
+  预转换 G1 USD，不再依赖当前会返回空 Plane prim 的远端默认 ground asset。
   Frozen evaluator 已修正为
   motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
   中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手
