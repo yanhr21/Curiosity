@@ -146,6 +146,20 @@
   315 and fall by 0.213, 0.222 and 0.226 m from the jump height. This proves a
   recoverable mild condition and current-controller failure conditions; it
   does not prove that no stronger action can recover `3x+`.
+- The predeclared mass-independent fixed response is also complete. At
+  absolute frame 300 it adds symmetric `0.10 rad` inward shoulder targets and
+  a small bilateral hip/knee/ankle lowering target, with zero reads of mass,
+  jump state, tactile or object state. It does not recover `6x` or `10x`:
+  bilateral contact ends at frames 320 and 315 and the objects still fall by
+  0.171 and 0.213 m. Report this as an insufficient simple response, never as
+  proof that all 29-DoF policies must fail.
+- Scheduler job `238128` was externally `CANCELLED by 0` after seed `151014`
+  printed update 651; this was neither a training exception nor a voluntary
+  allocation release. Its last complete checkpoint is update 500. The run has
+  resumed from that file on retained job `238055`: BCPPO stage state is
+  reconstructed at update step 501, the runner starts iteration 501, and the
+  fixed total endpoint remains 3000 with 2499 remaining updates. Seed `151015`
+  continues independently. Do not count the unsaved 501--651 segment twice.
 
 ## Highest-Priority Full-G1 IsaacLab Object-Demo Reset (2026-08-13)
 

@@ -329,7 +329,11 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   分别在 frame `354/321/315` 后失去双手 contact，并从 jump 高度下降
   `0.213/0.222/0.226 m`。因此 `1.5x` 已证明存在物理可恢复窗口，`3x+` 是该
   frozen Refiner 的失败区，但仍不能据此断言任何更强动作都不可恢复。预先固定的
-  stronger-grip/lower-posture 检查仍须单独完成。
+  stronger-grip/lower-posture 响应随后也在绝对 frame 300 执行：双肩向内各
+  `0.10 rad`，双髋/膝/踝使用完全相同的轻微降姿目标，且不读取 mass、jump、
+  tactile 或 object state。它没有恢复 `6x/10x`；双手接触结束帧为 `320/315`，
+  相对无响应的 `321/315` 没有改善，箱子仍分别下降 `0.171/0.213 m`。因此这个
+  简单固定策略不足，但训练 policy 仍可学习其他 29-DoF 响应。
 - 质量 event 当帧，三个 seed 的所有倍率相对 nominal 都保持完全相同的 patch
   contact binary，但连续 patch load/pressure 已经变化。这直接验证了 binary 无法
   表达的负载信号；该响应并非随质量严格单调，因此它是 policy feedback，不应被
@@ -370,7 +374,10 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   各自的 `model_500.pt` 均可完整读取，包含 patch Transformer、SUGAR actor/critic
   和 58 项 Adam optimizer state，且训练已经从纯 distillation 进入 critic warmup。
   该 checkpoint 只证明正式训练、阶段切换与中断恢复路径成立，尚不能比较触觉
-  收益。
+  收益。seed `151014` 随后在 update 651 被调度器以 `CANCELLED by 0` 终止，
+  不是训练异常或主动释放；最后完整 checkpoint 为 update 500。它已在另一保留
+  allocation 中从 `model_500.pt` 恢复，runner 明确重建 BCPPO `update_step=501`、
+  从 iteration 501 开始，并按总 endpoint 3000 只运行剩余 2499 updates。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

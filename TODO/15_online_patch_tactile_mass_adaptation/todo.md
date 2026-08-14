@@ -35,8 +35,10 @@
   `1.5x` jump 后 `118/121` 帧仍保持双手 contact 且继续抬升；`3x/6x/10x` 分别在
   frame `354/321/315` 后失持并下落。该结果证明温和条件有恢复窗口，并只把
   `3x+` 标为当前 controller 的失败区。
-- [ ] 用预先固定的 stronger-grip/lower-posture action 检查 `6x/10x` 是否存在物理上
-  可恢复的响应窗口；mass ID 不进入该动作。
+- [x] 用预先固定的 stronger-grip/lower-posture action 检查 `6x/10x`：在绝对
+  frame 300 平滑叠加相同双肩内夹和双腿降姿目标，不读取 mass ID、jump、tactile
+  或 object state。两者仍失持；`6x/10x` 双手接触结束于 frame `320/315`，物体
+  下降 `0.171/0.213 m`。结论是该简单固定响应不足，不是任何策略都不可恢复。
 
 ## C. 54-patch online observation
 
@@ -145,7 +147,9 @@
 - [ ] `Z`：完成三个冻结 seed 的 3000 updates。seed `151014/151015` 已按完全相同
   配置运行，均已生成并越过可完整读取的 update-500 checkpoint，从纯 distillation
   进入 critic warmup。该里程碑证明可恢复训练和阶段切换链路，不是最终 Z endpoint，
-  也不是触觉收益证据。
+  也不是触觉收益证据。`151014` 的原 allocation 在 update 651 被调度器终止，现已
+  从最后完整 `model_500.pt` 精确恢复：BCPPO counter 与下一迭代均为 501，总预算
+  保持 3000；`151015` 持续运行未中断。
 - [x] `P` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
   次官方 patch sensor read、`0` 次 slip call，并完成一次 BCPPO update。当前
   warm-start policy 尚未进入抓箱窗口，所以 contact/load 如实为 0；非零在线信号

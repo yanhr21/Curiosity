@@ -33,6 +33,17 @@ parser.add_argument("--max-steps", type=int, default=420)
 parser.add_argument("--minimum-lift", type=float, default=0.05)
 parser.add_argument("--stable-frames", type=int, default=10)
 parser.add_argument("--delay-frames", type=int, nargs=2, default=(10, 50))
+parser.add_argument(
+    "--fixed-response",
+    choices=("none", "squeeze_lower"),
+    default="none",
+    help=(
+        "Optional mass-independent feasibility response applied at one fixed "
+        "absolute frame. It never reads mass, jump state, tactile, or object state."
+    ),
+)
+parser.add_argument("--fixed-response-frame", type=int, default=300)
+parser.add_argument("--fixed-response-ramp-frames", type=int, default=20)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 
@@ -40,6 +51,10 @@ if args.mass_factor < 1.0:
     raise SystemExit("preflight mass factor must be at least one")
 if args.max_steps < 1:
     raise SystemExit("max-steps must be positive")
+if args.fixed_response_frame < 0:
+    raise SystemExit("fixed-response-frame must be non-negative")
+if args.fixed_response_ramp_frames < 1:
+    raise SystemExit("fixed-response-ramp-frames must be positive")
 
 os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "Y")
 os.environ.setdefault("DISPLAY", "")
@@ -179,6 +194,43 @@ def main() -> None:
         )
         obj = base_env.scene["obj"]
         robot = base_env.scene["robot"]
+        action_term = base_env.action_manager.get_term("JointPositionAction")
+        fixed_response_raw_delta = torch.zeros(
+            29, dtype=torch.float32, device=base_env.device
+        )
+        fixed_response_joint_delta_rad: dict[str, float] = {}
+        if args.fixed_response == "squeeze_lower":
+            # One fixed response for every mass condition. Shoulder-roll
+            # targets move both rigid hands inward; the symmetric leg targets
+            # lower the support posture slightly. These are target offsets,
+            # not a tactile controller and not a claim about optimal action.
+            fixed_response_joint_delta_rad = {
+                "left_shoulder_roll_joint": -0.10,
+                "right_shoulder_roll_joint": 0.10,
+                "left_hip_pitch_joint": -0.08,
+                "right_hip_pitch_joint": -0.08,
+                "left_knee_joint": 0.15,
+                "right_knee_joint": 0.15,
+                "left_ankle_pitch_joint": -0.07,
+                "right_ankle_pitch_joint": -0.07,
+            }
+            action_joint_names = list(action_term._joint_names)
+            scale = action_term._scale
+            if not isinstance(scale, torch.Tensor):
+                raise RuntimeError("fixed response requires tensor joint-action scale")
+            scale = scale[0] if scale.ndim == 2 else scale
+            for joint_name, delta_rad in fixed_response_joint_delta_rad.items():
+                if joint_name not in action_joint_names:
+                    raise RuntimeError(
+                        f"fixed response joint is absent from action term: {joint_name}"
+                    )
+                action_index = action_joint_names.index(joint_name)
+                joint_scale = float(scale[action_index].item())
+                if joint_scale == 0.0:
+                    raise RuntimeError(
+                        f"fixed response joint has zero action scale: {joint_name}"
+                    )
+                fixed_response_raw_delta[action_index] = delta_rad / joint_scale
         replay_actions = None
         if action_trace is not None:
             if not action_trace.is_file():
@@ -216,6 +268,7 @@ def main() -> None:
             "joint_pos": [],
             "joint_vel": [],
             "applied_action": [],
+            "fixed_response_action_delta": [],
             "mass_readback_kg": [],
             "inertia_readback_kg_m2": [],
             "target_factor": [],
@@ -236,6 +289,18 @@ def main() -> None:
                     dtype=torch.float32,
                     device=base_env.device,
                 )
+            response_delta = torch.zeros_like(action)
+            if (
+                args.fixed_response != "none"
+                and step >= args.fixed_response_frame
+            ):
+                ramp = min(
+                    (step - args.fixed_response_frame + 1)
+                    / float(args.fixed_response_ramp_frames),
+                    1.0,
+                )
+                response_delta[0] = fixed_response_raw_delta * ramp
+                action = action + response_delta
             observation, _, _, _, _ = env.step(action)
             patches = current_whole_hand_patch_features(base_env)
             patch_timestamp = current_whole_hand_patch_timestamps_s(base_env)
@@ -278,6 +343,7 @@ def main() -> None:
             rows["joint_pos"].append(cpu(robot.data.joint_pos[0]))
             rows["joint_vel"].append(cpu(robot.data.joint_vel[0]))
             rows["applied_action"].append(cpu(action[0]))
+            rows["fixed_response_action_delta"].append(cpu(response_delta[0]))
             rows["mass_readback_kg"].append(float(diagnostics["mass_readback_kg"][0]))
             rows["inertia_readback_kg_m2"].append(
                 cpu(diagnostics["inertia_readback_kg_m2"][0])
@@ -335,13 +401,27 @@ def main() -> None:
             "schema": "plan15_online_patch_mass_jump_preflight_v1",
             "semantics": "live IsaacLab rollout; no learning; no offline replay",
             "action_source": (
-                "online_frozen_official_refiner"
+                (
+                    "online_frozen_official_refiner"
+                    if args.fixed_response == "none"
+                    else "online_frozen_official_refiner_plus_fixed_response"
+                )
                 if replay_actions is None
                 else "fixed_nominal_applied_action_trace"
             ),
             "action_trace": (
                 None if action_trace is None else str(action_trace)
             ),
+            "fixed_response": {
+                "name": args.fixed_response,
+                "absolute_start_frame": int(args.fixed_response_frame),
+                "ramp_frames": int(args.fixed_response_ramp_frames),
+                "joint_target_delta_rad": fixed_response_joint_delta_rad,
+                "reads_mass_factor": False,
+                "reads_jump_flag": False,
+                "reads_tactile": False,
+                "reads_object_state": False,
+            },
             "motion_id": int(args.motion_id),
             "seed": int(args.seed),
             "source_frames": int(args.max_steps),

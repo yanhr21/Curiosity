@@ -25,7 +25,9 @@
   500，各自 checkpoint 可完整读取并已从纯 distillation 进入 critic warmup。
   matched frozen-Refiner feasibility 中，`1.5x` jump 后仍持续双手接触并继续抬升，
   `3x/6x/10x` 均失持掉落；这提供了可恢复温和条件和极端失败条件，但仍不代表
-  触觉已经改善行为。
+  触觉已经改善行为。固定的双肩夹紧+降姿响应也未恢复 `6x/10x`。seed `151014`
+  的原 allocation 被调度器终止后，已从最后完整 update-500 checkpoint 精确恢复到
+  BCPPO iteration 501；总 endpoint 仍是 3000。
 
 ## 当前结果
 
