@@ -535,6 +535,16 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   当前弱点是整机/参考轨迹漂移，而不是增重瞬间抓力失效；该诊断明确不是正式结果。
 - 人眼主视频对保存的原始 world frame 做固定裁剪，只移除同批相邻 env；目标 profile
   的物理、trace、时钟和数值均未重算。正例与负例主视频现在都只显示一台完整 G1。
+- anchored seed `151014` 的 450-frame 四-profile 跨质量审查已完成：`1.0x/1.5x/3x/
+  6x/10x` 的 eligible hold 分别为 `1/4, 2/4, 2/4, 0/4, 0/4`。`6x` 的 profile 2
+  下落 `0.194 m`；`10x` 的 profile 0/2 下落 `0.165/0.216 m`。这给后续 P/PS 留下
+  明确的重质量失败区间，因此不需要为了让 Z 全成功而做 overfit。四条样本只用于
+  endpoint 准入和选择测试区间，不能写成单调质量效应或触觉收益。
+- 五个条件的 jump frames 都为 `[337, none, 344, 308]`。`1.5x/3x/6x` 相对 nominal
+  的 jump 前 action/object position 完全一致；`10x` profile 2 在 event 前最后两帧
+  出现最大 `0.0146` action 与 `0.23 mm` object-position 闭环数值分歧，且质量读回仍
+  为 nominal。这是独立 GPU rollout 的微小闭环非确定性，正式报告不得声称所有
+  policy evaluation 都逐位相同。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。Frozen
   evaluator 已加入指定 batch-profile 的同钟 world-camera 录制和 handoff overlay；

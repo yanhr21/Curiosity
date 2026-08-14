@@ -184,6 +184,13 @@
 - [x] 完成 no-learning physical-continuation 诊断：仅关闭 `obj_pos/obj_ori` 后仍为
   `2/4` eligible；profile 0 改在 `anchor_pos@383` 终止但仍双手持箱，证明主要缺陷
   是参考/整机漂移而非物理掉箱。该诊断不计入正式分支比较。
+- [x] 完成 anchored seed-151014 的 450-frame 四-profile 跨质量小审查：`1.0x/
+  1.5x/3x/6x/10x` eligible hold=`1/4,2/4,2/4,0/4,0/4`；`6x` 有 1 条物理 drop，
+  `10x` 有 2 条物理 drop。该结果确认 mild-pass/heavy-failure 动态区间，不触发
+  overfit，也不替代三 seed、20 profiles/factor 的正式比较。
+- [x] 检查跨 factor jump 前匹配：event frames 全部一致；`1.5x/3x/6x` action 和
+  object position exact；`10x` profile 2 仅最后两帧出现 `0.0146` action、`0.23 mm`
+  position 闭环非确定性，且 event 前质量仍为 nominal。
 - [x] 录制并完整解码 eligible profile 3 的 420-frame 同钟 H.264：世界画面、
   Refiner/policy 交接、frame-308 `0.302->0.454 kg` 质量变化和左右各 27 patch 均在
   同一视频中。

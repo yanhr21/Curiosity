@@ -28,6 +28,12 @@
   启动；先完成人眼正/负行为审查，如不对则先做单一 `1.5x` 条件的 serious overfit
   诊断。P/PS formal 仍未开始。
 
+  同一 anchored Z endpoint 的 450-frame 四-profile 跨质量审查也已完成：`1.0x/
+  1.5x/3x/6x/10x` 的 eligible hold 为 `1/4, 2/4, 2/4, 0/4, 0/4`；`6x` 已出现
+  `0.194 m` drop，`10x` 出现 `0.165/0.216 m` drops。说明 Z 在温和条件可持箱、
+  重质量条件有明确失败空间，当前不需要 overfit Z 来制造全成功。该四-profile
+  结果只用于准入和选择困难度，不能当作触觉收益或单调质量曲线。
+
   历史与支撑状态：真实 Plan-15 runtime 已恢复。`3 seeds x 5 mass factors` 的 15 条
   full-G1/54-patch 在线轨迹已完成；所有 paired action/event 完全一致，质量读回、
   jump 前双手接触和逐帧 TacSL 时钟均通过。质量变化当帧 contact binary 完全不变，

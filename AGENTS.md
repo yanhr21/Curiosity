@@ -194,6 +194,18 @@
   seed `151015` auto-start is disabled; review this endpoint and, if required,
   run the fixed-condition overfit diagnostic before any further formal seed.
   P and PS remain unstarted.
+- The anchored seed-151014 four-profile mass audit now uses the corrected
+  450-frame horizon and exact termination labels. Eligible holds are
+  `1/4, 2/4, 2/4, 0/4, 0/4` for `1.0x, 1.5x, 3x, 6x, 10x`. At `6x`, profile 2
+  drops `0.194 m`; at `10x`, profiles 0/2 drop `0.165/0.216 m`. Thus this Z
+  endpoint has both mild successes and heavy failure space and does not need a
+  single-profile overfit merely to prove learnability. The four-profile audit
+  is diagnostic only and must not be presented as a monotonic mass curve or
+  tactile benefit. Jump frames match exactly across factors. Pre-jump actions
+  and object positions are exact for `1.5x/3x/6x`; `10x` profile 2 has a small
+  two-frame pre-event closed-loop divergence (`0.0146` action max, `0.23 mm`
+  object position) while mass remains nominal, so never claim bitwise pairing
+  for every closed-loop rollout.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may
