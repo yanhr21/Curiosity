@@ -64,6 +64,31 @@
   delay, not from tactile. Separately require live P/PS traces to show
   bilateral patch contact throughout the ten frames before the event. This
   keeps the event clock matched while preserving Z as a no-TacSL-read arm.
+- The original frame-zero student-control training path is now a frozen
+  negative and may not be resumed. Two independent 3000-update Z endpoints
+  produced zero box-contact frames in all eight 1.5x profiles; a separate
+  nominal 1.0x check reproduced the same four termination frames as 1.5x.
+  Thus the failure precedes both contact and the mass event. Seed `151016` was
+  stopped at iteration 226 by targeting only its recorded child process group;
+  retained job `238355` remains alive.
+- Every replacement training and frozen-evaluation episode must use a live
+  official-Refiner handoff. The exact frozen Refiner controls the same complete
+  G1 from motion-45 frame 0 until the box has remained at least `0.05 m` lifted
+  for 10 consecutive control frames. Then, without reset, teleport, replay or
+  sensor-history replacement, the matched Z/P/PS actor takes control in that
+  same PhysX episode. The mass scheduler waits its matched `10--50` frames only
+  after this physical hold qualification. Pre-handoff actions are online
+  teacher actions and are excluded from PPO surrogate/value/entropy credit;
+  they may retain the unchanged official teacher-distillation target. The
+  handoff mask is training/evaluation infrastructure and may not enter the
+  deployed actor.
+- Re-run the Z/P/PS live one-update preflights with this handoff before any new
+  formal training. Each preflight must show teacher-controlled continuous
+  pickup, a no-reset handoff, student-controlled post-handoff steps and a real
+  mass event. Z must still perform zero TacSL reads; P/PS must fill their four-
+  frame histories online during the same teacher-controlled prefix. Do not
+  start new P or PS formal training until the replacement Z endpoints contain
+  eligible post-jump behavior.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may
@@ -127,7 +152,8 @@
   needed local experiment packages belong under repository-root
   `legacy/experiments/`. Every directory named `legacy` is ignored by Git and
   may not be cited as an active result.
-- The Z/P/PS one-update training-path preflights are complete. Z executed 364
+- The old frame-zero Z/P/PS one-update training-path preflights are historical
+  wiring evidence only and must be repeated after live handoff. Z executed 364
   exact-zero observations with zero TacSL reads. P and PS each executed 361
   online feature updates and exactly `361 x 54 = 19,494` official patch reads;
   P made zero slip calls and PS made 361 causal slip calls. All three completed
@@ -135,32 +161,30 @@
   CarryBox contact window, so these reports retain zero contact/load/event;
   nonzero bilateral tactile and the lift-gated mass event remain supported by
   the admitted continuous-action full-G1 collectors, not fabricated in the
-  one-update rollout. Formal Z uses frozen seeds `151014/151015/151016` with
-  the same 4-env, 24-step, 3000-update configuration; P and PS remain
-  unstarted. Seeds `151014/151015` passed update 500, and each readable
+  one-update rollout. The old formal Z used frozen seeds
+  `151014/151015/151016` with the same 4-env, 24-step, 3000-update
+  configuration; P and PS remained unstarted. Seeds `151014/151015` passed
+  update 500, and each readable
   `model_500.pt` contains the anatomical patch encoder, serious SUGAR
   actor/critic and 58 optimizer-state entries while both trainings continue in
   critic warmup. Both resumed runs have now also produced readable
   `model_1000.pt` files with 42 patch-encoder tensors and 58 optimizer states,
   and have entered the task-reward PPO authority ramp. Treat these only as
   recoverable-training/stage-transition milestones, not as a tactile-benefit
-  result. Parallel seeds inside Z do not authorize starting P before every Z
-  seed reaches the frozen endpoint.
+  result. These old checkpoints do not authorize starting P.
 - Z seeds `151014/151015` produced readable update-2000 checkpoints and
   entered the final 1000-update steady full-PPO stage. Seed `151015` has now
   completed the full 3000-update loop with `exit_code=0`; the trainer's
   zero-based final file is `model_2999.pt`, containing 59 model tensors and 58
   optimizer-state entries. This is a completed training endpoint, not yet a
   valid mass-adaptation result. Seed `151014` has also completed normally at
-  the same `model_2999.pt` endpoint with the same 59/58 state counts, while
-  seed `151016` has started from the unchanged official
-  Tracker warm start on retained job `238355`/`server07`. The
+  the same `model_2999.pt` endpoint with the same 59/58 state counts. The
   fixed motion-45/1.5x four-profile check on seed `151015`'s checkpoint
   terminates at frames `96/48/201/194`; all four
   profiles still have zero box contact and no mass event. This is evidence that
   the PPO ramp changed survival duration but not yet a valid mass-adaptation
-  baseline. Continue to update 3000; do not start P from this intermediate
-  negative.
+  baseline. Final endpoint evaluation then established the frame-zero
+  structural negative described above; do not resume this path.
 - The frozen evaluator must restore CarryBox motion 45/frame 0 and refresh the
   official motion-relative command buffer before the first policy observation.
   The corrected single-profile check with the intermediate Z update-1000
@@ -195,11 +219,12 @@
   job `238355`/`server07`: the checkpoint restores BCPPO update step 751, the
   runner starts learning iteration 751, and the fixed endpoint remains 3000
   with 2249 updates remaining. That resumed run subsequently completed
-  normally at iteration 2999, i.e. all 3000 loop iterations. The same retained
-  allocation now runs seed `151016` from scratch. Seed `151014` likewise
-  completed normally on retained job `238250`. Do not count either unsaved
-  501--651 or 751--784 segment twice, and do not start P until all three Z
-  endpoints and their frozen Z evaluation are complete.
+  normally at iteration 2999, i.e. all 3000 loop iterations. Seed `151014`
+  likewise completed normally on retained job `238250`. Seed `151016` started
+  from scratch on the same retained allocation, then was stopped at iteration
+  226 after the two completed endpoints proved the shared frame-zero entry
+  invalid. Do not count either unsaved 501--651 or 751--784 segment twice, and
+  do not start P until handoff-Z produces eligible post-jump endpoints.
 
 ## Highest-Priority Full-G1 IsaacLab Object-Demo Reset (2026-08-13)
 

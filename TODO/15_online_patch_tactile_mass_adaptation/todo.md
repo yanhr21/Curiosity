@@ -143,38 +143,31 @@
   固定一一配对 `151014->152014`、`151015->152015`、`151016->152016`，每对每个
   factor 跑 20 profiles，共 300 matched rollouts/arm，而不是 900。
 
-## G. 串行训练
+## G. 在线持箱交接与串行训练
 
-- [x] `Z` one-update preflight：完成 360 个 live steps 和一次 BCPPO update；
-  `364` 次 exact-zero observation、`0` 次 TacSL read，report v2 `overall_pass=true`。
-  当前随机 warm-start rollout 在 lift 前终止，因此 mass event 如实为 0；其物理准入
-  使用已完成的连续动作 full-G1 collector，不提前伪造 jump。
-- [ ] `Z`：完成三个冻结 seed 的 3000 updates。seed `151014/151015` 已按完全相同
-  配置运行，均已生成并越过可完整读取的 update-500 checkpoint，从纯 distillation
-  进入 critic warmup。该里程碑证明可恢复训练和阶段切换链路，不是最终 Z endpoint，
-  也不是触觉收益证据。`151014` 的原 allocation 在 update 651 被调度器终止，现已
-  从最后完整 `model_500.pt` 精确恢复：BCPPO counter 与下一迭代均为 501，总预算
-  保持 3000；到达完整 update 750 后又迁移到五天 `238250`/`server23`，并从
-  BCPPO/runner iteration 751 接续。`151015` 也被调度器在打印 update 784 后外部
-  终止；最后完整 checkpoint 为 update 750，现已在 `238355`/`server07` 精确恢复到
-  BCPPO/runner iteration 751，固定总 endpoint 3000、剩余 2249 updates。两个
-  resumed seed 现均已生成可完整读取的 update-1000 checkpoint，并进入 task-reward
-  PPO authority ramp。`151014/151015` 均已进一步生成可完整读取的 update-2000
-  checkpoints，进入最后 1000 次 steady full-PPO。seed `151015` 已正常完成全部
-  3000 次循环，实际零基终点文件为 `model_2999.pt`，含 59 个模型张量和 58 项
-  optimizer state；seed `151014` 也已正常完成同名终点，模型/优化器状态数相同。
-  这两个只是训练终点，尚不是有效质量适应结果。seed `151016` 已在保留的
-  `238355`/`server07` allocation 内从相同
-  官方 Tracker warm start 启动。三个 Z endpoint 及其 frozen evaluation 完成前
-  不启动 P。
-- [x] `P` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
-  次官方 patch sensor read、`0` 次 slip call，并完成一次 BCPPO update。当前
-  warm-start policy 尚未进入抓箱窗口，所以 contact/load 如实为 0；非零在线信号
-  由已准入的 continuous full-G1 collector 提供。
-- [ ] `P`：完成匹配 3000 updates。
-- [x] `PS` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
-  次官方 patch sensor read、`361` 次 causal slip callable，并完成一次 BCPPO update。
-- [ ] `PS`：完成匹配 3000 updates。
+- [x] 冻结旧 frame-zero Z 为结构性负结果，不再续跑。seed `151014/151015` 均完成
+  3000 次训练，实际零基终点为 `model_2999.pt`；其 `1.5x` frozen check 共 `8/8`
+  profiles 在接触箱体前 fall，bilateral contact 与 jump 都为零。`151014` 的
+  `1.0x` 四条又与其 `1.5x` 四条完全同帧终止。seed `151016` 因此在 iteration 226
+  仅终止记录的 child PGID，`238355` allocation 保留。旧 checkpoint 不进入触觉
+  收益比较。
+- [ ] 实现 live official-Refiner handoff：每次 reset 后由 frozen Refiner 从 motion
+  45/frame 0 在线控制；连续 10 帧 lift `>=0.05 m` 后，在同一 PhysX episode、无
+  teleport/无 replay/不清空 tactile history 的下一动作边界交给 actor。
+- [ ] 加入仅供训练算法使用的 handoff mask：交接前 transition 不进入 PPO
+  surrogate/value/entropy；mask、teacher observation、mass/jump 均不进入 actor。
+- [ ] 让 mass scheduler 只在 handoff 后开始 `10--50` 帧 delay，并确认 P/PS 在
+  teacher prefix 中继续实时形成四帧 patch/slip history；Z 保持零 TacSL read。
+- [ ] 重新运行 handoff-Z one-update preflight：必须真实持箱、交接、student 控制并
+  触发至少一个 mass event；不满足则不开始 formal Z。
+- [ ] 重新运行 handoff-P one-update preflight：除上述条件外必须出现双手在线 patch
+  contact/load，不能读取离线 trace。
+- [ ] 重新运行 handoff-PS one-update preflight：除 P 条件外必须实际调用 causal
+  `PatchSlipDetector.update(...)`。
+- [ ] 新 `Z`：三个冻结 seed 各完成匹配 3000 updates 与 endpoint frozen evaluation；
+  只有存在 eligible post-jump profiles 才允许进入 P。
+- [ ] 新 `P`：完成匹配 3000 updates。
+- [ ] 新 `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
 
@@ -200,6 +193,12 @@
 - [x] 固定检查 seed `151015` 的 update-2000：四个相同 profiles 的 termination 为
   `96/48/201/194`，但仍为零箱体 contact、零 mass event。继续完成 update 3000，
   不把中间生存时长改善当作正式结果。
+- [x] 完成旧 frame-zero endpoint 判定：两个 seed 的 `1.5x` 共 `8/8` profiles 与
+  seed `151014` 的 `1.0x` 四条均在 contact/jump 前 fall；旧 frozen sweep 到此停止，
+  不再为无效入口补齐 300 profiles。
+- [ ] 更新 frozen evaluator 使用同一个 live official-Refiner handoff，并从 handoff
+  后而不是 frame 0 统计 policy-controlled behavior；world/tactile 视频仍显示完整
+  frame-zero teacher pickup、交接、增重和后续行为。
 - [x] 在 endpoint 结果出现前固定 paired hierarchical bootstrap：先重采样三个
   seed pairs，再重采样每 seed 的 matched profiles，`10,000` 次、analysis seed
   `153015`；比较入口要求 Z/P/PS 各自正好 300 profiles。

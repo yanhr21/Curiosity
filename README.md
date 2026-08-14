@@ -35,10 +35,17 @@
   task-reward PPO authority ramp；两者均已到 update 2000 并进入 steady full-PPO。
   seed `151015` 现已正常完成全部 3000 次训练循环，实际零基终点文件为
   `model_2999.pt`；seed `151014` 也已正常完成同一终点，两个 checkpoint 均含
-  59 个模型张量与 58 项 optimizer state。第三条 seed `151016` 已在同一
-  保留 server07 allocation 中从相同 warm start 启动。seed `151015` 的固定四条
-  update-2000 motion-45 阶段评估仍在箱体接触前终止，所以尚未形成可评价的质量
-  适应基线。Frozen evaluator 已修正为
+  59 个模型张量与 58 项 optimizer state。两个终点的 `1.5x` frozen check 共
+  `8/8` profiles 在箱体接触前 fall，contact 与 mass event 均为零；seed `151014`
+  的 `1.0x` 四条又与其 `1.5x` 完全同帧终止。这证明旧路径失败在 frame-zero 抓取
+  入口，而不是突然变重。第三 seed `151016` 已在 iteration 226 仅停止记录的 child
+  PGID，server07 allocation 保留。
+
+  当前实现目标已改为：official frozen Refiner 从 motion 45/frame 0 在线控制到
+  连续 10 帧 lift `>=0.05 m`，随后在同一 PhysX episode 无 teleport、无 replay 地
+  交给 Z/P/PS actor，再延迟 `10--50` 帧增重。交接前数据不计 PPO surrogate/value/
+  entropy credit，handoff mask 与 teacher/object state 不进入 actor；P/PS 的四帧
+  patch/slip history 必须在 teacher 前缀中在线形成。Frozen evaluator 已修正为
   motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
   中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手
   27-patch 可视化布局和 H.264 编码已验证，但当前 H200 Kit/Vulkan
@@ -89,15 +96,15 @@ one-update preflight；只有各分支 live report 通过后才运行对应 3000
 草案不能用于该科学问题。具体 task 名、seed、观察合同与停止条件以当前 Plan/TODO
 为准。
 
-一个分支的三个 update-3000 checkpoint 都完成后，在 retained validation GPU shell
+新的 handoff 分支有三个 update-3000 checkpoint 后，在 retained validation GPU shell
 中执行完整的 300-profile frozen sweep：
 
 ```bash
 scripts/sugar/native_tactile/run_plan15_frozen_sweep.sh Z \
-  experiments/online_patch_tactile_mass_adaptation/training/z_seed151014/model_2999.pt \
-  experiments/online_patch_tactile_mass_adaptation/training/z_seed151015/model_2999.pt \
-  experiments/online_patch_tactile_mass_adaptation/training/z_seed151016/model_2999.pt \
-  experiments/online_patch_tactile_mass_adaptation/frozen_evaluation/z
+  experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151014/model_2999.pt \
+  experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151015/model_2999.pt \
+  experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151016/model_2999.pt \
+  experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z
 ```
 
 该入口固定 checkpoint/evaluation-seed 一一配对并运行 5 个质量条件、每项 20

@@ -62,15 +62,28 @@ ICM、RGB、Newton 和软体任务。实现和实验必须严格按本文的串�
 上可恢复的倍率；极端条件评价安全响应或受控放下，不能把必然失败算成感知
 失败。
 
-### 3.2 jump 顺序
+### 3.2 在线 Refiner 持箱交接与 jump 顺序
 
-每个 episode 从 motion frame 0 连续运行，禁止把带 elastomer skin 的手直接
-teleport 到中段接触状态。为了让 `Z` 分支完全不读取 TacSL，mass scheduler 只在
-评价侧检查“箱子已连续抬升 10 个 control frames”，再随机等待 `10--50` 个
-control frames。双手 TacSL contact 不参与触发；独立的连续动作 live collector 必须
-确认 jump 前连续 10 帧双手都存在 patch contact，才能准入训练。one-update 训练
-preflight 不得为了制造 event 而取消 lift gate：若早期随机 policy 在抬起前终止，
-报告如实保留 `mass_event_seen=false`，只判定本分支的在线观测与更新接线。随后：
+旧版从 frame 0 立即让 student 控制整段抓取。两个独立 3000-update Z endpoint 的
+8 条 `1.5x` profiles 全部在箱体接触前终止；额外 `1.0x` nominal 四条与同 seed 的
+`1.5x` 逐帧终止点完全相同，均为 `68/68/65/85`。因此这是抓取入口失败，不是质量
+适应失败，旧 checkpoint 不再进入 Z/P/PS 收益比较。
+
+新版每个 episode 仍从 motion 45/frame 0 在线连续运行，但先由 exact frozen
+official Refiner 控制同一个完整 G1。箱子相对 reset 高度连续 10 个 control frames
+保持至少 `0.05 m` lift 后，下一次控制边界把动作权交给待训练 actor。交接前后必须
+是同一个 IsaacLab/PhysX episode、同一个机器人和箱子、同一份连续更新的触觉历史；
+禁止 teleport、中段状态恢复、离线 replay 或重置 sensor/slip/上一动作历史。
+
+交接是实验初始条件生成器，不是部署 actor 输入：teacher 的 `890-D` privileged
+observation、`handoff_active` 和 hold gate 都不得进入 actor。交接前 transition 不参与
+PPO surrogate、value 或 entropy credit，避免把“actor 采样但 teacher 执行”的区间
+误作 on-policy 数据；官方 teacher distillation target 保持不变。P/PS 在 teacher 前缀
+中照常在线更新四帧 patch/slip 历史，Z 全程保持零 sensor read。
+
+mass scheduler 从 hold qualification/actor handoff 后再随机等待 `10--50` 个 control
+frames。双手 TacSL contact 不参与触发；P/PS live trace 仍须独立证明 jump 前连续
+10 帧双手都有 patch contact。随后：
 
 1. actor 在 nominal mass 下输出当前动作；
 2. 在两个 control actions 之间，用 PhysX runtime API 同步更新 box mass 和
@@ -431,13 +444,18 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 - seeds `151014/151015` 的 update-2000 checkpoints 均已完整可读，并进入最后 1000
   次 steady full-PPO。seed `151015` 随后正常完成全部 3000 次训练循环；训练器按
   零基 iteration 保存的正式终点是 `model_2999.pt`，其中有 59 个模型张量和 58 项
-  optimizer state。seed `151014` 也已正常完成相同终点和相同状态计数；seed
-  `151016` 已在同一保留
-  server07 allocation 中从相同 warm start 开始；P/PS 仍未启动。固定的相同四个
+  optimizer state。seed `151014` 也已正常完成相同终点和相同状态计数；P/PS 未
+  启动。固定的相同四个
   motion-45/1.5x profiles 在 `151015` update-2000 checkpoint 的 termination
   frame 为 `96/48/201/194`；相对 update-1250 的 `63/46/90/70`，两条轨迹明显延长，
-  但四条仍为零箱体接触、零 mass event。因此必须完成 update 3000，且不得把生存
-  时间延长写成触觉或质量适应结果；只有三个 Z 终点的冻结评估才能决定是否进入 P。
+  但四条仍为零箱体接触、零 mass event。后续 endpoint 负结果已经取代这项中间
+  观察；不得把生存时间延长写成触觉或质量适应结果。
+- 旧 frame-zero Z 的两个 3000-update endpoints 已完成冻结检查并共同给出结构性
+  负结果：`1.5x` 共 `8/8` profiles 在箱体接触前 robot fall，bilateral patch contact
+  与 jump event 都为零；seed `151014` 的 `1.0x` 四条与其 `1.5x` 四条终止帧完全
+  相同。第三 seed `151016` 因此在 iteration 226 停止，仅终止记录的 child PGID，
+  allocation 保留。下一步不是继续旧 Z 或启动 P，而是实现上述 live official-
+  Refiner hold handoff，并重新完成三分支 one-update preflight。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。离线布局
   与 H.264 全解码已通过，但 `238354`/`server38` 的真实 camera run 在场景构建前
