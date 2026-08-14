@@ -308,8 +308,41 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   对当前 slip callable 的 contact-supported precision/recall 为
   `1.000/0.9909`，median onset delay 为 0 帧；但该轨迹没有 incipient-oracle 样本，
   且多数接触已处于 gross sliding，因此它不能替代后续 controlled stick-to-slide
-  校准。3 seeds x 5 factors 的 fixed-action paired leakage sweep 已串行启动；训练仍
-  未启动。
+  校准。
+- `3 seeds x 5 factors` 的 fixed-action paired leakage sweep 已完整结束。15 条
+  轨迹的 applied action 最大误差为 `0`，paired event frame 最大误差为 `0`；所有
+  mass readback 分别正确落在 `0.3023/0.4535/0.9070/1.8140/3.0234 kg`，每条轨迹
+  event 前 10 帧均为双手接触，54-patch clock 全程同步并在线前进。三个 seed 的
+  nominal 最大抬升均值为 `0.7464 m`，随后 `1.5x/3x/6x/10x` 分别降为
+  `0.6662/0.6360/0.6297/0.6276 m`；这是相同 nominal action 下的失败严重度，不能
+  单独证明 `6x/10x` 在改变动作后仍不可恢复。
+- 质量 event 当帧，三个 seed 的所有倍率相对 nominal 都保持完全相同的 patch
+  contact binary，但连续 patch load/pressure 已经变化。这直接验证了 binary 无法
+  表达的负载信号；该响应并非随质量严格单调，因此它是 policy feedback，不应被
+  宣称为直接质量计。与此同时 `504-D` proprio 当帧也已变化，故最终科学问题固定
+  为“whole-hand patch tactile 在本体感受之上是否带来增量帮助”，不再使用“只有
+  触觉能感知变重”的表述。
+- 三 seed leave-one-seed-out linear probe 的首个连续可靠质量分类时刻为：evaluation-
+  only object state `11` 帧、proprio `35` 帧、patch tactile `13` 帧、patch tactile +
+  slip `11` 帧（50 Hz）。这提示触觉可能比 proprio 更早提供可分信息，但样本只有
+  三个 paired seeds，只作为训练前泄漏诊断，不是触觉收益结论。
+- 完整 6300 帧 CarryBox slip 评价表面上得到 contact-supported precision/recall
+  `0.9992/0.9904` 和 median delay `0`，但旧阈值把 oracle 的 14 个 STICK samples
+  全判成 GROSS。受控官方 R15 trace 证明原因是正常加载运动时 friction utilization
+  已饱和，不能单独作为 GROSS 条件。修正后的 callable 仍只读取当前/历史 patch
+  pressure、signed shear、friction 与时钟：friction utilization 只触发 INCIPIENT，
+  GROSS 需要连续两个高 shear-rate 或 pressure-drop sample，有载接触丢失仍为 gross
+  alert。240 帧独立物理 trace 对静止、`0.006 m/s` 慢滑、`0.03 m/s` 快滑和
+  `0.01 m/s` 回程分别得到 STICK/INCIPIENT/GROSS/INCIPIENT；state confusion 为
+  STICK `109/111`、INCIPIENT `109/109`、GROSS `19/20`，incipient 零延迟，gross
+  延迟一帧（50 Hz 下 `0.02 s`）。simulator relative speed 只用于评价标签。该
+  callable 随后完成独立 420 帧 full-G1 CarryBox `3x` live rollout：共有 107 帧
+  双手接触，frame 328 mass event 前连续十帧双手接触，54-patch clock 零偏差且
+  严格逐帧前进；contact-supported slip precision/recall 为 `1.0/0.9971`，median/
+  p95 onset delay 为 `0/1` 帧，28 次有载接触丢失均触发 gross alert。真实 CarryBox
+  中绝大多数 active contact 已经是 gross sliding，因此 fine-grained state 的依据仍
+  以受控 trace 为主；binary slip 检测与在线接入已通过，可进入 Z/P/PS one-update
+  preflight。正式训练仍未启动。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

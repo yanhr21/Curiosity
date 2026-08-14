@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import traceback
 
 from isaaclab.app import AppLauncher
 
@@ -116,6 +117,12 @@ def main() -> None:
     if not output_root.is_absolute():
         output_root = ROOT / output_root
     output_root.mkdir(parents=True, exist_ok=False)
+    action_trace = args.action_trace
+    if action_trace is not None:
+        action_trace = action_trace.expanduser()
+        if not action_trace.is_absolute():
+            action_trace = ROOT / action_trace
+        action_trace = action_trace.resolve()
 
     register_official_refiner_anatomical_whole_hand_tacsl_audit_task()
     cfg = OnlinePatchSlipMassRobotPlayEnvCfg()
@@ -173,8 +180,7 @@ def main() -> None:
         obj = base_env.scene["obj"]
         robot = base_env.scene["robot"]
         replay_actions = None
-        if args.action_trace is not None:
-            action_trace = args.action_trace.expanduser().resolve()
+        if action_trace is not None:
             if not action_trace.is_file():
                 raise FileNotFoundError(action_trace)
             with np.load(action_trace, allow_pickle=False) as replay:
@@ -334,7 +340,7 @@ def main() -> None:
                 else "fixed_nominal_applied_action_trace"
             ),
             "action_trace": (
-                None if args.action_trace is None else str(args.action_trace.expanduser().resolve())
+                None if action_trace is None else str(action_trace)
             ),
             "motion_id": int(args.motion_id),
             "seed": int(args.seed),
@@ -393,8 +399,15 @@ def main() -> None:
         if original_reset_idx is not None:
             env.unwrapped._reset_idx = original_reset_idx
         env.close()
-        simulation_app.close()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        traceback.print_exc()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(1)
+    else:
+        simulation_app.close()

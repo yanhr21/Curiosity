@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the official R15 on a swept capsule and render native slip evidence."""
+"""Calibrate the Plan-15 patch slip callable on an official swept R15."""
 
 from __future__ import annotations
 
@@ -14,6 +14,11 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-root", type=Path, required=True)
 parser.add_argument("--frames", type=int, default=240)
 parser.add_argument("--fps", type=int, default=50)
+parser.add_argument(
+    "--force-only",
+    action="store_true",
+    help="Run the official force field without RTX cameras and render its saved tensors.",
+)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 if args.frames < 240:
@@ -32,8 +37,12 @@ import numpy as np
 import torch
 from pxr import UsdGeom, UsdPhysics
 
-import omni.replicator.core as rep
 import isaacsim.core.utils.stage as stage_utils
+
+if args.force_only:
+    rep = None
+else:
+    import omni.replicator.core as rep
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation, ArticulationCfg, RigidObject, RigidObjectCfg
@@ -42,8 +51,10 @@ import isaaclab.utils.math as math_utils
 from isaaclab_assets.sensors import GELSIGHT_R15_CFG
 from isaaclab_contrib.sensors.tacsl_sensor import VisuoTactileSensor, VisuoTactileSensorCfg
 
-from scripts.sugar.native_tactile.slip import SlipState, TactileSlipDetector
+from scripts.sugar.native_tactile.slip import SlipState
 from scripts.sugar.native_tactile.universal import IsaacLabTacSLAdapter
+from sugar_rl.tasks.locomanip.online_patch_tactile import reduce_patch_taxels
+from sugar_rl.tasks.locomanip.patch_slip import PatchSlipDetector
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -254,15 +265,19 @@ def main() -> None:
         prim_path="/World/Robot/elastomer/tactile_sensor",
         update_period=dt,
         debug_vis=False,
-        enable_camera_tactile=True,
+        enable_camera_tactile=not args.force_only,
         enable_force_field=True,
-        camera_cfg=TiledCameraCfg(
-            height=render_cfg.image_height,
-            width=render_cfg.image_width,
-            prim_path="/World/Robot/elastomer_tip/cam",
-            update_period=dt,
-            data_types=["distance_to_image_plane"],
-            spawn=None,
+        camera_cfg=(
+            None
+            if args.force_only
+            else TiledCameraCfg(
+                height=render_cfg.image_height,
+                width=render_cfg.image_width,
+                prim_path="/World/Robot/elastomer_tip/cam",
+                update_period=dt,
+                data_types=["distance_to_image_plane"],
+                spawn=None,
+            )
         ),
         render_cfg=render_cfg,
         tactile_array_size=(20, 25),
@@ -302,17 +317,20 @@ def main() -> None:
         ),
     )
     sensor = VisuoTactileSensor(sensor_cfg)
-    world_camera = TiledCamera(world_camera_cfg)
+    world_camera = None if args.force_only else TiledCamera(world_camera_cfg)
     sim.reset()
-    world_camera.set_world_poses_from_view(
-        torch.tensor([[0.34, -0.38, 0.72]], device=args.device),
-        torch.tensor([[0.0, 0.04, 0.52]], device=args.device),
-    )
+    if world_camera is not None:
+        world_camera.set_world_poses_from_view(
+            torch.tensor([[0.34, -0.38, 0.72]], device=args.device),
+            torch.tensor([[0.0, 0.04, 0.52]], device=args.device),
+        )
     for _ in range(4):
         sim.step()
         sensor.update(dt, force_recompute=True)
-        world_camera.update(dt, force_recompute=True)
-    sensor.get_initial_render()
+        if world_camera is not None:
+            world_camera.update(dt, force_recompute=True)
+    if not args.force_only:
+        sensor.get_initial_render()
     tactile_points = sensor.data.tactile_points_pos_w[0]
     tactile_quaternions = sensor.data.tactile_points_quat_w[0]
     local_z = torch.zeros_like(tactile_points)
@@ -339,12 +357,16 @@ def main() -> None:
         object_support_distance_m - CONTACT_INDENTATION_M
     )
 
-    adapter = IsaacLabTacSLAdapter(
-        ("r15",),
-        grid_shape=(20, 25),
-        patch_size_m=((0.023977, 0.032001),),
+    adapter = (
+        None
+        if args.force_only
+        else IsaacLabTacSLAdapter(
+            ("r15",),
+            grid_shape=(20, 25),
+            patch_size_m=((0.023977, 0.032001),),
+        )
     )
-    detector = TactileSlipDetector(("r15",), friction_coefficient=0.5)
+    detector = PatchSlipDetector(batch_size=1, device=args.device)
     writer = VideoWriter(video_path, args.fps)
     normal_rows = []
     shear_rows = []
@@ -359,6 +381,8 @@ def main() -> None:
     optical_sequence_rows = []
     optical_timestamp_rows = []
     optical_dt_rows = []
+    patch_feature_rows = []
+    patch_slip_feature_rows = []
     slip_rows = []
     oracle_speed_rows = []
     x_rows = []
@@ -382,29 +406,79 @@ def main() -> None:
         robot.update(dt)
         contact_object.update(dt)
         sensor.update(dt, force_recompute=True)
-        world_camera.update(dt, force_recompute=True)
-        tactile = adapter.update(
-            {"capsule": [sensor.data]},
-            timestamp_s=(frame + 1) * dt,
-            optical_timestamp_s=(frame + 1) * dt,
+        if world_camera is not None:
+            world_camera.update(dt, force_recompute=True)
+        tactile = None
+        optical_tensor = None
+        depth_tensor = None
+        if adapter is not None:
+            tactile = adapter.update(
+                {"capsule": [sensor.data]},
+                timestamp_s=(frame + 1) * dt,
+                optical_timestamp_s=(frame + 1) * dt,
+            )
+            if tactile.optical.clock is None:
+                raise RuntimeError("Available official RGB/depth has no optical clock")
+            optical_tensor = tactile.optical.rgb[0]
+            depth_tensor = tactile.optical.depth[0]
+            if optical_tensor is None or depth_tensor is None:
+                raise RuntimeError("Official R15 optical data is unavailable")
+        patch_record = reduce_patch_taxels(
+            sensor.data.penetration_depth,
+            sensor.data.tactile_normal_force,
+            sensor.data.tactile_shear_force,
+            0.023977 * 0.032001,
+            0.5,
         )
-        if tactile.optical.clock is None:
-            raise RuntimeError("Available official RGB/depth has no optical clock")
-        optical_tensor = tactile.optical.rgb[0]
-        depth_tensor = tactile.optical.depth[0]
-        if optical_tensor is None or depth_tensor is None:
-            raise RuntimeError("Official R15 optical data is unavailable")
-        evidence = detector.update(tactile)
+        detector_contact = torch.zeros(
+            (1, 2, 27), dtype=torch.bool, device=args.device
+        )
+        detector_normal = torch.zeros(
+            (1, 2, 27), dtype=torch.float32, device=args.device
+        )
+        detector_pressure = torch.zeros_like(detector_normal)
+        detector_shear = torch.zeros(
+            (1, 2, 27, 2), dtype=torch.float32, device=args.device
+        )
+        detector_utilization = torch.zeros_like(detector_normal)
+        detector_contact[:, 0, 0] = patch_record[:, 0].bool()
+        detector_normal[:, 0, 0] = patch_record[:, 1]
+        detector_pressure[:, 0, 0] = patch_record[:, 2]
+        detector_shear[:, 0, 0] = patch_record[:, 3:5]
+        detector_utilization[:, 0, 0] = patch_record[:, 5]
+        patch_output = detector.update(
+            contact=detector_contact,
+            normal_load_n=detector_normal,
+            mean_pressure_pa=detector_pressure,
+            shear_xy_n=detector_shear,
+            friction_utilization=detector_utilization,
+            timestamp_s=sensor._timestamp_last_update.to(
+                device=args.device, dtype=torch.float32
+            ),
+            reset_mask=torch.tensor(
+                [frame == 0], dtype=torch.bool, device=args.device
+            ),
+        )
 
-        normal = tactile.normal_force_n[0, 0].detach().cpu().numpy()
-        shear = tactile.shear_force_xy_n[0, 0].detach().cpu().numpy()
-        penetration = tactile.penetration_m[0, 0].detach().cpu().numpy()
-        position = tactile.taxel_position_w_m[0, 0].detach().cpu().numpy()
-        orientation = (
-            tactile.taxel_orientation_w_xyzw[0, 0].detach().cpu().numpy()
-        )
-        optical = optical_tensor[0].detach().cpu().numpy().astype(np.uint8)
-        depth = depth_tensor[0, ..., 0].detach().cpu().numpy()
+        if tactile is None:
+            normal = sensor.data.tactile_normal_force[0].reshape(20, 25).detach().cpu().numpy()
+            shear = sensor.data.tactile_shear_force[0].reshape(20, 25, 2).detach().cpu().numpy()
+            penetration = sensor.data.penetration_depth[0].reshape(20, 25).detach().cpu().numpy()
+            position = sensor.data.tactile_points_pos_w[0].reshape(20, 25, 3).detach().cpu().numpy()
+            quaternion_wxyz = sensor.data.tactile_points_quat_w[0].reshape(20, 25, 4)
+            orientation = quaternion_wxyz[..., [1, 2, 3, 0]].detach().cpu().numpy()
+            optical = None
+            depth = None
+        else:
+            normal = tactile.normal_force_n[0, 0].detach().cpu().numpy()
+            shear = tactile.shear_force_xy_n[0, 0].detach().cpu().numpy()
+            penetration = tactile.penetration_m[0, 0].detach().cpu().numpy()
+            position = tactile.taxel_position_w_m[0, 0].detach().cpu().numpy()
+            orientation = (
+                tactile.taxel_orientation_w_xyzw[0, 0].detach().cpu().numpy()
+            )
+            optical = optical_tensor[0].detach().cpu().numpy().astype(np.uint8)
+            depth = depth_tensor[0, ..., 0].detach().cpu().numpy()
         relative = sensor.data.tactile_relative_tangential_velocity_w[0].reshape(
             20, 25, 3
         )
@@ -417,48 +491,98 @@ def main() -> None:
         penetration_rows.append(penetration)
         position_rows.append(position)
         orientation_rows.append(orientation)
-        optical_rgb_rows.append(optical)
-        optical_depth_rows.append(depth)
-        tactile_sequence_rows.append(tactile.clock.sequence)
-        tactile_timestamp_rows.append(tactile.clock.timestamp_s)
-        tactile_dt_rows.append(tactile.clock.dt_s)
-        optical_sequence_rows.append(tactile.optical.clock.sequence)
-        optical_timestamp_rows.append(tactile.optical.clock.timestamp_s)
-        optical_dt_rows.append(tactile.optical.clock.dt_s)
-        slip_rows.append(int(evidence.state[0, 0]))
+        if optical is not None and depth is not None:
+            optical_rgb_rows.append(optical)
+            optical_depth_rows.append(depth)
+        tactile_sequence_rows.append(frame)
+        tactile_timestamp_rows.append(float(sensor._timestamp_last_update[0]))
+        tactile_dt_rows.append(0.0 if frame == 0 else dt)
+        if tactile is not None:
+            optical_sequence_rows.append(tactile.optical.clock.sequence)
+            optical_timestamp_rows.append(tactile.optical.clock.timestamp_s)
+            optical_dt_rows.append(tactile.optical.clock.dt_s)
+        patch_feature_rows.append(patch_record[0].detach().cpu().numpy())
+        patch_slip_feature_rows.append(
+            patch_output.features()[0, 0, 0].detach().cpu().numpy()
+        )
+        slip_rows.append(int(patch_output.state[0, 0, 0]))
         oracle_speed_rows.append(oracle_speed)
         x_rows.append(x)
         phase_rows.append(label)
 
         canvas = np.full((HEIGHT, WIDTH, 3), 255, dtype=np.uint8)
-        world = world_camera.data.output["rgb"][0, ..., :3].detach().cpu().numpy().astype(np.uint8)
-        canvas[:360, :640] = fit(world, 640, 360)
-        canvas[:360, 640:] = fit(optical, 640, 360)
         force = cv2.resize(
             force_rgb(normal, FORCE_SCALE_N_PER_TAXEL),
             (640, 360),
             interpolation=cv2.INTER_NEAREST,
         )
-        canvas[360:, :640] = force
-        finite = depth[np.isfinite(depth)]
-        low, high = (float(finite.min()), float(finite.max())) if len(finite) else (0.0, 1.0)
-        depth_u8 = np.rint(255.0 * np.clip((depth - low) / max(high - low, 1.0e-9), 0.0, 1.0)).astype(np.uint8)
-        depth_rgb = np.repeat(depth_u8[..., None], 3, axis=-1)
-        canvas[360:, 640:] = fit(depth_rgb, 640, 360)
+        if args.force_only:
+            canvas[360:, :640] = force
+            shear_magnitude = np.linalg.norm(shear, axis=-1)
+            shear_u8 = np.rint(
+                255.0
+                * np.clip(
+                    shear_magnitude / max(float(shear_magnitude.max()), 1.0e-9),
+                    0.0,
+                    1.0,
+                )
+            ).astype(np.uint8)
+            canvas[360:, 640:] = cv2.resize(
+                cv2.applyColorMap(shear_u8, cv2.COLORMAP_VIRIDIS)[..., ::-1],
+                (640, 360),
+                interpolation=cv2.INTER_NEAREST,
+            )
+            cv2.rectangle(canvas, (70, 120), (570, 170), (90, 90, 90), 3)
+            object_center_x = int(np.clip(320 + x * 20000.0, 90, 550))
+            cv2.circle(canvas, (object_center_x, 205), 28, (50, 120, 220), -1)
+            put(canvas, "CONTROLLED PHYSICAL SWEEP ON OFFICIAL R15", (82, 70), 0.75)
+            put(canvas, "gray: elastomer | blue: PhysX SDF capsule", (82, 100), 0.52)
+            put(canvas, f"command phase: {label}", (700, 100), 0.65)
+            put(canvas, f"commanded tangential position {x:+.4f} m", (700, 135), 0.56)
+            put(canvas, f"held-out speed {oracle_speed:.4f} m/s", (700, 170), 0.56)
+            put(
+                canvas,
+                f"Plan-15 callable: {SlipState(int(patch_output.state[0,0,0])).name}",
+                (700, 215),
+                0.68,
+            )
+            put(canvas, "NORMAL FORCE FIELD", (18, 390), 0.55)
+            put(canvas, "SIGNED-XY SHEAR MAGNITUDE", (658, 390), 0.55)
+        else:
+            world = world_camera.data.output["rgb"][0, ..., :3].detach().cpu().numpy().astype(np.uint8)
+            canvas[:360, :640] = fit(world, 640, 360)
+            canvas[:360, 640:] = fit(optical, 640, 360)
+            canvas[360:, :640] = force
+            finite = depth[np.isfinite(depth)]
+            low, high = (float(finite.min()), float(finite.max())) if len(finite) else (0.0, 1.0)
+            depth_u8 = np.rint(255.0 * np.clip((depth - low) / max(high - low, 1.0e-9), 0.0, 1.0)).astype(np.uint8)
+            depth_rgb = np.repeat(depth_u8[..., None], 3, axis=-1)
+            canvas[360:, 640:] = fit(depth_rgb, 640, 360)
+            for x0, title in ((0, "WORLD: official R15 + local capsule"), (640, "OFFICIAL R15 RGB")):
+                cv2.rectangle(canvas, (x0 + 8, 8), (x0 + 625, 38), (255, 255, 255), -1)
+                put(canvas, title, (x0 + 18, 30), 0.6)
+            cv2.rectangle(canvas, (648, 368), (1272, 452), (255, 255, 255), -1)
+            put(canvas, "OFFICIAL R15 DEPTH", (658, 390), 0.55)
+            put(canvas, f"frame {frame:03d} | command {label} | capsule x {x:+.4f} m", (658, 414), 0.46)
+            put(
+                canvas,
+                f"Plan-15 patch callable {SlipState(int(patch_output.state[0,0,0])).name}",
+                (658, 434),
+                0.52,
+            )
+            put(canvas, f"held-out relative speed {oracle_speed:.4f} m/s", (658, 450), 0.46)
         cv2.rectangle(canvas, (0, 0), (1279, 719), (50, 50, 50), 1)
         cv2.line(canvas, (640, 0), (640, 720), (70, 70, 70), 2)
         cv2.line(canvas, (0, 360), (1280, 360), (70, 70, 70), 2)
-        for x0, title in ((0, "WORLD: official R15 + local capsule"), (640, "OFFICIAL R15 RGB")):
-            cv2.rectangle(canvas, (x0 + 8, 8), (x0 + 625, 38), (255, 255, 255), -1)
-            put(canvas, title, (x0 + 18, 30), 0.6)
         cv2.rectangle(canvas, (8, 368), (628, 414), (255, 255, 255), -1)
         put(canvas, f"SIGNED NORMAL FIELD | active {int(np.count_nonzero(penetration > 0.0))}/500", (18, 390), 0.52)
-        put(canvas, f"Fn {evidence.normal_load_n[0,0]:.3f} N | Ft {evidence.tangential_load_n[0,0]:.3f} N", (18, 410), 0.45)
-        cv2.rectangle(canvas, (648, 368), (1272, 452), (255, 255, 255), -1)
-        put(canvas, "OFFICIAL R15 DEPTH", (658, 390), 0.55)
-        put(canvas, f"frame {frame:03d} | command {label} | capsule x {x:+.4f} m", (658, 414), 0.46)
-        put(canvas, f"tactile-only {SlipState(int(evidence.state[0,0])).name}", (658, 434), 0.52)
-        put(canvas, f"held-out relative speed {oracle_speed:.4f} m/s", (658, 450), 0.46)
+        put(
+            canvas,
+            f"Patch Fn {float(patch_record[0,1]):.3f} N | "
+            f"Ft {float(torch.linalg.vector_norm(patch_record[0,3:5])):.3f} N",
+            (18, 410),
+            0.45,
+        )
         writer.append(canvas)
     writer.close()
 
@@ -473,45 +597,49 @@ def main() -> None:
     optical_timestamp_array = np.asarray(optical_timestamp_rows, dtype=np.float64)
     optical_dt_array = np.asarray(optical_dt_rows, dtype=np.float64)
     expected_sequence = np.arange(args.frames, dtype=np.int64)
-    expected_timestamp = (expected_sequence + 1) * dt
     expected_dt = np.full(args.frames, dt, dtype=np.float64)
     expected_dt[0] = 0.0
     if not np.array_equal(tactile_sequence_array, expected_sequence):
         raise RuntimeError("Tactile sequence is not contiguous from zero")
-    if not np.array_equal(optical_sequence_array, expected_sequence):
-        raise RuntimeError("Optical sequence is not contiguous from zero")
-    if not np.allclose(
-        tactile_timestamp_array, expected_timestamp, atol=1.0e-12
-    ):
-        raise RuntimeError("Tactile timestamps do not match the source clock")
-    if not np.allclose(
-        optical_timestamp_array, expected_timestamp, atol=1.0e-12
-    ):
-        raise RuntimeError("Optical timestamps do not match the source clock")
+    if not np.allclose(np.diff(tactile_timestamp_array), dt, atol=1.0e-5):
+        raise RuntimeError("Official TacSL source clock does not advance at control rate")
     if not np.allclose(tactile_dt_array, expected_dt, atol=1.0e-12):
         raise RuntimeError("Tactile elapsed times are inconsistent")
-    if not np.allclose(optical_dt_array, expected_dt, atol=1.0e-12):
-        raise RuntimeError("Optical elapsed times are inconsistent")
-    np.savez_compressed(
-        trace_path,
-        normal_force=normal_array,
-        signed_shear=np.stack(shear_rows).astype(np.float32),
-        penetration=penetration_array,
-        taxel_position_w=np.stack(position_rows).astype(np.float32),
-        taxel_orientation_w_xyzw=np.stack(orientation_rows).astype(np.float32),
-        optical_rgb=np.stack(optical_rgb_rows).astype(np.uint8),
-        optical_depth=np.stack(optical_depth_rows).astype(np.float32),
-        tactile_sequence=tactile_sequence_array,
-        tactile_timestamp_s=tactile_timestamp_array,
-        tactile_dt_s=tactile_dt_array,
-        optical_sequence=optical_sequence_array,
-        optical_timestamp_s=optical_timestamp_array,
-        optical_dt_s=optical_dt_array,
-        tactile_only_slip_state=slip_array,
-        heldout_relative_tangential_speed_m_s=oracle_speed_array,
-        object_x_m=np.asarray(x_rows, dtype=np.float32),
-        command_phase=np.asarray(phase_rows),
-    )
+    if not args.force_only:
+        expected_timestamp = (expected_sequence + 1) * dt
+        if not np.array_equal(optical_sequence_array, expected_sequence):
+            raise RuntimeError("Optical sequence is not contiguous from zero")
+        if not np.allclose(
+            optical_timestamp_array, expected_timestamp, atol=1.0e-12
+        ):
+            raise RuntimeError("Optical timestamps do not match the source clock")
+        if not np.allclose(optical_dt_array, expected_dt, atol=1.0e-12):
+            raise RuntimeError("Optical elapsed times are inconsistent")
+    trace = {
+        "normal_force": normal_array,
+        "signed_shear": np.stack(shear_rows).astype(np.float32),
+        "penetration": penetration_array,
+        "taxel_position_w": np.stack(position_rows).astype(np.float32),
+        "taxel_orientation_w_xyzw": np.stack(orientation_rows).astype(np.float32),
+        "tactile_sequence": tactile_sequence_array,
+        "tactile_timestamp_s": tactile_timestamp_array,
+        "tactile_dt_s": tactile_dt_array,
+        "plan15_patch_features": np.stack(patch_feature_rows).astype(np.float32),
+        "plan15_patch_slip_features": np.stack(patch_slip_feature_rows).astype(np.float32),
+        "plan15_patch_slip_state": slip_array,
+        "heldout_relative_tangential_speed_m_s": oracle_speed_array,
+        "object_x_m": np.asarray(x_rows, dtype=np.float32),
+        "command_phase": np.asarray(phase_rows),
+    }
+    if not args.force_only:
+        trace.update(
+            optical_rgb=np.stack(optical_rgb_rows).astype(np.uint8),
+            optical_depth=np.stack(optical_depth_rows).astype(np.float32),
+            optical_sequence=optical_sequence_array,
+            optical_timestamp_s=optical_timestamp_array,
+            optical_dt_s=optical_dt_array,
+        )
+    np.savez_compressed(trace_path, **trace)
     contact_array = np.any(penetration_array > 0.0, axis=(1, 2))
     oracle_state = np.full(args.frames, int(SlipState.NO_CONTACT), dtype=np.int8)
     oracle_state[contact_array] = int(SlipState.STICK)
@@ -571,11 +699,12 @@ def main() -> None:
         ),
     }
     summary = {
-        "schema": "isaaclab_r15_capsule_native_tactile_slip_v2",
+        "schema": "plan15_isaaclab_r15_patch_slip_calibration_v1",
         "frames": args.frames,
         "fps": args.fps,
         "backend": "official isaaclab v2.3.2 VisuoTactileSensor",
         "sensor": "official GELSIGHT_R15_CFG",
+        "detector": "causal PatchSlipDetector.update with one physical patch as the spatial unit",
         "object": "local IsaacLab MeshCapsuleCfg with PhysX SDF collision",
         "grid_shape": [20, 25],
         "taxel_position_shape": list(np.stack(position_rows).shape),
@@ -583,18 +712,27 @@ def main() -> None:
         "taxel_quaternion_order": (
             "xyzw (official IsaacLab wxyz reordered by common adapter)"
         ),
-        "optical_rgb_shape": list(np.stack(optical_rgb_rows).shape),
-        "optical_depth_shape": list(np.stack(optical_depth_rows).shape),
+        "optical_available": not args.force_only,
+        "optical_rgb_shape": (
+            None if args.force_only else list(np.stack(optical_rgb_rows).shape)
+        ),
+        "optical_depth_shape": (
+            None if args.force_only else list(np.stack(optical_depth_rows).shape)
+        ),
         "tactile_clock_fields": [
             "tactile_sequence",
             "tactile_timestamp_s",
             "tactile_dt_s",
         ],
-        "optical_clock_fields": [
-            "optical_sequence",
-            "optical_timestamp_s",
-            "optical_dt_s",
-        ],
+        "optical_clock_fields": (
+            []
+            if args.force_only
+            else [
+                "optical_sequence",
+                "optical_timestamp_s",
+                "optical_dt_s",
+            ]
+        ),
         "persisted_clocks": {
             "tactile_sequence": [
                 int(tactile_sequence_array[0]),
@@ -604,14 +742,22 @@ def main() -> None:
                 float(tactile_timestamp_array[0]),
                 float(tactile_timestamp_array[-1]),
             ],
-            "optical_sequence": [
-                int(optical_sequence_array[0]),
-                int(optical_sequence_array[-1]),
-            ],
-            "optical_timestamp_s": [
-                float(optical_timestamp_array[0]),
-                float(optical_timestamp_array[-1]),
-            ],
+            "optical_sequence": (
+                None
+                if args.force_only
+                else [
+                    int(optical_sequence_array[0]),
+                    int(optical_sequence_array[-1]),
+                ]
+            ),
+            "optical_timestamp_s": (
+                None
+                if args.force_only
+                else [
+                    float(optical_timestamp_array[0]),
+                    float(optical_timestamp_array[-1]),
+                ]
+            ),
             "elapsed_time_matches_source_clock": True,
         },
         "contact_indentation_m": CONTACT_INDENTATION_M,
@@ -659,7 +805,8 @@ def main() -> None:
     summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(summary, indent=2))
 
-    rep.vp_manager.destroy_hydra_textures("Replicator")
+    if rep is not None:
+        rep.vp_manager.destroy_hydra_textures("Replicator")
 
 
 if __name__ == "__main__":
@@ -671,4 +818,8 @@ if __name__ == "__main__":
         sys.stderr.flush()
         os._exit(1)
     else:
+        if args.force_only:
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(0)
         simulation_app.close()

@@ -81,8 +81,37 @@
   mass from `0.3023376` to `0.9070128 kg`; bilateral contact was present for the
   preceding ten frames, all 54 official TacSL clocks remained synchronized and
   strictly advanced, and the lifted box later dropped. This is live online
-  evidence, not replay. Continue with the paired leakage sweep; do not resume
-  generic Vulkan diagnosis or start training before its gates pass.
+  evidence, not replay. The subsequent `3 seeds x 5 factors` fixed-action
+  leakage sweep is complete: all 15 trajectories have exact paired actions and
+  event frames, correct live mass readback, bilateral pre-event contact and
+  synchronized advancing 54-patch clocks. At the event, patch-contact binary
+  is unchanged for every mass pair while continuous patch load/pressure and
+  the `504-D` proprio contract both respond. The scientific claim is therefore
+  incremental tactile benefit over proprioception, never tactile-exclusive
+  mass sensing. Exploratory leave-one-seed-out probes first become reliably
+  mass-discriminative at 13 frames for patch tactile versus 35 frames for
+  proprio, but three seeds are not a policy-benefit result.
+- The original slip thresholds are withdrawn: across the 6300-frame CarryBox
+  sweep they labeled all 14 oracle STICK samples GROSS because friction
+  utilization saturates during ordinary loaded motion. The replacement stays
+  causal and tactile-only: friction utilization marks INCIPIENT, while GROSS
+  requires two consecutive high shear-rate or pressure-drop samples; contact
+  loss after load remains a gross alert. In a 240-frame controlled official-R15
+  trace it separated fixed contact, `0.006 m/s` slow slide, `0.03 m/s` fast
+  slide and `0.01 m/s` return as STICK/INCIPIENT/GROSS/INCIPIENT. State
+  confusion was `109/111` STICK, `109/109` INCIPIENT and `19/20` GROSS;
+  incipient onset delay was zero and gross onset delay was one 50-Hz frame.
+  Held-out object speed was used only as an evaluation label. A detached R15 is
+  allowed only for this calibration and does not satisfy the G1 object-demo or
+  policy-training result. The same callable then completed a separate
+  420-frame full-G1 CarryBox `3x` live run: 107 bilateral-contact frames, mass
+  event at frame 328 after ten bilateral frames, zero 54-patch clock skew and
+  a strictly advancing official sensor clock. Against evaluation-only active-
+  taxel velocity it had contact-supported precision `1.0`, recall `0.9971`,
+  median delay zero and p95 delay one frame; all 28 loaded contact losses
+  produced gross alerts. PS may proceed to its live one-update preflight, but
+  none of these detector results prove policy benefit. Do not resume generic
+  Vulkan diagnosis.
 - Keep active documents and admitted experiments outside `legacy/`. Superseded
   documents belong in their directory-local `legacy/`; rejected or no-longer-
   needed local experiment packages belong under repository-root

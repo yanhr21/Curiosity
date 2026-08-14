@@ -10,15 +10,14 @@
 
 - 当前计划：[PLAN/15_online_patch_tactile_mass_adaptation/plan.md](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
-- 当前状态：mass/inertia action-boundary jump、bilateral 27-patch reducer、causal
-  slip callable、anatomical Transformer、Z/P/PS BCPPO 入口和 paired leakage sweep
-  已实现，36 个相关非仿真测试通过；live collector 还会逐帧保存 54 个官方
-  TacSL 更新时钟，用于确认 observation 确实来自当前 simulation step。真实
-  Plan-15 rollout 与训练尚未开始：server13 两块 H200 与 server38 第三块 H200
-  都在 scene creation 前发生 `VK_ERROR_DEVICE_LOST`。该故障发生在 patch、mass
-  和 slip 代码运行前；全新 portable root、单 renderer-GPU 设置和完整 node-local
-  Python/Isaac runtime 均未恢复，不能写成触觉实验负结果。server01 retained job
-  仍在排队。
+- 当前状态：真实 Plan-15 runtime 已恢复。`3 seeds x 5 mass factors` 的 15 条
+  full-G1/54-patch 在线轨迹已完成；所有 paired action/event 完全一致，质量读回、
+  jump 前双手接触和逐帧 TacSL 时钟均通过。质量变化当帧 contact binary 完全不变，
+  patch load/pressure 与 `504-D` proprio 都发生变化，因此正式问题是“触觉在本体
+  感受之上是否带来增量帮助”，不是“只有触觉知道质量”。受控官方 R15 滑动轨迹
+  已将 callable 的 STICK/INCIPIENT/GROSS 区分校准通过，同一 callable 也已完成
+  420 帧 full-G1 CarryBox 在线复核；正式训练尚未开始，下一步是串行 Z/P/PS
+  one-update preflight。
 
 ## 当前结果
 
@@ -30,19 +29,21 @@
 
 这些结果只能称为**高保真模拟触觉**，不是硬件 GelSight 标定，也不是 sim-to-real。
 
-## Plan 15 最短执行路径
+## Plan 15 最短复现路径
 
-Kit/Vulkan 恢复后，第一条正式命令只能是 paired live leakage sweep，不得直接训练：
+已完成的 paired live leakage sweep 位于
+`experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/`。从 retained
+GPU shell 复现时运行：
 
 ```bash
 bash scripts/sugar/native_tactile/launch_retained_child.sh \
-  --record experiments/online_patch_tactile_mass_adaptation/runtime/leakage_sweep.process \
-  --status experiments/online_patch_tactile_mass_adaptation/runtime/leakage_sweep.status \
-  --log experiments/online_patch_tactile_mass_adaptation/runtime/leakage_sweep.log \
+  --record experiments/online_patch_tactile_mass_adaptation/runtime/leakage_sweep_v1.process \
+  --status experiments/online_patch_tactile_mass_adaptation/runtime/leakage_sweep_v1.status \
+  --log experiments/online_patch_tactile_mass_adaptation/runtime/leakage_sweep_v1.log \
   --tag plan15-leakage-sweep -- \
   /public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
   scripts/sugar/native_tactile/run_online_mass_leakage_sweep.py \
-  --output-root experiments/online_patch_tactile_mass_adaptation/paired_leakage_v1 \
+  --output-root experiments/online_patch_tactile_mass_adaptation/leakage_sweep_reproduction \
   --device cuda:0
 ```
 
@@ -54,10 +55,13 @@ velocity 只在 collection 后评价 slip precision/recall/detection delay，绝
 detector 或 actor。若 jump 前没有连续 10 帧 bilateral
 TacSL contact，命令直接判定该 rollout 不可用于训练。
 
-只有该结果确认在线压力/剪切有响应、slip 时序有效且 actor 无 object-state 泄漏后，
-才可用 `SUGAR/scripts/sugar_rl/train_online_patch_mass_bcppo.py` 串行运行 Z、P、PS。
-每支正式预算为 3000 updates；BCPPO 在 update 1000 前不会给 actor task-reward PPO，
-所以旧的 512-update 草案不能用于该科学问题。
+公共归一化尺度固定在
+`experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json`。
+先用 `SUGAR/scripts/sugar_rl/train_online_patch_mass_bcppo.py` 串行运行 Z、P、PS 的
+one-update preflight；只有各分支 live report 通过后才运行对应 3000-update 正式
+任务。BCPPO 在 update 1000 前不会给 actor task-reward PPO，所以旧的 512-update
+草案不能用于该科学问题。具体 task 名、seed、观察合同与停止条件以当前 Plan/TODO
+为准。
 
 ## 历史整手可视化最短复现路径
 

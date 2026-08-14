@@ -27,7 +27,12 @@
 - [x] 420 帧 live preflight 确认 lift-gated mass/inertia write/readback：第 299 帧
   `0.3023376 -> 0.9070128 kg`，jump 前连续 10 帧双手接触，54-patch clock 零偏差
   且逐帧严格前进；箱子最高抬升 `0.7469 m` 后物理失持。
-- [ ] 完成 no-jump、`1.5x/3x/6x/10x` 的无学习物理可恢复性 sweep。
+- [x] 完成 no-jump、`1.5x/3x/6x/10x` 的三 seed fixed-action 无学习 sweep；15 条
+  live trace 均通过 mass readback、paired action/event、jump 前双手接触和 54-patch
+  clock 检查。该 sweep 量化 nominal action 下的失败严重度，不把它误写成改变动作后
+  仍不可恢复。
+- [ ] 用预先固定的 stronger-grip/lower-posture action 检查 `6x/10x` 是否存在物理上
+  可恢复的响应窗口；mass ID 不进入该动作。
 
 ## C. 54-patch online observation
 
@@ -36,10 +41,10 @@
   `shear_x_n`、`shear_y_n` 和 `friction_utilization`。
 - [x] 固定 `[B,4,2,27,9]` contract、anatomical order、单位和符号；公共归一化
   尺度须等 live sweep 后冻结。
-- [x] 实现从 live mass-sweep trace 统一拟合 9-channel 公共尺度的工具；真实 scale
-  JSON 仍必须等 live sweep，禁止先填猜测值。
-- [x] live collector 逐帧保存 54 个 official TacSL source timestamps，并检查
-  同帧双手同步和逐 control-frame 严格前进；真实 timestamp 报告仍待 runtime。
+- [x] 从 15 条 live mass-sweep trace 冻结统一 9-channel 公共尺度；正式启动器只读取
+  `leakage_sweep_v1/patch_channel_scales.json`，不使用猜测常数。
+- [x] live collector 逐帧保存 54 个 official TacSL source timestamps；15 条正式
+  sweep 全部确认同帧同步和逐 control-frame 严格前进。
 - [x] 保证 actor observation 中不存在 20x25 taxel 维度、普通 ContactSensor、
   `hands_contact_label` 或 object-state proxy。
 - [x] 实现 exact-zero no-sensor-read observation，保证 zero encoder output 也为零。
@@ -52,40 +57,50 @@
   和 timestamp。
 - [x] 输出每个 patch 的 `NO_CONTACT/STICK/INCIPIENT/GROSS`、`slip_score`、
   `incipient_slip` 和 `gross_slip`。
-- [x] 将 callable 接入 IsaacLab observation term；真实 GPU runtime 逐步读取仍待
-  Kit/Vulkan 恢复后确认。
+- [x] 将 callable 接入 IsaacLab observation term，并在 15 条 live GPU/PhysX
+  CarryBox trace 的每一帧实际调用。
 - [x] 实现独立 evaluation-only oracle：逐 patch 最大 active-taxel simulator
   tangential speed，并输出 precision、recall 和 onset delay；oracle 与 detector/
   actor/mass scheduler 隔离。
 - [x] velocity oracle 只在 current-contact samples 上评价滑动；有载 contact-loss
   gross alert 单独报告，避免把接触结束后不存在的 taxel velocity 当 false positive。
-- [ ] 在 controlled stick-to-slide 与 CarryBox jump/slip 中评价 precision、recall、
+- [x] 在 controlled stick-to-slide 与 CarryBox jump/slip 中评价 precision、recall、
   false positives 和 detection delay；relative velocity 仅作标签。
 - [x] CarryBox 3x jump trace 的 contact-supported velocity-oracle 评价为 precision
   `1.000`、recall `0.9909`、median onset delay `0` 帧；该轨迹没有 incipient-oracle
   样本且多数接触已 gross sliding，不能替代 controlled stick-to-slide 校准。
-- [ ] 确认没有 offline replay、future frame、mass/jump flag 或 object motion 输入。
+- [x] 完整 15-trace 评价为 precision/recall `0.9992/0.9904`、median delay `0`，但
+  14 个 oracle STICK samples 全被判为 GROSS；在 controlled calibration 修复状态
+  饱和前禁止 PS 训练。
+- [x] 用 240 帧 official R15 controlled trace 修正旧阈值：friction utilization
+  只触发 INCIPIENT，GROSS 需要连续两个高 shear-rate/pressure-drop sample；静止、
+  慢滑、快滑、回程分别得到 STICK/INCIPIENT/GROSS/INCIPIENT，state 正确数为
+  `109/111`、`109/109`、`19/20`，incipient/gross onset delay 为 `0/1` 帧。
+- [x] 更新后的 callable 已在独立 420 帧 full-G1 CarryBox `3x` live rollout 中逐帧
+  执行；contact-supported precision/recall `1.0/0.9971`，median/p95 delay `0/1`
+  帧，28 次 loaded contact loss 全部报警，54-patch official clock 仍严格在线。
+- [x] 确认 callable 与 live actor path 没有 offline replay、future frame、mass/
+  jump flag、object motion 或 simulator relative velocity 输入。
 
 ## E. 质量信息泄漏审计
 
 - [x] 实现串行 paired sweep 入口：每个预定 seed 先采集 nominal `1.0x` 动作，
   再把同一动作逐帧重放到 `1.5x/3x/6x/10x`，完成后运行 leakage analyzer 与
-  live scale fitter；真实 trace 尚待 IsaacLab runtime 恢复。
+  live scale fitter；15 条真实 IsaacLab trace 已全部完成。
 - [x] 冻结 leakage seeds `150814/150815/150816`、training seeds
   `151014/151015/151016` 与 frozen-evaluation seeds
   `152014/152015/152016`。
-- [ ] 先记录 nominal controller action sequence，再开环重放同一 sequence 采集
-  paired no-jump 与四倍率 jump，避免 teacher object-state action 泄漏；完整
-  `3 seeds x 5 factors` 串行 sweep 已启动。
-- [ ] 分别导出 object-state、proprio-only、patch-tactile、patch-tactile+slip 信号组。
-- [ ] 在 jump 前 0.5 s/后 1.0 s 窗口报告原始变化、mass-factor linear-probe
+- [x] 先记录 nominal controller action sequence，再开环重放同一 sequence 采集
+  paired no-jump 与四倍率 jump；最大 action 误差与 event-frame 误差均为 `0`。
+- [x] 分别导出 object-state、proprio-only、patch-tactile、patch-tactile+slip 信号组。
+- [x] 在 jump 前 0.5 s/后 1.0 s 窗口报告原始变化、mass-factor linear-probe
   balanced accuracy 和 change-onset latency。
-- [ ] 明确证明 deployed actor 没有 `obj_lin_vel_b`、mass、jump flag、RGB 或
+- [x] 明确证明 deployed actor 没有 `obj_lin_vel_b`、mass、jump flag、RGB 或
   simulator contact velocity。
-- [ ] 根据审计结果把最终问题标为“触觉独有感知”或“在 proprioception 上的
-  增量帮助”；不允许预先选择前者。
-- [ ] 若 live patch load 对质量变化无响应，先修 sensor/aggregation/physics，
-  不开始训练。
+- [x] 根据审计结果固定结论边界为“在 proprioception 上的增量帮助”；proprio 在
+  event 当帧已有非零变化，禁止再写“触觉独有感知”。
+- [x] 三 seed 所有质量 event 当帧的 contact binary 相对 nominal 完全相同，而
+  patch load/pressure 已改变；信号可进入 P preflight，但不把非单调响应称为质量计。
 
 ## F. Serious matched training implementation
 

@@ -37,9 +37,9 @@ class PatchSlipOutput:
 class PatchSlipDetector:
     """Stateful detector whose spatial unit is one physical hand patch.
 
-    Thresholds are declared diagnostics until calibrated on live controlled
-    stick-to-slide traces.  The callable deliberately accepts no object state,
-    contact-relative velocity, mass identifier, reward, or future sample.
+    Thresholds are calibrated on a controlled official-R15 stick-to-slide
+    trace.  The callable deliberately accepts no object state, contact-relative
+    velocity, mass identifier, reward, or future sample.
     """
 
     def __init__(
@@ -51,10 +51,11 @@ class PatchSlipDetector:
         patches_per_hand: int = 27,
         incipient_friction_utilization: float = 0.60,
         gross_friction_utilization: float = 0.90,
-        incipient_shear_rate_per_load_s: float = 5.0,
-        gross_shear_rate_per_load_s: float = 15.0,
+        incipient_shear_rate_per_load_s: float = 0.5,
+        gross_shear_rate_per_load_s: float = 3.0,
         incipient_pressure_drop_rate_s: float = 2.0,
         gross_pressure_drop_rate_s: float = 6.0,
+        gross_evidence_steps: int = 2,
         contact_loss_min_load_n: float = 0.02,
         epsilon: float = 1.0e-8,
     ) -> None:
@@ -78,6 +79,8 @@ class PatchSlipDetector:
             raise ValueError("gross shear-rate threshold must exceed incipient")
         if gross_pressure_drop_rate_s <= incipient_pressure_drop_rate_s:
             raise ValueError("gross pressure-drop threshold must exceed incipient")
+        if gross_evidence_steps < 2:
+            raise ValueError("gross slip requires at least two causal evidence steps")
 
         self.batch_size = int(batch_size)
         self.device = torch.device(device)
@@ -94,6 +97,7 @@ class PatchSlipDetector:
             incipient_pressure_drop_rate_s
         )
         self.gross_pressure_drop_rate_s = float(gross_pressure_drop_rate_s)
+        self.gross_evidence_steps = int(gross_evidence_steps)
         self.contact_loss_min_load_n = float(contact_loss_min_load_n)
         self.epsilon = float(epsilon)
 
@@ -112,6 +116,9 @@ class PatchSlipDetector:
             (*self.shape, 2), device=self.device
         )
         self.state = torch.zeros(self.shape, dtype=torch.int64, device=self.device)
+        self.gross_evidence_count = torch.zeros(
+            self.shape, dtype=torch.int64, device=self.device
+        )
 
     def reset(self, reset_mask: torch.Tensor) -> None:
         mask = torch.as_tensor(
@@ -126,6 +133,7 @@ class PatchSlipDetector:
         self.previous_pressure_pa[mask] = 0.0
         self.previous_shear_xy_n[mask] = 0.0
         self.state[mask] = NO_CONTACT
+        self.gross_evidence_count[mask] = 0
 
     def _patch_tensor(
         self, value: torch.Tensor, name: str, *, dtype: torch.dtype
@@ -239,14 +247,21 @@ class PatchSlipDetector:
             | (shear_rate >= self.incipient_shear_rate_per_load_s)
             | (pressure_drop_rate >= self.incipient_pressure_drop_rate_s)
         ) & contact_now
-        gross_evidence = (
+        gross_candidate = (
             (
-                (utilization_now >= self.gross_friction_utilization)
-                | (shear_rate >= self.gross_shear_rate_per_load_s)
+                (shear_rate >= self.gross_shear_rate_per_load_s)
                 | (pressure_drop_rate >= self.gross_pressure_drop_rate_s)
             )
             & contact_now
-        ) | contact_loss
+        )
+        self.gross_evidence_count = torch.where(
+            gross_candidate,
+            self.gross_evidence_count + 1,
+            torch.zeros_like(self.gross_evidence_count),
+        )
+        newly_gross = self.gross_evidence_count >= self.gross_evidence_steps
+        retained_gross = (self.state == GROSS) & incipient_evidence
+        gross_evidence = newly_gross | retained_gross | contact_loss
 
         state = torch.full_like(self.state, NO_CONTACT)
         state[contact_now] = STICK

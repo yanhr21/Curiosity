@@ -64,15 +64,29 @@ def test_first_contact_is_stick_not_false_slip():
     assert torch.all(output.slip_score < 0.2)
 
 
-def test_high_friction_utilization_causes_gross_slip():
+def test_high_friction_utilization_causes_incipient_slip():
     detector = MODULE.PatchSlipDetector(1, device="cpu")
     values = fields()
     update(detector, values, 0.0, reset=True)
     values["friction_utilization"][:] = 0.95
     output = update(detector, values, 0.02)
-    assert torch.all(output.state == MODULE.GROSS)
-    assert output.gross_slip.all()
+    assert torch.all(output.state == MODULE.INCIPIENT)
+    assert output.incipient_slip.all()
+    assert not output.gross_slip.any()
     assert torch.all(output.slip_score >= 1.0)
+
+
+def test_two_sustained_fast_shear_steps_cause_gross_slip():
+    detector = MODULE.PatchSlipDetector(1, device="cpu")
+    values = fields()
+    update(detector, values, 0.0, reset=True)
+    values["friction_utilization"][:] = 0.95
+    values["shear_xy_n"][..., 0] = 0.08
+    output = update(detector, values, 0.02)
+    assert output.incipient_slip.all()
+    values["shear_xy_n"][..., 0] = 0.16
+    output = update(detector, values, 0.04)
+    assert output.gross_slip.all()
 
 
 def test_pressure_drop_and_contact_loss_are_causal_slip_evidence():
@@ -81,10 +95,13 @@ def test_pressure_drop_and_contact_loss_are_causal_slip_evidence():
     update(detector, values, 0.0, reset=True)
     values["mean_pressure_pa"][:] = 800.0
     output = update(detector, values, 0.02)
+    assert output.incipient_slip.all()
+    values["mean_pressure_pa"][:] = 640.0
+    output = update(detector, values, 0.04)
     assert output.gross_slip.all()
 
     values["contact"][:] = False
-    output = update(detector, values, 0.04)
+    output = update(detector, values, 0.06)
     assert output.gross_slip.all()
     assert torch.all(output.state == MODULE.GROSS)
 
