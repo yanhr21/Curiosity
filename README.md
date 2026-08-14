@@ -27,10 +27,13 @@
   `3x/6x/10x` 均失持掉落；这提供了可恢复温和条件和极端失败条件，但仍不代表
   触觉已经改善行为。固定的双肩夹紧+降姿响应也未恢复 `6x/10x`。seed `151014`
   的原 allocation 被调度器终止后，已从最后完整 update-500 checkpoint 精确恢复到
-  BCPPO iteration 501；总 endpoint 仍是 3000。seed `151015` 的 allocation 也在
+  BCPPO iteration 501；到达 update 750 后已迁移到五天 `238250`/`server23` 并从
+  iteration 751 接续，总 endpoint 仍是 3000。seed `151015` 的 allocation 也在
   update 784 后被调度器终止，最后完整 checkpoint 为 750；现已在
   `238355`/`server07` 精确恢复到 BCPPO/runner iteration 751，总 endpoint 仍是
-  3000。
+  3000。双手 27-patch 可视化布局和 H.264 编码已验证，但当前 H200 Kit/Vulkan
+  camera start 仍会在场景构建前 `ERROR_DEVICE_LOST`，所以尚未把离线布局测试冒充
+  真实同钟 world+tactile 视频；无相机在线训练正常继续。
 
 ## 当前结果
 

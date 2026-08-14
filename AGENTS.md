@@ -156,9 +156,11 @@
 - Scheduler job `238128` was externally `CANCELLED by 0` after seed `151014`
   printed update 651; this was neither a training exception nor a voluntary
   allocation release. Its last complete checkpoint is update 500. The run has
-  resumed from that file on retained job `238055`: BCPPO stage state is
-  reconstructed at update step 501, the runner starts iteration 501, and the
-  fixed total endpoint remains 3000 with 2499 remaining updates. Seed `151015`
+  resumed from that file on retained job `238055`: BCPPO stage state was
+  reconstructed at update step 501 and the runner started iteration 501. At
+  the next complete checkpoint 750, its recorded child was stopped and the run
+  migrated to five-day retained job `238250`/`server23`; it restored BCPPO and
+  runner iteration 751 with a fixed endpoint of 3000. Seed `151015`
   was subsequently also externally `CANCELLED by 0` after printing update 784;
   its last complete checkpoint is update 750. It has now resumed on retained
   job `238355`/`server07`: the checkpoint restores BCPPO update step 751, the

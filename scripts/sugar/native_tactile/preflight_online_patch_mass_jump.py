@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import traceback
 
@@ -44,6 +45,12 @@ parser.add_argument(
 )
 parser.add_argument("--fixed-response-frame", type=int, default=300)
 parser.add_argument("--fixed-response-ramp-frames", type=int, default=20)
+parser.add_argument(
+    "--record-world",
+    action="store_true",
+    help="Record the synchronized G1 CarryBox world camera as H.264.",
+)
+parser.add_argument("--fps", type=int, default=50)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 
@@ -87,6 +94,7 @@ app_launcher = AppLauncher(args)
 simulation_app = app_launcher.app
 
 import gymnasium as gym  # noqa: E402
+import imageio_ffmpeg  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
@@ -107,6 +115,9 @@ import sugar_rl.tasks.locomanip.mdp as mdp  # noqa: E402
 from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_online_patch_tactile_mass_env_cfg import (  # noqa: E402
     OnlinePatchSlipMassRobotPlayEnvCfg,
 )
+from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_official_refiner_anatomical_whole_hand_tacsl_env_cfg import (  # noqa: E402
+    _review_camera,
+)
 from sugar_rl.utils.official_refiner_nominal_teacher import (  # noqa: E402
     FrozenOfficialRefinerTeacher,
 )
@@ -125,6 +136,53 @@ def cpu(value: torch.Tensor) -> np.ndarray:
 
 def cpu_native(value: torch.Tensor) -> np.ndarray:
     return value.detach().to(device="cpu").numpy()
+
+
+class FfmpegRgbWriter:
+    def __init__(self, path: Path, width: int, height: int, fps: int) -> None:
+        self.process = subprocess.Popen(
+            [
+                imageio_ffmpeg.get_ffmpeg_exe(),
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-s:v",
+                f"{width}x{height}",
+                "-r",
+                str(fps),
+                "-i",
+                "-",
+                "-an",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "18",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+                str(path),
+            ],
+            stdin=subprocess.PIPE,
+        )
+
+    def append(self, rgb: np.ndarray) -> None:
+        if self.process.stdin is None:
+            raise RuntimeError("ffmpeg stdin is closed")
+        self.process.stdin.write(np.ascontiguousarray(rgb, dtype=np.uint8).tobytes())
+
+    def close(self) -> None:
+        if self.process.stdin is not None:
+            self.process.stdin.close()
+        return_code = self.process.wait()
+        if return_code != 0:
+            raise RuntimeError(f"ffmpeg exited with code {return_code}")
 
 
 def main() -> None:
@@ -148,6 +206,20 @@ def main() -> None:
         key: (0.0, 0.0) for key in ("x", "y", "z", "roll", "pitch", "yaw")
     }
     cfg.commands.motion.joint_position_range = (0.0, 0.0)
+    if args.record_world:
+        cfg.scene.world_camera = _review_camera(
+            name="WorldCamera",
+            position=(3.6, 3.6, 2.4),
+            quaternion_wxyz=(
+                0.3043649418,
+                0.2319667899,
+                0.5600173703,
+                0.7348019703,
+            ),
+            width=1280,
+            height=720,
+        )
+        cfg.sim.render_interval = cfg.decimation
     cfg.events.obj_physics_material.params.update(
         static_friction_range=(0.5, 0.5),
         dynamic_friction_range=(0.5, 0.5),
@@ -162,8 +234,13 @@ def main() -> None:
         params["delay_frames"] = tuple(int(value) for value in args.delay_frames)
         params["seed"] = int(args.seed)
 
-    env = gym.make(REFINER_TASK_ID, cfg=cfg, render_mode=None)
+    env = gym.make(
+        REFINER_TASK_ID,
+        cfg=cfg,
+        render_mode="rgb_array" if args.record_world else None,
+    )
     original_reset_idx = None
+    writer = None
     try:
         base_env = env.unwrapped
         command = base_env.command_manager.get_term("motion")
@@ -194,6 +271,7 @@ def main() -> None:
         )
         obj = base_env.scene["obj"]
         robot = base_env.scene["robot"]
+        world_camera = base_env.scene["world_camera"] if args.record_world else None
         action_term = base_env.action_manager.get_term("JointPositionAction")
         fixed_response_raw_delta = torch.zeros(
             29, dtype=torch.float32, device=base_env.device
@@ -355,6 +433,17 @@ def main() -> None:
             rows["jump_applied"].append(bool(diagnostics["jump_applied"][0]))
             rows["mass_changed"].append(bool(diagnostics["mass_changed"][0]))
             rows["jump_step"].append(int(diagnostics["jump_step"][0]))
+            if world_camera is not None:
+                rgb = cpu_native(world_camera.data.output["rgb"][0, ..., :3])
+                if writer is None:
+                    height, width = rgb.shape[:2]
+                    writer = FfmpegRgbWriter(
+                        output_root / "world_carrybox.mp4",
+                        width,
+                        height,
+                        args.fps,
+                    )
+                writer.append(rgb)
             if step % 20 == 0 or step + 1 == args.max_steps:
                 print(
                     "[PLAN15] live frame",
@@ -459,6 +548,9 @@ def main() -> None:
             "patch_contract": online_patch_tactile_contract(),
             "base_patch_channels": list(BASE_PATCH_CHANNELS),
             "slip_callable_live": True,
+            "world_video": (
+                "world_carrybox.mp4" if args.record_world else None
+            ),
         }
         (output_root / "summary.json").write_text(
             json.dumps(summary, indent=2) + "\n", encoding="utf-8"
@@ -476,6 +568,8 @@ def main() -> None:
                 "official TacSL timestamps are not synchronized and online"
             )
     finally:
+        if writer is not None:
+            writer.close()
         if original_reset_idx is not None:
             env.unwrapped._reset_idx = original_reset_idx
         env.close()

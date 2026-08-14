@@ -377,12 +377,19 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   收益。seed `151014` 随后在 update 651 被调度器以 `CANCELLED by 0` 终止，
   不是训练异常或主动释放；最后完整 checkpoint 为 update 500。它已在另一保留
   allocation 中从 `model_500.pt` 恢复，runner 明确重建 BCPPO `update_step=501`、
-  从 iteration 501 开始，并按总 endpoint 3000 只运行剩余 2499 updates。
+  从 iteration 501 开始。到达下一个完整 update-750 checkpoint 后，该训练子进程
+  已精确停止并迁移到五天 retained job `238250`/`server23`；新的 runner 恢复
+  BCPPO/learning iteration 751，总 endpoint 仍为 3000。
   seed `151015` 的 allocation 随后也被调度器在打印 update 784 后以
   `CANCELLED by 0` 终止；最后完整 checkpoint 是 update 750。训练日志没有
   Traceback/OOM。该 seed 已在 retained job `238355`/`server07` 从该 checkpoint
   精确恢复：BCPPO `update_step=751`、runner 从 iteration 751 开始、总 endpoint
   仍为 3000，剩余 2249 updates；未保存的 751--784 不计入完成进度。
+- 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
+  显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。离线布局
+  与 H.264 全解码已通过，但 `238354`/`server38` 的真实 camera run 在场景构建前
+  命中当前 Kit/Vulkan `ERROR_DEVICE_LOST`，所以尚无权把布局 smoke 当作同钟物理
+  视频；无相机 TacSL/PhysX 训练不受该渲染故障影响。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

@@ -55,6 +55,10 @@
   `hands_contact_label` 或 object-state proxy。
 - [x] 实现 exact-zero no-sensor-read observation，保证 zero encoder output 也为零。
 - [ ] 用 synchronized patch visualization 检查压力/剪切变化与世界接触同钟对应。
+  27-patch 双手布局和 H.264 全解码已通过离线布局测试；`238354`/`server38` 的
+  actual world-camera 采集在场景构建前遇到当前已知 Kit/Vulkan
+  `ERROR_DEVICE_LOST`，因此该布局测试不是科学视频，必须等真实同钟 world frame
+  成功后再勾选。
 
 ## D. IsaacLab patch slip callable
 
@@ -149,9 +153,10 @@
   进入 critic warmup。该里程碑证明可恢复训练和阶段切换链路，不是最终 Z endpoint，
   也不是触觉收益证据。`151014` 的原 allocation 在 update 651 被调度器终止，现已
   从最后完整 `model_500.pt` 精确恢复：BCPPO counter 与下一迭代均为 501，总预算
-  保持 3000。`151015` 也被调度器在打印 update 784 后外部终止；最后完整 checkpoint
-  为 update 750，现已在 `238355`/`server07` 精确恢复到 BCPPO/runner iteration
-  751，固定总 endpoint 3000、剩余 2249 updates。
+  保持 3000；到达完整 update 750 后又迁移到五天 `238250`/`server23`，并从
+  BCPPO/runner iteration 751 接续。`151015` 也被调度器在打印 update 784 后外部
+  终止；最后完整 checkpoint 为 update 750，现已在 `238355`/`server07` 精确恢复到
+  BCPPO/runner iteration 751，固定总 endpoint 3000、剩余 2249 updates。
 - [x] `P` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
   次官方 patch sensor read、`0` 次 slip call，并完成一次 BCPPO update。当前
   warm-start policy 尚未进入抓箱窗口，所以 contact/load 如实为 0；非零在线信号
