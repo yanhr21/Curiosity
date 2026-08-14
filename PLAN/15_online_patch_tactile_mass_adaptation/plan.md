@@ -297,7 +297,7 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 ## 10. 2026-08-14 当前执行状态
 
 - mass/inertia action-boundary controller、54-patch online reducer、causal slip
-  callable、anatomical Transformer 和 Z/P/PS BCPPO 入口已经实现；相关 37 个
+  callable、anatomical Transformer 和 Z/P/PS BCPPO 入口已经实现；相关 39 个
   非仿真单元/结构测试通过。live collector 逐帧保存官方 TacSL
   `SensorBase._timestamp_last_update` 的双手 54-patch 时钟，并要求同帧同步且每个
   control frame 严格前进。
@@ -357,7 +357,12 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   update，training-path report 通过；contact/load 仍如实为 0。PS 也完成 `361`
   次 online feature update、`19,494` 次 patch read、`361` 次 causal slip call 和
   一次 BCPPO update。三个 training-path preflight 均通过；失败的中间版本已移到
-  根目录 `legacy/experiments/`。下一步为正式 Z，正式训练尚未启动。
+  根目录 `legacy/experiments/`。正式 Z 已按冻结 seeds 启动，P/PS 未启动。seed
+  `151014` 与 `151015` 使用相同 4-env、24-step、3000-update 配置并行运行；这是
+  同一 Z 分支内的 seed 并行，不是跨分支并行。两个 seed 均已越过 update 250；
+  各自的 `model_250.pt` 均可完整读取，包含 patch Transformer、SUGAR actor/critic
+  和 Adam optimizer state，且训练在 checkpoint 之后继续运行。该 checkpoint
+  只证明正式训练与中断恢复路径成立，尚不能比较触觉收益。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

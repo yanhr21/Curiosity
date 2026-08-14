@@ -114,7 +114,8 @@
 - [x] 定义三个共享 policy/runner 配置的 process-local 分支：`Z`、`P`、`PS`，
   并分别提供 one-update preflight 与 3000-update formal task。
 - [x] 在配置层保持 critic、teacher、optimizer、reward、physics、mass sampling
-  和 3000-update budget 一致；live runner 实例化仍待 Kit/Vulkan 恢复。
+  和 3000-update budget 一致；live runner 已在 H200/IsaacLab 中完成 Z/P/PS
+  one-update preflight，并已启动正式 Z。
 - [x] launcher 自动绑定 official Refiner teacher 和 official Tracker warm start，
   formal run 只接受冻结 seeds `151014/151015/151016`；resume 按总预算计算剩余
   updates，不重复或延长到 3000 之外。
@@ -137,7 +138,9 @@
   `364` 次 exact-zero observation、`0` 次 TacSL read，report v2 `overall_pass=true`。
   当前随机 warm-start rollout 在 lift 前终止，因此 mass event 如实为 0；其物理准入
   使用已完成的连续动作 full-G1 collector，不提前伪造 jump。
-- [ ] `Z`：完成 3000 updates。
+- [ ] `Z`：完成三个冻结 seed 的 3000 updates。seed `151014/151015` 已按完全相同
+  配置运行，均已生成并越过可完整读取的 update-250 checkpoint。该里程碑证明
+  可恢复训练链路，不是最终 Z endpoint，也不是触觉收益证据。
 - [x] `P` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
   次官方 patch sensor read、`0` 次 slip call，并完成一次 BCPPO update。当前
   warm-start policy 尚未进入抓箱窗口，所以 contact/load 如实为 0；非零在线信号

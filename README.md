@@ -20,7 +20,10 @@
   次 exact-zero observation 且 `0` 次 TacSL read；P 已完成 `361` 次 online feature
   update 和 `19,494 = 361 x 54` 次官方 patch read，slip call 为 0；PS 同样完成
   `19,494` 次 patch read，并执行 `361` 次 causal slip callable。三个 one-update
-  training-path preflight 均通过，下一步为正式 Z 训练。
+  training-path preflight 均通过。正式 Z 的 seed `151014/151015` 已使用完全相同的
+  4-env、24-step、3000-update 配置运行，P/PS 仍未启动；两者均已越过 update
+  250，各自的首个周期 checkpoint 可完整读取并保留模型与 optimizer state。这只
+  证明正式训练和中断恢复链路成立，不代表触觉已经改善行为。
 
 ## 当前结果
 

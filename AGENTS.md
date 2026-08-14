@@ -131,7 +131,14 @@
   CarryBox contact window, so these reports retain zero contact/load/event;
   nonzero bilateral tactile and the lift-gated mass event remain supported by
   the admitted continuous-action full-G1 collectors, not fabricated in the
-  one-update rollout. Start formal Z next and keep P/PS serial.
+  one-update rollout. Formal Z is now running for frozen seeds `151014` and
+  `151015` with the same 4-env, 24-step, 3000-update configuration; P and PS
+  remain unstarted. Both seeds have passed update 250, and each readable
+  `model_250.pt` contains the anatomical patch encoder, serious SUGAR
+  actor/critic and optimizer state while both trainings continue beyond those
+  checkpoints. Treat this only as a recoverable-training milestone, not as a
+  tactile-benefit result. Parallel seeds inside Z do not authorize starting P
+  before every Z seed reaches the frozen endpoint.
 
 ## Highest-Priority Full-G1 IsaacLab Object-Demo Reset (2026-08-13)
 
