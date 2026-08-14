@@ -31,6 +31,10 @@
   live trace 均通过 mass readback、paired action/event、jump 前双手接触和 54-patch
   clock 检查。该 sweep 量化 nominal action 下的失败严重度，不把它误写成改变动作后
   仍不可恢复。
+- [x] 用同一 frozen Refiner closed-loop controller 补齐同 clock 的 feasibility：
+  `1.5x` jump 后 `118/121` 帧仍保持双手 contact 且继续抬升；`3x/6x/10x` 分别在
+  frame `354/321/315` 后失持并下落。该结果证明温和条件有恢复窗口，并只把
+  `3x+` 标为当前 controller 的失败区。
 - [ ] 用预先固定的 stronger-grip/lower-posture action 检查 `6x/10x` 是否存在物理上
   可恢复的响应窗口；mass ID 不进入该动作。
 
@@ -139,8 +143,9 @@
   当前随机 warm-start rollout 在 lift 前终止，因此 mass event 如实为 0；其物理准入
   使用已完成的连续动作 full-G1 collector，不提前伪造 jump。
 - [ ] `Z`：完成三个冻结 seed 的 3000 updates。seed `151014/151015` 已按完全相同
-  配置运行，均已生成并越过可完整读取的 update-250 checkpoint。该里程碑证明
-  可恢复训练链路，不是最终 Z endpoint，也不是触觉收益证据。
+  配置运行，均已生成并越过可完整读取的 update-500 checkpoint，从纯 distillation
+  进入 critic warmup。该里程碑证明可恢复训练和阶段切换链路，不是最终 Z endpoint，
+  也不是触觉收益证据。
 - [x] `P` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
   次官方 patch sensor read、`0` 次 slip call，并完成一次 BCPPO update。当前
   warm-start policy 尚未进入抓箱窗口，所以 contact/load 如实为 0；非零在线信号

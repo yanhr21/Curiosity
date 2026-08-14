@@ -323,6 +323,13 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   nominal 最大抬升均值为 `0.7464 m`，随后 `1.5x/3x/6x/10x` 分别降为
   `0.6662/0.6360/0.6297/0.6276 m`；这是相同 nominal action 下的失败严重度，不能
   单独证明 `6x/10x` 在改变动作后仍不可恢复。
+- 在完全相同的 seed、frame-299 jump、420-frame live collector 下，training-only
+  frozen Refiner 的 closed-loop feasibility 形成清晰分界。`1.5x` 在 jump 后
+  `118/121` 帧仍有双手 patch contact，物体没有下沉且继续抬升；`3x/6x/10x`
+  分别在 frame `354/321/315` 后失去双手 contact，并从 jump 高度下降
+  `0.213/0.222/0.226 m`。因此 `1.5x` 已证明存在物理可恢复窗口，`3x+` 是该
+  frozen Refiner 的失败区，但仍不能据此断言任何更强动作都不可恢复。预先固定的
+  stronger-grip/lower-posture 检查仍须单独完成。
 - 质量 event 当帧，三个 seed 的所有倍率相对 nominal 都保持完全相同的 patch
   contact binary，但连续 patch load/pressure 已经变化。这直接验证了 binary 无法
   表达的负载信号；该响应并非随质量严格单调，因此它是 policy feedback，不应被
@@ -359,10 +366,11 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   一次 BCPPO update。三个 training-path preflight 均通过；失败的中间版本已移到
   根目录 `legacy/experiments/`。正式 Z 已按冻结 seeds 启动，P/PS 未启动。seed
   `151014` 与 `151015` 使用相同 4-env、24-step、3000-update 配置并行运行；这是
-  同一 Z 分支内的 seed 并行，不是跨分支并行。两个 seed 均已越过 update 250；
-  各自的 `model_250.pt` 均可完整读取，包含 patch Transformer、SUGAR actor/critic
-  和 Adam optimizer state，且训练在 checkpoint 之后继续运行。该 checkpoint
-  只证明正式训练与中断恢复路径成立，尚不能比较触觉收益。
+  同一 Z 分支内的 seed 并行，不是跨分支并行。两个 seed 均已越过 update 500；
+  各自的 `model_500.pt` 均可完整读取，包含 patch Transformer、SUGAR actor/critic
+  和 58 项 Adam optimizer state，且训练已经从纯 distillation 进入 critic warmup。
+  该 checkpoint 只证明正式训练、阶段切换与中断恢复路径成立，尚不能比较触觉
+  收益。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

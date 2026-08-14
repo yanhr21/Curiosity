@@ -133,12 +133,19 @@
   the admitted continuous-action full-G1 collectors, not fabricated in the
   one-update rollout. Formal Z is now running for frozen seeds `151014` and
   `151015` with the same 4-env, 24-step, 3000-update configuration; P and PS
-  remain unstarted. Both seeds have passed update 250, and each readable
-  `model_250.pt` contains the anatomical patch encoder, serious SUGAR
-  actor/critic and optimizer state while both trainings continue beyond those
-  checkpoints. Treat this only as a recoverable-training milestone, not as a
-  tactile-benefit result. Parallel seeds inside Z do not authorize starting P
-  before every Z seed reaches the frozen endpoint.
+  remain unstarted. Both seeds have passed update 500, and each readable
+  `model_500.pt` contains the anatomical patch encoder, serious SUGAR
+  actor/critic and 58 optimizer-state entries while both trainings continue in
+  critic warmup. Treat this only as a recoverable-training/stage-transition
+  milestone, not as a tactile-benefit result. Parallel seeds inside Z do not
+  authorize starting P before every Z seed reaches the frozen endpoint.
+- A matched frozen-Refiner feasibility diagnostic now separates the mass
+  conditions. With the same seed and frame-299 live jump, `1.5x` retains
+  bilateral patch contact for 118 of the 121 post-jump frames and continues
+  lifting. `3x`, `6x` and `10x` lose bilateral contact at frames 354, 321 and
+  315 and fall by 0.213, 0.222 and 0.226 m from the jump height. This proves a
+  recoverable mild condition and current-controller failure conditions; it
+  does not prove that no stronger action can recover `3x+`.
 
 ## Highest-Priority Full-G1 IsaacLab Object-Demo Reset (2026-08-13)
 

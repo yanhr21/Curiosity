@@ -22,8 +22,10 @@
   `19,494` 次 patch read，并执行 `361` 次 causal slip callable。三个 one-update
   training-path preflight 均通过。正式 Z 的 seed `151014/151015` 已使用完全相同的
   4-env、24-step、3000-update 配置运行，P/PS 仍未启动；两者均已越过 update
-  250，各自的首个周期 checkpoint 可完整读取并保留模型与 optimizer state。这只
-  证明正式训练和中断恢复链路成立，不代表触觉已经改善行为。
+  500，各自 checkpoint 可完整读取并已从纯 distillation 进入 critic warmup。
+  matched frozen-Refiner feasibility 中，`1.5x` jump 后仍持续双手接触并继续抬升，
+  `3x/6x/10x` 均失持掉落；这提供了可恢复温和条件和极端失败条件，但仍不代表
+  触觉已经改善行为。
 
 ## 当前结果
 
