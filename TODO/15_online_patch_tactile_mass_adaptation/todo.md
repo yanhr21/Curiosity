@@ -160,8 +160,13 @@
   BCPPO/runner iteration 751，固定总 endpoint 3000、剩余 2249 updates。两个
   resumed seed 现均已生成可完整读取的 update-1000 checkpoint，并进入 task-reward
   PPO authority ramp。`151014/151015` 均已进一步生成可完整读取的 update-2000
-  checkpoints，进入最后 1000 次 steady full-PPO；仍需完成到 3000，不能把阶段
-  切换写成触觉收益。
+  checkpoints，进入最后 1000 次 steady full-PPO。seed `151015` 已正常完成全部
+  3000 次循环，实际零基终点文件为 `model_2999.pt`，含 59 个模型张量和 58 项
+  optimizer state；seed `151014` 也已正常完成同名终点，模型/优化器状态数相同。
+  这两个只是训练终点，尚不是有效质量适应结果。seed `151016` 已在保留的
+  `238355`/`server07` allocation 内从相同
+  官方 Tracker warm start 启动。三个 Z endpoint 及其 frozen evaluation 完成前
+  不启动 P。
 - [x] `P` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
   次官方 patch sensor read、`0` 次 slip call，并完成一次 BCPPO update。当前
   warm-start policy 尚未进入抓箱窗口，所以 contact/load 如实为 0；非零在线信号

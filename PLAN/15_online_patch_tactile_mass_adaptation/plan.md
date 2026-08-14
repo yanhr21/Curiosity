@@ -429,10 +429,15 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   全部 exact zero，输出仍保持 `[420,4,...]` 便于批次拼接。四条都没有到达箱子
   contact；这仍是 update-1250 阶段诊断，不是 Z endpoint 结果。
 - seeds `151014/151015` 的 update-2000 checkpoints 均已完整可读，并进入最后 1000
-  次 steady full-PPO。固定的相同四个 motion-45/1.5x profiles 在 `151015` checkpoint 的 termination
+  次 steady full-PPO。seed `151015` 随后正常完成全部 3000 次训练循环；训练器按
+  零基 iteration 保存的正式终点是 `model_2999.pt`，其中有 59 个模型张量和 58 项
+  optimizer state。seed `151014` 也已正常完成相同终点和相同状态计数；seed
+  `151016` 已在同一保留
+  server07 allocation 中从相同 warm start 开始；P/PS 仍未启动。固定的相同四个
+  motion-45/1.5x profiles 在 `151015` update-2000 checkpoint 的 termination
   frame 为 `96/48/201/194`；相对 update-1250 的 `63/46/90/70`，两条轨迹明显延长，
   但四条仍为零箱体接触、零 mass event。因此必须完成 update 3000，且不得把生存
-  时间延长写成触觉或质量适应结果。
+  时间延长写成触觉或质量适应结果；只有三个 Z 终点的冻结评估才能决定是否进入 P。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。离线布局
   与 H.264 全解码已通过，但 `238354`/`server38` 的真实 camera run 在场景构建前

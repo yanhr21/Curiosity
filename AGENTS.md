@@ -135,9 +135,9 @@
   CarryBox contact window, so these reports retain zero contact/load/event;
   nonzero bilateral tactile and the lift-gated mass event remain supported by
   the admitted continuous-action full-G1 collectors, not fabricated in the
-  one-update rollout. Formal Z is now running for frozen seeds `151014` and
-  `151015` with the same 4-env, 24-step, 3000-update configuration; P and PS
-  remain unstarted. Both seeds have passed update 500, and each readable
+  one-update rollout. Formal Z uses frozen seeds `151014/151015/151016` with
+  the same 4-env, 24-step, 3000-update configuration; P and PS remain
+  unstarted. Seeds `151014/151015` passed update 500, and each readable
   `model_500.pt` contains the anatomical patch encoder, serious SUGAR
   actor/critic and 58 optimizer-state entries while both trainings continue in
   critic warmup. Both resumed runs have now also produced readable
@@ -146,8 +146,15 @@
   recoverable-training/stage-transition milestones, not as a tactile-benefit
   result. Parallel seeds inside Z do not authorize starting P before every Z
   seed reaches the frozen endpoint.
-- Both running Z seeds `151014/151015` have produced readable update-2000
-  checkpoints and entered the final 1000-update steady full-PPO stage. The
+- Z seeds `151014/151015` produced readable update-2000 checkpoints and
+  entered the final 1000-update steady full-PPO stage. Seed `151015` has now
+  completed the full 3000-update loop with `exit_code=0`; the trainer's
+  zero-based final file is `model_2999.pt`, containing 59 model tensors and 58
+  optimizer-state entries. This is a completed training endpoint, not yet a
+  valid mass-adaptation result. Seed `151014` has also completed normally at
+  the same `model_2999.pt` endpoint with the same 59/58 state counts, while
+  seed `151016` has started from the unchanged official
+  Tracker warm start on retained job `238355`/`server07`. The
   fixed motion-45/1.5x four-profile check on seed `151015`'s checkpoint
   terminates at frames `96/48/201/194`; all four
   profiles still have zero box contact and no mass event. This is evidence that
@@ -187,8 +194,12 @@
   its last complete checkpoint is update 750. It has now resumed on retained
   job `238355`/`server07`: the checkpoint restores BCPPO update step 751, the
   runner starts learning iteration 751, and the fixed endpoint remains 3000
-  with 2249 updates remaining. Do not count either unsaved 501--651 or
-  751--784 segment twice.
+  with 2249 updates remaining. That resumed run subsequently completed
+  normally at iteration 2999, i.e. all 3000 loop iterations. The same retained
+  allocation now runs seed `151016` from scratch. Seed `151014` likewise
+  completed normally on retained job `238250`. Do not count either unsaved
+  501--651 or 751--784 segment twice, and do not start P until all three Z
+  endpoints and their frozen Z evaluation are complete.
 
 ## Highest-Priority Full-G1 IsaacLab Object-Demo Reset (2026-08-13)
 

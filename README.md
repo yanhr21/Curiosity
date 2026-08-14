@@ -32,9 +32,13 @@
   update 784 后被调度器终止，最后完整 checkpoint 为 750；现已在
   `238355`/`server07` 精确恢复到 BCPPO/runner iteration 751，总 endpoint 仍是
   3000。两个 resumed Z seed 均已生成可完整读取的 update-1000 checkpoint，并进入
-  task-reward PPO authority ramp；两者均已到 update 2000 并进入 steady full-PPO，
-  但 seed `151015` 的固定四条 motion-45 阶段评估仍在箱体接触前终止，所以尚未形成可评价的
-  质量适应基线，也尚未完成 Z endpoint。Frozen evaluator 已修正为
+  task-reward PPO authority ramp；两者均已到 update 2000 并进入 steady full-PPO。
+  seed `151015` 现已正常完成全部 3000 次训练循环，实际零基终点文件为
+  `model_2999.pt`；seed `151014` 也已正常完成同一终点，两个 checkpoint 均含
+  59 个模型张量与 58 项 optimizer state。第三条 seed `151016` 已在同一
+  保留 server07 allocation 中从相同 warm start 启动。seed `151015` 的固定四条
+  update-2000 motion-45 阶段评估仍在箱体接触前终止，所以尚未形成可评价的质量
+  适应基线。Frozen evaluator 已修正为
   motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
   中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手
   27-patch 可视化布局和 H.264 编码已验证，但当前 H200 Kit/Vulkan
@@ -90,9 +94,9 @@ one-update preflight；只有各分支 live report 通过后才运行对应 3000
 
 ```bash
 scripts/sugar/native_tactile/run_plan15_frozen_sweep.sh Z \
-  experiments/online_patch_tactile_mass_adaptation/training/z_seed151014/model_3000.pt \
-  experiments/online_patch_tactile_mass_adaptation/training/z_seed151015/model_3000.pt \
-  experiments/online_patch_tactile_mass_adaptation/training/z_seed151016/model_3000.pt \
+  experiments/online_patch_tactile_mass_adaptation/training/z_seed151014/model_2999.pt \
+  experiments/online_patch_tactile_mass_adaptation/training/z_seed151015/model_2999.pt \
+  experiments/online_patch_tactile_mass_adaptation/training/z_seed151016/model_2999.pt \
   experiments/online_patch_tactile_mass_adaptation/frozen_evaluation/z
 ```
 
