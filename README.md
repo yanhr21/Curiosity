@@ -31,7 +31,11 @@
   iteration 751 接续，总 endpoint 仍是 3000。seed `151015` 的 allocation 也在
   update 784 后被调度器终止，最后完整 checkpoint 为 750；现已在
   `238355`/`server07` 精确恢复到 BCPPO/runner iteration 751，总 endpoint 仍是
-  3000。双手 27-patch 可视化布局和 H.264 编码已验证，但当前 H200 Kit/Vulkan
+  3000。两个 resumed Z seed 均已生成可完整读取的 update-1000 checkpoint，并进入
+  task-reward PPO authority ramp；尚未完成 Z endpoint。Frozen evaluator 已修正为
+  motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
+  中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手
+  27-patch 可视化布局和 H.264 编码已验证，但当前 H200 Kit/Vulkan
   camera start 仍会在场景构建前 `ERROR_DEVICE_LOST`，所以尚未把离线布局测试冒充
   真实同钟 world+tactile 视频；无相机在线训练正常继续。
 

@@ -86,7 +86,7 @@ def draw_patch(
     )
     cv2.arrowedLine(canvas, center, end, (30, 80, 190), 2, cv2.LINE_AA, tipLength=0.25)
     if contact > 0.5:
-        cv2.putText(canvas, f"mu {friction:.1f}", (x1 - 47, y0 + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.28, (70, 70, 70), 1, cv2.LINE_AA)
+        cv2.putText(canvas, f"U {friction:.1f}", (x1 - 43, y0 + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.28, (70, 70, 70), 1, cv2.LINE_AA)
 
 
 def draw_hand(
@@ -220,7 +220,7 @@ def main() -> None:
             draw_hand(canvas, 805, "RIGHT HAND: 12 palm + 15 finger patches", features[frame_index, 1], slip_state[frame_index, 1], float(scales[2]), float(scales[3]))
             cv2.putText(
                 canvas,
-                "fill = mean pressure | arrow = signed XY shear | border: gray no contact, green stick, yellow incipient, red gross slip | value = patch load",
+                "fill = mean pressure | arrow = signed XY shear | U = friction utilization | border: gray no contact, green stick, yellow incipient, red gross | value = patch load",
                 (25, 974),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.48,

@@ -156,7 +156,9 @@
   保持 3000；到达完整 update 750 后又迁移到五天 `238250`/`server23`，并从
   BCPPO/runner iteration 751 接续。`151015` 也被调度器在打印 update 784 后外部
   终止；最后完整 checkpoint 为 update 750，现已在 `238355`/`server07` 精确恢复到
-  BCPPO/runner iteration 751，固定总 endpoint 3000、剩余 2249 updates。
+  BCPPO/runner iteration 751，固定总 endpoint 3000、剩余 2249 updates。两个
+  resumed seed 现均已生成可完整读取的 update-1000 checkpoint，并进入 task-reward
+  PPO authority ramp；仍需完成到 3000，不能把该阶段切换写成触觉收益。
 - [x] `P` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
   次官方 patch sensor read、`0` 次 slip call，并完成一次 BCPPO update。当前
   warm-start policy 尚未进入抓箱窗口，所以 contact/load 如实为 0；非零在线信号
@@ -170,6 +172,15 @@
 
 ## H. Frozen evaluation 与报告
 
+- [x] 在观察分支结果前固定 80-frame 判据：hold 最大下降 `<=0.05 m`；drop 下降
+  `>=0.15 m` 或回到初始高度 `+0.03 m`；safe lower 要求无 drop/fall、受控下降到
+  初始 `+0.08 m`、向下速度不超过 `0.35 m/s`、reference orientation error
+  不超过 `0.8 rad`。event 未发生或窗口不足的 profile 不进入三项分母。
+- [x] 固定 frozen evaluation 为官方 CarryBox motion 45、frame 0 连续开始，并在
+  第一帧 policy observation 前按官方路径同步 motion-relative command buffer。
+  默认随机 motion-time 和只写物理状态但未刷新 command buffer 的两次无效预检均已
+  移入根目录 `legacy/`。修正后的 update-1000 Z 单 profile 在 frame 63 才终止，
+  但仍在接触箱子前失败；它只验证起点修复，正式评估必须等待 update-3000 endpoint。
 - [ ] 对 no-jump 和每个 mass factor 分别比较 hold success、drop/fall、height loss、
   orientation、recovery latency 和 safe-lower outcome。
 - [ ] 比较 `P-Z`、`PS-P` 和主要的 `PS-Z` paired 95% confidence intervals。

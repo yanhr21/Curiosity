@@ -254,6 +254,8 @@ Frozen evaluation 对每个 Z/P/PS checkpoint 使用 seeds
 `152014/152015/152016`。每个 seed、每个 factor 各跑 20 个连续 profile；factor
 固定而 jump delay 由相同 seed 在 `10--50` 帧内确定，因而每支共
 `3 x 5 x 20 = 300` 个 matched rollouts。任何分支都不得单独补 profile。
+所有 profile 固定使用官方 CarryBox motion 45 并从 frame 0 连续开始；默认 play
+reset 的随机 motion time 不得进入该比较。
 
 代码入口固定为三个 process-local Z/P/PS preflight task 和三个对应 formal task。
 所有入口复用同一个 runner 配置；启动器必须读取 live sweep 生成的 9-channel
@@ -274,6 +276,19 @@ Refiner teacher 和 official Tracker warm start，formal seed 只能来自冻结
 - actor action 首次显著改变的 causal latency；
 - patch pressure/shear 重分配、incipient/gross slip duration；
 - no-jump nominal performance，检查触觉策略是否无条件过度用力。
+
+冻结判据使用 jump 后连续 `80` 个 control frames（`1.6 s`），在看到分支结果前固定：
+
+- `hold_success`：该窗口完整存在，box 相对 jump 高度的最大下降不超过 `0.05 m`，
+  且没有 robot `anchor_ori/anchor_pos/ee_body_pos` failure；
+- `drop`：相对 jump 高度下降至少 `0.15 m`，或 box 高度回到 episode 初始高度
+  `+0.03 m` 以内；
+- `safe_lower`：不是 hold、不是 drop、没有 robot failure，box 受控下降到初始高度
+  `+0.08 m` 以内，最大向下速度不超过 `0.35 m/s`，且相对官方 reference 的最大
+  orientation error 不超过 `0.8 rad`；
+- 如果 mass/placebo event 没发生，或剩余轨迹不足 80 帧，该 profile 保留并报告，
+  但不进入 hold/drop/safe-lower 分母。双手 patch-contact fraction、gross-slip
+  fraction、reference pose error 和 reward 作为连续量同时报告。
 
 主要对比为 `PS - Z`；`P - Z` 判断 patch load 本身是否有用，`PS - P` 判断 slip
 callable 是否提供额外帮助。正向结论要求 frozen physical behavior 的 paired
@@ -385,6 +400,15 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   Traceback/OOM。该 seed 已在 retained job `238355`/`server07` 从该 checkpoint
   精确恢复：BCPPO `update_step=751`、runner 从 iteration 751 开始、总 endpoint
   仍为 3000，剩余 2249 updates；未保存的 751--784 不计入完成进度。
+- 两个 resumed Z seed 都已生成可完整读取的 `model_1000.pt`：iteration 为 1000，
+  含 42 个 patch-encoder tensors、58 项 optimizer state，learning rate 为 `1e-5`。
+  两者现已进入 update 1000--1999 的 task-reward PPO authority ramp；这只证明正式
+  物理任务优化阶段已经开始，不是触觉收益证据。
+- Frozen evaluator 现在按官方路径在 reset 后刷新 motion-relative command buffer，
+  再把第一帧 policy observation 固定到 CarryBox motion 45/frame 0。用 Z 的
+  update-1000 中间 checkpoint 做单 profile 预检时，策略到 frame 63 才因机器人
+  姿态终止，说明旧的 frame-0 command-buffer 错位已修复；但它尚未接触箱子或触发
+  mass event。因此该结果只验证 evaluator 起点，不能提前代表 update-3000 Z 结果。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。离线布局
   与 H.264 全解码已通过，但 `238354`/`server38` 的真实 camera run 在场景构建前

@@ -136,9 +136,19 @@
   remain unstarted. Both seeds have passed update 500, and each readable
   `model_500.pt` contains the anatomical patch encoder, serious SUGAR
   actor/critic and 58 optimizer-state entries while both trainings continue in
-  critic warmup. Treat this only as a recoverable-training/stage-transition
-  milestone, not as a tactile-benefit result. Parallel seeds inside Z do not
-  authorize starting P before every Z seed reaches the frozen endpoint.
+  critic warmup. Both resumed runs have now also produced readable
+  `model_1000.pt` files with 42 patch-encoder tensors and 58 optimizer states,
+  and have entered the task-reward PPO authority ramp. Treat these only as
+  recoverable-training/stage-transition milestones, not as a tactile-benefit
+  result. Parallel seeds inside Z do not authorize starting P before every Z
+  seed reaches the frozen endpoint.
+- The frozen evaluator must restore CarryBox motion 45/frame 0 and refresh the
+  official motion-relative command buffer before the first policy observation.
+  The corrected single-profile check with the intermediate Z update-1000
+  checkpoint reaches frame 63 before robot-pose termination, rather than the
+  invalid frame-0 termination from a stale command buffer. It still fails
+  before box contact or the mass event, so it validates evaluator startup only
+  and is not an endpoint Z outcome.
 - A matched frozen-Refiner feasibility diagnostic now separates the mass
   conditions. With the same seed and frame-299 live jump, `1.5x` retains
   bilateral patch contact for 118 of the 121 post-jump frames and continues
