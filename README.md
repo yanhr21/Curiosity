@@ -83,6 +83,21 @@ one-update preflight；只有各分支 live report 通过后才运行对应 3000
 草案不能用于该科学问题。具体 task 名、seed、观察合同与停止条件以当前 Plan/TODO
 为准。
 
+一个分支的三个 update-3000 checkpoint 都完成后，在 retained validation GPU shell
+中执行完整的 300-profile frozen sweep：
+
+```bash
+scripts/sugar/native_tactile/run_plan15_frozen_sweep.sh Z \
+  experiments/online_patch_tactile_mass_adaptation/training/z_seed151014/model_3000.pt \
+  experiments/online_patch_tactile_mass_adaptation/training/z_seed151015/model_3000.pt \
+  experiments/online_patch_tactile_mass_adaptation/training/z_seed151016/model_3000.pt \
+  experiments/online_patch_tactile_mass_adaptation/frozen_evaluation/z
+```
+
+该入口固定 checkpoint/evaluation-seed 一一配对并运行 5 个质量条件、每项 20
+profiles。结束后用 `SUGAR/scripts/sugar_rl/summarize_online_patch_mass_sweep.py`
+汇总各质量条件；P、PS 只替换 branch 和对应 checkpoint/output 路径。
+
 ## 历史整手可视化最短复现路径
 
 在已保留的 H200 Slurm shell 中，从仓库根目录运行：

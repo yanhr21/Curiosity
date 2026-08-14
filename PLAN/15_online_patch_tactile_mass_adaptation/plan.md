@@ -250,10 +250,12 @@ authority 从 0 线性升到 1，`2000--2999` 为 steady full PPO。原先的 51
 确认某倍率物理不可恢复，该倍率仍保留为 safe-failure evaluation，但不主导
 hold-success reward。
 
-Frozen evaluation 对每个 Z/P/PS checkpoint 使用 seeds
-`152014/152015/152016`。每个 seed、每个 factor 各跑 20 个连续 profile；factor
-固定而 jump delay 由相同 seed 在 `10--50` 帧内确定，因而每支共
-`3 x 5 x 20 = 300` 个 matched rollouts。任何分支都不得单独补 profile。
+Frozen evaluation 将三个训练 checkpoint 与三个未参与训练的 seed 一一固定配对：
+`151014 -> 152014`、`151015 -> 152015`、`151016 -> 152016`。每对 checkpoint/seed
+在每个 factor 上跑 20 个连续 profile；factor 固定而 jump delay 由对应 evaluation
+seed 在 `10--50` 帧内确定，因而每支共 `3 x 5 x 20 = 300` 个 matched rollouts。
+不得让每个 checkpoint 再遍历全部三个 evaluation seeds，否则会无意变成每支 900
+个 rollouts；任何分支也不得单独补 profile。
 所有 profile 固定使用官方 CarryBox motion 45 并从 frame 0 连续开始；默认 play
 reset 的随机 motion time 不得进入该比较。
 

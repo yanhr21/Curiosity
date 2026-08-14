@@ -140,7 +140,8 @@
 - [x] 保持三个分支的官方 SUGAR CarryBox reward 完全一致；mass ID、jump flag、
   patch/slip state 均不直接成为 reward 或 actor 答案。
 - [x] 冻结 3 个 formal training seeds，以及 3 个未参与训练的 evaluation seeds；
-  每个 evaluation seed/factor 固定 20 个 profile，共 300 matched rollouts/arm。
+  固定一一配对 `151014->152014`、`151015->152015`、`151016->152016`，每对每个
+  factor 跑 20 profiles，共 300 matched rollouts/arm，而不是 900。
 
 ## G. 串行训练
 
@@ -181,6 +182,8 @@
   默认随机 motion-time 和只写物理状态但未刷新 command buffer 的两次无效预检均已
   移入根目录 `legacy/`。修正后的 update-1000 Z 单 profile 在 frame 63 才终止，
   但仍在接触箱子前失败；它只验证起点修复，正式评估必须等待 update-3000 endpoint。
+- [x] 提供单一 frozen-sweep 入口，按固定的一一 seed 配对依次执行 5 个 mass
+  conditions，并提供按 factor 汇总 hold/drop/safe-lower 与连续触觉指标的脚本。
 - [ ] 对 no-jump 和每个 mass factor 分别比较 hold success、drop/fall、height loss、
   orientation、recovery latency 和 safe-lower outcome。
 - [ ] 比较 `P-Z`、`PS-P` 和主要的 `PS-Z` paired 95% confidence intervals。

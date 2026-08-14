@@ -53,9 +53,13 @@
   1000--1999 ramp PPO authority. Each formal Z/P/PS run is therefore exactly
   3000 updates, including 1000 steady full-PPO updates. The withdrawn
   512-update Plan-15 draft cannot answer tactile training benefit.
-- Formal training seeds are `151014/151015/151016`. Frozen evaluation uses
-  disjoint seeds `152014/152015/152016`, 20 profiles per mass factor and seed,
-  hence 300 matched rollouts per arm. Never add profiles to only one arm.
+- Formal training seeds are `151014/151015/151016`. Pair their endpoint
+  checkpoints one-to-one with disjoint frozen-evaluation seeds
+  `152014/152015/152016` in the same order. Each checkpoint/seed pair receives
+  20 profiles for each of five mass conditions, hence exactly
+  `3 x 5 x 20 = 300` rollouts per Z/P/PS arm. Do not evaluate every checkpoint
+  on all three evaluation seeds, which would silently change the design to 900
+  rollouts per arm. Never add profiles to only one arm.
 - Schedule the mass event from sustained object lift and a matched random
   delay, not from tactile. Separately require live P/PS traces to show
   bilateral patch contact throughout the ten frames before the event. This
