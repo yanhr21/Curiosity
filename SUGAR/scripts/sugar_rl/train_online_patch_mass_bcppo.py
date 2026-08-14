@@ -11,17 +11,6 @@ import runpy
 import sys
 from pathlib import Path
 
-import rsl_rl.runners.on_policy_runner as on_policy_runner_module
-
-from online_patch_mass_bcppo_task_registration import (
-    TASKS,
-    register_online_patch_mass_bcppo_tasks,
-)
-from sugar_rl.utils.online_patch_tactile_actor_critic import (
-    OnlinePatchTactileActorCritic,
-)
-
-
 ROOT = Path(__file__).resolve().parents[3]
 OFFICIAL_TRACKER = ROOT / "SUGAR/demo_ckpts/CarryBox/tracker.pt"
 OFFICIAL_REFINER = (
@@ -37,6 +26,17 @@ FORMAL_SEEDS = (151014, 151015, 151016)
 # the URDF importer is unnecessary because this exact G1 USD already exists.
 os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "Y")
 os.environ.setdefault("DISPLAY", "")
+os.environ.setdefault("CURIOSITY_ANATOMICAL_PHYSX_COMPLIANT_STIFFNESS", "100")
+os.environ.setdefault("CURIOSITY_ANATOMICAL_PHYSX_COMPLIANT_DAMPING", "20")
+os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_NORMAL_STIFFNESS", "20")
+os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_TANGENTIAL_STIFFNESS", "2")
+os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_FRICTION_COEFFICIENT", "0.5")
+os.environ.setdefault(
+    "CURIOSITY_TACSL_CALIBRATION_DIR",
+    str(ROOT / "experiments/sugar_reproduction/assets/official_tacsl/calibration"),
+)
+os.environ.setdefault("SUGAR_DISABLE_TRAIN_DEBUG_VIS", "1")
+os.environ.setdefault("CURIOSITY_ENABLE_ANATOMICAL27_WHOLE_HAND_TACSL_AUDIT", "1")
 os.environ.setdefault(
     "ISAACLAB_GROUND_PLANE_USD",
     str(ROOT / "SUGAR/descriptions/terrain/sugar_ground_plane.usda"),
@@ -49,6 +49,18 @@ _CACHED_G1_USD = (
 )
 if _CACHED_G1_USD.is_file():
     os.environ.setdefault("CURIOSITY_G1_PRECONVERTED_USD", str(_CACHED_G1_USD))
+
+# Task modules read the debug-visualization and tactile-physics environment
+# contract at import time, so these imports must remain below the block above.
+import rsl_rl.runners.on_policy_runner as on_policy_runner_module  # noqa: E402
+
+from online_patch_mass_bcppo_task_registration import (  # noqa: E402
+    TASKS,
+    register_online_patch_mass_bcppo_tasks,
+)
+from sugar_rl.utils.online_patch_tactile_actor_critic import (  # noqa: E402
+    OnlinePatchTactileActorCritic,
+)
 
 
 def _option_value(argv: list[str], option: str) -> str | None:

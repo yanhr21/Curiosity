@@ -494,6 +494,11 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   排除 BCPPO floor。正式 training launcher 现与已通过的 frozen evaluator 一致，
   显式使用仓库本地 `sugar_ground_plane.usda` 和已转换的官方 G1 USD。该修改只消除
   外部 asset 加载失败，不改变 physics、observation、reward 或训练预算。
+- 本地 ground plane 生效后的下一次启动继续暴露了 task import 时序：训练入口在
+  设置 `SUGAR_DISABLE_TRAIN_DEBUG_VIS=1` 前已经导入 task，因而仍尝试下载远端
+  `frame_prim.usd`。环境合同现已移到 task registration 之前，并与 frozen evaluator
+  统一固定 TacSL/PhysX 参数、本地 calibration、关闭 debug marker 和 anatomy audit；
+  这既移除远端 marker 依赖，也保证训练和冻结评测使用同一传感器物理合同。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。Frozen
   evaluator 已加入 one-profile 同钟 world-camera 录制和 handoff overlay，renderer
