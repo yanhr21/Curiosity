@@ -167,10 +167,11 @@ def main() -> None:
             raise ValueError(
                 f"profile index {args.profile_index} is outside 0..{profile_count - 1}"
             )
-        if profile_count != 1 or args.profile_index != 0:
+        recorded_profile = summary.get("world_video_profile_index", 0)
+        if args.profile_index != recorded_profile:
             raise RuntimeError(
-                "the synchronized frozen world video is recorded only by the "
-                "one-profile/one-environment endpoint-video path"
+                f"world video records profile {recorded_profile}, not "
+                f"requested profile {args.profile_index}"
             )
         trace = {
             key: value[:, args.profile_index]

@@ -171,6 +171,23 @@
   post-handoff transitions 计入 PPO，并屏蔽 1298/1297 个 teacher transitions。
 - [ ] 新 `Z`：三个冻结 seed 各完成匹配 3000 updates 与 endpoint frozen evaluation；
   只有存在 eligible post-jump profiles 才允许进入 P。
+- [x] anchored Z seed `151014` 严格完成到固定 `model_2999.pt` 后停止；checkpoint 为
+  59 个有限模型张量与 58 项 optimizer state，未运行 3000 之后的 update。
+- [x] 完成该 endpoint 的首轮四-profile `1.5x` 冻结 gate：`1/4` 完整 80-frame
+  eligible hold，另有 76-frame horizon 截断、39-frame post-jump termination 和
+  1 条 pre-handoff Refiner fall；交接动作差已从 zero-floor 的约 `5.5` 降到约
+  `1.0--1.1`。
+- [x] 录制并完整解码 eligible profile 3 的 420-frame 同钟 H.264：世界画面、
+  Refiner/policy 交接、frame-308 `0.302->0.454 kg` 质量变化和左右各 27 patch 均在
+  同一视频中。
+- [x] 录制匹配 profile 0 并区分物理掉落与 reference termination：它在 frame 337
+  增重后继续持箱到 frame 396，终止前 lift 约 `+0.823 m`，没有 drop/robot fall；
+  59-frame 后终止与 `0.208 m/0.806 rad` 最大 reference 误差相伴。
+- [ ] 在启动任何下一正式 seed 前完成人眼正/负视频审查和失败原因判定；当前已禁用
+  seed `151015` 自动启动。
+- [ ] 若 endpoint 行为仍无效或含糊，先做一个固定 `1.5x` profile 的 serious overfit
+  诊断；必须保留完整 SUGAR actor、live Refiner handoff 和在线物理，不得用 toy
+  model，且不得把 overfit 计入正式 Z/P/PS 结果。
 - [x] 定位 zero-floor endpoint 的 handoff 退化：seed `151014` update-2999 gate 为
   `0/4` eligible，三条 handoff 后约 7 帧且 mass event 前失败；同 profile 的
   update-1000/update-2000 均产生三次真实 `1.5x` jump，update-2000 post-jump 生存
@@ -227,7 +244,7 @@
 - [x] 完成旧 frame-zero endpoint 判定：两个 seed 的 `1.5x` 共 `8/8` profiles 与
   seed `151014` 的 `1.0x` 四条均在 contact/jump 前 fall；旧 frozen sweep 到此停止，
   不再为无效入口补齐 300 profiles。
-- [ ] 更新 frozen evaluator 使用同一个 live official-Refiner handoff，并从 handoff
+- [x] 更新 frozen evaluator 使用同一个 live official-Refiner handoff，并从 handoff
   后而不是 frame 0 统计 policy-controlled behavior；world/tactile 视频仍显示完整
   frame-zero teacher pickup、交接、增重和后续行为。
 - [x] 在 endpoint 结果出现前固定 paired hierarchical bootstrap：先重采样三个

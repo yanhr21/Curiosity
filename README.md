@@ -10,7 +10,22 @@
 
 - 当前计划：[PLAN/15_online_patch_tactile_mass_adaptation/plan.md](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
-- 当前状态：真实 Plan-15 runtime 已恢复。`3 seeds x 5 mass factors` 的 15 条
+- 当前状态：
+  最新进展（2026-08-15）：anchored Z seed `151014` 已严格停在 3000 次 iteration
+  的 `model_2999.pt`，没有继续加训；checkpoint 的 59 个模型张量和 58 项 optimizer
+  state 均有限。四条 `1.5x` frozen profiles 中，1 条通过完整 post-jump 80-frame
+  hold，1 条在 420 帧 horizon 时已维持 76 帧且尚未 termination，1 条在 jump 后
+  39 帧 termination，1 条在 handoff 前 Refiner fall。BC anchor 将 handoff 前十帧
+  student/teacher action L2 从撤回终点的约 `5.5` 降到约 `1.0--1.1`。同一 checkpoint
+  的 eligible profile 3 已生成 420-frame 同钟 H.264：frame 308 质量从约 `0.302`
+  变为 `0.454 kg`，世界画面与左右 27-patch load/pressure/signed-shear/slip 同屏。
+  匹配 profile 0 也没有物理掉箱：jump 后持箱 59 帧，在 lift 约 `+0.823 m` 时因
+  reference-tracking 偏差终止，而不是 drop/robot fall。这说明 handoff forgetting
+  已修复，但跨 profile 轨迹稳定性仍不足，也仍不能证明触觉收益。下一正式 seed 不会自动
+  启动；先完成人眼正/负行为审查，如不对则先做单一 `1.5x` 条件的 serious overfit
+  诊断。P/PS formal 仍未开始。
+
+  历史与支撑状态：真实 Plan-15 runtime 已恢复。`3 seeds x 5 mass factors` 的 15 条
   full-G1/54-patch 在线轨迹已完成；所有 paired action/event 完全一致，质量读回、
   jump 前双手接触和逐帧 TacSL 时钟均通过。质量变化当帧 contact binary 完全不变，
   patch load/pressure 与 `504-D` proprio 都发生变化，因此正式问题是“触觉在本体
@@ -147,31 +162,34 @@ scripts/sugar/native_tactile/launch_retained_child.sh \
 profiles。结束后用 `SUGAR/scripts/sugar_rl/summarize_online_patch_mass_sweep.py`
 汇总各质量条件；P、PS 只替换 branch 和对应 checkpoint/output 路径。
 
-从统计结果中选定一个 profile 后，用同一个 frozen evaluator 重新运行单环境
-endpoint-video rollout，并将世界画面与双手 27-patch map 合成同钟 H.264：
+从统计结果中选定一个 profile 后，用同一个 frozen evaluator 重跑它所在的单个
+4-profile batch，并通过 `--record-profile-index` 只录目标 profile；这样视频与数值
+gate 使用相同的 batch 随机条件。当前 anchored-Z 正例 profile 3 的最短复现为：
 
 ```bash
 scripts/sugar/native_tactile/launch_retained_child.sh \
-  --record experiments/online_patch_tactile_mass_adaptation/runtime/z_endpoint_video.process \
-  --status experiments/online_patch_tactile_mass_adaptation/runtime/z_endpoint_video.status \
-  --log experiments/online_patch_tactile_mass_adaptation/runtime/z_endpoint_video.log \
-  --tag plan15-z-endpoint-video --foreground -- \
+  --record experiments/online_patch_tactile_mass_adaptation/runtime/z_anchor025_profile3_reproduce.process \
+  --status experiments/online_patch_tactile_mass_adaptation/runtime/z_anchor025_profile3_reproduce.status \
+  --log experiments/online_patch_tactile_mass_adaptation/runtime/z_anchor025_profile3_reproduce.log \
+  --tag plan15-z-anchor025-profile3 --foreground -- \
   /public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
     SUGAR/scripts/sugar_rl/evaluate_online_patch_mass_bcppo.py \
     --branch Z \
-    --checkpoint experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151014/model_2999.pt \
+    --checkpoint experiments/online_patch_tactile_mass_adaptation/training_handoff_anchor025/z_seed151014/model_2999.pt \
     --patch-scale-file experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json \
-    --output-root experiments/online_patch_tactile_mass_adaptation/videos_handoff/z_seed151014_3x \
-    --training-seed 151014 --seed 152014 --mass-factor 3.0 \
-    --motion-id 45 --profiles 1 --num-envs 1 --max-steps 420 \
-    --post-jump-window 80 --record-world --headless --device cuda:0
+    --output-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_endpoint_video/profile3_reproduce \
+    --training-seed 151014 --seed 152014 --mass-factor 1.5 \
+    --motion-id 45 --profiles 4 --num-envs 4 --max-steps 420 \
+    --post-jump-window 80 --record-world --record-profile-index 3 \
+    --headless --device cuda:0
 
 /public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
   scripts/sugar/native_tactile/render_online_patch_mass_jump.py \
-  --run-root experiments/online_patch_tactile_mass_adaptation/videos_handoff/z_seed151014_3x \
+  --run-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_endpoint_video/profile3_reproduce \
   --scale-file experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json \
-  --output experiments/online_patch_tactile_mass_adaptation/videos_handoff/z_seed151014_3x/world_bilateral_27patch.mp4 \
-  --title "Plan 15 Z: official Refiner pickup, frozen policy, 3x mass"
+  --output experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_endpoint_video/profile3_reproduce/world_bilateral_27patch.mp4 \
+  --profile-index 3 \
+  --title "Plan 15 anchored Z: Refiner handoff and 1.5x mass"
 ```
 
 视频中的 mass/jump 文本仅为 evaluator overlay，明确不进入 actor；统计 sweep 不

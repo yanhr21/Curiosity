@@ -51,6 +51,12 @@ parser.add_argument(
         "endpoint-video path; matched statistical sweeps remain camera-free."
     ),
 )
+parser.add_argument(
+    "--record-profile-index",
+    type=int,
+    default=0,
+    help="Environment/profile index to record when record-world is enabled.",
+)
 parser.add_argument("--fps", type=int, default=50)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
@@ -59,8 +65,10 @@ if args.profiles < 1 or args.num_envs < 1 or args.profiles % args.num_envs:
     parser.error("profiles must be positive and divisible by num-envs")
 if args.max_steps < args.post_jump_window:
     parser.error("max-steps must cover the post-jump window")
-if args.record_world and (args.profiles != 1 or args.num_envs != 1):
-    parser.error("record-world requires exactly one profile and one environment")
+if args.record_world and args.profiles != args.num_envs:
+    parser.error("record-world requires a single evaluation batch (profiles == num-envs)")
+if args.record_world and not 0 <= args.record_profile_index < args.num_envs:
+    parser.error("record-profile-index must select an environment in the recorded batch")
 if args.fps < 1:
     parser.error("fps must be positive")
 if args.record_world:
@@ -510,9 +518,11 @@ def main() -> None:
                 batch_rows["reference_frame"].append(cpu(command.time_steps))
                 batch_rows["valid_frame"].append(cpu(active_before_step))
                 if world_camera is not None:
-                    rgb = cpu(world_camera.data.output["rgb"][0, ..., :3]).astype(
-                        np.uint8
-                    )
+                    rgb = cpu(
+                        world_camera.data.output["rgb"][
+                            int(args.record_profile_index), ..., :3
+                        ]
+                    ).astype(np.uint8)
                     if world_writer is None:
                         height, width = rgb.shape[:2]
                         world_writer = FfmpegRgbWriter(
@@ -562,6 +572,9 @@ def main() -> None:
         "evaluation_patch_and_slip_labels_feed_actor": False,
         "world_video": "world_carrybox.mp4" if args.record_world else None,
         "world_video_fps": int(args.fps) if args.record_world else None,
+        "world_video_profile_index": (
+            int(args.record_profile_index) if args.record_world else None
+        ),
         "policy_spatial_unit": "27 physical patches per hand; no taxel policy units",
         "eligible_profiles": len(eligible),
         "hold_success_count": sum(bool(item["hold_success"]) for item in eligible),

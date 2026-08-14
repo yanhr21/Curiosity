@@ -507,11 +507,30 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   优先恢复151014；该 job 又在 iteration 2304后被外部取消。未保存更新全部舍弃，
   当前精确恢复点为 anchored151014/update2250 与151016/update1000，anchored151015
   尚未启动。五天 `238934/239098` 和四小时 `239435/239436` 均保留排队。
+- anchored Z seed `151014` 已严格停在固定 `model_2999.pt`，共 3000 次 iteration，
+  checkpoint 的 59 个模型张量和 58 项 optimizer state 均有限；末次 distillation
+  loss 为 `2.0839`，distillation weight 为 `0.25`。首次 camera-free `1.5x` 四条冻结
+  gate 得到 `1/4` 个完整 80-frame eligible hold；另有一条在固定 420-frame horizon
+  结束时已完成 76 个 post-jump frames 且尚未 termination，一条 jump 后 39 帧
+  termination，一条在 handoff 前由 Refiner fall。交接前十帧 student/teacher action
+  L2 为 `1.04--1.12`，显著低于撤回的 zero-floor endpoint `5.51--5.86`。这说明 BC
+  anchor 修复了后期 handoff forgetting，但还不是触觉收益结论。
+- 已用同一 checkpoint、同一 seed 和同一四-profile 批次录制 eligible profile 3。
+  420 帧 H.264 可完整解码；frame 308 PhysX 质量从约 `0.302` 变为 `0.454 kg`，frame
+  400 仍由 frozen policy 持续抬箱，并同步显示左右各 27 patch 的 load、pressure、
+  signed shear 和 slip。下一步冻结所有长训练，先审查该正例及匹配负例；不得自动
+  启动 seed `151015`。如行为仍不满足人眼或数值要求，先用相同 serious SUGAR
+  actor、live handoff 和在线物理做单一固定条件 overfit 诊断，再决定是否花费下一
+  个 3000-update 正式预算。overfit 结果不得计入正式 Z/P/PS 比较。
+- 匹配 profile 0 负例也已录制并完整解码。它在 frame 337 增重，frame 396 终止前
+  仍双手持箱、lift 约 `+0.823 m`，没有 drop 或 robot fall；未通过 80-frame gate
+  是因为 59 帧后发生 reference-tracking termination，伴随最大位置/姿态误差约
+  `0.208 m/0.806 rad`。因此当前缺陷是轨迹跟随和跨 profile 稳定性不足，不能写成
+  “1.5x 增重后普遍拿不住”。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。Frozen
-  evaluator 已加入 one-profile 同钟 world-camera 录制和 handoff overlay，renderer
-  的 profile 轴与 420 帧 H.264 全解码已通过接口测试；正式科学视频仍须等待
-  replacement endpoint 的真实 camera rollout 后确认。
+  evaluator 已加入指定 batch-profile 的同钟 world-camera 录制和 handoff overlay；
+  anchored endpoint profile 3 的 420 帧 H.264 已完整解码并完成关键帧人眼检查。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

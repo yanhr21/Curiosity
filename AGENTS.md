@@ -64,6 +64,16 @@
   floor and the original fixed update-2999 endpoint; apply the identical floor
   to P and PS. Each formal run remains exactly 3000 updates. The withdrawn
   512-update Plan-15 draft cannot answer tactile training benefit.
+- Never extend a Plan-15 run past the fixed `model_2999.pt` endpoint and never
+  automatically chain the next formal seed after an endpoint. Freeze training
+  there and first inspect checkpoint finiteness, live handoff, mass readback,
+  the fixed 80-frame physical window, action continuity and synchronized
+  world/54-patch video. If the behavior is invalid or ambiguous, run one
+  fixed-condition overfit diagnostic with the same serious SUGAR policy,
+  live Refiner handoff and online physics before spending another formal
+  3000-update budget. Such an overfit is a diagnostic, not a formal Z/P/PS
+  result. Do not continue long training while the endpoint behavior is
+  unknown.
 - Formal training seeds are `151014/151015/151016`. Pair their endpoint
   checkpoints one-to-one with disjoint frozen-evaluation seeds
   `152014/152015/152016` in the same order. Each checkpoint/seed pair receives
@@ -154,6 +164,26 @@
   continues in steady full-PPO. Five-day jobs `238934/239098` remain retained
   fallbacks. These are Z training milestones, not mass-adaptation results; P
   and PS remain unstarted.
+- Anchored Z seed `151014` has now completed exactly 3000 iterations at finite
+  `model_2999.pt` (59 model tensors, 58 optimizer states); no later update was
+  run. Its final distillation loss is `2.0839` with the fixed `0.25` anchor.
+  The first camera-free four-profile `1.5x` frozen gate has one eligible
+  80-frame hold, one non-terminated trajectory that reached 76 post-jump frames
+  before the fixed 420-frame horizon, one termination 39 frames after the
+  jump, and one official-Refiner fall before handoff. The pre-handoff ten-frame
+  student/teacher action L2 is `1.04--1.12`, versus `5.51--5.86` for the
+  withdrawn zero-floor endpoint. A repeated camera rollout of eligible profile
+  3 fully decoded 420 H.264 frames, changed mass from `0.302` to `0.454 kg` at
+  frame 308 and retained the box through the 80-frame window while displaying
+  both 27-patch hands. The separately recorded profile 0 also retained the box
+  until frame 396, 59 frames after its jump, at about `+0.823 m` lift; it was
+  ineligible because of reference-tracking termination (`0.208 m` maximum
+  position error, `0.806 rad` maximum orientation error), not a physical drop
+  or robot fall. This proves that anchoring repaired catastrophic handoff
+  forgetting, but a single favorable profile is not tactile benefit. Formal
+  seed `151015` auto-start is disabled; review this endpoint and, if required,
+  run the fixed-condition overfit diagnostic before any further formal seed.
+  P and PS remain unstarted.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may
