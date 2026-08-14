@@ -32,8 +32,8 @@
   update 784 后被调度器终止，最后完整 checkpoint 为 750；现已在
   `238355`/`server07` 精确恢复到 BCPPO/runner iteration 751，总 endpoint 仍是
   3000。两个 resumed Z seed 均已生成可完整读取的 update-1000 checkpoint，并进入
-  task-reward PPO authority ramp；其中 seed `151015` 已到 update 2000 并进入 steady
-  full-PPO，但固定四条 motion-45 阶段评估仍在箱体接触前终止，所以尚未形成可评价的
+  task-reward PPO authority ramp；两者均已到 update 2000 并进入 steady full-PPO，
+  但 seed `151015` 的固定四条 motion-45 阶段评估仍在箱体接触前终止，所以尚未形成可评价的
   质量适应基线，也尚未完成 Z endpoint。Frozen evaluator 已修正为
   motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
   中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手

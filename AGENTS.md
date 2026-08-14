@@ -146,9 +146,10 @@
   recoverable-training/stage-transition milestones, not as a tactile-benefit
   result. Parallel seeds inside Z do not authorize starting P before every Z
   seed reaches the frozen endpoint.
-- Z seed `151015` has now produced a readable update-2000 checkpoint and entered
-  the final 1000-update steady full-PPO stage. Its fixed four-profile
-  motion-45/1.5x stage evaluation terminates at frames `96/48/201/194`; all four
+- Both running Z seeds `151014/151015` have produced readable update-2000
+  checkpoints and entered the final 1000-update steady full-PPO stage. The
+  fixed motion-45/1.5x four-profile check on seed `151015`'s checkpoint
+  terminates at frames `96/48/201/194`; all four
   profiles still have zero box contact and no mass event. This is evidence that
   the PPO ramp changed survival duration but not yet a valid mass-adaptation
   baseline. Continue to update 3000; do not start P from this intermediate

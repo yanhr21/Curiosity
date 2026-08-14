@@ -159,8 +159,9 @@
   终止；最后完整 checkpoint 为 update 750，现已在 `238355`/`server07` 精确恢复到
   BCPPO/runner iteration 751，固定总 endpoint 3000、剩余 2249 updates。两个
   resumed seed 现均已生成可完整读取的 update-1000 checkpoint，并进入 task-reward
-  PPO authority ramp。`151015` 已进一步生成可完整读取的 update-2000 checkpoint，
-  进入最后 1000 次 steady full-PPO；仍需完成到 3000，不能把阶段切换写成触觉收益。
+  PPO authority ramp。`151014/151015` 均已进一步生成可完整读取的 update-2000
+  checkpoints，进入最后 1000 次 steady full-PPO；仍需完成到 3000，不能把阶段
+  切换写成触觉收益。
 - [x] `P` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
   次官方 patch sensor read、`0` 次 slip call，并完成一次 BCPPO update。当前
   warm-start policy 尚未进入抓箱窗口，所以 contact/load 如实为 0；非零在线信号
