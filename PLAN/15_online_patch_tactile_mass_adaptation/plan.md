@@ -428,6 +428,11 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   termination 为 frame `63/46/90/70`，对应有效帧独立锁存，termination 后 action
   全部 exact zero，输出仍保持 `[420,4,...]` 便于批次拼接。四条都没有到达箱子
   contact；这仍是 update-1250 阶段诊断，不是 Z endpoint 结果。
+- seed `151015` 的 update-2000 checkpoint 已完整可读，并进入最后 1000 次 steady
+  full-PPO。固定的相同四个 motion-45/1.5x profiles 在该 checkpoint 的 termination
+  frame 为 `96/48/201/194`；相对 update-1250 的 `63/46/90/70`，两条轨迹明显延长，
+  但四条仍为零箱体接触、零 mass event。因此必须完成 update 3000，且不得把生存
+  时间延长写成触觉或质量适应结果。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。离线布局
   与 H.264 全解码已通过，但 `238354`/`server38` 的真实 camera run 在场景构建前

@@ -159,7 +159,8 @@
   终止；最后完整 checkpoint 为 update 750，现已在 `238355`/`server07` 精确恢复到
   BCPPO/runner iteration 751，固定总 endpoint 3000、剩余 2249 updates。两个
   resumed seed 现均已生成可完整读取的 update-1000 checkpoint，并进入 task-reward
-  PPO authority ramp；仍需完成到 3000，不能把该阶段切换写成触觉收益。
+  PPO authority ramp。`151015` 已进一步生成可完整读取的 update-2000 checkpoint，
+  进入最后 1000 次 steady full-PPO；仍需完成到 3000，不能把阶段切换写成触觉收益。
 - [x] `P` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
   次官方 patch sensor read、`0` 次 slip call，并完成一次 BCPPO update。当前
   warm-start policy 尚未进入抓箱窗口，所以 contact/load 如实为 0；非零在线信号
@@ -190,6 +191,9 @@
 - [x] 用正式 `num_envs=4` 形状完成在线结构预检：四个 profile 的 termination
   frame 为 `63/46/90/70`，逐 profile mask 和 `[420,4,...]` 拼接正确，终止后 action
   全零。活动目录只保留该 4-env 证据。
+- [x] 固定检查 seed `151015` 的 update-2000：四个相同 profiles 的 termination 为
+  `96/48/201/194`，但仍为零箱体 contact、零 mass event。继续完成 update 3000，
+  不把中间生存时长改善当作正式结果。
 - [x] 在 endpoint 结果出现前固定 paired hierarchical bootstrap：先重采样三个
   seed pairs，再重采样每 seed 的 matched profiles，`10,000` 次、analysis seed
   `153015`；比较入口要求 Z/P/PS 各自正好 300 profiles。
