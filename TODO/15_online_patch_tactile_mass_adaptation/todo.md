@@ -173,10 +173,17 @@
   只有存在 eligible post-jump profiles 才允许进入 P。
 - [x] anchored Z seed `151014` 严格完成到固定 `model_2999.pt` 后停止；checkpoint 为
   59 个有限模型张量与 58 项 optimizer state，未运行 3000 之后的 update。
-- [x] 完成该 endpoint 的首轮四-profile `1.5x` 冻结 gate：`1/4` 完整 80-frame
-  eligible hold，另有 76-frame horizon 截断、39-frame post-jump termination 和
-  1 条 pre-handoff Refiner fall；交接动作差已从 zero-floor 的约 `5.5` 降到约
-  `1.0--1.1`。
+- [x] 完成该 endpoint 的首轮 420-frame 四-profile `1.5x` 诊断：表面为 `1/4`
+  eligible，另有 76-frame horizon 截断、39-frame post-jump termination 和 1 条
+  pre-handoff Refiner fall；交接动作差已从 zero-floor 的约 `5.5` 降到约
+  `1.0--1.1`。该 `1/4` 后续因 horizon 不足而撤回。
+- [x] 修正 frozen horizon：handoff 约 frame 297、最大 delay 50、结果窗口 80，
+  因此 420 帧不足，正式 sweep 统一改为 450 帧。精确 termination audit 得到 `2/4`
+  eligible：profile 0=`obj_pos@376`，profile 1=`ee_body_pos@220`，profile 2/3 完成
+  80 帧后分别为 `obj_ori@423/410`。撤回旧 `1/4` 作为正式 endpoint 计数。
+- [x] 完成 no-learning physical-continuation 诊断：仅关闭 `obj_pos/obj_ori` 后仍为
+  `2/4` eligible；profile 0 改在 `anchor_pos@383` 终止但仍双手持箱，证明主要缺陷
+  是参考/整机漂移而非物理掉箱。该诊断不计入正式分支比较。
 - [x] 录制并完整解码 eligible profile 3 的 420-frame 同钟 H.264：世界画面、
   Refiner/policy 交接、frame-308 `0.302->0.454 kg` 质量变化和左右各 27 patch 均在
   同一视频中。

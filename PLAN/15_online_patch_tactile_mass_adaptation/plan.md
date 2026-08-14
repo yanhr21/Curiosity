@@ -509,10 +509,12 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   尚未启动。五天 `238934/239098` 和四小时 `239435/239436` 均保留排队。
 - anchored Z seed `151014` 已严格停在固定 `model_2999.pt`，共 3000 次 iteration，
   checkpoint 的 59 个模型张量和 58 项 optimizer state 均有限；末次 distillation
-  loss 为 `2.0839`，distillation weight 为 `0.25`。首次 camera-free `1.5x` 四条冻结
-  gate 得到 `1/4` 个完整 80-frame eligible hold；另有一条在固定 420-frame horizon
-  结束时已完成 76 个 post-jump frames 且尚未 termination，一条 jump 后 39 帧
-  termination，一条在 handoff 前由 Refiner fall。交接前十帧 student/teacher action
+  loss 为 `2.0839`，distillation weight 为 `0.25`。评测 horizon 已从错误的 420
+  修正到 450：handoff 约 frame 297、最大 delay 50、结果窗口 80，最晚必须覆盖到
+  frame 427。修正后 camera-free `1.5x` 四条冻结 gate 得到 `2/4` 个完整 80-frame
+  eligible hold：profile 0 在 jump 后 39 帧触发 `obj_pos`，profile 1 在 handoff 前
+  触发 `ee_body_pos`，profile 2/3 完成窗口后分别在 frame 423/410 触发 `obj_ori`。
+  旧 `1/4` 是 horizon 截断，不是 profile 2 的策略失败。交接前十帧 student/teacher action
   L2 为 `1.04--1.12`，显著低于撤回的 zero-floor endpoint `5.51--5.86`。这说明 BC
   anchor 修复了后期 handoff forgetting，但还不是触觉收益结论。
 - 已用同一 checkpoint、同一 seed 和同一四-profile 批次录制 eligible profile 3。
@@ -527,6 +529,10 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   是因为 59 帧后发生 reference-tracking termination，伴随最大位置/姿态误差约
   `0.208 m/0.806 rad`。因此当前缺陷是轨迹跟随和跨 profile 稳定性不足，不能写成
   “1.5x 增重后普遍拿不住”。
+- 单独的 no-learning physical-continuation 诊断只关闭 `obj_pos/obj_ori` reference
+  termination，仍保留 robot `anchor/ee` fall 条件。profile 2/3 均通过 80 帧；
+  profile 0 在 frame 383 触发 `anchor_pos` 时仍双手接触且箱子无下降。这进一步说明
+  当前弱点是整机/参考轨迹漂移，而不是增重瞬间抓力失效；该诊断明确不是正式结果。
 - 人眼主视频对保存的原始 world frame 做固定裁剪，只移除同批相邻 env；目标 profile
   的物理、trace、时钟和数值均未重算。正例与负例主视频现在都只显示一台完整 G1。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch

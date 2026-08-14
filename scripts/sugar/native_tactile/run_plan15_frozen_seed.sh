@@ -46,7 +46,7 @@ for mass_factor in "${mass_factors[@]}"; do
         --motion-id 45 \
         --profiles 20 \
         --num-envs 4 \
-        --max-steps 420 \
+        --max-steps 450 \
         --post-jump-window 80 \
         --headless \
         --device "$device"

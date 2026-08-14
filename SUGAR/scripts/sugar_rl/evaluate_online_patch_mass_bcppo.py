@@ -41,8 +41,16 @@ parser.add_argument("--mass-factor", type=float, choices=MASS_FACTORS, required=
 parser.add_argument("--motion-id", type=int, default=45)
 parser.add_argument("--profiles", type=int, default=20)
 parser.add_argument("--num-envs", type=int, default=4)
-parser.add_argument("--max-steps", type=int, default=420)
+parser.add_argument("--max-steps", type=int, default=450)
 parser.add_argument("--post-jump-window", type=int, default=80)
+parser.add_argument(
+    "--ignore-object-reference-termination",
+    action="store_true",
+    help=(
+        "Diagnostic only: keep physical rollout alive when only object "
+        "position/orientation reference tracking exceeds its threshold."
+    ),
+)
 parser.add_argument(
     "--record-world",
     action="store_true",
@@ -214,7 +222,11 @@ class FfmpegRgbWriter:
             raise RuntimeError(f"ffmpeg exited with code {return_code}")
 
 
-def profile_summary(trace: dict[str, np.ndarray], profile: int) -> dict[str, object]:
+def profile_summary(
+    trace: dict[str, np.ndarray],
+    profile: int,
+    termination_names: tuple[str, ...],
+) -> dict[str, object]:
     valid = trace["valid_frame"][:, profile]
     handoff_indices = np.flatnonzero(
         trace["handoff_active"][:, profile] & valid
@@ -228,6 +240,15 @@ def profile_summary(trace: dict[str, np.ndarray], profile: int) -> dict[str, obj
     termination_frame = (
         int(termination_indices[0]) if len(termination_indices) else None
     )
+    termination_terms = (
+        [
+            name
+            for index, name in enumerate(termination_names)
+            if bool(trace["termination_terms"][termination_frame, profile, index])
+        ]
+        if termination_frame is not None
+        else []
+    )
     initial_z = float(trace["object_pos_w"][0, profile, 2])
     if jump_frame is None:
         return {
@@ -235,6 +256,7 @@ def profile_summary(trace: dict[str, np.ndarray], profile: int) -> dict[str, obj
             "handoff_frame": handoff_frame,
             "jump_frame": None,
             "first_termination_frame": termination_frame,
+            "first_termination_terms": termination_terms,
             "eligible_post_jump_window": False,
             "hold_success": False,
             "drop": False,
@@ -278,6 +300,7 @@ def profile_summary(trace: dict[str, np.ndarray], profile: int) -> dict[str, obj
         "handoff_frame": handoff_frame,
         "jump_frame": jump_frame,
         "first_termination_frame": termination_frame,
+        "first_termination_terms": termination_terms,
         "eligible_post_jump_window": eligible,
         "hold_success": hold_success,
         "drop": drop,
@@ -323,6 +346,9 @@ def main() -> None:
     env_cfg.scene.num_envs = int(args.num_envs)
     env_cfg.sim.device = args.device
     env_cfg.commands.motion.motion_folder = "data/CarryBox"
+    if args.ignore_object_reference_termination:
+        env_cfg.terminations.obj_pos = None
+        env_cfg.terminations.obj_ori = None
     if args.record_world:
         env_cfg.scene.world_camera = _review_camera(
             name="WorldCamera",
@@ -411,6 +437,7 @@ def main() -> None:
         "mass_readback_kg": [],
         "robot_fall": [],
         "termination_any": [],
+        "termination_terms": [],
         "reference_frame": [],
         "valid_frame": [],
     }
@@ -492,6 +519,13 @@ def main() -> None:
                 dot = torch.sum(command.obj_quat_w * command.obj_ref_quat_w, dim=-1).abs()
                 ref_ori_error = 2.0 * torch.acos(torch.clamp(dot, 0.0, 1.0))
                 robot_fall = torch.zeros_like(done, dtype=torch.bool)
+                termination_terms = torch.stack(
+                    [
+                        base_env.termination_manager.get_term(name)
+                        for name in termination_names
+                    ],
+                    dim=-1,
+                )
                 for name in robot_fall_names:
                     robot_fall |= base_env.termination_manager.get_term(name)
                 batch_rows["action"].append(cpu(executed_action))
@@ -515,6 +549,7 @@ def main() -> None:
                 batch_rows["mass_readback_kg"].append(cpu(diagnostics["mass_readback_kg"]))
                 batch_rows["robot_fall"].append(cpu(robot_fall))
                 batch_rows["termination_any"].append(cpu(done.bool()))
+                batch_rows["termination_terms"].append(cpu(termination_terms))
                 batch_rows["reference_frame"].append(cpu(command.time_steps))
                 batch_rows["valid_frame"].append(cpu(active_before_step))
                 if world_camera is not None:
@@ -552,7 +587,10 @@ def main() -> None:
     if any(value.shape[1] != total_profiles for value in arrays.values()):
         raise RuntimeError("profile count mismatch in frozen evaluation trace")
     np.savez_compressed(output_root / "frozen_evaluation_trace.npz", **arrays)
-    episodes = [profile_summary(arrays, index) for index in range(total_profiles)]
+    episodes = [
+        profile_summary(arrays, index, termination_names)
+        for index in range(total_profiles)
+    ]
     eligible = [item for item in episodes if item["eligible_post_jump_window"]]
     summary = {
         "schema": "plan15_frozen_online_patch_mass_evaluation_v2_live_handoff",
@@ -570,6 +608,14 @@ def main() -> None:
         "online_teacher_handoff": True,
         "pre_handoff_actor_control": False,
         "evaluation_patch_and_slip_labels_feed_actor": False,
+        "diagnostic_ignore_object_reference_termination": bool(
+            args.ignore_object_reference_termination
+        ),
+        "diagnostic_only": bool(args.ignore_object_reference_termination),
+        "formal_termination_contract": not bool(
+            args.ignore_object_reference_termination
+        ),
+        "termination_term_names": list(termination_names),
         "world_video": "world_carrybox.mp4" if args.record_world else None,
         "world_video_fps": int(args.fps) if args.record_world else None,
         "world_video_profile_index": (

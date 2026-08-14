@@ -13,14 +13,17 @@
 - 当前状态：
   最新进展（2026-08-15）：anchored Z seed `151014` 已严格停在 3000 次 iteration
   的 `model_2999.pt`，没有继续加训；checkpoint 的 59 个模型张量和 58 项 optimizer
-  state 均有限。四条 `1.5x` frozen profiles 中，1 条通过完整 post-jump 80-frame
-  hold，1 条在 420 帧 horizon 时已维持 76 帧且尚未 termination，1 条在 jump 后
-  39 帧 termination，1 条在 handoff 前 Refiner fall。BC anchor 将 handoff 前十帧
+  state 均有限。正式 frozen horizon 已从不足的 420 修正到 450，因为 frame-297
+  handoff、最多 50 帧 delay 和 80 帧结果窗口至少要求覆盖到 frame 427。四条
+  `1.5x` profiles 现在有 2 条完整通过 80 帧；另 1 条 jump 后 39 帧触发 `obj_pos`，
+  1 条 handoff 前触发 `ee_body_pos`。两条成功 profile 后续才在 frame 423/410 触发
+  `obj_ori`。BC anchor 将 handoff 前十帧
   student/teacher action L2 从撤回终点的约 `5.5` 降到约 `1.0--1.1`。同一 checkpoint
   的 eligible profile 3 已生成 420-frame 同钟 H.264：frame 308 质量从约 `0.302`
   变为 `0.454 kg`，世界画面与左右 27-patch load/pressure/signed-shear/slip 同屏。
-  匹配 profile 0 也没有物理掉箱：jump 后持箱 59 帧，在 lift 约 `+0.823 m` 时因
-  reference-tracking 偏差终止，而不是 drop/robot fall。这说明 handoff forgetting
+  匹配 camera profile 0 也没有物理掉箱：jump 后持箱 59 帧，在 lift 约 `+0.823 m`
+  时因 reference-tracking 偏差终止，而不是 drop。仅关闭物体 reference termination
+  的诊断仍得到 2 条通过；profile 0 随后因 `anchor_pos` 终止但仍双手持箱。这说明 handoff forgetting
   已修复，但跨 profile 轨迹稳定性仍不足，也仍不能证明触觉收益。下一正式 seed 不会自动
   启动；先完成人眼正/负行为审查，如不对则先做单一 `1.5x` 条件的 serious overfit
   诊断。P/PS formal 仍未开始。
@@ -179,7 +182,7 @@ scripts/sugar/native_tactile/launch_retained_child.sh \
     --patch-scale-file experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json \
     --output-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_endpoint_video/profile3_reproduce \
     --training-seed 151014 --seed 152014 --mass-factor 1.5 \
-    --motion-id 45 --profiles 4 --num-envs 4 --max-steps 420 \
+    --motion-id 45 --profiles 4 --num-envs 4 --max-steps 450 \
     --post-jump-window 80 --record-world --record-profile-index 3 \
     --headless --device cuda:0
 
