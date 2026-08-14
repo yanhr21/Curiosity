@@ -297,6 +297,14 @@ callable 是否提供额外帮助。正向结论要求 frozen physical behavior 
 95% confidence interval 支持改善，并且 nominal no-jump 没有相应崩坏。encoder
 gradient、训练 loss、reward predictor 或单个好视频都不能证明触觉有帮助。
 
+统计方法在 endpoint 出现前固定为 paired hierarchical percentile bootstrap：先对
+三个 training/evaluation seed pairs 有放回采样，再在被选中的 seed 内对 20 个
+matched profiles 有放回采样，固定 `10,000` 次和 analysis seed `153015`。逐 factor
+报告 event-window eligibility、hold-or-safe-lower、hold、drop、safe-lower、robot
+fall、height loss、双手 contact fraction 和 gross-slip fraction；差值方向始终写为
+前一分支减后一分支。需要 event 后完整窗口的 outcome 只在两支都 eligible 的 paired
+profiles 上比较，同时单独报告 eligibility 差异，避免把接触前跌倒悄悄排除。
+
 如果 PS 只在 action 上变化而不改善持稳/安全结果，结论是“policy 使用了触觉，
 但未证明帮助”。如果 P 改善而 PS 不再改善，则分别报告 patch tactile 有效、当前
 slip detector 无额外收益；不得把两者合并包装成正向结果。
