@@ -527,6 +527,8 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   是因为 59 帧后发生 reference-tracking termination，伴随最大位置/姿态误差约
   `0.208 m/0.806 rad`。因此当前缺陷是轨迹跟随和跨 profile 稳定性不足，不能写成
   “1.5x 增重后普遍拿不住”。
+- 人眼主视频对保存的原始 world frame 做固定裁剪，只移除同批相邻 env；目标 profile
+  的物理、trace、时钟和数值均未重算。正例与负例主视频现在都只显示一台完整 G1。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。Frozen
   evaluator 已加入指定 batch-profile 的同钟 world-camera 录制和 handoff overlay；

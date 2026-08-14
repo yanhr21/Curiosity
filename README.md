@@ -189,6 +189,7 @@ scripts/sugar/native_tactile/launch_retained_child.sh \
   --scale-file experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json \
   --output experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_endpoint_video/profile3_reproduce/world_bilateral_27patch.mp4 \
   --profile-index 3 \
+  --world-crop-left 320 \
   --title "Plan 15 anchored Z: Refiner handoff and 1.5x mass"
 ```
 

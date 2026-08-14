@@ -36,6 +36,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--title", default="Online whole-hand patch tactile mass jump")
     parser.add_argument("--fps", type=int, default=50)
     parser.add_argument(
+        "--world-crop-left",
+        type=int,
+        default=0,
+        help="Crop this many source pixels from the left of the world camera.",
+    )
+    parser.add_argument(
+        "--world-crop-right",
+        type=int,
+        default=0,
+        help="Crop this many source pixels from the right of the world camera.",
+    )
+    parser.add_argument(
         "--profile-index",
         type=int,
         default=0,
@@ -230,6 +242,14 @@ def main() -> None:
             ok, world = capture.read()
             if not ok:
                 raise RuntimeError(f"world decode stopped at frame {frame_index}")
+            if (
+                args.world_crop_left < 0
+                or args.world_crop_right < 0
+                or args.world_crop_left + args.world_crop_right >= world.shape[1]
+            ):
+                raise ValueError("world crop is outside the source frame")
+            right = world.shape[1] - args.world_crop_right
+            world = world[:, args.world_crop_left : right]
             canvas = np.full((HEIGHT, WIDTH, 3), 255, dtype=np.uint8)
             canvas[:WORLD_HEIGHT] = fit_world(world)
             cv2.rectangle(canvas, (15, 14), (WIDTH - 15, 62), (255, 255, 255), -1)
@@ -302,6 +322,8 @@ def main() -> None:
         "profile_index": args.profile_index if frozen_profile else None,
         "frames": frame_count,
         "fps": args.fps,
+        "world_crop_left": args.world_crop_left,
+        "world_crop_right": args.world_crop_right,
         "resolution": [WIDTH, HEIGHT],
         "policy_spatial_unit": "one physical patch; 27 per hand; no taxel display",
         "full_decode": True,
