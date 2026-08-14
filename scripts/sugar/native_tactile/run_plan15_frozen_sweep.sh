@@ -40,6 +40,7 @@ for index in 0 1 2; do
             --checkpoint "$checkpoint" \
             --patch-scale-file "$scale_file" \
             --output-root "$output" \
+            --training-seed "$train_seed" \
             --seed "$evaluation_seed" \
             --mass-factor "$mass_factor" \
             --motion-id 45 \

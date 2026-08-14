@@ -21,6 +21,7 @@ BRANCH_TASKS = {
     "PS": "Sugar-G129dof-CarryBox-OnlineMass-Patch-PS-BCPPO",
 }
 EVALUATION_SEEDS = (152014, 152015, 152016)
+TRAINING_SEEDS = (151014, 151015, 151016)
 MASS_FACTORS = (1.0, 1.5, 3.0, 6.0, 10.0)
 OFFICIAL_REFINER = (
     ROOT
@@ -34,6 +35,7 @@ parser.add_argument("--checkpoint", type=Path, required=True)
 parser.add_argument("--patch-scale-file", type=Path, required=True)
 parser.add_argument("--output-root", type=Path, required=True)
 parser.add_argument("--seed", type=int, choices=EVALUATION_SEEDS, required=True)
+parser.add_argument("--training-seed", type=int, choices=TRAINING_SEEDS)
 parser.add_argument("--mass-factor", type=float, choices=MASS_FACTORS, required=True)
 parser.add_argument("--motion-id", type=int, default=45)
 parser.add_argument("--profiles", type=int, default=20)
@@ -353,6 +355,7 @@ def main() -> None:
         "schema": "plan15_frozen_online_patch_mass_evaluation_v1",
         "branch": args.branch,
         "checkpoint": str(checkpoint),
+        "training_seed": args.training_seed,
         "seed": int(args.seed),
         "mass_factor": float(args.mass_factor),
         "motion_id": int(args.motion_id),
