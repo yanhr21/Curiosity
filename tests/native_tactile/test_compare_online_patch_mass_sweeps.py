@@ -6,6 +6,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "SUGAR/scripts/sugar_rl/compare_online_patch_mass_sweeps.py"
+SUMMARIZER = (
+    ROOT / "SUGAR/scripts/sugar_rl/summarize_online_patch_mass_sweep.py"
+)
 PAIRING = ((151014, 152014), (151015, 152015), (151016, 152016))
 FACTORS = (1.0, 1.5, 3.0, 6.0, 10.0)
 
@@ -71,3 +74,80 @@ def test_completed_paired_sweeps_compare_all_300_profiles(tmp_path: Path) -> Non
     assert p_minus_z["drop"]["mean_difference_first_minus_second"] == -1.0
     ps_minus_p = result["comparisons"]["PS-P"]["3.0"]
     assert ps_minus_p["hold_success"]["mean_difference_first_minus_second"] == 0.0
+
+
+def test_comparison_rejects_total_300_with_wrong_seed_factor_profile_counts(
+    tmp_path: Path,
+) -> None:
+    roots = {branch: tmp_path / branch.lower() for branch in ("Z", "P", "PS")}
+    for branch, root in roots.items():
+        write_branch(root, branch)
+    bad = roots["Z"] / "train_151014_eval_152014_1.0" / "summary.json"
+    payload = json.loads(bad.read_text(encoding="utf-8"))
+    payload["episodes"].pop()
+    bad.write_text(json.dumps(payload), encoding="utf-8")
+    extra = roots["Z"] / "train_151014_eval_152014_1.5" / "summary.json"
+    payload = json.loads(extra.read_text(encoding="utf-8"))
+    payload["episodes"].append(episode("Z"))
+    extra.write_text(json.dumps(payload), encoding="utf-8")
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--z-root",
+            str(roots["Z"]),
+            "--p-root",
+            str(roots["P"]),
+            "--ps-root",
+            str(roots["PS"]),
+            "--output",
+            str(tmp_path / "comparison.json"),
+            "--bootstrap-samples",
+            "10",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "exact 3x5x20 matched design" in result.stderr
+
+
+def test_summary_accepts_only_the_exact_15_run_300_profile_design(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "z"
+    write_branch(root, "Z")
+    output = tmp_path / "summary.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(SUMMARIZER),
+            "--input-root",
+            str(root),
+            "--output",
+            str(output),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    result = json.loads(output.read_text(encoding="utf-8"))
+    assert result["source_runs"] == 15
+    assert result["profiles"] == 300
+
+    missing = next(root.glob("train_151014_eval_152014_1.0/summary.json"))
+    missing.unlink()
+    rejected = subprocess.run(
+        [
+            sys.executable,
+            str(SUMMARIZER),
+            "--input-root",
+            str(root),
+            "--output",
+            str(tmp_path / "incomplete.json"),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert rejected.returncode != 0
+    assert "exact 3x5 matched run set" in rejected.stderr

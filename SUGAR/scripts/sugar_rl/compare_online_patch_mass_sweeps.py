@@ -12,6 +12,12 @@ import numpy as np
 
 TRAIN_TO_EVAL = {151014: 152014, 151015: 152015, 151016: 152016}
 FACTORS = (1.0, 1.5, 3.0, 6.0, 10.0)
+EXPECTED_KEYS = {
+    (train_seed, eval_seed, factor, profile)
+    for train_seed, eval_seed in TRAIN_TO_EVAL.items()
+    for factor in FACTORS
+    for profile in range(20)
+}
 METRICS = {
     "event_eligible": ("all", "higher"),
     "acceptable_hold_or_safe_lower": ("joint_eligible", "higher"),
@@ -59,11 +65,20 @@ def load_branch(root: Path, branch: str) -> dict[tuple[int, int, float, int], di
         if TRAIN_TO_EVAL.get(train_seed) != eval_seed:
             raise ValueError(f"unexpected train/evaluation seed pairing in {path}")
         factor = float(summary["mass_factor"])
+        if factor not in FACTORS:
+            raise ValueError(f"unexpected mass factor {factor} in {path}")
         for profile, episode in enumerate(summary["episodes"]):
             key = (train_seed, eval_seed, factor, profile)
             if key in rows:
                 raise ValueError(f"duplicate profile {key}")
             rows[key] = episode
+    if set(rows) != EXPECTED_KEYS:
+        missing = sorted(EXPECTED_KEYS - set(rows))
+        unexpected = sorted(set(rows) - EXPECTED_KEYS)
+        raise ValueError(
+            f"{branch} does not contain the exact 3x5x20 matched design: "
+            f"missing={missing[:5]}, unexpected={unexpected[:5]}"
+        )
     return rows
 
 
@@ -145,7 +160,7 @@ def main() -> None:
         "P": load_branch(args.p_root, "P"),
         "PS": load_branch(args.ps_root, "PS"),
     }
-    expected_profiles = 3 * 5 * 20
+    expected_profiles = len(EXPECTED_KEYS)
     for branch, rows in branches.items():
         if len(rows) != expected_profiles:
             raise ValueError(

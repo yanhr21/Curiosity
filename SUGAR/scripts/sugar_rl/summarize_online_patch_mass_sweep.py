@@ -9,6 +9,9 @@ from pathlib import Path
 from statistics import mean
 
 
+TRAIN_TO_EVAL = {151014: 152014, 151015: 152015, 151016: 152016}
+FACTORS = (1.0, 1.5, 3.0, 6.0, 10.0)
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--input-root", type=Path, required=True)
 parser.add_argument("--output", type=Path, required=True)
@@ -33,10 +36,32 @@ def main() -> None:
         raise ValueError(f"input contains multiple branches: {sorted(branches)}")
 
     grouped: dict[float, list[dict[str, object]]] = {}
+    run_keys = set()
     for summary in summaries:
-        grouped.setdefault(float(summary["mass_factor"]), []).extend(
-            summary["episodes"]
-        )
+        train_seed = int(summary["training_seed"])
+        eval_seed = int(summary["seed"])
+        factor = float(summary["mass_factor"])
+        if TRAIN_TO_EVAL.get(train_seed) != eval_seed or factor not in FACTORS:
+            raise ValueError(
+                "unexpected checkpoint/evaluation/factor tuple: "
+                f"{train_seed}, {eval_seed}, {factor}"
+            )
+        key = (train_seed, eval_seed, factor)
+        if key in run_keys:
+            raise ValueError(f"duplicate frozen run: {key}")
+        if len(summary["episodes"]) != 20:
+            raise ValueError(
+                f"{key} contains {len(summary['episodes'])} profiles, expected 20"
+            )
+        run_keys.add(key)
+        grouped.setdefault(factor, []).extend(summary["episodes"])
+    expected_run_keys = {
+        (train_seed, eval_seed, factor)
+        for train_seed, eval_seed in TRAIN_TO_EVAL.items()
+        for factor in FACTORS
+    }
+    if run_keys != expected_run_keys:
+        raise ValueError("input does not contain the exact 3x5 matched run set")
 
     factors = {}
     for factor, episodes in sorted(grouped.items()):
@@ -64,12 +89,10 @@ def main() -> None:
         "branch": next(iter(branches)),
         "source_runs": len(summaries),
         "profiles": sum(len(item["episodes"]) for item in summaries),
-        "training_seeds": [151014, 151015, 151016],
-        "evaluation_seeds": [152014, 152015, 152016],
+        "training_seeds": list(TRAIN_TO_EVAL),
+        "evaluation_seeds": list(TRAIN_TO_EVAL.values()),
         "checkpoint_evaluation_pairing": {
-            "151014": 152014,
-            "151015": 152015,
-            "151016": 152016,
+            str(key): value for key, value in TRAIN_TO_EVAL.items()
         },
         "factors": factors,
     }
