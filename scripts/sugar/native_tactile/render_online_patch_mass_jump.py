@@ -35,6 +35,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--title", default="Online whole-hand patch tactile mass jump")
     parser.add_argument("--fps", type=int, default=50)
+    parser.add_argument(
+        "--profile-index",
+        type=int,
+        default=0,
+        help="Profile axis to select from a frozen-evaluation trace.",
+    )
     return parser.parse_args()
 
 
@@ -138,12 +144,38 @@ def draw_hand(
 def main() -> None:
     args = parse_args()
     root = args.run_root.resolve()
-    trace_path = root / "online_mass_jump_trace.npz"
+    online_trace = root / "online_mass_jump_trace.npz"
+    frozen_trace = root / "frozen_evaluation_trace.npz"
+    if online_trace.is_file():
+        trace_path = online_trace
+        frozen_profile = False
+    elif frozen_trace.is_file():
+        trace_path = frozen_trace
+        frozen_profile = True
+    else:
+        raise FileNotFoundError(
+            f"expected {online_trace.name} or {frozen_trace.name} in {root}"
+        )
     world_path = root / "world_carrybox.mp4"
     summary_path = root / "summary.json"
     with np.load(trace_path, allow_pickle=False) as source:
         trace = {key: source[key] for key in source.files}
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    if frozen_profile:
+        profile_count = int(summary["profiles"])
+        if not 0 <= args.profile_index < profile_count:
+            raise ValueError(
+                f"profile index {args.profile_index} is outside 0..{profile_count - 1}"
+            )
+        if profile_count != 1 or args.profile_index != 0:
+            raise RuntimeError(
+                "the synchronized frozen world video is recorded only by the "
+                "one-profile/one-environment endpoint-video path"
+            )
+        trace = {
+            key: value[:, args.profile_index]
+            for key, value in trace.items()
+        }
     scales = json.loads(args.scale_file.resolve().read_text(encoding="utf-8"))[
         "patch_channel_scales"
     ]
@@ -204,7 +236,22 @@ def main() -> None:
             jump = bool(trace["jump_applied"][frame_index])
             mass = float(trace["mass_readback_kg"][frame_index])
             lift = float(trace["object_pos_w"][frame_index, 2] - initial_z)
-            status = "MASS JUMP (evaluation overlay; actor cannot see it)" if jump else "pre-jump / placebo clock"
+            if frozen_profile and "teacher_control" in trace:
+                controller = (
+                    "official Refiner pickup"
+                    if bool(trace["teacher_control"][frame_index])
+                    else "frozen policy control"
+                )
+                if not bool(trace["valid_frame"][frame_index]):
+                    controller = "terminated profile"
+            else:
+                controller = "fixed online controller"
+            mass_phase = (
+                "post-jump (mass overlay hidden from actor)"
+                if jump
+                else "pre-jump / placebo clock"
+            )
+            status = f"{controller} | {mass_phase}"
             cv2.rectangle(canvas, (15, 545), (WIDTH - 15, 592), (25, 25, 25), -1)
             cv2.putText(
                 canvas,
@@ -248,8 +295,10 @@ def main() -> None:
     if decoded_frames != frame_count:
         raise RuntimeError(f"full decode failed: {decoded_frames}/{frame_count}")
     record = {
-        "schema": "plan15_online_mass_patch_video_v1",
+        "schema": "plan15_online_mass_patch_video_v2_frozen_handoff_compatible",
         "source_summary": summary,
+        "source_trace": trace_path.name,
+        "profile_index": args.profile_index if frozen_profile else None,
         "frames": frame_count,
         "fps": args.fps,
         "resolution": [WIDTH, HEIGHT],

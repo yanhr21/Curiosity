@@ -54,14 +54,17 @@
   `model_1500.pt`，seed `151015` 为 `model_2250.pt`；两份均含 59 个模型张量、58
   项 optimizer state 且数值有限。对应 allocations `238253/238620` 分别在打印
   iteration 1711/2339 后被调度器外部 `CANCELLED by 0`，没有训练 Traceback/OOM；
-  未保存迭代不计。五天恢复 jobs `238934/239098` 和 8 小时 backfill jobs
-  `239105/239106` 已排队，总 endpoint 仍为 3000。P/PS formal 仍未启动。
+  未保存迭代不计。seed `151014` 已在保留 job `239105`/`server35` 从 iteration
+  1501 正确恢复，checkpoint iteration、BCPPO update step 和 optimizer learning
+  rate 均已同步；seed `151015` 的 backfill job `239106` 仍排队。五天恢复 jobs
+  `238934/239098` 继续保留，总 endpoint 仍为 3000。P/PS formal 仍未启动。
   Frozen evaluator 已修正为
   motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
   中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手
-  27-patch 可视化布局和 H.264 编码已验证，但当前 H200 Kit/Vulkan
-  camera start 仍会在场景构建前 `ERROR_DEVICE_LOST`，所以尚未把离线布局测试冒充
-  真实同钟 world+tactile 视频；无相机在线训练正常继续。
+  27-patch 可视化布局和 H.264 编码已验证。Frozen evaluator 现有一个独立的
+  one-profile endpoint-video 入口，可在同一 rollout 直接记录 world camera、
+  Refiner/policy handoff、质量事件和 54-patch/slip trace；该入口仍须等 replacement
+  Z endpoint 后运行验证，尚未把布局测试冒充正式同钟行为视频。
 
 ## 当前结果
 
@@ -121,6 +124,31 @@ scripts/sugar/native_tactile/run_plan15_frozen_sweep.sh Z \
 该入口固定 checkpoint/evaluation-seed 一一配对并运行 5 个质量条件、每项 20
 profiles。结束后用 `SUGAR/scripts/sugar_rl/summarize_online_patch_mass_sweep.py`
 汇总各质量条件；P、PS 只替换 branch 和对应 checkpoint/output 路径。
+
+从统计结果中选定一个 profile 后，用同一个 frozen evaluator 重新运行单环境
+endpoint-video rollout，并将世界画面与双手 27-patch map 合成同钟 H.264：
+
+```bash
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  SUGAR/scripts/sugar_rl/evaluate_online_patch_mass_bcppo.py \
+  --branch Z \
+  --checkpoint experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151014/model_2999.pt \
+  --patch-scale-file experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json \
+  --output-root experiments/online_patch_tactile_mass_adaptation/videos_handoff/z_seed151014_3x \
+  --training-seed 151014 --seed 152014 --mass-factor 3.0 \
+  --motion-id 45 --profiles 1 --num-envs 1 --max-steps 420 \
+  --post-jump-window 80 --record-world --headless --device cuda:0
+
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/native_tactile/render_online_patch_mass_jump.py \
+  --run-root experiments/online_patch_tactile_mass_adaptation/videos_handoff/z_seed151014_3x \
+  --scale-file experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json \
+  --output experiments/online_patch_tactile_mass_adaptation/videos_handoff/z_seed151014_3x/world_bilateral_27patch.mp4 \
+  --title "Plan 15 Z: official Refiner pickup, frozen policy, 3x mass"
+```
+
+视频中的 mass/jump 文本仅为 evaluator overlay，明确不进入 actor；统计 sweep 不
+启用相机，避免改变正式 300-rollout 设计。
 
 ## 历史整手可视化最短复现路径
 

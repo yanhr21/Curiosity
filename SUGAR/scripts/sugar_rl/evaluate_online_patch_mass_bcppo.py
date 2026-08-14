@@ -9,6 +9,7 @@ import json
 import math
 import os
 from pathlib import Path
+import subprocess
 import sys
 
 from isaaclab.app import AppLauncher
@@ -42,6 +43,15 @@ parser.add_argument("--profiles", type=int, default=20)
 parser.add_argument("--num-envs", type=int, default=4)
 parser.add_argument("--max-steps", type=int, default=420)
 parser.add_argument("--post-jump-window", type=int, default=80)
+parser.add_argument(
+    "--record-world",
+    action="store_true",
+    help=(
+        "Record the synchronized world camera for one profile. This is the "
+        "endpoint-video path; matched statistical sweeps remain camera-free."
+    ),
+)
+parser.add_argument("--fps", type=int, default=50)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 
@@ -49,6 +59,12 @@ if args.profiles < 1 or args.num_envs < 1 or args.profiles % args.num_envs:
     parser.error("profiles must be positive and divisible by num-envs")
 if args.max_steps < args.post_jump_window:
     parser.error("max-steps must cover the post-jump window")
+if args.record_world and (args.profiles != 1 or args.num_envs != 1):
+    parser.error("record-world requires exactly one profile and one environment")
+if args.fps < 1:
+    parser.error("fps must be positive")
+if args.record_world:
+    args.enable_cameras = True
 
 checkpoint = args.checkpoint.expanduser().resolve()
 scale_file = args.patch_scale_file.expanduser().resolve()
@@ -72,12 +88,36 @@ os.environ["SUGAR_PLAN15_LIVE_HANDOFF"] = "1"
 os.environ["SUGAR_PLAN15_HANDOFF_TEACHER_CKPT"] = str(OFFICIAL_REFINER)
 os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "Y")
 os.environ.setdefault("DISPLAY", "")
+os.environ.setdefault("CURIOSITY_ANATOMICAL_PHYSX_COMPLIANT_STIFFNESS", "100")
+os.environ.setdefault("CURIOSITY_ANATOMICAL_PHYSX_COMPLIANT_DAMPING", "20")
+os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_NORMAL_STIFFNESS", "20")
+os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_TANGENTIAL_STIFFNESS", "2")
+os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_FRICTION_COEFFICIENT", "0.5")
+os.environ.setdefault(
+    "CURIOSITY_TACSL_CALIBRATION_DIR",
+    str(ROOT / "experiments/sugar_reproduction/assets/official_tacsl/calibration"),
+)
+os.environ.setdefault("SUGAR_DISABLE_TRAIN_DEBUG_VIS", "1")
+os.environ.setdefault("CURIOSITY_ENABLE_ANATOMICAL27_WHOLE_HAND_TACSL_AUDIT", "1")
+os.environ.setdefault(
+    "ISAACLAB_GROUND_PLANE_USD",
+    str(ROOT / "SUGAR/descriptions/terrain/sugar_ground_plane.usda"),
+)
+cached_g1_usd = (
+    ROOT
+    / "experiments/online_patch_tactile_mass_adaptation/runtime_assets"
+    / "g1_29dof_preconverted_isaacsim510"
+    / "g1_29dof_rev_1_0_with_rubber_hand.usd"
+)
+if cached_g1_usd.is_file():
+    os.environ.setdefault("CURIOSITY_G1_PRECONVERTED_USD", str(cached_g1_usd))
 os.chdir(ROOT / "SUGAR")
 
 app_launcher = AppLauncher(args)
 simulation_app = app_launcher.app
 
 import gymnasium as gym  # noqa: E402
+import imageio_ffmpeg  # noqa: E402
 import numpy as np  # noqa: E402
 import rsl_rl.algorithms  # noqa: E402
 import rsl_rl.runners.on_policy_runner as on_policy_runner_module  # noqa: E402
@@ -89,6 +129,9 @@ from sugar_rl.tasks.locomanip.online_patch_tactile import (  # noqa: E402
     current_whole_hand_patch_features,
 )
 from sugar_rl.tasks.locomanip.patch_slip import PatchSlipDetector  # noqa: E402
+from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_official_refiner_anatomical_whole_hand_tacsl_env_cfg import (  # noqa: E402
+    _review_camera,
+)
 from sugar_rl.utils.online_patch_tactile_actor_critic import (  # noqa: E402
     OnlinePatchTactileActorCritic,
 )
@@ -110,6 +153,57 @@ def cpu(value: torch.Tensor) -> np.ndarray:
 def observations(wrapper) -> dict[str, torch.Tensor]:
     value = wrapper.get_observations()
     return value[0] if isinstance(value, tuple) else value
+
+
+class FfmpegRgbWriter:
+    """Stream synchronized world frames directly to a playable H.264 file."""
+
+    def __init__(self, path: Path, width: int, height: int, fps: int) -> None:
+        self.process = subprocess.Popen(
+            [
+                imageio_ffmpeg.get_ffmpeg_exe(),
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-s:v",
+                f"{width}x{height}",
+                "-r",
+                str(fps),
+                "-i",
+                "-",
+                "-an",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "18",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+                str(path),
+            ],
+            stdin=subprocess.PIPE,
+        )
+
+    def append(self, rgb: np.ndarray) -> None:
+        if self.process.stdin is None:
+            raise RuntimeError("ffmpeg stdin is closed")
+        self.process.stdin.write(
+            np.ascontiguousarray(rgb, dtype=np.uint8).tobytes()
+        )
+
+    def close(self) -> None:
+        if self.process.stdin is not None:
+            self.process.stdin.close()
+        return_code = self.process.wait()
+        if return_code != 0:
+            raise RuntimeError(f"ffmpeg exited with code {return_code}")
 
 
 def profile_summary(trace: dict[str, np.ndarray], profile: int) -> dict[str, object]:
@@ -221,6 +315,20 @@ def main() -> None:
     env_cfg.scene.num_envs = int(args.num_envs)
     env_cfg.sim.device = args.device
     env_cfg.commands.motion.motion_folder = "data/CarryBox"
+    if args.record_world:
+        env_cfg.scene.world_camera = _review_camera(
+            name="WorldCamera",
+            position=(3.6, 3.6, 2.4),
+            quaternion_wxyz=(
+                0.3043649418,
+                0.2319667899,
+                0.5600173703,
+                0.7348019703,
+            ),
+            width=1280,
+            height=720,
+        )
+        env_cfg.sim.render_interval = env_cfg.decimation
     for term_name in ("reset_mass_jump", "step_mass_jump"):
         params = getattr(env_cfg.events, term_name).params
         params["mass_factors"] = (float(args.mass_factor),)
@@ -240,7 +348,11 @@ def main() -> None:
     agent_cfg.seed = int(args.seed)
     agent_cfg.device = args.device
     agent_cfg.algorithm.teacher_ckpt = str(OFFICIAL_REFINER)
-    gym_env = gym.make(task, cfg=env_cfg, render_mode=None)
+    gym_env = gym.make(
+        task,
+        cfg=env_cfg,
+        render_mode="rgb_array" if args.record_world else None,
+    )
     base_env = gym_env.unwrapped
     env = OnlineTeacherHandoffVecEnvWrapper(
         gym_env,
@@ -250,8 +362,11 @@ def main() -> None:
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=args.device)
     runner.load(str(checkpoint), load_optimizer=False)
     policy = runner.get_inference_policy(device=base_env.device)
+    output_root.mkdir(parents=True)
     obj = base_env.scene["obj"]
     command = base_env.command_manager.get_term("motion")
+    world_camera = base_env.scene["world_camera"] if args.record_world else None
+    world_writer = None
 
     def fixed_start(env_ids) -> None:
         ids = torch.as_tensor(
@@ -394,6 +509,19 @@ def main() -> None:
                 batch_rows["termination_any"].append(cpu(done.bool()))
                 batch_rows["reference_frame"].append(cpu(command.time_steps))
                 batch_rows["valid_frame"].append(cpu(active_before_step))
+                if world_camera is not None:
+                    rgb = cpu(world_camera.data.output["rgb"][0, ..., :3]).astype(
+                        np.uint8
+                    )
+                    if world_writer is None:
+                        height, width = rgb.shape[:2]
+                        world_writer = FfmpegRgbWriter(
+                            output_root / "world_carrybox.mp4",
+                            width,
+                            height,
+                            int(args.fps),
+                        )
+                    world_writer.append(rgb)
                 done_latched |= done.bool()
             for name in traces:
                 traces[name].append(np.stack(batch_rows[name], axis=0))
@@ -402,6 +530,8 @@ def main() -> None:
                 flush=True,
             )
     finally:
+        if world_writer is not None:
+            world_writer.close()
         base_env._reset_idx = original_reset_idx
         env.close()
 
@@ -411,7 +541,6 @@ def main() -> None:
     }
     if any(value.shape[1] != total_profiles for value in arrays.values()):
         raise RuntimeError("profile count mismatch in frozen evaluation trace")
-    output_root.mkdir(parents=True)
     np.savez_compressed(output_root / "frozen_evaluation_trace.npz", **arrays)
     episodes = [profile_summary(arrays, index) for index in range(total_profiles)]
     eligible = [item for item in episodes if item["eligible_post_jump_window"]]
@@ -431,6 +560,8 @@ def main() -> None:
         "online_teacher_handoff": True,
         "pre_handoff_actor_control": False,
         "evaluation_patch_and_slip_labels_feed_actor": False,
+        "world_video": "world_carrybox.mp4" if args.record_world else None,
+        "world_video_fps": int(args.fps) if args.record_world else None,
         "policy_spatial_unit": "27 physical patches per hand; no taxel policy units",
         "eligible_profiles": len(eligible),
         "hold_success_count": sum(bool(item["hold_success"]) for item in eligible),
