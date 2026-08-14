@@ -552,13 +552,7 @@ def exact_zero_online_patch_tactile_actor_history(
 
 
 def online_patch_preflight_runtime_report(env, branch: str) -> dict[str, Any]:
-    """Summarize direct Z/P/PS live-path evidence after one training update.
-
-    A mass event remains lift-gated.  It is recorded here when the current
-    policy reaches it, but is not an admission condition for an early training
-    rollout: an untrained stochastic actor can terminate before lifting.  The
-    separate continuous-action live collector is the mass-event physics gate.
-    """
+    """Summarize one live teacher-handoff Z/P/PS training update."""
 
     if branch not in ("Z", "P", "PS"):
         raise ValueError("Plan-15 preflight branch must be Z, P, or PS")
@@ -582,10 +576,31 @@ def online_patch_preflight_runtime_report(env, branch: str) -> dict[str, Any]:
         mass_events_by_factor = (
             controller.cumulative_factor_events.sum(dim=0).detach().cpu().tolist()
         )
+    handoff = env._online_teacher_handoff_controller
+    handoff_wrapper = env._online_teacher_handoff_wrapper
+    handoff_events = int(handoff.cumulative_handoffs.sum().item())
+    teacher_steps = int(
+        handoff_wrapper.cumulative_teacher_control_steps.sum().item()
+    )
+    policy_steps = int(
+        handoff_wrapper.cumulative_policy_control_steps.sum().item()
+    )
+    ppo_mask = env._online_handoff_bcppo_mask_report
 
     checks = {
         "mass_event_seen": mass_events > 0,
         "physical_mass_change_seen": mass_changes > 0,
+        "online_teacher_pickup_seen": teacher_steps > 0,
+        "no_reset_handoff_seen": handoff_events > 0,
+        "student_control_after_handoff_seen": policy_steps > 0,
+        "ppo_credit_contains_only_post_handoff_samples": (
+            ppo_mask is not None
+            and int(ppo_mask["active_policy_transitions"]) > 0
+            and int(ppo_mask["masked_teacher_transitions"]) > 0
+            and int(ppo_mask["total_transitions"])
+            == int(ppo_mask["active_policy_transitions"])
+            + int(ppo_mask["masked_teacher_transitions"])
+        ),
         "zero_branch_never_read_tacsl": (
             branch != "Z" or int(scalar("patch_sensor_reads")) == 0
         ),
@@ -613,19 +628,12 @@ def online_patch_preflight_runtime_report(env, branch: str) -> dict[str, Any]:
             branch != "PS" or int(scalar("slip_updates")) > 0
         ),
     }
-    training_path_checks = {
-        name: passed
-        for name, passed in checks.items()
-        if name
-        not in (
-            "mass_event_seen",
-            "physical_mass_change_seen",
-            "live_branch_observed_bilateral_contact",
-            "live_branch_observed_nonzero_load",
-        )
-    }
+    training_path_checks = dict(checks)
+    if branch == "Z":
+        training_path_checks.pop("live_branch_observed_bilateral_contact")
+        training_path_checks.pop("live_branch_observed_nonzero_load")
     return {
-        "schema": "plan15_live_training_preflight_v2",
+        "schema": "plan15_live_training_preflight_v3_teacher_handoff",
         "branch": branch,
         "tactile_runtime": {
             "live_feature_updates": int(scalar("live_feature_updates")),
@@ -650,12 +658,17 @@ def online_patch_preflight_runtime_report(env, branch: str) -> dict[str, Any]:
             "mass_changes": mass_changes,
             "events_by_factor": mass_events_by_factor,
         },
+        "handoff_runtime": {
+            "handoff_events": handoff_events,
+            "teacher_control_env_steps": teacher_steps,
+            "policy_control_env_steps": policy_steps,
+        },
+        "bcppo_training_mask": ppo_mask,
         "checks": checks,
         "overall_pass": all(training_path_checks.values()),
         "claim_boundary": (
-            "This proves the declared training observation path executed during "
-            "one update. Nonzero bilateral tactile and lift-gated mass-event "
-            "physics are admitted separately by the continuous-action live "
-            "collector; neither result proves tactile training benefit."
+            "This proves one online Refiner pickup, no-reset actor handoff, "
+            "live mass event and the declared branch observation path executed. "
+            "It does not prove tactile training benefit."
         ),
     }

@@ -68,6 +68,8 @@ if any(not math.isfinite(value) or value <= 0.0 for value in scales):
     raise ValueError("patch channel scales must be positive and finite")
 os.environ["SUGAR_ONLINE_PATCH_CHANNEL_SCALES"] = json.dumps(scales)
 os.environ["SUGAR_INIT_AT_RANDOM_EP_LEN"] = "0"
+os.environ["SUGAR_PLAN15_LIVE_HANDOFF"] = "1"
+os.environ["SUGAR_PLAN15_HANDOFF_TEACHER_CKPT"] = str(OFFICIAL_REFINER)
 os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "Y")
 os.environ.setdefault("DISPLAY", "")
 os.chdir(ROOT / "SUGAR")
@@ -82,7 +84,6 @@ import rsl_rl.runners.on_policy_runner as on_policy_runner_module  # noqa: E402
 import torch  # noqa: E402
 from rsl_rl.runners import OnPolicyRunner  # noqa: E402
 
-from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper  # noqa: E402
 from isaaclab_tasks.utils import load_cfg_from_registry  # noqa: E402
 from sugar_rl.tasks.locomanip.online_patch_tactile import (  # noqa: E402
     current_whole_hand_patch_features,
@@ -92,6 +93,9 @@ from sugar_rl.utils.online_patch_tactile_actor_critic import (  # noqa: E402
     OnlinePatchTactileActorCritic,
 )
 from sugar_rl.utils.rsl_rl_bcppo import BCPPO  # noqa: E402
+from sugar_rl.utils.online_teacher_handoff_wrapper import (  # noqa: E402
+    OnlineTeacherHandoffVecEnvWrapper,
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from online_patch_mass_bcppo_task_registration import (  # noqa: E402
@@ -110,6 +114,10 @@ def observations(wrapper) -> dict[str, torch.Tensor]:
 
 def profile_summary(trace: dict[str, np.ndarray], profile: int) -> dict[str, object]:
     valid = trace["valid_frame"][:, profile]
+    handoff_indices = np.flatnonzero(
+        trace["handoff_active"][:, profile] & valid
+    )
+    handoff_frame = int(handoff_indices[0]) if len(handoff_indices) else None
     jump_indices = np.flatnonzero(trace["jump_applied"][:, profile] & valid)
     jump_frame = int(jump_indices[0]) if len(jump_indices) else None
     termination_indices = np.flatnonzero(
@@ -122,6 +130,7 @@ def profile_summary(trace: dict[str, np.ndarray], profile: int) -> dict[str, obj
     if jump_frame is None:
         return {
             "profile": profile,
+            "handoff_frame": handoff_frame,
             "jump_frame": None,
             "first_termination_frame": termination_frame,
             "eligible_post_jump_window": False,
@@ -164,6 +173,7 @@ def profile_summary(trace: dict[str, np.ndarray], profile: int) -> dict[str, obj
     bilateral = trace["bilateral_patch_contact"][jump_frame:stop, profile]
     return {
         "profile": profile,
+        "handoff_frame": handoff_frame,
         "jump_frame": jump_frame,
         "first_termination_frame": termination_frame,
         "eligible_post_jump_window": eligible,
@@ -215,7 +225,13 @@ def main() -> None:
         params = getattr(env_cfg.events, term_name).params
         params["mass_factors"] = (float(args.mass_factor),)
         params["seed"] = int(args.seed)
-    for group_name in ("policy", "online_patch_tactile_history", "critic", "teacher"):
+    for group_name in (
+        "policy",
+        "online_patch_tactile_history",
+        "critic",
+        "teacher",
+        "training_handoff_mask",
+    ):
         group = getattr(env_cfg.observations, group_name, None)
         if group is not None:
             group.enable_corruption = False
@@ -226,7 +242,11 @@ def main() -> None:
     agent_cfg.algorithm.teacher_ckpt = str(OFFICIAL_REFINER)
     gym_env = gym.make(task, cfg=env_cfg, render_mode=None)
     base_env = gym_env.unwrapped
-    env = RslRlVecEnvWrapper(gym_env, clip_actions=agent_cfg.clip_actions)
+    env = OnlineTeacherHandoffVecEnvWrapper(
+        gym_env,
+        clip_actions=agent_cfg.clip_actions,
+        teacher_checkpoint=OFFICIAL_REFINER,
+    )
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=args.device)
     runner.load(str(checkpoint), load_optimizer=False)
     policy = runner.get_inference_policy(device=base_env.device)
@@ -252,6 +272,9 @@ def main() -> None:
     total_profiles = int(args.profiles)
     traces: dict[str, list[np.ndarray]] = {
         "action": [],
+        "policy_action": [],
+        "teacher_control": [],
+        "handoff_active": [],
         "reward": [],
         "object_pos_w": [],
         "object_lin_vel_w": [],
@@ -316,6 +339,8 @@ def main() -> None:
                         done_latched[:, None], torch.zeros_like(action), action
                     )
                     obs, reward, done, _ = env.step(action)
+                executed_action = env.last_executed_action
+                teacher_control = env.last_teacher_control_mask
                 patch = current_whole_hand_patch_features(base_env)
                 timestamp = torch.full(
                     (base_env.num_envs,),
@@ -346,7 +371,12 @@ def main() -> None:
                 robot_fall = torch.zeros_like(done, dtype=torch.bool)
                 for name in robot_fall_names:
                     robot_fall |= base_env.termination_manager.get_term(name)
-                batch_rows["action"].append(cpu(action))
+                batch_rows["action"].append(cpu(executed_action))
+                batch_rows["policy_action"].append(cpu(action))
+                batch_rows["teacher_control"].append(cpu(teacher_control))
+                batch_rows["handoff_active"].append(
+                    cpu(~teacher_control)
+                )
                 batch_rows["reward"].append(cpu(reward))
                 batch_rows["object_pos_w"].append(cpu(obj.data.root_pos_w))
                 batch_rows["object_lin_vel_w"].append(cpu(obj.data.root_lin_vel_w))
@@ -386,7 +416,7 @@ def main() -> None:
     episodes = [profile_summary(arrays, index) for index in range(total_profiles)]
     eligible = [item for item in episodes if item["eligible_post_jump_window"]]
     summary = {
-        "schema": "plan15_frozen_online_patch_mass_evaluation_v1",
+        "schema": "plan15_frozen_online_patch_mass_evaluation_v2_live_handoff",
         "branch": args.branch,
         "checkpoint": str(checkpoint),
         "training_seed": args.training_seed,
@@ -398,6 +428,8 @@ def main() -> None:
         "max_steps": int(args.max_steps),
         "post_jump_window_frames": int(args.post_jump_window),
         "actor_mass_or_jump_input": False,
+        "online_teacher_handoff": True,
+        "pre_handoff_actor_control": False,
         "evaluation_patch_and_slip_labels_feed_actor": False,
         "policy_spatial_unit": "27 physical patches per hand; no taxel policy units",
         "eligible_profiles": len(eligible),

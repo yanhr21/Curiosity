@@ -280,7 +280,24 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # Wrap around the environment for RSL-RL.  Formal full100 runs can opt in
     # to a transparent, fail-closed rollout telemetry wrapper; all ordinary
     # SUGAR runs retain the upstream wrapper exactly.
-    if os.environ.get("SUGAR_RGB_TELEMETRY_OUTPUT"):
+    if os.environ.get("SUGAR_PLAN15_LIVE_HANDOFF") == "1":
+        from sugar_rl.utils.online_teacher_handoff_wrapper import (
+            OnlineTeacherHandoffVecEnvWrapper,
+        )
+
+        teacher_checkpoint = os.environ.get(
+            "SUGAR_PLAN15_HANDOFF_TEACHER_CKPT"
+        )
+        if teacher_checkpoint is None:
+            raise RuntimeError(
+                "Plan-15 live handoff requires its official teacher checkpoint"
+            )
+        env = OnlineTeacherHandoffVecEnvWrapper(
+            env,
+            clip_actions=agent_cfg.clip_actions,
+            teacher_checkpoint=teacher_checkpoint,
+        )
+    elif os.environ.get("SUGAR_RGB_TELEMETRY_OUTPUT"):
         from sugar_rl.utils.rgb_training_telemetry import (
             RGBTrainingTelemetryVecEnvWrapper,
         )
@@ -606,6 +623,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             online_patch_preflight_runtime_report,
         )
 
+        env.unwrapped._online_handoff_bcppo_mask_report = getattr(
+            runner.alg, "last_training_mask_report", None
+        )
         report = online_patch_preflight_runtime_report(
             env.unwrapped, plan15_preflight_branch
         )

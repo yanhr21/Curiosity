@@ -76,6 +76,7 @@ class OnlinePatchMassBCPPORunnerCfg(BCPPORunnerCfg):
         lam=0.95,
         desired_kl=0.01,
         max_grad_norm=1.0,
+        training_mask_obs_group="training_handoff_mask",
     )
 
 

@@ -151,19 +151,25 @@
   `1.0x` 四条又与其 `1.5x` 四条完全同帧终止。seed `151016` 因此在 iteration 226
   仅终止记录的 child PGID，`238355` allocation 保留。旧 checkpoint 不进入触觉
   收益比较。
-- [ ] 实现 live official-Refiner handoff：每次 reset 后由 frozen Refiner 从 motion
+- [x] 实现 live official-Refiner handoff：每次 reset 后由 frozen Refiner 从 motion
   45/frame 0 在线控制；连续 10 帧 lift `>=0.05 m` 后，在同一 PhysX episode、无
   teleport/无 replay/不清空 tactile history 的下一动作边界交给 actor。
-- [ ] 加入仅供训练算法使用的 handoff mask：交接前 transition 不进入 PPO
+- [x] 加入仅供训练算法使用的 handoff mask：交接前 transition 不进入 PPO
   surrogate/value/entropy；mask、teacher observation、mass/jump 均不进入 actor。
-- [ ] 让 mass scheduler 只在 handoff 后开始 `10--50` 帧 delay，并确认 P/PS 在
+- [x] 让 mass scheduler 只在 handoff 后开始 `10--50` 帧 delay，并确认 P/PS 在
   teacher prefix 中继续实时形成四帧 patch/slip history；Z 保持零 TacSL read。
-- [ ] 重新运行 handoff-Z one-update preflight：必须真实持箱、交接、student 控制并
+- [x] 重新运行 handoff-Z one-update preflight：必须真实持箱、交接、student 控制并
   触发至少一个 mass event；不满足则不开始 formal Z。
-- [ ] 重新运行 handoff-P one-update preflight：除上述条件外必须出现双手在线 patch
+- [x] 重新运行 handoff-P one-update preflight：除上述条件外必须出现双手在线 patch
   contact/load，不能读取离线 trace。
-- [ ] 重新运行 handoff-PS one-update preflight：除 P 条件外必须实际调用 causal
+- [x] 重新运行 handoff-PS one-update preflight：除 P 条件外必须实际调用 causal
   `PatchSlipDetector.update(...)`。
+- [x] 三个 replacement preflight 均在 retained `238253`/`server59` 通过。每项均为
+  1440 transitions、4 次 live handoff 和 2 次真实 mass change；Z 的 TacSL read
+  为 0。P/PS 各有 `361` 次在线 feature update、`19,494 = 361 x 54` 次官方 patch
+  read 和 363 个 bilateral-contact env-samples；P 的 slip call 为 0，PS 的 causal
+  slip call 为 361。handoff mask 与 wrapper 逐步计数完全一致，只把 142/143 个
+  post-handoff transitions 计入 PPO，并屏蔽 1298/1297 个 teacher transitions。
 - [ ] 新 `Z`：三个冻结 seed 各完成匹配 3000 updates 与 endpoint frozen evaluation；
   只有存在 eligible post-jump profiles 才允许进入 P。
 - [ ] 新 `P`：完成匹配 3000 updates。

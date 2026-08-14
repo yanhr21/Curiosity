@@ -124,6 +124,18 @@ def test_live_preflight_report_enforces_each_branch_path(branch):
             [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
         ),
     )
+    env._online_teacher_handoff_controller = SimpleNamespace(
+        cumulative_handoffs=torch.tensor([1, 1, 0, 0])
+    )
+    env._online_teacher_handoff_wrapper = SimpleNamespace(
+        cumulative_teacher_control_steps=torch.tensor([100, 100, 100, 100]),
+        cumulative_policy_control_steps=torch.tensor([20, 20, 20, 20]),
+    )
+    env._online_handoff_bcppo_mask_report = {
+        "active_policy_transitions": 80,
+        "masked_teacher_transitions": 400,
+        "total_transitions": 480,
+    }
     report = module.online_patch_preflight_runtime_report(env, branch)
     assert report["overall_pass"] is True
     assert report["mass_runtime"]["jump_events"] == 2
@@ -140,22 +152,46 @@ def test_training_path_preflight_does_not_fake_a_mass_event_before_lift():
         cumulative_mass_changes=torch.zeros(1, dtype=torch.long),
         cumulative_factor_events=torch.zeros(1, 5, dtype=torch.long),
     )
+    env._online_teacher_handoff_controller = SimpleNamespace(
+        cumulative_handoffs=torch.zeros(1, dtype=torch.long)
+    )
+    env._online_teacher_handoff_wrapper = SimpleNamespace(
+        cumulative_teacher_control_steps=torch.ones(1, dtype=torch.long),
+        cumulative_policy_control_steps=torch.zeros(1, dtype=torch.long),
+    )
+    env._online_handoff_bcppo_mask_report = {
+        "active_policy_transitions": 0,
+        "masked_teacher_transitions": 2,
+        "total_transitions": 2,
+    }
     report = module.online_patch_preflight_runtime_report(env, "Z")
     assert report["checks"]["mass_event_seen"] is False
     assert report["checks"]["physical_mass_change_seen"] is False
-    assert report["overall_pass"] is True
+    assert report["overall_pass"] is False
 
 
-def test_live_branch_preflight_keeps_zero_contact_visible_without_failing_wiring():
+def test_live_branch_preflight_requires_contact_after_handoff():
     env = SimpleNamespace(device="cpu")
     diagnostics = module._runtime_diagnostics(env)
     diagnostics["live_feature_updates"] = 3
     diagnostics["live_env_samples"] = 3
     diagnostics["patch_sensor_reads"] = 162
+    env._online_teacher_handoff_controller = SimpleNamespace(
+        cumulative_handoffs=torch.ones(1, dtype=torch.long)
+    )
+    env._online_teacher_handoff_wrapper = SimpleNamespace(
+        cumulative_teacher_control_steps=torch.ones(1, dtype=torch.long),
+        cumulative_policy_control_steps=torch.ones(1, dtype=torch.long),
+    )
+    env._online_handoff_bcppo_mask_report = {
+        "active_policy_transitions": 1,
+        "masked_teacher_transitions": 1,
+        "total_transitions": 2,
+    }
     report = module.online_patch_preflight_runtime_report(env, "P")
     assert report["checks"]["live_branch_observed_bilateral_contact"] is False
     assert report["checks"]["live_branch_observed_nonzero_load"] is False
-    assert report["overall_pass"] is True
+    assert report["overall_pass"] is False
 
 
 def test_evaluation_oracle_reduces_max_active_taxel_speed_per_patch():

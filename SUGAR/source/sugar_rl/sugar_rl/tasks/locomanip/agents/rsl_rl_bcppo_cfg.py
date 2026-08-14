@@ -9,6 +9,7 @@ class BCPPOCfg(RslRlPpoAlgorithmCfg):
     # Preserve official SUGAR behavior by default. Research ablations must set
     # a nonzero value through a separately named runner/task.
     stage3_distill_weight_floor = 0.0
+    training_mask_obs_group = None
 @configclass
 class BCPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24

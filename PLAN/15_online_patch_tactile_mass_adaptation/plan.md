@@ -456,6 +456,13 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   相同。第三 seed `151016` 因此在 iteration 226 停止，仅终止记录的 child PGID，
   allocation 保留。下一步不是继续旧 Z 或启动 P，而是实现上述 live official-
   Refiner hold handoff，并重新完成三分支 one-update preflight。
+- replacement handoff 实现和 Z/P/PS 三个 one-update preflight 已完成。每项均从
+  motion 45/frame 0 由 frozen Refiner 在线拿箱，在同一 episode 完成 4 次无重置
+  handoff、交接后 student control 和 2 次真实 mass change。Z 的 TacSL read 为 0；
+  P/PS 各有 361 次在线 feature update、19,494 次官方 patch read 和 363 个双手接触
+  env-samples；PS 实际执行 361 次 causal slip update。BCPPO mask 与 wrapper 计数
+  逐步吻合，只给 142/143 个 post-handoff transitions PPO credit。该结果只准入新的
+  formal Z，不是触觉收益结论，也不准入 P formal。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。离线布局
   与 H.264 全解码已通过，但 `238354`/`server38` 的真实 camera run 在场景构建前

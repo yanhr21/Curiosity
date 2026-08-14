@@ -45,7 +45,12 @@
   连续 10 帧 lift `>=0.05 m`，随后在同一 PhysX episode 无 teleport、无 replay 地
   交给 Z/P/PS actor，再延迟 `10--50` 帧增重。交接前数据不计 PPO surrogate/value/
   entropy credit，handoff mask 与 teacher/object state 不进入 actor；P/PS 的四帧
-  patch/slip history 必须在 teacher 前缀中在线形成。Frozen evaluator 已修正为
+  patch/slip history 必须在 teacher 前缀中在线形成。该 replacement 实现及 Z/P/PS
+  三个 one-update preflight 均已通过：每项完成 4 次 live handoff、2 次真实 mass
+  change，并只给 142/143 个 post-handoff transitions PPO credit；Z 保持 0 次 TacSL
+  read，P/PS 各完成 19,494 次官方 patch read，PS 实际执行 361 次 causal slip
+  update。它们只准入新的 formal Z，不是触觉收益结论，也没有启动 P/PS formal。
+  Frozen evaluator 已修正为
   motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
   中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手
   27-patch 可视化布局和 H.264 编码已验证，但当前 H200 Kit/Vulkan

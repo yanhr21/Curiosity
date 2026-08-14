@@ -181,15 +181,22 @@ class OnlineMassJumpController:
         if first.any():
             self.initial_height_m[first] = positions[first]
             self.initialized[first] = True
-        lifted = positions - self.initial_height_m >= float(self.config.minimum_lift_m)
-        self.stable_count = torch.where(
-            lifted,
-            self.stable_count + 1,
-            torch.zeros_like(self.stable_count),
-        )
-        newly_qualified = (~self.qualified) & (
-            self.stable_count >= int(self.config.stable_lift_frames)
-        )
+        handoff = getattr(self.env, "_online_teacher_handoff_controller", None)
+        if handoff is None:
+            lifted = (
+                positions - self.initial_height_m
+                >= float(self.config.minimum_lift_m)
+            )
+            self.stable_count = torch.where(
+                lifted,
+                self.stable_count + 1,
+                torch.zeros_like(self.stable_count),
+            )
+            newly_qualified = (~self.qualified) & (
+                self.stable_count >= int(self.config.stable_lift_frames)
+            )
+        else:
+            newly_qualified = (~self.qualified) & handoff.handoff_active
         self.qualified |= newly_qualified
         self.qualification_step[newly_qualified] = int(control_step)
         waiting = (

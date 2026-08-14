@@ -168,6 +168,29 @@ def test_factor_one_uses_matched_event_clock_without_changing_mass():
     )
 
 
+def test_mass_delay_starts_only_after_live_teacher_handoff():
+    env = fake_env(1)
+    env._online_teacher_handoff_controller = SimpleNamespace(
+        handoff_active=torch.tensor([False])
+    )
+    config = MassJumpConfig(
+        mass_factors=(3.0,),
+        stable_lift_frames=1,
+        delay_frames=(2, 2),
+    )
+    controller = OnlineMassJumpController(env, "obj", config)
+    controller.reset()
+    controller.advance(control_step=0)
+    env.scene["obj"].data.root_pos_w[:, 2] = 0.1
+    for step in range(1, 5):
+        assert controller.advance(control_step=step).numel() == 0
+    assert controller.qualified.item() is False
+    env._online_teacher_handoff_controller.handoff_active[:] = True
+    assert controller.advance(control_step=5).numel() == 0
+    assert controller.qualified.item() is True
+    assert controller.advance(control_step=6).tolist() == [0]
+
+
 def test_training_assignment_cycles_all_mass_factors_per_env():
     env = fake_env(4)
     config = MassJumpConfig()

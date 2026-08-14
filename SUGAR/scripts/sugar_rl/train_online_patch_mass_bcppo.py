@@ -60,6 +60,8 @@ def _inject_official_training_contract(argv: list[str]) -> list[str]:
         raise ValueError(f"formal Plan-15 seed must be one of {FORMAL_SEEDS}")
     os.environ["SUGAR_TOTAL_ITERATION_BUDGET"] = "1" if preflight else "3000"
     os.environ["SUGAR_INIT_AT_RANDOM_EP_LEN"] = "0"
+    os.environ["SUGAR_PLAN15_LIVE_HANDOFF"] = "1"
+    os.environ["SUGAR_PLAN15_HANDOFF_TEACHER_CKPT"] = str(OFFICIAL_REFINER)
     if preflight:
         for branch in ("PS", "P", "Z"):
             if f"-Patch-{branch}-Preflight-" in task:

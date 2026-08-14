@@ -11,11 +11,13 @@ class BCPPO(PPO):
         policy,
         teacher_ckpt=None,
         stage3_distill_weight_floor=0.0,
+        training_mask_obs_group=None,
         **kwargs,
     ):
         super().__init__(policy, **kwargs)
 
         self.stage3_distill_weight_floor = float(stage3_distill_weight_floor)
+        self.training_mask_obs_group = training_mask_obs_group
         if not 0.0 <= self.stage3_distill_weight_floor <= 1.0:
             raise ValueError(
                 "stage3_distill_weight_floor must lie in [0, 1], got "
@@ -90,6 +92,23 @@ class BCPPO(PPO):
         mean_distill_loss = 0 # Teacher 统计
         mean_distill_weight = 0
 
+        if self.training_mask_obs_group is not None:
+            rollout_mask = self.storage.observations[
+                self.training_mask_obs_group
+            ][: self.storage.step].reshape(-1)
+            active_transitions = int((rollout_mask > 0.5).sum().item())
+            total_transitions = int(rollout_mask.numel())
+            self.last_training_mask_report = {
+                "observation_group": self.training_mask_obs_group,
+                "active_policy_transitions": active_transitions,
+                "masked_teacher_transitions": (
+                    total_transitions - active_transitions
+                ),
+                "total_transitions": total_transitions,
+            }
+        else:
+            self.last_training_mask_report = None
+
         # -- RND loss
         if self.rnd:
             mean_rnd_loss = 0
@@ -128,10 +147,32 @@ class BCPPO(PPO):
             # we assume policy group is always there and needs augmentation
             original_batch_size = obs_batch.batch_size[0]
 
+            if self.training_mask_obs_group is None:
+                active_weight = torch.ones(
+                    original_batch_size, device=self.device
+                )
+            else:
+                active_weight = obs_batch[
+                    self.training_mask_obs_group
+                ][:original_batch_size].reshape(original_batch_size, -1)[:, 0]
+                active_weight = (active_weight > 0.5).to(torch.float32)
+            active_count = active_weight.sum()
+            active_denom = active_count.clamp_min(1.0)
+
             # check if we should normalize advantages per mini batch
             if self.normalize_advantage_per_mini_batch:
                 with torch.no_grad():
                     advantages_batch = (advantages_batch - advantages_batch.mean()) / (advantages_batch.std() + 1e-8)
+            if self.training_mask_obs_group is not None and active_count > 1:
+                with torch.no_grad():
+                    flat_advantage = advantages_batch.reshape(-1)
+                    active_mean = (flat_advantage * active_weight).sum() / active_count
+                    active_variance = (
+                        (flat_advantage - active_mean).square() * active_weight
+                    ).sum() / active_count
+                    advantages_batch = (
+                        advantages_batch - active_mean
+                    ) / torch.sqrt(active_variance + 1.0e-8)
 
             # Perform symmetric augmentation
             if self.symmetry and self.symmetry["use_data_augmentation"]:
@@ -178,7 +219,7 @@ class BCPPO(PPO):
                         - 0.5,
                         dim=-1,
                     )
-                    kl_mean = torch.mean(kl)
+                    kl_mean = (kl * active_weight).sum() / active_denom
 
                     # Reduce the KL divergence across all GPUs
                     if self.is_multi_gpu:
@@ -211,7 +252,9 @@ class BCPPO(PPO):
             surrogate_clipped = -torch.squeeze(advantages_batch) * torch.clamp(
                 ratio, 1.0 - self.clip_param, 1.0 + self.clip_param
             )
-            surrogate_loss = torch.max(surrogate, surrogate_clipped).mean()
+            surrogate_loss = (
+                torch.max(surrogate, surrogate_clipped) * active_weight
+            ).sum() / active_denom
 
             # Value function loss
             if self.use_clipped_value_loss:
@@ -220,9 +263,23 @@ class BCPPO(PPO):
                 )
                 value_losses = (value_batch - returns_batch).pow(2)
                 value_losses_clipped = (value_clipped - returns_batch).pow(2)
-                value_loss = torch.max(value_losses, value_losses_clipped).mean()
+                value_loss_per_sample = torch.max(
+                    value_losses, value_losses_clipped
+                ).reshape(original_batch_size, -1).mean(dim=-1)
             else:
-                value_loss = (returns_batch - value_batch).pow(2).mean()
+                value_loss_per_sample = (
+                    (returns_batch - value_batch)
+                    .pow(2)
+                    .reshape(original_batch_size, -1)
+                    .mean(dim=-1)
+                )
+            value_loss = (
+                value_loss_per_sample * active_weight
+            ).sum() / active_denom
+            entropy_mean = (
+                entropy_batch.reshape(original_batch_size, -1).mean(dim=-1)
+                * active_weight
+            ).sum() / active_denom
 
             if self.teacher_model is not None:
                 with torch.no_grad():
@@ -283,7 +340,7 @@ class BCPPO(PPO):
                 loss = (
                     surrogate_loss * alpha
                     + self.value_loss_coef * value_loss 
-                    - self.entropy_coef * entropy_batch.mean() * alpha 
+                    - self.entropy_coef * entropy_mean * alpha
                     + self.distill_loss_coef * distill_loss * distill_weight
                 )
 
@@ -360,7 +417,7 @@ class BCPPO(PPO):
             # Store the losses
             mean_value_loss += value_loss.item()
             mean_surrogate_loss += surrogate_loss.item()
-            mean_entropy += entropy_batch.mean().item()
+            mean_entropy += entropy_mean.item()
             mean_distill_weight += distill_weight
             # -- RND loss
             if mean_rnd_loss is not None:

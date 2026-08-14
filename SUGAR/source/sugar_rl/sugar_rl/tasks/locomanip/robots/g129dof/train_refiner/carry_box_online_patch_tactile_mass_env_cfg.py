@@ -30,6 +30,11 @@ from sugar_rl.tasks.locomanip.online_patch_tactile import (
     online_patch_tactile_actor_history,
     online_patch_tactile_with_slip_actor_history,
 )
+from sugar_rl.tasks.locomanip.online_teacher_handoff import (
+    online_teacher_handoff_training_mask,
+    reset_online_teacher_handoff,
+    step_online_teacher_handoff,
+)
 
 from .base_refiner_env_cfg import BaseActionsCfg, BaseObservationsCfg
 from .carry_box_official_refiner_anatomical_whole_hand_tacsl_env_cfg import (
@@ -57,6 +62,11 @@ PATCH_TERM_PARAMS = {
     "patch_areas_m2": PATCH_AREAS_M2,
     "friction_coefficient": 0.5,
     "history_steps": PATCH_HISTORY_STEPS,
+}
+HANDOFF_PARAMS = {
+    "asset_name": "obj",
+    "minimum_lift_m": 0.05,
+    "stable_lift_frames": 10,
 }
 
 
@@ -154,11 +164,21 @@ class LivePatchTactileWithSlipCfg(ObsGroup):
 
 
 @configclass
+class TrainingHandoffMaskCfg(ObsGroup):
+    active = ObsTerm(func=online_teacher_handoff_training_mask)
+
+    def __post_init__(self):
+        self.enable_corruption = False
+        self.concatenate_terms = True
+
+
+@configclass
 class LivePatchObservationsCfg:
     policy: TrackerCommandPolicyCfg = TrackerCommandPolicyCfg()
     online_patch_tactile_history: LivePatchTactileCfg = LivePatchTactileCfg()
     critic: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
     teacher: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
+    training_handoff_mask: TrainingHandoffMaskCfg = TrainingHandoffMaskCfg()
 
 
 @configclass
@@ -169,6 +189,7 @@ class ExactZeroPatchObservationsCfg:
     )
     critic: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
     teacher: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
+    training_handoff_mask: TrainingHandoffMaskCfg = TrainingHandoffMaskCfg()
 
 
 @configclass
@@ -179,6 +200,7 @@ class LivePatchWithSlipObservationsCfg:
     )
     critic: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
     teacher: BaseObservationsCfg.PrivilegedCfg = BaseObservationsCfg.PrivilegedCfg()
+    training_handoff_mask: TrainingHandoffMaskCfg = TrainingHandoffMaskCfg()
 
 
 @configclass
@@ -188,10 +210,22 @@ class OnlineMassJumpEventCfg(OfficialRefinerAnatomicalWholeHandTacSLAuditEventCf
     # Disable the official startup mass randomization.  The reset event writes
     # one absolute nominal mass before every continuous episode.
     obj_mass = None
+    reset_teacher_handoff = EventTerm(
+        func=reset_online_teacher_handoff,
+        mode="reset",
+        params=HANDOFF_PARAMS,
+    )
     reset_mass_jump = EventTerm(
         func=reset_online_mass_jump,
         mode="reset",
         params=MASS_JUMP_PARAMS,
+    )
+    step_teacher_handoff = EventTerm(
+        func=step_online_teacher_handoff,
+        mode="interval",
+        interval_range_s=(0.02, 0.02),
+        is_global_time=False,
+        params=HANDOFF_PARAMS,
     )
     step_mass_jump = EventTerm(
         func=step_online_mass_jump,

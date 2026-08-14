@@ -89,6 +89,17 @@
   frame histories online during the same teacher-controlled prefix. Do not
   start new P or PS formal training until the replacement Z endpoints contain
   eligible post-jump behavior.
+- All three replacement one-update preflights now pass on retained
+  `238253`/`server59`. Each ran 1440 transitions, completed four live Refiner
+  handoffs and two real mass changes, and assigned policy credit only to the
+  `142/143` post-handoff transitions while masking the `1298/1297` teacher
+  transitions. Z made 364 exact-zero observation calls and zero TacSL reads.
+  P and PS each made 361 online feature updates and exactly 19,494 official
+  patch reads, observed bilateral contact in 363 env-samples, and P made zero
+  slip calls. PS made 361 causal slip calls and returned nonzero incipient and
+  gross patch states. These results admit new formal Z training only; they do
+  not prove tactile benefit or authorize P formal training before valid Z
+  endpoints.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may
