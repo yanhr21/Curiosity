@@ -254,7 +254,10 @@ read 以及 PS callable。它仍如实记录 contact/load/event；早期 policy 
 exploration standard deviation。
 这是 repository-native BCPPO schedule 所需的完整阶段：updates `0--499` 为 teacher
 distillation，`500--999` 加入 critic warmup，`1000--1999` 将 task-reward PPO
-authority 从 0 线性升到 1，`2000--2999` 为 steady full PPO。原先的 512-update
+authority 从 0 线性升到 1，`2000--2999` 保持 full PPO authority，同时三个分支
+统一保留 `stage3_distill_weight_floor=0.25` 的 Refiner BC anchor。这个 floor 是仓库
+已有 BCPPO 参数，只约束训练期 student 不遗忘持箱行为，不把 teacher action、物体
+状态或质量信息加入部署 actor。原先的 512-update
 草案在 actor 收到 task-reward PPO 之前就结束，不能回答触觉是否帮助训练，已撤销。
 泄漏审计固定使用 `150814/150815/150816`；正式训练固定使用
 `151014/151015/151016`；frozen evaluation 固定使用
@@ -475,6 +478,17 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   seed `151016`。seed `151014` 已越过有限的 `model_2000.pt` 并继续 steady full-PPO。
   五天 jobs `238934/239098` 继续保留。该状态不构成质量适应结果，也不准入 P/PS
   formal。
+- 2026-08-15 的 replacement-Z endpoint gate 发现 zero-floor BCPPO 会在最后 1000
+  updates 遗忘 Refiner 持箱行为。seed `151014` 的 distillation loss 从 update 2000
+  的 `0.3404` 升到 update 2999 的 `35.8202`；冻结时交接前 teacher/student action
+  L2 从约 `0.9` 恶化到 `5.4--5.9`，三条成功 handoff 轨迹均约 7 帧后、mass event
+  前失败。相同四个 profile 的 update-1000 checkpoint 能产生三次真实 `1.5x` jump，
+  post-jump 生存 `18/21/60` 帧；update-2000 则为 `65/38/74` 帧。两者仍未达到冻结的
+  80-frame eligibility，但证明当前失败是训练后期 behavior forgetting，不是 TacSL、
+  mass scheduler 或 handoff wrapper 失效。正式设计因此在三个分支统一启用仓库已有
+  `stage3_distill_weight_floor=0.25`，保留完整 3000-update budget 和 update 2000 后
+  full PPO authority；Z 从各自 update-2000 checkpoint 重跑最后 1000 updates，旧的
+  zero-floor update-2999 endpoint 不进入正式比较。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。Frozen
   evaluator 已加入 one-profile 同钟 world-camera 录制和 handoff overlay，renderer

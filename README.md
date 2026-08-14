@@ -60,8 +60,14 @@
   正确恢复并通过相同同步，随后正常完成 `model_2999.pt`；该 endpoint 的 59 个模型
   张量与 58 项 optimizer state 均有限。同一 retained job 已从官方 Tracker、
   iteration 0 启动 seed `151016`；seed `151014` 已越过有限的 `model_2000.pt` 并
-  继续 steady full-PPO。五天恢复 jobs `238934/239098` 继续保留。P/PS formal
-  仍未启动。
+  继续 steady full-PPO。后续冻结 gate 已证明 zero-floor 的最后 1000 updates 会
+  遗忘 Refiner 持箱行为：seed `151014` 的 distillation loss 从 update 2000 的
+  `0.3404` 升到 endpoint 的 `35.8202`，交接动作差从约 `0.9` 恶化到 `5.4--5.9`。
+  endpoint 在 mass event 前失败；相同 update-2000 checkpoint 则完成三次真实
+  `1.5x` jump，并维持 `65/38/74` 个 post-jump frames，但仍不足固定 80 帧。
+  因此 Z/P/PS 现统一使用仓库已有 `stage3_distill_weight_floor=0.25`，保持 full PPO
+  authority 和 3000-update endpoint；三个 Z 从 update 2000 重跑最后 1000 updates。
+  五天恢复 jobs `238934/239098` 继续保留，P/PS formal 仍未启动。
   Frozen evaluator 已修正为
   motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
   中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手

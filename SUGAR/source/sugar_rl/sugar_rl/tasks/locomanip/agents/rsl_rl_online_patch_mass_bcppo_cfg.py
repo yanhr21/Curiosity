@@ -76,6 +76,12 @@ class OnlinePatchMassBCPPORunnerCfg(BCPPORunnerCfg):
         lam=0.95,
         desired_kl=0.01,
         max_grad_norm=1.0,
+        # Keep the released Refiner behavior anchored after PPO reaches full
+        # authority.  A zero floor caused the live-handoff student to forget
+        # the pickup/hold behavior between updates 2000 and 2999 even though
+        # PPO remained active.  This repository-native BCPPO setting is shared
+        # unchanged by Z, P, and PS.
+        stage3_distill_weight_floor=0.25,
         training_mask_obs_group="training_handoff_mask",
     )
 

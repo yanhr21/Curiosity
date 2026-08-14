@@ -50,8 +50,19 @@
   MLP, offline tactile replay or taxel-CNN substitute is allowed.
 - Repository BCPPO gives the actor no task-reward PPO before update 1000:
   updates 0--499 are pure distillation, 500--999 add only critic warmup, and
-  1000--1999 ramp PPO authority. Each formal Z/P/PS run is therefore exactly
-  3000 updates, including 1000 steady full-PPO updates. The withdrawn
+  1000--1999 ramp PPO authority. Updates 2000--2999 retain full PPO authority
+  and a shared `stage3_distill_weight_floor=0.25` Refiner BC anchor. This is the
+  existing repository BCPPO mechanism, not a new reward or teacher action at
+  deployment. The zero-floor replacement-Z endpoints are frozen negatives:
+  seed `151014` distillation loss rose from `0.3404` at update 2000 to
+  `35.8202` at update 2999, the pre-handoff teacher/student action L2 grew from
+  about `0.9` to `5.4--5.9`, and the endpoint failed roughly seven frames after
+  handoff before any mass event. The same update-2000 checkpoint produced
+  three real `1.5x` jumps and survived `65/38/74` post-jump frames, establishing
+  behavior forgetting rather than a sensor or handoff-wrapper failure. Resume
+  all three Z seeds from their update-2000 checkpoints with the shared `0.25`
+  floor and the original fixed update-2999 endpoint; apply the identical floor
+  to P and PS. Each formal run remains exactly 3000 updates. The withdrawn
   512-update Plan-15 draft cannot answer tactile training benefit.
 - Formal training seeds are `151014/151015/151016`. Pair their endpoint
   checkpoints one-to-one with disjoint frozen-evaluation seeds
@@ -100,7 +111,19 @@
   gross patch states. These results admit new formal Z training only; they do
   not prove tactile benefit or authorize P formal training before valid Z
   endpoints.
-- Replacement handoff-Z formal training is in progress. Seed `151014` has a
+- The first zero-floor replacement handoff-Z pass is a frozen training
+  negative. Seed `151014` and `151015` completed finite `model_2999.pt`
+  endpoints, but seed `151014`'s four-profile `1.5x` gate had zero eligible
+  profiles: three handoffs failed about seven frames later before the mass
+  event, and one profile ended before handoff. Stage diagnostics on the exact
+  same four profiles showed update 1000 produced three real jumps and survived
+  `18/21/60` post-jump frames, while update 2000 survived `65/38/74` frames;
+  neither reached the fixed 80-frame eligibility window. This directly tracks
+  the zero-floor distillation collapse described above. Do not use or resume
+  the zero-floor update-2999 endpoints as formal Z results. Replacement Z now
+  resumes from update 2000 with the shared `0.25` BC anchor; P/PS remain
+  forbidden until anchored Z endpoints yield eligible post-jump profiles.
+  Historical allocation details follow. Seed `151014` has a
   complete `model_1500.pt`; its allocation
   `238253` was externally `CANCELLED by 0` after iteration 1711. Seed `151015`
   has a complete `model_2250.pt`; its allocation `238620` was externally

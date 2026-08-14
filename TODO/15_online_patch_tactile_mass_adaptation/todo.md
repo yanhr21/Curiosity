@@ -171,6 +171,15 @@
   post-handoff transitions 计入 PPO，并屏蔽 1298/1297 个 teacher transitions。
 - [ ] 新 `Z`：三个冻结 seed 各完成匹配 3000 updates 与 endpoint frozen evaluation；
   只有存在 eligible post-jump profiles 才允许进入 P。
+- [x] 定位 zero-floor endpoint 的 handoff 退化：seed `151014` update-2999 gate 为
+  `0/4` eligible，三条 handoff 后约 7 帧且 mass event 前失败；同 profile 的
+  update-1000/update-2000 均产生三次真实 `1.5x` jump，update-2000 post-jump 生存
+  `65/38/74` 帧。distillation loss 从 update-2000 的 `0.3404` 升至 update-2999 的
+  `35.8202`，证明最后 1000 updates 出现 Refiner behavior forgetting。
+- [ ] 三个 Z 从各自 update-2000 checkpoint 以共享
+  `stage3_distill_weight_floor=0.25` 重跑到固定 update-2999 endpoint；P/PS 必须使用
+  完全相同的 floor、BCPPO、optimizer、seed 和预算，不得选取中间 checkpoint 作为
+  正式结果。
 - [x] 恢复 replacement handoff-Z：`151014` 从完整 `model_1500.pt` 的下一 iteration
   1501 接续；`151015` 从完整 `model_2250.pt` 的下一 iteration 2251 接续。jobs
   `238253/238620` 均为外部 `CANCELLED by 0`，不是训练异常；未保存区间不计，最终
