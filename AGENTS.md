@@ -106,11 +106,13 @@
   has a complete `model_2250.pt`; its allocation `238620` was externally
   `CANCELLED by 0` after iteration 2339. Both restart checkpoints contain 59
   model tensors and 58 optimizer states and are finite. Unsaved iterations are
-  excluded. Resume `151014` at iteration 1501 and `151015` at iteration 2251
-  while keeping the total endpoint at 3000. Five-day recovery jobs
-  `238934/239098` and eight-hour backfill jobs `239105/239106` are queued.
-  These are interrupted Z training milestones, not mass-adaptation results;
-  P and PS remain unstarted.
+  excluded. Eight-hour backfill job `239105` on `server35` has restored seed
+  `151014` at iteration 1501, and job `239106` on `server44` has restored seed
+  `151015` at iteration 2251; both checkpoint, BCPPO-stage and optimizer-
+  learning-rate synchronizations passed. Five-day jobs `238934/239098` remain
+  retained fallbacks. The total endpoint remains 3000. These are interrupted
+  Z training milestones, not mass-adaptation results; P and PS remain
+  unstarted.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may

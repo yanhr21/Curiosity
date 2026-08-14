@@ -467,9 +467,10 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   完整文件为 `model_1500.pt`，其 allocation `238253` 在打印 iteration 1711 后被
   调度器外部 `CANCELLED by 0`；seed `151015` 的最后完整文件为 `model_2250.pt`，
   allocation `238620` 在 iteration 2339 后同样被外部取消。两份 checkpoint 均为
-  59 个模型张量、58 项 optimizer state 且数值有限；未保存区间不计。恢复必须分别
-  从 iteration 1501/2251 开始，总 endpoint 仍为 3000。五天恢复 jobs
-  `238934/239098` 与 8 小时 backfill jobs `239105/239106` 已排队。该状态不构成质量
+  59 个模型张量、58 项 optimizer state 且数值有限；未保存区间不计。8 小时
+  backfill jobs `239105/server35` 与 `239106/server44` 已分别从 iteration
+  1501/2251 恢复，checkpoint、BCPPO stage 和 optimizer learning-rate 同步均通过；
+  五天 jobs `238934/239098` 继续保留，总 endpoint 仍为 3000。该状态不构成质量
   适应结果，也不准入 P/PS formal。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。离线布局
