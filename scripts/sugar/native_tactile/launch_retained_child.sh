@@ -7,12 +7,14 @@ record=""
 status=""
 log=""
 tag=""
+foreground=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --record) record="$2"; shift 2 ;;
         --status) status="$2"; shift 2 ;;
         --log) log="$2"; shift 2 ;;
         --tag) tag="$2"; shift 2 ;;
+        --foreground) foreground=1; shift ;;
         --) shift; break ;;
         *) echo "unknown launcher argument: $1" >&2; exit 2 ;;
     esac
@@ -34,6 +36,7 @@ for path in "$record" "$status" "$log"; do
     mkdir -p "$(dirname "$path")"
 done
 
+run_child() {
 setsid bash -c '
     record=$1
     status=$2
@@ -63,7 +66,14 @@ setsid bash -c '
         printf "finished_utc=%s\n" "$(date -u +%FT%TZ)"
     } > "$status"
     exit "$rc"
-' retained-child "$record" "$status" "$tag" "$@" > "$log" 2>&1 < /dev/null &
+' retained-child "$record" "$status" "$tag" "$@" > "$log" 2>&1 < /dev/null
+}
 
-launcher_pid=$!
-printf "launched_pid=%s tag=%s log=%s\n" "$launcher_pid" "$tag" "$log"
+if [[ "$foreground" -eq 1 ]]; then
+    printf "launching_foreground tag=%s log=%s\n" "$tag" "$log"
+    run_child "$@"
+else
+    run_child "$@" &
+    launcher_pid=$!
+    printf "launched_pid=%s tag=%s log=%s\n" "$launcher_pid" "$tag" "$log"
+fi

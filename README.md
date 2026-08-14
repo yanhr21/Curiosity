@@ -28,7 +28,9 @@
   触觉已经改善行为。固定的双肩夹紧+降姿响应也未恢复 `6x/10x`。seed `151014`
   的原 allocation 被调度器终止后，已从最后完整 update-500 checkpoint 精确恢复到
   BCPPO iteration 501；总 endpoint 仍是 3000。seed `151015` 的 allocation 也在
-  update 784 后被调度器终止，最后完整 checkpoint 为 750，接续资源正在排队。
+  update 784 后被调度器终止，最后完整 checkpoint 为 750；现已在
+  `238355`/`server07` 精确恢复到 BCPPO/runner iteration 751，总 endpoint 仍是
+  3000。
 
 ## 当前结果
 

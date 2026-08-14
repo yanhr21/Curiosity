@@ -150,8 +150,8 @@
   也不是触觉收益证据。`151014` 的原 allocation 在 update 651 被调度器终止，现已
   从最后完整 `model_500.pt` 精确恢复：BCPPO counter 与下一迭代均为 501，总预算
   保持 3000。`151015` 也被调度器在打印 update 784 后外部终止；最后完整 checkpoint
-  为 update 750，新的 retained allocation 已排队，恢复后必须从 751 开始并保持
-  总 endpoint 3000。
+  为 update 750，现已在 `238355`/`server07` 精确恢复到 BCPPO/runner iteration
+  751，固定总 endpoint 3000、剩余 2249 updates。
 - [x] `P` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
   次官方 patch sensor read、`0` 次 slip call，并完成一次 BCPPO update。当前
   warm-start policy 尚未进入抓箱窗口，所以 contact/load 如实为 0；非零在线信号

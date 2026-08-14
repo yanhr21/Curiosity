@@ -160,9 +160,11 @@
   reconstructed at update step 501, the runner starts iteration 501, and the
   fixed total endpoint remains 3000 with 2499 remaining updates. Seed `151015`
   was subsequently also externally `CANCELLED by 0` after printing update 784;
-  its last complete checkpoint is update 750 and it awaits a retained recovery
-  allocation. Resume it at BCPPO/runner iteration 751 with total endpoint 3000.
-  Do not count either unsaved 501--651 or 751--784 segment twice.
+  its last complete checkpoint is update 750. It has now resumed on retained
+  job `238355`/`server07`: the checkpoint restores BCPPO update step 751, the
+  runner starts learning iteration 751, and the fixed endpoint remains 3000
+  with 2249 updates remaining. Do not count either unsaved 501--651 or
+  751--784 segment twice.
 
 ## Highest-Priority Full-G1 IsaacLab Object-Demo Reset (2026-08-13)
 

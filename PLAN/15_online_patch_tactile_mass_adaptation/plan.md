@@ -380,8 +380,9 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   从 iteration 501 开始，并按总 endpoint 3000 只运行剩余 2499 updates。
   seed `151015` 的 allocation 随后也被调度器在打印 update 784 后以
   `CANCELLED by 0` 终止；最后完整 checkpoint 是 update 750。训练日志没有
-  Traceback/OOM，当前等待新的 retained allocation 后从 iteration 751 精确恢复，
-  不把未保存的 751--784 计入完成进度。
+  Traceback/OOM。该 seed 已在 retained job `238355`/`server07` 从该 checkpoint
+  精确恢复：BCPPO `update_step=751`、runner 从 iteration 751 开始、总 endpoint
+  仍为 3000，剩余 2249 updates；未保存的 751--784 不计入完成进度。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。
