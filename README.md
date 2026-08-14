@@ -118,11 +118,16 @@ one-update preflight；只有各分支 live report 通过后才运行对应 3000
 中执行完整的 300-profile frozen sweep：
 
 ```bash
-scripts/sugar/native_tactile/run_plan15_frozen_sweep.sh Z \
-  experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151014/model_2999.pt \
-  experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151015/model_2999.pt \
-  experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151016/model_2999.pt \
-  experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z
+scripts/sugar/native_tactile/launch_retained_child.sh \
+  --record experiments/online_patch_tactile_mass_adaptation/runtime/z_frozen_sweep.process \
+  --status experiments/online_patch_tactile_mass_adaptation/runtime/z_frozen_sweep.status \
+  --log experiments/online_patch_tactile_mass_adaptation/runtime/z_frozen_sweep.log \
+  --tag plan15-z-frozen-sweep --foreground -- \
+  scripts/sugar/native_tactile/run_plan15_frozen_sweep.sh Z \
+    experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151014/model_2999.pt \
+    experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151015/model_2999.pt \
+    experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151016/model_2999.pt \
+    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z
 ```
 
 该入口固定 checkpoint/evaluation-seed 一一配对并运行 5 个质量条件、每项 20
@@ -133,15 +138,20 @@ profiles。结束后用 `SUGAR/scripts/sugar_rl/summarize_online_patch_mass_swee
 endpoint-video rollout，并将世界画面与双手 27-patch map 合成同钟 H.264：
 
 ```bash
-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
-  SUGAR/scripts/sugar_rl/evaluate_online_patch_mass_bcppo.py \
-  --branch Z \
-  --checkpoint experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151014/model_2999.pt \
-  --patch-scale-file experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json \
-  --output-root experiments/online_patch_tactile_mass_adaptation/videos_handoff/z_seed151014_3x \
-  --training-seed 151014 --seed 152014 --mass-factor 3.0 \
-  --motion-id 45 --profiles 1 --num-envs 1 --max-steps 420 \
-  --post-jump-window 80 --record-world --headless --device cuda:0
+scripts/sugar/native_tactile/launch_retained_child.sh \
+  --record experiments/online_patch_tactile_mass_adaptation/runtime/z_endpoint_video.process \
+  --status experiments/online_patch_tactile_mass_adaptation/runtime/z_endpoint_video.status \
+  --log experiments/online_patch_tactile_mass_adaptation/runtime/z_endpoint_video.log \
+  --tag plan15-z-endpoint-video --foreground -- \
+  /public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+    SUGAR/scripts/sugar_rl/evaluate_online_patch_mass_bcppo.py \
+    --branch Z \
+    --checkpoint experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151014/model_2999.pt \
+    --patch-scale-file experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json \
+    --output-root experiments/online_patch_tactile_mass_adaptation/videos_handoff/z_seed151014_3x \
+    --training-seed 151014 --seed 152014 --mass-factor 3.0 \
+    --motion-id 45 --profiles 1 --num-envs 1 --max-steps 420 \
+    --post-jump-window 80 --record-world --headless --device cuda:0
 
 /public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
   scripts/sugar/native_tactile/render_online_patch_mass_jump.py \
