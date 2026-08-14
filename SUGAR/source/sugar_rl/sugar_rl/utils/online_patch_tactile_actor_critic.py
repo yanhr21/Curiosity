@@ -24,6 +24,12 @@ from sugar_rl.utils.reference_only_tactile_actor_critic import (
 class OnlinePatchTactileActorCritic(ReferenceOnlyTactileActorCritic):
     """504-D deployable base + 128-D patch embedding + SUGAR 512/256/128 MLP."""
 
+    # The inherited constructor temporarily builds the older spatial encoder
+    # before this class installs the anatomical patch Transformer. Suppress
+    # that transient architecture print so runtime logs describe the model
+    # that actually trains.
+    _print_inherited_spatial_tactile_architecture = False
+
     def __init__(
         self,
         obs,
@@ -97,6 +103,11 @@ class OnlinePatchTactileActorCritic(ReferenceOnlyTactileActorCritic):
             first_layer.weight[:, self.num_actor_base_obs :].mul_(
                 self.warm_start_tactile_gain
             )
+        print(f"Plan-15 online patch actor MLP: {self.actor}")
+        print(
+            "Plan-15 anatomical patch encoder: "
+            f"{self.actor_tactile_encoder.architecture_contract()}"
+        )
 
     def configure_tactile_actor_finetune(self) -> dict[str, object]:
         """Train the full serious student while retaining the privileged critic."""

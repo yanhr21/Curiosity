@@ -67,8 +67,9 @@ def _inject_official_training_contract(argv: list[str]) -> list[str]:
                 break
         else:
             raise ValueError(f"cannot identify Plan-15 preflight branch: {task}")
-
     output = list(argv)
+    if _option_value(output, "--motion_folder") is None:
+        output.extend(("--motion_folder", "data/CarryBox"))
     teacher = _option_value(output, "--teacher_ckpt")
     if teacher is None:
         output.extend(("--teacher_ckpt", str(OFFICIAL_REFINER)))
@@ -125,5 +126,7 @@ setattr(
     "OnlinePatchTactileActorCritic",
     OnlinePatchTactileActorCritic,
 )
+(ROOT / "experiments/sugar_reproduction/logs").mkdir(parents=True, exist_ok=True)
+(ROOT / "experiments/sugar_reproduction/logs/sugar_hydra.log").touch(exist_ok=True)
 os.chdir(ROOT / "SUGAR")
 runpy.run_path(str(Path(__file__).with_name("train.py")), run_name="__main__")

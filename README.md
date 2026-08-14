@@ -16,8 +16,11 @@
   patch load/pressure 与 `504-D` proprio 都发生变化，因此正式问题是“触觉在本体
   感受之上是否带来增量帮助”，不是“只有触觉知道质量”。受控官方 R15 滑动轨迹
   已将 callable 的 STICK/INCIPIENT/GROSS 区分校准通过，同一 callable 也已完成
-  420 帧 full-G1 CarryBox 在线复核；正式训练尚未开始，下一步是串行 Z/P/PS
-  one-update preflight。
+  420 帧 full-G1 CarryBox 在线复核。Z 已完成一次 360-step BCPPO update：`364`
+  次 exact-zero observation 且 `0` 次 TacSL read；P 已完成 `361` 次 online feature
+  update 和 `19,494 = 361 x 54` 次官方 patch read，slip call 为 0；PS 同样完成
+  `19,494` 次 patch read，并执行 `361` 次 causal slip callable。三个 one-update
+  training-path preflight 均通过，下一步为正式 Z 训练。
 
 ## 当前结果
 

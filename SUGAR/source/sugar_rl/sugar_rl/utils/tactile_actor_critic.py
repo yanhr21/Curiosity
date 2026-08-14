@@ -213,9 +213,10 @@ class TactileActorCritic(nn.Module):
         self.distribution = None
         self._actor_base_gradient_hook = None
         Normal.set_default_validate_args(False)
-        print(f"SUGAR tactile actor MLP: {self.actor}")
-        print(f"SUGAR tactile critic MLP: {self.critic}")
-        print(f"Shared per-hand tactile encoder shape: {tuple(tactile_grid_shape)}, feature dim: {tactile_feature_dim}")
+        if getattr(self, "_print_inherited_spatial_tactile_architecture", True):
+            print(f"SUGAR tactile actor MLP: {self.actor}")
+            print(f"SUGAR tactile critic MLP: {self.critic}")
+            print(f"Shared per-hand tactile encoder shape: {tuple(tactile_grid_shape)}, feature dim: {tactile_feature_dim}")
 
     @staticmethod
     def _group_dim(obs, groups: Sequence[str]) -> int:

@@ -130,6 +130,34 @@ def test_live_preflight_report_enforces_each_branch_path(branch):
     assert report["mass_runtime"]["mass_changes"] == 1
 
 
+def test_training_path_preflight_does_not_fake_a_mass_event_before_lift():
+    env = SimpleNamespace(device="cpu")
+    diagnostics = module._runtime_diagnostics(env)
+    diagnostics["zero_observation_calls"] = 2
+    diagnostics["zero_env_samples"] = 2
+    env._online_mass_jump_controller = SimpleNamespace(
+        cumulative_jump_events=torch.zeros(1, dtype=torch.long),
+        cumulative_mass_changes=torch.zeros(1, dtype=torch.long),
+        cumulative_factor_events=torch.zeros(1, 5, dtype=torch.long),
+    )
+    report = module.online_patch_preflight_runtime_report(env, "Z")
+    assert report["checks"]["mass_event_seen"] is False
+    assert report["checks"]["physical_mass_change_seen"] is False
+    assert report["overall_pass"] is True
+
+
+def test_live_branch_preflight_keeps_zero_contact_visible_without_failing_wiring():
+    env = SimpleNamespace(device="cpu")
+    diagnostics = module._runtime_diagnostics(env)
+    diagnostics["live_feature_updates"] = 3
+    diagnostics["live_env_samples"] = 3
+    diagnostics["patch_sensor_reads"] = 162
+    report = module.online_patch_preflight_runtime_report(env, "P")
+    assert report["checks"]["live_branch_observed_bilateral_contact"] is False
+    assert report["checks"]["live_branch_observed_nonzero_load"] is False
+    assert report["overall_pass"] is True
+
+
 def test_evaluation_oracle_reduces_max_active_taxel_speed_per_patch():
     names = tuple(tuple(names) for names in module.SENSOR_NAMES_BY_HAND)
     sensors = {}

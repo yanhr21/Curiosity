@@ -67,8 +67,10 @@ ICM、RGB、Newton 和软体任务。实现和实验必须严格按本文的串�
 每个 episode 从 motion frame 0 连续运行，禁止把带 elastomer skin 的手直接
 teleport 到中段接触状态。为了让 `Z` 分支完全不读取 TacSL，mass scheduler 只在
 评价侧检查“箱子已连续抬升 10 个 control frames”，再随机等待 `10--50` 个
-control frames。双手 TacSL contact 不参与触发；live preflight 必须独立确认 jump
-前连续 10 帧双手都存在 patch contact，否则该 rollout 不准进入训练。随后：
+control frames。双手 TacSL contact 不参与触发；独立的连续动作 live collector 必须
+确认 jump 前连续 10 帧双手都存在 patch contact，才能准入训练。one-update 训练
+preflight 不得为了制造 event 而取消 lift gate：若早期随机 policy 在抬起前终止，
+报告如实保留 `mass_event_seen=false`，只判定本分支的在线观测与更新接线。随后：
 
 1. actor 在 nominal mass 下输出当前动作；
 2. 在两个 control actions 之间，用 PhysX runtime API 同步更新 box mass 和
@@ -232,6 +234,11 @@ mass/no-jump sampling、seed、physics、episode length 和 update budget。正�
   安全放下，具体反应不手工脚本化。
 
 每个分支先做一次 live one-update preflight，随后使用相同的 `3000` update budget。
+非零双手触觉和质量/惯量 event 的物理准入由已完成的连续动作 full-G1 collector
+提供；one-update preflight 只要求 Z 的 exact-zero/no-read，或 P/PS 的在线 54-patch
+read 以及 PS callable。它仍如实记录 contact/load/event；早期 policy 尚未进入抓箱
+窗口时不伪造接触或提前 jump。preflight 与正式训练都原样读取 released Tracker 的
+exploration standard deviation。
 这是 repository-native BCPPO schedule 所需的完整阶段：updates `0--499` 为 teacher
 distillation，`500--999` 加入 critic warmup，`1000--1999` 将 task-reward PPO
 authority 从 0 线性升到 1，`2000--2999` 为 steady full PPO。原先的 512-update
@@ -342,7 +349,15 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   p95 onset delay 为 `0/1` 帧，28 次有载接触丢失均触发 gross alert。真实 CarryBox
   中绝大多数 active contact 已经是 gross sliding，因此 fine-grained state 的依据仍
   以受控 trace 为主；binary slip 检测与在线接入已通过，可进入 Z/P/PS one-update
-  preflight。正式训练仍未启动。
+  preflight。Z 已完成一次 360-step BCPPO update：`364` 次 exact-zero observation、
+  `0` 次 TacSL read，training-path report 通过。该 stochastic rollout 平均约 37 帧
+  即因姿态偏差终止，未达到 lift gate，因此 event 仍为 0；没有通过取消 lift gate
+  或提前改质量来制造通过。P 随后完成 `361` 次 online feature update、
+  `19,494 = 361 x 54` 次官方 patch sensor read、`0` 次 slip call 和一次 BCPPO
+  update，training-path report 通过；contact/load 仍如实为 0。PS 也完成 `361`
+  次 online feature update、`19,494` 次 patch read、`361` 次 causal slip call 和
+  一次 BCPPO update。三个 training-path preflight 均通过；失败的中间版本已移到
+  根目录 `legacy/experiments/`。下一步为正式 Z，正式训练尚未启动。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

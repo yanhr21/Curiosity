@@ -123,8 +123,9 @@
 - [x] Plan-15 runner 禁用通用的 random episode-length initialization，确保
   one-update preflight 和 formal episodes 都从 motion frame 0 连续进入抓取。
 - [x] one-update preflight 自动记录并检查 Z 的零 TacSL read、P/PS 的在线
-  54-patch read/双手接触/非零负载、PS callable execution 及真实 mass event；
-  live report 仍待 Kit/Vulkan 恢复后生成。
+  54-patch read 及 PS callable execution；它同时如实记录双手接触、非零负载和
+  mass event，但不在尚未进入抓箱窗口的早期 rollout 中伪造这些信号。非零双手
+  tactile 和质量/惯量 event 已由连续动作 full-G1 collector 独立准入。
 - [x] 保持三个分支的官方 SUGAR CarryBox reward 完全一致；mass ID、jump flag、
   patch/slip state 均不直接成为 reward 或 actor 答案。
 - [x] 冻结 3 个 formal training seeds，以及 3 个未参与训练的 evaluation seeds；
@@ -132,12 +133,19 @@
 
 ## G. 串行训练
 
-- [ ] `Z`：one-update preflight，确认不读取 sensor、patch/slip exact zero；随后
-  完成 3000 updates。
-- [ ] `P`：one-update preflight，确认 live patch signal 和 encoder gradient；随后
-  完成匹配 3000 updates。
-- [ ] `PS`：one-update preflight，确认 live patch 与 callable slip 同时进入；随后
-  完成匹配 3000 updates。
+- [x] `Z` one-update preflight：完成 360 个 live steps 和一次 BCPPO update；
+  `364` 次 exact-zero observation、`0` 次 TacSL read，report v2 `overall_pass=true`。
+  当前随机 warm-start rollout 在 lift 前终止，因此 mass event 如实为 0；其物理准入
+  使用已完成的连续动作 full-G1 collector，不提前伪造 jump。
+- [ ] `Z`：完成 3000 updates。
+- [x] `P` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
+  次官方 patch sensor read、`0` 次 slip call，并完成一次 BCPPO update。当前
+  warm-start policy 尚未进入抓箱窗口，所以 contact/load 如实为 0；非零在线信号
+  由已准入的 continuous full-G1 collector 提供。
+- [ ] `P`：完成匹配 3000 updates。
+- [x] `PS` one-update preflight：`361` 次在线 feature update、`19,494 = 361 x 54`
+  次官方 patch sensor read、`361` 次 causal slip callable，并完成一次 BCPPO update。
+- [ ] `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
 

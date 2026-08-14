@@ -60,6 +60,12 @@
   delay, not from tactile. Separately require live P/PS traces to show
   bilateral patch contact throughout the ten frames before the event. This
   keeps the event clock matched while preserving Z as a no-TacSL-read arm.
+- Do not weaken the lift gate merely to make an early one-update training
+  preflight emit a mass event. The admitted continuous-action full-G1 collector
+  is the mass/inertia-event physics gate. A stochastic warm-start policy may
+  terminate before lift; its one-update preflight must preserve and report that
+  fact while judging only the declared Z/P/PS online observation and update
+  path.
 - A positive result requires matched frozen-policy improvement in physical
   post-jump hold/recovery/safe-lower behavior with nominal no-jump behavior
   reported separately. Gradients, training loss, predicted reward, nonzero
@@ -117,6 +123,15 @@
   needed local experiment packages belong under repository-root
   `legacy/experiments/`. Every directory named `legacy` is ignored by Git and
   may not be cited as an active result.
+- The Z/P/PS one-update training-path preflights are complete. Z executed 364
+  exact-zero observations with zero TacSL reads. P and PS each executed 361
+  online feature updates and exactly `361 x 54 = 19,494` official patch reads;
+  P made zero slip calls and PS made 361 causal slip calls. All three completed
+  a real BCPPO optimizer update. The current warm start terminates before the
+  CarryBox contact window, so these reports retain zero contact/load/event;
+  nonzero bilateral tactile and the lift-gated mass event remain supported by
+  the admitted continuous-action full-G1 collectors, not fabricated in the
+  one-update rollout. Start formal Z next and keep P/PS serial.
 
 ## Highest-Priority Full-G1 IsaacLab Object-Demo Reset (2026-08-13)
 

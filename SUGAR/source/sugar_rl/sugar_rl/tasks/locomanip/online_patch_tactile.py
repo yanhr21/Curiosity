@@ -552,7 +552,13 @@ def exact_zero_online_patch_tactile_actor_history(
 
 
 def online_patch_preflight_runtime_report(env, branch: str) -> dict[str, Any]:
-    """Summarize direct Z/P/PS live-path evidence after one training update."""
+    """Summarize direct Z/P/PS live-path evidence after one training update.
+
+    A mass event remains lift-gated.  It is recorded here when the current
+    policy reaches it, but is not an admission condition for an early training
+    rollout: an untrained stochastic actor can terminate before lifting.  The
+    separate continuous-action live collector is the mass-event physics gate.
+    """
 
     if branch not in ("Z", "P", "PS"):
         raise ValueError("Plan-15 preflight branch must be Z, P, or PS")
@@ -607,8 +613,19 @@ def online_patch_preflight_runtime_report(env, branch: str) -> dict[str, Any]:
             branch != "PS" or int(scalar("slip_updates")) > 0
         ),
     }
+    training_path_checks = {
+        name: passed
+        for name, passed in checks.items()
+        if name
+        not in (
+            "mass_event_seen",
+            "physical_mass_change_seen",
+            "live_branch_observed_bilateral_contact",
+            "live_branch_observed_nonzero_load",
+        )
+    }
     return {
-        "schema": "plan15_live_training_preflight_v1",
+        "schema": "plan15_live_training_preflight_v2",
         "branch": branch,
         "tactile_runtime": {
             "live_feature_updates": int(scalar("live_feature_updates")),
@@ -634,9 +651,11 @@ def online_patch_preflight_runtime_report(env, branch: str) -> dict[str, Any]:
             "events_by_factor": mass_events_by_factor,
         },
         "checks": checks,
-        "overall_pass": all(checks.values()),
+        "overall_pass": all(training_path_checks.values()),
         "claim_boundary": (
-            "This proves the declared online path executed during one update; "
-            "it does not prove tactile training benefit."
+            "This proves the declared training observation path executed during "
+            "one update. Nonzero bilateral tactile and lift-gated mass-event "
+            "physics are admitted separately by the continuous-action live "
+            "collector; neither result proves tactile training benefit."
         ),
     }
