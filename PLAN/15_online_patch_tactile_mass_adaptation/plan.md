@@ -419,6 +419,11 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   update-1000 中间 checkpoint 做单 profile 预检时，策略到 frame 63 才因机器人
   姿态终止，说明旧的 frame-0 command-buffer 错位已修复；但它尚未接触箱子或触发
   mass event。因此该结果只验证 evaluator 起点，不能提前代表 update-3000 Z 结果。
+- Evaluator 同时锁存每个 profile 的首次 termination：终止后的 actor observation
+  不再进入有效统计，action 固定为零，并保存 `valid_frame`。update-1250 Z 的在线
+  复核确认有效区间严格为 frame `0--63`、其后 action 全零且有限；该中间策略仍未
+  接触箱子。下一次阶段检查固定在 PPO authority ramp 结束的 update 2000，避免
+  形成中间 checkpoint 版本梯子。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。离线布局
   与 H.264 全解码已通过，但 `238354`/`server38` 的真实 camera run 在场景构建前

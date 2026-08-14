@@ -184,6 +184,9 @@
   但仍在接触箱子前失败；它只验证起点修复，正式评估必须等待 update-3000 endpoint。
 - [x] 提供单一 frozen-sweep 入口，按固定的一一 seed 配对依次执行 5 个 mass
   conditions，并提供按 factor 汇总 hold/drop/safe-lower 与连续触觉指标的脚本。
+- [x] Frozen evaluator 锁存首次 termination 并保存 `valid_frame`；update-1250 Z
+  live 复核的有效帧为 `0--63`，终止后 action exact zero 且全为有限值。旧的无效
+  termination 后缀轨迹已移入根目录 `legacy/`。
 - [x] 在 endpoint 结果出现前固定 paired hierarchical bootstrap：先重采样三个
   seed pairs，再重采样每 seed 的 matched profiles，`10,000` 次、analysis seed
   `153015`；比较入口要求 Z/P/PS 各自正好 300 profiles。

@@ -109,9 +109,12 @@ def observations(wrapper) -> dict[str, torch.Tensor]:
 
 
 def profile_summary(trace: dict[str, np.ndarray], profile: int) -> dict[str, object]:
-    jump_indices = np.flatnonzero(trace["jump_applied"][:, profile])
+    valid = trace["valid_frame"][:, profile]
+    jump_indices = np.flatnonzero(trace["jump_applied"][:, profile] & valid)
     jump_frame = int(jump_indices[0]) if len(jump_indices) else None
-    termination_indices = np.flatnonzero(trace["termination_any"][:, profile])
+    termination_indices = np.flatnonzero(
+        trace["termination_any"][:, profile] & valid
+    )
     termination_frame = (
         int(termination_indices[0]) if len(termination_indices) else None
     )
@@ -125,13 +128,23 @@ def profile_summary(trace: dict[str, np.ndarray], profile: int) -> dict[str, obj
             "hold_success": False,
             "drop": False,
             "safe_lower": False,
-            "robot_fall": bool(trace["robot_fall"][:, profile].any()),
+            "robot_fall": bool(trace["robot_fall"][:, profile][valid].any()),
             "bilateral_patch_contact_frames": int(
-                np.count_nonzero(trace["bilateral_patch_contact"][:, profile])
+                np.count_nonzero(
+                    trace["bilateral_patch_contact"][:, profile] & valid
+                )
             ),
         }
     stop = min(jump_frame + int(args.post_jump_window), len(trace["object_pos_w"]))
-    eligible = stop - jump_frame == int(args.post_jump_window)
+    window_valid = valid[jump_frame:stop]
+    invalid_indices = np.flatnonzero(~window_valid)
+    if len(invalid_indices):
+        stop = jump_frame + int(invalid_indices[0])
+        window_valid = valid[jump_frame:stop]
+    eligible = (
+        stop - jump_frame == int(args.post_jump_window)
+        and bool(window_valid.all())
+    )
     z = trace["object_pos_w"][jump_frame:stop, profile, 2]
     vz = trace["object_lin_vel_w"][jump_frame:stop, profile, 2]
     jump_z = float(trace["object_pos_w"][jump_frame, profile, 2])
@@ -253,6 +266,7 @@ def main() -> None:
         "robot_fall": [],
         "termination_any": [],
         "reference_frame": [],
+        "valid_frame": [],
     }
     original_reset_idx = base_env._reset_idx
     try:
@@ -279,10 +293,28 @@ def main() -> None:
             obs = observations(env)
             base_env._reset_idx = lambda env_ids: None
             detector = PatchSlipDetector(base_env.num_envs, device=base_env.device)
+            done_latched = torch.zeros(
+                base_env.num_envs, dtype=torch.bool, device=base_env.device
+            )
             batch_rows = {name: [] for name in traces}
             for step in range(int(args.max_steps)):
+                active_before_step = ~done_latched
+                policy_obs = {
+                    name: torch.where(
+                        done_latched.reshape(
+                            (base_env.num_envs,)
+                            + (1,) * (value.ndim - 1)
+                        ),
+                        torch.zeros_like(value),
+                        value,
+                    )
+                    for name, value in obs.items()
+                }
                 with torch.inference_mode():
-                    action = policy(obs)
+                    action = policy(policy_obs)
+                    action = torch.where(
+                        done_latched[:, None], torch.zeros_like(action), action
+                    )
                     obs, reward, done, _ = env.step(action)
                 patch = current_whole_hand_patch_features(base_env)
                 timestamp = torch.full(
@@ -331,6 +363,8 @@ def main() -> None:
                 batch_rows["robot_fall"].append(cpu(robot_fall))
                 batch_rows["termination_any"].append(cpu(done.bool()))
                 batch_rows["reference_frame"].append(cpu(command.time_steps))
+                batch_rows["valid_frame"].append(cpu(active_before_step))
+                done_latched |= done.bool()
             for name in traces:
                 traces[name].append(np.stack(batch_rows[name], axis=0))
             print(

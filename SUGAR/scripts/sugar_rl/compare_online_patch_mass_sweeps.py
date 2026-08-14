@@ -19,9 +19,9 @@ METRICS = {
     "drop": ("joint_eligible", "lower"),
     "safe_lower": ("joint_eligible", "higher"),
     "robot_fall": ("all", "lower"),
-    "maximum_height_loss_m": ("joint_available", "lower"),
-    "bilateral_patch_contact_fraction": ("joint_available", "higher"),
-    "gross_slip_patch_fraction": ("joint_available", "lower"),
+    "maximum_height_loss_m": ("joint_eligible", "lower"),
+    "bilateral_patch_contact_fraction": ("joint_eligible", "higher"),
+    "gross_slip_patch_fraction": ("joint_eligible", "lower"),
 }
 
 parser = argparse.ArgumentParser(description=__doc__)
