@@ -463,20 +463,23 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   env-samples；PS 实际执行 361 次 causal slip update。BCPPO mask 与 wrapper 计数
   逐步吻合，只给 142/143 个 post-handoff transitions PPO credit。该结果只准入新的
   formal Z，不是触觉收益结论，也不准入 P formal。
-- replacement handoff-Z 的正式训练已开始但尚无 endpoint。seed `151014` 的最后
+- replacement handoff-Z 的正式训练已开始。seed `151014` 的恢复
   完整文件为 `model_1500.pt`，其 allocation `238253` 在打印 iteration 1711 后被
   调度器外部 `CANCELLED by 0`；seed `151015` 的最后完整文件为 `model_2250.pt`，
   allocation `238620` 在 iteration 2339 后同样被外部取消。两份 checkpoint 均为
   59 个模型张量、58 项 optimizer state 且数值有限；未保存区间不计。8 小时
   backfill jobs `239105/server35` 与 `239106/server44` 已分别从 iteration
-  1501/2251 恢复，checkpoint、BCPPO stage 和 optimizer learning-rate 同步均通过；
-  五天 jobs `238934/239098` 继续保留，总 endpoint 仍为 3000。该状态不构成质量
-  适应结果，也不准入 P/PS formal。
+  1501/2251 恢复，checkpoint、BCPPO stage 和 optimizer learning-rate 同步均通过。
+  seed `151015` 随后正常完成 `model_2999.pt`，59 个模型张量与 58 项 optimizer
+  state 均有限；同一 retained job 已从官方 Tracker、iteration 0 启动 replacement
+  seed `151016`。seed `151014` 已越过有限的 `model_2000.pt` 并继续 steady full-PPO。
+  五天 jobs `238934/239098` 继续保留。该状态不构成质量适应结果，也不准入 P/PS
+  formal。
 - 同步可视化已固定为上方完整 G1/CarryBox world、下方左右各 27 个 patch；patch
-  显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。离线布局
-  与 H.264 全解码已通过，但 `238354`/`server38` 的真实 camera run 在场景构建前
-  命中当前 Kit/Vulkan `ERROR_DEVICE_LOST`，所以尚无权把布局 smoke 当作同钟物理
-  视频；无相机 TacSL/PhysX 训练不受该渲染故障影响。
+  显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。Frozen
+  evaluator 已加入 one-profile 同钟 world-camera 录制和 handoff overlay，renderer
+  的 profile 轴与 420 帧 H.264 全解码已通过接口测试；正式科学视频仍须等待
+  replacement endpoint 的真实 camera rollout 后确认。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

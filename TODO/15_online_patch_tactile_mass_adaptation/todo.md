@@ -55,10 +55,9 @@
   `hands_contact_label` 或 object-state proxy。
 - [x] 实现 exact-zero no-sensor-read observation，保证 zero encoder output 也为零。
 - [ ] 用 synchronized patch visualization 检查压力/剪切变化与世界接触同钟对应。
-  27-patch 双手布局和 H.264 全解码已通过离线布局测试；`238354`/`server38` 的
-  actual world-camera 采集在场景构建前遇到当前已知 Kit/Vulkan
-  `ERROR_DEVICE_LOST`，因此该布局测试不是科学视频，必须等真实同钟 world frame
-  成功后再勾选。
+  Frozen evaluator 已加入 one-profile 真实 world-camera 录制、handoff overlay 和
+  54-patch/slip 同钟 trace；renderer 的 frozen profile 轴与 420 帧 H.264 全解码已
+  通过接口测试。仍须等 replacement endpoint 的真实 camera rollout 后再勾选。
 
 ## D. IsaacLab patch slip callable
 
@@ -172,11 +171,13 @@
   post-handoff transitions 计入 PPO，并屏蔽 1298/1297 个 teacher transitions。
 - [ ] 新 `Z`：三个冻结 seed 各完成匹配 3000 updates 与 endpoint frozen evaluation；
   只有存在 eligible post-jump profiles 才允许进入 P。
-- [ ] 恢复 replacement handoff-Z：`151014` 从完整 `model_1500.pt` 的下一 iteration
+- [x] 恢复 replacement handoff-Z：`151014` 从完整 `model_1500.pt` 的下一 iteration
   1501 接续；`151015` 从完整 `model_2250.pt` 的下一 iteration 2251 接续。jobs
   `238253/238620` 均为外部 `CANCELLED by 0`，不是训练异常；未保存区间不计，最终
   endpoint 不变。backfill jobs `239105/server35` 与 `239106/server44` 已分别从
-  iteration 1501/2251 正确恢复并继续；五天 jobs `238934/239098` 保留作后续。
+  iteration 1501/2251 正确恢复；seed `151015` 已正常完成 `model_2999.pt`，seed
+  `151014` 已越过 `model_2000.pt` 并继续。五天 jobs `238934/239098` 保留作后续。
+  同一 `239106/server44` 已从官方 Tracker、iteration 0 启动 seed `151016`。
 - [ ] 新 `P`：完成匹配 3000 updates。
 - [ ] 新 `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。

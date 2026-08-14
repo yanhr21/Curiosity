@@ -57,8 +57,11 @@
   未保存迭代不计。seed `151014` 已在保留 job `239105`/`server35` 从 iteration
   1501 正确恢复，checkpoint iteration、BCPPO update step 和 optimizer learning
   rate 均已同步；seed `151015` 也已在 job `239106`/`server44` 从 iteration 2251
-  正确恢复并通过相同同步。五天恢复 jobs `238934/239098` 继续保留，总 endpoint
-  仍为 3000。P/PS formal 仍未启动。
+  正确恢复并通过相同同步，随后正常完成 `model_2999.pt`；该 endpoint 的 59 个模型
+  张量与 58 项 optimizer state 均有限。同一 retained job 已从官方 Tracker、
+  iteration 0 启动 seed `151016`；seed `151014` 已越过有限的 `model_2000.pt` 并
+  继续 steady full-PPO。五天恢复 jobs `238934/239098` 继续保留。P/PS formal
+  仍未启动。
   Frozen evaluator 已修正为
   motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
   中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手
