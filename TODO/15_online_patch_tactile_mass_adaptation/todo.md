@@ -237,6 +237,16 @@
 - [x] 依据数值和人眼审查维持训练冻结：不运行 update 3000 之后的训练，不恢复
   `151016`，不启动 P/PS，也不触发 overfit。只有后续证据否定当前 endpoint 时才先做
   已声明的固定条件 serious overfit。
+- [x] 完成 anchored seed `151014` 的正式 frozen audit：五个质量各 20 profiles；
+  每项同一个 profile 1 在 handoff 前发生 Refiner `ee_body_pos@220`，其余 19 条的
+  hold=`19,19,16,1,0`、drop=`0,0,2,18,19`。所有 real event 的质量读回、jump 前
+  十帧 bilateral patch contact 和 matched delay 均通过。
+- [x] 汇总两个完成的 Z pair：eligible hold=`39/39,39/39,32/39,1/39,0/39`，
+  drop=`0/39,0/39,2/39,38/39,39/39`。冻结全部训练；当前不触发 overfit，不恢复
+  `151016`，不启动 P/PS。
+- [x] 审查相机扰动：`6x` profile 7 的 camera-free 正式轨迹与 repeat 都持稳，但
+  camera rollout 下落 `0.279 m`；`3x` profile 0 从 camera-free drop+fall 变为 camera
+  hold。正式计数固定使用 camera-free trace，视频只按自身 rollout 标注。
 - [x] 训练 launcher 与冻结 evaluator 统一使用本地 ground-plane USD 和已转换 G1
   USD；双节点同时失败后，单节点复现证明远端默认 ground asset 返回空 Plane prim，
   不是 BCPPO floor 或 TacSL 失败。

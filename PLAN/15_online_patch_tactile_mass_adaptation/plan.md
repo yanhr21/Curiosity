@@ -584,6 +584,23 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   均为 drop，但掉箱后的 robot-fall label 因 live camera replay 的闭环扰动而不同，
   只报告稳定的物理类别，不声称逐帧确定性。这轮审查没有否定 endpoint，因此不触发
   overfit；继续冻结 seed `151016`、P 和 PS。
+- anchored seed `151014` 的正式 frozen audit 也已完成，每个质量 20 profiles。每个
+  factor 都有同一个 profile 1 在 handoff 前触发 `ee_body_pos@220`，这是 Refiner
+  prefix 覆盖失败，不属于 student 的 post-jump 结果。其余 19 条的
+  `1.0x/1.5x/3x/6x/10x` 物理 hold 为 `19/19,19/19,16/19,1/19,0/19`，drop 为
+  `0/19,0/19,2/19,18/19,19/19`，eligible robot fall 为
+  `0/19,0/19,3/19,0/19,3/19`。所有 real event 的 mass readback、jump 前十帧双手
+  contact 和跨 factor 匹配 delay 均通过。
+- 两个已完成 Z pair 合并后的 eligible hold 为
+  `39/39,39/39,32/39,1/39,0/39`，drop 为
+  `0/39,0/39,2/39,38/39,39/39`。该结果已经足够固定 mild/boundary/heavy 测试区间；
+  训练停在 `model_2999.pt`，不额外加训，也不因重质量失败而 overfit。只有后续审查
+  证明行为本身无效或含糊，才先做单一固定条件 serious overfit 诊断。
+- world camera 会扰动临界闭环 outcome。seed `151014` 的 `6x` profile 7 在正式
+  camera-free 轨迹与独立 camera-free repeat 中都以相同 `297/307` handoff/jump 持稳，
+  但开启相机后下落 `0.279 m`；`3x` profile 0 则从正式 camera-free 的 drop+fall
+  变为带相机 rollout 的 hold。正式统计以无相机 trace 为准；同步视频只证明自身带
+  相机运行，不再冒充正式轨迹的逐帧重放。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

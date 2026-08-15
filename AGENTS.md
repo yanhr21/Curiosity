@@ -242,6 +242,33 @@
   evaluation range, so no overfit is needed now. Training remains frozen; if
   later human-visible review invalidates the behavior, use the already declared
   serious fixed-condition overfit before any new formal budget.
+- The matching formal frozen audit of anchored Z seed `151014` is also complete:
+  `20` profiles for each of `1.0x/1.5x/3x/6x/10x`, with one identical
+  profile-1 official-Refiner failure before handoff in every factor. Excluding
+  that pre-handoff teacher failure, the `19` eligible post-jump profiles per
+  factor have physical hold counts `19/19,19/19,16/19,1/19,0/19` and drop
+  counts `0/19,0/19,2/19,18/19,19/19`; eligible robot-fall counts are
+  `0/19,0/19,3/19,0/19,3/19`. All five traces are finite, every real event has
+  correct mass readback and ten preceding bilateral-contact frames, and the
+  matched delay sequence is identical across factors. The teacher-prefix
+  failure is infrastructure coverage loss, not a student outcome and not a
+  reason to extend or overfit the student.
+- Across the two completed anchored Z checkpoint/seed pairs, eligible physical
+  holds are therefore `39/39,39/39,32/39,1/39,0/39` for
+  `1.0x/1.5x/3x/6x/10x`; drops are `0/39,0/39,2/39,38/39,39/39`. This is a
+  valid frozen Z baseline with mild, boundary and heavy conditions, so no
+  overfit and no further Z training are currently warranted. A fixed-condition
+  serious overfit is used only if later review shows invalid or ambiguous
+  behavior, never as automatic continuation beyond `model_2999.pt`.
+- Live world-camera evaluation is outcome-sensitive near the boundary and is
+  not the source of formal statistics. Seed `151014`, `6x` profile 7 is an
+  exact repeatable camera-free hold at handoff/jump `297/307`, but the matching
+  camera-enabled rollout drops by `0.279 m`. Conversely, formal camera-free
+  `3x` profile 0 drops and the robot falls at handoff/jump `297/337`, while its
+  camera-enabled rollout holds through the declared window. Therefore report
+  the camera-free 20-profile traces as authoritative and label every video as
+  evidence of its own camera-enabled rollout; never claim that such a video is
+  a frame-exact replay of the formal outcome.
 - The formal evaluator's multi-batch path now resets inside inference mode,
   clears IsaacLab's latched termination-reason buffer after each evaluation
   reset, preserves uncaught main exceptions instead of allowing application

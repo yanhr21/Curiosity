@@ -40,6 +40,25 @@
   retained `239098/server44` 在正式审查完成后继续保留用于数值复核和渲染；没有
   释放 allocation，也没有自动启动任何训练。
 
+  seed `151014` 的匹配正式 frozen audit 也已完成，共 `5 x 20 = 100` 条。每个质量
+  条件都重复出现同一个 profile 1 的 handoff 前 Refiner 失败；它不进入 student 的
+  post-jump 分母。其余每项 19 条的 `1.0x/1.5x/3x/6x/10x` hold 为
+  `19/19,19/19,16/19,1/19,0/19`，drop 为
+  `0/19,0/19,2/19,18/19,19/19`。两个已完成 checkpoint/seed pair 合并后的 eligible
+  hold 为 `39/39,39/39,32/39,1/39,0/39`，drop 为
+  `0/39,0/39,2/39,38/39,39/39`。这进一步确认 Z 已有可用的温和、边界和重质量测试
+  区域；不需要继续训练或为了全成功而 overfit。
+
+  临界轨迹对 world-camera 有闭环敏感性：seed `151014` 的 `6x` profile 7 在无相机
+  正式轨迹及独立无相机复测中都持稳，但开启相机后下落 `0.279 m`；`3x` profile 0
+  则从无相机正式轨迹的 drop+robot-fall 变为相机轨迹中的 hold。正式计数因此只采用
+  camera-free trace；视频仅代表其自身带相机 rollout，不再写成正式轨迹的逐帧复现。
+  对应同钟视频为 `z_anchor025_formal_seed151014/videos/` 下的
+  `train151014_eval152014_6p0x_profile7_rare_hold_reproduce_v1/`
+  `seed151014_6p0x_profile7_camera_replay_drop_single_g1_bilateral_27patch_final.mp4`
+  与 `train151014_eval152014_3p0x_profile0_drop_reproduce_v1/`
+  `seed151014_3p0x_profile0_camera_replay_hold_single_g1_bilateral_27patch_final.mp4`。
+
 - 此前执行记录：anchored Z seed `151014` 已严格停在 3000 次 iteration
   的 `model_2999.pt`，没有继续加训；checkpoint 的 59 个模型张量和 58 项 optimizer
   state 均有限。正式 frozen horizon 已从不足的 420 修正到 450，因为 frame-297
