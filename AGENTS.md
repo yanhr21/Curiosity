@@ -106,9 +106,13 @@
   and no 6x benefit, so it does not prove tactile benefit. Two server07 camera
   starts failed before scene execution with `VK_ERROR_DEVICE_LOST`; this does
   not invalidate the camera-free rollout statistics. A separate render
-  allocation is pending. After this numerical endpoint review,
-  `P/seed151015` started from scratch on retained `240922/server07` with the
-  unchanged 3000-update contract. PS remains unstarted. The valid Z
+  allocation was requested. After this numerical endpoint review,
+  `P/seed151015` started from scratch on retained `240922/server07`, which was
+  externally `CANCELLED by 0` after iteration 347. Its last complete checkpoint
+  is `model_250.pt`; unsaved iterations 251--347 are excluded. It resumed on
+  retained `241217/server59` at BCPPO step and runner iteration 251 with the
+  original adaptive-KL learning rate and unchanged 3000-update contract. PS
+  remains unstarted. The valid Z
   mild/boundary/heavy behavior means no Z overfit is currently needed.
 - The seed-`151015` endpoint has now passed the required frozen numerical and
   human-visible review without more training. Its 450-frame synchronized H.264
@@ -356,11 +360,11 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Retained job `240922/server07` is the current P training allocation and is
-  running `P/seed151015`. Pending `241217` is reserved for camera review. Jobs
-  `231256`, `238054`, `239098`, `240170` and `240173` ended through scheduler
-  enforcement and are no longer retained. Ending an audit or this agent turn
-  is not permission to exit `240922` or any subsequently granted render
+- Retained job `241217/server59` is the current P training allocation and is
+  running resumed `P/seed151015`; backup `241298` remains pending. Jobs
+  `231256`, `238054`, `239098`, `240170`, `240173` and `240922` ended through
+  scheduler enforcement and are no longer retained. Ending an audit or this
+  agent turn is not permission to exit `241217` or any subsequently granted
   allocation.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector

@@ -667,5 +667,7 @@ optimizer state，没有更晚 checkpoint。
 `19,19,16,1,0`、drop=`0,0,2,18,19`。单 seed 只在3x呈现轻微迹象，在6x无收益，
 不能声称触觉有效。两次 server07 camera 启动在场景前发生独立
 `VK_ERROR_DEVICE_LOST`，camera-free 结果仍有效；渲染 job `241217` 正在排队。
-完成该数值 endpoint review 后，`P/seed151015` 已在 `240922/server07` 从零启动，
-合同不变。PS 尚未启动。
+完成该数值 endpoint review 后，`P/seed151015` 在 `240922/server07` 从零启动；该
+job 在打印 iteration347后被调度器外部取消，最后完整点为 `model_250.pt`，未保存
+251--347不计。当前在 retained `241217/server59` 从 BCPPO step/runner iteration251
+精确恢复，adaptive-KL 学习率与固定3000-update合同不变。PS 尚未启动。

@@ -39,8 +39,10 @@
   `0/19,0/19,2/19,19/19,19/19`。同一 profile 的 Z seed `151014` hold 为
   `19/19,19/19,16/19,1/19,0/19`，drop 为
   `0/19,0/19,2/19,18/19,19/19`。因此首个 P seed 在3x只有轻微迹象，在6x没有收益，
-  不能单独支持“触觉帮助训练”。`P/seed151015` 已在仍保留的
-  `240922/server07` 从零进入固定 3000-update 训练；PS 尚未启动。
+  不能单独支持“触觉帮助训练”。`P/seed151015` 在 `240922/server07` 从零启动，
+  该 job 在打印 iteration 347 后也被调度器外部取消；最后完整文件为
+  `model_250.pt`，未保存的251--347不计。当前已在 retained `241217/server59`
+  从 iteration/BCPPO step251精确恢复，固定终点仍是 `model_2999.pt`；PS 尚未启动。
 
   三-seed reaction-window 复算覆盖 119 条 drop：continuous
   patch 变化 `119/119` 早于 drop，中位 lead 21 帧；normal load 和 pressure 也均为
@@ -52,9 +54,9 @@
   `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
   `z_anchor025_formal_seed151014/`、`151015/`、`151016/`，reaction audit 位于
   `frozen_reaction_window_v2/summary.json`。当前训练 retained job 为
-  `240922/server07`；相机复核在该节点两次于场景前触发
-  `VK_ERROR_DEVICE_LOST`，不影响已完成的 camera-free 统计，另一个渲染 allocation
-  `241217` 正在排队。此前 `231256/238054/240170/240173` 均已由调度器结束。
+  `241217/server59`；相机复核此前在 server07 两次于场景前触发
+  `VK_ERROR_DEVICE_LOST`，不影响已完成的 camera-free 统计，backup allocation
+  `241298` 正在排队。此前 `231256/238054/240170/240173/240922` 均已由调度器结束。
   seed `151016` 的两条 450-frame H.264 人眼证据也已完成并全帧解码：3x profile 0
   持箱、6x profile 0 下落 `0.562 m`；两条都在同一时钟显示完整 G1/CarryBox 和左右
   各 27 patch。路径分别为 `z_anchor025_formal_seed151016/videos/` 下

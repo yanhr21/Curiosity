@@ -20,7 +20,8 @@ frozen evaluation 和同步视频可以进入该根；失败的实现版本和�
   `z_anchor025_endpoint_audit_seed151015/videos/` 下。
 - `online_patch_tactile_mass_adaptation/training_handoff_anchor025/p_seed151014/` 与
   `p_seed151015/`：live-patch、zero-slip P 正式训练。`151014` 已严格停在
-  `model_2999.pt`；`151015` 当前在 retained `240922/server07` 从零运行。
+  `model_2999.pt`；`151015` 在 `240922/server07` 外部取消后，当前从最后完整
+  `model_250.pt` 在 retained `241217/server59` 的 iteration251 接续。
 - `online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/p_anchor025_formal_seed151014/`：
   P 首个 endpoint 与 evaluation seed `152014` 配对的五质量、每项20 profiles正式
   camera-free rollout。
