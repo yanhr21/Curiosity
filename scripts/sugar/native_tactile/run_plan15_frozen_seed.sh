@@ -51,4 +51,8 @@ for mass_factor in "${mass_factors[@]}"; do
         --physical-outcome-view \
         --headless \
         --device "$device"
+    if [[ ! -s "$output/summary.json" || ! -s "$output/frozen_evaluation_trace.npz" ]]; then
+        echo "frozen evaluation did not write its required outputs: $output" >&2
+        exit 1
+    fi
 done

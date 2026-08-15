@@ -504,8 +504,21 @@ def main() -> None:
     original_reset_idx = base_env._reset_idx
     try:
         for batch in range(total_profiles // int(args.num_envs)):
+            print(
+                f"[PLAN15 EVAL] batch {batch + 1}/"
+                f"{total_profiles // int(args.num_envs)} reset begin",
+                flush=True,
+            )
             base_env._reset_idx = original_reset_idx
-            reset_value = env.reset()
+            with torch.inference_mode():
+                reset_value = env.reset()
+                if args.physical_outcome_view:
+                    base_env.termination_manager._term_dones.zero_()
+            print(
+                f"[PLAN15 EVAL] batch {batch + 1}/"
+                f"{total_profiles // int(args.num_envs)} reset complete",
+                flush=True,
+            )
             obs = reset_value[0] if isinstance(reset_value, tuple) else reset_value
             if not bool((command.motion_id == int(args.motion_id)).all()):
                 raise RuntimeError("frozen evaluation motion id did not survive reset")
@@ -520,6 +533,15 @@ def main() -> None:
             command._update_command()
             if not bool((command.time_steps == 0).all()):
                 raise RuntimeError("command-buffer synchronization changed frame 0")
+            reset_anchor_error = torch.linalg.vector_norm(
+                command.anchor_pos_w - command.robot_anchor_pos_w, dim=-1
+            )
+            print(
+                f"[PLAN15 EVAL] batch {batch + 1}/"
+                f"{total_profiles // int(args.num_envs)} frame0 anchor errors "
+                f"{cpu(reset_anchor_error).tolist()}",
+                flush=True,
+            )
             base_env.obs_buf = base_env.observation_manager.compute(
                 update_history=False
             )
@@ -749,5 +771,15 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-    finally:
+    except BaseException as error:
+        print(
+            f"[PLAN15 EVAL] uncaught {type(error).__name__}: {error!r}",
+            flush=True,
+        )
+        try:
+            simulation_app.close()
+        except SystemExit:
+            pass
+        raise
+    else:
         simulation_app.close()
