@@ -603,6 +603,19 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   0 完成，23 个 trace 字段与正式 20-profile trace 的前四条全部逐值相同，profile 0
   精确重复 `0.452212 m` drop+fall。正式统计以无相机 trace 为准；同步视频只证明
   自身带相机运行，不再冒充正式轨迹的逐帧重放。
+- 两个 Z endpoint 的 paired frozen reaction-window audit 已完成。每个 mass profile
+  与同 seed/profile 的 1x trace 按 jump 对齐；patch 先按固定 channel scale 归一化，
+  onset 定义为连续两帧超过 jump 前十帧 paired delta 上界。39 条 1.5x 均无 2 cm sag；
+  3x 有 16 条达到 2 cm sag、2 条 drop；6x/10x 分别有 38/39 条 drop。全部 79 条 drop
+  都先出现连续 load/pressure/shear/friction divergence，中位提前 20 帧；contact binary
+  中位提前 12 帧，slip 为 78/79、中位提前 10 帧。normal load 与 pressure 分别都是
+  79/79 早于 drop，中位 lead 19 帧，排除仅由 friction/contact-bit 驱动结论。在 93 条
+  至少下沉 2 cm 的轨迹中，
+  连续 patch 93/93 提前、中位 lead 7 帧，而 binary 只有 47/93 提前且中位 lead 为 0。
+  6x 的 continuous/binary/slip/drop 中位 offset 为 `1/9/11/24.5`，10x 为
+  `2/9/10/16`。因此连续触觉相对 binary contact 有真实提前窗口，但 Z action 本身已有
+  `73/79` 在 drop 前分叉，证明 proprio/闭环泄漏也足以改变行为。该 audit 只准入后续
+  增量比较，不证明 P 或 PS 会成功，也不触发额外 Z 训练。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

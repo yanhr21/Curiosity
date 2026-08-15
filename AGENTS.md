@@ -273,6 +273,25 @@
   camera-free 20-profile traces as authoritative and label every video as
   evidence of its own camera-enabled rollout; never claim that such a video is
   a frame-exact replay of the formal outcome.
+- The paired frozen-Z reaction-window audit now covers both completed endpoint
+  pairs and all `39` eligible profiles per mass factor. Each heavy trace is
+  event-aligned with the same profile's `1x` trace; patch channels use the
+  already fixed scales, and onset is the first two post-jump samples above the
+  profile's ten-frame pre-jump paired-difference maximum. Continuous
+  load/pressure/signed-shear/friction is separated from contact binary. Among
+  all `79` box drops, continuous patch change precedes drop in `79/79` with
+  median lead `20` frames (`0.40 s`), versus `12` frames for contact binary and
+  `10` frames (`0.20 s`) for slip state. Normal load and pressure individually
+  precede all `79` drops, each with median lead `19` frames, so the result is
+  not driven only by friction or a changed contact bit. More importantly,
+  continuous patch change precedes all `93` profiles that sag at least `0.02 m`,
+  with median lead `7` frames, while contact binary precedes sag in only `47/93`
+  and has median lead zero. At `6x`, continuous/binary/slip/drop median offsets are
+  `1/9/11/24.5` frames; at `10x` they are `2/9/10/16`. This establishes an
+  information advantage over binary contact and a usable sensing opportunity,
+  not tactile-policy benefit. The Z action already diverges before drop in
+  `73/79` cases, so proprioceptive/closed-loop leakage is behaviorally relevant
+  and the eventual claim must remain incremental tactile benefit.
 - The formal evaluator's multi-batch path now resets inside inference mode,
   clears IsaacLab's latched termination-reason buffer after each evaluation
   reset, preserves uncaught main exceptions instead of allowing application

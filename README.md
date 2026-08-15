@@ -62,6 +62,23 @@
   与 `train151014_eval152014_3p0x_profile0_drop_reproduce_v1/`
   `seed151014_3p0x_profile0_camera_replay_hold_single_g1_bilateral_27patch_final.mp4`。
 
+  两个 Z endpoint 的配对 frozen reaction-window audit 已完成。每条重质量轨迹都与
+  同 seed、同 profile 的 1x 轨迹按 jump 对齐，并用 jump 前十帧差异标定变化阈值。
+  连续 load/pressure/signed-shear/friction 与 contact binary 分开计算。79 条实际 drop
+  中，连续 patch 变化 `79/79` 早于 drop，中位提前 20 帧（`0.40 s`），contact binary
+  中位只提前 12 帧，slip-state `78/79` 提前、中位 10 帧（`0.20 s`）。normal load
+  和 pressure 单独计算也都是 `79/79` 提前，中位 lead 均为 19 帧，因此不是只靠
+  friction 或 contact-bit 变化。在 93 条至少
+  下沉 2 cm 的轨迹中，连续 patch `93/93` 提前变化、中位 lead 7 帧；binary 只有
+  `47/93` 在下沉前变化，中位 lead 为 0。`6x` 的连续/binary/slip/drop 中位 offset 为
+  `1/9/11/24.5` 帧；`10x` 为 `2/9/10/16` 帧。
+  但 Z action 也有 `73/79` 在 drop 前已经分叉，说明 actor-visible proprio/闭环动力学
+  同样提供了反应信号。结论只是“触觉存在可利用的提前窗口”，不是“触觉已经帮助
+  policy”；当前只证明连续触觉比 binary contact 更早，正式比较仍必须证明它相对
+  proprio-only Z 的增量收益。分析入口为
+  `scripts/sugar/native_tactile/analyze_frozen_mass_reaction_window.py`，结果位于
+  `experiments/online_patch_tactile_mass_adaptation/frozen_reaction_window_v1/summary.json`。
+
 - 此前执行记录：anchored Z seed `151014` 已严格停在 3000 次 iteration
   的 `model_2999.pt`，没有继续加训；checkpoint 的 59 个模型张量和 58 项 optimizer
   state 均有限。正式 frozen horizon 已从不足的 420 修正到 450，因为 frame-297
@@ -221,6 +238,17 @@ scripts/sugar/native_tactile/launch_retained_child.sh \
 该入口固定 checkpoint/evaluation-seed 一一配对并运行 5 个质量条件、每项 20
 profiles。结束后用 `SUGAR/scripts/sugar_rl/summarize_online_patch_mass_sweep.py`
 汇总各质量条件；P、PS 只替换 branch 和对应 checkpoint/output 路径。
+
+当前两个已完成 Z endpoint 的反应窗口可直接离线复算，不启动仿真或训练：
+
+```bash
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/native_tactile/analyze_frozen_mass_reaction_window.py \
+  --seed-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151014 \
+  --seed-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151015 \
+  --scale-file experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json \
+  --output experiments/online_patch_tactile_mass_adaptation/frozen_reaction_window_v1/summary.json
+```
 
 从统计结果中选定一个 profile 后，用同一个 frozen evaluator 重跑它所在的单个
 4-profile batch，并通过 `--record-profile-index` 只录目标 profile；这样视频与数值

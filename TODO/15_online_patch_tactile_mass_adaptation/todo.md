@@ -249,6 +249,14 @@
   hold。新增 3x camera-free 四-profile repeat 正常完成，其 23 个 trace 字段与正式
   trace 的前四条逐值相同，profile 0 精确重复 `0.452212 m` drop+fall。正式计数固定
   使用 camera-free trace，视频只按自身 rollout 标注。
+- [x] 完成两个 Z endpoint 的 paired reaction-window audit：每个重质量 profile 与同
+  seed/profile 的 1x trace event-align，onset 用 jump 前十帧 paired delta 标定，并把
+  连续 load/pressure/shear/friction 与 binary contact 分开。79 条 drop 中 continuous
+  patch `79/79` 提前、中位 lead 20 帧，binary lead 12 帧，slip `78/79`、lead 10 帧；
+  normal load 与 pressure 单独也均为 `79/79` 提前、中位 lead 19 帧；
+  93 条 2 cm sag 中 continuous `93/93` 提前而 binary 只有 `47/93`。Z action 也有
+  `73/79` 在 drop 前分叉。结论固定为连续触觉优于 binary 的提前窗口，但只能检验相对
+  proprio-only 的增量收益。
 - [x] 训练 launcher 与冻结 evaluator 统一使用本地 ground-plane USD 和已转换 G1
   USD；双节点同时失败后，单节点复现证明远端默认 ground asset 返回空 Plane prim，
   不是 BCPPO floor 或 TacSL 失败。
