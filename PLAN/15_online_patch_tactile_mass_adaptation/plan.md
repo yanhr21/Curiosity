@@ -475,9 +475,8 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   1501/2251 恢复，checkpoint、BCPPO stage 和 optimizer learning-rate 同步均通过。
   seed `151015` 随后正常完成 `model_2999.pt`，59 个模型张量与 58 项 optimizer
   state 均有限；同一 retained job 已从官方 Tracker、iteration 0 启动 replacement
-  seed `151016`。seed `151014` 已越过有限的 `model_2000.pt` 并继续 steady full-PPO。
-  五天 jobs `238934/239098` 继续保留。该状态不构成质量适应结果，也不准入 P/PS
-  formal。
+  seed `151016`。seed `151014` 当时已越过有限的 `model_2000.pt`；这是历史训练里程碑，
+  已被下文 endpoint 审查取代，不构成质量适应结果，也不准入 P/PS formal。
 - 2026-08-15 的 replacement-Z endpoint gate 发现 zero-floor BCPPO 会在最后 1000
   updates 遗忘 Refiner 持箱行为。seed `151014` 的 distillation loss 从 update 2000
   的 `0.3404` 升到 update 2999 的 `35.8202`；冻结时交接前 teacher/student action
@@ -505,8 +504,8 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   恢复并写出有限 `model_1000.pt`。job `239105` 在151014打印 iteration 2337后被
   调度器外部取消。随后只终止239106中151016记录的 child PGID，在同一 allocation
   优先恢复151014；该 job 又在 iteration 2304后被外部取消。未保存更新全部舍弃，
-  当前精确恢复点为 anchored151014/update2250 与151016/update1000，anchored151015
-  尚未启动。五天 `238934/239098` 和四小时 `239435/239436` 均保留排队。
+  当时的精确恢复点为 anchored151014/update2250 与151016/update1000；该调度快照已被
+  下文完成的 `151014/151015` anchored endpoints 取代，不能再作为当前进度。
 - anchored Z seed `151014` 已严格停在固定 `model_2999.pt`，共 3000 次 iteration，
   checkpoint 的 59 个模型张量和 58 项 optimizer state 均有限；末次 distillation
   loss 为 `2.0839`，distillation weight 为 `0.25`。评测 horizon 已从错误的 420
@@ -520,10 +519,10 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 - 已用同一 checkpoint、同一 seed 和同一四-profile 批次录制 eligible profile 3。
   420 帧 H.264 可完整解码；frame 308 PhysX 质量从约 `0.302` 变为 `0.454 kg`，frame
   400 仍由 frozen policy 持续抬箱，并同步显示左右各 27 patch 的 load、pressure、
-  signed shear 和 slip。下一步冻结所有长训练，先审查该正例及匹配负例；不得自动
-  启动 seed `151015`。如行为仍不满足人眼或数值要求，先用相同 serious SUGAR
-  actor、live handoff 和在线物理做单一固定条件 overfit 诊断，再决定是否花费下一
-  个 3000-update 正式预算。overfit 结果不得计入正式 Z/P/PS 比较。
+  signed shear 和 slip。该结果完成了 seed `151014` 的 endpoint 审查，并只准入一次
+  额外 Z endpoint；没有准入 P/PS。若后续 endpoint 行为不满足人眼或数值要求，先用
+  相同 serious SUGAR actor、live handoff 和在线物理做单一固定条件 overfit 诊断，
+  再决定是否花费下一个 3000-update 正式预算。overfit 不计入正式 Z/P/PS 比较。
 - 匹配 profile 0 负例也已录制并完整解码。它在 frame 337 增重，frame 396 终止前
   仍双手持箱、lift 约 `+0.823 m`，没有 drop 或 robot fall；未通过 80-frame gate
   是因为 59 帧后发生 reference-tracking termination，伴随最大位置/姿态误差约
@@ -549,6 +548,18 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   显示 pressure、signed XY shear、load 和 causal slip，不显示 taxel grid。Frozen
   evaluator 已加入指定 batch-profile 的同钟 world-camera 录制和 handoff overlay；
   anchored endpoint profile 3 的 420 帧 H.264 已完整解码并完成关键帧人眼检查。
+- anchored Z seed `151015` 已严格完成并停在 `model_2999.pt`；59 个模型张量与 58 项
+  optimizer state 均有限，没有运行第 3000 次之后的 update，也没有自动启动下一 seed。
+  该 endpoint 的四-profile、450-frame 审查现在从同一 PhysX rollout 同时报告两类结果：
+  原始 SUGAR reference termination 只作为 label；物理轨迹继续到 80-frame outcome
+  window。`1.0x/1.5x/3x/6x/10x` 的物理 hold 为 `4/4,4/4,4/4,0/4,0/4`，物理 drop
+  为 `0/4,0/4,0/4,4/4,4/4`，`10x` 另有 `1/4` robot fall；同批 camera-free 严格
+  reference hold 为 `0/4,1/4,3/4,0/4,0/4`。这证明当前 Z 有清楚的温和成功/重质量
+  失败区间，同时证明 reference 偏离不能等同物理失败。它仍只是单 checkpoint 的小
+  审查，不是触觉收益。当前不需要 overfit；训练继续冻结，seed `151016`、P、PS 均不
+  自动启动。若人眼或数值审查后来否定该行为，再先做固定条件 serious overfit。
+- 当前只保留 job `239098`/`server44` 用于审查与渲染；`238934` 已不在运行，不能再写成
+  retained。完成本轮审查不授权退出 `239098`。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

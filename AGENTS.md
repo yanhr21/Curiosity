@@ -147,13 +147,13 @@
   externally cancelled after seed `151014` printed iteration 2337. On retained
   `239106`, only seed `151016`'s recorded child PGID was then stopped after its
   update-1000 checkpoint so seed `151014` could resume from 2250; that job was
-  externally cancelled after iteration 2304. The authoritative restart points
-  are therefore anchored `151014/model_2250.pt` and `151016/model_1000.pt`;
-  unsaved iterations are excluded and anchored seed `151015` has not started.
-  Five-day requests `238934/239098` and four-hour requests `239435/239436`
-  remain queued. Do not call either external cancellation a training failure,
-  and do not restart from older checkpoints when an allocation begins.
-  Historical allocation details follow. Seed `151014` has a
+  externally cancelled after iteration 2304. At that time the restart points
+  were anchored `151014/model_2250.pt` and `151016/model_1000.pt`; unsaved
+  iterations were excluded. This scheduling snapshot is superseded by the
+  completed `151014/151015` anchored endpoints below. Do not call either
+  external cancellation a training failure, and do not restart from older
+  checkpoints when an allocation begins. Historical allocation details follow.
+  Seed `151014` has a
   complete `model_1500.pt`; its allocation
   `238253` was externally `CANCELLED by 0` after iteration 1711. Seed `151015`
   has a complete `model_2250.pt`; its allocation `238620` was externally
@@ -166,10 +166,9 @@
   at `model_2999.pt`; the endpoint contains 59 model tensors and 58 optimizer
   states and is finite. The same retained job immediately started replacement
   seed `151016` from the official Tracker at iteration 0 with a fixed 3000-
-  update budget. Seed `151014` has passed its finite `model_2000.pt` and
-  continues in steady full-PPO. Five-day jobs `238934/239098` remain retained
-  fallbacks. These are Z training milestones, not mass-adaptation results; P
-  and PS remain unstarted.
+  update budget. Seed `151014` had passed its finite `model_2000.pt` and was
+  continuing in steady full-PPO at that time. These were Z training milestones,
+  not mass-adaptation results; current endpoint status is recorded below.
 - Anchored Z seed `151014` has now completed exactly 3000 iterations at finite
   `model_2999.pt` (59 model tensors, 58 optimizer states); no later update was
   run. Its final distillation loss is `2.0839` with the fixed `0.25` anchor.
@@ -190,10 +189,9 @@
   disables only `obj_pos/obj_ori` termination also has two eligible
   holds; profile 0 then reaches `anchor_pos` at frame 383 while still carrying
   with bilateral contact. This proves that anchoring repaired catastrophic
-  handoff forgetting, but two favorable profiles are not tactile benefit. Formal
-  seed `151015` auto-start is disabled; review this endpoint and, if required,
-  run the fixed-condition overfit diagnostic before any further formal seed.
-  P and PS remain unstarted.
+  handoff forgetting, but two favorable profiles are not tactile benefit. This
+  review admitted one additional Z endpoint only; it did not authorize P or
+  PS. Those branches remain unstarted.
 - The anchored seed-151014 four-profile mass audit now uses the corrected
   450-frame horizon and exact termination labels. Eligible holds are
   `1/4, 2/4, 2/4, 0/4, 0/4` for `1.0x, 1.5x, 3x, 6x, 10x`. At `6x`, profile 2
@@ -206,6 +204,24 @@
   two-frame pre-event closed-loop divergence (`0.0146` action max, `0.23 mm`
   object position) while mass remains nominal, so never claim bitwise pairing
   for every closed-loop rollout.
+- Anchored Z seed `151015` then completed exactly 3000 iterations and stopped
+  at finite `model_2999.pt` (59 model tensors, 58 optimizer states); no later
+  update and no automatic next seed were run. Its 450-frame, four-profile
+  physical-outcome audit keeps the original SUGAR termination terms as labels
+  while continuing the same PhysX episode. Physical hold counts for
+  `1.0x/1.5x/3x/6x/10x` are `4/4,4/4,4/4,0/4,0/4`; all four `6x` and all four
+  `10x` profiles physically drop, and one `10x` profile also meets the declared
+  robot-fall definition. Strict SUGAR reference-window hold counts on those
+  same camera-free trajectories are `0/4,1/4,3/4,0/4,0/4`. Therefore reference
+  deviation and physical failure must be reported separately. This is a small
+  endpoint audit, not the formal 20-profile-per-factor result and not tactile
+  benefit. The clear mild-pass/heavy-failure region means no overfit is needed
+  now; freeze training for review. If later behavior is invalid or ambiguous,
+  use the declared fixed-condition serious overfit before another formal
+  budget. Seed `151016`, P and PS must not auto-start.
+- Retained job `239098` on `server44` remains active for review and rendering.
+  Job `238934` is no longer running; do not describe it as retained. Ending the
+  audit or this agent turn is not permission to exit job `239098`.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may

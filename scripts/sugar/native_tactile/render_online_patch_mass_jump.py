@@ -48,6 +48,18 @@ def parse_args() -> argparse.Namespace:
         help="Crop this many source pixels from the right of the world camera.",
     )
     parser.add_argument(
+        "--world-crop-top",
+        type=int,
+        default=0,
+        help="Crop this many source pixels from the top of the world camera.",
+    )
+    parser.add_argument(
+        "--world-crop-bottom",
+        type=int,
+        default=0,
+        help="Crop this many source pixels from the bottom of the world camera.",
+    )
+    parser.add_argument(
         "--profile-index",
         type=int,
         default=0,
@@ -245,11 +257,18 @@ def main() -> None:
             if (
                 args.world_crop_left < 0
                 or args.world_crop_right < 0
+                or args.world_crop_top < 0
+                or args.world_crop_bottom < 0
                 or args.world_crop_left + args.world_crop_right >= world.shape[1]
+                or args.world_crop_top + args.world_crop_bottom >= world.shape[0]
             ):
                 raise ValueError("world crop is outside the source frame")
             right = world.shape[1] - args.world_crop_right
-            world = world[:, args.world_crop_left : right]
+            bottom = world.shape[0] - args.world_crop_bottom
+            world = world[
+                args.world_crop_top : bottom,
+                args.world_crop_left : right,
+            ]
             canvas = np.full((HEIGHT, WIDTH, 3), 255, dtype=np.uint8)
             canvas[:WORLD_HEIGHT] = fit_world(world)
             cv2.rectangle(canvas, (15, 14), (WIDTH - 15, 62), (255, 255, 255), -1)
@@ -259,20 +278,29 @@ def main() -> None:
             lift = float(trace["object_pos_w"][frame_index, 2] - initial_z)
             if frozen_profile and "teacher_control" in trace:
                 controller = (
-                    "official Refiner pickup"
+                    "official Refiner"
                     if bool(trace["teacher_control"][frame_index])
-                    else "frozen policy control"
+                    else "frozen policy"
                 )
                 if not bool(trace["valid_frame"][frame_index]):
                     controller = "terminated profile"
             else:
                 controller = "fixed online controller"
             mass_phase = (
-                "post-jump (mass overlay hidden from actor)"
+                "mass changed (hidden from actor)"
                 if jump
-                else "pre-jump / placebo clock"
+                else "before mass change"
             )
-            status = f"{controller} | {mass_phase}"
+            reference_status = "reference OK"
+            if (
+                summary.get("physical_outcome_view", False)
+                and "termination_any" in trace
+                and bool(trace["termination_any"][frame_index])
+            ):
+                reference_status = (
+                    "reference exceeded; physics continues"
+                )
+            status = f"{controller} | {mass_phase} | {reference_status}"
             cv2.rectangle(canvas, (15, 545), (WIDTH - 15, 592), (25, 25, 25), -1)
             cv2.putText(
                 canvas,
@@ -316,7 +344,7 @@ def main() -> None:
     if decoded_frames != frame_count:
         raise RuntimeError(f"full decode failed: {decoded_frames}/{frame_count}")
     record = {
-        "schema": "plan15_online_mass_patch_video_v2_frozen_handoff_compatible",
+        "schema": "plan15_online_mass_patch_video_v3_physical_outcome_compatible",
         "source_summary": summary,
         "source_trace": trace_path.name,
         "profile_index": args.profile_index if frozen_profile else None,
@@ -324,6 +352,8 @@ def main() -> None:
         "fps": args.fps,
         "world_crop_left": args.world_crop_left,
         "world_crop_right": args.world_crop_right,
+        "world_crop_top": args.world_crop_top,
+        "world_crop_bottom": args.world_crop_bottom,
         "resolution": [WIDTH, HEIGHT],
         "policy_spatial_unit": "one physical patch; 27 per hand; no taxel display",
         "full_decode": True,

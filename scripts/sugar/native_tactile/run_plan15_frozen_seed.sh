@@ -48,6 +48,7 @@ for mass_factor in "${mass_factors[@]}"; do
         --num-envs 4 \
         --max-steps 450 \
         --post-jump-window 80 \
+        --physical-outcome-view \
         --headless \
         --device "$device"
 done

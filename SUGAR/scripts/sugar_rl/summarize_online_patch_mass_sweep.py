@@ -38,6 +38,11 @@ def main() -> None:
     grouped: dict[float, list[dict[str, object]]] = {}
     run_keys = set()
     for summary in summaries:
+        if summary.get("evaluation_view") != "physical_outcome":
+            raise ValueError(
+                "formal Plan-15 sweep requires the physical-outcome view "
+                "with strict SUGAR termination retained as labels"
+            )
         train_seed = int(summary["training_seed"])
         eval_seed = int(summary["seed"])
         factor = float(summary["mass_factor"])
@@ -66,13 +71,26 @@ def main() -> None:
     factors = {}
     for factor, episodes in sorted(grouped.items()):
         eligible = [row for row in episodes if row["eligible_post_jump_window"]]
+        strict_sugar_eligible = [
+            row
+            for row in episodes
+            if row["strict_sugar_eligible_post_jump_window"]
+        ]
         factors[str(factor)] = {
             "profiles": len(episodes),
             "eligible_profiles": len(eligible),
+            "strict_sugar_eligible_profiles": len(strict_sugar_eligible),
             "hold_success_count": sum(bool(row["hold_success"]) for row in eligible),
+            "strict_sugar_hold_success_count": sum(
+                bool(row["strict_sugar_hold_success"])
+                for row in strict_sugar_eligible
+            ),
             "drop_count": sum(bool(row["drop"]) for row in eligible),
             "safe_lower_count": sum(bool(row["safe_lower"]) for row in eligible),
             "robot_fall_count": sum(bool(row["robot_fall"]) for row in episodes),
+            "reference_robot_deviation_count": sum(
+                bool(row["reference_robot_deviation"]) for row in episodes
+            ),
             "mean_maximum_height_loss_m": average(
                 eligible, "maximum_height_loss_m"
             ),
@@ -85,7 +103,7 @@ def main() -> None:
         }
 
     result = {
-        "schema": "plan15_frozen_sweep_summary_v1",
+        "schema": "plan15_frozen_sweep_summary_v2_physical_and_reference",
         "branch": next(iter(branches)),
         "source_runs": len(summaries),
         "profiles": sum(len(item["episodes"]) for item in summaries),

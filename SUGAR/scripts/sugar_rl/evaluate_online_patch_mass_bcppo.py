@@ -52,6 +52,15 @@ parser.add_argument(
     ),
 )
 parser.add_argument(
+    "--physical-outcome-view",
+    action="store_true",
+    help=(
+        "Continue the same physical episode after any SUGAR reference "
+        "termination while retaining the would-have-terminated terms as "
+        "labels. Use this view for post-jump hold/drop/fall outcomes."
+    ),
+)
+parser.add_argument(
     "--record-world",
     action="store_true",
     help=(
@@ -73,6 +82,11 @@ if args.profiles < 1 or args.num_envs < 1 or args.profiles % args.num_envs:
     parser.error("profiles must be positive and divisible by num-envs")
 if args.max_steps < args.post_jump_window:
     parser.error("max-steps must cover the post-jump window")
+if args.ignore_object_reference_termination and args.physical_outcome_view:
+    parser.error(
+        "ignore-object-reference-termination and physical-outcome-view are "
+        "mutually exclusive"
+    )
 if args.record_world and args.profiles != args.num_envs:
     parser.error("record-world requires a single evaluation batch (profiles == num-envs)")
 if args.record_world and not 0 <= args.record_profile_index < args.num_envs:
@@ -258,10 +272,15 @@ def profile_summary(
             "first_termination_frame": termination_frame,
             "first_termination_terms": termination_terms,
             "eligible_post_jump_window": False,
+            "strict_sugar_eligible_post_jump_window": False,
             "hold_success": False,
+            "strict_sugar_hold_success": False,
             "drop": False,
             "safe_lower": False,
             "robot_fall": bool(trace["robot_fall"][:, profile][valid].any()),
+            "reference_robot_deviation": bool(
+                trace["reference_robot_deviation"][:, profile][valid].any()
+            ),
             "bilateral_patch_contact_frames": int(
                 np.count_nonzero(
                     trace["bilateral_patch_contact"][:, profile] & valid
@@ -278,13 +297,27 @@ def profile_summary(
         stop - jump_frame == int(args.post_jump_window)
         and bool(window_valid.all())
     )
+    strict_sugar_eligible = bool(
+        eligible
+        and (
+            termination_frame is None
+            or termination_frame
+            >= jump_frame + int(args.post_jump_window) - 1
+        )
+    )
     z = trace["object_pos_w"][jump_frame:stop, profile, 2]
     vz = trace["object_lin_vel_w"][jump_frame:stop, profile, 2]
     jump_z = float(trace["object_pos_w"][jump_frame, profile, 2])
     height_loss = float(jump_z - np.min(z))
     robot_fall = bool(trace["robot_fall"][jump_frame:stop, profile].any())
+    reference_robot_deviation = bool(
+        trace["reference_robot_deviation"][jump_frame:stop, profile].any()
+    )
     drop = bool(height_loss >= 0.15 or np.min(z) <= initial_z + 0.03)
     hold_success = bool(eligible and height_loss <= 0.05 and not robot_fall)
+    strict_sugar_hold_success = bool(
+        strict_sugar_eligible and height_loss <= 0.05 and not robot_fall
+    )
     safe_lower = bool(
         eligible
         and not hold_success
@@ -302,10 +335,19 @@ def profile_summary(
         "first_termination_frame": termination_frame,
         "first_termination_terms": termination_terms,
         "eligible_post_jump_window": eligible,
+        "strict_sugar_eligible_post_jump_window": strict_sugar_eligible,
         "hold_success": hold_success,
+        "strict_sugar_hold_success": strict_sugar_hold_success,
         "drop": drop,
         "safe_lower": safe_lower,
         "robot_fall": robot_fall,
+        "reference_robot_deviation": reference_robot_deviation,
+        "minimum_robot_root_height_m": float(
+            np.min(trace["robot_root_height_m"][jump_frame:stop, profile])
+        ),
+        "minimum_robot_root_up_z": float(
+            np.min(trace["robot_root_up_z"][jump_frame:stop, profile])
+        ),
         "jump_height_m": jump_z,
         "minimum_post_jump_height_m": float(np.min(z)),
         "maximum_height_loss_m": height_loss,
@@ -412,11 +454,26 @@ def main() -> None:
 
     command._sample_init_state = fixed_start
     termination_names = tuple(base_env.termination_manager.active_terms)
-    robot_fall_names = tuple(
+    reference_robot_deviation_names = tuple(
         name
         for name in termination_names
         if name in {"anchor_ori", "anchor_pos", "ee_body_pos"}
     )
+    original_termination_compute = base_env.termination_manager.compute
+    if args.physical_outcome_view:
+        termination_manager = base_env.termination_manager
+
+        def compute_without_reference_reset() -> torch.Tensor:
+            """Evaluate every strict term, but do not reset the physical state."""
+
+            original_termination_compute()
+            termination_manager._terminated_buf.zero_()
+            termination_manager._truncated_buf.zero_()
+            return torch.zeros(
+                base_env.num_envs, dtype=torch.bool, device=base_env.device
+            )
+
+        termination_manager.compute = compute_without_reference_reset
 
     total_profiles = int(args.profiles)
     traces: dict[str, list[np.ndarray]] = {
@@ -436,6 +493,9 @@ def main() -> None:
         "mass_changed": [],
         "mass_readback_kg": [],
         "robot_fall": [],
+        "reference_robot_deviation": [],
+        "robot_root_height_m": [],
+        "robot_root_up_z": [],
         "termination_any": [],
         "termination_terms": [],
         "reference_frame": [],
@@ -464,6 +524,8 @@ def main() -> None:
                 update_history=False
             )
             obs = observations(env)
+            robot = base_env.scene["robot"]
+            initial_robot_root_height = robot.data.root_pos_w[:, 2].clone()
             base_env._reset_idx = lambda env_ids: None
             detector = PatchSlipDetector(base_env.num_envs, device=base_env.device)
             done_latched = torch.zeros(
@@ -518,7 +580,6 @@ def main() -> None:
                 )
                 dot = torch.sum(command.obj_quat_w * command.obj_ref_quat_w, dim=-1).abs()
                 ref_ori_error = 2.0 * torch.acos(torch.clamp(dot, 0.0, 1.0))
-                robot_fall = torch.zeros_like(done, dtype=torch.bool)
                 termination_terms = torch.stack(
                     [
                         base_env.termination_manager.get_term(name)
@@ -526,8 +587,23 @@ def main() -> None:
                     ],
                     dim=-1,
                 )
-                for name in robot_fall_names:
-                    robot_fall |= base_env.termination_manager.get_term(name)
+                strict_termination = termination_terms.any(dim=-1)
+                reference_robot_deviation = torch.zeros_like(
+                    done, dtype=torch.bool
+                )
+                for name in reference_robot_deviation_names:
+                    reference_robot_deviation |= (
+                        base_env.termination_manager.get_term(name)
+                    )
+                robot_root_height = robot.data.root_pos_w[:, 2]
+                robot_root_quat = robot.data.root_quat_w
+                robot_root_up_z = 1.0 - 2.0 * (
+                    robot_root_quat[:, 1].square()
+                    + robot_root_quat[:, 2].square()
+                )
+                robot_fall = (
+                    robot_root_height < initial_robot_root_height - 0.35
+                ) | (robot_root_up_z < 0.5)
                 batch_rows["action"].append(cpu(executed_action))
                 batch_rows["policy_action"].append(cpu(action))
                 batch_rows["teacher_control"].append(cpu(teacher_control))
@@ -548,7 +624,12 @@ def main() -> None:
                 batch_rows["mass_changed"].append(cpu(diagnostics["mass_changed"]))
                 batch_rows["mass_readback_kg"].append(cpu(diagnostics["mass_readback_kg"]))
                 batch_rows["robot_fall"].append(cpu(robot_fall))
-                batch_rows["termination_any"].append(cpu(done.bool()))
+                batch_rows["reference_robot_deviation"].append(
+                    cpu(reference_robot_deviation)
+                )
+                batch_rows["robot_root_height_m"].append(cpu(robot_root_height))
+                batch_rows["robot_root_up_z"].append(cpu(robot_root_up_z))
+                batch_rows["termination_any"].append(cpu(strict_termination))
                 batch_rows["termination_terms"].append(cpu(termination_terms))
                 batch_rows["reference_frame"].append(cpu(command.time_steps))
                 batch_rows["valid_frame"].append(cpu(active_before_step))
@@ -567,7 +648,8 @@ def main() -> None:
                             int(args.fps),
                         )
                     world_writer.append(rgb)
-                done_latched |= done.bool()
+                if not args.physical_outcome_view:
+                    done_latched |= done.bool()
             for name in traces:
                 traces[name].append(np.stack(batch_rows[name], axis=0))
             print(
@@ -577,6 +659,7 @@ def main() -> None:
     finally:
         if world_writer is not None:
             world_writer.close()
+        base_env.termination_manager.compute = original_termination_compute
         base_env._reset_idx = original_reset_idx
         env.close()
 
@@ -592,8 +675,13 @@ def main() -> None:
         for index in range(total_profiles)
     ]
     eligible = [item for item in episodes if item["eligible_post_jump_window"]]
+    strict_sugar_eligible = [
+        item
+        for item in episodes
+        if item["strict_sugar_eligible_post_jump_window"]
+    ]
     summary = {
-        "schema": "plan15_frozen_online_patch_mass_evaluation_v2_live_handoff",
+        "schema": "plan15_frozen_online_patch_mass_evaluation_v3_live_handoff",
         "branch": args.branch,
         "checkpoint": str(checkpoint),
         "training_seed": args.training_seed,
@@ -611,9 +699,24 @@ def main() -> None:
         "diagnostic_ignore_object_reference_termination": bool(
             args.ignore_object_reference_termination
         ),
+        "physical_outcome_view": bool(args.physical_outcome_view),
+        "evaluation_view": (
+            "physical_outcome"
+            if args.physical_outcome_view
+            else (
+                "object_reference_termination_ablation"
+                if args.ignore_object_reference_termination
+                else "strict_sugar_reference"
+            )
+        ),
         "diagnostic_only": bool(args.ignore_object_reference_termination),
         "formal_termination_contract": not bool(
             args.ignore_object_reference_termination
+            or args.physical_outcome_view
+        ),
+        "physical_outcome_contract": bool(args.physical_outcome_view),
+        "physical_robot_fall_definition": (
+            "root height loss >= 0.35 m or root up-axis world-z < 0.5"
         ),
         "termination_term_names": list(termination_names),
         "world_video": "world_carrybox.mp4" if args.record_world else None,
@@ -623,10 +726,18 @@ def main() -> None:
         ),
         "policy_spatial_unit": "27 physical patches per hand; no taxel policy units",
         "eligible_profiles": len(eligible),
+        "strict_sugar_eligible_profiles": len(strict_sugar_eligible),
         "hold_success_count": sum(bool(item["hold_success"]) for item in eligible),
+        "strict_sugar_hold_success_count": sum(
+            bool(item["strict_sugar_hold_success"])
+            for item in strict_sugar_eligible
+        ),
         "drop_count": sum(bool(item["drop"]) for item in eligible),
         "safe_lower_count": sum(bool(item["safe_lower"]) for item in eligible),
         "robot_fall_count": sum(bool(item["robot_fall"]) for item in episodes),
+        "reference_robot_deviation_count": sum(
+            bool(item["reference_robot_deviation"]) for item in episodes
+        ),
         "episodes": episodes,
     }
     (output_root / "summary.json").write_text(

@@ -10,8 +10,24 @@
 
 - 当前计划：[PLAN/15_online_patch_tactile_mass_adaptation/plan.md](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
-- 当前状态：
-  最新进展（2026-08-15）：anchored Z seed `151014` 已严格停在 3000 次 iteration
+- 当前状态（2026-08-15 最新）：anchored Z seed `151014/151015` 均已严格停在
+  3000 updates（`model_2999.pt`），没有继续加训；P/PS 与第三个 Z seed 均未自动
+  启动。seed `151015` 的同一 PhysX 轨迹现在把原始 SUGAR reference termination
+  保留为 label，同时继续检查真实物理结果。四-profile 小审查中，`1.0x/1.5x/3x/
+  6x/10x` 的物理 hold 为 `4/4,4/4,4/4,0/4,0/4`，物理 drop 为
+  `0/4,0/4,0/4,4/4,4/4`；严格 reference hold 则为 `0/4,1/4,3/4,0/4,0/4`。
+  因此 Z 已有清楚的温和成功/重质量失败区间，当前无需 overfit；冻结训练，先审查
+  数值和同步视频。若行为不对或含糊，再先做单条件 serious overfit。这个四-profile
+  结果不是正式 20-profile/factor 结果，也不能证明触觉收益。
+  当前人眼视频为
+  `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
+  中 `z_anchor025_endpoint_audit_seed151015/videos/` 下的
+  `train151015_eval152015_1p5x_batch4_profile0/*physical_hold*final.mp4` 与
+  `train151015_eval152015_10p0x_batch4_profile0/*physical_drop*final.mp4`。
+  retained `239098/server44` 正在运行该 frozen checkpoint 的五质量、每项 20 profiles
+  正式审查；这是纯评测，不训练、不更新权重。
+
+- 此前执行记录：anchored Z seed `151014` 已严格停在 3000 次 iteration
   的 `model_2999.pt`，没有继续加训；checkpoint 的 59 个模型张量和 58 项 optimizer
   state 均有限。正式 frozen horizon 已从不足的 420 修正到 450，因为 frame-297
   handoff、最多 50 帧 delay 和 80 帧结果窗口至少要求覆盖到 frame 427。四条
@@ -91,14 +107,14 @@
   `1.5x` jump，并维持 `65/38/74` 个 post-jump frames，但仍不足固定 80 帧。
   因此 Z/P/PS 现统一使用仓库已有 `stage3_distill_weight_floor=0.25`，保持 full PPO
   authority 和 3000-update endpoint；三个 Z 从 update 2000 重跑最后 1000 updates。
-  五天恢复 jobs `238934/239098` 继续保留，P/PS formal 仍未启动。
+  该阶段曾申请五天恢复资源；当前只有 `239098`/`server44` 仍在保留，P/PS formal
+  仍未启动。
   Plan-15 training launcher 已与 frozen evaluator 统一绑定本地 ground-plane USD 和
   预转换 G1 USD；同一环境合同在 task import 前关闭远端 debug marker，并固定相同
   TacSL/PhysX 参数，不再依赖当前不可用的 ground/marker 远端 assets。
-  Anchored Z 已真实恢复并保存151014/update2250与151016/update1000；两份 checkpoint
-  均有限。jobs239105/239106随后均被调度器外部取消，未保存更新不计。当前精确续跑
-  点就是这两份文件，anchored151015未启动；5天238934/239098和4小时239435/239436
-  保留排队，P/PS仍禁止启动。
+  Anchored Z 当时保存了151014/update2250与151016/update1000；两份 checkpoint 均
+  有限。jobs239105/239106随后均被调度器外部取消，未保存更新不计。该调度快照已被
+  当前 `151014/151015` 的完整 anchored endpoints 取代；P/PS 仍禁止自动启动。
   Frozen evaluator 已修正为
   motion 45/frame 0 物理状态与 reference command buffer 同步起步；update-1000
   中间策略仍在接触箱子前的 frame 63 终止，所以不能提前作为质量适应结果。双手
@@ -189,7 +205,8 @@ scripts/sugar/native_tactile/launch_retained_child.sh \
     --output-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_endpoint_video/profile3_reproduce \
     --training-seed 151014 --seed 152014 --mass-factor 1.5 \
     --motion-id 45 --profiles 4 --num-envs 4 --max-steps 450 \
-    --post-jump-window 80 --record-world --record-profile-index 3 \
+    --post-jump-window 80 --physical-outcome-view \
+    --record-world --record-profile-index 3 \
     --headless --device cuda:0
 
 /public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \

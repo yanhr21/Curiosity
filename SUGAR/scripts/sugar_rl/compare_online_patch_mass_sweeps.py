@@ -20,11 +20,14 @@ EXPECTED_KEYS = {
 }
 METRICS = {
     "event_eligible": ("all", "higher"),
+    "strict_sugar_event_eligible": ("all", "higher"),
     "acceptable_hold_or_safe_lower": ("joint_eligible", "higher"),
     "hold_success": ("joint_eligible", "higher"),
+    "strict_sugar_hold_success": ("all", "higher"),
     "drop": ("joint_eligible", "lower"),
     "safe_lower": ("joint_eligible", "higher"),
     "robot_fall": ("all", "lower"),
+    "reference_robot_deviation": ("all", "lower"),
     "maximum_height_loss_m": ("joint_eligible", "lower"),
     "bilateral_patch_contact_fraction": ("joint_eligible", "higher"),
     "gross_slip_patch_fraction": ("joint_eligible", "lower"),
@@ -43,9 +46,18 @@ args = parser.parse_args()
 def metric_value(row: dict[str, object], metric: str) -> float | None:
     if metric == "event_eligible":
         return float(bool(row["eligible_post_jump_window"]))
+    if metric == "strict_sugar_event_eligible":
+        return float(bool(row["strict_sugar_eligible_post_jump_window"]))
     if metric == "acceptable_hold_or_safe_lower":
         return float(bool(row["hold_success"]) or bool(row["safe_lower"]))
-    if metric in {"hold_success", "drop", "safe_lower", "robot_fall"}:
+    if metric in {
+        "hold_success",
+        "strict_sugar_hold_success",
+        "drop",
+        "safe_lower",
+        "robot_fall",
+        "reference_robot_deviation",
+    }:
         return float(bool(row[metric]))
     value = row.get(metric)
     return None if value is None else float(value)
@@ -57,6 +69,11 @@ def load_branch(root: Path, branch: str) -> dict[tuple[int, int, float, int], di
         summary = json.loads(path.read_text(encoding="utf-8"))
         if summary["branch"] != branch:
             raise ValueError(f"{path} contains branch {summary['branch']}, expected {branch}")
+        if summary.get("evaluation_view") != "physical_outcome":
+            raise ValueError(
+                f"{path} is not a physical-outcome evaluation with strict "
+                "SUGAR termination labels"
+            )
         train_seed = summary.get("training_seed")
         if train_seed is None:
             raise ValueError(f"{path} does not record its training seed")
@@ -168,7 +185,7 @@ def main() -> None:
             )
     rng = np.random.default_rng(int(args.bootstrap_seed))
     output = {
-        "schema": "plan15_paired_frozen_comparison_v1",
+        "schema": "plan15_paired_frozen_comparison_v2_physical_and_reference",
         "profile_count_per_branch": expected_profiles,
         "bootstrap": {
             "method": "paired hierarchical percentile bootstrap: training seed then profile",

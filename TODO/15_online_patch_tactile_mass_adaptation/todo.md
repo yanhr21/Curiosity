@@ -54,10 +54,10 @@
 - [x] 保证 actor observation 中不存在 20x25 taxel 维度、普通 ContactSensor、
   `hands_contact_label` 或 object-state proxy。
 - [x] 实现 exact-zero no-sensor-read observation，保证 zero encoder output 也为零。
-- [ ] 用 synchronized patch visualization 检查压力/剪切变化与世界接触同钟对应。
-  Frozen evaluator 已加入 one-profile 真实 world-camera 录制、handoff overlay 和
-  54-patch/slip 同钟 trace；renderer 的 frozen profile 轴与 420 帧 H.264 全解码已
-  通过接口测试。仍须等 replacement endpoint 的真实 camera rollout 后再勾选。
+- [x] 用 synchronized patch visualization 检查压力/剪切变化与世界接触同钟对应。
+  seed `151015` endpoint 已生成并完整解码两段 450-frame H.264：`1.5x` 真实持箱与
+  `10x` 真实掉箱。每段上方只显示目标完整 G1/CarryBox，下方同步显示左右各 27 个
+  patch 的 load、pressure、signed XY shear 和 slip；质量 overlay 明确不进入 actor。
 
 ## D. IsaacLab patch slip callable
 
@@ -197,8 +197,8 @@
 - [x] 录制匹配 profile 0 并区分物理掉落与 reference termination：它在 frame 337
   增重后继续持箱到 frame 396，终止前 lift 约 `+0.823 m`，没有 drop/robot fall；
   59-frame 后终止与 `0.208 m/0.806 rad` 最大 reference 误差相伴。
-- [ ] 在启动任何下一正式 seed 前完成人眼正/负视频审查和失败原因判定；当前已禁用
-  seed `151015` 自动启动。
+- [x] 完成 seed `151014` endpoint 的正/负视频审查和失败原因判定；它只准入一个额外
+  Z endpoint，不准入 P/PS。
 - [ ] 若 endpoint 行为仍无效或含糊，先做一个固定 `1.5x` profile 的 serious overfit
   诊断；必须保留完整 SUGAR actor、live Refiner handoff 和在线物理，不得用 toy
   model，且不得把 overfit 计入正式 Z/P/PS 结果。
@@ -207,27 +207,29 @@
   update-1000/update-2000 均产生三次真实 `1.5x` jump，update-2000 post-jump 生存
   `65/38/74` 帧。distillation loss 从 update-2000 的 `0.3404` 升至 update-2999 的
   `35.8202`，证明最后 1000 updates 出现 Refiner behavior forgetting。
-- [ ] 三个 Z 从各自 update-2000 checkpoint 以共享
-  `stage3_distill_weight_floor=0.25` 重跑到固定 update-2999 endpoint；P/PS 必须使用
-  完全相同的 floor、BCPPO、optimizer、seed 和预算，不得选取中间 checkpoint 作为
-  正式结果。
-- [ ] 从调度器中断后的精确 anchored checkpoints 继续：151014=`model_2250.pt`，
-  151016=`model_1000.pt`，151015尚未启动。239105/239106 分别在打印151014 iteration
-  2337/2304后被外部取消；未保存更新不计。等待中的238934/239098/239435/239436
-  必须继续使用 retained-child PGID 方案，不得主动释放 allocation。
+- [ ] 三个 Z 使用共享 `stage3_distill_weight_floor=0.25` 到固定 update-2999 endpoint；
+  `151014/151015` 已完成且停在 3000 updates，`151016` 尚未恢复。P/PS 必须使用完全
+  相同的 floor、BCPPO、optimizer、seed 和预算，不得选取中间 checkpoint 作为正式结果。
+- [x] anchored seed `151015` 严格完成到 `model_2999.pt`：59 个模型张量与 58 项
+  optimizer state 均有限，没有多跑 update，也没有自动启动 `151016`、P 或 PS。
+- [x] 完成 seed `151015` 的四-profile、五质量 physical-outcome endpoint 审查：
+  `1.0x/1.5x/3x/6x/10x` 物理 hold=`4/4,4/4,4/4,0/4,0/4`，drop=
+  `0/4,0/4,0/4,4/4,4/4`，`10x` robot fall=`1/4`；严格 SUGAR reference hold=
+  `0/4,1/4,3/4,0/4,0/4`。reference termination 与物理结果现分开报告。
+- [x] 该 endpoint 已有明确 mild-pass/heavy-failure 区间，当前不做 overfit；冻结训练并
+  人眼审查同步 H.264。若审查发现行为无效或含糊，再先做固定条件 serious overfit。
+- [ ] 在 retained `239098/server44` 完成 seed `151015` 的正式冻结评测：五个质量条件
+  各 20 profiles。该任务只运行 frozen actor 和物理审查，不更新权重；完成前不得
+  自动启动 `151016`、P 或 PS。
 - [x] 训练 launcher 与冻结 evaluator 统一使用本地 ground-plane USD 和已转换 G1
   USD；双节点同时失败后，单节点复现证明远端默认 ground asset 返回空 Plane prim，
   不是 BCPPO floor 或 TacSL 失败。
 - [x] 将本地 asset、TacSL/PhysX 参数和 `SUGAR_DISABLE_TRAIN_DEBUG_VIS` 环境合同移到
   task registration import 之前，避免 task 在开关生效前创建远端 debug marker，
   并保证正式训练与 frozen evaluator 使用同一物理配置。
-- [x] 恢复 replacement handoff-Z：`151014` 从完整 `model_1500.pt` 的下一 iteration
-  1501 接续；`151015` 从完整 `model_2250.pt` 的下一 iteration 2251 接续。jobs
-  `238253/238620` 均为外部 `CANCELLED by 0`，不是训练异常；未保存区间不计，最终
-  endpoint 不变。backfill jobs `239105/server35` 与 `239106/server44` 已分别从
-  iteration 1501/2251 正确恢复；seed `151015` 已正常完成 `model_2999.pt`，seed
-  `151014` 已越过 `model_2000.pt` 并继续。五天 jobs `238934/239098` 保留作后续。
-  同一 `239106/server44` 已从官方 Tracker、iteration 0 启动 seed `151016`。
+- [x] replacement handoff-Z 的恢复链已完成：`151014/151015` 均严格停在有限的
+  `model_2999.pt`。历史 jobs `238253/238620/239105/239106` 的未保存区间均不计；
+  当前仅 `239098/server44` 继续保留作审查与渲染，`151016` 不自动恢复。
 - [ ] 新 `P`：完成匹配 3000 updates。
 - [ ] 新 `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。

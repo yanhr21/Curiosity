@@ -17,10 +17,13 @@ def episode(branch: str) -> dict[str, object]:
     improved = branch in {"P", "PS"}
     return {
         "eligible_post_jump_window": True,
+        "strict_sugar_eligible_post_jump_window": improved,
         "hold_success": improved,
+        "strict_sugar_hold_success": improved,
         "drop": not improved,
         "safe_lower": False,
         "robot_fall": not improved,
+        "reference_robot_deviation": not improved,
         "maximum_height_loss_m": 0.02 if improved else 0.20,
         "bilateral_patch_contact_fraction": 0.9 if improved else 0.5,
         "gross_slip_patch_fraction": 0.1 if improved else 0.4,
@@ -34,6 +37,7 @@ def write_branch(root: Path, branch: str) -> None:
             run.mkdir(parents=True)
             summary = {
                 "branch": branch,
+                "evaluation_view": "physical_outcome",
                 "training_seed": train_seed,
                 "seed": evaluation_seed,
                 "mass_factor": factor,
@@ -72,6 +76,18 @@ def test_completed_paired_sweeps_compare_all_300_profiles(tmp_path: Path) -> Non
     assert p_minus_z["hold_success"]["paired_profiles"] == 60
     assert p_minus_z["hold_success"]["mean_difference_first_minus_second"] == 1.0
     assert p_minus_z["drop"]["mean_difference_first_minus_second"] == -1.0
+    assert (
+        p_minus_z["strict_sugar_event_eligible"][
+            "mean_difference_first_minus_second"
+        ]
+        == 1.0
+    )
+    assert (
+        p_minus_z["reference_robot_deviation"][
+            "mean_difference_first_minus_second"
+        ]
+        == -1.0
+    )
     ps_minus_p = result["comparisons"]["PS-P"]["3.0"]
     assert ps_minus_p["hold_success"]["mean_difference_first_minus_second"] == 0.0
 
@@ -134,6 +150,7 @@ def test_summary_accepts_only_the_exact_15_run_300_profile_design(
     result = json.loads(output.read_text(encoding="utf-8"))
     assert result["source_runs"] == 15
     assert result["profiles"] == 300
+    assert result["factors"]["3.0"]["strict_sugar_eligible_profiles"] == 0
 
     missing = next(root.glob("train_151014_eval_152014_1.0/summary.json"))
     missing.unlink()
