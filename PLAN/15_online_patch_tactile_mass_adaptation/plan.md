@@ -576,6 +576,14 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   两批 8-profile 诊断和随后正式 100 条均未再出现第二批 frame-0 假终止。
 - 当前只保留 job `239098`/`server44` 用于审查与渲染；`238934` 已不在运行，不能再写成
   retained。完成本轮审查不授权退出 `239098`。
+- seed `151015` endpoint 的四级人眼证据已完成，且没有继续训练：`1.5x` 为完整持箱，
+  `3x` profile 8 为持续双手接触但最大下沉约 `0.052 m` 的边界样本，`6x` profile 0
+  为掉箱并随后整机失稳，`10x` 为明确掉箱。四条都是 450-frame H.264，上方只显示
+  目标完整 G1/CarryBox，下方同钟显示左右各 27 patch，并已完成全帧解码。3x camera
+  replay 与正式 profile 8 的 `0.0538 m` 下沉一致；6x camera replay 与正式 profile 0
+  均为 drop，但掉箱后的 robot-fall label 因 live camera replay 的闭环扰动而不同，
+  只报告稳定的物理类别，不声称逐帧确定性。这轮审查没有否定 endpoint，因此不触发
+  overfit；继续冻结 seed `151016`、P 和 PS。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

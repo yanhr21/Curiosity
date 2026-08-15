@@ -74,6 +74,13 @@
   3000-update budget. Such an overfit is a diagnostic, not a formal Z/P/PS
   result. Do not continue long training while the endpoint behavior is
   unknown.
+- The seed-`151015` endpoint has now passed the required frozen numerical and
+  human-visible review without more training. Its 450-frame synchronized H.264
+  evidence separates a `1.5x` hold, a `3x` bilateral-contact boundary with
+  about `0.052 m` sag, and `6x/10x` box drops. The `6x` camera replay also
+  destabilizes the robot after the drop; report that replay honestly rather
+  than claiming frame-exact agreement with the camera-free trace. This review
+  does not trigger overfit and does not authorize seed `151016`, P or PS.
 - Formal frozen evaluation uses at least 450 control frames, not 420. With the
   observed handoff near frame 297, the declared 50-frame maximum mass delay
   and 80-frame outcome window require coverage through at least frame 427.

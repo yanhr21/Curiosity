@@ -229,6 +229,14 @@
 - [x] 修复并验证 frozen evaluator 的多 batch 合同：reset 使用 inference mode，每批
   清除 latched termination reason，main 异常保持非零退出，并在进入下一个质量条件前
   检查 summary/trace 均已写出。两批 8-profile 诊断与正式 100 条均无 frame-0 假终止。
+- [x] 完成 seed `151015` endpoint 的四级同钟视频审查：`1.5x` 持稳、`3x` profile 8
+  持续双手接触但下沉约 `0.052 m`、`6x` profile 0 掉箱并随后整机失稳、`10x` 掉箱。
+  四条均为 450-frame H.264、单一目标 G1/CarryBox、左右各 27 patch，且全帧解码通过。
+  3x replay 与正式边界类别和下沉量相符；6x replay 与正式轨迹都为 drop，但只把
+  post-drop robot-fall 差异报告为 live camera replay 的闭环敏感性，不冒充逐帧一致。
+- [x] 依据数值和人眼审查维持训练冻结：不运行 update 3000 之后的训练，不恢复
+  `151016`，不启动 P/PS，也不触发 overfit。只有后续证据否定当前 endpoint 时才先做
+  已声明的固定条件 serious overfit。
 - [x] 训练 launcher 与冻结 evaluator 统一使用本地 ground-plane USD 和已转换 G1
   USD；双节点同时失败后，单节点复现证明远端默认 ground asset 返回空 Plane prim，
   不是 BCPPO floor 或 TacSL 失败。

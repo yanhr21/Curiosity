@@ -26,11 +26,17 @@
   checkpoint 的正式端点审查，仍不能证明触觉收益。正式 summary 与 trace 位于
   `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
   `z_anchor025_formal_seed151015/`。
-  当前人眼视频为
-  `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
-  中 `z_anchor025_endpoint_audit_seed151015/videos/` 下的
-  `train151015_eval152015_1p5x_batch4_profile0/*physical_hold*final.mp4` 与
-  `train151015_eval152015_10p0x_batch4_profile0/*physical_drop*final.mp4`。
+  450-frame 同钟 H.264 人眼审查也已完成：`1.5x` 持稳；`3x` profile 8
+  保持双手接触但下沉约 `0.052 m`；`6x` profile 0 掉箱，camera replay 后续还出现
+  robot destabilization；`10x` 掉箱。每条视频上方只保留目标 G1/CarryBox，下方同时
+  显示左右各 27 patch，均已完整解码。证据位于
+  `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`：
+  `z_anchor025_endpoint_audit_seed151015/videos/` 下的 `1p5x` 与 `10p0x` final 视频，
+  以及 `z_anchor025_formal_seed151015/videos/` 下的
+  `3p0x_profile8_boundary_reproduce_v1/*single_g1*final_v2.mp4` 和
+  `6p0x_profile0_drop_reproduce_v1/*single_g1*final.mp4`。3x camera replay 与正式
+  profile 的失败类别和下沉量一致；6x replay 复现掉箱类别，但掉箱后的 robot-fall
+  label 对渲染引入的微小闭环扰动敏感，因此不写成逐帧复现正式无相机轨迹。
   retained `239098/server44` 在正式审查完成后继续保留用于数值复核和渲染；没有
   释放 allocation，也没有自动启动任何训练。
 
