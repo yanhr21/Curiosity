@@ -655,3 +655,9 @@ Newton/soft-body 队列。GPU allocation 按 `AGENTS.md` 保留规则管理；�
 为 `Sugar-G129dof-CarryBox-OnlineMass-Patch-P-BCPPO`，读取同 episode 的 live 54-patch
 历史、保持 slip 字段为零，并固定在 3000 updates 停止。该 seed 完成后先做 endpoint
 物理审查，不自动串联 `151015` 或 PS。
+
+该运行在打印 iteration 1734 后由调度器把 job `240170` 标为 `CANCELLED by 0`；进程
+没有训练异常，最后完整 checkpoint 为有限的 `model_1500.pt`。未保存 1501--1734
+全部舍弃。随后在新获批五天 retained `231256/server64` 从该文件恢复：optimizer LR
+为 `1e-5`，BCPPO `update_step=1501`，runner 从 iteration 1501 开始，固定总预算仍为
+3000、remaining=1499。恢复不改变 P 的传感器、质量、reward、seed 或架构合同。

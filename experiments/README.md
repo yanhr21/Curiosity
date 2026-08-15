@@ -20,6 +20,8 @@ frozen evaluation 和同步视频可以进入该根；失败的实现版本和�
   `z_anchor025_endpoint_audit_seed151015/videos/` 下。
 - `online_patch_tactile_mass_adaptation/training_handoff_anchor025/p_seed151014/`：用户明确
   授权后于 2026-08-15 启动的首个正式 live-patch、zero-slip P seed；固定 3000 updates。
+  `240170/server44` 外部取消后的最后完整点为 `model_1500.pt`，当前在五天 retained
+  `231256/server64` 从 iteration 1501 接续。
 
 三个 Z endpoint 均已冻结在 `model_2999.pt`，不得续训。当前只运行 `P/seed151014`；
 它到 endpoint 后先冻结审查，不自动启动下一 seed 或 PS。

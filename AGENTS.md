@@ -88,6 +88,13 @@
   requested the unfinished tactile arms to train on 2026-08-15, formal
   `P/seed151014` started from the official Tracker on retained job
   `240170/server44`; its fixed endpoint is still exactly `model_2999.pt`.
+  The scheduler later marked job `240170` `CANCELLED by 0` after the trainer
+  printed iteration 1734; this was not a training exception or voluntary GPU
+  release. The last complete checkpoint is `model_1500.pt`. P resumed on the
+  newly granted five-day retained job `231256/server64`: optimizer LR restored
+  to `1e-5`, BCPPO update step restored to 1501, runner starts iteration 1501,
+  and the fixed total remains 3000 with 1499 updates remaining. Unsaved
+  iterations 1501--1734 from the cancelled process are excluded.
   Do not start its next seed automatically before this endpoint receives the
   same frozen physical review. PS remains unstarted. The valid Z
   mild/boundary/heavy behavior means no Z overfit is currently needed.
@@ -337,10 +344,10 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Retained jobs `238054/server01`, `240170/server44` and `240173/server07`
-  remain active for review and rendering. Job `239098` was externally cancelled
-  by the scheduler and is no longer retained. Ending an audit or this agent turn
-  is not permission to exit any usable retained allocation.
+- Retained job `231256/server64` is the current five-day P training allocation.
+  Jobs `238054`, `239098`, `240170` and `240173` ended through scheduler
+  enforcement and are no longer retained. Ending an audit or this agent turn is
+  not permission to exit the usable `231256` allocation.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may

@@ -25,10 +25,13 @@
   `59`：合并 hold=`59/59,59/59,52/59,1/59,0/59`，drop=
   `0/59,0/59,2/59,58/59,59/59`。因此 Z baseline 已完整形成 mild/boundary/heavy
   区间；这不是触觉收益，但行为有效且不含糊，所以当前不做 Z overfit。用户随后明确
-  要求推进未完成的触觉训练；正式 `P/seed151014` 已从官方 Tracker 在 retained
-  `240170/server44` 启动，任务为 live patch、zero-slip、固定 3000 updates，输出写入
-  `training_handoff_anchor025/p_seed151014/`。当前只运行这一 seed；到 endpoint 后先冻结
-  检查，不自动串联下一个 seed。PS 尚未启动。三-seed reaction-window 复算覆盖 119 条 drop：continuous
+  要求推进未完成的触觉训练；正式 `P/seed151014` 已从官方 Tracker 启动，任务为 live
+  patch、zero-slip、固定 3000 updates，输出写入
+  `training_handoff_anchor025/p_seed151014/`。它在 `240170/server44` 到达有限
+  `model_1500.pt` 后，job 被调度器标为 `CANCELLED by 0`；未保存的 1501--1734 不计。
+  当前已在五天 retained `231256/server64` 从该 checkpoint 精确恢复：BCPPO step 和
+  runner iteration 都从 1501 接续，学习率 `1e-5`，总终点仍为 3000。当前只运行这一
+  seed；到 endpoint 后先冻结检查，不自动串联下一个 seed。PS 尚未启动。三-seed reaction-window 复算覆盖 119 条 drop：continuous
   patch 变化 `119/119` 早于 drop，中位 lead 21 帧；normal load 和 pressure 也均为
   `119/119`、中位 lead 20 帧；binary 中位 lead 15 帧，slip 为 `118/119`、中位
   lead 11 帧。133 条至少下沉 2 cm 的轨迹中，continuous 为 `133/133` 提前、
@@ -37,8 +40,8 @@
   增量收益，而非触觉独占质量信息。结果位于
   `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
   `z_anchor025_formal_seed151014/`、`151015/`、`151016/`，reaction audit 位于
-  `frozen_reaction_window_v2/summary.json`。retained jobs `238054/server01`、
-  `240170/server44`、`240173/server07` 均继续保留用于审查和渲染。
+  `frozen_reaction_window_v2/summary.json`。当前 retained job 为
+  `231256/server64`；此前 `238054/240170/240173` 均已由调度器结束。
   seed `151016` 的两条 450-frame H.264 人眼证据也已完成并全帧解码：3x profile 0
   持箱、6x profile 0 下落 `0.562 m`；两条都在同一时钟显示完整 G1/CarryBox 和左右
   各 27 patch。路径分别为 `z_anchor025_formal_seed151016/videos/` 下

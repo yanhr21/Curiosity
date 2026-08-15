@@ -276,9 +276,11 @@
 - [x] replacement handoff-Z 的恢复链已完成：`151014/151015/151016` 均严格停在有限的
   `model_2999.pt`。历史 jobs 的未保存区间均不计；当前 retained
   `238054/server01`、`240170/server44`、`240173/server07` 继续用于审查与渲染。
-- [ ] 新 `P`：完成匹配 3000 updates。seed `151014` 已于 2026-08-15 20:27 在 retained
-  `240170/server44` 从官方 Tracker 正式启动；任务是 live patch、zero slip，固定 endpoint
-  为 `model_2999.pt`。其余 seed 不自动串联。
+- [ ] 新 `P`：完成匹配 3000 updates。seed `151014` 已于 2026-08-15 20:27 从官方
+  Tracker 正式启动；任务是 live patch、zero slip，固定 endpoint 为 `model_2999.pt`。
+  `240170/server44` 在打印 iteration 1734 后被调度器外部取消，最后完整文件为有限
+  `model_1500.pt`；未保存区间不计。当前在五天 retained `231256/server64` 精确从
+  iteration/BCPPO step 1501 恢复，学习率 `1e-5`、remaining 1499。其余 seed 不自动串联。
 - [ ] 新 `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
