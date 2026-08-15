@@ -257,6 +257,9 @@
   93 条 2 cm sag 中 continuous `93/93` 提前而 binary 只有 `47/93`。Z action 也有
   `73/79` 在 drop 前分叉。结论固定为连续触觉优于 binary 的提前窗口，但只能检验相对
   proprio-only 的增量收益。
+- [x] 生成并人眼检查 6x reaction-window H.264：450 帧、完整 G1/CarryBox 与双手
+  27-patch 在左，38 条正式 camera-free drop 时序在右；视频内明确标注两侧为不同
+  rollout，且已全帧解码。
 - [x] 训练 launcher 与冻结 evaluator 统一使用本地 ground-plane USD 和已转换 G1
   USD；双节点同时失败后，单节点复现证明远端默认 ground asset 返回空 Plane prim，
   不是 BCPPO floor 或 TacSL 失败。

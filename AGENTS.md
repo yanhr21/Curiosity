@@ -292,6 +292,13 @@
   not tactile-policy benefit. The Z action already diverges before drop in
   `73/79` cases, so proprioceptive/closed-loop leakage is behaviorally relevant
   and the eventual claim must remain incremental tactile benefit.
+- The reaction-window result has a fully decoded 450-frame H.264 at
+  `experiments/online_patch_tactile_mass_adaptation/frozen_reaction_window_v1/`
+  `videos/6x_camera_and_formal_reaction_window_v1.mp4`. The left pane is the
+  already admitted camera-enabled complete-G1/CarryBox/54-patch `6x` drop; the
+  right pane animates the `38` formal camera-free `6x` drop profiles. The video
+  states on-frame that these are separate rollouts and that formal counts use
+  camera-free traces only. Do not erase this distinction when presenting it.
 - The formal evaluator's multi-batch path now resets inside inference mode,
   clears IsaacLab's latched termination-reason buffer after each evaluation
   reset, preserves uncaught main exceptions instead of allowing application

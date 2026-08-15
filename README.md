@@ -78,6 +78,11 @@
   proprio-only Z 的增量收益。分析入口为
   `scripts/sugar/native_tactile/analyze_frozen_mass_reaction_window.py`，结果位于
   `experiments/online_patch_tactile_mass_adaptation/frozen_reaction_window_v1/summary.json`。
+  对应的 450-frame H.264 为同目录下
+  `videos/6x_camera_and_formal_reaction_window_v1.mp4`：左侧是完整 G1、CarryBox 和双手
+  27-patch 的带相机 6x drop，右侧动态显示 38 条正式无相机 6x drop 的 continuous/
+  binary/slip/sag/drop 分布。视频内部明确标注两侧不是同一 rollout，正式数字只来自
+  camera-free trace。
 
 - 此前执行记录：anchored Z seed `151014` 已严格停在 3000 次 iteration
   的 `model_2999.pt`，没有继续加训；checkpoint 的 59 个模型张量和 58 项 optimizer

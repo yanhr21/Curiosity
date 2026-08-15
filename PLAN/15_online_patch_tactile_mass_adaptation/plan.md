@@ -616,6 +616,10 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   `2/9/10/16`。因此连续触觉相对 binary contact 有真实提前窗口，但 Z action 本身已有
   `73/79` 在 drop 前分叉，证明 proprio/闭环泄漏也足以改变行为。该 audit 只准入后续
   增量比较，不证明 P 或 PS 会成功，也不触发额外 Z 训练。
+- reaction-window 主视频已经生成并全帧解码：450 帧、50 Hz、H.264/yuv420p、
+  `1920 x 1080`。左侧是带相机的完整 G1/CarryBox/双手 27-patch 6x drop，右侧按同一
+  时间游标激活 38 条正式 camera-free 6x drop 的 continuous/binary/slip/sag/drop
+  marker。页脚明确说明两侧为不同 rollout，不能把左侧 world 画面冒充右侧正式 trace。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。
