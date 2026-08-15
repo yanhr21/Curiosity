@@ -74,13 +74,32 @@
   3000-update budget. Such an overfit is a diagnostic, not a formal Z/P/PS
   result. Do not continue long training while the endpoint behavior is
   unknown.
+- All three anchored Z seeds `151014/151015/151016` have now stopped at the
+  fixed finite `model_2999.pt` endpoint, each with 59 model tensors and 58
+  optimizer states and no later checkpoint. Seed `151016` was externally
+  interrupted with job `239098` after iteration 2943, resumed only from its
+  complete `model_2750.pt` at iteration 2751 on `240173/server07`, and exited
+  normally at 2999. Its 100-rollout camera-free frozen audit has physical holds
+  `20/20,20/20,20/20,0/20,0/20` and drops
+  `0/20,0/20,0/20,20/20,20/20` for `1x/1.5x/3x/6x/10x`; robot falls are all
+  zero. All five `450 x 20` traces are finite, all 100 mass events read back
+  the requested mass, and all have ten bilateral-contact frames before the
+  event. Z remains frozen and must not be extended. After the user explicitly
+  requested the unfinished tactile arms to train on 2026-08-15, formal
+  `P/seed151014` started from the official Tracker on retained job
+  `240170/server44`; its fixed endpoint is still exactly `model_2999.pt`.
+  Do not start its next seed automatically before this endpoint receives the
+  same frozen physical review. PS remains unstarted. The valid Z
+  mild/boundary/heavy behavior means no Z overfit is currently needed.
 - The seed-`151015` endpoint has now passed the required frozen numerical and
   human-visible review without more training. Its 450-frame synchronized H.264
   evidence separates a `1.5x` hold, a `3x` bilateral-contact boundary with
   about `0.052 m` sag, and `6x/10x` box drops. The `6x` camera replay also
   destabilizes the robot after the drop; report that replay honestly rather
   than claiming frame-exact agreement with the camera-free trace. This review
-  does not trigger overfit and does not authorize seed `151016`, P or PS.
+  did not trigger overfit. It was the review gate before the separately
+  authorized and now completed seed `151016`; it still does not authorize P or
+  PS automatically.
 - Formal frozen evaluation uses at least 450 control frames, not 420. With the
   observed handoff near frame 297, the declared 50-frame maximum mass delay
   and 80-frame outcome window require coverage through at least frame 427.
@@ -157,7 +176,7 @@
   externally cancelled after iteration 2304. At that time the restart points
   were anchored `151014/model_2250.pt` and `151016/model_1000.pt`; unsaved
   iterations were excluded. This scheduling snapshot is superseded by the
-  completed `151014/151015` anchored endpoints below. Do not call either
+  completed `151014/151015/151016` anchored endpoints below. Do not call either
   external cancellation a training failure, and do not restart from older
   checkpoints when an allocation begins. Historical allocation details follow.
   Seed `151014` has a
@@ -225,7 +244,7 @@
   benefit. The clear mild-pass/heavy-failure region means no overfit is needed
   now; freeze training for review. If later behavior is invalid or ambiguous,
   use the declared fixed-condition serious overfit before another formal
-  budget. Seed `151016`, P and PS must not auto-start.
+  budget. P and PS must not auto-start.
 - The formal frozen audit of anchored Z seed `151015` is now complete at exactly
   `20` profiles for each of `1.0x/1.5x/3x/6x/10x`, or 100 live PhysX rollouts.
   Physical hold counts are `20/20,20/20,16/20,0/20,0/20`; drop counts are
@@ -253,9 +272,20 @@
   matched delay sequence is identical across factors. The teacher-prefix
   failure is infrastructure coverage loss, not a student outcome and not a
   reason to extend or overfit the student.
-- Across the two completed anchored Z checkpoint/seed pairs, eligible physical
-  holds are therefore `39/39,39/39,32/39,1/39,0/39` for
-  `1.0x/1.5x/3x/6x/10x`; drops are `0/39,0/39,2/39,38/39,39/39`. This is a
+- The formal frozen audit of anchored Z seed `151016` is complete at exactly 20
+  profiles per factor. Physical holds are
+  `20/20,20/20,20/20,0/20,0/20`; drops are
+  `0/20,0/20,0/20,20/20,20/20`; robot falls are all zero. All five
+  `450 x 20` traces are finite and all 100 events pass mass readback and the
+  ten-frame bilateral-contact gate.
+- Seed `151016` now also has two fully decoded 450-frame H.264 camera rollouts.
+  The `3x` profile-0 video holds with bilateral contact; the `6x` profile-0
+  video drops by `0.5619 m`. Both show the complete G1/CarryBox world view and
+  both 27-patch hands on one clock. They are evidence of their own camera-enabled
+  rollouts, not frame-exact replays of the authoritative camera-free traces.
+- Across all three anchored Z checkpoint/seed pairs, eligible physical holds
+  are therefore `59/59,59/59,52/59,1/59,0/59` for
+  `1.0x/1.5x/3x/6x/10x`; drops are `0/59,0/59,2/59,58/59,59/59`. This is a
   valid frozen Z baseline with mild, boundary and heavy conditions, so no
   overfit and no further Z training are currently warranted. A fixed-condition
   serious overfit is used only if later review shows invalid or ambiguous
@@ -273,24 +303,24 @@
   camera-free 20-profile traces as authoritative and label every video as
   evidence of its own camera-enabled rollout; never claim that such a video is
   a frame-exact replay of the formal outcome.
-- The paired frozen-Z reaction-window audit now covers both completed endpoint
-  pairs and all `39` eligible profiles per mass factor. Each heavy trace is
+- The paired frozen-Z reaction-window audit now covers all three endpoint pairs
+  and all `59` eligible profiles per mass factor. Each heavy trace is
   event-aligned with the same profile's `1x` trace; patch channels use the
   already fixed scales, and onset is the first two post-jump samples above the
   profile's ten-frame pre-jump paired-difference maximum. Continuous
   load/pressure/signed-shear/friction is separated from contact binary. Among
-  all `79` box drops, continuous patch change precedes drop in `79/79` with
-  median lead `20` frames (`0.40 s`), versus `12` frames for contact binary and
-  `10` frames (`0.20 s`) for slip state. Normal load and pressure individually
-  precede all `79` drops, each with median lead `19` frames, so the result is
+  all `119` box drops, continuous patch change precedes drop in `119/119` with
+  median lead `21` frames (`0.42 s`), versus `15` frames for contact binary;
+  slip precedes `118/119` with median lead `11` frames (`0.22 s`). Normal load
+  and pressure individually precede all `119` drops, each with median lead
+  `20` frames, so the result is
   not driven only by friction or a changed contact bit. More importantly,
-  continuous patch change precedes all `93` profiles that sag at least `0.02 m`,
-  with median lead `7` frames, while contact binary precedes sag in only `47/93`
-  and has median lead zero. At `6x`, continuous/binary/slip/drop median offsets are
-  `1/9/11/24.5` frames; at `10x` they are `2/9/10/16`. This establishes an
-  information advantage over binary contact and a usable sensing opportunity,
-  not tactile-policy benefit. The Z action already diverges before drop in
-  `73/79` cases, so proprioceptive/closed-loop leakage is behaviorally relevant
+  continuous patch change precedes all `133` profiles that sag at least `0.02 m`,
+  with median lead `7` frames, while contact binary precedes sag in only `81/133`
+  with median lead `3` frames. This establishes an information advantage over
+  binary contact and a usable sensing opportunity, not tactile-policy benefit.
+  The Z action has a detectable onset for 117 drops and already diverges before
+  111 of them, so proprioceptive/closed-loop leakage is behaviorally relevant
   and the eventual claim must remain incremental tactile benefit.
 - The reaction-window result has a fully decoded 450-frame H.264 at
   `experiments/online_patch_tactile_mass_adaptation/frozen_reaction_window_v1/`
@@ -307,9 +337,10 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Retained job `239098` on `server44` remains active for review and rendering.
-  Job `238934` is no longer running; do not describe it as retained. Ending the
-  audit or this agent turn is not permission to exit job `239098`.
+- Retained jobs `238054/server01`, `240170/server44` and `240173/server07`
+  remain active for review and rendering. Job `239098` was externally cancelled
+  by the scheduler and is no longer retained. Ending an audit or this agent turn
+  is not permission to exit any usable retained allocation.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may

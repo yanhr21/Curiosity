@@ -169,7 +169,7 @@
   read 和 363 个 bilateral-contact env-samples；P 的 slip call 为 0，PS 的 causal
   slip call 为 361。handoff mask 与 wrapper 逐步计数完全一致，只把 142/143 个
   post-handoff transitions 计入 PPO，并屏蔽 1298/1297 个 teacher transitions。
-- [ ] 新 `Z`：三个冻结 seed 各完成匹配 3000 updates 与 endpoint frozen evaluation；
+- [x] 新 `Z`：三个冻结 seed 各完成匹配 3000 updates 与 endpoint frozen evaluation；
   只有存在 eligible post-jump profiles 才允许进入 P。
 - [x] anchored Z seed `151014` 严格完成到固定 `model_2999.pt` 后停止；checkpoint 为
   59 个有限模型张量与 58 项 optimizer state，未运行 3000 之后的 update。
@@ -207,8 +207,8 @@
   update-1000/update-2000 均产生三次真实 `1.5x` jump，update-2000 post-jump 生存
   `65/38/74` 帧。distillation loss 从 update-2000 的 `0.3404` 升至 update-2999 的
   `35.8202`，证明最后 1000 updates 出现 Refiner behavior forgetting。
-- [ ] 三个 Z 使用共享 `stage3_distill_weight_floor=0.25` 到固定 update-2999 endpoint；
-  `151014/151015` 已完成且停在 3000 updates，`151016` 尚未恢复。P/PS 必须使用完全
+- [x] 三个 Z 使用共享 `stage3_distill_weight_floor=0.25` 到固定 update-2999 endpoint；
+  `151014/151015/151016` 均已完成且停在 3000 updates。P/PS 必须使用完全
   相同的 floor、BCPPO、optimizer、seed 和预算，不得选取中间 checkpoint 作为正式结果。
 - [x] anchored seed `151015` 严格完成到 `model_2999.pt`：59 个模型张量与 58 项
   optimizer state 均有限，没有多跑 update，也没有自动启动 `151016`、P 或 PS。
@@ -234,28 +234,35 @@
   四条均为 450-frame H.264、单一目标 G1/CarryBox、左右各 27 patch，且全帧解码通过。
   3x replay 与正式边界类别和下沉量相符；6x replay 与正式轨迹都为 drop，但只把
   post-drop robot-fall 差异报告为 live camera replay 的闭环敏感性，不冒充逐帧一致。
-- [x] 依据数值和人眼审查维持训练冻结：不运行 update 3000 之后的训练，不恢复
-  `151016`，不启动 P/PS，也不触发 overfit。只有后续证据否定当前 endpoint 时才先做
+- [x] 依据数值和人眼审查维持训练冻结：不运行 update 3000 之后的训练；第三 Z seed
+  后续只按相同合同完成，当前不启动 P/PS，也不触发 overfit。只有后续证据否定当前 endpoint 时才先做
   已声明的固定条件 serious overfit。
 - [x] 完成 anchored seed `151014` 的正式 frozen audit：五个质量各 20 profiles；
   每项同一个 profile 1 在 handoff 前发生 Refiner `ee_body_pos@220`，其余 19 条的
   hold=`19,19,16,1,0`、drop=`0,0,2,18,19`。所有 real event 的质量读回、jump 前
   十帧 bilateral patch contact 和 matched delay 均通过。
-- [x] 汇总两个完成的 Z pair：eligible hold=`39/39,39/39,32/39,1/39,0/39`，
-  drop=`0/39,0/39,2/39,38/39,39/39`。冻结全部训练；当前不触发 overfit，不恢复
-  `151016`，不启动 P/PS。
+- [x] 完成 anchored seed `151016`：job `239098` 外部取消后从完整 `model_2750.pt`
+  精确恢复，从 iteration 2751 正常完成到 `model_2999.pt`；59 个模型张量和 58 项
+  optimizer state 均有限且没有更晚 checkpoint。快速 5x4 审查通过后，正式 100 条
+  frozen audit 的 hold=`20,20,20,0,0`、drop=`0,0,0,20,20`，robot fall 全为 0；
+  五个 trace 均有限，100/100 mass readback 与 pre-event bilateral-contact gate 通过。
+- [x] 完成 seed `151016` 代表性同步视频：3x profile 0 持箱、6x profile 0 下落
+  `0.5619 m`；两条均为 450-frame H.264、完整 G1/CarryBox 和左右 27 patch，同钟且
+  全帧解码。视频按自身 camera rollout 报告，不替代正式 camera-free 计数。
+- [x] 汇总三个完成的 Z pair：eligible hold=`59/59,59/59,52/59,1/59,0/59`，
+  drop=`0/59,0/59,2/59,58/59,59/59`。冻结全部训练；当前不触发 overfit，不启动 P/PS。
 - [x] 审查相机扰动：`6x` profile 7 的 camera-free 正式轨迹与 repeat 都持稳，但
   camera rollout 下落 `0.279 m`；`3x` profile 0 从 camera-free drop+fall 变为 camera
   hold。新增 3x camera-free 四-profile repeat 正常完成，其 23 个 trace 字段与正式
   trace 的前四条逐值相同，profile 0 精确重复 `0.452212 m` drop+fall。正式计数固定
   使用 camera-free trace，视频只按自身 rollout 标注。
-- [x] 完成两个 Z endpoint 的 paired reaction-window audit：每个重质量 profile 与同
+- [x] 完成三个 Z endpoint 的 paired reaction-window audit：每个重质量 profile 与同
   seed/profile 的 1x trace event-align，onset 用 jump 前十帧 paired delta 标定，并把
-  连续 load/pressure/shear/friction 与 binary contact 分开。79 条 drop 中 continuous
-  patch `79/79` 提前、中位 lead 20 帧，binary lead 12 帧，slip `78/79`、lead 10 帧；
-  normal load 与 pressure 单独也均为 `79/79` 提前、中位 lead 19 帧；
-  93 条 2 cm sag 中 continuous `93/93` 提前而 binary 只有 `47/93`。Z action 也有
-  `73/79` 在 drop 前分叉。结论固定为连续触觉优于 binary 的提前窗口，但只能检验相对
+  连续 load/pressure/shear/friction 与 binary contact 分开。119 条 drop 中 continuous
+  patch `119/119` 提前、中位 lead 21 帧，binary lead 15 帧，slip `118/119`、lead 11 帧；
+  normal load 与 pressure 单独也均为 `119/119` 提前、中位 lead 20 帧；
+  133 条 2 cm sag 中 continuous `133/133` 提前而 binary 只有 `81/133`。Z action 在
+  117 条有可检测 onset 的 drop 中有 111 条先分叉。结论固定为连续触觉优于 binary 的提前窗口，但只能检验相对
   proprio-only 的增量收益。
 - [x] 生成并人眼检查 6x reaction-window H.264：450 帧、完整 G1/CarryBox 与双手
   27-patch 在左，38 条正式 camera-free drop 时序在右；视频内明确标注两侧为不同
@@ -266,10 +273,12 @@
 - [x] 将本地 asset、TacSL/PhysX 参数和 `SUGAR_DISABLE_TRAIN_DEBUG_VIS` 环境合同移到
   task registration import 之前，避免 task 在开关生效前创建远端 debug marker，
   并保证正式训练与 frozen evaluator 使用同一物理配置。
-- [x] replacement handoff-Z 的恢复链已完成：`151014/151015` 均严格停在有限的
-  `model_2999.pt`。历史 jobs `238253/238620/239105/239106` 的未保存区间均不计；
-  当前仅 `239098/server44` 继续保留作审查与渲染，`151016` 不自动恢复。
-- [ ] 新 `P`：完成匹配 3000 updates。
+- [x] replacement handoff-Z 的恢复链已完成：`151014/151015/151016` 均严格停在有限的
+  `model_2999.pt`。历史 jobs 的未保存区间均不计；当前 retained
+  `238054/server01`、`240170/server44`、`240173/server07` 继续用于审查与渲染。
+- [ ] 新 `P`：完成匹配 3000 updates。seed `151014` 已于 2026-08-15 20:27 在 retained
+  `240170/server44` 从官方 Tracker 正式启动；任务是 live patch、zero slip，固定 endpoint
+  为 `model_2999.pt`。其余 seed 不自动串联。
 - [ ] 新 `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。

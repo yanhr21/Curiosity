@@ -10,7 +10,44 @@
 
 - 当前计划：[PLAN/15_online_patch_tactile_mass_adaptation/plan.md](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
-- 当前状态（2026-08-15 最新）：anchored Z seed `151014/151015` 均已严格停在
+- 当前状态（2026-08-15 20:31）：anchored Z seeds `151014/151015/151016` 均已
+  严格停在 3000 updates 的 `model_2999.pt`，没有任何更晚 checkpoint。第三 seed
+  `151016` 在 retained job `239098` 被调度器外部取消后，从最后完整
+  `model_2750.pt` 恢复到 iteration 2751，并在 `240173/server07` 正常完成；终点
+  含 59 个有限模型张量和 58 项 optimizer state。其正式 camera-free frozen audit
+  也已完成 100 条：`1.0x/1.5x/3x/6x/10x` hold 为
+  `20/20,20/20,20/20,0/20,0/20`，drop 为
+  `0/20,0/20,0/20,20/20,20/20`，robot fall 全为 0。五个 trace 均为
+  `450 x 20`，全部有限；100/100 mass event、质量读回和 jump 前十帧 bilateral
+  patch contact 均通过。
+
+  三个 checkpoint 与 disjoint evaluation seed 一一配对后的 eligible 分母均为
+  `59`：合并 hold=`59/59,59/59,52/59,1/59,0/59`，drop=
+  `0/59,0/59,2/59,58/59,59/59`。因此 Z baseline 已完整形成 mild/boundary/heavy
+  区间；这不是触觉收益，但行为有效且不含糊，所以当前不做 Z overfit。用户随后明确
+  要求推进未完成的触觉训练；正式 `P/seed151014` 已从官方 Tracker 在 retained
+  `240170/server44` 启动，任务为 live patch、zero-slip、固定 3000 updates，输出写入
+  `training_handoff_anchor025/p_seed151014/`。当前只运行这一 seed；到 endpoint 后先冻结
+  检查，不自动串联下一个 seed。PS 尚未启动。三-seed reaction-window 复算覆盖 119 条 drop：continuous
+  patch 变化 `119/119` 早于 drop，中位 lead 21 帧；normal load 和 pressure 也均为
+  `119/119`、中位 lead 20 帧；binary 中位 lead 15 帧，slip 为 `118/119`、中位
+  lead 11 帧。133 条至少下沉 2 cm 的轨迹中，continuous 为 `133/133` 提前、
+  中位 lead 7 帧，binary 为 `81/133`、中位 lead 3 帧。Z action 在有可检测 onset
+  的 117 条 drop 中有 111 条早于 drop，继续证明正式问题是相对 proprioception 的
+  增量收益，而非触觉独占质量信息。结果位于
+  `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
+  `z_anchor025_formal_seed151014/`、`151015/`、`151016/`，reaction audit 位于
+  `frozen_reaction_window_v2/summary.json`。retained jobs `238054/server01`、
+  `240170/server44`、`240173/server07` 均继续保留用于审查和渲染。
+  seed `151016` 的两条 450-frame H.264 人眼证据也已完成并全帧解码：3x profile 0
+  持箱、6x profile 0 下落 `0.562 m`；两条都在同一时钟显示完整 G1/CarryBox 和左右
+  各 27 patch。路径分别为 `z_anchor025_formal_seed151016/videos/` 下
+  `train151016_eval152016_3p0x_profile0_hold_camera_v1/*final.mp4` 与
+  `train151016_eval152016_6p0x_profile0_drop_camera_v1/*final.mp4`。它们是各自的
+  camera-enabled rollout，不冒充正式 camera-free trace 的逐帧 replay。
+
+- 先前两-seed审查明细（已由上面的三-seed正式结果取代）：anchored Z seed
+  `151014/151015` 均已严格停在
   3000 updates（`model_2999.pt`），没有继续加训；P/PS 与第三个 Z seed 均未自动
   启动。seed `151015` 的五质量、每项 20 profiles 正式冻结审查已完成，共 100 条
   live PhysX rollout。`1.0x/1.5x/3x/6x/10x` 的物理 hold 为
@@ -37,7 +74,7 @@
   `6p0x_profile0_drop_reproduce_v1/*single_g1*final.mp4`。3x camera replay 与正式
   profile 的失败类别和下沉量一致；6x replay 复现掉箱类别，但掉箱后的 robot-fall
   label 对渲染引入的微小闭环扰动敏感，因此不写成逐帧复现正式无相机轨迹。
-  retained `239098/server44` 在正式审查完成后继续保留用于数值复核和渲染；没有
+  当时 retained `239098/server44` 在正式审查完成后继续保留用于数值复核和渲染；没有
   释放 allocation，也没有自动启动任何训练。
 
   seed `151014` 的匹配正式 frozen audit 也已完成，共 `5 x 20 = 100` 条。每个质量
@@ -164,7 +201,7 @@
   `1.5x` jump，并维持 `65/38/74` 个 post-jump frames，但仍不足固定 80 帧。
   因此 Z/P/PS 现统一使用仓库已有 `stage3_distill_weight_floor=0.25`，保持 full PPO
   authority 和 3000-update endpoint；三个 Z 从 update 2000 重跑最后 1000 updates。
-  该阶段曾申请五天恢复资源；当前只有 `239098`/`server44` 仍在保留，P/PS formal
+  该阶段曾申请五天恢复资源；当时只有 `239098`/`server44` 在保留，P/PS formal
   仍未启动。
   Plan-15 training launcher 已与 frozen evaluator 统一绑定本地 ground-plane USD 和
   预转换 G1 USD；同一环境合同在 task import 前关闭远端 debug marker，并固定相同
@@ -234,25 +271,26 @@ scripts/sugar/native_tactile/launch_retained_child.sh \
   --log experiments/online_patch_tactile_mass_adaptation/runtime/z_frozen_sweep.log \
   --tag plan15-z-frozen-sweep --foreground -- \
   scripts/sugar/native_tactile/run_plan15_frozen_sweep.sh Z \
-    experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151014/model_2999.pt \
-    experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151015/model_2999.pt \
-    experiments/online_patch_tactile_mass_adaptation/training_handoff/z_seed151016/model_2999.pt \
-    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z
+    experiments/online_patch_tactile_mass_adaptation/training_handoff_anchor025/z_seed151014/model_2999.pt \
+    experiments/online_patch_tactile_mass_adaptation/training_handoff_anchor025/z_seed151015/model_2999.pt \
+    experiments/online_patch_tactile_mass_adaptation/training_handoff_anchor025/z_seed151016/model_2999.pt \
+    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_reproduction
 ```
 
 该入口固定 checkpoint/evaluation-seed 一一配对并运行 5 个质量条件、每项 20
 profiles。结束后用 `SUGAR/scripts/sugar_rl/summarize_online_patch_mass_sweep.py`
 汇总各质量条件；P、PS 只替换 branch 和对应 checkpoint/output 路径。
 
-当前两个已完成 Z endpoint 的反应窗口可直接离线复算，不启动仿真或训练：
+当前三个已完成 Z endpoint 的反应窗口可直接离线复算，不启动仿真或训练：
 
 ```bash
 /public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
   scripts/sugar/native_tactile/analyze_frozen_mass_reaction_window.py \
   --seed-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151014 \
   --seed-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151015 \
+  --seed-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151016 \
   --scale-file experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json \
-  --output experiments/online_patch_tactile_mass_adaptation/frozen_reaction_window_v1/summary.json
+  --output experiments/online_patch_tactile_mass_adaptation/frozen_reaction_window_v2/summary.json
 ```
 
 从统计结果中选定一个 profile 后，用同一个 frozen evaluator 重跑它所在的单个

@@ -556,8 +556,8 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   为 `0/4,0/4,0/4,4/4,4/4`，`10x` 另有 `1/4` robot fall；同批 camera-free 严格
   reference hold 为 `0/4,1/4,3/4,0/4,0/4`。这证明当前 Z 有清楚的温和成功/重质量
   失败区间，同时证明 reference 偏离不能等同物理失败。它仍只是单 checkpoint 的小
-  审查，不是触觉收益。当前不需要 overfit；训练继续冻结，seed `151016`、P、PS 均不
-  自动启动。若人眼或数值审查后来否定该行为，再先做固定条件 serious overfit。
+  审查，不是触觉收益。该审查随后准入并只准入最后一个 Z seed；P、PS 仍不自动
+  启动。若人眼或数值审查后来否定行为，再先做固定条件 serious overfit。
 - anchored Z seed `151015` 的正式冻结审查已完成：`1.0x/1.5x/3x/6x/10x` 各 20
   profiles，共 100 条 live PhysX rollout。物理 hold 分别为
   `20/20,20/20,16/20,0/20,0/20`，drop 为
@@ -568,8 +568,8 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   每个 profile 的 handoff 后延迟序列在五个条件中完全一致；live PhysX 的绝对
   handoff/event 时刻最多抖动 4 帧，不写成逐位相同闭环轨迹。该正式结果仍只属于 Z
   端点，不能证明触觉收益；它已提供温和/边界/重质量三个有效区域，所以当前不做
-  overfit、不恢复第三 Z seed，也不启动 P/PS。若后续人眼检查否定行为，再执行已声明
-  的单条件 serious overfit。
+  overfit。第三 Z seed 后续按同一合同完成；P/PS 仍不自动启动。若后续人眼检查否定
+  行为，再执行已声明的单条件 serious overfit。
 - 正式评测前修复了多 batch evaluator：reset 在 inference mode 内执行；每批 reset 后
   清除 IsaacLab 遗留的 termination-reason latch；main 异常不再被 SimulationApp close
   吞成 exit code 0；每个质量条件必须同时写出 summary 和 trace 才能进入下一个条件。
@@ -591,9 +591,20 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   `0/19,0/19,2/19,18/19,19/19`，eligible robot fall 为
   `0/19,0/19,3/19,0/19,3/19`。所有 real event 的 mass readback、jump 前十帧双手
   contact 和跨 factor 匹配 delay 均通过。
-- 两个已完成 Z pair 合并后的 eligible hold 为
-  `39/39,39/39,32/39,1/39,0/39`，drop 为
-  `0/39,0/39,2/39,38/39,39/39`。该结果已经足够固定 mild/boundary/heavy 测试区间；
+- anchored Z seed `151016` 在 job `239098` 外部取消后只从完整 `model_2750.pt`
+  恢复，严格从 iteration 2751 运行到固定 `model_2999.pt` 并正常退出；终点 59 个
+  model tensors、58 项 optimizer state 均有限，没有更晚 checkpoint。其 100 条正式
+  camera-free frozen audit 的 `1.0x/1.5x/3x/6x/10x` hold 为
+  `20/20,20/20,20/20,0/20,0/20`，drop 为
+  `0/20,0/20,0/20,20/20,20/20`，robot fall 全为 0。五个 trace 全部有限，100/100
+  event 的质量读回和 jump 前十帧 bilateral contact 均通过。
+- seed `151016` 的同步人眼审查已补齐：3x profile 0 camera rollout 完整持箱，6x
+  profile 0 下落 `0.5619 m`；两条均为 450-frame H.264，上方完整 G1/CarryBox、下方
+  左右各 27 patch，已全帧解码并检查 handoff/jump/drop 关键帧。视频只代表自身
+  camera-enabled rollout，正式统计仍来自 camera-free trace。
+- 三个完成 Z pair 合并后的 eligible hold 为
+  `59/59,59/59,52/59,1/59,0/59`，drop 为
+  `0/59,0/59,2/59,58/59,59/59`。该结果已经完整固定 mild/boundary/heavy 测试区间；
   训练停在 `model_2999.pt`，不额外加训，也不因重质量失败而 overfit。只有后续审查
   证明行为本身无效或含糊，才先做单一固定条件 serious overfit 诊断。
 - world camera 会扰动临界闭环 outcome。seed `151014` 的 `6x` profile 7 在正式
@@ -603,18 +614,17 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   0 完成，23 个 trace 字段与正式 20-profile trace 的前四条全部逐值相同，profile 0
   精确重复 `0.452212 m` drop+fall。正式统计以无相机 trace 为准；同步视频只证明
   自身带相机运行，不再冒充正式轨迹的逐帧重放。
-- 两个 Z endpoint 的 paired frozen reaction-window audit 已完成。每个 mass profile
+- 三个 Z endpoint 的 paired frozen reaction-window audit 已完成。每个 mass profile
   与同 seed/profile 的 1x trace 按 jump 对齐；patch 先按固定 channel scale 归一化，
-  onset 定义为连续两帧超过 jump 前十帧 paired delta 上界。39 条 1.5x 均无 2 cm sag；
-  3x 有 16 条达到 2 cm sag、2 条 drop；6x/10x 分别有 38/39 条 drop。全部 79 条 drop
-  都先出现连续 load/pressure/shear/friction divergence，中位提前 20 帧；contact binary
-  中位提前 12 帧，slip 为 78/79、中位提前 10 帧。normal load 与 pressure 分别都是
-  79/79 早于 drop，中位 lead 19 帧，排除仅由 friction/contact-bit 驱动结论。在 93 条
+  onset 定义为连续两帧超过 jump 前十帧 paired delta 上界。59 条 1.5x 均无 2 cm sag；
+  3x 有 16 条达到 2 cm sag、2 条 drop；6x/10x 分别有 58/59 条 drop。全部 119 条 drop
+  都先出现连续 load/pressure/shear/friction divergence，中位提前 21 帧；contact binary
+  中位提前 15 帧，slip 为 118/119、中位提前 11 帧。normal load 与 pressure 分别都是
+  119/119 早于 drop，中位 lead 20 帧，排除仅由 friction/contact-bit 驱动结论。在 133 条
   至少下沉 2 cm 的轨迹中，
-  连续 patch 93/93 提前、中位 lead 7 帧，而 binary 只有 47/93 提前且中位 lead 为 0。
-  6x 的 continuous/binary/slip/drop 中位 offset 为 `1/9/11/24.5`，10x 为
-  `2/9/10/16`。因此连续触觉相对 binary contact 有真实提前窗口，但 Z action 本身已有
-  `73/79` 在 drop 前分叉，证明 proprio/闭环泄漏也足以改变行为。该 audit 只准入后续
+  连续 patch 133/133 提前、中位 lead 7 帧，而 binary 只有 81/133 提前且中位 lead 为 3。
+  因此连续触觉相对 binary contact 有真实提前窗口，但 Z action 在 117 条有可检测
+  onset 的 drop 中已有 111 条先分叉，证明 proprio/闭环泄漏也足以改变行为。该 audit 只准入后续
   增量比较，不证明 P 或 PS 会成功，也不触发额外 Z 训练。
 - reaction-window 主视频已经生成并全帧解码：450 帧、50 Hz、H.264/yuv420p、
   `1920 x 1080`。左侧是带相机的完整 G1/CarryBox/双手 27-patch 6x drop，右侧按同一
@@ -639,3 +649,9 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 不得并行启动后续分支，不得在 leakage audit 前训练，不得恢复旧 RGB/demo/ICM/
 Newton/soft-body 队列。GPU allocation 按 `AGENTS.md` 保留规则管理；结束一个子进程
 不等于释放 allocation。
+
+截至 2026-08-15 20:31，Z 三 seed 及其正式冻结评估均已完成。用户明确要求继续未完成
+训练后，`P/seed151014` 已在 retained `240170/server44` 从官方 Tracker 启动；正式任务
+为 `Sugar-G129dof-CarryBox-OnlineMass-Patch-P-BCPPO`，读取同 episode 的 live 54-patch
+历史、保持 slip 字段为零，并固定在 3000 updates 停止。该 seed 完成后先做 endpoint
+物理审查，不自动串联 `151015` 或 PS。

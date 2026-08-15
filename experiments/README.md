@@ -7,17 +7,22 @@ Plan 15 开始运行后，新的正式输出统一写入
 frozen evaluation 和同步视频可以进入该根；失败的实现版本和不再需要的中间
 输出移入仓库根 `legacy/experiments/`，不得继续堆在活动实验根。
 
-当前 Plan-15 最重要的活动证据只有三组：
+当前 Plan-15 最重要的活动证据只有五组：
 
 - `online_patch_tactile_mass_adaptation/leakage_sweep_v1/`：在线质量泄漏与公共尺度；
 - `online_patch_tactile_mass_adaptation/training_handoff_anchor025/`：带 `0.25` BC anchor
-  的固定 3000-update Z checkpoints；
-- `online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_endpoint_audit_seed151015/`：
-  seed `151015` 的五质量物理审查、汇总与
-  1.5× 持箱/10× 掉箱同步视频。
+  的三个固定 3000-update Z checkpoints；
+- `online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151014/`
+  到 `z_anchor025_formal_seed151016/`：三个 checkpoint 与 disjoint evaluation seed
+  一一配对的 300 条正式 camera-free frozen rollout；
+- `online_patch_tactile_mass_adaptation/frozen_reaction_window_v2/`：三-seed event-aligned
+  reaction-window 汇总。已有同步视频保留在各 formal seed 的 `videos/` 和历史
+  `z_anchor025_endpoint_audit_seed151015/videos/` 下。
+- `online_patch_tactile_mass_adaptation/training_handoff_anchor025/p_seed151014/`：用户明确
+  授权后于 2026-08-15 启动的首个正式 live-patch、zero-slip P seed；固定 3000 updates。
 
-该 endpoint 已冻结在 `model_2999.pt`。后续只能审查或渲染；不得在未作决定时自动
-续训、启动第三个 Z seed、P 或 PS。
+三个 Z endpoint 均已冻结在 `model_2999.pt`，不得续训。当前只运行 `P/seed151014`；
+它到 endpoint 后先冻结审查，不自动启动下一 seed 或 PS。
 
 ## 保留的实验
 
