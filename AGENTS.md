@@ -265,8 +265,12 @@
   exact repeatable camera-free hold at handoff/jump `297/307`, but the matching
   camera-enabled rollout drops by `0.279 m`. Conversely, formal camera-free
   `3x` profile 0 drops and the robot falls at handoff/jump `297/337`, while its
-  camera-enabled rollout holds through the declared window. Therefore report
-  the camera-free 20-profile traces as authoritative and label every video as
+  camera-enabled rollout holds through the declared window. A fresh
+  camera-free four-profile repeat completed with exit code 0 and all 23 trace
+  fields exactly equal to profiles 0--3 of the formal run, including profile
+  0's `0.452212 m` loss, drop and robot fall. Therefore the flip is a measured
+  camera-path perturbation, not ordinary no-camera rerun variance. Report the
+  camera-free 20-profile traces as authoritative and label every video as
   evidence of its own camera-enabled rollout; never claim that such a video is
   a frame-exact replay of the formal outcome.
 - The formal evaluator's multi-batch path now resets inside inference mode,

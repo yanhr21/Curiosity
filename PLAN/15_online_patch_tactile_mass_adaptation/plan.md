@@ -599,8 +599,10 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 - world camera 会扰动临界闭环 outcome。seed `151014` 的 `6x` profile 7 在正式
   camera-free 轨迹与独立 camera-free repeat 中都以相同 `297/307` handoff/jump 持稳，
   但开启相机后下落 `0.279 m`；`3x` profile 0 则从正式 camera-free 的 drop+fall
-  变为带相机 rollout 的 hold。正式统计以无相机 trace 为准；同步视频只证明自身带
-  相机运行，不再冒充正式轨迹的逐帧重放。
+  变为带相机 rollout 的 hold。3x 的新 camera-free 四-profile repeat 已以 exit code
+  0 完成，23 个 trace 字段与正式 20-profile trace 的前四条全部逐值相同，profile 0
+  精确重复 `0.452212 m` drop+fall。正式统计以无相机 trace 为准；同步视频只证明
+  自身带相机运行，不再冒充正式轨迹的逐帧重放。
 
 主图不得恢复为 20x25 taxel heatmap；taxel detail 只能作为单独 sensor debug。
 所有分支使用相同视频尺寸、时钟、固定颜色尺度和 episode 区间。

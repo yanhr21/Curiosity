@@ -51,8 +51,11 @@
 
   临界轨迹对 world-camera 有闭环敏感性：seed `151014` 的 `6x` profile 7 在无相机
   正式轨迹及独立无相机复测中都持稳，但开启相机后下落 `0.279 m`；`3x` profile 0
-  则从无相机正式轨迹的 drop+robot-fall 变为相机轨迹中的 hold。正式计数因此只采用
-  camera-free trace；视频仅代表其自身带相机 rollout，不再写成正式轨迹的逐帧复现。
+  则从无相机正式轨迹的 drop+robot-fall 变为相机轨迹中的 hold。新的 3x 无相机
+  四-profile 复测已正常退出；其 23 个 trace 字段与正式结果的前四条全部逐值相同，
+  profile 0 精确复现 `297/337` handoff/jump、`0.452212 m` 下落、drop 和 robot fall。
+  正式计数因此只采用 camera-free trace；视频仅代表其自身带相机 rollout，不再写成
+  正式轨迹的逐帧复现。
   对应同钟视频为 `z_anchor025_formal_seed151014/videos/` 下的
   `train151014_eval152014_6p0x_profile7_rare_hold_reproduce_v1/`
   `seed151014_6p0x_profile7_camera_replay_drop_single_g1_bilateral_27patch_final.mp4`

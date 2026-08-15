@@ -246,7 +246,9 @@
   `151016`，不启动 P/PS。
 - [x] 审查相机扰动：`6x` profile 7 的 camera-free 正式轨迹与 repeat 都持稳，但
   camera rollout 下落 `0.279 m`；`3x` profile 0 从 camera-free drop+fall 变为 camera
-  hold。正式计数固定使用 camera-free trace，视频只按自身 rollout 标注。
+  hold。新增 3x camera-free 四-profile repeat 正常完成，其 23 个 trace 字段与正式
+  trace 的前四条逐值相同，profile 0 精确重复 `0.452212 m` drop+fall。正式计数固定
+  使用 camera-free trace，视频只按自身 rollout 标注。
 - [x] 训练 launcher 与冻结 evaluator 统一使用本地 ground-plane USD 和已转换 G1
   USD；双节点同时失败后，单节点复现证明远端默认 ground asset 返回空 Plane prim，
   不是 BCPPO floor 或 TacSL 失败。
