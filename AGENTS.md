@@ -219,6 +219,30 @@
   now; freeze training for review. If later behavior is invalid or ambiguous,
   use the declared fixed-condition serious overfit before another formal
   budget. Seed `151016`, P and PS must not auto-start.
+- The formal frozen audit of anchored Z seed `151015` is now complete at exactly
+  `20` profiles for each of `1.0x/1.5x/3x/6x/10x`, or 100 live PhysX rollouts.
+  Physical hold counts are `20/20,20/20,16/20,0/20,0/20`; drop counts are
+  `0/20,0/20,0/20,20/20,20/20`; robot-fall counts are
+  `0/20,0/20,0/20,4/20,3/20`. The four non-hold `3x` profiles sagged by about
+  `0.054--0.078 m` but did not meet the drop criterion, so `3x` is a boundary
+  condition rather than a binary failure condition. All five `450 x 20`
+  traces are finite, all 100 rollouts read back the requested mass, and all 100
+  satisfy the ten-frame bilateral patch-contact gate before the event. The
+  matched post-handoff delay sequence is identical profile-by-profile across
+  factors; live handoff and event times vary by at most four frames. Do not
+  claim bitwise-identical closed-loop trajectories. This is a serious frozen Z
+  endpoint result, not tactile benefit. It gives a valid mild/boundary/heavy
+  evaluation range, so no overfit is needed now. Training remains frozen; if
+  later human-visible review invalidates the behavior, use the already declared
+  serious fixed-condition overfit before any new formal budget.
+- The formal evaluator's multi-batch path now resets inside inference mode,
+  clears IsaacLab's latched termination-reason buffer after each evaluation
+  reset, preserves uncaught main exceptions instead of allowing application
+  close to return success, and requires both trace and summary outputs before
+  advancing to the next factor. An admitted two-batch eight-profile diagnostic
+  and the subsequent five-factor formal audit show no inherited frame-zero
+  termination labels. This is an evaluator correctness fix, not a new training
+  gate.
 - Retained job `239098` on `server44` remains active for review and rendering.
   Job `238934` is no longer running; do not describe it as retained. Ending the
   audit or this agent turn is not permission to exit job `239098`.

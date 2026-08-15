@@ -12,20 +12,27 @@
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
 - 当前状态（2026-08-15 最新）：anchored Z seed `151014/151015` 均已严格停在
   3000 updates（`model_2999.pt`），没有继续加训；P/PS 与第三个 Z seed 均未自动
-  启动。seed `151015` 的同一 PhysX 轨迹现在把原始 SUGAR reference termination
-  保留为 label，同时继续检查真实物理结果。四-profile 小审查中，`1.0x/1.5x/3x/
-  6x/10x` 的物理 hold 为 `4/4,4/4,4/4,0/4,0/4`，物理 drop 为
-  `0/4,0/4,0/4,4/4,4/4`；严格 reference hold 则为 `0/4,1/4,3/4,0/4,0/4`。
-  因此 Z 已有清楚的温和成功/重质量失败区间，当前无需 overfit；冻结训练，先审查
-  数值和同步视频。若行为不对或含糊，再先做单条件 serious overfit。这个四-profile
-  结果不是正式 20-profile/factor 结果，也不能证明触觉收益。
+  启动。seed `151015` 的五质量、每项 20 profiles 正式冻结审查已完成，共 100 条
+  live PhysX rollout。`1.0x/1.5x/3x/6x/10x` 的物理 hold 为
+  `20/20,20/20,16/20,0/20,0/20`，drop 为
+  `0/20,0/20,0/20,20/20,20/20`，robot fall 为
+  `0/20,0/20,0/20,4/20,3/20`。3x 的另外 4 条下沉约 `5.4--7.8 cm`，但尚未达到
+  drop；因此它是边界条件。原始 SUGAR reference termination 继续只作为 label，
+  不能代替物理结果。五个 trace 均为 `450 x 20`，全部有限；100 条均正确读回质量，
+  并在 jump 前保持 10 帧双手 patch contact。每个 profile 的 handoff 后随机延迟在
+  五个质量条件中逐项一致；live PhysX 的绝对 handoff/event 时刻最多相差 4 帧。
+  该端点已经形成温和成功、边界下沉和重质量掉落三个可解释区域，当前无需 overfit；
+  训练继续冻结。若后续人眼证据否定行为，再先做单条件 serious overfit。这是一个 Z
+  checkpoint 的正式端点审查，仍不能证明触觉收益。正式 summary 与 trace 位于
+  `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
+  `z_anchor025_formal_seed151015/`。
   当前人眼视频为
   `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
   中 `z_anchor025_endpoint_audit_seed151015/videos/` 下的
   `train151015_eval152015_1p5x_batch4_profile0/*physical_hold*final.mp4` 与
   `train151015_eval152015_10p0x_batch4_profile0/*physical_drop*final.mp4`。
-  retained `239098/server44` 正在运行该 frozen checkpoint 的五质量、每项 20 profiles
-  正式审查；这是纯评测，不训练、不更新权重。
+  retained `239098/server44` 在正式审查完成后继续保留用于数值复核和渲染；没有
+  释放 allocation，也没有自动启动任何训练。
 
 - 此前执行记录：anchored Z seed `151014` 已严格停在 3000 次 iteration
   的 `model_2999.pt`，没有继续加训；checkpoint 的 59 个模型张量和 58 项 optimizer

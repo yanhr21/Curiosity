@@ -218,9 +218,17 @@
   `0/4,1/4,3/4,0/4,0/4`。reference termination 与物理结果现分开报告。
 - [x] 该 endpoint 已有明确 mild-pass/heavy-failure 区间，当前不做 overfit；冻结训练并
   人眼审查同步 H.264。若审查发现行为无效或含糊，再先做固定条件 serious overfit。
-- [ ] 在 retained `239098/server44` 完成 seed `151015` 的正式冻结评测：五个质量条件
-  各 20 profiles。该任务只运行 frozen actor 和物理审查，不更新权重；完成前不得
+- [x] 在 retained `239098/server44` 完成 seed `151015` 的正式冻结评测：五个质量条件
+  各 20 profiles，共 100 条 live PhysX rollout。`1.0x/1.5x/3x/6x/10x` 的 hold=
+  `20/20,20/20,16/20,0/20,0/20`，drop=
+  `0/20,0/20,0/20,20/20,20/20`，robot fall=
+  `0/20,0/20,0/20,4/20,3/20`。五个 `450 x 20` trace 全部有限，100 条质量读回、
+  jump 前十帧双手 patch contact 和逐 profile 匹配 delay 均通过；绝对 handoff/event
+  的 live PhysX 抖动不超过 4 帧。该任务只运行 frozen actor，没有更新权重，也没有
   自动启动 `151016`、P 或 PS。
+- [x] 修复并验证 frozen evaluator 的多 batch 合同：reset 使用 inference mode，每批
+  清除 latched termination reason，main 异常保持非零退出，并在进入下一个质量条件前
+  检查 summary/trace 均已写出。两批 8-profile 诊断与正式 100 条均无 frame-0 假终止。
 - [x] 训练 launcher 与冻结 evaluator 统一使用本地 ground-plane USD 和已转换 G1
   USD；双节点同时失败后，单节点复现证明远端默认 ground asset 返回空 Plane prim，
   不是 BCPPO floor 或 TacSL 失败。

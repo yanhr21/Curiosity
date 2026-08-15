@@ -558,6 +558,22 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
   失败区间，同时证明 reference 偏离不能等同物理失败。它仍只是单 checkpoint 的小
   审查，不是触觉收益。当前不需要 overfit；训练继续冻结，seed `151016`、P、PS 均不
   自动启动。若人眼或数值审查后来否定该行为，再先做固定条件 serious overfit。
+- anchored Z seed `151015` 的正式冻结审查已完成：`1.0x/1.5x/3x/6x/10x` 各 20
+  profiles，共 100 条 live PhysX rollout。物理 hold 分别为
+  `20/20,20/20,16/20,0/20,0/20`，drop 为
+  `0/20,0/20,0/20,20/20,20/20`，robot fall 为
+  `0/20,0/20,0/20,4/20,3/20`。3x 中 4 条未达到 hold 的轨迹下沉约
+  `0.054--0.078 m`，但没有达到 drop，因此把 3x 视为边界区。五个 `450 x 20`
+  trace 全部有限，100 条质量读回和 jump 前连续十帧双手 patch contact 均通过。
+  每个 profile 的 handoff 后延迟序列在五个条件中完全一致；live PhysX 的绝对
+  handoff/event 时刻最多抖动 4 帧，不写成逐位相同闭环轨迹。该正式结果仍只属于 Z
+  端点，不能证明触觉收益；它已提供温和/边界/重质量三个有效区域，所以当前不做
+  overfit、不恢复第三 Z seed，也不启动 P/PS。若后续人眼检查否定行为，再执行已声明
+  的单条件 serious overfit。
+- 正式评测前修复了多 batch evaluator：reset 在 inference mode 内执行；每批 reset 后
+  清除 IsaacLab 遗留的 termination-reason latch；main 异常不再被 SimulationApp close
+  吞成 exit code 0；每个质量条件必须同时写出 summary 和 trace 才能进入下一个条件。
+  两批 8-profile 诊断和随后正式 100 条均未再出现第二批 frame-0 假终止。
 - 当前只保留 job `239098`/`server44` 用于审查与渲染；`238934` 已不在运行，不能再写成
   retained。完成本轮审查不授权退出 `239098`。
 
