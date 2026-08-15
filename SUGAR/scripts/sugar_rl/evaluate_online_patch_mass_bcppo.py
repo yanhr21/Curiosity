@@ -72,7 +72,13 @@ parser.add_argument(
     "--record-profile-index",
     type=int,
     default=0,
-    help="Environment/profile index to record when record-world is enabled.",
+    help="Environment index inside the selected batch to record.",
+)
+parser.add_argument(
+    "--record-batch-index",
+    type=int,
+    default=0,
+    help="Zero-based evaluation batch whose world camera is recorded.",
 )
 parser.add_argument("--fps", type=int, default=50)
 AppLauncher.add_app_launcher_args(parser)
@@ -87,10 +93,10 @@ if args.ignore_object_reference_termination and args.physical_outcome_view:
         "ignore-object-reference-termination and physical-outcome-view are "
         "mutually exclusive"
     )
-if args.record_world and args.profiles != args.num_envs:
-    parser.error("record-world requires a single evaluation batch (profiles == num-envs)")
 if args.record_world and not 0 <= args.record_profile_index < args.num_envs:
     parser.error("record-profile-index must select an environment in the recorded batch")
+if args.record_world and not 0 <= args.record_batch_index < args.profiles // args.num_envs:
+    parser.error("record-batch-index must select an evaluation batch")
 if args.fps < 1:
     parser.error("fps must be positive")
 if args.record_world:
@@ -655,7 +661,7 @@ def main() -> None:
                 batch_rows["termination_terms"].append(cpu(termination_terms))
                 batch_rows["reference_frame"].append(cpu(command.time_steps))
                 batch_rows["valid_frame"].append(cpu(active_before_step))
-                if world_camera is not None:
+                if world_camera is not None and batch == int(args.record_batch_index):
                     rgb = cpu(
                         world_camera.data.output["rgb"][
                             int(args.record_profile_index), ..., :3
@@ -744,7 +750,13 @@ def main() -> None:
         "world_video": "world_carrybox.mp4" if args.record_world else None,
         "world_video_fps": int(args.fps) if args.record_world else None,
         "world_video_profile_index": (
-            int(args.record_profile_index) if args.record_world else None
+            int(args.record_batch_index) * int(args.num_envs)
+            + int(args.record_profile_index)
+            if args.record_world
+            else None
+        ),
+        "world_video_batch_index": (
+            int(args.record_batch_index) if args.record_world else None
         ),
         "policy_spatial_unit": "27 physical patches per hand; no taxel policy units",
         "eligible_profiles": len(eligible),
