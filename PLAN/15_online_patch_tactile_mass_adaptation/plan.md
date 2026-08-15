@@ -650,14 +650,22 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 Newton/soft-body 队列。GPU allocation 按 `AGENTS.md` 保留规则管理；结束一个子进程
 不等于释放 allocation。
 
-截至 2026-08-15 20:31，Z 三 seed 及其正式冻结评估均已完成。用户明确要求继续未完成
-训练后，`P/seed151014` 已在 retained `240170/server44` 从官方 Tracker 启动；正式任务
-为 `Sugar-G129dof-CarryBox-OnlineMass-Patch-P-BCPPO`，读取同 episode 的 live 54-patch
-历史、保持 slip 字段为零，并固定在 3000 updates 停止。该 seed 完成后先做 endpoint
-物理审查，不自动串联 `151015` 或 PS。
+截至 2026-08-16 06:07，Z 三 seed 及其正式冻结评估均已完成。正式 P 继续使用
+`Sugar-G129dof-CarryBox-OnlineMass-Patch-P-BCPPO`，读取同 episode 的 live 54-patch
+历史、保持 slip 字段为零，并对每个 seed 固定在 3000 updates 停止。
 
 该运行在打印 iteration 1734 后由调度器把 job `240170` 标为 `CANCELLED by 0`；进程
 没有训练异常，最后完整 checkpoint 为有限的 `model_1500.pt`。未保存 1501--1734
-全部舍弃。随后在新获批五天 retained `231256/server64` 从该文件恢复：optimizer LR
-为 `1e-5`，BCPPO `update_step=1501`，runner 从 iteration 1501 开始，固定总预算仍为
-3000、remaining=1499。恢复不改变 P 的传感器、质量、reward、seed 或架构合同。
+全部舍弃。随后在 retained `231256/server64` 从该文件恢复；该 job 也在 iteration
+2458 后被调度器外部取消，最后完整文件为 `model_2250.pt`。最终在
+`240922/server07` 从 BCPPO step/runner iteration 2251 精确恢复并正常完成
+`model_2999.pt`。终点含 59 个有限模型张量、42 个 patch-encoder 张量和 58 项有限
+optimizer state，没有更晚 checkpoint。
+
+`151014->152014` 的正式 camera-free frozen evaluation 已完成五质量各20条；每项
+19条通过 handoff。P hold=`19,19,17,0,0`、drop=`0,0,2,19,19`，对应 Z hold=
+`19,19,16,1,0`、drop=`0,0,2,18,19`。单 seed 只在3x呈现轻微迹象，在6x无收益，
+不能声称触觉有效。两次 server07 camera 启动在场景前发生独立
+`VK_ERROR_DEVICE_LOST`，camera-free 结果仍有效；渲染 job `241217` 正在排队。
+完成该数值 endpoint review 后，`P/seed151015` 已在 `240922/server07` 从零启动，
+合同不变。PS 尚未启动。

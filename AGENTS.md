@@ -87,16 +87,28 @@
   event. Z remains frozen and must not be extended. After the user explicitly
   requested the unfinished tactile arms to train on 2026-08-15, formal
   `P/seed151014` started from the official Tracker on retained job
-  `240170/server44`; its fixed endpoint is still exactly `model_2999.pt`.
+  `240170/server44` and has now completed its fixed `model_2999.pt` endpoint.
   The scheduler later marked job `240170` `CANCELLED by 0` after the trainer
   printed iteration 1734; this was not a training exception or voluntary GPU
-  release. The last complete checkpoint is `model_1500.pt`. P resumed on the
-  newly granted five-day retained job `231256/server64`: optimizer LR restored
-  to `1e-5`, BCPPO update step restored to 1501, runner starts iteration 1501,
-  and the fixed total remains 3000 with 1499 updates remaining. Unsaved
-  iterations 1501--1734 from the cancelled process are excluded.
-  Do not start its next seed automatically before this endpoint receives the
-  same frozen physical review. PS remains unstarted. The valid Z
+  release. The last complete checkpoint was `model_1500.pt`. P resumed on
+  retained `231256/server64`, which was also externally `CANCELLED by 0` after
+  iteration 2458; its last complete checkpoint was `model_2250.pt`. It then
+  resumed on retained `240922/server07` at BCPPO step and runner iteration 2251
+  and exited normally at iteration 2999. Its finite endpoint contains 59 model
+  tensors, 42 patch-encoder tensors and 58 optimizer states, with no later
+  checkpoint. Unsaved intervals from both cancelled jobs are excluded.
+
+  The paired `151014->152014` camera-free frozen evaluation is complete at 20
+  profiles per factor. One shared profile fails before handoff, leaving 19
+  eligible profiles per factor. P holds are `19,19,17,0,0` and drops are
+  `0,0,2,19,19` at `1x/1.5x/3x/6x/10x`; paired Z holds are `19,19,16,1,0`
+  and drops are `0,0,2,18,19`. This single seed shows only a mild 3x indication
+  and no 6x benefit, so it does not prove tactile benefit. Two server07 camera
+  starts failed before scene execution with `VK_ERROR_DEVICE_LOST`; this does
+  not invalidate the camera-free rollout statistics. A separate render
+  allocation is pending. After this numerical endpoint review,
+  `P/seed151015` started from scratch on retained `240922/server07` with the
+  unchanged 3000-update contract. PS remains unstarted. The valid Z
   mild/boundary/heavy behavior means no Z overfit is currently needed.
 - The seed-`151015` endpoint has now passed the required frozen numerical and
   human-visible review without more training. Its 450-frame synchronized H.264
@@ -344,10 +356,12 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Retained job `231256/server64` is the current five-day P training allocation.
-  Jobs `238054`, `239098`, `240170` and `240173` ended through scheduler
-  enforcement and are no longer retained. Ending an audit or this agent turn is
-  not permission to exit the usable `231256` allocation.
+- Retained job `240922/server07` is the current P training allocation and is
+  running `P/seed151015`. Pending `241217` is reserved for camera review. Jobs
+  `231256`, `238054`, `239098`, `240170` and `240173` ended through scheduler
+  enforcement and are no longer retained. Ending an audit or this agent turn
+  is not permission to exit `240922` or any subsequently granted render
+  allocation.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may

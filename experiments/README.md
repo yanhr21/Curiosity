@@ -7,7 +7,7 @@ Plan 15 开始运行后，新的正式输出统一写入
 frozen evaluation 和同步视频可以进入该根；失败的实现版本和不再需要的中间
 输出移入仓库根 `legacy/experiments/`，不得继续堆在活动实验根。
 
-当前 Plan-15 最重要的活动证据只有五组：
+当前 Plan-15 最重要的活动证据为：
 
 - `online_patch_tactile_mass_adaptation/leakage_sweep_v1/`：在线质量泄漏与公共尺度；
 - `online_patch_tactile_mass_adaptation/training_handoff_anchor025/`：带 `0.25` BC anchor
@@ -18,13 +18,15 @@ frozen evaluation 和同步视频可以进入该根；失败的实现版本和�
 - `online_patch_tactile_mass_adaptation/frozen_reaction_window_v2/`：三-seed event-aligned
   reaction-window 汇总。已有同步视频保留在各 formal seed 的 `videos/` 和历史
   `z_anchor025_endpoint_audit_seed151015/videos/` 下。
-- `online_patch_tactile_mass_adaptation/training_handoff_anchor025/p_seed151014/`：用户明确
-  授权后于 2026-08-15 启动的首个正式 live-patch、zero-slip P seed；固定 3000 updates。
-  `240170/server44` 外部取消后的最后完整点为 `model_1500.pt`，当前在五天 retained
-  `231256/server64` 从 iteration 1501 接续。
+- `online_patch_tactile_mass_adaptation/training_handoff_anchor025/p_seed151014/` 与
+  `p_seed151015/`：live-patch、zero-slip P 正式训练。`151014` 已严格停在
+  `model_2999.pt`；`151015` 当前在 retained `240922/server07` 从零运行。
+- `online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/p_anchor025_formal_seed151014/`：
+  P 首个 endpoint 与 evaluation seed `152014` 配对的五质量、每项20 profiles正式
+  camera-free rollout。
 
-三个 Z endpoint 均已冻结在 `model_2999.pt`，不得续训。当前只运行 `P/seed151014`；
-它到 endpoint 后先冻结审查，不自动启动下一 seed 或 PS。
+三个 Z endpoint 与 P/seed151014 均已冻结在 `model_2999.pt`，不得续训。当前只运行
+`P/seed151015`；PS 尚未启动。
 
 ## 保留的实验
 

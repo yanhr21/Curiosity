@@ -274,13 +274,14 @@
   task registration import 之前，避免 task 在开关生效前创建远端 debug marker，
   并保证正式训练与 frozen evaluator 使用同一物理配置。
 - [x] replacement handoff-Z 的恢复链已完成：`151014/151015/151016` 均严格停在有限的
-  `model_2999.pt`。历史 jobs 的未保存区间均不计；当前 retained
-  `238054/server01`、`240170/server44`、`240173/server07` 继续用于审查与渲染。
-- [ ] 新 `P`：完成匹配 3000 updates。seed `151014` 已于 2026-08-15 20:27 从官方
-  Tracker 正式启动；任务是 live patch、zero slip，固定 endpoint 为 `model_2999.pt`。
-  `240170/server44` 在打印 iteration 1734 后被调度器外部取消，最后完整文件为有限
-  `model_1500.pt`；未保存区间不计。当前在五天 retained `231256/server64` 精确从
-  iteration/BCPPO step 1501 恢复，学习率 `1e-5`、remaining 1499。其余 seed 不自动串联。
+  `model_2999.pt`。历史 jobs 的未保存区间均不计；这些 Z jobs 已由调度器结束，当前
+  retained `240922/server07` 用于 P 训练，渲染 job `241217` 正在排队。
+- [ ] 新 `P`：完成三个匹配 3000-update seeds。seed `151014` 已严格完成并停在有限
+  `model_2999.pt`；`240170/server44` 和 `231256/server64` 的外部取消均只从最后完整
+  `model_1500.pt/model_2250.pt` 恢复，最终在 `240922/server07` 正常退出。其配对
+  100-rollout frozen evaluation 已完成：P hold=`19,19,17,0,0`、drop=
+  `0,0,2,19,19`，单 seed 尚不证明收益。`P/seed151015` 已在同一 retained job 从零
+  启动，固定 endpoint 仍为 `model_2999.pt`；`151016` 尚未启动。
 - [ ] 新 `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
@@ -318,6 +319,8 @@
   `153015`；比较入口要求 Z/P/PS 各自正好 300 profiles。
 - [ ] 对 no-jump 和每个 mass factor 分别比较 hold success、drop/fall、height loss、
   orientation、recovery latency 和 safe-lower outcome。
+- [x] 完成 P seed `151014` 的五质量、每项20 profiles正式冻结评测；当前只报告单
+  seed 配对结果，不提前形成触觉收益结论。
 - [ ] 比较 `P-Z`、`PS-P` 和主要的 `PS-Z` paired 95% confidence intervals。
 - [ ] 检查 action divergence 只发生在 jump 后 live observation 更新之后。
 - [ ] 报告 nominal no-jump 是否因无条件强握/降姿而退化。

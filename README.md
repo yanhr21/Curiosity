@@ -6,11 +6,14 @@
 
 在 G1 已抬起 `0.3023375869 kg` CarryBox 后，保持几何和视觉不变，将质量在线改为 `1.5x/3x/6x/10x`。正式比较三个同架构分支：proprio-only exact-zero tactile、online patch tactile、online patch tactile 加 causal slip。
 
+正式训练质量点是离散的 `1x/1.5x/3x/6x/10x`，所以当前五质量冻结测试全部是
+训练分布内测试，不得称为 OOD。
+
 官方 Refiner `890-D` observation 中的 `obj_lin_vel_b` 不能进入部署 actor；正式 actor 使用不含 measured object state 的 `504-D` Tracker-command/proprioception contract。`joint_pos/joint_vel` 仍可能泄漏负载，因此训练前必须先完成 time-resolved leakage audit，最终只按证据声称“触觉独有”或“在本体感受上的增量帮助”。
 
 - 当前计划：[PLAN/15_online_patch_tactile_mass_adaptation/plan.md](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
-- 当前状态（2026-08-15 20:31）：anchored Z seeds `151014/151015/151016` 均已
+- 当前状态（2026-08-16 06:07）：anchored Z seeds `151014/151015/151016` 均已
   严格停在 3000 updates 的 `model_2999.pt`，没有任何更晚 checkpoint。第三 seed
   `151016` 在 retained job `239098` 被调度器外部取消后，从最后完整
   `model_2750.pt` 恢复到 iteration 2751，并在 `240173/server07` 正常完成；终点
@@ -24,14 +27,22 @@
   三个 checkpoint 与 disjoint evaluation seed 一一配对后的 eligible 分母均为
   `59`：合并 hold=`59/59,59/59,52/59,1/59,0/59`，drop=
   `0/59,0/59,2/59,58/59,59/59`。因此 Z baseline 已完整形成 mild/boundary/heavy
-  区间；这不是触觉收益，但行为有效且不含糊，所以当前不做 Z overfit。用户随后明确
-  要求推进未完成的触觉训练；正式 `P/seed151014` 已从官方 Tracker 启动，任务为 live
-  patch、zero-slip、固定 3000 updates，输出写入
-  `training_handoff_anchor025/p_seed151014/`。它在 `240170/server44` 到达有限
-  `model_1500.pt` 后，job 被调度器标为 `CANCELLED by 0`；未保存的 1501--1734 不计。
-  当前已在五天 retained `231256/server64` 从该 checkpoint 精确恢复：BCPPO step 和
-  runner iteration 都从 1501 接续，学习率 `1e-5`，总终点仍为 3000。当前只运行这一
-  seed；到 endpoint 后先冻结检查，不自动串联下一个 seed。PS 尚未启动。三-seed reaction-window 复算覆盖 119 条 drop：continuous
+  区间；这不是触觉收益，但行为有效且不含糊，所以当前不做 Z overfit。
+
+  正式 `P/seed151014` 已严格完成 3000 updates 并停在有限的 `model_2999.pt`，没有
+  更晚 checkpoint。训练跨越三段保留 allocation：`240170/server44` 到
+  `model_1500.pt`、`231256/server64` 到 `model_2250.pt`，两次均被调度器外部
+  `CANCELLED by 0`；最终在 `240922/server07` 从 iteration 2251 精确恢复并正常退出。
+  配对 `151014->152014` 的正式 camera-free frozen evaluation 已完成五质量各20条；
+  每项有19条通过 handoff 的 eligible profile。P 的 hold 为
+  `19/19,19/19,17/19,0/19,0/19`，drop 为
+  `0/19,0/19,2/19,19/19,19/19`。同一 profile 的 Z seed `151014` hold 为
+  `19/19,19/19,16/19,1/19,0/19`，drop 为
+  `0/19,0/19,2/19,18/19,19/19`。因此首个 P seed 在3x只有轻微迹象，在6x没有收益，
+  不能单独支持“触觉帮助训练”。`P/seed151015` 已在仍保留的
+  `240922/server07` 从零进入固定 3000-update 训练；PS 尚未启动。
+
+  三-seed reaction-window 复算覆盖 119 条 drop：continuous
   patch 变化 `119/119` 早于 drop，中位 lead 21 帧；normal load 和 pressure 也均为
   `119/119`、中位 lead 20 帧；binary 中位 lead 15 帧，slip 为 `118/119`、中位
   lead 11 帧。133 条至少下沉 2 cm 的轨迹中，continuous 为 `133/133` 提前、
@@ -40,8 +51,10 @@
   增量收益，而非触觉独占质量信息。结果位于
   `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
   `z_anchor025_formal_seed151014/`、`151015/`、`151016/`，reaction audit 位于
-  `frozen_reaction_window_v2/summary.json`。当前 retained job 为
-  `231256/server64`；此前 `238054/240170/240173` 均已由调度器结束。
+  `frozen_reaction_window_v2/summary.json`。当前训练 retained job 为
+  `240922/server07`；相机复核在该节点两次于场景前触发
+  `VK_ERROR_DEVICE_LOST`，不影响已完成的 camera-free 统计，另一个渲染 allocation
+  `241217` 正在排队。此前 `231256/238054/240170/240173` 均已由调度器结束。
   seed `151016` 的两条 450-frame H.264 人眼证据也已完成并全帧解码：3x profile 0
   持箱、6x profile 0 下落 `0.562 m`；两条都在同一时钟显示完整 G1/CarryBox 和左右
   各 27 patch。路径分别为 `z_anchor025_formal_seed151016/videos/` 下
