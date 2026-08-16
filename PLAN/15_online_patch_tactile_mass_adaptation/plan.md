@@ -706,4 +706,7 @@ runner/BCPPO iteration2501精确恢复并正常完成 `model_2999.pt`；终点�
 `1e-5`且全部有限。只终止其记录的 child group 后，五天 retained
 `242488/server60` 从 checkpoint iteration1000 精确恢复到 iteration1001，日志确认
 BCPPO update step1001与1999个剩余 updates，并实际进入 task-reward PPO authority
-ramp。两个 allocation shell均未释放；该 checkpoint 仍不是策略收益结果。
+ramp。该 run 已连续生成有限的 `model_1250.pt/model_1500.pt`；`model_1500.pt` 仍为
+59个模型张量、42个 patch-encoder张量、58项 optimizer state和 `1e-5` 学习率，
+标志3000-update总预算过半。两个 allocation shell均未释放；中途 checkpoint 仍不是
+策略收益结果。
