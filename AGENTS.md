@@ -397,9 +397,11 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Formal `PS/seed151014` currently has finite `model_500.pt`; job
-  `242660/server07` was externally ended after printed iteration 653. Retained
-  recovery allocations are queued and must resume at iteration 501. Job
+- Formal `PS/seed151014` currently has finite `model_750.pt`; job
+  `242660/server07` was externally ended after printed iteration 653, so its
+  unsaved iterations 501--653 were discarded. Retained job `242946/server28`
+  restored `model_500.pt` at iteration 501, has completed a finite
+  `model_750.pt`, and continues the declared critic-warmup stage. Job
   `242229` was externally cancelled after P printed iteration 2546; P recovered
   from finite `model_2500.pt`, completed, and was evaluated on `242660`. Jobs `231256`, `238054`,
   `239098`, `240170`, `240173`, `240922`, `241217`, `241298`, `241811`,

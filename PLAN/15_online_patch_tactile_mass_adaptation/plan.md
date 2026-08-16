@@ -700,5 +700,7 @@ runner/BCPPO iteration2501精确恢复并正常完成 `model_2999.pt`；终点�
 配置为 `OnlinePatchSlipMassRobotEnvCfg`，其余正式合同不变。该 run 已生成有限的
 `model_250.pt/model_500.pt`；`model_500.pt` 含59个模型张量、42个 patch-encoder
 张量和58项有限 optimizer state，纯 distillation 阶段到此完成。调度器在打印653后
-外部结束 allocation，未保存501--653不计；恢复只能从 iteration501进入 critic
-warmup，8小时/4小时/1小时 retained recovery 已排队。
+外部结束 allocation，未保存501--653不计。retained `242946/server28` 随后从
+`model_500.pt` 精确恢复 runner/BCPPO iteration501，已经生成有限的
+`model_750.pt`（59个模型张量、42个 patch-encoder张量、58项 optimizer state、
+学习率 `1e-5`），并继续预定的 critic warmup；该 checkpoint 仍不是策略收益结果。
