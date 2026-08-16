@@ -124,10 +124,12 @@
   zero at `1x/1.5x/3x/6x/10x`; paired Z holds are `20,20,16,0,0`, drops are
   `0,0,0,20,20` and robot falls are `0,0,0,4,3`. At 3x the paired hold
   discordance is four P-only versus two Z-only profiles. This is an indication,
-  not a benefit result. Retained `241811/server28` now runs `P/seed151016` with
-  the unchanged 3000-update contract. Its finite `model_500.pt` contains 59
+  not a benefit result. `P/seed151016` reached a finite `model_500.pt` with 59
   model tensors, 42 patch-encoder tensors and 58 optimizer states at learning
-  rate `1e-5`; it has entered critic warmup. PS remains unstarted. The valid Z
+  rate `1e-5`. Scheduler job `241811/server28` was then externally cancelled
+  after printed iteration 747; unsaved iterations 501--747 are excluded.
+  Tmux-held replacement jobs `242229/242239/242242` are pending and the run
+  must resume only at runner/BCPPO iteration 501. PS remains unstarted. The valid Z
   mild/boundary/heavy behavior means no Z overfit is currently needed.
 - The seed-`151015` endpoint has now passed the required frozen numerical and
   human-visible review without more training. Its 450-frame synchronized H.264
@@ -375,11 +377,12 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Retained job `241811/server28` is the current P training allocation and runs
-  `P/seed151016` from the official Tracker. Jobs `231256`, `238054`, `239098`,
-  `240170`, `240173`, `240922`, `241217` and `241298` ended through scheduler
-  enforcement and are no longer retained. Ending an audit or this agent turn
-  is not permission to exit `241811` or any subsequently granted allocation.
+- Job `241811/server28` was externally cancelled after `P/seed151016` printed
+  iteration 747; its last complete checkpoint is `model_500.pt`. Tmux-held
+  replacement jobs `242229/242239/242242` are pending. Jobs `231256`, `238054`, `239098`,
+  `240170`, `240173`, `240922`, `241217`, `241298` and `241811` ended through
+  scheduler enforcement and are no longer retained. Ending an audit or this
+  agent turn is not permission to exit any subsequently granted allocation.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may

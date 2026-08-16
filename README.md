@@ -58,10 +58,12 @@
   增量收益，而非触觉独占质量信息。结果位于
   `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
   `z_anchor025_formal_seed151014/`、`151015/`、`151016/`，reaction audit 位于
-  `frozen_reaction_window_v2/summary.json`。当前 retained job `241811/server28`
-  正在训练 `P/seed151016`；有限的 `model_500.pt` 已含 59 个模型张量、42 个
-  patch-encoder 张量和 58 项 optimizer state，学习率为 `1e-5`，该 seed 已进入
-  critic warmup，固定终点仍为 `model_2999.pt`。PS 尚未启动。`241298/server59`
+  `frozen_reaction_window_v2/summary.json`。`P/seed151016` 的 `241811/server28`
+  allocation 在打印 iteration 747 后由调度器外部取消；最后完整文件是有限的
+  `model_500.pt`，含 59 个模型张量、42 个 patch-encoder 张量和 58 项 optimizer
+  state，学习率为 `1e-5`。未保存的 501--747 不计，后续只从 iteration 501 恢复；
+  tmux-held replacement jobs `242229/242239/242242` 正在排队。固定终点仍为
+  `model_2999.pt`，PS 尚未启动。`241298/server59`
   在完成训练后还生成了两条450帧、单 G1、同钟双手27-patch H.264：`1.5x` physical hold 与
   `3x` drop，均为 frozen P policy 的真实 camera-enabled rollout。活动文件位于
   `p_anchor025_formal_seed151014/videos/` 的
