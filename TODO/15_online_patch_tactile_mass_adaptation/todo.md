@@ -300,9 +300,10 @@
   `242660/server07` 从零启动，日志确认使用 `OnlinePatchSlipMassRobotEnvCfg`、正式
   anatomical patch encoder 和3000-update BCPPO配置。该 run 已完成纯 distillation
   并生成有限 `model_500.pt`；调度器在打印653后外部结束 allocation，未保存
-  501--653不计。retained `242946/server28` 已从 `model_500.pt` 精确恢复
-  iteration501并生成有限 `model_750.pt`，当前继续 critic warmup；完成当前 seed 前
-  不启动 seed `151015`。
+  501--653不计。retained `242946/server28` 已从 `model_500.pt` 精确恢复并生成有限
+  `model_1000.pt`；只停止其记录的 child group 后，五天 retained
+  `242488/server60` 已从 iteration1001恢复并实际进入 PPO authority ramp，剩余1999
+  updates。完成当前 seed 前不启动 seed `151015`。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
 

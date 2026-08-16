@@ -397,11 +397,15 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Formal `PS/seed151014` currently has finite `model_750.pt`; job
+- Formal `PS/seed151014` currently has finite `model_1000.pt`; job
   `242660/server07` was externally ended after printed iteration 653, so its
   unsaved iterations 501--653 were discarded. Retained job `242946/server28`
   restored `model_500.pt` at iteration 501, has completed a finite
-  `model_750.pt`, and continues the declared critic-warmup stage. Job
+  `model_1000.pt`, and its recorded child group was then stopped for migration
+  while the allocation stayed alive. Retained five-day job `242488/server60`
+  restored runner/BCPPO at iteration 1001 with learning rate `1e-5`, printed
+  its first resumed iteration and entered the declared task-reward PPO
+  authority ramp. Job
   `242229` was externally cancelled after P printed iteration 2546; P recovered
   from finite `model_2500.pt`, completed, and was evaluated on `242660`. Jobs `231256`, `238054`,
   `239098`, `240170`, `240173`, `240922`, `241217`, `241298`, `241811`,

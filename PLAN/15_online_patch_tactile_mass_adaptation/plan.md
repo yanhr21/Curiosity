@@ -701,6 +701,9 @@ runner/BCPPO iteration2501精确恢复并正常完成 `model_2999.pt`；终点�
 `model_250.pt/model_500.pt`；`model_500.pt` 含59个模型张量、42个 patch-encoder
 张量和58项有限 optimizer state，纯 distillation 阶段到此完成。调度器在打印653后
 外部结束 allocation，未保存501--653不计。retained `242946/server28` 随后从
-`model_500.pt` 精确恢复 runner/BCPPO iteration501，已经生成有限的
-`model_750.pt`（59个模型张量、42个 patch-encoder张量、58项 optimizer state、
-学习率 `1e-5`），并继续预定的 critic warmup；该 checkpoint 仍不是策略收益结果。
+`model_500.pt` 精确恢复 runner/BCPPO iteration501并生成有限的 `model_1000.pt`；
+该文件有59个模型张量、42个 patch-encoder张量、58项 optimizer state，学习率为
+`1e-5`且全部有限。只终止其记录的 child group 后，五天 retained
+`242488/server60` 从 checkpoint iteration1000 精确恢复到 iteration1001，日志确认
+BCPPO update step1001与1999个剩余 updates，并实际进入 task-reward PPO authority
+ramp。两个 allocation shell均未释放；该 checkpoint 仍不是策略收益结果。
