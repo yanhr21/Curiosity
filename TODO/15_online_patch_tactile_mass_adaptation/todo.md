@@ -287,8 +287,9 @@
   `model_2999.pt`。其100-rollout评估完成：P hold=`20,20,18,0,0`、drop=
   `0,0,0,20,20`、fall全零；配对 Z hold=`20,20,16,0,0`、drop相同、fall=
   `0,0,0,4,3`。单 G1 的1.5x physical-hold与3x-drop视频均已完成并全帧解码。
-  `P/seed151016` 已在 `241811/server28` 从官方 Tracker 启动，固定 endpoint 仍为
-  `model_2999.pt`。
+  `P/seed151016` 正在 `241811/server28` 训练；有限的 `model_500.pt` 已通过59个模型
+  张量、42个 patch-encoder 张量、58项 optimizer state和 `1e-5` 学习率检查，当前
+  已进入 critic warmup，固定 endpoint 仍为 `model_2999.pt`。
 - [ ] 新 `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。

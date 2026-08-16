@@ -124,9 +124,10 @@
   zero at `1x/1.5x/3x/6x/10x`; paired Z holds are `20,20,16,0,0`, drops are
   `0,0,0,20,20` and robot falls are `0,0,0,4,3`. At 3x the paired hold
   discordance is four P-only versus two Z-only profiles. This is an indication,
-  not a benefit result. Retained `241811/server28` now runs `P/seed151016` from
-  the official Tracker with the unchanged 3000-update contract. PS remains
-  unstarted. The valid Z
+  not a benefit result. Retained `241811/server28` now runs `P/seed151016` with
+  the unchanged 3000-update contract. Its finite `model_500.pt` contains 59
+  model tensors, 42 patch-encoder tensors and 58 optimizer states at learning
+  rate `1e-5`; it has entered critic warmup. PS remains unstarted. The valid Z
   mild/boundary/heavy behavior means no Z overfit is currently needed.
 - The seed-`151015` endpoint has now passed the required frozen numerical and
   human-visible review without more training. Its 450-frame synchronized H.264

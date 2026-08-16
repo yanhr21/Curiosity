@@ -682,4 +682,6 @@ discordance 为 P-only 4、Z-only 2；6x/10x 仍全部掉箱，减少 robot fall
 安全性迹象，不能称恢复。两个 P seeds 合并的3x hold 为 P `35/39`、Z `32/39`，
 仍不足结论。`241298/server59` 还完成了单 G1 的1.5x physical-hold与3x-drop
 camera-enabled H.264；多环境世界画面未作为 active single-G1 视频。当前 retained
-`241811/server28` 已从官方 Tracker 启动 `P/seed151016`，合同不变，PS 尚未启动。
+`241811/server28` 正在训练 `P/seed151016`；有限的 `model_500.pt` 含59个模型张量、
+42个 patch-encoder 张量和58项 optimizer state，学习率为 `1e-5`，已进入 critic
+warmup。固定终点与合同不变，PS 尚未启动。
