@@ -287,11 +287,13 @@
   `model_2999.pt`。其100-rollout评估完成：P hold=`20,20,18,0,0`、drop=
   `0,0,0,20,20`、fall全零；配对 Z hold=`20,20,16,0,0`、drop相同、fall=
   `0,0,0,4,3`。单 G1 的1.5x physical-hold与3x-drop视频均已完成并全帧解码。
-  `P/seed151016` 已生成有限的 `model_500.pt`：59个模型张量、42个 patch-encoder
-  张量、58项 optimizer state，学习率为 `1e-5`。`241811/server28` 随后在打印
-  iteration747后由调度器外部取消，未保存的501--747不计；tmux-held replacement
-  jobs `242229/242239/242242` 正在排队，只能从 iteration501恢复。固定 endpoint 仍为
-  `model_2999.pt`。
+  `P/seed151016` 的 `241811/server28` 在打印747后被调度器外部取消，最后完整点为
+  `model_500.pt`，未保存501--747不计；随后经 `242239/server23` 与
+  `242242/server06` 两次精确恢复生成有限 `model_750.pt/model_1250.pt`；两个短
+  allocation均按时限结束，未保存的751--913与1251--1320不计。当前8小时 retained
+  `242229/server23` 已从 `model_1250.pt` 恢复 runner/BCPPO iteration1251并继续；
+  各里程碑均有59个模型张量、42个 patch-encoder张量、58项 optimizer state和
+  `1e-5` 学习率。固定 endpoint 仍为 `model_2999.pt`。
 - [ ] 新 `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。

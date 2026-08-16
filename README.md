@@ -59,10 +59,13 @@
   `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
   `z_anchor025_formal_seed151014/`、`151015/`、`151016/`，reaction audit 位于
   `frozen_reaction_window_v2/summary.json`。`P/seed151016` 的 `241811/server28`
-  allocation 在打印 iteration 747 后由调度器外部取消；最后完整文件是有限的
-  `model_500.pt`，含 59 个模型张量、42 个 patch-encoder 张量和 58 项 optimizer
-  state，学习率为 `1e-5`。未保存的 501--747 不计，后续只从 iteration 501 恢复；
-  tmux-held replacement jobs `242229/242239/242242` 正在排队。固定终点仍为
+  在打印747后被调度器外部取消，最后完整点为 `model_500.pt`，未保存501--747不计；
+  随后经两次精确恢复继续推进：`242239/server23` 从 iteration 501 到
+  `model_750.pt`，`242242/server06` 从 iteration 751 到 `model_1250.pt`；两个短
+  allocation 均由调度器按时限结束，未保存的751--913和1251--1320区间不重复计算。
+  当前8小时 retained job `242229/server23` 已从 `model_1250.pt` 恢复到
+  runner/BCPPO iteration1251并继续训练。所有里程碑均含59个有限模型张量、42个
+  patch-encoder张量、58项有限 optimizer state和 `1e-5` 学习率；固定终点仍为
   `model_2999.pt`，PS 尚未启动。`241298/server59`
   在完成训练后还生成了两条450帧、单 G1、同钟双手27-patch H.264：`1.5x` physical hold 与
   `3x` drop，均为 frozen P policy 的真实 camera-enabled rollout。活动文件位于
