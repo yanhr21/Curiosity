@@ -129,10 +129,12 @@
   `242242/server06` produced `model_1250.pt`. Both short allocations ended by
   scheduler time limit; the earlier `241811/server28` unsaved 501--747 interval
   and the later 751--913 and 1251--1320 intervals are all excluded.
-  Retained eight-hour job `242229/server23` now resumes the finite
-  `model_1250.pt` at runner/BCPPO iteration 1251. Each milestone contains 59
-  model tensors, 42 patch-encoder tensors and 58 optimizer states at learning
-  rate `1e-5`. PS remains unstarted. The valid Z
+  Retained eight-hour job `242229/server23` resumed the finite `model_1250.pt`
+  and has now produced finite `model_2000.pt`: the PPO-authority ramp is over
+  and updates 2000--2999 are steady full-PPO. The checkpoint contains 59 model
+  tensors, 42 patch-encoder tensors and 58 finite optimizer states at learning
+  rate `1e-5`. Its paired `151016->152016` frozen evaluation is queued to start
+  in the same allocation after a normal endpoint. PS remains unstarted. The valid Z
   mild/boundary/heavy behavior means no Z overfit is currently needed.
 - The seed-`151015` endpoint has now passed the required frozen numerical and
   human-visible review without more training. Its 450-frame synchronized H.264
@@ -380,8 +382,9 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Retained job `242229/server23` is the current `P/seed151016` allocation and
-  runs from `model_1250.pt` at iteration 1251. Jobs `231256`, `238054`,
+- Retained job `242229/server23` is the current `P/seed151016` allocation; it
+  has reached finite `model_2000.pt` and is running the final steady full-PPO
+  stage. Jobs `231256`, `238054`,
   `239098`, `240170`, `240173`, `240922`, `241217`, `241298`, `241811`,
   `242239` and `242242` ended through scheduler enforcement and are no longer
   retained. Ending an audit or this agent turn is not permission to exit

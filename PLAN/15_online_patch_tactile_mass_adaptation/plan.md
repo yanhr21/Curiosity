@@ -686,6 +686,8 @@ camera-enabled H.264；多环境世界画面未作为 active single-G1 视频。
 未保存501--747不计；随后完成两次精确恢复：`242239/server23` 从501继续并生成
 `model_750.pt`，`242242/server06` 从751继续并生成 `model_1250.pt`。两个短
 allocation均由调度器按时限结束，未保存的751--913与1251--1320不计。当前8小时
-retained `242229/server23` 已从 `model_1250.pt` 恢复 runner/BCPPO iteration1251并
-继续训练；各里程碑均为59个有限模型张量、42个 patch-encoder张量、58项有限
-optimizer state和 `1e-5` 学习率。固定终点与合同不变，PS 尚未启动。
+retained `242229/server23` 已从 `model_1250.pt` 恢复并生成有限的 `model_2000.pt`；
+PPO 权限 ramp 已完成，当前执行 updates 2000--2999 的稳定 full-PPO。该里程碑仍为
+59个有限模型张量、42个 patch-encoder张量、58项有限 optimizer state和 `1e-5`
+学习率。固定终点与合同不变；终点正常生成后在同一 allocation 自动执行
+`151016->152016` 正式冻结评估，PS 尚未启动。

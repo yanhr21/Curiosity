@@ -13,7 +13,7 @@
 
 - 当前计划：[PLAN/15_online_patch_tactile_mass_adaptation/plan.md](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
-- 当前状态（2026-08-16 06:07）：anchored Z seeds `151014/151015/151016` 均已
+- 当前状态（2026-08-16 21:57）：anchored Z seeds `151014/151015/151016` 均已
   严格停在 3000 updates 的 `model_2999.pt`，没有任何更晚 checkpoint。第三 seed
   `151016` 在 retained job `239098` 被调度器外部取消后，从最后完整
   `model_2750.pt` 恢复到 iteration 2751，并在 `240173/server07` 正常完成；终点
@@ -63,10 +63,12 @@
   随后经两次精确恢复继续推进：`242239/server23` 从 iteration 501 到
   `model_750.pt`，`242242/server06` 从 iteration 751 到 `model_1250.pt`；两个短
   allocation 均由调度器按时限结束，未保存的751--913和1251--1320区间不重复计算。
-  当前8小时 retained job `242229/server23` 已从 `model_1250.pt` 恢复到
-  runner/BCPPO iteration1251并继续训练。所有里程碑均含59个有限模型张量、42个
-  patch-encoder张量、58项有限 optimizer state和 `1e-5` 学习率；固定终点仍为
-  `model_2999.pt`，PS 尚未启动。`241298/server59`
+  当前8小时 retained job `242229/server23` 已从 `model_1250.pt` 恢复并生成有限的
+  `model_2000.pt`。PPO 权限 ramp 已结束，当前进入 updates 2000--2999 的稳定
+  full-PPO 阶段；该 checkpoint 含59个有限模型张量、42个 patch-encoder张量和58项
+  有限 optimizer state，学习率为 `1e-5`。固定终点仍为 `model_2999.pt`，完成后将在
+  同一 allocation 自动启动 `151016->152016` 的五质量各20条冻结评估。PS 尚未启动。
+  `241298/server59`
   在完成训练后还生成了两条450帧、单 G1、同钟双手27-patch H.264：`1.5x` physical hold 与
   `3x` drop，均为 frozen P policy 的真实 camera-enabled rollout。活动文件位于
   `p_anchor025_formal_seed151014/videos/` 的

@@ -291,9 +291,11 @@
   `model_500.pt`，未保存501--747不计；随后经 `242239/server23` 与
   `242242/server06` 两次精确恢复生成有限 `model_750.pt/model_1250.pt`；两个短
   allocation均按时限结束，未保存的751--913与1251--1320不计。当前8小时 retained
-  `242229/server23` 已从 `model_1250.pt` 恢复 runner/BCPPO iteration1251并继续；
-  各里程碑均有59个模型张量、42个 patch-encoder张量、58项 optimizer state和
-  `1e-5` 学习率。固定 endpoint 仍为 `model_2999.pt`。
+  `242229/server23` 已从 `model_1250.pt` 恢复并生成有限 `model_2000.pt`；PPO 权限
+  ramp 已结束，当前进入 updates 2000--2999 的稳定 full-PPO。该里程碑有59个模型
+  张量、42个 patch-encoder张量、58项有限 optimizer state和 `1e-5` 学习率。固定
+  endpoint 仍为 `model_2999.pt`；正常结束后在同一 allocation 自动执行
+  `151016->152016` 的100-rollout冻结评估。
 - [ ] 新 `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
