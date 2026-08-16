@@ -13,7 +13,7 @@
 
 - 当前计划：[PLAN/15_online_patch_tactile_mass_adaptation/plan.md](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)
 - 当前 TODO：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
-- 当前状态（2026-08-16 21:57）：anchored Z seeds `151014/151015/151016` 均已
+- 当前状态（2026-08-17 01:47）：anchored Z seeds `151014/151015/151016` 均已
   严格停在 3000 updates 的 `model_2999.pt`，没有任何更晚 checkpoint。第三 seed
   `151016` 在 retained job `239098` 被调度器外部取消后，从最后完整
   `model_2750.pt` 恢复到 iteration 2751，并在 `240173/server07` 正常完成；终点
@@ -63,14 +63,21 @@
   随后经两次精确恢复继续推进：`242239/server23` 从 iteration 501 到
   `model_750.pt`，`242242/server06` 从 iteration 751 到 `model_1250.pt`；两个短
   allocation 均由调度器按时限结束，未保存的751--913和1251--1320区间不重复计算。
-  当前8小时 retained job `242229/server23` 已从 `model_1250.pt` 恢复并生成有限的
-  `model_2000.pt`。PPO 权限 ramp 已结束，当前进入 updates 2000--2999 的稳定
-  full-PPO 阶段；该 checkpoint 含59个有限模型张量、42个 patch-encoder张量和58项
-  有限 optimizer state，学习率为 `1e-5`。固定终点仍为 `model_2999.pt`，完成后将在
-  同一 allocation 自动启动 `151016->152016` 的五质量各20条冻结评估。PS 尚未启动。
-  `241298/server59`
-  在完成训练后还生成了两条450帧、单 G1、同钟双手27-patch H.264：`1.5x` physical hold 与
-  `3x` drop，均为 frozen P policy 的真实 camera-enabled rollout。活动文件位于
+  `242229/server23` 从 `model_1250.pt` 继续到打印 iteration2546 后被调度器外部
+  `CANCELLED by 0`，最后完整点为 `model_2500.pt`；未保存2501--2546不计。随后
+  `242660/server07` 从 runner/BCPPO iteration2501精确恢复并正常完成有限的
+  `model_2999.pt`，终点含59个模型张量、42个 patch-encoder张量和58项 optimizer
+  state，学习率为 `1e-5`，没有更晚 checkpoint。
+
+  `151016->152016` 的100条冻结评估也已正常完成：P hold=
+  `20,20,14,0,0`、drop=`0,0,6,20,20`、robot fall=`0,0,0,1,0`。三种子联合、同
+  profile eligible 分母均为59时，P hold=`59,59,49,0,0`，Z hold=
+  `59,59,52,1,0`；P drop=`0,0,8,59,59`，Z drop=`0,0,2,58,59`。3x hold 的
+  P-Z均值为 `-0.0508`，分层配对 bootstrap 95%区间为 `[-0.2881,0.1552]`；P 没有
+  证明触觉收益，并在3x呈现更差趋势。正式 PS seed `151014` 已在 retained
+  `242660/server07` 从零启动，实际任务配置为 `OnlinePatchSlipMassRobotEnvCfg`。
+  另有 `241298/server59` 生成的两条450帧、单 G1、同钟双手27-patch H.264：`1.5x`
+  physical hold 与 `3x` drop，均为 frozen P policy 的真实 camera-enabled rollout。活动文件位于
   `p_anchor025_formal_seed151014/videos/` 的
   `train151014_eval152014_1p5x_singleenv_profile0_camera_v1/*final_v2.mp4` 和
   `train151014_eval152014_3p0x_singleenv_profile2_camera_v1/*final.mp4`。

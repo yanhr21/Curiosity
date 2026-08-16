@@ -686,8 +686,15 @@ camera-enabled H.264；多环境世界画面未作为 active single-G1 视频。
 未保存501--747不计；随后完成两次精确恢复：`242239/server23` 从501继续并生成
 `model_750.pt`，`242242/server06` 从751继续并生成 `model_1250.pt`。两个短
 allocation均由调度器按时限结束，未保存的751--913与1251--1320不计。当前8小时
-retained `242229/server23` 已从 `model_1250.pt` 恢复并生成有限的 `model_2000.pt`；
-PPO 权限 ramp 已完成，当前执行 updates 2000--2999 的稳定 full-PPO。该里程碑仍为
-59个有限模型张量、42个 patch-encoder张量、58项有限 optimizer state和 `1e-5`
-学习率。固定终点与合同不变；终点正常生成后在同一 allocation 自动执行
-`151016->152016` 正式冻结评估，PS 尚未启动。
+retained `242229/server23` 从 `model_1250.pt` 继续到打印2546后被调度器外部取消，
+最后完整点为 `model_2500.pt`，未保存2501--2546不计。`242660/server07` 随后从
+runner/BCPPO iteration2501精确恢复并正常完成 `model_2999.pt`；终点为59个有限模型
+张量、42个 patch-encoder张量、58项有限 optimizer state和 `1e-5` 学习率，没有
+更晚 checkpoint。
+
+其 `151016->152016` 正式冻结评估完成五质量各20条：hold=`20,20,14,0,0`、drop=
+`0,0,6,20,20`、robot fall=`0,0,0,1,0`。三种子同 profile 联合结果为 P hold=
+`59,59,49,0,0` 对 Z `59,59,52,1,0`，P drop=`0,0,8,59,59` 对 Z
+`0,0,2,58,59`；3x hold 的分层配对 bootstrap 区间跨零，不能支持 P 的增量收益。
+完成该 review 后，正式 PS seed `151014` 已在 retained `242660/server07` 从零启动，
+配置为 `OnlinePatchSlipMassRobotEnvCfg`，其余正式合同不变。

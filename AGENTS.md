@@ -129,12 +129,22 @@
   `242242/server06` produced `model_1250.pt`. Both short allocations ended by
   scheduler time limit; the earlier `241811/server28` unsaved 501--747 interval
   and the later 751--913 and 1251--1320 intervals are all excluded.
-  Retained eight-hour job `242229/server23` resumed the finite `model_1250.pt`
-  and has now produced finite `model_2000.pt`: the PPO-authority ramp is over
-  and updates 2000--2999 are steady full-PPO. The checkpoint contains 59 model
+  Retained job `242229/server23` continued from `model_1250.pt` until the
+  scheduler externally cancelled it after printed iteration 2546; its last
+  complete checkpoint is `model_2500.pt`, so the unsaved 2501--2546 segment is
+  excluded. Job `242660/server07` resumed at runner/BCPPO iteration 2501 and
+  completed normally at finite `model_2999.pt`. The endpoint contains 59 model
   tensors, 42 patch-encoder tensors and 58 finite optimizer states at learning
-  rate `1e-5`. Its paired `151016->152016` frozen evaluation is queued to start
-  in the same allocation after a normal endpoint. PS remains unstarted. The valid Z
+  rate `1e-5`, with no later checkpoint. Its paired `151016->152016` evaluation
+  completed all 100 rollouts: P holds are `20,20,14,0,0`, drops are
+  `0,0,6,20,20`, and robot falls are `0,0,0,1,0`.
+
+  Across all three paired seeds, P holds are `59,59,49,0,0` versus Z
+  `59,59,52,1,0`, while P drops are `0,0,8,59,59` versus Z
+  `0,0,2,58,59`. The 3x paired hierarchical-bootstrap interval for the P-Z
+  hold difference crosses zero, so P does not establish tactile benefit and
+  trends worse at 3x. Formal PS seed `151014` has now started from scratch on
+  retained `242660/server07` with `OnlinePatchSlipMassRobotEnvCfg`. The valid Z
   mild/boundary/heavy behavior means no Z overfit is currently needed.
 - The seed-`151015` endpoint has now passed the required frozen numerical and
   human-visible review without more training. Its 450-frame synchronized H.264
@@ -142,9 +152,9 @@
   about `0.052 m` sag, and `6x/10x` box drops. The `6x` camera replay also
   destabilizes the robot after the drop; report that replay honestly rather
   than claiming frame-exact agreement with the camera-free trace. This review
-  did not trigger overfit. It was the review gate before the separately
-  authorized and now completed seed `151016`; it still does not authorize P or
-  PS automatically.
+  did not trigger overfit. It was the historical review gate before the now
+  completed P seeds; formal PS subsequently started only after the complete
+  three-seed P review above.
 - Formal frozen evaluation uses at least 450 control frames, not 420. With the
   observed handoff near frame 297, the declared 50-frame maximum mass delay
   and 80-frame outcome window require coverage through at least frame 427.
@@ -382,13 +392,14 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Retained job `242229/server23` is the current `P/seed151016` allocation; it
-  has reached finite `model_2000.pt` and is running the final steady full-PPO
-  stage. Jobs `231256`, `238054`,
+- Retained job `242660/server07` is the current formal `PS/seed151014`
+  allocation. Job `242229` was externally cancelled after P printed iteration
+  2546; P recovered from finite `model_2500.pt`, completed, and was evaluated
+  on `242660`. Jobs `231256`, `238054`,
   `239098`, `240170`, `240173`, `240922`, `241217`, `241298`, `241811`,
   `242239` and `242242` ended through scheduler enforcement and are no longer
   retained. Ending an audit or this agent turn is not permission to exit
-  `242229` or any subsequently granted allocation.
+  `242660` or any subsequently granted allocation.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may
