@@ -39,14 +39,15 @@
   `0/19,0/19,2/19,19/19,19/19`。同一 profile 的 Z seed `151014` hold 为
   `19/19,19/19,16/19,1/19,0/19`，drop 为
   `0/19,0/19,2/19,18/19,19/19`。因此首个 P seed 在3x只有轻微迹象，在6x没有收益，
-  不能单独支持“触觉帮助训练”。`P/seed151015` 在 `240922/server07` 从零启动，
-  该 job 在打印 iteration 347 后也被调度器外部取消；最后完整文件为
-  `model_250.pt`，未保存的251--347不计。随后在 `241217/server59` 从
-  iteration/BCPPO step251精确恢复；该 allocation 在打印 iteration1961 后由调度器
-  外部结束，最后完整文件为 `model_1750.pt`，未保存的1751--1961不计。当前在
-  retained `241298/server59` 从 iteration/BCPPO step1751继续，有限的
-  `model_2000.pt` 已通过 59 个模型张量、42 个 patch-encoder 张量、58 项 optimizer
-  state 和 `1e-5` 学习率检查；固定终点仍是 `model_2999.pt`，PS 尚未启动。
+  不能单独支持“触觉帮助训练”。`P/seed151015` 经 `model_250.pt` 与
+  `model_1750.pt` 两次精确恢复后，已在 `241298/server59` 正常完成全部3000 updates；
+  有限的 `model_2999.pt` 含 59 个模型张量、42 个 patch-encoder 张量和 58 项
+  optimizer state，没有更晚 checkpoint。配对 `151015->152015` 的五质量各20条
+  frozen evaluation 也已完成：P hold=`20,20,18,0,0`、drop=`0,0,0,20,20`、
+  robot fall=`0,0,0,0,0`；Z hold=`20,20,16,0,0`、drop=`0,0,0,20,20`、
+  robot fall=`0,0,0,4,3`。3x 成对 discordance 为 P-only `4`、Z-only `2`；这是
+  第二个 seed 的温和迹象，不是收益证明。两个 P seeds 合并后的39个 eligible
+  profiles 在3x为 P `35/39` hold、Z `32/39`，仍需第三个 seed。
 
   三-seed reaction-window 复算覆盖 119 条 drop：continuous
   patch 变化 `119/119` 早于 drop，中位 lead 21 帧；normal load 和 pressure 也均为
@@ -57,10 +58,13 @@
   增量收益，而非触觉独占质量信息。结果位于
   `experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/`
   `z_anchor025_formal_seed151014/`、`151015/`、`151016/`，reaction audit 位于
-  `frozen_reaction_window_v2/summary.json`。当前训练 retained job 为
-  `241298/server59`；相机复核此前在 server07 两次于场景前触发
-  `VK_ERROR_DEVICE_LOST`，不影响已完成的 camera-free 统计。此前
-  `231256/238054/240170/240173/240922/241217` 均已由调度器结束。
+  `frozen_reaction_window_v2/summary.json`。当前 retained job `241811/server28`
+  已从官方 Tracker 启动 `P/seed151016`；PS 尚未启动。`241298/server59` 在完成训练
+  后还生成了两条450帧、单 G1、同钟双手27-patch H.264：`1.5x` physical hold 与
+  `3x` drop，均为 frozen P policy 的真实 camera-enabled rollout。活动文件位于
+  `p_anchor025_formal_seed151014/videos/` 的
+  `train151014_eval152014_1p5x_singleenv_profile0_camera_v1/*final_v2.mp4` 和
+  `train151014_eval152014_3p0x_singleenv_profile2_camera_v1/*final.mp4`。
   seed `151016` 的两条 450-frame H.264 人眼证据也已完成并全帧解码：3x profile 0
   持箱、6x profile 0 下落 `0.562 m`；两条都在同一时钟显示完整 G1/CarryBox 和左右
   各 27 patch。路径分别为 `z_anchor025_formal_seed151016/videos/` 下

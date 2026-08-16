@@ -275,7 +275,7 @@
   并保证正式训练与 frozen evaluator 使用同一物理配置。
 - [x] replacement handoff-Z 的恢复链已完成：`151014/151015/151016` 均严格停在有限的
   `model_2999.pt`。历史 jobs 的未保存区间均不计；这些 Z jobs 已由调度器结束，当前
-  retained `241298/server59` 用于 P 训练。
+  retained `241811/server28` 用于 P 训练。
 - [ ] 新 `P`：完成三个匹配 3000-update seeds。seed `151014` 已严格完成并停在有限
   `model_2999.pt`；`240170/server44` 和 `231256/server64` 的外部取消均只从最后完整
   `model_1500.pt/model_2250.pt` 恢复，最终在 `240922/server07` 正常退出。其配对
@@ -283,9 +283,12 @@
   `0,0,2,19,19`，单 seed 尚不证明收益。`P/seed151015` 在 `240922/server07` 从零
   启动后遭调度器外部取消，最后完整点为 `model_250.pt`；在 `241217/server59` 从
   iteration251恢复后，该 allocation 于打印 iteration1961后外部结束，最后完整点为
-  `model_1750.pt`。当前在 `241298/server59` 从 iteration1751精确恢复，有限的
-  `model_2000.pt` 已通过完整性检查；固定 endpoint 仍为 `model_2999.pt`，`151016`
-  尚未启动。
+  `model_1750.pt`。随后在 `241298/server59` 从 iteration1751精确恢复并正常完成有限
+  `model_2999.pt`。其100-rollout评估完成：P hold=`20,20,18,0,0`、drop=
+  `0,0,0,20,20`、fall全零；配对 Z hold=`20,20,16,0,0`、drop相同、fall=
+  `0,0,0,4,3`。单 G1 的1.5x physical-hold与3x-drop视频均已完成并全帧解码。
+  `P/seed151016` 已在 `241811/server28` 从官方 Tracker 启动，固定 endpoint 仍为
+  `model_2999.pt`。
 - [ ] 新 `PS`：完成匹配 3000 updates。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。

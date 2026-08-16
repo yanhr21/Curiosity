@@ -671,7 +671,15 @@ optimizer state，没有更晚 checkpoint。
 job 在打印 iteration347后被调度器外部取消，最后完整点为 `model_250.pt`，未保存
 251--347不计。随后在 `241217/server59` 从 BCPPO step/runner iteration251精确恢复；
 该 allocation 在打印 iteration1961后由调度器外部结束，最后完整点为
-`model_1750.pt`，未保存1751--1961不计。当前在 retained `241298/server59` 从
-BCPPO step/runner iteration1751继续；有限的 `model_2000.pt` 已通过 59 个模型张量、
-42 个 patch-encoder 张量、58 项 optimizer state 与 `1e-5` 学习率检查。
-adaptive-KL 与固定3000-update合同不变，PS 尚未启动。
+`model_1750.pt`，未保存1751--1961不计。随后在 `241298/server59` 从 BCPPO
+step/runner iteration1751继续并正常完成 `model_2999.pt`；终点含59个有限模型张量、
+42个 patch-encoder 张量和58项 optimizer state，没有更晚 checkpoint。
+
+`151015->152015` 的正式 camera-free frozen evaluation 已完成五质量各20条。P hold=
+`20,20,18,0,0`、drop=`0,0,0,20,20`、robot fall=`0,0,0,0,0`；Z hold=
+`20,20,16,0,0`、drop=`0,0,0,20,20`、robot fall=`0,0,0,4,3`。3x 成对 hold
+discordance 为 P-only 4、Z-only 2；6x/10x 仍全部掉箱，减少 robot fall 只能作为
+安全性迹象，不能称恢复。两个 P seeds 合并的3x hold 为 P `35/39`、Z `32/39`，
+仍不足结论。`241298/server59` 还完成了单 G1 的1.5x physical-hold与3x-drop
+camera-enabled H.264；多环境世界画面未作为 active single-G1 视频。当前 retained
+`241811/server28` 已从官方 Tracker 启动 `P/seed151016`，合同不变，PS 尚未启动。
