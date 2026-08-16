@@ -666,8 +666,12 @@ optimizer state，没有更晚 checkpoint。
 19条通过 handoff。P hold=`19,19,17,0,0`、drop=`0,0,2,19,19`，对应 Z hold=
 `19,19,16,1,0`、drop=`0,0,2,18,19`。单 seed 只在3x呈现轻微迹象，在6x无收益，
 不能声称触觉有效。两次 server07 camera 启动在场景前发生独立
-`VK_ERROR_DEVICE_LOST`，camera-free 结果仍有效；渲染 job `241217` 正在排队。
+`VK_ERROR_DEVICE_LOST`，camera-free 结果仍有效。
 完成该数值 endpoint review 后，`P/seed151015` 在 `240922/server07` 从零启动；该
 job 在打印 iteration347后被调度器外部取消，最后完整点为 `model_250.pt`，未保存
-251--347不计。当前在 retained `241217/server59` 从 BCPPO step/runner iteration251
-精确恢复，adaptive-KL 学习率与固定3000-update合同不变。PS 尚未启动。
+251--347不计。随后在 `241217/server59` 从 BCPPO step/runner iteration251精确恢复；
+该 allocation 在打印 iteration1961后由调度器外部结束，最后完整点为
+`model_1750.pt`，未保存1751--1961不计。当前在 retained `241298/server59` 从
+BCPPO step/runner iteration1751继续；有限的 `model_2000.pt` 已通过 59 个模型张量、
+42 个 patch-encoder 张量、58 项 optimizer state 与 `1e-5` 学习率检查。
+adaptive-KL 与固定3000-update合同不变，PS 尚未启动。

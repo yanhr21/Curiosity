@@ -111,8 +111,13 @@
   externally `CANCELLED by 0` after iteration 347. Its last complete checkpoint
   is `model_250.pt`; unsaved iterations 251--347 are excluded. It resumed on
   retained `241217/server59` at BCPPO step and runner iteration 251 with the
-  original adaptive-KL learning rate and unchanged 3000-update contract. PS
-  remains unstarted. The valid Z
+  original adaptive-KL learning rate and unchanged 3000-update contract. That
+  allocation was externally cancelled after printed iteration 1961; its last
+  complete checkpoint is `model_1750.pt`, so unsaved iterations 1751--1961 are
+  excluded. It resumed on retained `241298/server59` at BCPPO step and runner
+  iteration 1751. Its finite `model_2000.pt` contains 59 model tensors, 42
+  patch-encoder tensors and 58 optimizer states at learning rate `1e-5`; the
+  fixed endpoint remains `model_2999.pt`. PS remains unstarted. The valid Z
   mild/boundary/heavy behavior means no Z overfit is currently needed.
 - The seed-`151015` endpoint has now passed the required frozen numerical and
   human-visible review without more training. Its 450-frame synchronized H.264
@@ -360,12 +365,11 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Retained job `241217/server59` is the current P training allocation and is
-  running resumed `P/seed151015`; backup `241298` remains pending. Jobs
-  `231256`, `238054`, `239098`, `240170`, `240173` and `240922` ended through
-  scheduler enforcement and are no longer retained. Ending an audit or this
-  agent turn is not permission to exit `241217` or any subsequently granted
-  allocation.
+- Retained job `241298/server59` is the current P training allocation and is
+  running resumed `P/seed151015` from `model_1750.pt`. Jobs `231256`, `238054`,
+  `239098`, `240170`, `240173`, `240922` and `241217` ended through scheduler
+  enforcement and are no longer retained. Ending an audit or this agent turn
+  is not permission to exit `241298` or any subsequently granted allocation.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may
