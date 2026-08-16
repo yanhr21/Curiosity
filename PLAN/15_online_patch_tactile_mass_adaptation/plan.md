@@ -697,4 +697,8 @@ runner/BCPPO iteration2501精确恢复并正常完成 `model_2999.pt`；终点�
 `59,59,49,0,0` 对 Z `59,59,52,1,0`，P drop=`0,0,8,59,59` 对 Z
 `0,0,2,58,59`；3x hold 的分层配对 bootstrap 区间跨零，不能支持 P 的增量收益。
 完成该 review 后，正式 PS seed `151014` 已在 retained `242660/server07` 从零启动，
-配置为 `OnlinePatchSlipMassRobotEnvCfg`，其余正式合同不变。
+配置为 `OnlinePatchSlipMassRobotEnvCfg`，其余正式合同不变。该 run 已生成有限的
+`model_250.pt/model_500.pt`；`model_500.pt` 含59个模型张量、42个 patch-encoder
+张量和58项有限 optimizer state，纯 distillation 阶段到此完成。调度器在打印653后
+外部结束 allocation，未保存501--653不计；恢复只能从 iteration501进入 critic
+warmup，8小时/4小时/1小时 retained recovery 已排队。

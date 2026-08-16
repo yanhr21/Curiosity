@@ -144,7 +144,12 @@
   `0,0,2,58,59`. The 3x paired hierarchical-bootstrap interval for the P-Z
   hold difference crosses zero, so P does not establish tactile benefit and
   trends worse at 3x. Formal PS seed `151014` has now started from scratch on
-  retained `242660/server07` with `OnlinePatchSlipMassRobotEnvCfg`. The valid Z
+  retained `242660/server07` with `OnlinePatchSlipMassRobotEnvCfg`. It completed
+  pure distillation and produced finite `model_500.pt` with 59 model tensors,
+  42 patch-encoder tensors and 58 optimizer states. The scheduler externally
+  ended the allocation after printed iteration 653; unsaved 501--653 are
+  excluded. Resume only from runner/BCPPO iteration 501 into critic warmup.
+  The valid Z
   mild/boundary/heavy behavior means no Z overfit is currently needed.
 - The seed-`151015` endpoint has now passed the required frozen numerical and
   human-visible review without more training. Its 450-frame synchronized H.264
@@ -392,14 +397,15 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Retained job `242660/server07` is the current formal `PS/seed151014`
-  allocation. Job `242229` was externally cancelled after P printed iteration
-  2546; P recovered from finite `model_2500.pt`, completed, and was evaluated
-  on `242660`. Jobs `231256`, `238054`,
+- Formal `PS/seed151014` currently has finite `model_500.pt`; job
+  `242660/server07` was externally ended after printed iteration 653. Retained
+  recovery allocations are queued and must resume at iteration 501. Job
+  `242229` was externally cancelled after P printed iteration 2546; P recovered
+  from finite `model_2500.pt`, completed, and was evaluated on `242660`. Jobs `231256`, `238054`,
   `239098`, `240170`, `240173`, `240922`, `241217`, `241298`, `241811`,
   `242239` and `242242` ended through scheduler enforcement and are no longer
   retained. Ending an audit or this agent turn is not permission to exit
-  `242660` or any subsequently granted allocation.
+  any subsequently granted allocation.
 - Do not weaken the lift gate merely to make an early one-update training
   preflight emit a mass event. The admitted continuous-action full-G1 collector
   is the mass/inertia-event physics gate. A stochastic warm-start policy may

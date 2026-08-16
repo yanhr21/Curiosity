@@ -298,7 +298,9 @@
   `59,59,49,0,0` 对 Z `59,59,52,1,0`，没有证明 P 的增量收益。
 - [ ] 新 `PS`：完成匹配 3000 updates。正式 seed `151014` 已在 retained
   `242660/server07` 从零启动，日志确认使用 `OnlinePatchSlipMassRobotEnvCfg`、正式
-  anatomical patch encoder 和3000-update BCPPO配置。
+  anatomical patch encoder 和3000-update BCPPO配置。该 run 已完成纯 distillation
+  并生成有限 `model_500.pt`；调度器在打印653后外部结束 allocation，未保存
+  501--653不计。恢复 allocations 已排队，下一段从 iteration501进入 critic warmup。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
 

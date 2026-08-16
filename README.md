@@ -75,7 +75,10 @@
   `59,59,52,1,0`；P drop=`0,0,8,59,59`，Z drop=`0,0,2,58,59`。3x hold 的
   P-Z均值为 `-0.0508`，分层配对 bootstrap 95%区间为 `[-0.2881,0.1552]`；P 没有
   证明触觉收益，并在3x呈现更差趋势。正式 PS seed `151014` 已在 retained
-  `242660/server07` 从零启动，实际任务配置为 `OnlinePatchSlipMassRobotEnvCfg`。
+  `242660/server07` 从零启动，实际任务配置为 `OnlinePatchSlipMassRobotEnvCfg`。该 run
+  已完成纯 distillation 阶段并生成有限 `model_500.pt`；调度器随后在打印 iteration653
+  后外部结束 allocation，未保存501--653不计。恢复 allocations 已排队，下一段只从
+  runner/BCPPO iteration501继续进入 critic warmup。
   另有 `241298/server59` 生成的两条450帧、单 G1、同钟双手27-patch H.264：`1.5x`
   physical hold 与 `3x` drop，均为 frozen P policy 的真实 camera-enabled rollout。活动文件位于
   `p_anchor025_formal_seed151014/videos/` 的
