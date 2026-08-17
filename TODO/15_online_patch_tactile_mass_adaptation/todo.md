@@ -305,7 +305,9 @@
   `242488/server60` 已从 iteration1001恢复并实际进入 PPO authority ramp，剩余1999
   updates。该 run 已生成有限的 `model_1250.pt/model_1500.pt` 并超过总预算一半；完成
   后续有限 `model_1750.pt/model_2000.pt` 并实际进入最后1000次 steady full-PPO。
-  完成当前 seed 前不启动 seed `151015`。
+  `242488/server60` 在打印2411后被调度器外部撤销，最后完整点为有限
+  `model_2250.pt`，未保存2251--2411不计；`242880/server64` 已从 iteration2251精确
+  恢复并继续剩余749 updates。完成当前 seed 前不启动 seed `151015`。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
 

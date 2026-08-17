@@ -710,4 +710,8 @@ ramp。该 run 已连续生成有限的 `model_1250.pt/model_1500.pt`；`model_1
 59个模型张量、42个 patch-encoder张量、58项 optimizer state和 `1e-5` 学习率，
 随后又生成结构相同且全部有限的 `model_1750.pt/model_2000.pt`。日志已实际越过
 iteration2000，正式进入最后1000次 steady full-PPO。两个 allocation shell均未释放；
-中途 checkpoint 仍不是策略收益结果。
+随后生成结构相同且全部有限的 `model_2250.pt`。`242488/server60` 在打印
+iteration2411后被调度器外部撤销，未保存2251--2411不计；retained
+`242880/server64` 已从 `model_2250.pt` 精确恢复 runner/BCPPO iteration2251，日志
+确认749个剩余 updates并实际打印首个恢复 iteration。中途 checkpoint 仍不是策略
+收益结果。

@@ -397,7 +397,7 @@
   and the subsequent five-factor formal audit show no inherited frame-zero
   termination labels. This is an evaluator correctness fix, not a new training
   gate.
-- Formal `PS/seed151014` currently has finite `model_2000.pt`; job
+- Formal `PS/seed151014` currently has finite `model_2250.pt`; job
   `242660/server07` was externally ended after printed iteration 653, so its
   unsaved iterations 501--653 were discarded. Retained job `242946/server28`
   restored `model_500.pt` at iteration 501, has completed a finite
@@ -408,6 +408,10 @@
   ramp and has now produced a finite `model_2000.pt` with 59 model tensors,
   42 patch-encoder tensors and 58 optimizer states. It has printed iterations
   beyond 2000 and entered the final 1000-update steady full-PPO stage. Job
+  `242488/server60` was then externally cancelled after printed iteration 2411;
+  its unsaved iterations 2251--2411 were discarded. Retained job
+  `242880/server64` restored finite `model_2250.pt` at runner/BCPPO iteration
+  2251 and has printed its first resumed iteration with 749 updates remaining. Job
   `242229` was externally cancelled after P printed iteration 2546; P recovered
   from finite `model_2500.pt`, completed, and was evaluated on `242660`. Jobs `231256`, `238054`,
   `239098`, `240170`, `240173`, `240922`, `241217`, `241298`, `241811`,
