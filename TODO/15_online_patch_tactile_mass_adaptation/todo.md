@@ -308,8 +308,11 @@
   `242488/server60` 在打印2411后被调度器外部撤销，最后完整点为有限
   `model_2250.pt`，未保存2251--2411不计；`242880/server64` 已从 iteration2251精确
   恢复，超过旧未保存区间并生成有限 `model_2500.pt/model_2750.pt`。该 allocation 在
-  打印2940后被调度器外部撤销，未保存2751--2940不计；5天/8小时/4小时恢复作业已
-  排队，下一段从 iteration2751继续。完成当前 seed 前不启动 seed `151015`。
+  打印2940后被调度器外部撤销，未保存2751--2940不计。五天 job `243374/server60`
+  已获得独占 pipeline lock，并只匹配 numbered checkpoint，从 `model_2750.pt` 恢复。
+  一次错误的 `model_pre_update.pt` 选择及 4h/8h 同目录并发 child 均已定向停止，输出
+  不计；allocation shell 全部保留。后续 train/evaluate 由共享 lock 串行执行，完成
+  当前 seed 前不启动 seed `151015`。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
 
@@ -356,3 +359,15 @@
 - [ ] 视频主图只使用 patch 单元；taxel detail 只能进入独立 debug 视频。
 - [ ] 只有 frozen physical behavior 改善才能写“触觉帮助训练”；gradient/loss/
   action difference 只能写“触觉被使用”。
+
+## I. 高摩擦重箱物理可行性
+
+- [ ] 在当前摩擦合同的 PS 三 seed 和 Z/P/PS 正式比较完成后，再启动高摩擦 sweep；
+  不修改或覆盖原比较。
+- [ ] 使用 frozen official Refiner、同一 motion/seed/质量与惯量 jump，固定 CarryBox
+  static/dynamic friction 为 `0.5/0.5`、`1.0/1.0`、`1.5/1.5`、`2.0/2.0`，检查
+  `6x/10x`；保存实际 material readback、jump 后高度损失、接触和 patch/slip trace。
+- [ ] 找出能否仅靠提高箱体摩擦恢复 `6x/10x`；如果 frozen Refiner 仍失败，再在选定
+  摩擦下做 stronger-grip/低姿态响应或 serious overfit，不能把单一控制器失败写成
+  物理不可搬。
+- [ ] 若高摩擦进入后续训练，重新做完全匹配的 Z/P/PS，禁止只修改一个分支的摩擦。

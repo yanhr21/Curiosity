@@ -34,9 +34,9 @@ METRICS = {
 }
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--z-root", type=Path, required=True)
-parser.add_argument("--p-root", type=Path, required=True)
-parser.add_argument("--ps-root", type=Path, required=True)
+parser.add_argument("--z-root", type=Path, nargs="+", required=True)
+parser.add_argument("--p-root", type=Path, nargs="+", required=True)
+parser.add_argument("--ps-root", type=Path, nargs="+", required=True)
 parser.add_argument("--output", type=Path, required=True)
 parser.add_argument("--bootstrap-samples", type=int, default=10_000)
 parser.add_argument("--bootstrap-seed", type=int, default=153015)
@@ -63,9 +63,14 @@ def metric_value(row: dict[str, object], metric: str) -> float | None:
     return None if value is None else float(value)
 
 
-def load_branch(root: Path, branch: str) -> dict[tuple[int, int, float, int], dict[str, object]]:
+def load_branch(
+    roots: list[Path], branch: str
+) -> dict[tuple[int, int, float, int], dict[str, object]]:
     rows: dict[tuple[int, int, float, int], dict[str, object]] = {}
-    for path in sorted(root.glob("*/summary.json")):
+    paths = sorted(
+        path for root in roots for path in root.glob("*/summary.json")
+    )
+    for path in paths:
         summary = json.loads(path.read_text(encoding="utf-8"))
         if summary["branch"] != branch:
             raise ValueError(f"{path} contains branch {summary['branch']}, expected {branch}")

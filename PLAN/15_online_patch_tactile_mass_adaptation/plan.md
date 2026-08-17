@@ -645,6 +645,7 @@ slip detector 无额外收益；不得把两者合并包装成正向结果。
 7. `P` one-update preflight 与 3000 updates；
 8. `PS` one-update preflight 与 3000 updates；
 9. 三分支 frozen evaluation、同步视频和结论报告。
+10. 完成原摩擦合同的 Z/P/PS 结论后，独立执行 CarryBox 高摩擦物理可行性 sweep。
 
 不得并行启动后续分支，不得在 leakage audit 前训练，不得恢复旧 RGB/demo/ICM/
 Newton/soft-body 队列。GPU allocation 按 `AGENTS.md` 保留规则管理；结束一个子进程
@@ -715,5 +716,22 @@ iteration2411后被调度器外部撤销，未保存2251--2411不计；retained
 `242880/server64` 已从 `model_2250.pt` 精确恢复 runner/BCPPO iteration2251，日志
 确认749个剩余 updates并实际超过旧未保存区间，随后生成结构相同且全部有限的
 `model_2500.pt/model_2750.pt`。该 allocation 在打印2940后被调度器外部撤销，未保存
-2751--2940不计；5天、8小时和4小时 retained recovery 已排队，下一段只能从
-iteration2751恢复。中途 checkpoint 仍不是策略收益结果。
+2751--2940不计。五天 job `243374/server60` 已获得独占 pipeline lock，并只从
+numbered `model_2750.pt` 恢复。一次错误选择 `model_pre_update.pt` 的 fresh child 和
+在 lock 落盘前启动的 4h/8h duplicate child 均已按记录 PGID 定向停止，其输出不计；
+allocation shells 全部保留。后续 PS train/evaluate 只允许单一持锁 pipeline 串行推进。
+中途 checkpoint 仍不是策略收益结果。
+
+## 高摩擦 6x/10x 物理可行性
+
+先完成并冻结当前物理合同下的 PS 三 seed 与 Z/P/PS 对比，不用高摩擦结果改写或
+替换原比较。随后保持完整 G1、CarryBox 几何、质量/惯量 jump、motion 45、控制器和
+seed 不变，只把 CarryBox 的 static/dynamic friction 从当前固定诊断值 `0.5/0.5`
+提高到 `1.0/1.0`、`1.5/1.5`、`2.0/2.0`，依次检查 `6x` 和 `10x`。每条 rollout
+必须保存 PhysX material readback、jump 后高度损失、双手接触和 live patch/slip。
+
+第一步使用同一个 frozen official Refiner，直接回答“仅提高箱体摩擦是否足以让现有
+控制器持住重箱”。若高摩擦后仍掉落，只能说明该控制器仍失败，不能声称物理上不可
+搬；再在选中的高摩擦条件下检查 stronger-grip/低姿态响应或 serious overfit。若后续
+训练采用高摩擦，Z/P/PS 必须全部使用同一摩擦分布重新匹配，不能只给触觉分支更有利
+的摩擦。高摩擦 sweep 是原实验之后的物理可行性实验，不与原 `0.5` 结果合并统计。

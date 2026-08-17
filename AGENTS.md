@@ -382,13 +382,6 @@
   The Z action has a detectable onset for 117 drops and already diverges before
   111 of them, so proprioceptive/closed-loop leakage is behaviorally relevant
   and the eventual claim must remain incremental tactile benefit.
-- The reaction-window result has a fully decoded 450-frame H.264 at
-  `experiments/online_patch_tactile_mass_adaptation/frozen_reaction_window_v1/`
-  `videos/6x_camera_and_formal_reaction_window_v1.mp4`. The left pane is the
-  already admitted camera-enabled complete-G1/CarryBox/54-patch `6x` drop; the
-  right pane animates the `38` formal camera-free `6x` drop profiles. The video
-  states on-frame that these are separate rollouts and that formal counts use
-  camera-free traces only. Do not erase this distinction when presenting it.
 - The formal evaluator's multi-batch path now resets inside inference mode,
   clears IsaacLab's latched termination-reason buffer after each evaluation
   reset, preserves uncaught main exceptions instead of allowing application
@@ -413,9 +406,17 @@
   `242880/server64` restored finite `model_2250.pt` at runner/BCPPO iteration
   2251, advanced beyond the old unsaved range and produced a finite
   `model_2750.pt`. That allocation was externally cancelled after printed
-  iteration 2940, so unsaved iterations 2751--2940 are discarded. Five-day,
-  eight-hour and four-hour retained recovery jobs are queued and must resume
-  from iteration 2751. Job
+  iteration 2940, so unsaved iterations 2751--2940 are discarded. Five-day
+  job `243374/server60` now holds the exclusive serial pipeline lock and has
+  selected the exact numbered `model_2750.pt` recovery point. An earlier
+  launcher incorrectly selected `model_pre_update.pt`; its recorded child was
+  stopped and none of its fresh iterations count. The selector now accepts
+  only `model_<integer>.pt`. Four- and eight-hour jobs `243837/243838` became
+  available before the lock patch and briefly opened duplicate recoveries;
+  only their recorded child groups were stopped, both allocation shells remain
+  alive, and neither duplicate run counts. Job `243839` waits on the lock.
+  Subsequent PS train/evaluate work must remain under this single shared lock.
+  Job
   `242229` was externally cancelled after P printed iteration 2546; P recovered
   from finite `model_2500.pt`, completed, and was evaluated on `242660`. Jobs `231256`, `238054`,
   `239098`, `240170`, `240173`, `240922`, `241217`, `241298`, `241811`,
@@ -436,6 +437,15 @@
   27-patch maps with contact, pressure, signed shear and slip on the same
   clock; the mass/jump overlay is evaluator-only and must be labeled as hidden
   from the actor.
+- Finish the current-friction PS three-seed training and matched Z/P/PS frozen
+  comparison before changing friction. Then run a separate CarryBox physical-
+  feasibility sweep at fixed object static/dynamic friction `0.5/0.5`,
+  `1.0/1.0`, `1.5/1.5` and `2.0/2.0` for `6x/10x`, with material readback and
+  post-jump height/contact evidence. Do not merge high-friction outcomes into
+  the original comparison. Failure of one frozen controller is not proof that
+  the condition is physically impossible; if high friction alone is
+  insufficient, test a stronger-grip/lower-posture response or serious
+  overfit. Any later high-friction Z/P/PS training must be fully matched.
 - All sensing and slip inference used by training must be generated inside the
   current IsaacLab rollout before the next actor call. Saved traces may be used
   for audit and rendering only. Complete the Plan-15 documentation and leakage

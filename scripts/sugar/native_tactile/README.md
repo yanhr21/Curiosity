@@ -1,79 +1,85 @@
 # IsaacLab native whole-hand tactile
 
-当前入口只运行 IsaacLab/PhysX。Plan 15 必须先完成在线泄漏审计，再由独立的
-SUGAR BCPPO launcher 启动训练。每只 G1 手固定使用 27 个物理解剖 TacSL patch：
-掌心 `4 x 3`，五指各 proximal/middle/distal 三段。每个 patch 使用官方
-`VisuoTactileSensor` 和 `GELSIGHT_R15_CFG` 字段。
+本目录只保留当前 IsaacLab/PhysX 整手传感、Plan-15 在线质量实验和可视化入口。
+Newton runner、旧 Plan-13 tactile training、teacher-residual、authority-curve 和节点
+Vulkan 排障脚本已迁入 ignored `legacy/`。
 
-## Plan 15 在线质量 sweep
+## 传感合同
 
-`run_online_mass_leakage_sweep.py` 是当前第一执行入口。它固定运行三个 paired
-seeds，对每个 seed 先采集 nominal `1.0x` 动作，再重放到
-`1.5x/3x/6x/10x`。mass scheduler 只读取 evaluator-side object lift，不读取
-TacSL；collector 独立要求 jump 前连续 10 帧双手 patch contact。完成后生成
-`leakage_audit.json`、`slip_evaluation.json` 和 `patch_channel_scales.json`，不启动
-policy training。slip evaluator 使用的 simulator relative tangential velocity
-只存在于保存后的评价字段，不进入 causal detector 或 actor。
+每只 G1 手固定 27 个物理解剖 TacSL patch：掌心 `4 x 3`，五指各
+proximal/middle/distal 三段。每个物理 patch 使用官方
+`VisuoTactileSensor`/`GELSIGHT_R15_CFG`，底层保留 raw taxel：
 
-正式命令见仓库根 [README.md](../../../README.md)。
+- taxel position、`xyzw` orientation 和 penetration；
+- signed local-Z normal force 与 signed local-XY shear；
+- force sequence、timestamp、dt；
+- optical 可用时独立保存 GelSight RGB/depth 及其时钟。
 
-## 一条命令复现 CarryBox
+policy 不使用 taxel 作为 token。每个 control step 将 raw taxels 在线归约成左右
+`2 x 27` 个 patch records：contact、normal load、mean pressure、signed XY shear、
+friction utilization。Plan-15 使用四帧历史；PS 额外加入 causal slip evidence/state。
+物体位姿、质量、jump flag、相对速度、PhysX 合力和 outcome 只能作为 evaluation
+字段，不能进入 tactile callable 或 deployed actor。
 
-在保留的 GPU Slurm shell 中运行：
+## 主要入口
+
+- `collect_sugar_whole_hand_carrybox.py`：完整 G1、自由物体和 54 个官方 sensor 的
+  同钟 collector；
+- `run_plain_carrybox_whole_hand_visualization.sh`：普通 CarryBox 一条命令采集、渲染和
+  H.264 解码；
+- `run_palm_grip_whole_hand_visualization.sh`：大面积掌面接触、质量变化和物理失败；
+- `run_pickbottle_whole_hand_visualization.sh`：官方 PickBottle Tracker motion；
+- `run_isaaclab_r15_capsule_slip.py`：受控官方 R15 slip 校准；
+- `run_online_mass_leakage_sweep.py`：Plan-15 三 seed、五质量 paired live sweep；
+- `preflight_online_patch_mass_jump.py`：冻结 Refiner 的在线质量/摩擦物理 feasibility；
+- `run_plan15_frozen_seed.sh` / `run_plan15_frozen_sweep.sh`：固定 seed pairing 的正式
+  frozen evaluation；
+- `analyze_frozen_mass_reaction_window.py`：保存 trace 上的 event-aligned 提前量分析；
+- `render_online_patch_mass_jump.py`：同一 rollout 的 G1/CarryBox 与左右 27-patch 视频；
+- `launch_retained_child.sh`：在 retained Slurm shell 中启动独立 child process group。
+
+正式训练入口位于：
+
+```text
+SUGAR/scripts/sugar_rl/train_online_patch_mass_bcppo.py
+SUGAR/scripts/sugar_rl/evaluate_online_patch_mass_bcppo.py
+SUGAR/scripts/sugar_rl/compare_online_patch_mass_sweeps.py
+```
+
+## 一条命令复现视频
+
+在 GPU compute-node shell 中：
 
 ```bash
 bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh \
   experiments/isaaclab_g1_anatomical27_object_demos/reproduce_plain_carrybox
 ```
 
-该入口依次执行：
+输出目录包含 `whole_hand_trace.npz`、`summary.json`、world-camera H.264 和双手
+27-patch 同钟 H.264。主视频上方显示完整 G1/物体，下方按 `4 x 3` palm 与五指三段
+排列左右手；未接触 patch 保持空白，不插值或填充。
 
-1. `collect_sugar_whole_hand_carrybox.py`：完整 G1 和自由 CarryBox 的同钟采集；
-2. `render_sugar_whole_hand_carrybox.py`：世界画面和双手 27-patch 图；
-3. FFmpeg 全文件解码检查。
-
-输出目录中最重要的文件是 `whole_hand_trace.npz`、`summary.json` 和
-`videos/plain_carrybox_world_bilateral_taxels.mp4`。
-
-## 其他当前入口
-
-整掌贴合刚体，可改变真实质量和摩擦：
+整掌贴合与 PickBottle：
 
 ```bash
 bash scripts/sugar/native_tactile/run_palm_grip_whole_hand_visualization.sh \
   experiments/isaaclab_g1_anatomical27_object_demos/reproduce_palm_05kg 0.5
 
-bash scripts/sugar/native_tactile/run_palm_grip_whole_hand_visualization.sh \
-  experiments/isaaclab_g1_anatomical27_object_demos/reproduce_palm_2kg 2.0
-```
-
-官方 PickBottle Tracker：
-
-```bash
 bash scripts/sugar/native_tactile/run_pickbottle_whole_hand_visualization.sh \
   experiments/isaaclab_g1_anatomical27_object_demos/reproduce_pickbottle 12 319
 ```
 
-完整历史 CarryBox 五视频包仍可由 `run_complete_carrybox_visualization.sh` 生成；当前最快人眼检查优先使用上面的单视频入口。
-
-## Trace contract
-
-采集器直接保存官方 sensor tensor，不从物体状态或刚体 contact label 生成触觉：
-
-- taxel 世界位置与 `xyzw` 姿态；
-- penetration；
-- signed local-Z normal force；
-- signed local-XY shear；
-- force sequence、timestamp、dt；
-- optical 可用时保存独立 RGB/depth 时钟与数据。
-
-物体位姿、PhysX 接触力、相对速度和成败标签只用于诊断，不属于可部署触觉输入。渲染器按解剖顺序显示左右手全部 patch；未接触区域必须保持空白，不能插值成接触。
-
 ## 当前边界
 
-- 普通平面 CarryBox 当前主要由指端承载；它证明整套 sensor 在真实 G1 搬箱轨迹中工作，但不证明整掌受力。
-- 掌面覆盖由单独的掌形贴合自由刚体证明，不能冒充普通箱子托底动作。
-- TacSL 与 PhysX 支撑力的绝对尺度仍待标定；空间和时间对应正确不等于绝对力已经校准。
-- 所有结果是模拟触觉，不是硬件 GelSight 或 sim-to-real 结果。
+- 普通 CarryBox 受固定手型影响，主要由指端承载；它证明 sensor 在线工作，不证明
+  整掌承载。
+- 单独的掌形贴合自由刚体证明掌面覆盖，不能冒充普通箱子的托底动作。
+- TacSL 是 SDF penalty tactile model，不是完整软体 FEM；现有结果必须称为高保真
+  模拟触觉。
+- 未完成实体 GelSight 标定前，不能声称硬件触觉或 sim-to-real。
+- 训练收益只能由冻结策略的 matched physical behavior 得出；非零 tensor、gradient、
+  action difference 或单条视频都不是收益结论。
 
-实验输出必须写入忽略的 `experiments/`。不要提交 trace、视频、checkpoint 或 PPT；不要为常规结果增加哈希清单。
+固定实验设计、Z/P/PS task ID 和完整复现命令见仓库根
+[README](../../../README.md)。实验输出只写入 ignored `experiments/`；不要提交
+checkpoint、trace、视频、PPT 或常规 hash 清单。

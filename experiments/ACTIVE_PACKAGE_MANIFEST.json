@@ -1,25 +1,30 @@
 {
-  "schema": "curiosity_active_experiments_v4",
-  "date": "2026-08-14",
+  "schema": "curiosity_active_experiments_v5",
+  "date": "2026-08-17",
   "active_backend": "IsaacLab/PhysX",
   "active_plan": "PLAN/15_online_patch_tactile_mass_adaptation/plan.md",
-  "policy_training_active": false,
-  "policy_training_status": "documentation complete; leakage audit and implementation not started",
-  "planned_experiment_root": "experiments/online_patch_tactile_mass_adaptation",
-  "experiment_roots": [
+  "scientific_question": "incremental benefit of live bilateral 27-patch tactile over deployable proprioception after an online CarryBox mass change",
+  "formal_branches": ["Z", "P", "PS"],
+  "formal_training_seeds": [151014, 151015, 151016],
+  "frozen_evaluation_seeds": [152014, 152015, 152016],
+  "mass_factors": [1.0, 1.5, 3.0, 6.0, 10.0],
+  "updates_per_seed": 3000,
+  "profiles_per_checkpoint_and_mass": 20,
+  "status": {
+    "leakage_and_slip": "complete",
+    "Z": "three endpoints and 300 frozen rollouts complete",
+    "P": "three endpoints and 300 frozen rollouts complete; no demonstrated benefit over Z",
+    "PS": "seed 151014 resumes model_2750.pt under the exclusive five-day job 243374 pipeline; remaining formal training and evaluation pending",
+    "friction_feasibility": "runs after PS"
+  },
+  "retained_experiment_roots": [
+    "experiments/online_patch_tactile_mass_adaptation",
     "experiments/isaaclab_g1_anatomical27_object_demos",
     "experiments/sugar_reproduction"
   ],
-  "retained_object_demo_cases": [
-    "carrybox_plain_longx1p6_native_v1",
-    "palm_grip_free_lift_native_v2",
-    "palm_grip_heavy_2kg_native_v1",
-    "palm_grip_release_failure_native_v1",
-    "report_isaaclab_native_tactile_20260813"
-  ],
-  "shortest_reproduction": "scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh",
   "official_refiner": "experiments/sugar_reproduction/outputs/final/official_sugar/baseline/ckpts/refiner_model10000.pt",
+  "patch_scales": "experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json",
   "tacsl_calibration": "experiments/sugar_reproduction/assets/official_tacsl/calibration",
-  "archive_root": "/public/home/yanhongru/Curiosity_archive",
-  "cleanup_archive": "/public/home/yanhongru/Curiosity_archive/repo_cleanup_20260814"
+  "shortest_tactile_visualization": "scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh",
+  "archive_root": "legacy/experiments/repo_cleanup_20260817"
 }

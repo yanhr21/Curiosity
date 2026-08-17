@@ -44,6 +44,18 @@ parser.add_argument("--num-envs", type=int, default=4)
 parser.add_argument("--max-steps", type=int, default=450)
 parser.add_argument("--post-jump-window", type=int, default=80)
 parser.add_argument(
+    "--object-static-friction",
+    type=float,
+    default=None,
+    help="Evaluation-only CarryBox static friction override.",
+)
+parser.add_argument(
+    "--object-dynamic-friction",
+    type=float,
+    default=None,
+    help="Evaluation-only CarryBox dynamic friction override.",
+)
+parser.add_argument(
     "--ignore-object-reference-termination",
     action="store_true",
     help=(
@@ -99,6 +111,19 @@ if args.record_world and not 0 <= args.record_batch_index < args.profiles // arg
     parser.error("record-batch-index must select an evaluation batch")
 if args.fps < 1:
     parser.error("fps must be positive")
+if (args.object_static_friction is None) != (
+    args.object_dynamic_friction is None
+):
+    parser.error(
+        "object-static-friction and object-dynamic-friction must be specified together"
+    )
+if args.object_static_friction is not None and not (
+    0.0
+    <= args.object_dynamic_friction
+    <= args.object_static_friction
+    < float("inf")
+):
+    parser.error("object friction must satisfy 0 <= dynamic <= static")
 if args.record_world:
     args.enable_cameras = True
 
@@ -449,6 +474,7 @@ def main() -> None:
     command = base_env.command_manager.get_term("motion")
     world_camera = base_env.scene["world_camera"] if args.record_world else None
     world_writer = None
+    friction_readback: np.ndarray | None = None
 
     def fixed_start(env_ids) -> None:
         ids = torch.as_tensor(
@@ -520,6 +546,30 @@ def main() -> None:
                 reset_value = env.reset()
                 if args.physical_outcome_view:
                     base_env.termination_manager._term_dones.zero_()
+                material = obj.root_physx_view.get_material_properties().detach().cpu()
+                if args.object_static_friction is not None:
+                    material[..., 0] = float(args.object_static_friction)
+                    material[..., 1] = float(args.object_dynamic_friction)
+                    env_ids_cpu = torch.arange(
+                        base_env.num_envs, dtype=torch.int64, device="cpu"
+                    )
+                    obj.root_physx_view.set_material_properties(material, env_ids_cpu)
+                    material = (
+                        obj.root_physx_view.get_material_properties().detach().cpu()
+                    )
+                    if not bool(
+                        (material[..., 0] == float(args.object_static_friction)).all()
+                    ):
+                        raise RuntimeError("CarryBox static-friction readback mismatch")
+                    if not bool(
+                        (material[..., 1] == float(args.object_dynamic_friction)).all()
+                    ):
+                        raise RuntimeError("CarryBox dynamic-friction readback mismatch")
+                current_friction = material[..., :2].numpy().copy()
+                if friction_readback is None:
+                    friction_readback = current_friction
+                elif not np.array_equal(friction_readback, current_friction):
+                    raise RuntimeError("CarryBox friction changed between profile batches")
             print(
                 f"[PLAN15 EVAL] batch {batch + 1}/"
                 f"{total_profiles // int(args.num_envs)} reset complete",
@@ -715,6 +765,19 @@ def main() -> None:
         "training_seed": args.training_seed,
         "seed": int(args.seed),
         "mass_factor": float(args.mass_factor),
+        "object_friction_explicitly_overridden": (
+            args.object_static_friction is not None
+        ),
+        "object_static_friction_readback": (
+            friction_readback[..., 0].tolist()
+            if friction_readback is not None
+            else None
+        ),
+        "object_dynamic_friction_readback": (
+            friction_readback[..., 1].tolist()
+            if friction_readback is not None
+            else None
+        ),
         "motion_id": int(args.motion_id),
         "start_frame": 0,
         "profiles": total_profiles,

@@ -34,6 +34,8 @@ parser.add_argument("--max-steps", type=int, default=420)
 parser.add_argument("--minimum-lift", type=float, default=0.05)
 parser.add_argument("--stable-frames", type=int, default=10)
 parser.add_argument("--delay-frames", type=int, nargs=2, default=(10, 50))
+parser.add_argument("--object-static-friction", type=float, default=0.5)
+parser.add_argument("--object-dynamic-friction", type=float, default=0.5)
 parser.add_argument(
     "--fixed-response",
     choices=("none", "squeeze_lower"),
@@ -62,6 +64,13 @@ if args.fixed_response_frame < 0:
     raise SystemExit("fixed-response-frame must be non-negative")
 if args.fixed_response_ramp_frames < 1:
     raise SystemExit("fixed-response-ramp-frames must be positive")
+if not (
+    0.0
+    <= args.object_dynamic_friction
+    <= args.object_static_friction
+    < float("inf")
+):
+    raise SystemExit("object friction must satisfy 0 <= dynamic <= static")
 
 os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "Y")
 os.environ.setdefault("DISPLAY", "")
@@ -221,8 +230,14 @@ def main() -> None:
         )
         cfg.sim.render_interval = cfg.decimation
     cfg.events.obj_physics_material.params.update(
-        static_friction_range=(0.5, 0.5),
-        dynamic_friction_range=(0.5, 0.5),
+        static_friction_range=(
+            float(args.object_static_friction),
+            float(args.object_static_friction),
+        ),
+        dynamic_friction_range=(
+            float(args.object_dynamic_friction),
+            float(args.object_dynamic_friction),
+        ),
         restitution_range=(0.0, 0.0),
         num_buckets=1,
     )
@@ -270,6 +285,15 @@ def main() -> None:
             else None
         )
         obj = base_env.scene["obj"]
+        object_material = obj.root_physx_view.get_material_properties().detach().cpu()
+        if not bool(
+            (object_material[..., 0] == float(args.object_static_friction)).all()
+        ):
+            raise RuntimeError("CarryBox static-friction readback mismatch")
+        if not bool(
+            (object_material[..., 1] == float(args.object_dynamic_friction)).all()
+        ):
+            raise RuntimeError("CarryBox dynamic-friction readback mismatch")
         robot = base_env.scene["robot"]
         world_camera = base_env.scene["world_camera"] if args.record_world else None
         action_term = base_env.action_manager.get_term("JointPositionAction")
@@ -464,6 +488,21 @@ def main() -> None:
         pressure = arrays["patch_features"][..., 2]
         jump_indices = np.flatnonzero(arrays["jump_applied"])
         first_jump_frame = int(jump_indices[0]) if len(jump_indices) else None
+        jump_height_m = (
+            None
+            if first_jump_frame is None
+            else float(arrays["object_pos_w"][first_jump_frame, 2])
+        )
+        minimum_post_jump_height_m = (
+            None
+            if first_jump_frame is None
+            else float(arrays["object_pos_w"][first_jump_frame:, 2].min())
+        )
+        maximum_post_jump_height_loss_m = (
+            None
+            if first_jump_frame is None
+            else float(jump_height_m - minimum_post_jump_height_m)
+        )
         bilateral = contact[:, 0].any(axis=-1) & contact[:, 1].any(axis=-1)
         bilateral_at_jump = (
             False if first_jump_frame is None else bool(bilateral[first_jump_frame])
@@ -516,7 +555,26 @@ def main() -> None:
             "source_frames": int(args.max_steps),
             "nominal_mass_kg": float(arrays["mass_readback_kg"][0]),
             "target_mass_factor": float(args.mass_factor),
+            "object_static_friction_readback": float(
+                object_material[0, 0, 0].item()
+            ),
+            "object_dynamic_friction_readback": float(
+                object_material[0, 0, 1].item()
+            ),
             "first_jump_frame": first_jump_frame,
+            "jump_height_m": jump_height_m,
+            "minimum_post_jump_height_m": minimum_post_jump_height_m,
+            "maximum_post_jump_height_loss_m": maximum_post_jump_height_loss_m,
+            "post_jump_hold_5cm": (
+                None
+                if maximum_post_jump_height_loss_m is None
+                else maximum_post_jump_height_loss_m <= 0.05
+            ),
+            "post_jump_drop_15cm": (
+                None
+                if maximum_post_jump_height_loss_m is None
+                else maximum_post_jump_height_loss_m >= 0.15
+            ),
             "mass_changed": bool(arrays["mass_changed"][-1]),
             "final_mass_readback_kg": float(arrays["mass_readback_kg"][-1]),
             "bilateral_contact_frames": int(

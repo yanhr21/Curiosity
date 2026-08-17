@@ -34,6 +34,10 @@ mkdir -p "$output_root"
 for mass_factor in "${mass_factors[@]}"; do
     factor_tag=${mass_factor/./p}x
     output="$output_root/train_${train_seed}_eval_${evaluation_seed}_${factor_tag}"
+    if [[ -s "$output/summary.json" && -s "$output/frozen_evaluation_trace.npz" ]]; then
+        echo "[PLAN15 SEED SWEEP] already complete: $output"
+        continue
+    fi
     echo "[PLAN15 SEED SWEEP] branch=$branch train_seed=$train_seed eval_seed=$evaluation_seed factor=$mass_factor"
     "$python_bin" -u SUGAR/scripts/sugar_rl/evaluate_online_patch_mass_bcppo.py \
         --branch "$branch" \
