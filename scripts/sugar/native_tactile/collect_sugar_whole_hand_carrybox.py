@@ -1695,7 +1695,7 @@ def main() -> None:
             ),
             "robot_root_state_shape": list(np.stack(robot_root_state_rows).shape),
             "robot_body_state_shape": list(np.stack(robot_body_state_rows).shape),
-            "robot_state_quaternion_order": "wxyz (native IsaacLab state; Newton bridge reorders to xyzw)",
+            "robot_state_quaternion_order": "wxyz (native IsaacLab state)",
             "physics_substeps_per_control_step": int(cfg.decimation),
             "physics_robot_box_force_shape": list(
                 np.stack(physics_robot_box_force_rows).shape

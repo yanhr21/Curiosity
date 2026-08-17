@@ -1,8 +1,8 @@
 # IsaacLab native whole-hand tactile
 
 本目录只保留当前 IsaacLab/PhysX 整手传感、Plan-15 在线质量实验和可视化入口。
-Newton runner、旧 Plan-13 tactile training、teacher-residual、authority-curve 和节点
-Vulkan 排障脚本已迁入 ignored `legacy/`。
+Newton simulator adapter、旧 Plan-13 training、teacher-residual、authority-curve、旧
+bundle renderer 和节点 Vulkan 排障脚本均已迁入 ignored `legacy/`。
 
 ## 传感合同
 
@@ -25,6 +25,7 @@ friction utilization。Plan-15 使用四帧历史；PS 额外加入 causal slip 
 
 - `collect_sugar_whole_hand_carrybox.py`：完整 G1、自由物体和 54 个官方 sensor 的
   同钟 collector；
+- `universal.py`：IsaacLab TacSL 原始 frame contract 与官方 sensor-data adapter；
 - `run_plain_carrybox_whole_hand_visualization.sh`：普通 CarryBox 一条命令采集、渲染和
   H.264 解码；
 - `run_palm_grip_whole_hand_visualization.sh`：大面积掌面接触、质量变化和物理失败；

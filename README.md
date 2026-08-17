@@ -1,121 +1,125 @@
 # Curiosity
 
-本仓库当前只执行一条主线：在 IsaacLab/PhysX 中验证在线整手触觉能否帮助完整
-SUGAR G1 在已经抬起 CarryBox 后，应对不改变几何和外观的突然质量变化。当前唯一计划
-是 [Plan 15](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)，任务状态见
-[Plan 15 TODO](TODO/15_online_patch_tactile_mass_adaptation/todo.md)。RGB、demo following、
-ICM/Curiosity、Newton 仿真和软体训练均不属于当前执行队列。
+当前唯一研究主线是在 IsaacLab/PhysX 中检验：完整 SUGAR G1 已经抬起
+CarryBox 后，在线整手触觉能否帮助策略应对几何与外观不变、质量突然增加的
+情况。活动设计见 [Plan 15](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)，
+执行清单见 [TODO 15](TODO/15_online_patch_tactile_mass_adaptation/todo.md)。RGB、demo
+following、ICM/Curiosity、Newton simulator 和软体训练均为历史方向，不在当前队列。
 
-## 系统与实验问题
+## 方法与输入输出
 
-官方 SUGAR 提供三阶段方法：Refiner 用人体物体轨迹和仿真特权状态优化完整 G1
-动作；Tracker 从 Refiner rollout 学习可部署的运动跟踪策略；Generator 对 Tracker
-rollout 建模并在推理时产生运动计划。Plan 15 不重写这个方法：使用官方 Tracker
-checkpoint 初始化 student，使用冻结的官方 Refiner 作为训练期 teacher，并沿用仓库
-BCPPO、`512/256/128` actor 和 29-D action。官方结构、输入输出与从头复现见
-[SUGAR CarryBox 复现记录](DOCS/sugar_carrybox_reproduction_full_record.md)。
+官方 SUGAR 包含三部分：Refiner 依靠人体—物体参考轨迹和仿真特权状态产生高质量
+完整 G1 动作；Tracker 从 Refiner rollout 学习可部署的运动跟踪策略；Generator 对
+Tracker rollout 建模并在推理时生成运动计划。本项目不替换官方方法：student 从官方
+Tracker checkpoint 初始化，训练期使用冻结官方 Refiner teacher，并沿用 repository
+BCPPO、`512/256/128` actor 和 `29-D` action。官方结构与完整复现记录见
+[SUGAR CarryBox 复现](DOCS/sugar_carrybox_reproduction_full_record.md)。
 
-部署 actor 只读取不含 measured object state 的 `504-D` Tracker-command/
-proprioception。官方 Refiner 的 `890-D` 特权 observation 只进入冻结 teacher 和训练期
-critic。由于 `joint_pos/joint_vel` 会在手臂受载后变化，本项目检验的是“触觉相对本体
-感受是否有增量帮助”，不能声称只有触觉能感知重量。
+部署 actor 只读取 `504-D` Tracker-command/proprioception，不读取 measured object
+state、质量倍率、jump flag、RGB 或 future frame。官方 Refiner 的 `890-D` observation
+只进入训练期 teacher/critic。由于质量变化也会通过关节下沉和跟踪误差泄漏到
+proprioception，实验检验的是触觉相对 proprioception 的增量收益，不能声称“只有触觉
+能感知重量”。
 
 每只手固定 27 个物理解剖 patch：掌心 `4 x 3`，拇指、食指、中指、无名指和小指各
-有 proximal/middle/distal 三段。每个 patch 是 policy token，包含：
-
-- 接触状态、法向载荷和平均压力；
-- signed local-XY shear 和 friction utilization；
-- causal slip evidence，以及 `NO_CONTACT/STICK/INCIPIENT/GROSS` 状态。
-
-底层每个 patch 使用 IsaacLab v2.3.2 官方 TacSL `VisuoTactileSensor` 和 R15 taxel
-阵列。taxel 是传感面内的原始采样点，R15 是官方 GelSight R15 传感器配置；policy
-不会把 taxel 当成独立输入单元。所有训练信号都在当前 IsaacLab rollout 内、下一次
-actor 调用之前在线生成，不读取离线 trace、物体速度、质量标签或未来帧。
+有 proximal/middle/distal 三段。每个 patch 是一个 policy token，包含 contact、法向
+载荷、平均压力、signed local-XY shear、friction utilization，以及 PS 分支中的 causal
+slip evidence/state。底层由 IsaacLab v2.3.2 官方 TacSL `VisuoTactileSensor` 和 R15
+taxel 阵列计算，但 taxel 只作为物理采样和审计源，不是 policy 单元。所有输入都在
+当前 rollout 内、下一次 actor 调用前在线生成。
 
 ## 固定实验设计
 
-同一 PhysX episode 中，冻结 Refiner 从 motion 45/frame 0 控制机器人，直到箱子连续
-10 个 control frame 抬升至少 `0.05 m`。随后无 reset、teleport 或 replay 地交给
-student；再等待匹配的 `10--50` 帧后，将 CarryBox 的质量和 inertia 从
-`0.3023375869 kg` 同步改为 `1.5x/3x/6x/10x`。`1.0x` 是 no-jump control。
+冻结 Refiner 在同一个 PhysX episode 中从 motion 45/frame 0 控制 G1，直到箱子连续
+10 个 control frames 抬升至少 `0.05 m`。随后无 reset、teleport 或 replay 地把控制权
+交给 student；再等待匹配的 `10--50` 帧，把质量和 inertia 从 `0.3023375869 kg`
+在线改为 `1.5x/3x/6x/10x`。`1.0x` 是 no-jump control。
 
-三个正式分支除 tactile observation 外完全匹配：
+三个正式分支除触觉 observation 外完全匹配：
 
-- `Z`：patch/slip tensor 精确为零，actor 与质量调度器都不读取 TacSL；
+- `Z`：patch/slip tensor 精确为零，actor 和 scheduler 都不读取 TacSL；
 - `P`：在线 contact/load/pressure/shear/friction，slip fields 精确为零；
-- `PS`：与 P 相同，并调用 causal、batch-stateful `PatchSlipDetector.update(...)`。
+- `PS`：与 P 相同，再调用 causal、batch-stateful `PatchSlipDetector.update(...)`。
 
 每个分支固定训练 seeds `151014/151015/151016`，每个 seed 恰好 3000 updates。
 BCPPO 的 0--499 为纯 distillation，500--999 加 critic warmup，1000--1999 提升 PPO
-权重，2000--2999 为 steady full-PPO；三分支共同使用 `0.25` stage-3 distillation
-floor。冻结评估一一配对 `151014->152014`、`151015->152015`、
-`151016->152016`，每对在五个质量条件各运行 20 profiles，即每个分支 300 条。
+authority，2000--2999 为 steady full-PPO；三分支共同保留 `0.25` distillation floor。
+冻结评估一一配对 `151014->152014`、`151015->152015`、`151016->152016`，每对在
+五个质量条件各运行 20 profiles，因此每个完整分支恰好 300 条 rollout。
+
+每个正式 seed 到 `model_2999.pt` 后必须停止。先审查 checkpoint finiteness、live
+handoff、质量读回、80-frame 物理窗口、动作连续性和同步视频，再显式启动该 seed 的
+冻结评估；不得自动开始下一个正式 seed。
 
 ## 主要结论与当前进展
 
-截至 2026-08-17：
+截至 2026-08-18：
 
-- 在线 sensing 已打通。`3 seeds x 5 mass factors` 的泄漏 sweep 全部完成，15 条轨迹
-  的 action/event 匹配、质量读回、jump 前双手接触和 54-patch sensor clock 均通过。
-  jump 当帧 contact binary 不变，但连续 patch load/pressure 与 `504-D` proprio 都
-  响应。探索性 leave-one-seed-out probe 首次稳定区分质量的时间为 patch tactile
-  约 13 帧、proprio 约 35 帧；这只说明提前信息窗口，不是 policy 收益。
-- causal slip 已校准。受控官方 R15 轨迹将 fixed contact、`0.006 m/s` slow slide、
-  `0.03 m/s` fast slide、`0.01 m/s` return 分为 STICK/INCIPIENT/GROSS/INCIPIENT；
-  状态正确数为 `109/111`、`109/109`、`19/20`。在完整 G1 CarryBox 3x 在线轨迹中，
-  对 evaluation-only active-taxel velocity 的 precision 为 `1.0`、recall 为 `0.9971`，
-  中位延迟 0 帧、p95 1 帧。
-- Z/P/PS live handoff preflight 均完成一次真实 BCPPO update。每项有 1440 transitions、
-  4 次连续物理 handoff 和 2 次真实 mass event；Z 为 0 TacSL reads，P/PS 各有
-  `361 x 54 = 19,494` 个官方 patch reads，P 为 0 slip calls，PS 为 361 次 causal
-  slip calls。
-- Z 三个正式 seed 已完成，终点均为 `model_2999.pt`。P 三个正式 seed 及其冻结评估
-  也已完成。共同 eligible 分母为 59 时，3x hold 为 P `49/59`、Z `52/59`，3x drop
-  为 P `8/59`、Z `2/59`；3x hold 的 P-Z 均值为 `-0.0508`，分层配对 bootstrap
-  95% 区间 `[-0.2881, 0.1552]`。因此 P 没有证明触觉收益，且当前呈更差趋势。
-- PS seed `151014` 当前最新完整恢复点是 `model_2750.pt`，剩余 249 updates。五天
-  retained job `243374/server60` 已获得独占 pipeline lock，并从 iteration 2751
-  继续；其他已获批 allocation 保留但不允许并发写正式 seed。PS seeds
-  `151015/151016` 及其 300-rollout 冻结评估尚未完成，所以 Z/P/PS 最终比较尚无结论。
-- PS 完成后将独立固定 CarryBox static/dynamic friction 为 `0.5/1.0/1.5/2.0`，在
-  `6x/10x` 上运行冻结 Refiner feasibility sweep。该 sweep 用来区分控制能力和摩擦
-  上限，不覆盖原 Z/P/PS 比较。
+- 在线 sensing 与 slip 已打通。15 条 paired leakage traces 的质量读回、jump 前双手
+  接触和 54-patch clock 均通过。continuous patch 信号约在 jump 后 13 帧稳定区分
+  质量，proprioception 约为 35 帧；这是信息窗口，不是策略收益。
+- 在 119 条重箱下落中，continuous patch change 全部早于 drop，中位提前 21 帧；
+  contact binary 中位只提前 15 帧。对 133 条至少下沉 `0.02 m` 的轨迹，continuous
+  patch change 覆盖 `133/133`，contact binary 只覆盖 `81/133`。这证明连续压力/剪切
+  相对 binary contact 有信息优势，但仍不证明训练收益。
+- causal slip 的受控 R15 状态正确数为 STICK `109/111`、INCIPIENT `109/109`、GROSS
+  `19/20`。完整 G1 CarryBox 3x trace 对 held-out active-taxel velocity 的 precision
+  `1.0`、recall `0.9971`，中位延迟 0 帧、p95 1 帧。
+- Z 三 seed 的 eligible physical holds 为
+  `59/59, 59/59, 52/59, 1/59, 0/59`，drops 为
+  `0/59, 0/59, 2/59, 58/59, 59/59`，顺序均为
+  `1x/1.5x/3x/6x/10x`。
+- P 三 seed 的 holds 为 `59,59,49,0,0`，drops 为 `0,0,8,59,59`。3x 的 P-Z
+  paired hierarchical-bootstrap interval 跨过零，因此 P 没有证明收益，并在当前结果中
+  呈更差趋势。
+- PS seed `151014` 与 `151015` 已分别完成 `model_2999.pt`、100-rollout frozen
+  evaluation 和同步视频审查。两 seed 合计 eligible holds 为 `39,39,26,0,0`，drops
+  为 `0,0,10,39,39`。PS seed `151016` 尚未训练，因此不能给出最终 Z/P/PS 结论。
+- PS-151015 的 camera-enabled 3x 证据包含完整 450 帧、同钟 G1/CarryBox 和双手
+  27-patch：
+  `experiments/online_patch_tactile_mass_adaptation/visualizations/`
+  `ps_seed151015_3x_endpoint_review_single_env/ps_seed151015_3x_world_bilateral27.mp4`。
+  视频证明它自己的 camera rollout 持箱，不冒充 camera-free formal trace 的逐帧 replay。
+- 普通平面 CarryBox 样本主要由突出掌面的指端承载；独立的 `0.5 kg` 掌形贴合样本
+  达到左掌 `9/12`、右掌 `12/12` 接触，并完成抬升。主动松手和 `2.0 kg` 相同动作均
+  出现真实下落。这些是高保真模拟触觉，不是实体 GelSight 标定或 sim-to-real。
 
-现有整手触觉可视化还给出三条重要物理结论：普通平面 CarryBox 抬升 `0.548 m`，但
-主要由突出掌面的指端承载；`0.5 kg` 掌形贴合刚体抬升 `0.577 m`，双掌接触覆盖达到
-左 `9/12`、右 `12/12`；相同动作在主动松手或物体增至 `2.0 kg` 后出现真实下落。
-这些是高保真模拟触觉，不是实体 GelSight 标定或 sim-to-real 结果。
+PS-151016 与三分支正式比较完成后，才单独运行 static/dynamic friction
+`0.5/0.5、1.0/1.0、1.5/1.5、2.0/2.0` 的 `6x/10x` feasibility sweep。该实验用于
+区分控制能力和摩擦上限，不与原始 Z/P/PS 统计混合。
 
-## 保留的实验
+## 活动实验目录
 
-`experiments/` 是本地输出目录并被 Git 忽略。活动树只保留：
+`experiments/` 完全被 Git 忽略，只保留三类不可替代的本地输出：
 
 ```text
 experiments/
 ├── online_patch_tactile_mass_adaptation/
-│   ├── leakage_sweep_v1/
-│   ├── slip_calibration_force_v5/
+│   ├── leakage_sweep_v1/              # paired sensing traces and scales
+│   ├── slip_calibration_force_v5/      # controlled R15 slip
 │   ├── live_carrybox_slip_v4_seed150814_3x/
-│   ├── training_handoff/                 # Z/P/PS live preflights
-│   ├── training_handoff_anchor025/       # formal Z/P endpoints and active PS
-│   ├── frozen_evaluation_handoff/        # formal Z/P, future PS
+│   ├── training_handoff/               # Z/P/PS one-update reports
+│   ├── training_handoff_anchor025/     # formal endpoint checkpoints only
+│   ├── frozen_evaluation_handoff/      # formal 100-rollout seed results
 │   ├── frozen_reaction_window_v2/
+│   ├── physics_feasibility_baseline/
+│   ├── visualizations/
 │   ├── runtime_assets/
-│   └── runtime/                          # active retained-job records only
+│   └── runtime/                        # current child records only
 ├── isaaclab_g1_anatomical27_object_demos/
 │   ├── carrybox_plain_longx1p6_native_v1/
 │   ├── palm_grip_free_lift_native_v2/
 │   ├── palm_grip_heavy_2kg_native_v1/
 │   └── palm_grip_release_failure_native_v1/
-└── sugar_reproduction/                   # Refiner checkpoint and TacSL assets
+└── sugar_reproduction/                 # official Refiner and TacSL assets
 ```
 
-失败、重复、旧 frame-zero、Vulkan 排障、中间 checkpoint 和历史 PPT 已移入仓库根
-`legacy/`；它被 Git 忽略，不是活动结果，也不得作为当前复现入口。
+失败、重复、旧 frame-zero、Newton simulator、Vulkan 排障、中间 checkpoint、历史 PPT
+和 runtime 流水账均移入根 `legacy/`；该目录被 Git 忽略，不是活动复现入口。
 
 ## 运行环境
 
-所有 IsaacLab 命令必须在已分配 GPU 的 compute-node shell 中运行：
+所有 IsaacLab 命令必须在保留的 GPU compute-node shell 中运行：
 
 ```bash
 cd /public/home/yanhongru/Curiosity
@@ -124,15 +128,12 @@ export DISPLAY=
 export OMNI_KIT_ACCEPT_EULA=Y
 ```
 
-长任务使用 `scripts/sugar/native_tactile/launch_retained_child.sh` 单独记录 child
-PID/PGID。不要退出 retained allocation；需要停止任务时只终止记录的 child process
-group，不能向 tmux allocation shell 发送无目标 `Ctrl+C`。
+长任务用 `scripts/sugar/native_tactile/launch_retained_child.sh` 记录独立 PID/PGID。
+任务结束不退出 allocation；需要换任务时只终止记录的 child process group。
 
-## 最短复现指南
+## 最短复现路径
 
 ### 1. 官方 SUGAR CarryBox
-
-已有官方 released checkpoint 时，先验证环境，再运行官方 inference：
 
 ```bash
 PYTHON_BIN="$PYTHON_BIN" bash scripts/sugar/preflight_official_sugar_env.sh
@@ -140,7 +141,7 @@ PYTHON_BIN="$PYTHON_BIN" NUM_ENVS=16 VIDEO_LENGTH=200 \
   bash scripts/sugar/run_official_sugar_carrybox_inference.sh
 ```
 
-从头执行 Refiner rollout、Tracker 和 Generator 的完整顺序：
+从头执行 Refiner rollout、Tracker 和 Generator：
 
 ```bash
 PYTHON_BIN="$PYTHON_BIN" TASK_NAME=CarryBox \
@@ -150,16 +151,10 @@ OUTPUT_DIR="$PWD/experiments/sugar_reproduction/outputs/CarryBox_reproduction" \
 
 ### 2. 完整 G1 双手 27-patch 触觉视频
 
-普通 CarryBox：
-
 ```bash
 bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh \
   experiments/isaaclab_g1_anatomical27_object_demos/reproduce_plain_carrybox
-```
 
-整掌贴合和 PickBottle：
-
-```bash
 bash scripts/sugar/native_tactile/run_palm_grip_whole_hand_visualization.sh \
   experiments/isaaclab_g1_anatomical27_object_demos/reproduce_palm_05kg 0.5
 
@@ -167,44 +162,28 @@ bash scripts/sugar/native_tactile/run_pickbottle_whole_hand_visualization.sh \
   experiments/isaaclab_g1_anatomical27_object_demos/reproduce_pickbottle 12 319
 ```
 
-每个输出包含原始 `whole_hand_trace.npz`、`summary.json`、世界相机 H.264 和双手
-27-patch 同钟 H.264。触觉来自官方 sensor tensor；物体位姿、PhysX contact force 和
-相对速度只作为评价字段。
+每个输出包含 raw trace、summary、世界相机 H.264 和双手 27-patch 同钟 H.264。
 
 ### 3. 在线质量泄漏与 slip
 
 ```bash
 bash scripts/sugar/native_tactile/launch_retained_child.sh \
-  --record experiments/online_patch_tactile_mass_adaptation/runtime/leakage_repro.process \
-  --status experiments/online_patch_tactile_mass_adaptation/runtime/leakage_repro.status \
-  --log experiments/online_patch_tactile_mass_adaptation/runtime/leakage_repro.log \
-  --tag plan15-leakage-repro --foreground -- \
+  --record experiments/online_patch_tactile_mass_adaptation/runtime/leakage.process \
+  --status experiments/online_patch_tactile_mass_adaptation/runtime/leakage.status \
+  --log experiments/online_patch_tactile_mass_adaptation/runtime/leakage.log \
+  --tag plan15-leakage --foreground -- \
   "$PYTHON_BIN" scripts/sugar/native_tactile/run_online_mass_leakage_sweep.py \
     --output-root experiments/online_patch_tactile_mass_adaptation/leakage_reproduction \
     --device cuda:0
 ```
 
-输出包含 15 条 paired live trace、`leakage_audit.json`、`slip_evaluation.json` 和
-`patch_channel_scales.json`。relative tangential velocity 只在 rollout 保存后用于评价
-slip，不进入 detector 或 actor。
-
-### 4. Z/P/PS 正式训练
-
-三个 task ID 分别为：
-
-```text
-Sugar-G129dof-CarryBox-OnlineMass-Patch-Z-BCPPO
-Sugar-G129dof-CarryBox-OnlineMass-Patch-P-BCPPO
-Sugar-G129dof-CarryBox-OnlineMass-Patch-PS-BCPPO
-```
-
-单个 seed 的标准命令如下；把 `BRANCH` 替换为 `Z`、`P` 或 `PS`：
+### 4. Z/P/PS 单 seed 正式训练
 
 ```bash
-BRANCH=Z
-SEED=151014
+BRANCH=PS                     # Z, P, or PS
+SEED=151016
 SCALE="$PWD/experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json"
-OUT="$PWD/experiments/online_patch_tactile_mass_adaptation/reproduction/${BRANCH,,}_seed${SEED}"
+OUT="$PWD/experiments/online_patch_tactile_mass_adaptation/training_handoff_anchor025/${BRANCH,,}_seed${SEED}"
 
 "$PYTHON_BIN" -u SUGAR/scripts/sugar_rl/train_online_patch_mass_bcppo.py \
   --task "Sugar-G129dof-CarryBox-OnlineMass-Patch-${BRANCH}-BCPPO" \
@@ -212,62 +191,43 @@ OUT="$PWD/experiments/online_patch_tactile_mass_adaptation/reproduction/${BRANCH
   --headless --device cuda:0
 ```
 
-从完整 checkpoint 精确恢复时只增加：
+从完整 numbered checkpoint 恢复时增加
+`--resume_checkpoint_path "$OUT/model_2750.pt"`。总终点仍固定为 3000 updates。
+
+### 5. 冻结评估与三分支比较
+
+单个 PS endpoint 先人工审查，再显式开放评估：
 
 ```bash
---resume_checkpoint_path "$OUT/model_2750.pt"
-```
-
-launcher 固定 3000-update 总预算；resume 不会重新计算已保存 updates。三个分支必须
-串行执行相同三个 seeds，不得只给某一分支增加预算或 profiles。
-
-### 5. 冻结评估、三分支比较与反应窗口
-
-一个完整分支的三 seed sweep：
-
-```bash
-bash scripts/sugar/native_tactile/run_plan15_frozen_sweep.sh Z \
-  experiments/online_patch_tactile_mass_adaptation/training_handoff_anchor025/z_seed151014/model_2999.pt \
-  experiments/online_patch_tactile_mass_adaptation/training_handoff_anchor025/z_seed151015/model_2999.pt \
-  experiments/online_patch_tactile_mass_adaptation/training_handoff_anchor025/z_seed151016/model_2999.pt \
-  experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_reproduction \
+PLAN15_ALLOW_PS_ENDPOINT_EVALUATION=1 \
+bash scripts/sugar/native_tactile/run_plan15_frozen_seed.sh \
+  PS \
+  experiments/online_patch_tactile_mass_adaptation/training_handoff_anchor025/ps_seed151016/model_2999.pt \
+  151016 152016 \
+  experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/ps_anchor025_formal_seed151016 \
   cuda:0
 ```
 
-P/PS 只替换 branch、checkpoint 和 output root。三个分支完成后：
+三个 PS seed 完成后运行正式比较：
 
 ```bash
 "$PYTHON_BIN" SUGAR/scripts/sugar_rl/compare_online_patch_mass_sweeps.py \
-  --z-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151014 \
-           experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151015 \
-           experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151016 \
-  --p-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/p_anchor025_formal_seed151014 \
-           experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/p_anchor025_formal_seed151015 \
-           experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/p_anchor025_formal_seed151016 \
-  --ps-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/ps_anchor025_formal_seed151014 \
-            experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/ps_anchor025_formal_seed151015 \
-            experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/ps_anchor025_formal_seed151016 \
-  --output experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_p_ps_comparison.json
+  --z-root \
+    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151014 \
+    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151015 \
+    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151016 \
+  --p-root \
+    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/p_anchor025_formal_seed151014 \
+    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/p_anchor025_formal_seed151015 \
+    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/p_anchor025_formal_seed151016 \
+  --ps-root \
+    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/ps_anchor025_formal_seed151014 \
+    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/ps_anchor025_formal_seed151015 \
+    experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/ps_anchor025_formal_seed151016 \
+  --output experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_p_ps_formal_comparison_v1.json
 ```
 
-现有 Z 三 seed 的 event-aligned reaction window 可离线复算：
-
-```bash
-"$PYTHON_BIN" scripts/sugar/native_tactile/analyze_frozen_mass_reaction_window.py \
-  --seed-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151014 \
-  --seed-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151015 \
-  --seed-root experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_anchor025_formal_seed151016 \
-  --scale-file experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json \
-  --output experiments/online_patch_tactile_mass_adaptation/frozen_reaction_window_reproduction/summary.json
-```
-
-## 代码与文档入口
-
-- 整手传感、字段和视频：[scripts/sugar/native_tactile/README.md](scripts/sugar/native_tactile/README.md)
-- 当前实验索引：[experiments/README.md](experiments/README.md)
-- 当前执行计划：[PLAN/15_online_patch_tactile_mass_adaptation/plan.md](PLAN/15_online_patch_tactile_mass_adaptation/plan.md)
-- 当前任务状态：[TODO/15_online_patch_tactile_mass_adaptation/todo.md](TODO/15_online_patch_tactile_mass_adaptation/todo.md)
-- 官方 SUGAR 复现：[DOCS/sugar_carrybox_reproduction_full_record.md](DOCS/sugar_carrybox_reproduction_full_record.md)
-
-实验 trace、视频、checkpoint、PPT 和 runtime log 都不进入 Git。代码提交只包含可复现
-入口、配置、测试和文档。
+代码入口与字段说明见
+[native tactile README](scripts/sugar/native_tactile/README.md)；本地实验索引见
+[experiments README](experiments/README.md)。checkpoint、trace、视频和日志均不得
+提交或推送。

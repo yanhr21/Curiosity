@@ -29,7 +29,6 @@ def _frame(sequence: int, normal: np.ndarray, shear_x: np.ndarray) -> UniversalT
         taxel_orientation_w_xyzw=None,
         counterpart_fields={},
         optical=OpticalTactileFrame((False,), (None,), (None,), None),
-        raw_samples=None,
     )
 
 

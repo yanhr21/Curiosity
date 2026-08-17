@@ -10,9 +10,9 @@ import math
 import os
 
 from isaaclab.utils import configclass
+from isaaclab_rl.rsl_rl import RslRlPpoActorCriticCfg
 
 from .rsl_rl_bcppo_cfg import BCPPOCfg, BCPPORunnerCfg
-from .rsl_rl_tactile_ppo_cfg import TactileActorCriticCfg
 
 
 def _patch_channel_scales() -> list[float]:
@@ -33,9 +33,14 @@ def _patch_channel_scales() -> list[float]:
 
 
 @configclass
-class OnlinePatchTactileActorCriticCfg(TactileActorCriticCfg):
+class OnlinePatchTactileActorCriticCfg(RslRlPpoActorCriticCfg):
     class_name: str = "OnlinePatchTactileActorCritic"
     tactile_obs_group: str = "online_patch_tactile_history"
+    tactile_grid_shape: tuple[int, int] = (20, 25)
+    tactile_num_hands: int = 2
+    tactile_channels_per_hand: int = 3
+    tactile_encoder_channels: list[int] = [32, 64, 64]
+    tactile_embedding_dim: int = 128
     patch_channel_scales: list[float] = _patch_channel_scales()
     warm_start_tactile_gain: float = 0.01
 

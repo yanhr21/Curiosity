@@ -22,6 +22,14 @@ case "$train_seed:$evaluation_seed" in
     *) echo "unexpected Plan-15 checkpoint/evaluation seed pairing" >&2; exit 2 ;;
 esac
 
+# Formal PS endpoints are frozen and inspected before their evaluation child is
+# admitted.  This also prevents a long serial launcher from silently starting
+# the next formal seed immediately after an endpoint.
+if [[ "$branch" == PS && "${PLAN15_ALLOW_PS_ENDPOINT_EVALUATION:-0}" != 1 ]]; then
+    echo "PS seed $train_seed endpoint is frozen for review; rerun this evaluation explicitly with PLAN15_ALLOW_PS_ENDPOINT_EVALUATION=1" >&2
+    exit 75
+fi
+
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 cd "$repo_root"
 

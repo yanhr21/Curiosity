@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Common native tactile frame and direct Newton/IsaacLab adapters.
+"""IsaacLab TacSL frame contract and adapter.
 
-The adapters preserve simulator-native physical signals. IsaacLab data comes
-only from official TacSL ``VisuoTactileSensorData`` fields. Newton data comes
-only from ``newton.sensors.SensorTactile``, which rasterizes solved native
-contact forces. No object state, rigid-contact proxy, or outcome label enters
+The adapter preserves official ``VisuoTactileSensorData`` fields. No object
+state, rigid-contact proxy, outcome label, or second simulator backend enters
 the frame.
 """
 
@@ -46,24 +44,6 @@ class OpticalTactileFrame:
 
 
 @dataclass(frozen=True)
-class NewtonRawTactileSamples:
-    """Unmodified Newton contact samples behind a derived patch raster."""
-
-    contact_index: np.ndarray
-    contact_kind: np.ndarray
-    patch_index: np.ndarray
-    counterpart_shape: np.ndarray
-    counterpart_particle: np.ndarray
-    sensor_is_shape0: np.ndarray
-    point_world_m: np.ndarray
-    point_patch_m: np.ndarray
-    force_world_n: np.ndarray
-    force_patch_n: np.ndarray
-    native_wrench_body0: np.ndarray
-    penetration_m: np.ndarray
-
-
-@dataclass(frozen=True)
 class UniversalTactileFrame:
     """Backend-neutral native tactile frame.
 
@@ -89,7 +69,6 @@ class UniversalTactileFrame:
     taxel_orientation_w_xyzw: Any | None
     counterpart_fields: Mapping[str, CounterpartTactileField]
     optical: OpticalTactileFrame
-    raw_samples: NewtonRawTactileSamples | None
 
     @property
     def grid_shape(self) -> tuple[int, int]:
@@ -137,13 +116,6 @@ def validate_universal_tactile_frame(frame: UniversalTactileFrame) -> UniversalT
             raise ValueError("Every counterpart scalar channel must preserve the common layout.")
         if tuple(field.shear_force_xy_n.shape) != (*scalar_shape, 2):
             raise ValueError("Every counterpart signed shear field must preserve the common layout.")
-    if frame.backend == "newton_native_contacts":
-        if frame.raw_samples is None:
-            raise ValueError("Newton frames must retain native solved contact samples.")
-        if any(frame.optical.available):
-            raise ValueError("Newton has no native GelSight optical stream.")
-    elif frame.backend == "isaaclab_tacsl" and frame.raw_samples is not None:
-        raise ValueError("IsaacLab TacSL frames must not be relabeled as Newton raw contacts.")
     return frame
 
 
@@ -263,9 +235,8 @@ class IsaacLabTacSLAdapter:
                 (*penetration.shape, 3)
             )
         if all(data.tactile_points_quat_w is not None for data in first_streams):
-            # IsaacLab tensors use scalar-first wxyz; the common contract and
-            # Warp/Newton use scalar-last xyzw. This is an order conversion of
-            # the same native orientation, not a reconstructed pose.
+            # IsaacLab tensors use scalar-first wxyz; the saved tactile frame
+            # uses scalar-last xyzw. This only reorders the native orientation.
             orientations_wxyz = _stack(
                 [data.tactile_points_quat_w for data in first_streams], axis=1
             ).reshape((*penetration.shape, 4))
@@ -338,87 +309,4 @@ class IsaacLabTacSLAdapter:
                 depth=tuple(optical_depth),
                 clock=optical_clock,
             ),
-            raw_samples=None,
-        ))
-
-
-def _quat_rotate_xyzw(quaternion: np.ndarray, points: np.ndarray) -> np.ndarray:
-    q_xyz = quaternion[..., :3]
-    q_w = quaternion[..., 3:4]
-    q_xyz = np.broadcast_to(q_xyz, points.shape)
-    q_w = np.broadcast_to(q_w, points.shape[:-1] + (1,))
-    cross = np.cross(q_xyz, points)
-    return points + 2.0 * (q_w * cross + np.cross(q_xyz, cross))
-
-
-class NewtonTactileAdapter:
-    """Adapt one updated ``newton.sensors.SensorTactile`` to the common frame."""
-
-    def __init__(self, sensor: Any, patch_names: Sequence[str] | None = None) -> None:
-        self.sensor = sensor
-        if patch_names is None:
-            patch_names = [f"patch_{index}" for index in range(sensor.patch_count)]
-        if len(patch_names) != sensor.patch_count:
-            raise ValueError("Patch names must match the Newton sensor patch count.")
-        self.patch_names = tuple(patch_names)
-
-    def frame(self) -> UniversalTactileFrame:
-        """Read the current sensor outputs without recomputing contact physics."""
-        sensor = self.sensor
-        rows, columns = sensor.grid_shape
-        patch_count = sensor.patch_count
-        dense_shape = (1, patch_count, rows, columns)
-        force = sensor.force.numpy().reshape((*dense_shape, 3))
-        penetration = sensor.max_penetration.numpy().reshape(dense_shape)
-        active = sensor.active.numpy().reshape(dense_shape).astype(bool, copy=False)
-        patch_size = sensor.patch_size.numpy()
-
-        row = np.linspace(-0.5, 0.5, rows, dtype=np.float32)
-        column = np.linspace(-0.5, 0.5, columns, dtype=np.float32)
-        grid_column, grid_row = np.meshgrid(column, row)
-        unit_points = np.stack(
-            (grid_row, grid_column, np.zeros_like(grid_row)), axis=-1
-        )
-        transforms = sensor.patch_transform_world.numpy()
-        local_points = unit_points[None] * np.concatenate(
-            (patch_size[:, None, None, :], np.ones((patch_count, 1, 1, 1), dtype=np.float32)), axis=-1
-        )
-        rotations = transforms[:, None, None, 3:7]
-        positions = _quat_rotate_xyzw(rotations, local_points) + transforms[:, None, None, :3]
-        orientations = np.broadcast_to(rotations, (patch_count, rows, columns, 4)).copy()
-
-        raw_count = int(sensor.raw_count.numpy()[0])
-        raw = NewtonRawTactileSamples(
-            contact_index=sensor.raw_contact_index.numpy()[:raw_count].copy(),
-            contact_kind=sensor.raw_contact_kind.numpy()[:raw_count].copy(),
-            patch_index=sensor.raw_patch.numpy()[:raw_count].copy(),
-            counterpart_shape=sensor.raw_counterpart_shape.numpy()[:raw_count].copy(),
-            counterpart_particle=sensor.raw_counterpart_particle.numpy()[:raw_count].copy(),
-            sensor_is_shape0=sensor.raw_sensor_is_shape0.numpy()[:raw_count].copy(),
-            point_world_m=sensor.raw_point_world.numpy()[:raw_count].copy(),
-            point_patch_m=sensor.raw_point_patch.numpy()[:raw_count].copy(),
-            force_world_n=sensor.raw_force_world.numpy()[:raw_count].copy(),
-            force_patch_n=sensor.raw_force_patch.numpy()[:raw_count].copy(),
-            native_wrench_body0=sensor.raw_native_wrench_body0.numpy()[:raw_count].copy(),
-            penetration_m=sensor.raw_penetration.numpy()[:raw_count].copy(),
-        )
-        return validate_universal_tactile_frame(UniversalTactileFrame(
-            backend="newton_native_contacts",
-            clock=TactileClock(sensor.sequence, sensor.timestamp, sensor.dt),
-            patch_names=self.patch_names,
-            patch_size_m=patch_size.copy(),
-            penetration_m=penetration,
-            normal_force_n=force[..., 2],
-            shear_force_xy_n=force[..., :2],
-            active=active,
-            taxel_position_w_m=positions[None],
-            taxel_orientation_w_xyzw=orientations[None],
-            counterpart_fields={},
-            optical=OpticalTactileFrame(
-                available=(False,) * patch_count,
-                rgb=(None,) * patch_count,
-                depth=(None,) * patch_count,
-                clock=None,
-            ),
-            raw_samples=raw,
         ))

@@ -4,6 +4,7 @@
 set -euo pipefail
 
 device=${1:-cuda:0}
+only_seed=${PLAN15_PS_ONLY_SEED:-}
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 python_bin=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
 scale_file="$root/experiments/online_patch_tactile_mass_adaptation/leakage_sweep_v1/patch_channel_scales.json"
@@ -88,12 +89,27 @@ evaluate_seed() {
         "$device"
 }
 
-for pair in 151014:152014 151015:152015 151016:152016; do
+pairs=(151014:152014 151015:152015 151016:152016)
+if [[ -n "$only_seed" ]]; then
+    case "$only_seed" in
+        151014) pairs=(151014:152014) ;;
+        151015) pairs=(151015:152015) ;;
+        151016) pairs=(151016:152016) ;;
+        *) echo "PLAN15_PS_ONLY_SEED must be 151014, 151015, or 151016" >&2; exit 2 ;;
+    esac
+fi
+
+for pair in "${pairs[@]}"; do
     train_seed=${pair%%:*}
     eval_seed=${pair##*:}
     train_seed "$train_seed"
     evaluate_seed "$train_seed" "$eval_seed"
 done
+
+if [[ -n "$only_seed" ]]; then
+    echo "[PLAN15 PS PIPELINE] single-seed run complete seed=$only_seed"
+    exit 0
+fi
 
 comparison="$evaluation_root/z_p_ps_formal_comparison_v1.json"
 /usr/local/python3.12/bin/python3 \
