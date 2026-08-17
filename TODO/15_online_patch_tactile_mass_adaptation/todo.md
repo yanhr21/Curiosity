@@ -307,7 +307,9 @@
   后续有限 `model_1750.pt/model_2000.pt` 并实际进入最后1000次 steady full-PPO。
   `242488/server60` 在打印2411后被调度器外部撤销，最后完整点为有限
   `model_2250.pt`，未保存2251--2411不计；`242880/server64` 已从 iteration2251精确
-  恢复并继续剩余749 updates。完成当前 seed 前不启动 seed `151015`。
+  恢复，超过旧未保存区间并生成有限 `model_2500.pt/model_2750.pt`。该 allocation 在
+  打印2940后被调度器外部撤销，未保存2751--2940不计；5天/8小时/4小时恢复作业已
+  排队，下一段从 iteration2751继续。完成当前 seed 前不启动 seed `151015`。
 - [ ] 每个分支完成后保留 GPU allocation；停止/失败时只终止记录的 child PGID。
 - [ ] 不在三个分支之间修改架构、reward、seed、mass 分布或训练预算。
 

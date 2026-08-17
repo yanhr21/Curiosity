@@ -713,5 +713,7 @@ iteration2000，正式进入最后1000次 steady full-PPO。两个 allocation sh
 随后生成结构相同且全部有限的 `model_2250.pt`。`242488/server60` 在打印
 iteration2411后被调度器外部撤销，未保存2251--2411不计；retained
 `242880/server64` 已从 `model_2250.pt` 精确恢复 runner/BCPPO iteration2251，日志
-确认749个剩余 updates并实际打印首个恢复 iteration。中途 checkpoint 仍不是策略
-收益结果。
+确认749个剩余 updates并实际超过旧未保存区间，随后生成结构相同且全部有限的
+`model_2500.pt/model_2750.pt`。该 allocation 在打印2940后被调度器外部撤销，未保存
+2751--2940不计；5天、8小时和4小时 retained recovery 已排队，下一段只能从
+iteration2751恢复。中途 checkpoint 仍不是策略收益结果。
