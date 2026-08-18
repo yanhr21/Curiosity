@@ -75,7 +75,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-root", type=Path, required=True)
 parser.add_argument(
     "--object-kind",
-    choices=("carrybox", "bottle", "cup", "palm_fixture", "palm_grip"),
+    choices=("carrybox", "bottle", "palm_grip"),
     default="carrybox",
     help="Dynamic IsaacLab object grasped by the complete sensorized G1.",
 )
@@ -424,8 +424,6 @@ def main() -> None:
     default_mass_kg = {
         "bottle": 0.75,
         "carrybox": 0.3023375868797302,
-        "cup": 0.5,
-        "palm_fixture": 0.3023375868797302,
         "palm_grip": 0.5,
     }[args.object_kind]
     object_mass_kg = float(
@@ -456,44 +454,26 @@ def main() -> None:
     if args.object_kind == "carrybox" and args.object_scale is not None:
         actual_object_scale = tuple(args.object_scale)
         cfg.scene.obj.spawn.scale = actual_object_scale
-    if args.object_kind in ("cup", "palm_fixture", "palm_grip"):
-        default_scales = {
-            # The Newton asset is a 6-cm tabletop cup.  A two-handed G1
-            # container uses the same geometry at the CarryBox hand span.
-            "cup": (6.2, 6.2, 4.6),
-            "palm_fixture": (1.0, 1.0, 1.0),
-            "palm_grip": (1.0, 1.0, 1.0),
-        }
-        object_paths = {
-            "cup": Path(
-                "/public/home/yanhongru/.cache/newton/"
-                "newton-assets_manipulation_objects_cup_f7f64ec3_8e8df07d/"
-                "manipulation_objects/cup/model.usda"
-            ),
-            "palm_fixture": ROOT
-            / "SUGAR/descriptions/objects/palm_fit_fixture/palm_fit_fixture.usda",
-            "palm_grip": ROOT
-            / "SUGAR/descriptions/objects/palm_fit_fixture/palm_grip_object.usda",
-        }
-        object_path = object_paths[args.object_kind]
+    if args.object_kind == "palm_grip":
+        object_path = (
+            ROOT
+            / "SUGAR/descriptions/objects/palm_fit_fixture/palm_grip_object.usda"
+        )
         if not object_path.is_file():
             raise FileNotFoundError(object_path)
-        object_scale = tuple(args.object_scale or default_scales[args.object_kind])
+        object_scale = tuple(args.object_scale or (1.0, 1.0, 1.0))
         actual_object_scale = object_scale
         cfg.scene.obj = RigidObjectCfg(
             prim_path="{ENV_REGEX_NS}/Obj",
             spawn=SdfUsdFileCfg(
                 usd_path=str(object_path),
                 rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                    disable_gravity=args.object_kind == "palm_fixture",
-                    linear_damping=2.0 if args.object_kind == "palm_grip" else 0.0,
-                    angular_damping=2.0 if args.object_kind == "palm_grip" else 0.2,
-                    kinematic_enabled=args.object_kind == "palm_fixture",
+                    linear_damping=2.0,
+                    angular_damping=2.0,
                 ),
                 mass_props=sim_utils.MassPropertiesCfg(mass=object_mass_kg),
                 scale=object_scale,
                 solid_outer_shell_only=False,
-                add_collision_to_mesh_if_absent=args.object_kind == "cup",
             ),
             init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
         )
@@ -534,13 +514,11 @@ def main() -> None:
     source_mass_kg = {
         "bottle": 0.75,
         "carrybox": 0.5,
-        "cup": 0.5,
-        "palm_fixture": 0.3023375868797302,
         "palm_grip": 0.3023375868797302,
     }[args.object_kind]
     mass_scale = (
         1.0
-        if args.object_kind in ("cup", "palm_fixture", "palm_grip")
+        if args.object_kind == "palm_grip"
         else object_mass_kg / source_mass_kg
     )
     cfg.events.obj_mass.params["mass_distribution_params"] = (

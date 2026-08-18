@@ -1,5 +1,5 @@
 {
-  "schema": "curiosity_active_experiments_v6",
+  "schema": "curiosity_active_experiments_v7",
   "date": "2026-08-18",
   "active_backend": "IsaacLab/PhysX",
   "active_plan": "PLAN/15_online_patch_tactile_mass_adaptation/plan.md",
@@ -14,9 +14,9 @@
     "leakage_and_slip": "complete",
     "Z": "three endpoints and 300 frozen rollouts complete",
     "P": "three endpoints and 300 frozen rollouts complete; no demonstrated benefit over Z",
-    "PS": "seeds 151014 and 151015 endpoints, frozen evaluations, and synchronized videos complete; seed 151016 pending",
-    "formal_comparison": "pending PS seed 151016",
-    "friction_feasibility": "runs only after the complete Z/P/PS comparison"
+    "PS": "three endpoints and 300 frozen rollouts complete; no demonstrated benefit and significantly worse than P at 3x",
+    "formal_comparison": "complete: exact 300 profiles per branch",
+    "friction_feasibility": "complete; 6x at mu=1.5 holds camera-free and camera-enabled, with synchronized world/54-patch video"
   },
   "retained_experiment_roots": [
     "experiments/online_patch_tactile_mass_adaptation",

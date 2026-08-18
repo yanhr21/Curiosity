@@ -166,27 +166,35 @@ P 三 seed holds=`59,59,49,0,0`，drops=`0,0,8,59,59`。3x P-Z paired interval �
   drops=`0,0,6,19,19`；
 - seed `151015`：20 profiles/factor；holds=`20,20,16,0,0`，
   drops=`0,0,4,20,20`；
-- seed `151016`：未开始。
+- seed `151016`：20 profiles/factor；holds=`20,19,7,0,0`，
+  drops=`0,1,12,20,20`。
 
-PS 仍缺第三 seed，不能做最终 Z/P/PS 结论。
+PS 三 seed 聚合 holds=`59,58,33,0,0`，drops=`0,1,22,59,59`。严格 300-profile
+comparison 已完成：3x 的 PS-P hold 差值为 `-0.2712`，paired hierarchical-bootstrap
+95% CI=`[-0.4655,-0.0667]`；drop 差值为 `+0.2373`，CI=`[0.1053,0.3833]`。因此
+当前 P/PS 都没有证明相对 Z 的触觉策略收益，PS 在 3x 还显著劣于 P。该结论不否定
+前述连续触觉的信息优势，只说明当前训练没有把信息转化为更好的冻结物理行为。
 
 ## 8. 高摩擦 6x/10x 可行性
 
-完成当前摩擦合同下的 PS 三 seed 和正式比较后，独立固定 CarryBox static/dynamic
-friction 为 `0.5/0.5、1.0/1.0、1.5/1.5、2.0/2.0`，分别测试 `6x/10x`。每条保存
-material readback、jump 后高度、双手 contact 和 outcome。
+完成当前摩擦合同下的 PS 三 seed 和正式比较后，已独立固定 CarryBox static/dynamic
+friction 为 `0.5/0.5、1.0/1.0、1.5/1.5、2.0/2.0`，分别测试 `6x/10x`。八条均保存
+material readback、jump 后高度、双手 contact 和完整 outcome window。
 
-高摩擦结果不得并入原 Z/P/PS 对比。某个 frozen controller 失败不等于物理不可能；
-若 `mu<=2` 仍不能抬稳 6x，继续测试 stronger grip/lower posture 或相同 serious SUGAR
-policy 的固定条件 overfit，直到至少一个 6x 条件出现可验证的完整持箱。最后生成同步
-G1/CarryBox/54-patch H.264。
+6x 在 `mu=0.5/1.0/1.5/2.0` 下的最大高度损失分别为
+`0.5589/0.5429/0.02636/0.06596 m`；只有 `mu=1.5` 满足 5-cm hold。10x 四个条件均
+drop。该结果证明至少一个 6x 条件在现有官方 Refiner 下物理可行，但不是单调摩擦曲线：
+不同摩擦改变 pickup dynamics 并使 jump frame 在 325--328 间移动。高摩擦结果不得
+并入原 Z/P/PS 对比。既然 6x gate 已通过，不触发 stronger-grip/lower-posture overfit；
+成功条件的 camera-enabled rollout 同样 hold，最大高度损失 `0.02552 m`。同步
+G1/CarryBox/54-patch H.264 位于
+`experiments/online_patch_tactile_mass_adaptation/visualizations/`
+`official_refiner_mu1p5_6x_friction_hold_single_env/official_refiner_mu1p5_6x_world_bilateral27.mp4`。
 
 ## 9. 串行执行顺序
 
-1. 人工确认 PS-151015 endpoint 视频与数值审查；
-2. 从 official Tracker 启动 PS-151016，严格停在 update 2999；
-3. 审查 endpoint，再显式运行其 100-rollout frozen evaluation 和视频；
-4. 运行 exact Z/P/PS 三 seed paired comparison；
-5. 运行独立 friction sweep；
-6. 若 6x 未成功，继续 stronger-grip/lower-posture 或 serious overfit；
-7. 更新 README/TODO/AGENTS，只提交源码与文档。
+1. Z/P/PS 九个 endpoint、九组冻结评估和 exact paired comparison 已完成；
+2. 独立 friction sweep 已完成；
+3. 6x 已成功，因此未触发 stronger-grip/lower-posture 或 serious overfit；
+4. 已渲染并审查验证通过的 6x 完整持箱；
+5. 更新 README/TODO/AGENTS，只提交源码与文档。

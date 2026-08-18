@@ -70,12 +70,19 @@ handoff、质量读回、80-frame 物理窗口、动作连续性和同步视频�
   `0/59, 0/59, 2/59, 58/59, 59/59`，顺序均为
   `1x/1.5x/3x/6x/10x`。
 - P 三 seed 的 holds 为 `59,59,49,0,0`，drops 为 `0,0,8,59,59`。3x 的 P-Z
-  paired hierarchical-bootstrap interval 跨过零，因此 P 没有证明收益，并在当前结果中
-  呈更差趋势。
-- PS seed `151014` 与 `151015` 已分别完成 `model_2999.pt`、100-rollout frozen
-  evaluation 和同步视频审查。两 seed 合计 eligible holds 为 `39,39,26,0,0`，drops
-  为 `0,0,10,39,39`。PS seed `151016` 尚未训练，因此不能给出最终 Z/P/PS 结论。
-- PS-151015 的 camera-enabled 3x 证据包含完整 450 帧、同钟 G1/CarryBox 和双手
+  hold interval 跨过零，因此 P 没有证明收益，并呈更差趋势。
+- PS 三 seed 的 holds 为 `59,58,33,0,0`，drops 为 `0,1,22,59,59`。严格比较中，
+  3x PS-P hold 差值为 `-0.2712`，paired hierarchical-bootstrap 95% CI
+  `[-0.4655,-0.0667]`；drop 差值为 `+0.2373`，CI `[0.1053,0.3833]`。因此当前
+  PS 不但没有证明收益，还在 3x 显著劣于 P。连续触觉有更早的信息，并不等于当前
+  BCPPO 已学会利用它。
+- PS-151016 的 endpoint 已完成 finite checkpoint、live no-reset handoff、质量读回、
+  450-frame outcome window 与视频审查。camera-enabled 证据包含完整 G1/CarryBox、
+  同钟双手 27-patch：
+  `experiments/online_patch_tactile_mass_adaptation/visualizations/`
+  `ps_seed151016_1p5x_endpoint_review_single_env/ps_seed151016_1p5x_world_bilateral27.mp4`
+  显示自己的 1.5x hold；同目录体系下的 3x 视频显示自己的真实 drop。
+- PS-151015 的 camera-enabled 3x 证据也包含完整 450 帧、同钟 G1/CarryBox 和双手
   27-patch：
   `experiments/online_patch_tactile_mass_adaptation/visualizations/`
   `ps_seed151015_3x_endpoint_review_single_env/ps_seed151015_3x_world_bilateral27.mp4`。
@@ -84,9 +91,20 @@ handoff、质量读回、80-frame 物理窗口、动作连续性和同步视频�
   达到左掌 `9/12`、右掌 `12/12` 接触，并完成抬升。主动松手和 `2.0 kg` 相同动作均
   出现真实下落。这些是高保真模拟触觉，不是实体 GelSight 标定或 sim-to-real。
 
-PS-151016 与三分支正式比较完成后，才单独运行 static/dynamic friction
-`0.5/0.5、1.0/1.0、1.5/1.5、2.0/2.0` 的 `6x/10x` feasibility sweep。该实验用于
-区分控制能力和摩擦上限，不与原始 Z/P/PS 统计混合。
+三分支 exact comparison 已完成，每分支恰好 300 rollouts。随后单独运行
+static/dynamic friction `0.5/0.5、1.0/1.0、1.5/1.5、2.0/2.0` 的 `6x/10x`
+feasibility sweep。八条的材料/质量读回、jump 前双手接触和 outcome window 均通过。
+6x 高度损失依次为 `0.5589/0.5429/0.02636/0.06596 m`，只有 `mu=1.5` 达到 5-cm
+hold；10x 四个条件均 drop。这证明 6x 在现有 controller 下并非物理不可能，但不是
+单调摩擦曲线，因为摩擦同时改变 pickup dynamics 和 jump timing。该实验不与原始
+Z/P/PS 统计混合。
+
+成功的 `6x, mu=1.5` camera-enabled rollout 也通过自身审查：实际质量读回
+`1.8140255 kg`、jump 后 124 帧、最大高度损失 `0.02552 m`、hold=true、drop=false。
+450 帧完整 G1/CarryBox 和双手 27-patch H.264 位于：
+`experiments/online_patch_tactile_mass_adaptation/visualizations/`
+`official_refiner_mu1p5_6x_friction_hold_single_env/official_refiner_mu1p5_6x_world_bilateral27.mp4`。
+这是相机 rollout 自己的结果，不冒充 camera-free trace 的逐帧 replay。
 
 ## 活动实验目录
 
@@ -103,6 +121,7 @@ experiments/
 │   ├── frozen_evaluation_handoff/      # formal 100-rollout seed results
 │   ├── frozen_reaction_window_v2/
 │   ├── physics_feasibility_baseline/
+│   ├── friction_feasibility_after_ps/
 │   ├── visualizations/
 │   ├── runtime_assets/
 │   └── runtime/                        # current child records only
@@ -163,10 +182,26 @@ bash scripts/sugar/native_tactile/run_pickbottle_whole_hand_visualization.sh \
 ```
 
 每个输出包含 raw trace、summary、世界相机 H.264 和双手 27-patch 同钟 H.264。
+复现主动松手失败时仍使用同一个入口：
+
+```bash
+PALM_GRIP_SCENARIO=release_failure \
+bash scripts/sugar/native_tactile/run_palm_grip_whole_hand_visualization.sh \
+  experiments/isaaclab_g1_anatomical27_object_demos/reproduce_palm_release 0.5
+```
 
 ### 3. 在线质量泄漏与 slip
 
 ```bash
+bash scripts/sugar/native_tactile/launch_retained_child.sh \
+  --record experiments/online_patch_tactile_mass_adaptation/runtime/r15_slip.process \
+  --status experiments/online_patch_tactile_mass_adaptation/runtime/r15_slip.status \
+  --log experiments/online_patch_tactile_mass_adaptation/runtime/r15_slip.log \
+  --tag plan15-r15-slip --foreground -- \
+  "$PYTHON_BIN" scripts/sugar/native_tactile/run_isaaclab_r15_capsule_slip.py \
+    --output-root experiments/online_patch_tactile_mass_adaptation/slip_reproduction \
+    --frames 240 --force-only --headless --device cuda:0
+
 bash scripts/sugar/native_tactile/launch_retained_child.sh \
   --record experiments/online_patch_tactile_mass_adaptation/runtime/leakage.process \
   --status experiments/online_patch_tactile_mass_adaptation/runtime/leakage.status \
@@ -225,6 +260,16 @@ bash scripts/sugar/native_tactile/run_plan15_frozen_seed.sh \
     experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/ps_anchor025_formal_seed151015 \
     experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/ps_anchor025_formal_seed151016 \
   --output experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff/z_p_ps_formal_comparison_v1.json
+```
+
+### 6. 比较后独立摩擦可行性
+
+该入口先要求上一步 exact comparison 已存在，再运行
+`mu=0.5/1.0/1.5/2.0 × 6x/10x`；每条必须有真实材料/质量读回、jump 前双手接触和
+完整 80-frame outcome window：
+
+```bash
+bash scripts/sugar/native_tactile/run_plan15_friction_feasibility.sh cuda:0
 ```
 
 代码入口与字段说明见

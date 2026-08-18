@@ -140,26 +140,37 @@ Formal frozen results in factor order `1x/1.5x/3x/6x/10x`:
 
 - Z, three seeds: holds `59,59,52,1,0`; drops `0,0,2,58,59`;
 - P, three seeds: holds `59,59,49,0,0`; drops `0,0,8,59,59`;
-- P does not establish benefit over Z and currently trends worse at 3x;
+- P does not establish benefit over Z and trends worse at 3x;
 - PS seed 151014: 19 eligible profiles/factor, holds `19,19,10,0,0`, drops
   `0,0,6,19,19`;
 - PS seed 151015: 20 profiles/factor, holds `20,20,16,0,0`, drops
   `0,0,4,20,20`;
-- PS seed 151016 has not started. No final Z/P/PS conclusion is allowed yet.
+- PS seed 151016: 20 profiles/factor, holds `20,19,7,0,0`, drops
+  `0,1,12,20,20`;
+- PS aggregate holds are `59,58,33,0,0`; drops are `0,1,22,59,59`;
+- at 3x, PS-P hold difference is `-0.2712` with paired hierarchical-bootstrap 95% CI
+  `[-0.4655,-0.0667]`; PS-P drop difference is `+0.2373`, CI `[0.1053,0.3833]`;
+- current P and PS therefore do not establish tactile-policy benefit. PS is significantly worse
+  than P at 3x under the matched frozen evaluation.
 
-The next serial action is PS-151016 training from the official Tracker, endpoint review, its 100
-frozen rollouts and synchronized video. Only after that run the exact Z/P/PS comparison.
+The exact three-branch comparison is complete. The next serial action is the separate 6x/10x
+friction-feasibility sweep and, if needed, a stronger-grip/lower-posture response or serious
+fixed-condition overfit.
 
 ## 8. Heavy-box friction feasibility
 
-Finish current-friction PS and the full formal comparison before changing friction. Then run a
-separate CarryBox sweep at static/dynamic friction
-`0.5/0.5`, `1.0/1.0`, `1.5/1.5`, `2.0/2.0` for `6x/10x`, with material readback and post-jump
-height/contact evidence. Do not merge these results into the original comparison.
+The separate frozen-Refiner sweep at static/dynamic friction
+`0.5/0.5`, `1.0/1.0`, `1.5/1.5`, `2.0/2.0` for `6x/10x` is complete. All eight runs have exact
+material/mass readback, pre-jump bilateral contact and a complete post-jump window. At 6x the
+height losses are `0.5589/0.5429/0.02636/0.06596 m`: only `mu=1.5` satisfies the 5-cm hold
+criterion. Every 10x condition drops. These results remain separate from Z/P/PS.
 
-Failure of one frozen controller is not proof that the condition is physically impossible. If
-friction up to 2.0 is insufficient, test a stronger-grip/lower-posture response or serious fixed-
-condition overfit. Continue until at least one verified 6x complete hold is obtained and rendered.
+The sweep is a feasibility search, not a monotonic friction-response estimate: friction changes
+the pickup dynamics and shifts handoff/jump timing. The verified `6x, mu=1.5` hold satisfies the
+required physical-success gate, so a stronger-grip/lower-posture overfit is not required for this
+gate. Its camera-enabled 450-frame evidence also holds with `0.02552 m` maximum height loss and is
+stored at `experiments/online_patch_tactile_mass_adaptation/visualizations/`
+`official_refiner_mu1p5_6x_friction_hold_single_env/official_refiner_mu1p5_6x_world_bilateral27.mp4`.
 
 ## 9. GPU allocation safety
 

@@ -375,8 +375,6 @@ def main() -> None:
     summary = json.loads((run_root / "summary.json").read_text(encoding="utf-8"))
     object_kind = str(summary.get("object_kind", "carrybox"))
     object_label = object_kind.replace("_", " ").upper()
-    if object_kind == "palm_fixture":
-        object_label = "PALM PRESS FIXTURE"
     controlled_pose_clamp = summary.get("action_source") == "controlled_reset_pose_hold"
     world_path = run_root / f"world_{object_kind}.mp4"
     if not trace_path.is_file() or not world_path.is_file():

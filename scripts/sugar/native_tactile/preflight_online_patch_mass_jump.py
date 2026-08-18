@@ -30,7 +30,7 @@ parser.add_argument(
         "controller action changes."
     ),
 )
-parser.add_argument("--max-steps", type=int, default=420)
+parser.add_argument("--max-steps", type=int, default=450)
 parser.add_argument("--minimum-lift", type=float, default=0.05)
 parser.add_argument("--stable-frames", type=int, default=10)
 parser.add_argument("--delay-frames", type=int, nargs=2, default=(10, 50))
@@ -55,6 +55,8 @@ parser.add_argument(
 parser.add_argument("--fps", type=int, default=50)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
+if args.record_world:
+    args.enable_cameras = True
 
 if args.mass_factor < 1.0:
     raise SystemExit("preflight mass factor must be at least one")
@@ -498,6 +500,12 @@ def main() -> None:
             if first_jump_frame is None
             else float(arrays["object_pos_w"][first_jump_frame:, 2].min())
         )
+        post_jump_frames = (
+            0
+            if first_jump_frame is None
+            else int(len(arrays["object_pos_w"]) - first_jump_frame - 1)
+        )
+        outcome_window_complete = post_jump_frames >= 80
         maximum_post_jump_height_loss_m = (
             None
             if first_jump_frame is None
@@ -562,17 +570,20 @@ def main() -> None:
                 object_material[0, 0, 1].item()
             ),
             "first_jump_frame": first_jump_frame,
+            "post_jump_frames": post_jump_frames,
+            "minimum_required_post_jump_frames": 80,
+            "outcome_window_complete": outcome_window_complete,
             "jump_height_m": jump_height_m,
             "minimum_post_jump_height_m": minimum_post_jump_height_m,
             "maximum_post_jump_height_loss_m": maximum_post_jump_height_loss_m,
             "post_jump_hold_5cm": (
                 None
-                if maximum_post_jump_height_loss_m is None
+                if maximum_post_jump_height_loss_m is None or not outcome_window_complete
                 else maximum_post_jump_height_loss_m <= 0.05
             ),
             "post_jump_drop_15cm": (
                 None
-                if maximum_post_jump_height_loss_m is None
+                if maximum_post_jump_height_loss_m is None or not outcome_window_complete
                 else maximum_post_jump_height_loss_m >= 0.15
             ),
             "mass_changed": bool(arrays["mass_changed"][-1]),

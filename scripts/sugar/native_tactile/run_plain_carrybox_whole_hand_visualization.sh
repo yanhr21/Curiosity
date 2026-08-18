@@ -4,7 +4,7 @@ set -euo pipefail
 # Reproduce the complete-G1 flat-sided CarryBox geometry sample.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-PYTHON_BIN="${CURIOSITY_ISAAC_PYTHON:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python}"
+PYTHON_BIN="${CURIOSITY_ISAAC_PYTHON:-${PYTHON_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python}}"
 
 if [[ -z "${SLURM_JOB_ID:-}" ]]; then
   echo "Run inside the retained H200 Slurm allocation." >&2

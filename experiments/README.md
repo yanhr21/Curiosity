@@ -19,8 +19,12 @@
 - `runtime_assets/`：避免重复导入的官方 G1 USD；
 - `runtime/`：只写当前 retained-job child 记录。
 
-当前正式状态：Z、P 各三 seed 已完成；PS `151014/151015` 已完成 endpoint、冻结评估
-和视频审查，PS `151016` 尚未开始。完成 PS 后才运行独立高摩擦 `6x/10x` sweep。
+当前正式状态：Z、P、PS 各三 seed 的 endpoint 与冻结评估全部完成，exact
+300-profile-per-branch comparison 已生成。P 未证明优于 Z；PS 在 3x 显著劣于 P。
+独立高摩擦 `6x/10x` sweep 已完成且不并入原比较。`6x, mu=1.5` 的完整窗口高度损失
+`0.02636 m`，是唯一满足 5-cm hold 的条件；10x 四个条件均 drop。该成功条件的
+camera-enabled rollout 也 hold（高度损失 `0.02552 m`），同步视频保存在
+`visualizations/official_refiner_mu1p5_6x_friction_hold_single_env/`。
 
 ## 原生整手触觉证据
 

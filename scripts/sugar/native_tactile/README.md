@@ -33,9 +33,12 @@ friction utilization。Plan-15 使用四帧历史；PS 额外加入 causal slip 
 - `run_isaaclab_r15_capsule_slip.py`：受控官方 R15 slip 校准；
 - `run_online_mass_leakage_sweep.py`：Plan-15 三 seed、五质量 paired live sweep；
 - `preflight_online_patch_mass_jump.py`：冻结 Refiner 的在线质量/摩擦物理 feasibility；
+- `run_plan15_friction_feasibility.sh`：正式比较后独立运行
+  `mu=0.5/1.0/1.5/2.0 × 6x/10x`，并汇总完整 outcome window；
 - `run_plan15_frozen_seed.sh` / `run_plan15_frozen_sweep.sh`：固定 seed pairing 的正式
   frozen evaluation；
 - `analyze_frozen_mass_reaction_window.py`：保存 trace 上的 event-aligned 提前量分析；
+- `render_frozen_mass_reaction_window.py`：把该分析渲染为事件对齐的信号证据；
 - `render_online_patch_mass_jump.py`：同一 rollout 的 G1/CarryBox 与左右 27-patch 视频；
 - `launch_retained_child.sh`：在 retained Slurm shell 中启动独立 child process group。
 

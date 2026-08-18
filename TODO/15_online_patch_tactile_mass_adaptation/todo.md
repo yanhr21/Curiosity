@@ -35,50 +35,54 @@
 - [x] P seed `151016`：endpoint + 100 rollouts。
 - [x] PS seed `151014`：endpoint + 100 rollouts + synchronized video。
 - [x] PS seed `151015`：endpoint + 100 rollouts + synchronized video。
-- [ ] PS seed `151016`：从 official Tracker 启动，严格训练到 `model_2999.pt` 后停止。
-- [ ] 审查 PS-151016 checkpoint finiteness、handoff、mass readback、80-frame window、
+- [x] PS seed `151016`：从 official Tracker 启动，严格训练到 `model_2999.pt` 后停止。
+- [x] 审查 PS-151016 checkpoint finiteness、handoff、mass readback、80-frame window、
   action continuity 和同步 54-patch video。
-- [ ] 显式运行 `151016->152016` 五质量 × 20 profiles frozen evaluation。
-- [ ] 运行 exact three-seed Z/P/PS paired comparison；不得增加单一分支 profiles。
+- [x] 显式运行 `151016->152016` 五质量 × 20 profiles frozen evaluation。
+- [x] 运行 exact three-seed Z/P/PS paired comparison；每分支恰好 300 profiles。
 
 当前结果：
 
 - Z holds=`59,59,52,1,0`，drops=`0,0,2,58,59`；
 - P holds=`59,59,49,0,0`，drops=`0,0,8,59,59`，尚未证明 tactile benefit；
-- PS 前两 seed 合计 holds=`39,39,26,0,0`，drops=`0,0,10,39,39`；第三 seed 未完成，
-  不得提前给出最终结论。
+- PS 三 seed holds=`59,58,33,0,0`，drops=`0,1,22,59,59`；3x PS-P hold 差值
+  `-0.2712`，95% CI=`[-0.4655,-0.0667]`，当前 PS 显著劣于 P。
 
 ## D. Endpoint 评审清单
 
 每个新 endpoint 必须逐项完成后才进入下一 seed：
 
-- [ ] checkpoint iteration=2999，model/optimizer tensors finite；
-- [ ] live Refiner 在同一 PhysX episode 完成抬箱和 no-reset handoff；
-- [ ] requested/readback mass 与 inertia event 一致；
-- [ ] nonnominal profiles 在 event 前 10 帧有 bilateral patch contact；
-- [ ] 450-frame trace 完整覆盖 handoff、event 和 80-frame outcome；
-- [ ] applied action 与 saved policy action 对齐，无 gross handoff/jump discontinuity；
-- [ ] H.264 完整解码，画面包含 G1/CarryBox、左右各 27 patches 和 evaluator-only event
+- [x] checkpoint iteration=2999，model/optimizer tensors finite；
+- [x] live Refiner 在同一 PhysX episode 完成抬箱和 no-reset handoff；
+- [x] requested/readback mass 与 inertia event 一致；
+- [x] nonnominal profiles 在 event 前 10 帧有 bilateral patch contact；
+- [x] 450-frame trace 完整覆盖 handoff、event 和 80-frame outcome；
+- [x] applied action 与 saved policy action 对齐，无 gross handoff/jump discontinuity；
+- [x] H.264 完整解码，画面包含 G1/CarryBox、左右各 27 patches 和 evaluator-only event
   标注；
-- [ ] camera video 只描述自己的 camera rollout，不冒充 camera-free formal trace。
+- [x] camera video 只描述自己的 camera rollout，不冒充 camera-free formal trace。
 
-PS-151015 已完成以上清单；本节下一次用于 PS-151016。
+PS-151015 与 PS-151016 均完成以上清单。
 
 ## E. 高摩擦 6x/10x
 
-- [ ] 仅在 Z/P/PS 正式比较完成后启动。
-- [ ] 分别测试 static/dynamic friction
+- [x] 仅在 Z/P/PS 正式比较完成后启动。
+- [x] 分别测试 static/dynamic friction
   `0.5/0.5、1.0/1.0、1.5/1.5、2.0/2.0` × `6x/10x`。
-- [ ] 每条保存 PhysX material readback、mass readback、post-jump height/contact 和 outcome。
-- [ ] 不把高摩擦结果混入原 Z/P/PS comparison。
-- [ ] 若 `mu<=2` 未让 6x 持稳，测试 stronger grip/lower posture；必要时用相同 serious
-  SUGAR policy 做固定条件 overfit。
-- [ ] 至少获得一个可重复的 6x 完整持箱结果，并生成同步 G1/CarryBox/54-patch H.264。
+- [x] 每条保存 PhysX material readback、mass readback、post-jump height/contact 和 outcome。
+- [x] 不把高摩擦结果混入原 Z/P/PS comparison。
+- [x] `6x, mu=1.5` 已满足 hold，因此 stronger-grip/lower-posture/overfit 条件分支未触发。
+- [x] 为 `6x, mu=1.5` 成功条件生成并审查同步 G1/CarryBox/54-patch H.264；该
+  camera-enabled rollout 高度损失 `0.02552 m`、hold=true、drop=false。
+
+Camera-free 6x height loss 按 `mu=0.5/1.0/1.5/2.0` 为
+`0.5589/0.5429/0.02636/0.06596 m`；只有 `mu=1.5` hold。10x 四个条件全部 drop。
 
 ## F. 交付
 
 - [x] experiments 只保留正式 endpoint、冻结评估、关键 sensing 和人眼证据；中间
   checkpoint、旧 runtime、失败/重复实验已移入根 `legacy/`。
 - [x] 旧 Plan-13、旧 bundle renderer 和 Newton simulator adapter 已从活动代码移出。
-- [ ] 完成 PS-151016 与 friction 结果后更新 README、Plan、TODO、AGENTS。
-- [ ] 最终只 commit/push 源码、测试和文档；不提交 checkpoint、trace、视频或日志。
+- [x] 完成 friction 结果后更新 README、Plan、TODO、AGENTS。
+- [x] 最终 commit/push 只包含源码、测试和文档；checkpoint、trace、视频和日志保持
+  在 ignored `experiments/`。
