@@ -86,3 +86,107 @@ Camera-free 6x height loss 按 `mu=0.5/1.0/1.5/2.0` 为
 - [x] 完成 friction 结果后更新 README、Plan、TODO、AGENTS。
 - [x] 最终 commit/push 只包含源码、测试和文档；checkpoint、trace、视频和日志保持
   在 ignored `experiments/`。
+
+## G. 审计后重开项 / Reopened by the 2026-08-19 audit
+
+A–F 的勾选反映"按当时的合同执行完毕"，仍然有效。以下条目是审计新开的，**在修复前
+§7/§C 的结论不能作为科学结果发布**。完整证据见
+[`claude_context/findings.md`](../../claude_context/findings.md)（115 条，含 file:line）。
+
+### G1. 阻塞项 — 必须修复后才能重跑
+
+- [ ] **Reward**: exclude `.*_anatomical_.*` from `undesired_contacts`. It currently
+      counts all 54 patches at −0.02/body/step, and six in contact cancel the entire
+      achievable positive reward of 5.125.
+      **Where:** `carry_box_refiner_env_cfg.py:86-98` — the regex is **line 93**. Sensor is
+      all bodies at `base_refiner_env_cfg.py:72`; reduction at
+      `IsaacLab/.../envs/mdp/rewards.py:260-268`. **One regex.**
+- [ ] **Reward**: repoint `hoi_contact` at the 54 patch bodies — the `*_rubber_hand`
+      links it reads have their collision subtrees deactivated at spawn, so the term is
+      dead and supplies no behavioural gradient.
+      **Where:** term `carry_box_refiner_env_cfg.py:99-112`; impl `mdp/rewards.py:142-172`
+      (**line 167**); cause `assets/robots/anatomical_whole_hand_tacsl_g1.py:1093`, disable
+      at **1136**; dead sensors `base_refiner_env_cfg.py:93-108`.
+- [ ] **Reward**: decide whether to add a term that actually rewards holding the box after
+      the jump. There is none today; the objective is reference tracking end to end.
+      **Where:** the full 21 terms are `base_refiner_env_cfg.py:298-399` +
+      `carry_box_refiner_env_cfg.py:84-116`; hold/drop exist only in
+      `evaluate_online_patch_mass_bcppo.py:339-360`.
+- [ ] **Slip**: hoist the reset out of the `common_step_counter` guard in
+      `_online_patch_slip_history` — the early return skips `detector.update`, so
+      `env.reset()` (which does not bump the counter) is silently swallowed and the GROSS
+      latch survives across evaluation batches. **Asymmetric: damages PS, not P.**
+      **Where:** `online_patch_tactile.py:446` returns early, before `detector.update` at
+      **460**. Counter only moves in `step()`: `IsaacLab/.../manager_based_rl_env.py:203`.
+      Bypassing reset: `evaluate_online_patch_mass_bcppo.py:546`. **A few lines.**
+- [ ] **Sensing**: resolve normal/tangential in the **contact frame** (the SDF normal is
+      already computed) instead of the per-taxel frame; gate the utilization ratio on a
+      minimum normal load; compute friction margin against the object's real material.
+      Note the per-taxel frame is a *local* modification — upstream IsaacLab v2.3.2 uses
+      one constant quaternion per sensor — so no vendor change is required for this.
+      **Where:** `visuotactile_sensor.py:1018` sums normal+friction, **1023-1024** split the
+      total; the per-taxel frame is **564-608**. The `mu` division is
+      `online_patch_tactile.py:144-146` with the sensor's `mu` at **237**; the numerator cap
+      is `visuotactile_sensor.py:1005-1007`; real friction randomized at
+      `base_refiner_env_cfg.py:274-281`.
+
+- [ ] **Slip**: decide the intended semantics of the GROSS latch. `retained_gross`
+      (`patch_slip.py:263-264`) holds a patch at GROSS for as long as *any* incipient
+      evidence persists — including a static geometric `utilization >= 0.60` — and it is
+      cleared in exactly one place, **line 135**, inside `reset()`.
+
+### G2. 诊断 — 先测再改，不需要 GPU
+
+- [ ] Per-channel variance and mass/friction mutual information **during the hold phase**
+      on the saved leakage traces. Confirms or kills the sensing findings in minutes
+      instead of a retrain.
+- [ ] Report the `strict_sugar_hold_success` / `strict_sugar_eligible` numbers that
+      already exist in every `summary.json` alongside the physical-outcome ones. **Free.**
+      The view is installed at `evaluate_online_patch_mass_bcppo.py:495`, reset stubbed at
+      **547**, frame validity skipped at **729**, and the flag is always passed by
+      `run_plan15_frozen_seed.sh:63`.
+- [ ] Identify which seed-151014 profile fails `eligible_post_jump_window` (the 59 vs 60);
+      needs `episodes[i].jump_frame == null` from the summaries on the runtime host.
+- [ ] Check `first_termination_terms` for `trajectory_complete` before the window closes —
+      if motion 45 is shorter than 450 frames the reference is silently zero-padded under
+      `--physical-outcome-view`, which would void both reference-error columns.
+
+### G3. 实验设计
+
+- [ ] Close the train/eval motion split: either train on motion 45 or evaluate on 0–3.
+      As it stands the experiment cannot separate "tactile does not help" from "the tactile
+      encoder did not generalise across motions". **Where:**
+      `carry_box_online_patch_tactile_mass_env_cfg.py:259` sets `start_init_env_ratio = 1.0`;
+      the evaluator overrides at `evaluate_online_patch_mass_bcppo.py:479-487`, default 45 at
+      **line 41**.
+- [ ] Recalibrate the slip thresholds on the **anatomical** geometry — they were fitted on
+      a flat R15 capsule where the dominant misalignment term does not exist.
+- [ ] Restate the CI honestly: percentile two-level bootstrap over 3 seed clusters, no
+      BCa, 180 uncorrected intervals per run. **Where:**
+      `compare_online_patch_mass_sweeps.py:119` (plain `np.percentile`), **196** (the method
+      string it writes), **line 21** `METRICS` x 5 factors x 3 pairs. **Free.**
+- [ ] Note in any write-up that the 20 profiles per run are near-replicates.
+
+### G4. 训练循环（低成本，与重跑一起做）
+
+- [ ] Decide whether the distillation loss should be masked by the handoff mask. Today it
+      is not, so the nominal-mass Refiner regresses the student inside the post-jump window
+      it has never seen (teacher trained on 0.5–2.0× only).
+- [ ] `configure_tactile_actor_finetune` overrides the parent freeze **without calling
+      `super()`** and installs no gradient mask — either call it or rename the method. The
+      504 warm-started Tracker columns currently train from update 0.
+- [ ] Persist `alg.last_training_mask_report` in formal runs. A logged `surrogate = 0.0`
+      currently means "no post-handoff transitions this update", indistinguishable from
+      convergence.
+- [ ] Either honour `BCPPOCfg.learning_rate` or remove it — the warm start overwrites every
+      param group with the Tracker checkpoint's LR.
+- [ ] Add a terminal `LayerNorm` to the pre-LN patch encoder, or otherwise address that
+      only ~3 % of the 128-D embedding's norm varies with the tactile input.
+- [ ] Bind a `patch_channel_scales.json` to the channel definitions that produced it —
+      nothing does today, and the scales are baked into every checkpoint.
+
+### G5. 不需要动
+
+Branch matching、mass/inertia event 与 readback、Z 的 gradient isolation、510→504 warm
+start 与 `2e-6` audit、整个 dimension contract、eligibility gate 的 branch/factor
+invariance —— 这些都通过了审计，重跑时不要改。

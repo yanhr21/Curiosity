@@ -276,3 +276,93 @@ bash scripts/sugar/native_tactile/run_plan15_friction_feasibility.sh cuda:0
 [native tactile README](scripts/sugar/native_tactile/README.md)；本地实验索引见
 [experiments README](experiments/README.md)。checkpoint、trace、视频和日志均不得
 提交或推送。
+
+---
+
+## 正确性审计 / Correctness audit — 2026-08-19
+
+以上 Z/P/PS 结论在 2026-08-19 经过一次完整代码审计。**审计结果：当前 null result 不能
+作为"触觉无用"的结论报告。** 完整条目（115 条，含 file:line）见
+[`claude_context/findings.md`](claude_context/findings.md)，可浏览页面为
+`claude_context/index.html`（`python3 claude_context/serve.py`）。以下为英文摘要。
+
+*Written in English for precision; the findings log is the authoritative record.*
+
+### Verified sound — do not rebuild
+
+- **Branch matching is real.** The 54 TacSL sensor bodies do **not** change Z's physics:
+  the sensors create read-only PhysX views and never write forces back, neither
+  observation term consumes RNG, and the jump/handoff schedules are deterministic. Z's
+  trajectory is matched to P/PS at the same seed. This was the single biggest risk to the
+  design and it is clean.
+- **The mass event** is written at the action boundary with inertia scaled by exactly
+  `target/default` and both values read back, raising past `rtol=1e-6`.
+- **Z's gradient isolation** was measured, not argued: all 41 encoder parameters are in
+  the optimizer and every gradient is exactly zero.
+- **The eligibility gate cannot bias the comparison.** 59 = 60 − one seed-151014 profile
+  whose jump never lands by frame 370; because the jump is scheduled off the *frozen
+  teacher's* pickup and fires unconditionally, that exclusion is branch- and
+  factor-invariant. Confirmed arithmetically: −16/59 = −0.27119 = the reported −0.2712.
+- Every dimension in the contract (504 / 890 / 632 / 1944 / 128 / 29) holds and is
+  asserted at runtime.
+
+### Blocking defects
+
+1. **The reward penalises grasping; the term meant to reward it is dead.** `hoi_contact`
+   (+1.0) reads ContactSensors on `left/right_rubber_hand`, whose collision subtrees
+   `_disable_original_hand_collision_owner` deactivates at spawn — so `is_contact` is
+   permanently `False` and the term reduces to `(False == contact_label)`, a pure function
+   of the reference clock with **no behavioural gradient**. `undesired_contacts` (−1.0)
+   counts bodies over 0.1 N and matches all 54 elastomer patches (87 of 91 bodies), giving
+   −0.02 per contacting body per step against a maximum achievable positive reward of
+   5.125 — **six patches in contact cancel everything**. Nothing in the 21 terms asks the
+   policy to hold the box up.
+2. **`friction_utilization` is invariant to the object's friction** (divides by the
+   sensor's fixed `mu = 0.5`, which TacSL already used to cap the numerator) — while
+   `obj_physics_material` randomizes the box's friction over `U[0.2,0.8]` **during
+   training**, giving a true contact coefficient of 0.35–0.65.
+3. **Under stick the shear channel is a geometric leak of the normal force**, not
+   traction: TacSL projects the *total* force into a per-taxel frame, so shear ≈
+   `k_n·d·sinθ` and utilization ≈ `2·tanθ`. Measured at exactly zero relative velocity,
+   17.2° of off-centre contact gives utilization **0.622 — past the 0.60 incipient-slip
+   trigger with no slip at all**. Any utilization above 1.0 is geometric contamination by
+   construction.
+4. **Trained on motions 0–3, evaluated only on motion 45.** Every headline number is
+   out-of-distribution.
+5. **The slip detector's reset is silently swallowed between evaluation batches.**
+   `_online_patch_slip_history` returns early on a `common_step_counter` match *before*
+   calling `detector.update`, and `env.reset()` does not increment that counter — so the
+   detector's `previous_*` buffers and its GROSS latch survive the episode boundary.
+   **P has no differencing state, so this bug is asymmetric and favours P over PS**, on
+   the evaluation path that produced the −0.2712. Best single candidate for PS < P.
+
+### Weaker than reported
+
+- Every number came from `--physical-outcome-view`, which suppresses all six SUGAR
+  terminations, so `eligible` means only "the jump landed by frame 370". The stricter
+  `strict_sugar_hold_success` labels exist in every summary and have never been reported.
+- `1×` writes no mass at all — it is a no-perturbation control, not a 1× jump.
+- The 95 % CI is a *percentile* two-level bootstrap over **3 seed clusters**, no BCa, no
+  correction for the 180 intervals emitted per run. Strong point estimate, optimistic
+  interval.
+- The 20 "profiles" per run are near-replicates: same motion 45 frame 0, no push or
+  observation randomization, differing only in a deterministic jump delay and four per-env
+  friction draws that repeat across batches.
+- `hold + drop + safe_lower` does not sum to the eligible count — Z at 3× leaves 5 of 59
+  profiles in no label at all.
+
+### Remediation order
+
+1. Reward: exclude `.*_anatomical_.*` from `undesired_contacts`, repoint `hoi_contact`,
+   consider a hold term. **Cheapest, furthest upstream.**
+2. Hoist the reset out of the step-counter guard in `_online_patch_slip_history`.
+3. Measure per-channel variance and mass/friction MI during the *hold* phase on saved
+   traces before any retrain. No GPU needed.
+4. Rebuild the sensor reduction in the **contact frame** with a minimum-load gate and the
+   object's real material friction. The per-taxel frame causing the leak is a **local**
+   modification (upstream v2.3.2 uses one constant quaternion per sensor), so this needs no
+   vendor change; only a tangential spring with stick memory would.
+5. Close the train/eval motion split; report strict-view numbers alongside.
+
+**既有 checkpoint 不能跨 sensing 修改复用** — channel scales 存在 encoder 的 persistent
+buffer 里、进了每个 checkpoint，且没有任何机制把 scale 文件绑定到产生它的 channel 定义上。

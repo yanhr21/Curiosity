@@ -198,3 +198,86 @@ G1/CarryBox/54-patch H.264 位于
 3. 6x 已成功，因此未触发 stronger-grip/lower-posture 或 serious overfit；
 4. 已渲染并审查验证通过的 6x 完整持箱；
 5. 更新 README/TODO/AGENTS，只提交源码与文档。
+
+## 10. 审计状态 / Audit status — 2026-08-19
+
+§7 的 formal Z/P/PS 结论在 2026-08-19 经过完整代码审计（115 条 findings，见
+[`claude_context/findings.md`](../../claude_context/findings.md)）。**结论：当前 null
+result 不能作为对 §1 科学问题的回答。** 以下条目直接推翻或限定本 plan 中的具体条款。
+
+*English, for precision. The findings log is authoritative.*
+
+### Contract violations found in the implementation
+
+- **§4 "唯一训练期 slip 接口…不读取 relative contact velocity" — violated in substance
+  and literally.** `shear_xy_n` and `friction_utilization`, two of the detector's six
+  inputs, are computed inside TacSL from `relative_velocity_world`, so the callable
+  consumes the simulator's object-relative contact velocity one transform removed.
+  Literally, `update()` also takes `timestamp_s` and `reset_mask`, which are environment
+  state rather than patch signals. What it genuinely never reads: object pose, mass, jump
+  flag, reward, future frames.
+- **§3 "每个 patch 的 9 个通道" — channel 6 (`friction_utilization`) cannot measure what
+  its name claims.** It divides by the *sensor's* fixed `mu = 0.5`, the same constant
+  TacSL already used to cap the shear numerator, so it is invariant to the object's PhysX
+  material friction. Under stick it reduces to `2·tan θ`, a function of taxel-frame
+  misalignment: INCIPIENT fires at θ ≥ 16.7° with **zero** relative motion, and any value
+  above 1.0 is geometric contamination by construction.
+- **§2 "motion 45" holds only for evaluation.** Training runs
+  `motion_id = env_id % num_motion` with `num_envs = 4`, i.e. motions **0–3**. Every
+  reported number is out-of-distribution.
+- **§2 "1.0x 使用匹配 placebo event，但不写质量" — stronger than stated.** At factor 1.0
+  `apply_pending` selects an empty `changed_ids`, so no mass or inertia write happens at
+  all. `1×` is a no-perturbation control, not a 1× jump.
+- **§5 "teacher prefix transition 不进入 PPO surrogate/value/entropy credit" — true for
+  those three terms only.** The distillation loss is an unmasked `.mean()`, so the frozen
+  **nominal-mass** Refiner — trained on 0.5–2.0× and never on 3/6/10× — is a live
+  regression target *inside* the post-jump window.
+- **§5 "stage 3 保留共同 distill_weight_floor=0.25" — the floor starts binding at update
+  1750**, not 2000: `max(1 − alpha, 0.25)` reaches 0.25 at `alpha = 0.75`. Stage 2's
+  critic weight is also a linear ramp from 0, not a switch.
+
+### Defects that plausibly produce the §7 result
+
+1. **The reward penalises grasping.** `hoi_contact` (+1.0) reads ContactSensors on
+   `left/right_rubber_hand`, whose collision subtrees are deactivated at spawn, so it is
+   dead — a pure function of the reference clock with no behavioural gradient.
+   `undesired_contacts` (−1.0) counts bodies over 0.1 N and matches all 54 elastomer
+   patches: −0.02 per contacting body per step against a maximum achievable positive
+   reward of 5.125, so **six patches in contact cancel everything**. No term in the 21
+   asks the policy to hold the box up.
+2. **The slip detector's reset is silently swallowed between evaluation batches** —
+   `_online_patch_slip_history` returns early on a `common_step_counter` match *before*
+   `detector.update`, and `env.reset()` does not increment that counter. The `previous_*`
+   buffers, `gross_evidence_count` and the GROSS latch survive the episode boundary. **P
+   holds no differencing state, so this is asymmetric and favours P over PS**, on exactly
+   the evaluation path that produced the −0.2712. Strongest single candidate for PS < P.
+3. **Training randomizes the box's friction** over `U[0.2, 0.8]` (`obj_physics_material`
+   is not disabled, only `obj_mass` is) — a perturbation no tactile channel can observe.
+4. **The two binary slip channels enter the projection at magnitude exactly 1.0** while
+   shear enters at ~0.05, so the three channels PS adds are the loudest inputs.
+5. **The slip thresholds were calibrated on a flat R15 capsule**, a geometry in which the
+   taxel-frame misalignment that dominates the 54 curved pads does not exist.
+
+### What §6/§7 must be re-stated as
+
+- Every reported number came from `--physical-outcome-view`, which suppresses all six
+  terminations. **`eligible` means "the jump landed by frame 370", not "the rollout stayed
+  inside the SUGAR contract".** The `strict_sugar_hold_success` labels exist in every
+  summary and have never been reported.
+- The 95 % CI is a *percentile* two-level bootstrap over **3 seed clusters**, no BCa, and
+  no correction for the 180 intervals emitted per run. Strong point estimate, optimistic
+  interval.
+- The 20 "profiles" per run are near-replicates — same motion 45 frame 0, no push or
+  observation randomization, differing only in a deterministic jump delay and four per-env
+  friction draws that repeat across the five batches.
+- `hold + drop + safe_lower` does not sum to the eligible count (Z at 3×: 5 of 59
+  unlabelled).
+
+### What survived the audit unchanged
+
+Branch matching (the 54 sensor bodies do **not** change Z's physics — verified), the
+mass/inertia event and its readback, Z's gradient isolation (measured), the 510→504 warm
+start and its `2e-6` audit, the whole dimension contract, and the eligibility gate's
+branch- and factor-invariance (confirmed arithmetically: −16/59 = −0.27119 = −0.2712).
+
+**Plan 15 是否需要重跑，取决于以上 1–2 的修复；既有 checkpoint 不能跨 sensing 修改复用。**

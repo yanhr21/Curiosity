@@ -1,0 +1,986 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Curiosity · Plan 15 — does whole-hand tactile help under a mass jump?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="theme-aperture.css">
+<style>
+/* Per-page diagram sizing. These columns hold a 460-unit-wide drawing, which
+   app.js renders at FLOW_SCALE (1.3) px per unit = 598px. The shipped
+   --colw clamps at 560px and .flow-svg is max-width:100%, so the drawing gets
+   scaled down and its labels become unreadable. Size the column to the drawing
+   instead of the other way round, and let the panels inherit that width so they
+   line up with the figure above them. */
+#map .flow-row { --colw: 650px }
+#map .flow-col .flow-svg,
+#map .flow-col .flow-fig { max-width: none }
+#map .flow-col .flow-panels { max-width: var(--colw) }
+@media (max-width: 900px) { #map .flow-row { --colw: 92vw } }
+</style>
+<script>try{var t=localStorage.getItem('site-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="medal_rank.js"></script>
+</head>
+
+<body>
+
+<nav class="topbar">
+  <div class="inner">
+    <div class="repo-info">
+      <span class="repo-label">Repo</span>
+      <span class="repo-path" id="repo-path">Curiosity</span>
+      <span class="repo-sep">·</span>
+      <span class="repo-branch" id="repo-branch">sugar</span>
+    </div>
+    <div class="nav-links">
+      <a href="#run">Run</a>
+      <a href="#map">Map</a>
+      <a href="#variants">Branches</a>
+      <a href="#docs">Docs</a>
+      <a href="#modules">Modules</a>
+      <a href="#obj">① Where it breaks</a>
+      <a href="#bugs">◎ The ten</a>
+      <a href="#coda">Coda</a>
+      <a href="#" class="tab-link" data-tab="findings">Findings<span class="tab-count"></span></a>
+      <div class="theme-pick" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="">Paper</button>
+        <button type="button" data-theme-set="aperture">Aperture</button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="view" id="view-main">
+<div class="frame">
+
+<header class="cover">
+  <p class="eyebrow">Three&#8209;branch matched comparison &nbsp;·&nbsp; audited 2026·08·19</p>
+  <h1 class="title">Does tactile <span class="ar">·</span> <em>help?</em></h1>
+  <p class="lede">A complete SUGAR G1 has already lifted the CarryBox. Mid&#8209;episode, without touching geometry, appearance or the reference trajectory, the box gets heavier. Three otherwise&#8209;identical policies differ only in what tactile they can read. The answer, so far, is <b>no</b> — and this page is mostly about why that answer should not yet be believed.</p>
+
+  <div class="note">
+    <div class="note-k">Result &middot; 2026&#8209;08&#8209;18 &middot; all 900 rollouts complete</div>
+    <span>Eligible holds at <code>1× / 1.5× / 3× / 6× / 10×</code> — <b>Z</b> <code>59,59,52,1,0</code> · <b>P</b> <code>59,59,49,0,0</code> · <b>PS</b> <code>59,58,33,0,0</code>. P never beats the no&#8209;tactile control. At 3× the paired PS&minus;P hold difference is <b>&minus;0.2712</b> over 59 paired profiles, 95% CI <code>[-0.4655,-0.0667]</code>: <b>adding slip made the policy worse</b>. (That interval is a percentile bootstrap over three seed clusters with no multiplicity control — read it as a strong point estimate, not a controlled test.)</span>
+  </div>
+
+  <div class="note">
+    <div class="note-k">Audit &middot; 115 findings, 3 rounds, 9 agents &middot; read this before trusting the result</div>
+    <span>Information that reliably makes a policy <i>worse</i> is the signature of a wiring bug, so the sensing, training and reward paths were read end to end — once by hand, then by three independent Opus auditors, one per branch. <b>The experiment's skeleton is sound</b> (the mass jump, the warm start, and — verified — the physics being genuinely identical across Z/P/PS). <b>Three things around it are not.</b> The tactile channels cannot carry the signal being tested &mdash; measured, not argued; the reward <b>penalises every patch that touches the box</b> while the term meant to reward contact is dead; and the policies are trained on motions 0&#8211;3 and scored only on motion 45. One of my own earlier claims (&ldquo;shear collapses to zero under stick&rdquo;) was <b>refuted</b> by that measurement and is corrected below. See <a href="#obj">where it breaks</a> and the <a href="#" class="tab-link" data-tab="findings">Findings</a> tab. <b>Nothing has been fixed yet.</b></span>
+  </div>
+
+  <div class="note">
+    <div class="note-k">Shared vocabulary</div>
+    <span><b>patch</b> = one physical anatomical pad, 27 per hand, and the only policy unit &nbsp;·&nbsp; <b>taxel</b> = one of 500 force&#8209;field sample points in a patch's 20×25 grid, the physics backend, <i>never</i> a policy token &nbsp;·&nbsp; <b>handoff</b> = the frozen Refiner stops <i>driving</i> and the student's action starts being executed — the student's network ran from frame 0 either way &nbsp;·&nbsp; <b>jump</b> = the online mass/inertia write &nbsp;·&nbsp; <b>hold</b> = height loss ≤ 5 cm over the 80&#8209;frame post&#8209;jump window, no robot fall, and all 80 frames eligible &nbsp;·&nbsp; <b>drop</b> = height loss ≥ 15 cm &nbsp;·&nbsp; <b>safe&#8209;lower</b> = a fourth outcome the evaluator emits and the headline counts omit.</span>
+  </div>
+
+  <div class="strip">
+    <div class="cell a3">
+      <div class="k">Z &mdash; control</div>
+      <div class="v"><span class="name">no tactile</span><br><code>obs term reads no TacSL</code></div>
+    </div>
+    <div class="cell a1">
+      <div class="k">P &mdash; patch</div>
+      <div class="v"><span class="name">6 live channels</span><br><code>slip &equiv; 0</code></div>
+    </div>
+    <div class="cell a6">
+      <div class="k">PS &mdash; patch + slip</div>
+      <div class="v"><span class="name">9 live channels</span><br><code>PatchSlipDetector</code></div>
+    </div>
+    <div class="cell">
+      <div class="k">Verdict legend</div>
+      <div class="v legend" style="margin-top:4px">
+        <span class="pill same"><span class="g">=</span>verified sound</span>
+        <span class="pill near"><span class="g">≈</span>similar</span>
+        <span class="pill diff"><span class="g">Δ</span>differs</span>
+        <span class="pill lose"><span class="g">−</span>blocks the claim</span>
+        <span class="pill gain"><span class="g">+</span>better than Z</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+
+<section class="ch" id="run">
+  <div class="chap-no">▶</div>
+  <h2 class="ch-h">Running <em>it</em></h2>
+  <p class="ch-sub wide"><b>Not on this machine.</b> Plan 15 executes on a separate GPU host rooted at <code>/public/home/yanhongru/Curiosity</code>, which does not exist on this filesystem. This checkout is for reading, editing, testing and committing source. Full detail — including every silent&#8209;failure path — is in <a href="#docs">operations.md</a>.</p>
+
+  <div class="gridn" style="--ncol:2">
+    <div class="col a6">
+      <h4>Train one formal seed — runtime host</h4>
+      <ul>
+        <li><code>"$PYTHON_BIN" -u SUGAR/scripts/sugar_rl/train_online_patch_mass_bcppo.py --task Sugar-G129dof-CarryBox-OnlineMass-Patch-{Z|P|PS}-BCPPO --patch-scale-file "$SCALE" --seed 151016 --log_dir "$OUT" --headless --device cuda:0</code></li>
+        <li><b>Env:</b> no conda. <code>PYTHON_BIN=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python</code>, plus <code>DISPLAY=</code> (empty, not unset) and <code>OMNI_KIT_ACCEPT_EULA=Y</code> in every shell.</li>
+        <li><b><code>--patch-scale-file</code> is not optional, in any branch</b> — including Z, where the scales are numerically inert but still validated and saved into the checkpoint. It is consumed <i>before</i> the agent config is imported, because the scales are a class-body default evaluated at import time.</li>
+        <li><b>The configured <code>learning_rate = 1e-3</code> is not the LR that runs.</b> The warm start overwrites every optimizer param group with the Tracker checkpoint's own converged LR, and BCPPO holds <code>schedule="fixed"</code> for the first 500 updates, so it never adapts back.</li>
+        <li><b>Endpoint is fixed at 3000 updates.</b> Resume with <code>--resume_checkpoint_path</code>; mutually exclusive with the warm start. Never auto-start the next seed.</li>
+      </ul>
+    </div>
+    <div class="col a1">
+      <h4>Off the runtime host — what still works</h4>
+      <ul>
+        <li><code>python3 -m pytest tests/native_tactile -q</code> — needs <code>torch</code> and <code>numpy</code>, no IsaacLab. The only executable part of the repo here.</li>
+        <li>Everything under <code>experiments/</code> is gitignored and <b>absent</b> here apart from two index files. A README path starting <code>experiments/</code> not resolving is expected, not a broken link.</li>
+        <li><code>SUGAR/descriptions/</code> is also absent, so asset-level questions (e.g. whether the box's spawned <code>mass=0.5</code> matches <code>NOMINAL_CARRYBOX_MASS_KG = 0.3023375869</code>) cannot be settled here.</li>
+        <li>Long jobs on the runtime host go through <code>scripts/sugar/native_tactile/launch_retained_child.sh</code>, which records PID/PGID — never a bare <code>&amp;</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 class="h3">Frozen evaluation and the three-branch comparison</h3>
+  <pre><span class="c"># one endpoint → 5 masses × 20 profiles. PS needs the explicit gate.</span>
+<span class="c"># NB: one --mass-factor per run; the five-way set is the sweep aggregate, not one run.</span>
+PLAN15_ALLOW_PS_ENDPOINT_EVALUATION=1 \
+bash scripts/sugar/native_tactile/run_plan15_frozen_seed.sh \
+  PS &lt;endpoint&gt;/model_2999.pt 151016 152016 &lt;fresh-output-dir&gt; cuda:0
+
+<span class="c"># the evaluator refuses to overwrite: --output-root must not already exist</span>
+"$PYTHON_BIN" SUGAR/scripts/sugar_rl/compare_online_patch_mass_sweeps.py \
+  --z-root &lt;3 seed dirs&gt; --p-root &lt;3&gt; --ps-root &lt;3&gt; --output &lt;comparison.json&gt;</pre>
+</section>
+
+<section class="diagram" id="map">
+  <div class="chap-no">⌖</div>
+  <h2 class="ch-h">Architecture <em>map</em></h2>
+  <p class="ch-sub wide">One <b>training</b> control step, three branches, in true execution order. <b>Click any block</b> for its verified internals. Pinned at the left is <b style="color:#6d3a9e">PS</b>, the fullest path; the carousel holds <b>P</b> and the <b>Z</b> control. Everything except the tactile column is byte-identical across the three — verified, including that the 54 sensor bodies do not change the physics. The dashed rule above <code>Out</code> is a real boundary: everything below it is a <i>separate frozen-evaluator process</i>, not part of this loop.</p>
+
+  <div class="diag-wrap">
+    <div class="flow-legend">
+      <span class="leg"><i style="background:#f2efe6;border-color:#b9b2a0"></i>scene</span>
+      <span class="leg"><i style="background:#eaf3e3;border-color:#4d7d2c"></i>tactile sensing</span>
+      <span class="leg"><i style="background:#f6e9df;border-color:#b5651d"></i>encoder</span>
+      <span class="leg"><i style="background:#f3edda;border-color:#8a6d3b"></i>actor</span>
+      <span class="leg"><i style="background:#e6eff5;border-color:#3d77a6"></i>execution</span>
+      <span class="leg"><i style="background:#f0e2e6;border-color:#a4506a"></i>post-physics events</span>
+      <span class="leg"><i style="background:#dcebd2;border-color:#5a8a3a"></i>frozen-eval outcome</span>
+      <span class="leg"><i style="background:#fff1e4;border-color:#c47632"></i>branch-only module</span>
+      <span class="leg"><i style="background:#f1efeb;border-color:#b7b0a2"></i>dormant / training-only</span>
+    </div>
+
+    <div class="flow-row">
+
+      <div class="flow-col flow-pinned a6">
+        <div class="fc-badge">PS · fullest path</div>
+        <div class="fc-h">P + causal slip</div>
+        <div class="fc-sub">9 live channels per patch</div>
+        <div class="flow-fig">
+<svg id="psflow" class="flow-svg" width="100%" viewBox="0 0 460 632" xmlns="http://www.w3.org/2000/svg">
+<g class="graph">
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,50 L200,76"/><polygon fill="#9a958a" stroke="#9a958a" points="200,78 197.4,70.5 202.6,70.5"/><text text-anchor="start" x="326" y="70" font-family="'Geist',sans-serif" font-size="8.5" fill="#46443d">motions 0&#8211;3 &#183; 50 Hz</text></g>
+  <g class="edge"><path fill="none" stroke="#c47632" stroke-width="1.05" stroke-dasharray="4,2" d="M320,98 L330,98"/><polygon fill="#c47632" stroke="#c47632" points="332,98 324.5,95.4 324.5,100.6"/></g>
+  <g class="edge"><path fill="none" stroke="#c47632" stroke-width="1.05" d="M392,130 L392,152 L206,152"/><polygon fill="#c47632" stroke="#c47632" points="200,152 207.5,149.4 207.5,154.6"/><text text-anchor="middle" x="300" y="147" font-family="'Geist',sans-serif" font-size="7.5" fill="#c47632">3 slip ch</text></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,136 L200,170"/><polygon fill="#9a958a" stroke="#9a958a" points="200,172 197.4,164.5 202.6,164.5"/></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,232 L200,258"/><polygon fill="#9a958a" stroke="#9a958a" points="200,260 197.4,252.5 202.6,252.5"/><text text-anchor="start" x="326" y="252" font-family="'Geist',sans-serif" font-size="8.5" fill="#46443d">128-D</text></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M320,282 L330,282"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="332,282 324.5,279.4 324.5,284.6"/></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,320 L200,346"/><polygon fill="#9a958a" stroke="#9a958a" points="200,348 197.4,340.5 202.6,340.5"/><text text-anchor="start" x="326" y="340" font-family="'Geist',sans-serif" font-size="8.5" fill="#46443d">29-D student</text></g>
+  <g class="edge"><path fill="none" stroke="#3d77a6" stroke-width="1.05" d="M332,374 L322,374"/><polygon fill="#3d77a6" stroke="#3d77a6" points="320,374 327.5,371.4 327.5,376.6"/></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,396 L200,422"/><polygon fill="#9a958a" stroke="#9a958a" points="200,424 197.4,416.5 202.6,416.5"/><text text-anchor="start" x="326" y="416" font-family="'Geist',sans-serif" font-size="8.5" fill="#46443d">executed 29-D</text></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,478 L200,504"/><polygon fill="#9a958a" stroke="#9a958a" points="200,506 197.4,498.5 202.6,498.5"/></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" stroke-dasharray="3,3" d="M100,532 L56,532 L56,108 L96,108"/><polygon fill="#9a958a" stroke="#9a958a" points="80,108 72.5,105.4 72.5,110.6"/><text text-anchor="start" x="2" y="330" font-family="'Geist',sans-serif" font-size="7.5" fill="#8a857a">next step</text></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M200,554 L200,580"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="200,582 197.4,574.5 202.6,574.5"/><text text-anchor="start" x="326" y="574" font-family="'Geist',sans-serif" font-size="8.5" fill="#8a857a">frozen eval</text></g>
+
+  <g class="node"><title>Env</title><path fill="#f2efe6" stroke="#b9b2a0" stroke-width="1.0" d="M90,14 H310 A10,10 0 0 1 320,24 V40 A10,10 0 0 1 310,50 H90 A10,10 0 0 1 80,40 V24 A10,10 0 0 1 90,14 Z"/><text text-anchor="middle" x="200" y="36" font-family="'Geist',sans-serif" font-size="10.5">G1 + 54-patch skin &#183; SDF CarryBox</text></g>
+  <g class="node"><title>Tacsl</title><polygon fill="#eaf3e3" stroke="#4d7d2c" stroke-width="1.4" points="320,80 80,80 80,136 320,136"/><text text-anchor="middle" x="200" y="100" font-family="'Geist',sans-serif" font-size="10.5">54 TacSL force fields (20&#215;25)</text><text text-anchor="middle" x="200" y="115" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">reduce &#8594; 2&#215;27 patches &#183; 6 ch</text><text text-anchor="middle" x="200" y="129" font-family="'Geist',sans-serif" font-size="8.5" fill="#3a3833">history 4 &#8594; [B,1944]</text></g>
+  <g class="node"><title>Slip</title><path fill="#fff1e4" stroke="#c47632" stroke-width="1.4" stroke-dasharray="5,2" d="M340,86 H444 A8,8 0 0 1 452,94 V122 A8,8 0 0 1 444,130 H340 A8,8 0 0 1 332,122 V94 A8,8 0 0 1 340,86 Z"/><text text-anchor="middle" x="392" y="104" font-family="'Geist',sans-serif" font-size="8.5">PatchSlipDetector</text><text text-anchor="middle" x="392" y="118" font-family="'Geist',sans-serif" font-size="7.5" fill="#3a3833">ch 0&#8211;5 in &#8594; 6&#8211;8 out</text></g>
+  <g class="node"><title>Enc</title><polygon fill="#f6e9df" stroke="#b5651d" stroke-width="1.4" points="320,176 80,176 80,232 320,232"/><text text-anchor="middle" x="200" y="196" font-family="'Geist',sans-serif" font-size="10.5">&#247; frozen scales &#8594; patch Transformer</text><text text-anchor="middle" x="200" y="211" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">9&#8594;128 &#183; 3 layers &#183; 4 heads &#183; FFN 256</text><text text-anchor="middle" x="200" y="225" font-family="'Geist',sans-serif" font-size="8.5" fill="#3a3833">216 tokens &#8594; 128-D</text></g>
+  <g class="node"><title>Actor</title><polygon fill="#f3edda" stroke="#8a6d3b" stroke-width="1.4" points="320,264 80,264 80,320 320,320"/><text text-anchor="middle" x="200" y="284" font-family="'Geist',sans-serif" font-size="10.5">504 &#8853; 128 = 632 &#8594; 512/256/128 &#8594; 29</text><text text-anchor="middle" x="200" y="299" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">sampled &#183; &#963; from warm start</text><text text-anchor="middle" x="200" y="313" font-family="'Geist',sans-serif" font-size="8.5" fill="#3a3833">deployable &#183; no object state</text></g>
+  <g class="node"><title>Loss</title><path fill="#f1efeb" stroke="#b7b0a2" stroke-width="1.4" stroke-dasharray="5,2" d="M340,270 H444 A8,8 0 0 1 452,278 V306 A8,8 0 0 1 444,314 H340 A8,8 0 0 1 332,306 V278 A8,8 0 0 1 340,270 Z"/><text text-anchor="middle" x="392" y="288" font-family="'Geist',sans-serif" font-size="8.5">BCPPO</text><text text-anchor="middle" x="392" y="302" font-family="'Geist',sans-serif" font-size="7.5" fill="#3a3833">+890-D critic</text></g>
+  <g class="node"><title>Mux</title><polygon fill="#e6eff5" stroke="#3d77a6" stroke-width="1.4" points="320,352 80,352 80,396 320,396"/><text text-anchor="middle" x="200" y="372" font-family="'Geist',sans-serif" font-size="10.5">teacher / student select</text><text text-anchor="middle" x="200" y="387" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">torch.where(~handoff_active)</text></g>
+  <g class="node"><title>Teach</title><path fill="#e6eff5" stroke="#3d77a6" stroke-width="1.4" d="M340,354 H444 A8,8 0 0 1 452,362 V386 A8,8 0 0 1 444,394 H340 A8,8 0 0 1 332,386 V362 A8,8 0 0 1 340,354 Z"/><text text-anchor="middle" x="392" y="372" font-family="'Geist',sans-serif" font-size="8.5">frozen Refiner</text><text text-anchor="middle" x="392" y="386" font-family="'Geist',sans-serif" font-size="7.5" fill="#3a3833">890-D in &#8594; 29-D</text></g>
+  <g class="node"><title>Act</title><polygon fill="#e6eff5" stroke="#3d77a6" stroke-width="1.4" points="320,428 80,428 80,478 320,478"/><text text-anchor="middle" x="200" y="448" font-family="'Geist',sans-serif" font-size="10.5">&#215;scale + default pos &#183; mass write</text><text text-anchor="middle" x="200" y="463" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">4 PD substeps @ 200 Hz</text></g>
+  <g class="node"><title>Ev</title><polygon fill="#f0e2e6" stroke="#a4506a" stroke-width="1.4" points="320,510 80,510 80,554 320,554"/><text text-anchor="middle" x="200" y="530" font-family="'Geist',sans-serif" font-size="10.5">post-physics events</text><text text-anchor="middle" x="200" y="545" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">reward 21 &#183; term 6 &#183; reset &#183; lift gate</text></g>
+  <g class="node"><title>Out</title><path fill="#dcebd2" stroke="#5a8a3a" stroke-width="2.0" d="M90,586 H310 A10,10 0 0 1 320,596 V610 A10,10 0 0 1 310,620 H90 A10,10 0 0 1 80,610 V596 A10,10 0 0 1 90,586 Z"/><text text-anchor="middle" x="200" y="607" font-family="'Geist',sans-serif" font-size="10.5">hold / safe-lower / drop / fall</text></g>
+</g>
+</svg>
+        </div>
+
+        <div class="flow-panels">
+          <details class="flow-node" id="panel-ps-scene">
+            <summary>Scene — not the official asset<span class="ns">shared byte-for-byte by Z, P and PS</span></summary>
+            <div class="nb">
+              <p><b>Robot:</b> the G1 29-DoF <i>plus</i> 54 elastomer patch bodies, each a separate rigid body on a fixed joint, with a compliant contact material (stiffness 100 / damping 20 under this launcher's env defaults). Both <code>*_rubber_hand/collisions</code> subtrees are <b>deactivated at spawn</b>, so the original hand shells own no collider. <b>Object:</b> <code>SMALLBOX_SDF_CFG</code> — the CarryBox with its collision approximation replaced by a cooked SDF mesh, not the official <code>SMALLBOX_CFG</code>.</p>
+              <p><b>Randomization that survives:</b> <code>obj_mass</code> is disabled, but the inherited <code>obj_physics_material</code> is not — every environment draws CarryBox static <i>and</i> dynamic friction from <code>U[0.2, 0.8]</code> at startup, and the non-elastomer G1 bodies from <code>[0.3, 1.6]</code>. <b>Training therefore already varies the box's friction, and no tactile channel can observe it</b> (F-0001, F-2006).</p>
+              <p>Nominal mass <code>0.3023375869 kg</code>. <code>push_robot</code>, <code>push_object</code> and <code>init_with_ref</code> are all off; <code>start_init_env_ratio = 1.0</code>.</p>
+              <p class="src">tasks/…/carry_box_official_refiner_anatomical_whole_hand_tacsl_env_cfg.py:66-95,140-195 · assets/robots/anatomical_whole_hand_tacsl_g1.py:1093-1140,1872-1890 · assets/objects/tactile_objects.py:218-228 · tasks/…/base_refiner_env_cfg.py:262-295</p>
+            </div>
+          </details>
+
+          <details class="flow-node" id="panel-ps-tactile">
+            <summary>Tactile sensing → patch reduction → slip<span class="ns">three stages, and the experiment's primary suspect</span></summary>
+            <div class="nb">
+              <p><b>(a)</b> 54 lazy <code>VisuoTactileSensor</code> updates at 50 Hz. Each computes an SDF penalty force per taxel over a 20×25 grid, then projects the <b>total</b> force <code>fc_world + ft_world</code> into the taxel frame and calls local-z "normal", local-xy "shear". ("R15" is only the render calibration; the optical path is disabled here — <code>enable_camera_tactile=False</code>.)</p>
+              <p><b>(b)</b> <code>reduce_patch_taxels</code> sums <code>|normal|</code> over penetrating taxels, sums <i>signed</i> shear, divides by patch area, and forms <code>‖shear‖ / (mu·normal_load + 1e-8)</code> — with <code>mu</code> from the <b>sensor's own config</b> (0.5), the same constant TacSL already used to cap the numerator.</p>
+              <p><b>(c)</b> A 4-step ring buffer keyed on <code>common_step_counter</code>.</p>
+              <details class="sub">
+                <summary>why the shear and slip channels cannot work as written</summary>
+                <div class="nb">
+                  <p>TacSL's tangential force is <code>ft = -min(k_t·|v_t|, mu·|f_c|)·v̂_t</code> — pure velocity damping, <b>no tangential elasticity</b> — so under stick the <i>friction</i> term vanishes and shear carries <b>no tangential-traction information</b>. But the shear <i>channel</i> is not <code>ft</code>: line 1018 emits the local-xy of <code>fc + ft</code>, so what remains under stick is the taxel-frame leak of the <b>normal</b> force, <code>k_n·d·sinθ</code> — <b>proportional to grasp load, not zero</b> (F-4001 refuted the earlier "collapses to zero" wording).</p><p>Measured on the real reducer at <b>exactly zero relative velocity</b>, rigid cylindrical pad, <code>k_n=20, k_t=2, mu=0.5</code>: symmetric contact → util <code>7.8e-9</code>; 2.9° off-centre → <code>0.102</code>; 8.6° → <code>0.304</code>; <b>17.2° → 0.622</b>, which already exceeds the slip detector's incipient trigger of 0.60 <b>with zero slip</b>. Only exactly aligned contact gives zero. Grazing edge contact reaches <code>1.35–1.75</code>; a single taxel at 89° reaches <code>114</code>, at 90° <code>2.0e5</code> — the ratio is <code>tanθ/mu</code>, ceilinged only by the <code>+1e-8</code> epsilon.</p><p>When sliding does occur on aligned contact the channel is a <b>saturating ramp</b>, not a measurement: <code>min(k_t|v_t| / (mu·k_n·d), 1)</code>, knee at <code>5·d</code> ≈ 0.25–1.5 mm/s, then pinned at exactly <code>1.0</code>. Above ~1.5 mm/s it carries no magnitude information at all (F-4004).</p><p>And the divisor is the <i>sensor's</i> <code>mu</code>, the same constant that capped the numerator — while PhysX averages the pad's 0.5 with the box's <code>U[0.2,0.8]</code>, so the <b>true contact coefficient spans 0.35–0.65 while the channel always divides by 0.5</b> (F-0001, F-4005).</p>
+                </div>
+              </details>
+              <p><b>Slip runs after the reduction, and its output rejoins the tensor.</b> <code>PatchSlipDetector</code> never touches a sensor: it consumes the <i>reduced</i> six channels of the newest frame only (<code>base_history[:, -1]</code>), and its three outputs are <code>torch.cat</code>-ed back on as channels 6–8 — so in PS they <b>do</b> reach the actor, inside the same <code>[B,1944]</code> tensor. In P the same three slots are a zero block and the detector is never constructed; in Z the whole tensor is zeros.</p><p><b>Three OR’d incipient sources, not one</b> (F-7003): <code>utilization ≥ 0.60</code> | <code>shear_rate ≥ 0.5</code> | <code>pressure_drop_rate ≥ 2.0</code>. GROSS needs the shear or pressure channel <i>twice in a row</i> — utilization alone can never reach it, despite the parameter named <code>gross_friction_utilization</code>, which is only a normalizer. Both rate channels are forced to zero unless the patch was in contact on the previous frame, so <b>on the first frame of any contact only utilization can fire</b>.</p><p><b>GROSS is a latch</b> (F-7002): <code>retained_gross</code> holds a patch at GROSS for as long as <i>any</i> incipient evidence persists — including a static geometric <code>utilization ≥ 0.60</code> with zero motion. Nothing but an episode reset clears it, and between evaluation batches that reset is silently swallowed (F-7001).</p>
+              <p><b>Known bug (F-2011):</b> the history cache is keyed on <code>common_step_counter</code> and the reset refill lives inside the recompute branch, so the first policy observation of every <i>evaluation</i> batch after the first carries the previous batch's terminal history. Training is unaffected.</p>
+              <p class="src">tasks/locomanip/online_patch_tactile.py:85-162,202-275,363-406,436-468,505-525 · tasks/locomanip/patch_slip.py:148-284 · IsaacLab/…/tacsl_sensor/visuotactile_sensor.py:993-1024</p>
+            </div>
+          </details>
+
+          <details class="flow-node" id="panel-ps-enc">
+            <summary>Frozen scales → anatomical patch Transformer<span class="ns">216 tokens · 9→128 · masked attention pool</span></summary>
+            <div class="nb">
+              <p><b>First operation is a division, not a projection.</b> Every channel is divided by a frozen 9-vector read from <code>SUGAR_ONLINE_PATCH_CHANNEL_SCALES</code> — fitted offline as the 99.5th percentile of nonzero magnitudes over saved sweep traces, held in a class-body default evaluated at <i>import</i> time, and registered as a persistent buffer that lands in every checkpoint. This is the stage F-0004 says is broken.</p>
+              <p>Then each of <code>4 × 2 × 27 = 216</code> patch records is projected <code>9→128</code> by a <b>bias-free</b> linear and given learned time, hand and patch embeddings. Three pre-LN encoder layers, 4 heads, FFN 256, dropout 0. A learned query scores every token; softmax over unmasked tokens pools to <code>128-D</code>. Geometry is hard-frozen to <code>(4,2,27,9,128,3,4,256)</code>.</p>
+              <p><b>The scaling is p99.5 max-scaling, not standardization</b> — no centering, no unit variance. After division, on a plausible sparse-contact draw: contact <code>1.000</code>, slip flags <code>1.000</code>, friction utilization <code>0.258</code>, pressure <code>0.154</code>, normal load <code>0.148</code>, <b>shear x/y <code>0.054</code>/<code>0.047</code></b>. The binary indicators dominate the projection input and <b>the two channels the experiment is about are the smallest</b> — and the heavy tails from F-4001/F-4002 push them further down (F-9004).</p><p><b>The output is 97 % constant.</b> Pre-LN with no terminal <code>LayerNorm</code> means the 128-D magnitude is set by the LayerNorm branches, not by the input. Measured: tokens in rms 0.098 → encoded rms 1.30 → pooled per-row L2 <code>15.13</code>; across 64 contact patterns the mean embedding has L2 <code>15.12</code> and the mean deviation from it is <code>0.486</code> — <b>only 3.2 % of the norm varies with the tactile state</b> (F-9001). <code>warm_start_tactile_gain = 0.01</code> holds the patch columns to 0.7 % of the base contribution at init, but they are trainable with no mask and Adam restores them to full-init scale <b>inside one BCPPO update</b>.</p><p><b>The mask is a contact gate, not padding.</b> All 216 tokens are real patches, so nothing is conflated — but with no patch in contact <code>torch.where</code> returns exact zeros, <b>bitwise identical to Z</b>. So before first contact all three branches feed the actor the same 632-D input; they differ only after grasp. On the P/PS split, a contact-loss frame carries <code>slip_score = 1.0</code> <b>and</b> <code>gross_slip = 1.0</code> and stays unmasked in PS for <b>four</b> control steps while P masks it (F-9003, F-2015).</p>
+              <p><b>Reading trap:</b> the inherited constructor chain builds and throws away <b>two</b> 20×25 conv <code>SpatialTactileEncoder</code>s, a 760-wide actor MLP and a 1146-wide critic MLP — ~1.5 M parameters — before this class installs the patch Transformer. Each consumes global RNG, so the Transformer's init depends on it. A class attribute suppresses the log line that would show it (F-2021, F-9009).</p>
+              <p class="src">utils/patch_tactile_encoder.py:54-102,122-163 · agents/rsl_rl_online_patch_mass_bcppo_cfg.py:18-32,44 · scripts/sugar/native_tactile/fit_online_patch_channel_scales.py:26-69</p>
+            </div>
+          </details>
+
+          <details class="flow-node" id="panel-ps-actor">
+            <summary>Deployable actor · privileged critic · BCPPO<span class="ns">632→512→256→128→29, plus two things the actor never sees</span></summary>
+            <div class="nb">
+              <p>The <code>504-D</code> base is Tracker command + proprioception only: reference joint pos, reference root velocities, 5-step histories of base angular velocity, joint pos/vel, last action and projected gravity, plus base linear velocity and <code>normalized_motion_phase</code>. <b>No measured object state, mass factor, jump flag, RGB or future frame.</b> Concatenated with the 128-D patch embedding → <code>632</code> in, <code>29</code> out. <b>Training executes a sample</b> from <code>Normal(mean, std)</code>; frozen evaluation executes the mean.</p>
+              <p><b>The same module owns a privileged critic</b> — <code>890-D → 512/256/128 → 1</code>, with an <code>nn.Identity</code> tactile encoder. It sees <b>no tactile in any branch</b>, and its 890-D group does contain measured object pose and velocity. Its value loss is the only PPO term active in stage 2.</p>
+              <p><b>The Refiner is loaded twice.</b> The acting teacher (in the wrapper) and BCPPO's distillation target are separate objects from the same file, reading two separately-computed 890-D observations. The distillation loss is the dominant gradient for the whole run.</p>
+              <p>Warm-started from the released <code>510-D</code> Tracker: columns <code>0:35</code> and <code>36:501</code> map across, the contact label and measured object pose are dropped, and the new base columns <code>500:504</code> start at zero authority. A self-check asserts the zero-patch actor matches the source to <code>2e-6</code> — but the reference it compares against is the Tracker <i>with those 10 inputs zeroed</i>, not the Tracker on its own observation (F-3017).</p>
+              <p><b>One update is 24 steps × 4 envs = 96 transitions</b> → 4 mini-batches × 5 epochs = <b>20 Adam steps</b>, 60 000 over the run. γ 0.99 · λ 0.95 · clip 0.2 · desired-KL 0.01 · entropy 0.005 · value 1.0. Stage 2's critic weight is a linear <i>ramp</i> from 0 at update 500 to 1 at 999; the 0.25 distillation floor starts binding at update <b>1750</b>, not 2000.</p><p><b>Silent asymmetries.</b> Surrogate, value and entropy are masked to post-handoff transitions via the fifth observation group <code>training_handoff_mask</code>; the distillation loss is a plain unmasked <code>.mean()</code>, so the frozen <b>nominal-mass</b> Refiner regresses the student <i>inside</i> the post-jump window (F-0006, F-8003). With 4 envs starting in lockstep, whole updates land entirely in the teacher prefix — surrogate, value and entropy are then exactly <code>0.0</code>, <b>indistinguishable in the log from convergence</b> (F-8005, F-8015).</p><p><b>The distillation KL sets the student's exploration noise.</b> It is <code>KL(teacher‖student)</code>, minimized in σ at <code>σ_s² = σ_t² + (µ_t−µ_s)²</code>, and there is no entropy term at all until update 1000 — so for the first third of the run the BC term is the only thing setting σ. The teacher itself is rebuilt by <i>inferring</i> widths from checkpoint weight shapes with <code>elu</code> hardcoded and no iteration or hash check, unlike the acting copy (F-8011).</p><p><b>The LR override.</b> Every optimizer param group is overwritten with the Tracker checkpoint's own LR, so the configured <code>1e-3</code> is only ever used to build Adam. It is pinned there for updates 0–499; from 500 <code>schedule</code> flips to adaptive and the KL controller moves it ×1.5/÷1.5 <b>per mini-batch</b> (20×/update) within <code>[1e-5, 1e-2]</code> — on as few as one post-handoff sample (F-8001, F-8009).</p><p><b>And the finetune gate gates nothing (F-9002).</b> The parent class freezes the actor and installs a <code>mask_base_columns</code> backward hook that would hold the warm-started Tracker columns fixed. This class overrides that method <b>without calling <code>super()</code></b> and merely sets <code>requires_grad_(True)</code> — nothing was ever frozen, so it is a no-op plus a report dict. <b>The 504 base columns train from update 0</b>, and the <code>2e-6</code> equivalence holds only for the single forward pass inside the audit.</p>
+              <p class="src">utils/online_patch_tactile_actor_critic.py:36-132,134-189,191-250 · utils/reference_only_tactile_actor_critic.py:90-110 · utils/rsl_rl_bcppo.py:35-71,77-82,150-168,249-308,310-346 · tasks/locomanip/online_teacher_handoff.py:143-151</p>
+            </div>
+          </details>
+
+          <details class="flow-node" id="panel-ps-exec">
+            <summary>Teacher/student multiplexer &amp; the action pipeline<span class="ns">the handoff acts <i>here</i>, below the actor — not above it</span></summary>
+            <div class="nb">
+              <p><b>The student's tactile stack and actor run on every step from frame 0</b>, including the entire teacher prefix; their sampled actions and log-probs go into the rollout buffer throughout. The lift gate only decides which 29-D vector is <i>executed</i>: <code>torch.where(teacher_control[:,None], teacher_action, actions)</code>, in the vec-env wrapper, which receives the student's already-sampled action first. The Refiner's forward therefore runs <i>after</i> the student's within a control step.</p>
+              <p>The acting teacher builds its <b>own</b> <code>ObservationManager</code> over <code>BaseObservationsCfg().policy</code> with corruption disabled, and computes its 890-D observation fresh at wrapper entry — not from <code>env.obs_buf</code> and not from the env's <code>teacher</code> group. It is constructed with <code>expected_sha256=None</code>, so <b>the pinned checkpoint hash check is disabled</b>; only path equality and <code>iter == 10000</code> remain.</p>
+              <p>The executed 29-D value is <i>raw</i>. <code>process_actions</code> computes <code>raw × scale + default_joint_pos</code> (scale = <code>0.25 · effort_limit / stiffness</code> per joint) and the result is held as a PD target across <b>four 200 Hz PhysX substeps</b>. The pending mass/inertia write happens inside this same call — after the actor, before the substeps.</p>
+              <p class="src">utils/online_teacher_handoff_wrapper.py:44-56 · utils/official_refiner_nominal_teacher.py:62-113,134-154 · tasks/locomanip/online_mass_jump_action.py:16-21 · IsaacLab/…/manager_based_rl_env.py:174,183-198</p>
+            </div>
+          </details>
+
+          <details class="flow-node" id="panel-ps-loop">
+            <summary>Post-physics events, reward, reset — and the eval boundary<span class="ns">where the reward turns against the grasp</span></summary>
+            <div class="nb">
+              <p>After the substeps, in order: terminations (6 terms), rewards (21 terms), <code>_reset_idx</code>, command update, then the interval events — <code>step_teacher_handoff</code> advances the lift gate, then <code>step_mass_jump</code> schedules. That order matters and is only guaranteed by configclass field-declaration order. Finally the observation manager computes, feeding the next actor call.</p>
+              <p><b>Episodes reset routinely.</b> <code>episode_length_s = 30.0</code> in training (the <code>1e9</code> values are in the <i>Play</i> configs the evaluator uses), and <code>obj_pos</code> at 0.3 m is exactly what a sagging box trips after a 6× or 10× jump. A reset re-arms the lift gate, redraws the delay and factor, and writes nominal mass back to PhysX. "No reset" is true only of the <i>handoff</i>.</p>
+              <p><b>21 reward terms, and none of them asks the policy to hold the box up (F-5007).</b> The whole positive signal is reference tracking: 11 motion terms (object terms at 0.5, twice the body weight), 2 <code>obj2body</code> terms at 0.25, and <code>hoi_contact</code>. The largest magnitude in the stack is <code>joint_limit</code> at <b>−10.0</b>. Watch <code>feet_air_time</code>: weight <b>+5.0</b> on a function that is always ≤ 0, so it is a penalty, not a bonus — the only sign-inverted term here.</p><p><b>The contact terms are broken in two different ways (F-3002, F-5002, F-5004).</b> <code>hoi_contact</code> (+1.0) reads ContactSensors on the two <code>*_rubber_hand</code> links, whose collision subtrees the spawner <i>deactivates</i>, so <code>is_contact</code> is permanently false. It degenerates to <code>(False == contact_label)</code> — a lookup into a frozen <code>.npy</code> keyed by (motion, frame). <b>It is a pure function of the reference clock and supplies no behavioural gradient at all</b>: the policy cannot raise it by letting go or lower it by gripping harder. What is left is <code>undesired_contacts</code> (−1.0), a <i>count</i> of bodies whose net force exceeds 0.1 N — matching all 54 elastomer patches and both camera tips, 87 of 91 bodies — scaled by <code>dt</code> to <b>−0.02 per body per step</b>. Against a maximum achievable positive reward of 5.125, <b>six patches in contact cancel everything</b>.</p><p><b>Four terms read <code>env.scene.sensors</code></b> — <code>feet_slide</code>, <code>feet_air_time</code>, <code>undesired_contacts</code> and <code>hoi_contact</code>. No termination reads a sensor. Five of the seven declared ContactSensors (both feet, both hips, pelvis) are built and stepped but read by <b>nothing</b> in training, and the working patch↔box sensors live in the <i>audit</i> scene, which training does not use.</p>
+              <p><b>Below the dashed line is a different process.</b> <code>hold / safe-lower / drop / fall</code>, the 80-frame window and motion 45 all live in <code>evaluate_online_patch_mass_bcppo.py</code>, with its own seeds (152014/5/6), the <i>Play</i> env cfg, deterministic mean actions, and <b>one mass factor per run</b>. It runs under <code>--physical-outcome-view</code>, which suppresses every reset — so the traced termination flags are <b>latched, not per-frame</b>, and <code>reference_robot_deviation</code> reads True inside the post-jump window if it fired anywhere earlier, including during the teacher-driven pickup.</p>
+              <p class="src">IsaacLab/…/manager_based_rl_env.py:205-238 · tasks/…/base_refiner_env_cfg.py:71-73,299-399,404-455 · tasks/…/carry_box_refiner_env_cfg.py:86-112,136-138 · tasks/locomanip/mdp/rewards.py:142-172 · SUGAR/scripts/sugar_rl/evaluate_online_patch_mass_bcppo.py:321-360,438-441</p>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="flow-scroll">
+        <div class="flow-col a1">
+          <div class="fc-h">P — patch only</div>
+          <div class="fc-sub">6 live channels · slip fields exactly zero</div>
+          <div class="flow-fig">
+<svg id="pflow" class="flow-svg" width="100%" viewBox="0 0 460 632" xmlns="http://www.w3.org/2000/svg">
+<g class="graph">
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,50 L200,76"/><polygon fill="#9a958a" stroke="#9a958a" points="200,78 197.4,70.5 202.6,70.5"/><text text-anchor="start" x="326" y="70" font-family="'Geist',sans-serif" font-size="8.5" fill="#46443d">motions 0&#8211;3 &#183; 50 Hz</text></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M320,98 L330,98"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="332,98 324.5,95.4 324.5,100.6"/></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M392,130 L392,152 L206,152"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="200,152 207.5,149.4 207.5,154.6"/><text text-anchor="middle" x="300" y="147" font-family="'Geist',sans-serif" font-size="7.5" fill="#b7b0a2">3 ch &#8801; 0</text></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,136 L200,170"/><polygon fill="#9a958a" stroke="#9a958a" points="200,172 197.4,164.5 202.6,164.5"/></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,232 L200,258"/><polygon fill="#9a958a" stroke="#9a958a" points="200,260 197.4,252.5 202.6,252.5"/><text text-anchor="start" x="326" y="252" font-family="'Geist',sans-serif" font-size="8.5" fill="#46443d">128-D</text></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M320,282 L330,282"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="332,282 324.5,279.4 324.5,284.6"/></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,320 L200,346"/><polygon fill="#9a958a" stroke="#9a958a" points="200,348 197.4,340.5 202.6,340.5"/><text text-anchor="start" x="326" y="340" font-family="'Geist',sans-serif" font-size="8.5" fill="#46443d">29-D student</text></g>
+  <g class="edge"><path fill="none" stroke="#3d77a6" stroke-width="1.05" d="M332,374 L322,374"/><polygon fill="#3d77a6" stroke="#3d77a6" points="320,374 327.5,371.4 327.5,376.6"/></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,396 L200,422"/><polygon fill="#9a958a" stroke="#9a958a" points="200,424 197.4,416.5 202.6,416.5"/><text text-anchor="start" x="326" y="416" font-family="'Geist',sans-serif" font-size="8.5" fill="#46443d">executed 29-D</text></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,478 L200,504"/><polygon fill="#9a958a" stroke="#9a958a" points="200,506 197.4,498.5 202.6,498.5"/></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" stroke-dasharray="3,3" d="M100,532 L56,532 L56,108 L96,108"/><polygon fill="#9a958a" stroke="#9a958a" points="80,108 72.5,105.4 72.5,110.6"/><text text-anchor="start" x="2" y="330" font-family="'Geist',sans-serif" font-size="7.5" fill="#8a857a">next step</text></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M200,554 L200,580"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="200,582 197.4,574.5 202.6,574.5"/><text text-anchor="start" x="326" y="574" font-family="'Geist',sans-serif" font-size="8.5" fill="#8a857a">frozen eval</text></g>
+
+  <g class="node"><title>Env</title><path fill="#f2efe6" stroke="#b9b2a0" stroke-width="1.0" d="M90,14 H310 A10,10 0 0 1 320,24 V40 A10,10 0 0 1 310,50 H90 A10,10 0 0 1 80,40 V24 A10,10 0 0 1 90,14 Z"/><text text-anchor="middle" x="200" y="36" font-family="'Geist',sans-serif" font-size="10.5">G1 + 54-patch skin &#183; SDF CarryBox</text></g>
+  <g class="node"><title>Tacsl</title><polygon fill="#eaf3e3" stroke="#4d7d2c" stroke-width="1.4" points="320,80 80,80 80,136 320,136"/><text text-anchor="middle" x="200" y="100" font-family="'Geist',sans-serif" font-size="10.5">54 TacSL force fields (20&#215;25)</text><text text-anchor="middle" x="200" y="115" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">reduce &#8594; 2&#215;27 patches &#183; 6 ch</text><text text-anchor="middle" x="200" y="129" font-family="'Geist',sans-serif" font-size="8.5" fill="#3a3833">history 4 &#8594; [B,1944]</text></g>
+  <g class="node"><title>Slip</title><path fill="#f1efeb" stroke="#b7b0a2" stroke-width="1.4" stroke-dasharray="5,2" d="M340,86 H444 A8,8 0 0 1 452,94 V122 A8,8 0 0 1 444,130 H340 A8,8 0 0 1 332,122 V94 A8,8 0 0 1 340,86 Z"/><text text-anchor="middle" x="392" y="104" font-family="'Geist',sans-serif" font-size="8.5">PatchSlipDetector</text><text text-anchor="middle" x="392" y="118" font-family="'Geist',sans-serif" font-size="7.5" fill="#3a3833">never called</text></g>
+  <g class="node"><title>Enc</title><polygon fill="#f6e9df" stroke="#b5651d" stroke-width="1.4" points="320,176 80,176 80,232 320,232"/><text text-anchor="middle" x="200" y="196" font-family="'Geist',sans-serif" font-size="10.5">&#247; frozen scales &#8594; patch Transformer</text><text text-anchor="middle" x="200" y="211" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">9&#8594;128 &#183; 3 layers &#183; 4 heads &#183; FFN 256</text><text text-anchor="middle" x="200" y="225" font-family="'Geist',sans-serif" font-size="8.5" fill="#3a3833">3 of 9 channels always 0</text></g>
+  <g class="node"><title>Actor</title><polygon fill="#f3edda" stroke="#8a6d3b" stroke-width="1.4" points="320,264 80,264 80,320 320,320"/><text text-anchor="middle" x="200" y="284" font-family="'Geist',sans-serif" font-size="10.5">504 &#8853; 128 = 632 &#8594; 512/256/128 &#8594; 29</text><text text-anchor="middle" x="200" y="299" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">sampled &#183; &#963; from warm start</text><text text-anchor="middle" x="200" y="313" font-family="'Geist',sans-serif" font-size="8.5" fill="#3a3833">deployable &#183; no object state</text></g>
+  <g class="node"><title>Loss</title><path fill="#f1efeb" stroke="#b7b0a2" stroke-width="1.4" stroke-dasharray="5,2" d="M340,270 H444 A8,8 0 0 1 452,278 V306 A8,8 0 0 1 444,314 H340 A8,8 0 0 1 332,306 V278 A8,8 0 0 1 340,270 Z"/><text text-anchor="middle" x="392" y="288" font-family="'Geist',sans-serif" font-size="8.5">BCPPO</text><text text-anchor="middle" x="392" y="302" font-family="'Geist',sans-serif" font-size="7.5" fill="#3a3833">+890-D critic</text></g>
+  <g class="node"><title>Mux</title><polygon fill="#e6eff5" stroke="#3d77a6" stroke-width="1.4" points="320,352 80,352 80,396 320,396"/><text text-anchor="middle" x="200" y="372" font-family="'Geist',sans-serif" font-size="10.5">teacher / student select</text><text text-anchor="middle" x="200" y="387" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">torch.where(~handoff_active)</text></g>
+  <g class="node"><title>Teach</title><path fill="#e6eff5" stroke="#3d77a6" stroke-width="1.4" d="M340,354 H444 A8,8 0 0 1 452,362 V386 A8,8 0 0 1 444,394 H340 A8,8 0 0 1 332,386 V362 A8,8 0 0 1 340,354 Z"/><text text-anchor="middle" x="392" y="372" font-family="'Geist',sans-serif" font-size="8.5">frozen Refiner</text><text text-anchor="middle" x="392" y="386" font-family="'Geist',sans-serif" font-size="7.5" fill="#3a3833">890-D in &#8594; 29-D</text></g>
+  <g class="node"><title>Act</title><polygon fill="#e6eff5" stroke="#3d77a6" stroke-width="1.4" points="320,428 80,428 80,478 320,478"/><text text-anchor="middle" x="200" y="448" font-family="'Geist',sans-serif" font-size="10.5">&#215;scale + default pos &#183; mass write</text><text text-anchor="middle" x="200" y="463" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">4 PD substeps @ 200 Hz</text></g>
+  <g class="node"><title>Ev</title><polygon fill="#f0e2e6" stroke="#a4506a" stroke-width="1.4" points="320,510 80,510 80,554 320,554"/><text text-anchor="middle" x="200" y="530" font-family="'Geist',sans-serif" font-size="10.5">post-physics events</text><text text-anchor="middle" x="200" y="545" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">reward 21 &#183; term 6 &#183; reset &#183; lift gate</text></g>
+  <g class="node"><title>Out</title><path fill="#dcebd2" stroke="#5a8a3a" stroke-width="2.0" d="M90,586 H310 A10,10 0 0 1 320,596 V610 A10,10 0 0 1 310,620 H90 A10,10 0 0 1 80,610 V596 A10,10 0 0 1 90,586 Z"/><text text-anchor="middle" x="200" y="607" font-family="'Geist',sans-serif" font-size="10.5">hold / safe-lower / drop / fall</text></g>
+</g>
+</svg>
+          </div>
+          <div class="flow-panels">
+            <details class="flow-node" id="panel-p-shared">
+              <summary>Scene, execution, events, outcome<span class="ns">byte-identical to PS — verified, not assumed</span></summary>
+              <div class="nb">
+                <p>One config module, three registrations. <code>OnlinePatchMassRobotEnvCfg</code> is the <i>base</i> class; the Z and PS configs subclass it and override <b>only</b> <code>observations</code>. Scene, actions, events, commands, rewards, terminations and sim are inherited byte-for-byte, so the friction randomization, the deactivated hand colliders, the reward inversion and the motion 0–3 training set all apply here identically.</p>
+                <p class="src">tasks/…/carry_box_online_patch_tactile_mass_env_cfg.py:206-236,239-265 · SUGAR/scripts/sugar_rl/online_patch_mass_bcppo_task_registration.py:21-50</p>
+              </div>
+            </details>
+            <details class="flow-node" id="panel-p-tactile">
+              <summary>Patch tactile, slip fields zeroed<span class="ns">bit-identical to PS in channels 0–5</span></summary>
+              <div class="nb">
+                <p><code>online_patch_tactile_actor_history</code> builds the same <code>[B,4,2,27,6]</code> history from the same <code>_patch_history</code> cache with the same key, then concatenates a zero block for the three slip channels. For the same physical state, elements <code>0..5</code> of all 216 patch records are <b>bit-identical</b> to PS.</p>
+                <p><b>The detector is genuinely never constructed here</b> — it is imported <i>inside</i> <code>_online_patch_slip_history</code>, which only <code>online_patch_tactile_with_slip_actor_history</code> reaches, and P registers only the other term. But that is true of <i>training</i> only: the frozen evaluator constructs and runs a <code>PatchSlipDetector</code> in <b>every</b> branch, with no guard, and writes its state into the trace (F-2008).</p>
+                <p>The runtime assertion that would prove it, <code>p_branch_did_not_call_slip</code>, only executes under the <code>-Preflight-</code> task ids — the formal run never checks it (F-2009).</p>
+                <p class="src">tasks/locomanip/online_patch_tactile.py:409-433,505-525,554-558 · SUGAR/scripts/sugar_rl/evaluate_online_patch_mass_bcppo.py:190-192,634-651</p>
+              </div>
+            </details>
+            <details class="flow-node" id="panel-p-enc">
+              <summary>Scales &amp; encoder<span class="ns">same module, same weights shape</span></summary>
+              <div class="nb">
+                <p>Identical to PS, including the frozen channel-scale division. The projection is bias-free, so the three permanently-zero channels contribute exactly nothing — P is not paying a representational cost for carrying them. It does, however, see a different <i>token set</i> from PS: a patch that just lost contact is masked here and unmasked there.</p>
+                <p class="src">utils/patch_tactile_encoder.py:122-163</p>
+              </div>
+            </details>
+            <details class="flow-node" id="panel-p-actor">
+              <summary>Actor, critic &amp; BCPPO<span class="ns">identical schedule, seeds and floor</span></summary>
+              <div class="nb">
+                <p>Same warm start, same 3000-update schedule, same <code>0.25</code> stage-3 distillation floor, same optimizer and reward, same privileged critic that sees no tactile. <b>P holds <code>59,59,49,0,0</code> against Z's <code>59,59,52,1,0</code></b> — the 3× paired interval crosses zero, so this is "no demonstrated benefit", with a worse point estimate.</p>
+                <p class="src">agents/rsl_rl_online_patch_mass_bcppo_cfg.py:50-91 · utils/rsl_rl_bcppo.py:310-346</p>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="flow-col a3">
+          <div class="fc-h">Z — control</div>
+          <div class="fc-sub">exact zeros · obs term reads no TacSL</div>
+          <div class="flow-fig">
+<svg id="zflow" class="flow-svg" width="100%" viewBox="0 0 460 632" xmlns="http://www.w3.org/2000/svg">
+<g class="graph">
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,50 L200,76"/><polygon fill="#9a958a" stroke="#9a958a" points="200,78 197.4,70.5 202.6,70.5"/><text text-anchor="start" x="326" y="70" font-family="'Geist',sans-serif" font-size="8.5" fill="#46443d">motions 0&#8211;3 &#183; 50 Hz</text></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M320,98 L330,98"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="332,98 324.5,95.4 324.5,100.6"/></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M392,130 L392,152 L206,152"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="200,152 207.5,149.4 207.5,154.6"/><text text-anchor="middle" x="300" y="147" font-family="'Geist',sans-serif" font-size="7.5" fill="#b7b0a2">3 ch &#8801; 0</text></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M200,136 L200,170"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="200,172 197.4,164.5 202.6,164.5"/></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M200,232 L200,258"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="200,260 197.4,252.5 202.6,252.5"/><text text-anchor="start" x="326" y="252" font-family="'Geist',sans-serif" font-size="8.5" fill="#8a857a">128-D</text></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M320,282 L330,282"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="332,282 324.5,279.4 324.5,284.6"/></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,320 L200,346"/><polygon fill="#9a958a" stroke="#9a958a" points="200,348 197.4,340.5 202.6,340.5"/><text text-anchor="start" x="326" y="340" font-family="'Geist',sans-serif" font-size="8.5" fill="#46443d">29-D student</text></g>
+  <g class="edge"><path fill="none" stroke="#3d77a6" stroke-width="1.05" d="M332,374 L322,374"/><polygon fill="#3d77a6" stroke="#3d77a6" points="320,374 327.5,371.4 327.5,376.6"/></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,396 L200,422"/><polygon fill="#9a958a" stroke="#9a958a" points="200,424 197.4,416.5 202.6,416.5"/><text text-anchor="start" x="326" y="416" font-family="'Geist',sans-serif" font-size="8.5" fill="#46443d">executed 29-D</text></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" d="M200,478 L200,504"/><polygon fill="#9a958a" stroke="#9a958a" points="200,506 197.4,498.5 202.6,498.5"/></g>
+  <g class="edge"><path fill="none" stroke="#9a958a" stroke-width="1.05" stroke-dasharray="3,3" d="M100,532 L56,532 L56,108 L96,108"/><polygon fill="#9a958a" stroke="#9a958a" points="80,108 72.5,105.4 72.5,110.6"/><text text-anchor="start" x="2" y="330" font-family="'Geist',sans-serif" font-size="7.5" fill="#8a857a">next step</text></g>
+  <g class="edge"><path fill="none" stroke="#b7b0a2" stroke-width="1.05" stroke-dasharray="4,2" d="M200,554 L200,580"/><polygon fill="#b7b0a2" stroke="#b7b0a2" points="200,582 197.4,574.5 202.6,574.5"/><text text-anchor="start" x="326" y="574" font-family="'Geist',sans-serif" font-size="8.5" fill="#8a857a">frozen eval</text></g>
+
+  <g class="node"><title>Env</title><path fill="#f2efe6" stroke="#b9b2a0" stroke-width="1.0" d="M90,14 H310 A10,10 0 0 1 320,24 V40 A10,10 0 0 1 310,50 H90 A10,10 0 0 1 80,40 V24 A10,10 0 0 1 90,14 Z"/><text text-anchor="middle" x="200" y="36" font-family="'Geist',sans-serif" font-size="10.5">G1 + 54-patch skin &#183; SDF CarryBox</text></g>
+  <g class="node"><title>Tacsl</title><polygon fill="#f1efeb" stroke="#b7b0a2" stroke-width="1.4" stroke-dasharray="5,2" points="320,80 80,80 80,136 320,136"/><text text-anchor="middle" x="200" y="100" font-family="'Geist',sans-serif" font-size="10.5" fill="#57544c">exact zeros &#8594; [B,1944]</text><text text-anchor="middle" x="200" y="115" font-family="'Geist',sans-serif" font-size="9" fill="#8a857a">obs term never reads the 54 sensors</text><text text-anchor="middle" x="200" y="129" font-family="'Geist',sans-serif" font-size="8.5" fill="#8a857a">the sensors are still built</text></g>
+  <g class="node"><title>Slip</title><path fill="#f1efeb" stroke="#b7b0a2" stroke-width="1.4" stroke-dasharray="5,2" d="M340,86 H444 A8,8 0 0 1 452,94 V122 A8,8 0 0 1 444,130 H340 A8,8 0 0 1 332,122 V94 A8,8 0 0 1 340,86 Z"/><text text-anchor="middle" x="392" y="104" font-family="'Geist',sans-serif" font-size="8.5">PatchSlipDetector</text><text text-anchor="middle" x="392" y="118" font-family="'Geist',sans-serif" font-size="7.5" fill="#3a3833">never called</text></g>
+  <g class="node"><title>Enc</title><polygon fill="#f1efeb" stroke="#b7b0a2" stroke-width="1.4" stroke-dasharray="5,2" points="320,176 80,176 80,232 320,232"/><text text-anchor="middle" x="200" y="196" font-family="'Geist',sans-serif" font-size="10.5" fill="#57544c">patch Transformer runs in full</text><text text-anchor="middle" x="200" y="211" font-family="'Geist',sans-serif" font-size="9" fill="#8a857a">zero in &#8594; output gated to exact 0</text><text text-anchor="middle" x="200" y="225" font-family="'Geist',sans-serif" font-size="8.5" fill="#8a857a">no gradient reaches it</text></g>
+  <g class="node"><title>Actor</title><polygon fill="#f3edda" stroke="#8a6d3b" stroke-width="1.4" points="320,264 80,264 80,320 320,320"/><text text-anchor="middle" x="200" y="284" font-family="'Geist',sans-serif" font-size="10.5">504 &#8853; 0 = 632 &#8594; 512/256/128 &#8594; 29</text><text text-anchor="middle" x="200" y="299" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">&#8801; Tracker w/ 10 inputs zeroed</text><text text-anchor="middle" x="200" y="313" font-family="'Geist',sans-serif" font-size="8.5" fill="#3a3833">base columns train from update 0</text></g>
+  <g class="node"><title>Loss</title><path fill="#f1efeb" stroke="#b7b0a2" stroke-width="1.4" stroke-dasharray="5,2" d="M340,270 H444 A8,8 0 0 1 452,278 V306 A8,8 0 0 1 444,314 H340 A8,8 0 0 1 332,306 V278 A8,8 0 0 1 340,270 Z"/><text text-anchor="middle" x="392" y="288" font-family="'Geist',sans-serif" font-size="8.5">BCPPO</text><text text-anchor="middle" x="392" y="302" font-family="'Geist',sans-serif" font-size="7.5" fill="#3a3833">+890-D critic</text></g>
+  <g class="node"><title>Mux</title><polygon fill="#e6eff5" stroke="#3d77a6" stroke-width="1.4" points="320,352 80,352 80,396 320,396"/><text text-anchor="middle" x="200" y="372" font-family="'Geist',sans-serif" font-size="10.5">teacher / student select</text><text text-anchor="middle" x="200" y="387" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">torch.where(~handoff_active)</text></g>
+  <g class="node"><title>Teach</title><path fill="#e6eff5" stroke="#3d77a6" stroke-width="1.4" d="M340,354 H444 A8,8 0 0 1 452,362 V386 A8,8 0 0 1 444,394 H340 A8,8 0 0 1 332,386 V362 A8,8 0 0 1 340,354 Z"/><text text-anchor="middle" x="392" y="372" font-family="'Geist',sans-serif" font-size="8.5">frozen Refiner</text><text text-anchor="middle" x="392" y="386" font-family="'Geist',sans-serif" font-size="7.5" fill="#3a3833">890-D in &#8594; 29-D</text></g>
+  <g class="node"><title>Act</title><polygon fill="#e6eff5" stroke="#3d77a6" stroke-width="1.4" points="320,428 80,428 80,478 320,478"/><text text-anchor="middle" x="200" y="448" font-family="'Geist',sans-serif" font-size="10.5">&#215;scale + default pos &#183; mass write</text><text text-anchor="middle" x="200" y="463" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">4 PD substeps @ 200 Hz</text></g>
+  <g class="node"><title>Ev</title><polygon fill="#f0e2e6" stroke="#a4506a" stroke-width="1.4" points="320,510 80,510 80,554 320,554"/><text text-anchor="middle" x="200" y="530" font-family="'Geist',sans-serif" font-size="10.5">post-physics events</text><text text-anchor="middle" x="200" y="545" font-family="'Geist',sans-serif" font-size="9" fill="#3a3833">reward 21 &#183; term 6 &#183; reset &#183; lift gate</text></g>
+  <g class="node"><title>Out</title><path fill="#dcebd2" stroke="#5a8a3a" stroke-width="2.0" d="M90,586 H310 A10,10 0 0 1 320,596 V610 A10,10 0 0 1 310,620 H90 A10,10 0 0 1 80,610 V596 A10,10 0 0 1 90,586 Z"/><text text-anchor="middle" x="200" y="607" font-family="'Geist',sans-serif" font-size="10.5">hold / safe-lower / drop / fall</text></g>
+</g>
+</svg>
+          </div>
+          <div class="flow-panels">
+            <details class="flow-node" id="panel-z-shared">
+              <summary>Scene, execution, events, outcome<span class="ns">the matched-control claim — verified clean</span></summary>
+              <div class="nb">
+                <p><code>ExactZeroPatchMassRobotEnvCfg</code> overrides <b>only</b> <code>observations</code>. The obvious worry — that the 54 TacSL sensors change Z's physics — was checked directly and is <b>false</b>: the sensors create read-only PhysX views and never write forces back (no <code>apply_force</code>/<code>set_force</code>/<code>write_*</code> anywhere in the sensor), their per-step compute is lazily skipped in Z, neither observation term consumes RNG, and the jump/handoff schedules are deterministic. The physical deltas come from the shared robot and object asset configs, not the sensors. <b>Z's trajectory is matched to P/PS at the same seed.</b></p>
+                <p class="src">tasks/…/carry_box_online_patch_tactile_mass_env_cfg.py:239-265 · IsaacLab/…/tacsl_sensor/visuotactile_sensor.py:283-342,649-686 · IsaacLab/…/sensors/sensor_base.py:183-191</p>
+              </div>
+            </details>
+            <details class="flow-node" id="panel-z-tactile">
+              <summary>Exact zeros — and the asymmetry that creates<span class="ns">F-0014</span></summary>
+              <div class="nb">
+                <p><code>exact_zero_online_patch_tactile_actor_history</code> validates the declared patch geometry, bumps a diagnostic counter and returns <code>torch.zeros([B,1944])</code>. The precise claim is narrow: <b>the Z observation term never reads the 54 TacSL sensors.</b> The sensors themselves <i>are</i> constructed and initialised, with live 20×25 taxel grids and PhysX SDF shape views; the environment touches <code>env.scene.sensors</code> every step for <code>feet_slide</code>, <code>undesired_contacts</code> and <code>hands_contact</code>; and the evaluator reads all 54 in Z too (F-3010).</p>
+                <p><b>The hazard:</b> any TacSL fault degrades P and PS and leaves Z untouched — and the experiment's entire output is a P/PS-versus-Z comparison. From the outcome numbers alone, a sensing bug and a genuine "tactile does not help" are the same observation. Given F-0001 to F-0005, that is not hypothetical.</p>
+                <p>The check that would enforce the contract at runtime, <code>zero_branch_never_read_tacsl</code>, executes only under the <code>-Preflight-</code> tasks, never in the formal run (F-3018).</p>
+                <p class="src">tasks/locomanip/online_patch_tactile.py:528-551,554-559 · tasks/locomanip/mdp/rewards.py:153-154 · SUGAR/scripts/sugar_rl/train.py:620-639</p>
+              </div>
+            </details>
+            <details class="flow-node" id="panel-z-enc">
+              <summary>Encoder, actor and BCPPO<span class="ns">the encoder runs in full and is gated to zero at the last line</span></summary>
+              <div class="nb">
+                <p><b>Not "the projection gives zero tokens".</b> The bias-free projection does output zero — but three learned identity embeddings are then <i>added</i>, so all 216 tokens are dense (measured: 55296/55296 non-zero, <code>max|t| = 0.152</code>) and the three transformer layers run to completion (<code>max|e| = 3.33</code>). Only <code>torch.where(any_active, pooled, zeros)</code> on the final line produces the exact zero. The <code>safe_active</code> fallback — force-unmasking token 0 — is what stops the all-<code>-inf</code> softmax row becoming NaN and poisoning the backward pass.</p>
+                <p>The conclusion still holds, and was measured rather than assumed: all <b>41</b> encoder parameters are in the optimizer, every one receives a grad tensor that is present, finite and exactly zero, and five Adam steps leave them bitwise unchanged.</p>
+                <p>Z's actor is therefore the warm-started Tracker plus whatever BCPPO teaches it — where "≡ the Tracker" means <i>the Tracker evaluated with its contact-label and measured-object-pose inputs zeroed</i>, which is what the <code>2e-6</code> audit actually proves.</p>
+                <p class="src">utils/patch_tactile_encoder.py:71-73,138-163 · utils/online_patch_tactile_actor_critic.py:84-86,155-172,191-250</p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="flow-hint">scroll the carousel → P and Z slide flush against <b>PS</b></div>
+  </div>
+  <p class="diag-cap">Columns coloured by role so a stage can be compared across branches. Orange = present in this branch only. Dashed grey = present and constructed, but inert on this branch's actor path. The dotted return edge is the control loop; the dashed rule above <code>Out</code> separates training from the frozen evaluator.</p>
+</section>
+
+<section class="ch" id="variants">
+  <div class="chap-no">◱</div>
+  <h2 class="ch-h">Branch <em>results</em></h2>
+  <p class="ch-sub wide">All three formal branches, three seeds each, 300 rollouts each — 5 mass factors × 20 profiles × 3 seed pairs, one factor per evaluator run. Counts are eligible physical holds and drops out of 59. Gold/silver/bronze rank each ↑↓ column; click <b>×</b> on a row to drop it and watch the ranking re-settle.</p>
+
+  <table class="variants">
+    <thead>
+      <tr>
+        <th>Branch</th>
+        <th>Actor tactile input</th>
+        <th>Hold 1.5× ↑</th>
+        <th>Hold 3× ↑</th>
+        <th>Hold 6× ↑</th>
+        <th>Drop 3× ↓</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="is-ours a3">
+        <td class="name"><span class="dot"></span>Z — control</td>
+        <td><code>exact zeros</code></td>
+        <td>59</td>
+        <td>52</td>
+        <td>1</td>
+        <td>2</td>
+        <td class="note-c">No tactile at all, and it wins every column. This is the number the other two have to beat.</td>
+      </tr>
+      <tr class="a1">
+        <td class="name"><span class="dot"></span>P — patch</td>
+        <td><code>6 live ch</code></td>
+        <td>59</td>
+        <td>49</td>
+        <td>0</td>
+        <td>8</td>
+        <td class="note-c">3× paired P−Z interval crosses zero: no demonstrated benefit, worse point estimate.</td>
+      </tr>
+      <tr class="a6">
+        <td class="name"><span class="dot"></span>PS — patch + slip</td>
+        <td><code>9 live ch</code></td>
+        <td>58</td>
+        <td>33</td>
+        <td>0</td>
+        <td>22</td>
+        <td class="note-c"><b>Worse than P at 3×</b>: hold diff −0.2712 over 59 paired profiles, 95% CI [−0.4655,−0.0667] — a <i>percentile</i> two-level bootstrap over only <b>3 seed clusters</b>, with no BCa correction and no adjustment for the 180 intervals the script emits per run. A strong point estimate; an optimistic interval.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="table-hint">the "Actor tactile input" column carries no ↑/↓, so it is deliberately excluded from ranking — more channels is not automatically better, which is precisely what this table shows. <b>A "profile" is not a fresh scenario:</b> all 20 share motion 45 frame 0 with no start-frame, push or observation randomization, differing only in the deterministic 10–50 frame jump delay and in four per-env startup friction draws that repeat across the five batches. The <b>59</b> denominator is 60 minus one seed-151014 profile whose jump never lands by frame 370 — and because the jump is scheduled off the <i>frozen teacher's</i> pickup and fires unconditionally thereafter, that exclusion is <b>branch- and factor-invariant</b>, so the gate cannot favour a branch. (The statistic confirms it: −16/59 = −0.27119, exactly the reported −0.2712.)</p>
+
+  <div class="note">
+    <div class="note-k">Three things the counts hide</div>
+    <span>These policies are <b>trained on motions 0–3</b> — <code>start_init_env_ratio = 1.0</code> puts every env on the protected branch, where <code>motion_id = env_id % num_motion</code> with 4 envs — and <b>evaluated only on motion 45</b>, which the evaluator pins by monkey-patching <code>_sample_init_state</code>. Every number above is therefore an out-of-distribution measurement. Nothing in the plan or README says so. The evaluator also emits a fourth outcome, <code>safe_lower</code>, that the headline counts omit — and a fifth, unnamed remainder: for Z at 3×, 52 holds + 2 drops = 54 of 59, leaving <b>5 profiles in no label at all</b>.<br><br><b>Every number came from <code>--physical-outcome-view</code></b>, which monkey-patches <code>termination_manager.compute</code> to return all-<code>False</code>. SUGAR's six reference terminations are still computed and kept as labels, but they never reset or end a rollout — so a profile that leaves the reference tube still contributes its 80 post-jump frames. <b><code>eligible</code> therefore means only "the mass jump landed by frame 370"</b>, not "the rollout stayed inside the SUGAR contract". The stricter <code>strict_sugar_hold_success</code> labels exist in every summary and have never been reported.<br><br><b>And <code>1×</code> is not a 1× jump — it is no jump at all.</b> <code>apply_pending</code> selects <code>changed_ids = ids[factor != 1.0]</code>, which is empty, so no mass or inertia write ever happens; only the eligibility clock fires. It is a pure no-perturbation control.</span>
+  </div>
+
+  <h3 class="h3">Friction feasibility — <em>not</em> part of the comparison above</h3>
+  <p class="ch-sub">Run separately, after the three-branch comparison closed, on the <b>frozen official Refiner</b> rather than any trained branch. Changing friction also changes pickup dynamics and moves the jump frame between 325 and 328, so these rollouts are not matched to Z/P/PS and must never be merged into those statistics.</p>
+
+  <table class="variants">
+    <thead>
+      <tr>
+        <th>CarryBox friction (static/dynamic)</th>
+        <th>6× max height loss, m ↓</th>
+        <th>6× outcome</th>
+        <th>10× outcome</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td class="name"><span class="dot"></span>0.5 / 0.5</td><td>0.5589</td><td class="note-c">drop</td><td class="note-c">drop</td></tr>
+      <tr><td class="name"><span class="dot"></span>1.0 / 1.0</td><td>0.5429</td><td class="note-c">drop</td><td class="note-c">drop</td></tr>
+      <tr class="is-ours a2"><td class="name"><span class="dot"></span>1.5 / 1.5</td><td>0.02636</td><td class="note-c"><b>hold</b> — the only one</td><td class="note-c">drop</td></tr>
+      <tr><td class="name"><span class="dot"></span>2.0 / 2.0</td><td>0.06596</td><td class="note-c">drop</td><td class="note-c">drop</td></tr>
+    </tbody>
+  </table>
+  <p class="table-hint">not monotone in friction — and the training distribution is <code>U[0.2,0.8]</code>, so every row except the first is outside it. <b>These hold/drop labels are not the branch table's</b>: they come from <code>preflight_online_patch_mass_jump.py</code> at seed 150814, computed over <i>every frame after the jump</i> rather than an 80-frame window, with no robot-fall gate and no return-to-table disjunct. The <code>mu=1.5</code> condition also holds in a camera-enabled rollout (height loss 0.02552 m), which describes only its own rollout.</p>
+</section>
+
+
+<section class="ch docs" id="docs">
+  <div class="chap-no">¶</div>
+  <h2 class="ch-h"><em>Docs &amp; plan</em></h2>
+  <p class="ch-sub">Repo markdown, grouped by location. The Plan 15 design doc opens by default. Metric tables here get the same medals and row toggles as the tables above. Much of this repo's documentation is in Chinese; the page summarises it in English.</p>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="group-h">Project context</div>
+      <ul>
+        <li>
+          <a href="#" class="doc-link active" data-file="PLAN/15_online_patch_tactile_mass_adaptation/plan.md">
+            <code>PLAN/15/plan.md</code>
+            <span class="doc-link-badge">PLAN</span>
+            <span class="doc-link-meta">The active design — contract, branches, endpoints, results</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="operations.md">
+            <code>operations.md</code>
+            <span class="doc-link-badge">OPS</span>
+            <span class="doc-link-meta">How to run this &mdash; envs, paths, launch, silent failures</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="context.md">
+            <code>context.md</code>
+            <span class="doc-link-meta">Repo entry point &mdash; what /recall-context reads first</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="TODO/15_online_patch_tactile_mass_adaptation/todo.md">
+            <code>TODO/15/todo.md</code>
+            <span class="doc-link-meta">Execution checklist &mdash; every item closed before the audit</span>
+          </a>
+        </li>
+      </ul>
+
+      <div class="group-h">Reference</div>
+      <ul>
+        <li>
+          <a href="#" class="doc-link" data-file="README.md">
+            <code>README.md</code>
+            <span class="doc-link-meta">Method, results and the shortest reproduction path</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="AGENTS.md">
+            <code>AGENTS.md</code>
+            <span class="doc-link-meta">Standing rules &mdash; the tactile and privileged-signal contracts</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="DOCS/sugar_carrybox_reproduction_full_record.md">
+            <code>sugar_carrybox_reproduction_full_record.md</code>
+            <span class="doc-link-meta">Official SUGAR reproduction record</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="scripts/sugar/native_tactile/README.md">
+            <code>native_tactile/README.md</code>
+            <span class="doc-link-meta">Sensing entry points and trace field definitions</span>
+          </a>
+        </li>
+      </ul>
+    </aside>
+
+    <div class="docs-main">
+      <div class="docs-pathbar">
+        <span id="docs-pathbar-text">docs/PLAN/15_online_patch_tactile_mass_adaptation/plan.md</span>
+        <a id="docs-raw-link" class="raw-link" href="docs/PLAN/15_online_patch_tactile_mass_adaptation/plan.md" target="_blank">view raw</a>
+      </div>
+      <div id="docs-content" class="docs-content md">
+        <div class="docs-loading">Loading&hellip;</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="ch" id="modules">
+  <div class="chap-no">◫</div>
+  <h2 class="ch-h">Module <em>by module</em></h2>
+  <p class="ch-sub wide">The same stage, in all three branches, read across. Everything outside the tactile row is shared code with shared weights — the design's matching is real, and was verified rather than assumed.</p>
+
+  <div class="diag-wrap">
+    <div class="arch-diag" style="--ncol:3">
+      <div class="arch-headers">
+        <div class="a3">
+          <div class="col-header">Z</div>
+          <div class="col-sub">CONTROL · ExactZeroPatchMassRobotEnvCfg</div>
+        </div>
+        <div class="a1">
+          <div class="col-header">P</div>
+          <div class="col-sub">PATCH · OnlinePatchMassRobotEnvCfg (base)</div>
+        </div>
+        <div class="a6">
+          <div class="col-header">PS</div>
+          <div class="col-sub">PATCH + SLIP · OnlinePatchSlipMassRobotEnvCfg</div>
+        </div>
+      </div>
+
+      <div class="train-legend">
+        <span><i class="train-icon lora"></i>trained this run</span>
+        <span><i class="train-icon full"></i>trained, full-rank</span>
+        <span><i class="train-icon frozen"></i>frozen</span>
+        <span><i class="train-icon unsure" title="not verified against source"></i>unverified</span>
+      </div>
+
+      <section class="arch-section">
+        <div class="row-label">SCENE · PHYSICS · EVENTS</div>
+        <div class="cols">
+          <div class="col shared" style="grid-column:1 / -1">
+            <div class="grpttl"><i class="train-icon frozen"></i>Identical — one config module, three registrations that override only <code>observations</code></div>
+            <div class="mod">G1 + 54 elastomer patch bodies (hand shells' colliders deactivated) · SDF CarryBox · CarryBox friction ~U[0.2,0.8] per env · nominal mass 0.3023375869 kg · 50 Hz · lift gate 0.05 m × 10 frames · mass+inertia written at the action boundary with readback</div>
+            <div class="anno">Verified, not assumed: the TacSL sensors create read-only PhysX views and never write forces back, so Z's trajectory is matched to P/PS at the same seed. But "official CarryBox" this is not — and the friction randomization is invisible to every tactile channel.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="arch-section">
+        <div class="row-label">TACTILE OBSERVATION</div>
+        <div class="cols">
+          <div class="col a3">
+            <div class="grpttl"><i class="train-icon frozen"></i>Exact zeros</div>
+            <div class="mod"><code>[B,1944]</code> of zeros · the <i>obs term</i> reads no TacSL</div>
+            <div class="anno">The 54 sensors are still built with live SDF views, and the evaluator reads them here too. A TacSL fault would spare Z alone — the failure mode that most resembles the current result.</div>
+          </div>
+          <div class="col a1">
+            <div class="grpttl"><i class="train-icon full"></i>Six live channels</div>
+            <div class="mod">contact · normal load · mean pressure · signed XY shear · friction utilization</div>
+            <div class="anno">Under stick, shear carries no traction — only a geometric leak of the normal force, which measurably trips the 0.60 slip trigger at zero slip. Channels 0–5 are bit-identical to PS.</div>
+          </div>
+          <div class="col a6">
+            <div class="grpttl"><i class="train-icon full"></i>Six live + three causal slip</div>
+            <div class="mod">+ slip score · incipient · gross, from <code>PatchSlipDetector</code> reading the <i>reduced</i> newest frame</div>
+            <div class="anno">Driven by <code>friction_utilization ≥ 0.60</code> — the channel F-0001/F-0003/F-0004 say is unusable as computed.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="arch-section">
+        <div class="row-label">SCALES → ENCODER → ACTOR</div>
+        <div class="cols">
+          <div class="col a3">
+            <div class="grpttl"><i class="train-icon frozen"></i>Runs in full, output gated</div>
+            <div class="mod">tokens are dense (identity embeddings); 3 layers execute; final <code>torch.where</code> returns exact zero</div>
+            <div class="or-block dotted">
+              <div class="modgrp">all 41 encoder params in the optimizer, all grads measured exactly zero</div>
+            </div>
+          </div>
+          <div class="col a1">
+            <div class="grpttl"><i class="train-icon full"></i>Patch Transformer, live</div>
+            <div class="mod">÷ frozen scales · 216 tokens · 9→128 bias-free · 3 pre-LN layers · masked pool</div>
+            <div class="anno">Three channels permanently zero cost nothing — the projection has no bias.</div>
+          </div>
+          <div class="col a6">
+            <div class="grpttl"><i class="train-icon full"></i>Patch Transformer, live</div>
+            <div class="mod">same module and shape · all nine channels populated</div>
+            <div class="anno">Sees a different <i>token set</i> from P: contact-loss frames carry slip_score <b>and</b> gross_slip = 1.0, so they stay unmasked here.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="arch-section">
+        <div class="row-label">REWARD · CRITIC · OBJECTIVE</div>
+        <div class="cols">
+          <div class="col shared" style="grid-column:1 / -1">
+            <div class="grpttl"><i class="train-icon full"></i>Identical BCPPO — 3000 updates, seeds 151014/151015/151016</div>
+            <div class="mod">96 transitions/update (24 × 4 envs) → 20 Adam steps · 21 reward terms · 6 termination terms · 890-D privileged critic that sees no tactile · Refiner loaded twice · 0–499 distill only · 500–999 distill + <b>linearly ramped</b> critic (0→1) · 1000–1749 PPO ramp, distill 1→0.25 · <b>1750</b>–2999 distill pinned at the floor</div>
+            <div class="anno"><b>hoi_contact</b> (+1.0) can never fire, because the hand links it reads have no colliders; <b>undesired_contacts</b> (−1.0) penalises all 54 patches. Surrogate/value/entropy are masked to post-handoff transitions; the distillation loss is not, so the nominal-mass Refiner regresses the student inside the post-jump window. The warm start overrides the configured LR and installs no gradient mask, so the Tracker columns train from update 0.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+  <p class="diag-cap">Dashed grey = present and constructed, but inert on this branch's actor path.</p>
+</section>
+
+
+<section class="ch" id="obj">
+  <div class="chap-no">01</div>
+  <h2 class="ch-h">Where it <em>breaks</em></h2>
+  <p class="ch-sub">The experiment is a clean, genuinely matched design with a null result. These are the reasons that null result should not yet be reported as a finding about tactile — every row was read out of the source named beside it, and each was checked by an independent auditor.</p>
+
+  <table class="diff">
+    <colgroup>
+      <col style="width:15%"><col style="width:23%"><col style="width:24%"><col style="width:38%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Dimension</th>
+        <th class="vh a1">What the plan says</th>
+        <th class="vh a6">What the code does</th>
+        <th>Verdict &amp; effect</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="dim">The reward</td>
+        <td class="vc a1">the unchanged official SUGAR CarryBox reward</td>
+        <td class="vc a6"><code>hoi_contact</code> reads ContactSensors on hand links whose <b>collision subtrees are deactivated at spawn</b>, so it is <b>dead</b>; <code>undesired_contacts</code> counts all 54 elastomer patches</td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>F-3002 / F-5002 / F-5004</span>
+          <span class="effect"><b>The only contact term with a gradient penalises grasping.</b> <code>hoi_contact</code> can never fire, so it reduces to <code>(False == contact_label)</code> — a pure function of the reference clock, <b>independent of what the policy does</b>, contributing no behavioural gradient at all. What remains is <code>undesired_contacts</code>: a count of bodies over 0.1 N, ×(−1.0)×<code>dt</code> = <b>−0.02 per body per step</b>, and it matches all 54 patches. Maximum achievable positive reward is 5.125, so <b>six patches in contact cancel it entirely</b> — a bilateral carry puts far more than six over threshold. Shared by all branches, so the comparison survives; but nothing in the 21 terms asks the policy to hold the box up.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">Friction sensing</td>
+        <td class="vc a1">friction utilization is the grasp's <b>margin against slipping</b>, and the sweep tests generalization to new friction</td>
+        <td class="vc a6">divides by the <b>sensor's</b> <code>mu</code>, which TacSL already used to cap the numerator — and training randomizes the box's real friction over <code>U[0.2,0.8]</code></td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>F-0001 / F-2006</span>
+          <span class="effect">The channel is <b>invariant to the object's real material friction</b>. Training already varies that friction per environment, so the policies spent 3000 updates under a perturbation <b>no tactile channel could observe</b>. The separate 0.5→2.0 sweep changes the box and leaves every channel's definition untouched.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">Shear under load</td>
+        <td class="vc a1">signed XY shear is a live grasp-load channel each control step</td>
+        <td class="vc a6">the shear channel is local-xy of <code>fc + ft</code>; under stick <code>ft</code> vanishes and what is left is a <b>geometric leak of the normal force</b>, <code>k_n·d·sinθ</code></td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>F-4001</span>
+          <span class="effect">Under stick the channel carries <b>no tangential traction</b> — but it is not zero either. Measured at zero relative velocity, a 17.2° off-centre contact gives <code>friction_utilization = 0.622</code>, <b>already past the 0.60 incipient-slip trigger with no slip at all</b>. Once sliding starts the channel saturates at exactly 1.0 above ~1.5 mm/s. So it is a geometry-plus-slip-speed indicator, never a traction measurement.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">Channel geometry</td>
+        <td class="vc a1">normal load and shear are the patch's normal and tangential load</td>
+        <td class="vc a6">the <b>total</b> force is projected into the taxel frame; local-z is called "normal", local-xy "shear"</td>
+        <td class="verdict">
+          <span class="pill diff"><span class="g">Δ</span>F-0003 / F-0004</span>
+          <span class="effect">On curved finger patches the SDF normal is not taxel-z, so normal penalty force leaks into "shear" and the utilization ratio is unbounded. The frozen scale is a 99.5th percentile of nonzero magnitudes, so a few blow-ups <b>inflate the scale and crush the channel's useful range toward zero</b>.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">Train/eval split</td>
+        <td class="vc a1">"official CarryBox motion 45" — one motion, stated once, for the whole experiment</td>
+        <td class="vc a6">training runs <code>motion_id = env_id % num_motion</code> → motions <b>0–3</b>; motion 45 is pinned only by the evaluator</td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>F-3012</span>
+          <span class="effect">Every headline number is an <b>out-of-distribution</b> measurement on a motion the policy never trained on, and neither the plan nor the README says so. A tactile encoder is exactly the component most likely to overfit its training motions — so this confound points the same way as the null result.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">Slip contract</td>
+        <td class="vc a1">the callable reads only patch signals; relative contact velocity is an <b>evaluation label only</b></td>
+        <td class="vc a6">shear and friction utilization are direct functions of <code>relative_velocity_world</code></td>
+        <td class="verdict">
+          <span class="pill diff"><span class="g">Δ</span>F-0008</span>
+          <span class="effect">Contract violated in substance — the detector reads a laundered velocity oracle. This makes PS look <b>stronger</b> than a deployable system would, so it does not explain the null result, but the current PS is not the quantity the plan claims.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">Loss masking</td>
+        <td class="vc a1">teacher-prefix transitions do not enter PPO credit</td>
+        <td class="vc a6">true for surrogate/value/entropy; the <b>distillation loss is an unmasked <code>.mean()</code></b></td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>F-0006 / F-8003</span>
+          <span class="effect">The distill term is applied to <b>every</b> transition, including the post-jump window — so the frozen <b>nominal-mass</b> Refiner, trained only on 0.5–2.0× mass and <b>never on 3/6/10×</b>, is a live regression target exactly where load adaptation is supposed to be learned. Weight 1.0 until update 1750, then pinned at 0.25. <i>(The companion "value masked but GAE not" claim was <b>refuted</b> — the handoff mask is monotone within an episode and GAE recurses backwards, so a masked-in advantage only ever bootstraps off masked-in values.)</i></span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">Control asymmetry</td>
+        <td class="vc a1">Z is the matched no-tactile control</td>
+        <td class="vc a6">it genuinely is — but Z's observation term is the only one that reads no TacSL</td>
+        <td class="verdict">
+          <span class="pill diff"><span class="g">Δ</span>F-0014 / F-3015</span>
+          <span class="effect">The physics <b>is</b> identical across branches — that was the biggest risk to the design and it is clean. But any sensing fault still degrades P and PS and spares Z, so from hold/drop counts alone <b>a sensor bug and "tactile does not help" are the same observation</b> — which is the situation the rows above put us in.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">Skeleton</td>
+        <td class="vc a1">mass and inertia change between two actor calls, verified by readback; all branches share one warm start</td>
+        <td class="vc a6">exactly that — inertia scaled by <code>target/default</code>, both read back, raises past <code>rtol=1e-6</code>; equivalence asserted to <code>2e-6</code></td>
+        <td class="verdict">
+          <span class="pill same"><span class="g">=</span>F-0012 / F-0013 / F-3015 / F-3016</span>
+          <span class="effect">The perturbation, the handoff, the warm start, the branch matching and the Z gradient isolation are all sound and self-checking. <b>The problem is not the experiment's skeleton</b> — it is the sensing, the reward and the evaluation split hanging off it.</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="pull" data-label="Bottom line">
+    <p>The null result is currently <b>unfalsifiable in the wrong direction</b>. Three independent confounds all push the same way: the channels that were supposed to carry the signal cannot carry it, the reward pays for <i>not</i> touching the box, and every number is measured on a motion the policy never trained on. No amount of RL tuning fixes any of them. <b>The sensing layer and the reward need to be fixed before another 9 × 3000 updates is worth the GPU time.</b></p>
+  </div>
+</section>
+
+
+<section class="ch" id="bugs">
+  <div class="chap-no">◎</div>
+  <h2 class="ch-h">The ten <em>problems</em></h2>
+  <p class="ch-sub wide">Plain English, with the exact place each one lives and how big the fix is. Paths are relative to the repo root; <code>$R</code> = <code>SUGAR/source/sugar_rl/sugar_rl</code>. Every line number here was checked against source. Full technical entries are on the <a href="#" class="tab-link" data-tab="findings">Findings</a> tab.</p>
+
+  <table class="diff">
+    <colgroup>
+      <col style="width:4%"><col style="width:27%"><col style="width:33%"><col style="width:36%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th class="vh a4">The problem, plainly</th>
+        <th class="vh a6">Where to find it</th>
+        <th>What it costs &amp; how big the fix is</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="dim">1</td>
+        <td class="vc a4"><b>The reward punishes the robot for touching the box.</b> A penalty counts every body part in contact with anything. Nobody excluded the 54 new tactile pads, so each pad in contact costs points.</td>
+        <td class="vc a6"><code>$R/tasks/…/train_refiner/carry_box_refiner_env_cfg.py:86-98</code> — <b>line 93</b> is the body regex, excluding only the two ankles and two hands.<br>Sensor is all bodies: <code>base_refiner_env_cfg.py:72</code>.<br>Reduction (a <i>count</i> over 0.1 N): <code>IsaacLab/…/envs/mdp/rewards.py:260-268</code>.</td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>blocking</span>
+          <span class="effect">Six pads in contact cancel the entire achievable positive reward (5.125). A two-handed carry uses far more than six. <b>Fix: one regex on line 93</b> — add <code>(?!.*_anatomical_.*)</code>.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">2</td>
+        <td class="vc a4"><b>The term meant to <i>encourage</i> touching is dead.</b> It reads sensors on the hands, but the hands' collision shapes were switched off when the pads were added — so it always reads "not touching".</td>
+        <td class="vc a6">Term: <code>carry_box_refiner_env_cfg.py:99-112</code>.<br>Implementation: <code>$R/tasks/locomanip/mdp/rewards.py:142-172</code> (<b>line 167</b> is the always-False <code>is_contact</code>).<br>Cause: <code>$R/assets/robots/anatomical_whole_hand_tacsl_g1.py:1093</code>, disabling at <b>line 1136</b>.<br>Dead sensors: <code>base_refiner_env_cfg.py:93-108</code>.</td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>blocking</span>
+          <span class="effect">It degenerates to a lookup in a reference file — a function of the clock, <b>with no effect on learning at all</b>. <b>Fix: repoint the two ContactSensors</b> at the pad bodies.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">3</td>
+        <td class="vc a4"><b>Nothing rewards holding the box up.</b> The robot is scored only on matching the reference motion. Whether the box stays in the air never enters the objective.</td>
+        <td class="vc a6">The complete list of 21 terms: <code>base_refiner_env_cfg.py:298-399</code> + <code>carry_box_refiner_env_cfg.py:84-116</code>. The <i>absence</i> is the finding.<br>"Hold"/"drop" exist only after training: <code>SUGAR/scripts/sugar_rl/evaluate_online_patch_mass_bcppo.py:339-360</code>.</td>
+        <td class="verdict">
+          <span class="pill diff"><span class="g">Δ</span>design</span>
+          <span class="effect">The mass jump reaches the objective only indirectly, through tracking error. <b>Fix: a design decision, not a bug</b> — decide whether to add a hold term before retraining.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">4</td>
+        <td class="vc a4"><b>The "friction" channel cannot see friction.</b> It divides by a fixed 0.5 that the simulator already used to compute the number on top.</td>
+        <td class="vc a6"><code>$R/tasks/locomanip/online_patch_tactile.py:144-146</code> — the division. <b>Line 237</b> shows <code>mu</code> comes from the <i>sensor</i> config, not the object.<br>Same constant caps the numerator: <code>IsaacLab/…/tacsl_sensor/visuotactile_sensor.py:1005-1007</code>.<br>Real friction is randomized: <code>base_refiner_env_cfg.py:274-281</code>.</td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>blocking</span>
+          <span class="effect">Training randomizes the box's friction over <code>U[0.2,0.8]</code> and <b>no tactile channel can tell the difference</b>. <b>Fix: medium</b> — compute the margin against the object's real material.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">5</td>
+        <td class="vc a4"><b>"Shear" mostly measures geometry, not sliding.</b> A pad touching slightly off-centre reports slipping even when nothing moves.</td>
+        <td class="vc a6"><code>visuotactile_sensor.py:1018</code> adds normal + friction force together; <b>lines 1023-1024</b> split that <i>total</i> by axis and name one "normal", the other "shear".<br>The angle-dependent per-taxel frame: <code>visuotactile_sensor.py:564-608</code> — a <b>local edit</b>, not upstream.</td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>blocking</span>
+          <span class="effect">Measured at <b>zero</b> motion: 17.2° off-centre already crosses the 0.60 slip alarm. <b>Fix: medium, and local</b> — project onto the SDF normal, which is already computed. No vendor change needed.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">6</td>
+        <td class="vc a4"><b>The slip detector gets stuck on.</b> Once it says "gross slip" it stays there while any weak evidence continues — including the fake geometry signal from #5.</td>
+        <td class="vc a6"><code>$R/tasks/locomanip/patch_slip.py:263-264</code> — <code>retained_gross</code> feeds back into <code>gross_evidence</code>.<br>Cleared in exactly one place: <b>line 135</b>, inside <code>reset()</code>.</td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>blocking</span>
+          <span class="effect">Combined with #7, a stuck flag survives into the next episode. <b>Fix: small</b>, but decide the intended semantics first.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">7</td>
+        <td class="vc a4"><b>The reset is silently skipped between scoring batches.</b> The detector is never told a new episode started, so it carries the stuck state forward. <b>P has no detector, so P is unaffected.</b></td>
+        <td class="vc a6"><code>$R/tasks/locomanip/online_patch_tactile.py:446</code> returns early — <b>before</b> the <code>detector.update</code> on <b>line 460</b>.<br>Why the guard trips: the counter only moves in <code>step()</code>, at <code>IsaacLab/…/manager_based_rl_env.py:203</code>.<br>The reset that bypasses it: <code>evaluate_online_patch_mass_bcppo.py:546</code>.</td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>best PS&lt;P candidate</span>
+          <span class="effect">This is <b>asymmetric</b> — it damages PS and not P, on exactly the path that produced the −0.2712. <b>Fix: a few lines</b> — move the reset above the line-446 guard.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">8</td>
+        <td class="vc a4"><b>Trained on four motions, tested on a fifth it never saw.</b> Training uses motions 0–3; scoring uses motion 45 only.</td>
+        <td class="vc a6"><code>carry_box_online_patch_tactile_mass_env_cfg.py:259</code> sets <code>start_init_env_ratio = 1.0</code>, routing every env to the <code>motion_id = env_id % num_motion</code> branch in <code>$R/tasks/locomanip/mdp/commands.py</code>.<br>Evaluator overrides it: <code>evaluate_online_patch_mass_bcppo.py:479-487</code>, default 45 at <b>line 41</b>.</td>
+        <td class="verdict">
+          <span class="pill lose"><span class="g">−</span>blocking</span>
+          <span class="effect">Every reported number is out-of-distribution, and no doc said so. The tactile encoder is exactly the part most likely to overfit its training motions. <b>Fix: an experiment-design decision.</b></span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">9</td>
+        <td class="vc a4"><b>Scoring runs with the failure checks switched off.</b> "Eligible" only means the weight change happened in time — not that the robot behaved.</td>
+        <td class="vc a6"><code>evaluate_online_patch_mass_bcppo.py:495</code> installs the replacement <code>termination_manager.compute</code>; <b>line 547</b> stubs the reset; <b>line 729</b> skips frame-validity tracking.<br>Always passed: <code>scripts/sugar/native_tactile/run_plan15_frozen_seed.sh:63</code>.</td>
+        <td class="verdict">
+          <span class="pill diff"><span class="g">Δ</span>reporting</span>
+          <span class="effect">Nothing was ever scored the strict way — but <b>the stricter numbers already exist</b> in every <code>summary.json</code>. <b>Fix: free</b> — just report them.</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="dim">10</td>
+        <td class="vc a4"><b>The confidence interval is weaker than it looks.</b> It resamples only 3 training seeds and uses the simplest bootstrap.</td>
+        <td class="vc a6"><code>SUGAR/scripts/sugar_rl/compare_online_patch_mass_sweeps.py:119</code> — a plain <code>np.percentile</code>, no bias correction. <b>Line 196</b> states the method in the output itself.<br><b>Line 21</b>'s <code>METRICS</code> × 5 factors × 3 pairs = 180 uncorrected intervals per run.</td>
+        <td class="verdict">
+          <span class="pill diff"><span class="g">Δ</span>reporting</span>
+          <span class="effect">A decent point estimate, not a significance test. <b>Fix: free</b> — restate it honestly, or add a correction.</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="pull" data-label="Start here">
+    <p>Two of these are genuinely small and both sit upstream of everything else: <b>#1 is one regex on a single line</b>, and <b>#7 is moving a few lines above a guard</b>. Do those before any retraining. <b>#9 and #10 cost nothing at all</b> — the stricter numbers already exist in the result files, and the interval only needs restating. Everything else is a real piece of work.</p>
+  </div>
+</section>
+
+
+<section class="ch coda" id="coda">
+  <div class="chap-no">⌘</div>
+  <h2 class="ch-h"><em>Coda</em></h2>
+  <p class="ch-sub">What survives the audit, what does not, and what to do next.</p>
+
+  <div class="gridn" style="--ncol:2">
+    <div class="col a2">
+      <h4>Verified sound — do not rebuild</h4>
+      <ul>
+        <li><b>Branch matching.</b> One config module, three registrations overriding only <code>observations</code>; the 54 sensors create read-only views and never write forces, so Z's physics is identical to P/PS at the same seed.</li>
+        <li><b>The mass event.</b> Written at the action boundary, inertia scaled consistently, both values read back, raises on mismatch.</li>
+        <li><b>Z's gradient isolation.</b> All 41 encoder parameters are in the optimizer and every gradient is measurably, exactly zero.</li>
+        <li><b>The warm start.</b> Self-checking to <code>2e-6</code> — as long as you read it as "the Tracker with 10 inputs zeroed".</li>
+        <li><b>Dimensions.</b> 504 / 890 / 632 / 1944 / 128 / 29 all hold and are all asserted at runtime.</li>
+      </ul>
+    </div>
+    <div class="col a4">
+      <h4>Broken — blocks the claim</h4>
+      <ul>
+        <li><b>The reward penalises grasping</b> (F-3002/F-5004): <code>undesired_contacts</code> costs −0.02 per contacting body per step and six bodies cancel the entire achievable positive reward — while <code>hoi_contact</code>, the term meant to reward contact, is <b>dead</b> and supplies no gradient at all (F-5002). Nothing in the 21 terms asks the policy to hold the box up (F-5007).</li>
+        <li><b>Friction utilization cannot see friction</b> (F-0001) — and training randomizes it anyway (F-2006).</li>
+        <li><b>The shear channel is a geometric leak of the normal force, not traction</b> (F-4001, measured): it trips the 0.60 slip trigger at <i>zero</i> slip on off-centre contact, and saturates at 1.0 above ~1.5 mm/s of sliding (F-4004). <b>Slip is built on that channel</b> (F-0005).</li>
+        <li><b>Trained on motions 0–3, scored only on motion 45</b> (F-3012).</li>
+        <li><b>Distillation loss unmasked</b> (F-0006/F-8003) — the nominal-mass teacher regresses the student inside the post-jump window it never saw.</li><li><b>The finetune "gate" gates nothing</b> (F-9002): it overrides the parent freeze without calling it, so the warm-started Tracker columns train from update 0.</li><li><b>Only ~3 % of the patch embedding varies with tactile input</b> (F-9001, measured); after scaling the binary channels sit at 1.0 while shear sits at 0.05 (F-9004).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 class="h3">Next actions</h3>
+  <ol class="actions">
+    <li><b>Fix the reward first — it is cheap and it is upstream of everything.</b> Exclude <code>.*_anatomical_.*</code> from <code>undesired_contacts</code>, which is the term that actually penalises grasping, and point <code>hoi_contact</code> at the 54 patch bodies so it stops being a reference-clock constant. Consider adding a term that actually rewards holding the box after the jump — there is none today.</li>
+    <li><b>Measure before rebuilding the sensing.</b> On saved leakage traces, compute per-channel variance and mass/friction mutual information <i>during the hold phase</i>. If channels 4–9 are near-dead there, F-0001–F-0005 are confirmed in minutes rather than in a retrain. Needs no GPU.</li>
+    <li><b>Rebuild the sensor reduction.</b> Resolve normal and tangential in the <b>contact frame</b> (the SDF normal is already computed), gate the utilization ratio on a minimum normal load, and compute friction margin against the <b>object's actual material</b> rather than the sensor constant.</li>
+    <li><b>The IsaacLab question is smaller than it looked.</b> The per-taxel frame that causes the normal-force leak is a <b>local modification</b> — upstream v2.3.2 uses one constant quaternion per sensor — so projecting onto the already-computed SDF normal fixes F-0003/F-4001 without touching vendor force equations (F-4003). Only the missing tangential spring, which would make shear carry real traction under stick, is a genuine vendor change.</li>
+    <li><b>Close the train/eval split.</b> Either train on motion 45 or evaluate on 0–3. As it stands the experiment cannot separate "tactile does not help" from "the tactile encoder did not generalise across motions".</li>
+    <li><b>Accept that existing checkpoints do not survive.</b> The frozen channel scales, and therefore the actor's first-layer patch columns, are tied to the current channel definitions. Any sensing change invalidates all nine endpoints.</li>
+  </ol>
+</section>
+
+</div><!-- /frame -->
+</div><!-- /view-main -->
+
+
+<div class="view" id="view-findings" hidden>
+<div class="frame">
+  <section class="findings">
+    <div class="chap-no">✳</div>
+    <h2 class="ch-h">Verification <em>findings</em></h2>
+    <p class="ch-sub">Every claim on this page, checked against source. One card per finding — what the page said, what the code says, where, and what changed. Round 1 is the caller's hand audit; round 2 is three independent Opus auditors, one per branch.</p>
+    <div class="find-toolbar" id="findings-toolbar"></div>
+    <div id="findings-content" class="md">
+      <div class="docs-loading">Loading&hellip;</div>
+    </div>
+  </section>
+</div>
+</div><!-- /view-findings -->
+
+
+<div class="footer-band">
+  <footer>
+    <span>Engineering memo &middot; one question, three matched branches, and the sensing and reward underneath them.</span>
+    <code>claude_context/index.html</code>
+  </footer>
+</div>
+
+<div id="flow-pop" class="flow-pop" hidden></div>
+
+<script>
+window.FLOW_DIAGRAMS = [
+  { svg: 'psflow', accent: 'a6', panels: {
+      'Env': 'ps-scene',
+      'Tacsl': 'ps-tactile', 'Slip': 'ps-tactile',
+      'Enc': 'ps-enc',
+      'Actor': 'ps-actor', 'Loss': 'ps-actor',
+      'Mux': 'ps-exec', 'Teach': 'ps-exec', 'Act': 'ps-exec',
+      'Ev': 'ps-loop', 'Out': 'ps-loop' } },
+  { svg: 'pflow', accent: 'a1', panels: {
+      'Env': 'p-shared', 'Mux': 'p-shared', 'Teach': 'p-shared',
+      'Act': 'p-shared', 'Ev': 'p-shared', 'Out': 'p-shared',
+      'Tacsl': 'p-tactile', 'Slip': 'p-tactile',
+      'Enc': 'p-enc',
+      'Actor': 'p-actor', 'Loss': 'p-actor' } },
+  { svg: 'zflow', accent: 'a3', panels: {
+      'Env': 'z-shared', 'Mux': 'z-shared', 'Teach': 'z-shared',
+      'Act': 'z-shared', 'Ev': 'z-shared', 'Out': 'z-shared',
+      'Tacsl': 'z-tactile', 'Slip': 'z-tactile',
+      'Enc': 'z-enc', 'Actor': 'z-enc', 'Loss': 'z-enc' } }
+];
+</script>
+<script src="app.js"></script>
+</body>
+</html>

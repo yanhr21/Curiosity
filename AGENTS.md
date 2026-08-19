@@ -198,3 +198,61 @@ stored at `experiments/online_patch_tactile_mass_adaptation/visualizations/`
   version matrices. Use direct outcome checks appropriate to the risk.
 - Never commit/push experiment outputs or large binary artifacts. Before push, inspect Git status,
   staged paths and object sizes.
+
+## Audit addendum — 2026-08-19
+
+A full correctness audit (115 findings, `claude_context/findings.md`) found that several
+rules above are **stated correctly but violated by the implementation**. Read this before
+treating any rule above as satisfied.
+
+### Rules currently violated in code
+
+- **§3 "Object motion, relative contact velocity … may not enter the callable or deployed
+  actor."** Violated. `shear_xy_n` and `friction_utilization` — two of the six inputs to
+  `PatchSlipDetector.update` — are computed inside TacSL from `relative_velocity_world`.
+  The callable consumes the simulator's object-relative contact velocity one transform
+  removed. It genuinely never reads object *pose*, mass, jump flag, reward or future
+  frames.
+- **§3 "Every live patch record contains … friction utilization."** The channel exists but
+  cannot measure friction: it divides by the *sensor's* fixed `mu = 0.5`, the same constant
+  TacSL already used to cap the shear numerator, so it is invariant to the object's PhysX
+  material. Under stick it reduces to `2·tan θ` — pure taxel-frame geometry — and fires the
+  0.60 incipient-slip trigger at θ ≥ 16.7° with **zero** relative motion.
+- **§3 "Never substitute … ordinary ContactSensor."** Honoured in the observation path, but
+  note the *reward* path depends entirely on ordinary ContactSensors, and two of those
+  terms are broken (below).
+
+### New standing rules
+
+- **Never trust a reward term's weight column alone in this repo.** `feet_air_time` carries
+  weight `+5.0` on a function that is always ≤ 0 — it is a penalty. `hoi_contact` carries
+  `+1.0` but reads ContactSensors on hand links whose collision subtrees are deactivated at
+  spawn, so it is dead and supplies **no behavioural gradient**. `undesired_contacts`
+  (`−1.0`) counts all 54 elastomer patches; six in contact cancel the entire achievable
+  positive reward.
+- **Never report a Plan-15 number without naming the evaluation view.** Every published
+  figure came from `--physical-outcome-view`, which suppresses all six SUGAR terminations,
+  so `eligible` means only "the jump landed by frame 370". The stricter
+  `strict_sugar_hold_success` labels exist in every `summary.json` and have never been
+  reported.
+- **Never describe `1×` as a jump.** At factor 1.0 no mass or inertia write happens at all.
+- **Never call the reported CI a significance test.** It is a percentile two-level
+  bootstrap over three seed clusters, with no BCa correction and no adjustment for the 180
+  intervals the comparison script emits per run.
+- **Never state the training motion as 45.** Training runs `motion_id = env_id %
+  num_motion` → motions 0–3; only the evaluator pins 45. Every reported number is
+  out-of-distribution.
+- **Never reuse a `patch_channel_scales.json` across a sensing change.** The scales are
+  baked into the encoder's persistent buffer and therefore into every checkpoint, and
+  nothing binds a scale file to the channel definitions that produced it.
+- **A branch contract that is "enforced" by `online_patch_preflight_runtime_report` is not
+  enforced in formal runs.** That report only executes under the `-Preflight-` task ids.
+  Both `zero_branch_never_read_tacsl` and `p_branch_did_not_call_slip` hold by
+  construction, not by an executed check.
+
+### What the audit confirmed sound
+
+Branch matching (the 54 TacSL sensor bodies do **not** change Z's physics), the
+mass/inertia event and its readback, Z's gradient isolation, the 510→504 warm start and its
+`2e-6` audit, the full dimension contract, and the branch/factor invariance of the
+eligibility gate. Do not "fix" these.
