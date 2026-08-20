@@ -110,7 +110,12 @@ def build(args, viewer):
         joint_ordering="dfs",
         hide_collision_shapes=True,
     )
-    builder.approximate_meshes("convex_hull")
+    # No convex-hull approximation of the robot's collision geometry: the "never hull an
+    # interacting body" directive covers the robot exactly as it covers the SAGE objects. Every
+    # robot collision mesh keeps its original shape and gets a hydroelastic SDF below, so concave
+    # links (the arch of a foot, the gap between fingers) contact furniture truthfully instead of
+    # through a swollen hull. A hull would also silently guarantee the no-penetration result --
+    # hull is a superset of the mesh -- which is not the same as the mesh not penetrating.
     n_robot_shapes = builder.shape_count
 
     # init pose + joint gains from the policy config
@@ -123,22 +128,55 @@ def build(args, viewer):
         builder.joint_armature[i + 6] = config["mjw_joint_armature"][i]
         builder.joint_target_mode[i + 6] = int(JointTargetMode.POSITION)
 
-    # ---- feet: hard-rubber sole + hydroelastic pad ----
+    # ---- robot collision geometry: every link collides as its own mesh, via a hydroelastic SDF ----
+    # The G1 USD ships only FOUR colliders for the whole robot -- a box per foot and two 64-vertex
+    # convex meshes on the torso -- against 49 full-resolution visual meshes. Arms, hands, fingers,
+    # knees and pelvis therefore have no collision geometry at all in `proxy` mode: they sweep
+    # through furniture registering neither contact nor force. (`approximate_meshes("convex_hull")`
+    # was a no-op here for the same reason -- there was no robot mesh collider to hull.)
+    #
+    # In `mesh` mode (the default) each visual mesh becomes its own collider with an SDF built from
+    # that same mesh, and the shipped box/convex proxies are switched off: the geometry you see is
+    # the geometry that collides, matching how the SAGE objects are handled below. Self-collision
+    # is already filtered across all robot shape pairs by add_usd, so promoting the visual meshes
+    # does not make the robot collide with itself.
     mu_ovr = getattr(args, "mu", None)  # global friction override (slippery/rough versions)
-    foot_shapes = []
+    use_mesh_collision = getattr(args, "robot_collision", "mesh") == "mesh"
+    foot_shapes, n_robot_sdf = [], 0
     for s in range(n_robot_shapes):
+        is_mesh = builder.shape_type[s] == newton.GeoType.MESH
+        if use_mesh_collision:
+            # visual meshes become the colliders; the shipped box/convex proxies step aside
+            if is_mesh:
+                builder.shape_flags[s] |= int(newton.ShapeFlags.COLLIDE_SHAPES)
+            else:
+                builder.shape_flags[s] &= ~int(newton.ShapeFlags.COLLIDE_SHAPES)
+        if not builder.shape_flags[s] & int(newton.ShapeFlags.COLLIDE_SHAPES):
+            continue
         body = builder.shape_body[s]
         label = builder.body_label[body] if 0 <= body < len(builder.body_label) else ""
         if any(k in label.lower() for k in FOOT_LINK_KEYS):
             foot_shapes.append(s)
             builder.shape_material_mu[s] = mu_ovr if mu_ovr is not None else FOOT_MU
             builder.shape_material_restitution[s] = FOOT_REST
-            # hydroelastic pad: build an SDF for the foot mesh + set the flag
-            src = builder.shape_source[s]
-            if src is not None and getattr(src, "sdf", None) is None and builder.shape_type[s] == newton.GeoType.MESH:
+            builder.shape_material_kh[s] = FOOT_KH
+        else:
+            builder.shape_material_mu[s] = mu_ovr if mu_ovr is not None else builder.default_shape_cfg.mu
+            builder.shape_material_kh[s] = RIGID_KH
+        src = builder.shape_source[s]
+        if is_mesh and src is not None:
+            if getattr(src, "sdf", None) is None:
                 src.build_sdf(max_resolution=SDF_MAX_RES, narrow_band_range=SDF_NARROW_BAND, margin=0.01)
-            builder.shape_flags[s] |= newton.ShapeFlags.HYDROELASTIC
-    print(f"[g1_in_sage] tagged {len(foot_shapes)} foot shapes hydroelastic (mu={FOOT_MU})")  # CALIBRATE if 0
+            n_robot_sdf += 1
+        builder.shape_flags[s] |= int(newton.ShapeFlags.HYDROELASTIC)
+    n_robot_colliders = sum(
+        1 for s in range(n_robot_shapes) if builder.shape_flags[s] & int(newton.ShapeFlags.COLLIDE_SHAPES)
+    )
+    print(
+        f"[g1_in_sage] robot collision={'mesh' if use_mesh_collision else 'proxy'}: "
+        f"{n_robot_colliders} colliders ({n_robot_sdf} hydroelastic-SDF meshes), "
+        f"{len(foot_shapes)} foot shapes (mu={mu_ovr if mu_ovr is not None else FOOT_MU})"
+    )  # CALIBRATE if 0 feet
 
     # ---- SAGE room + furniture from the pre-assembled GLB (authoritative baked UVs + textures) ----
     # The dataset ships an assembled GLB (_out/layout_<id>.glb) that its own reference previews are
@@ -377,6 +415,13 @@ def _make_parser():
     p.add_argument("--pitch", type=float, default=-13.0, help="camera pitch (deg)")
     p.add_argument(
         "--mu", type=float, default=None, help="global friction override for feet+floor (slippery ~0.05, rough ~1.4)"
+    )
+    p.add_argument(
+        "--robot-collision",
+        choices=["mesh", "proxy"],
+        default="mesh",
+        help="robot collision geometry: 'mesh' = every link's own mesh + hydroelastic SDF (no hulls); "
+        "'proxy' = only the 4 colliders the G1 USD ships (2 foot boxes + 2 torso convex meshes)",
     )
     p.add_argument("--no-walls", dest="walls", action="store_false", help="omit the room walls")
     p.set_defaults(walls=True)

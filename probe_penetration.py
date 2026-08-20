@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 
 import numpy as np
 
@@ -68,7 +69,9 @@ def main():
     parser.set_defaults(viewer="null", record=None)
     viewer, args = newton.examples.init(parser)
 
+    t0 = time.perf_counter()
     ex = build(args, viewer)
+    t_build = time.perf_counter() - t0
     model, contacts = ex.model, ex.contacts
     shape_body = model.shape_body.numpy()
     robot = np.zeros(model.shape_count, dtype=bool)
@@ -101,6 +104,7 @@ def main():
     peak_force = dict.fromkeys(cats, 0.0)  # peak per-contact force magnitude [N] per category
     peak_sensor = 0.0  # peak SensorContact.total_force [N] — the end-to-end tactile readout
 
+    t0 = time.perf_counter()
     for f in range(args.frames):
         policy_step(ex)
 
@@ -159,7 +163,13 @@ def main():
                 flush=True,
             )
 
-    print("\n[probe] ===== worst separation over the rollout (negative = penetration) =====", flush=True)
+    t_run = time.perf_counter() - t0
+    print(
+        f"\n[probe] cost: build {t_build:.1f} s, {args.frames} frames in {t_run:.1f} s "
+        f"({args.frames / t_run:.1f} control frames/s, probe readback included)",
+        flush=True,
+    )
+    print("[probe] ===== worst separation over the rollout (negative = penetration) =====", flush=True)
     for c in cats:
         v, fr, a, b = worst[c]
         if np.isfinite(v):
