@@ -1,0 +1,312 @@
+#!/usr/bin/env python3
+"""IsaacLab TacSL frame contract and adapter.
+
+The adapter preserves official ``VisuoTactileSensorData`` fields. No object
+state, rigid-contact proxy, outcome label, or second simulator backend enters
+the frame.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Mapping, Sequence
+
+import numpy as np
+
+
+@dataclass(frozen=True)
+class TactileClock:
+    """Source simulation clock for one tactile frame."""
+
+    sequence: int
+    timestamp_s: float
+    dt_s: float
+
+
+@dataclass(frozen=True)
+class CounterpartTactileField:
+    """Unaggregated native taxel field for one declared contact object."""
+
+    penetration_m: Any
+    normal_force_n: Any
+    shear_force_xy_n: Any
+    active: Any
+
+
+@dataclass(frozen=True)
+class OpticalTactileFrame:
+    """Optional native optical streams, retained patch by patch."""
+
+    available: tuple[bool, ...]
+    rgb: tuple[Any | None, ...]
+    depth: tuple[Any | None, ...]
+    clock: TactileClock | None
+
+
+@dataclass(frozen=True)
+class UniversalTactileFrame:
+    """Backend-neutral native tactile frame.
+
+    Dense scalar tensors use ``[batch, patch, row, column]``. Signed shear
+    uses ``[batch, patch, row, column, 2]`` and world positions/orientations
+    append dimensions 3 and 4. The first local tangent axis (signed shear X)
+    increases with row, the second local tangent axis (signed shear Y)
+    increases with column, and local Z is the signed normal-force direction.
+    ``patch_size_m[..., 0]`` is therefore the row/X extent and
+    ``patch_size_m[..., 1]`` the column/Y extent. This is the released TacSL
+    taxel order, not an image-space transpose.
+    """
+
+    backend: str
+    clock: TactileClock
+    patch_names: tuple[str, ...]
+    patch_size_m: np.ndarray
+    penetration_m: Any
+    normal_force_n: Any
+    shear_force_xy_n: Any
+    active: Any
+    taxel_position_w_m: Any | None
+    taxel_orientation_w_xyzw: Any | None
+    counterpart_fields: Mapping[str, CounterpartTactileField]
+    optical: OpticalTactileFrame
+
+    @property
+    def grid_shape(self) -> tuple[int, int]:
+        return (int(self.penetration_m.shape[2]), int(self.penetration_m.shape[3]))
+
+    @property
+    def batch_size(self) -> int:
+        return int(self.penetration_m.shape[0])
+
+
+def validate_universal_tactile_frame(frame: UniversalTactileFrame) -> UniversalTactileFrame:
+    """Validate the shared runtime layout without changing backend data."""
+    scalar_shape = tuple(frame.penetration_m.shape)
+    if len(scalar_shape) != 4:
+        raise ValueError("Universal scalar tactile fields must be [batch, patch, row, column].")
+    if tuple(frame.normal_force_n.shape) != scalar_shape or tuple(frame.active.shape) != scalar_shape:
+        raise ValueError("Penetration, normal force, and active mask must share one scalar layout.")
+    if tuple(frame.shear_force_xy_n.shape) != (*scalar_shape, 2):
+        raise ValueError("Signed shear must append local XY to the scalar tactile layout.")
+    if scalar_shape[1] != len(frame.patch_names):
+        raise ValueError("The tactile patch axis must match patch_names.")
+    if tuple(frame.patch_size_m.shape) != (scalar_shape[1], 2):
+        raise ValueError("patch_size_m must provide row/X and column/Y extents per patch.")
+    if frame.taxel_position_w_m is not None and tuple(frame.taxel_position_w_m.shape) != (*scalar_shape, 3):
+        raise ValueError("World taxel positions must append XYZ to the scalar layout.")
+    if frame.taxel_orientation_w_xyzw is not None and tuple(frame.taxel_orientation_w_xyzw.shape) != (
+        *scalar_shape,
+        4,
+    ):
+        raise ValueError("World taxel orientations must append an xyzw quaternion.")
+    patch_count = scalar_shape[1]
+    if not (
+        len(frame.optical.available)
+        == len(frame.optical.rgb)
+        == len(frame.optical.depth)
+        == patch_count
+    ):
+        raise ValueError("Optical availability, RGB, and depth entries must match the patch axis.")
+    if frame.clock.sequence < 0 or frame.clock.dt_s < 0.0:
+        raise ValueError("Tactile clock sequence and elapsed time must be nonnegative.")
+    for field in frame.counterpart_fields.values():
+        if tuple(field.penetration_m.shape) != scalar_shape:
+            raise ValueError("Every counterpart field must preserve the common scalar layout.")
+        if tuple(field.normal_force_n.shape) != scalar_shape or tuple(field.active.shape) != scalar_shape:
+            raise ValueError("Every counterpart scalar channel must preserve the common layout.")
+        if tuple(field.shear_force_xy_n.shape) != (*scalar_shape, 2):
+            raise ValueError("Every counterpart signed shear field must preserve the common layout.")
+    return frame
+
+
+def _stack(values: Sequence[Any], axis: int) -> Any:
+    first = values[0]
+    if type(first).__module__.startswith("torch"):
+        import torch
+
+        return torch.stack(tuple(values), dim=axis)
+    return np.stack(values, axis=axis)
+
+
+def _sum(values: Sequence[Any]) -> Any:
+    stacked = _stack(values, axis=0)
+    if type(stacked).__module__.startswith("torch"):
+        return stacked.sum(dim=0)
+    return stacked.sum(axis=0)
+
+
+def _maximum(values: Sequence[Any]) -> Any:
+    stacked = _stack(values, axis=0)
+    if type(stacked).__module__.startswith("torch"):
+        return stacked.max(dim=0).values
+    return stacked.max(axis=0)
+
+
+class IsaacLabTacSLAdapter:
+    """Adapt official TacSL data streams without changing force or taxel order.
+
+    ``update`` accepts one mapping entry per declared SDF counterpart. Each
+    value contains one official ``VisuoTactileSensorData`` object per physical
+    patch, in ``patch_names`` order. The per-counterpart fields are retained;
+    the main dense field is the explicit sum of signed forces and maximum of
+    penetration across those named streams.
+    """
+
+    def __init__(
+        self,
+        patch_names: Sequence[str],
+        *,
+        grid_shape: tuple[int, int] = (20, 25),
+        patch_size_m: tuple[float, float] | Sequence[tuple[float, float]] = (0.04, 0.03),
+    ) -> None:
+        if not patch_names:
+            raise ValueError("At least one physical patch is required.")
+        self.patch_names = tuple(patch_names)
+        self.grid_shape = tuple(grid_shape)
+        self.taxel_count = self.grid_shape[0] * self.grid_shape[1]
+        if len(patch_size_m) == 2 and isinstance(patch_size_m[0], (int, float)):
+            sizes = [tuple(patch_size_m)] * len(self.patch_names)
+        else:
+            sizes = [tuple(size) for size in patch_size_m]
+        if len(sizes) != len(self.patch_names):
+            raise ValueError("Patch size must be one pair or one pair per patch.")
+        self.patch_size_m = np.asarray(sizes, dtype=np.float32)
+        self._sequence = -1
+        self._timestamp_s = 0.0
+        self._has_timestamp = False
+        self._optical_sequence = -1
+        self._optical_timestamp_s = 0.0
+        self._has_optical_timestamp = False
+        self._optical_clock: TactileClock | None = None
+
+    def reset(self) -> None:
+        self._sequence = -1
+        self._timestamp_s = 0.0
+        self._has_timestamp = False
+        self._optical_sequence = -1
+        self._optical_timestamp_s = 0.0
+        self._has_optical_timestamp = False
+        self._optical_clock = None
+
+    def _field(self, data_by_patch: Sequence[Any]) -> CounterpartTactileField:
+        if len(data_by_patch) != len(self.patch_names):
+            raise ValueError("Every counterpart must provide one official stream per patch.")
+        for data in data_by_patch:
+            if data.penetration_depth is None or data.tactile_normal_force is None or data.tactile_shear_force is None:
+                raise ValueError("Official TacSL penetration, normal force, and shear force must all be available.")
+            if data.penetration_depth.shape[-1] != self.taxel_count:
+                raise ValueError("Official TacSL taxel count does not match the declared grid.")
+
+        batch = int(data_by_patch[0].penetration_depth.shape[0])
+        shape = (batch, len(self.patch_names), *self.grid_shape)
+        penetration = _stack([data.penetration_depth for data in data_by_patch], axis=1).reshape(shape)
+        normal = _stack([data.tactile_normal_force for data in data_by_patch], axis=1).reshape(shape)
+        shear = _stack([data.tactile_shear_force for data in data_by_patch], axis=1).reshape((*shape, 2))
+        return CounterpartTactileField(
+            penetration_m=penetration,
+            normal_force_n=normal,
+            shear_force_xy_n=shear,
+            active=penetration > 0.0,
+        )
+
+    def update(
+        self,
+        data_by_counterpart: Mapping[str, Sequence[Any]],
+        *,
+        timestamp_s: float,
+        optical_timestamp_s: float | None = None,
+    ) -> UniversalTactileFrame:
+        """Create one frame from current official TacSL data objects."""
+        if not data_by_counterpart:
+            raise ValueError("At least one declared TacSL counterpart stream is required.")
+        if self._has_timestamp and timestamp_s < self._timestamp_s:
+            raise ValueError("Tactile source timestamps must be nondecreasing.")
+
+        fields = {name: self._field(streams) for name, streams in data_by_counterpart.items()}
+        penetration = _maximum([field.penetration_m for field in fields.values()])
+        normal = _sum([field.normal_force_n for field in fields.values()])
+        shear = _sum([field.shear_force_xy_n for field in fields.values()])
+
+        first_streams = next(iter(data_by_counterpart.values()))
+        positions = None
+        orientations = None
+        if all(data.tactile_points_pos_w is not None for data in first_streams):
+            positions = _stack([data.tactile_points_pos_w for data in first_streams], axis=1).reshape(
+                (*penetration.shape, 3)
+            )
+        if all(data.tactile_points_quat_w is not None for data in first_streams):
+            # IsaacLab tensors use scalar-first wxyz; the saved tactile frame
+            # uses scalar-last xyzw. This only reorders the native orientation.
+            orientations_wxyz = _stack(
+                [data.tactile_points_quat_w for data in first_streams], axis=1
+            ).reshape((*penetration.shape, 4))
+            orientations = orientations_wxyz[..., (1, 2, 3, 0)]
+
+        optical_rgb: list[Any | None] = []
+        optical_depth: list[Any | None] = []
+        optical_available: list[bool] = []
+        for patch_index in range(len(self.patch_names)):
+            patch_rgb = None
+            patch_depth = None
+            for streams in data_by_counterpart.values():
+                data = streams[patch_index]
+                if patch_rgb is None and data.tactile_rgb_image is not None:
+                    patch_rgb = data.tactile_rgb_image
+                if patch_depth is None and data.tactile_depth_image is not None:
+                    patch_depth = data.tactile_depth_image
+            optical_rgb.append(patch_rgb)
+            optical_depth.append(patch_depth)
+            optical_available.append(patch_rgb is not None and patch_depth is not None)
+
+        any_optical = any(optical_available)
+        optical_clock = None
+        if any_optical:
+            if optical_timestamp_s is None:
+                if self._optical_clock is None:
+                    raise ValueError(
+                        "The first available official RGB/depth frame requires an optical timestamp."
+                    )
+                optical_clock = self._optical_clock
+            else:
+                if self._has_optical_timestamp and optical_timestamp_s < self._optical_timestamp_s:
+                    raise ValueError("Optical source timestamps must be nondecreasing.")
+                if not self._has_optical_timestamp or optical_timestamp_s > self._optical_timestamp_s:
+                    optical_dt_s = (
+                        optical_timestamp_s - self._optical_timestamp_s
+                        if self._has_optical_timestamp
+                        else 0.0
+                    )
+                    self._optical_timestamp_s = float(optical_timestamp_s)
+                    self._has_optical_timestamp = True
+                    self._optical_sequence += 1
+                    self._optical_clock = TactileClock(
+                        self._optical_sequence,
+                        self._optical_timestamp_s,
+                        optical_dt_s,
+                    )
+                optical_clock = self._optical_clock
+
+        dt_s = timestamp_s - self._timestamp_s if self._has_timestamp else 0.0
+        self._timestamp_s = float(timestamp_s)
+        self._has_timestamp = True
+        self._sequence += 1
+        clock = TactileClock(self._sequence, self._timestamp_s, dt_s)
+        return validate_universal_tactile_frame(UniversalTactileFrame(
+            backend="isaaclab_tacsl",
+            clock=clock,
+            patch_names=self.patch_names,
+            patch_size_m=self.patch_size_m.copy(),
+            penetration_m=penetration,
+            normal_force_n=normal,
+            shear_force_xy_n=shear,
+            active=penetration > 0.0,
+            taxel_position_w_m=positions,
+            taxel_orientation_w_xyzw=orientations,
+            counterpart_fields=fields,
+            optical=OpticalTactileFrame(
+                available=tuple(optical_available),
+                rgb=tuple(optical_rgb),
+                depth=tuple(optical_depth),
+                clock=optical_clock,
+            ),
+        ))

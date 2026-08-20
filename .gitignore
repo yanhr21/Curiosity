@@ -1,25 +1,76 @@
-# Python
+# Large/generated artifacts
+.cache/
+checkpoints/
+data/
+envs/
+external/
+legacy/
+/Newton/
+runs/
+slide/
+
+# Every directory named legacy is local read-only history. New active work must
+# live outside legacy; no legacy content should be newly added to Git.
+
+# Read-only official SMP upstream checkout. Project-owned adapters and method
+# records are tracked elsewhere; do not vendor its nested Git history.
+/MimicKit/
+
+# Runtime outputs. Keep only the root logs README.
+logs/*
+!logs/README.md
+
+# All experiment reports, logs, checkpoints, datasets, videos, and
+# visualizations are local-only. Never commit or push anything below this tree.
+/experiments/
+
+# Root-level SUGAR is the active source tree. Keep downloaded/runtime material
+# out of the parent repository. Reproduction outputs and logs live under the
+# ignored local-only experiments/ tree.
+SUGAR/data/
+SUGAR/demo_ckpts/
+SUGAR/descriptions/
+SUGAR/downloads/
+SUGAR/outputs
+SUGAR/hydra.log
+
+# Python/build/editor noise
 __pycache__/
 *.py[cod]
+*.so
 *.egg-info/
 .pytest_cache/
+.mypy_cache/
 .ruff_cache/
+.ipynb_checkpoints/
+.DS_Store
+*.swp
+*.tmp
 
-# Environments — Newton is a dependency, never vendored here (Plan 16 §3)
-.venv/
-venv/
-.uvcache/
-
-# Warp kernel cache
-.cache/
-
-# Runtime outputs. Checkpoints, traces, videos and logs are never committed.
-outputs/
-runs/
-logs/
-experiments/
+# Model/data file extensions
 *.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.parquet
+*.h5
+*.hdf5
+*.npz
 *.npy
 *.mp4
+*.avi
+*.mov
 *.usd
 *.usda
+*.ply
+*.vtk
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.gz
+
+# Newton tactile rewrite (Plan 16). Warp kernel cache and local envs.
+sugar_newton/.cache/
+sugar_newton/.venv/

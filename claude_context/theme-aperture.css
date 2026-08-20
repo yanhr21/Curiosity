@@ -1,0 +1,407 @@
+/* theme-aperture.css — an alternative skin for the context page.
+ *
+ * The default (site.css alone) is EDITORIAL: warm paper, serif display, ruled
+ * sections, ink-on-cream. Aperture is the other end: cool near-white, no rules,
+ * everything a floating surface, type doing the work that borders used to do.
+ *
+ * Nothing here changes structure — every rule is scoped under
+ * html[data-theme="aperture"], so the page is one attribute away from either
+ * look and can switch live with no reflow of content.
+ *
+ * The three moves that make it read as "quiet software" rather than "document":
+ *   1. Separation by SPACE and ELEVATION, never by a line. Borders are deleted
+ *      wholesale; what remains is a hairline only where two surfaces truly meet.
+ *   2. Optical typography — display sizes get negative tracking that scales with
+ *      the size, so a 76px headline is set as tightly as the eye expects.
+ *   3. One live accent per column against a near-monochrome field, so colour
+ *      always means "this is a variant", never decoration.
+ */
+
+html[data-theme="aperture"] {
+  /* --- surface: cool, not warm --- */
+  --bg:        #f4f4f6;
+  --panel:     #ffffff;
+  --rule:      #e4e4e9;
+  --rule-soft: #eeeef2;
+  --ink:       #15151a;
+  --ink-soft:  #3a3a43;
+  --mut:       #86868b;
+  --mut-deep:  #5c5c65;
+
+  --dark-bg:        #141418;
+  --dark-panel:     #1d1d22;
+  --dark-rule:      #2f2f37;
+  --dark-rule-soft: #26262c;
+  --dark-ink:       #f2f2f5;
+  --dark-ink-soft:  #c8c8d1;
+  --dark-mut:       #8a8a93;
+
+  /* --- accents: chromatic and even in weight, so no column shouts --- */
+  --a1: #0a6cff;  --a2: #d6336c;  --a3: #17944f;
+  --a4: #0d9488;  --a5: #cf7211;  --a6: #7c3aed;
+  --a1-on-dark: #7fb2ff;  --a2-on-dark: #ff85ab;  --a3-on-dark: #4ade80;
+  --a4-on-dark: #5eead4;  --a5-on-dark: #fbbf24;  --a6-on-dark: #c4b5fd;
+
+  --tag-same: #86868b; --tag-near: #b57d10; --tag-diff: #cf7211;
+  --tag-lose: #d6336c; --tag-gain: #0a6cff;
+
+  /* the serif display is retired; Geist carries both roles */
+  --display: "Geist", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  --r-lg: 20px;
+  --r-md: 14px;
+  --r-sm: 10px;
+  --sh-1: 0 1px 2px rgba(15,15,20,.05);
+  --sh-2: 0 1px 3px rgba(15,15,20,.06), 0 10px 26px -14px rgba(15,15,20,.16);
+  --sh-3: 0 24px 60px -24px rgba(15,15,20,.28);
+}
+
+/* ============================================================ */
+/* NAV — translucent, so content slides under it                */
+/* ============================================================ */
+html[data-theme="aperture"] nav.topbar {
+  background: rgba(244,244,246,0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid rgba(20,20,25,0.07);
+}
+html[data-theme="aperture"] nav.topbar .inner { padding: 14px 48px }
+html[data-theme="aperture"] nav.topbar .repo-label { color: var(--mut) }
+html[data-theme="aperture"] nav.topbar .repo-path  { color: var(--ink) }
+html[data-theme="aperture"] nav.topbar .repo-sep   { color: var(--mut) }
+html[data-theme="aperture"] nav.topbar .repo-branch { color: var(--a1) }
+html[data-theme="aperture"] nav.topbar .nav-links {
+  font: 500 12px/1 var(--sans);
+  letter-spacing: -0.01em; text-transform: none;
+  gap: 22px;
+}
+html[data-theme="aperture"] nav.topbar .nav-links a {
+  color: var(--mut-deep); border-bottom: none;
+  padding: 6px 10px; border-radius: 8px;
+  transition: background .16s, color .16s;
+}
+html[data-theme="aperture"] nav.topbar .nav-links a:hover {
+  color: var(--ink); background: rgba(20,20,25,0.05);
+}
+html[data-theme="aperture"] nav.topbar .nav-links a.tab-link {
+  border: none; background: rgba(20,20,25,0.05); color: var(--ink-soft);
+  padding: 6px 12px; border-radius: 999px;
+}
+html[data-theme="aperture"] nav.topbar .nav-links a.tab-link:hover,
+html[data-theme="aperture"] nav.topbar .nav-links a.tab-link.on {
+  background: var(--ink); color: #fff;
+}
+html[data-theme="aperture"] nav.topbar .nav-links a .tab-count {
+  background: rgba(20,20,25,0.10); color: var(--ink-soft); border-radius: 999px;
+}
+html[data-theme="aperture"] nav.topbar .nav-links a.tab-link.on .tab-count {
+  background: rgba(255,255,255,0.22); color: #fff;
+}
+
+html[data-theme="aperture"] nav.topbar .theme-pick {
+  border: none; background: rgba(20,20,25,0.055); border-radius: 999px; padding: 2px;
+}
+html[data-theme="aperture"] nav.topbar .theme-pick button {
+  color: var(--mut-deep); border-radius: 999px; padding: 5px 12px 6px;
+  font: 600 10.5px/1 var(--sans); letter-spacing: 0.01em; text-transform: none;
+}
+html[data-theme="aperture"] nav.topbar .theme-pick button + button { border-left: none }
+html[data-theme="aperture"] nav.topbar .theme-pick button:hover { color: var(--ink) }
+html[data-theme="aperture"] nav.topbar .theme-pick button.on {
+  background: var(--panel); color: var(--ink); box-shadow: var(--sh-1);
+}
+
+/* ============================================================ */
+/* COVER — the type does the work                               */
+/* ============================================================ */
+html[data-theme="aperture"] header.cover { padding: 104px 0 48px; border-bottom: none }
+html[data-theme="aperture"] .eyebrow {
+  font: 500 12px/1 var(--sans);
+  letter-spacing: 0.01em; text-transform: none;
+  color: var(--a1); margin-bottom: 20px;
+}
+html[data-theme="aperture"] h1.title {
+  font: 600 clamp(44px, 6.2vw, 76px)/1.04 var(--display);
+  letter-spacing: -0.035em;           /* optical tracking for display sizes */
+  margin-bottom: 20px;
+}
+html[data-theme="aperture"] h1.title em { font-style: normal; color: var(--mut) }
+html[data-theme="aperture"] h1.title .ar { color: #c9c9d0; font-size: 0.6em; vertical-align: 0.18em }
+html[data-theme="aperture"] .lede {
+  font: 400 21px/1.5 var(--sans);
+  letter-spacing: -0.015em; color: var(--mut-deep);
+  max-width: 740px; margin-bottom: 44px;
+}
+
+html[data-theme="aperture"] .note {
+  background: var(--panel); border: none; border-radius: var(--r-md);
+  box-shadow: var(--sh-1); padding: 20px 24px; margin-bottom: 14px;
+  font-size: 14.5px; line-height: 1.6;
+}
+html[data-theme="aperture"] .note .note-k {
+  font: 600 11px/1 var(--sans); letter-spacing: 0.01em;
+  text-transform: none; color: var(--a1); margin-bottom: 10px;
+}
+
+/* the fact strip becomes a row of cards, not a ruled band */
+html[data-theme="aperture"] .strip {
+  border: none; gap: 12px; margin-top: 18px;
+}
+html[data-theme="aperture"] .strip .cell {
+  background: var(--panel); border: none !important; border-radius: var(--r-md);
+  box-shadow: var(--sh-1); padding: 18px 20px 20px;
+}
+html[data-theme="aperture"] .strip .k {
+  font: 600 10.5px/1.3 var(--sans); letter-spacing: 0.01em;
+  text-transform: none; color: var(--mut);
+}
+html[data-theme="aperture"] .strip .v .name { font-style: normal; font-weight: 600 }
+html[data-theme="aperture"] .pill { border-radius: 999px; font-family: var(--sans); letter-spacing: 0.01em; text-transform: none; font-size: 10.5px }
+
+/* ============================================================ */
+/* SECTIONS — space instead of rules                            */
+/* ============================================================ */
+html[data-theme="aperture"] section.ch,
+html[data-theme="aperture"] section.diagram,
+html[data-theme="aperture"] section.docs { border-bottom: none; padding: 84px 0 40px }
+html[data-theme="aperture"] section.coda { padding: 84px 0 110px }
+
+html[data-theme="aperture"] .chap-no {
+  font: 500 12px/1 var(--sans); font-style: normal;
+  letter-spacing: 0.02em; color: var(--mut); margin-bottom: 14px;
+}
+html[data-theme="aperture"] h2.ch-h {
+  font: 600 clamp(30px, 3.4vw, 42px)/1.08 var(--display);
+  letter-spacing: -0.028em; margin-bottom: 14px;
+}
+html[data-theme="aperture"] h2.ch-h em { font-style: normal; color: var(--mut) }
+html[data-theme="aperture"] .ch-sub {
+  font-size: 17.5px; letter-spacing: -0.012em; line-height: 1.55; color: var(--mut-deep);
+}
+html[data-theme="aperture"] h3.h3 {
+  font: 600 13px/1 var(--sans); letter-spacing: -0.005em;
+  text-transform: none; color: var(--ink); margin: 46px 0 14px;
+}
+html[data-theme="aperture"] h3.h3::before { display: none }
+
+/* ============================================================ */
+/* SURFACES — every panel floats                                */
+/* ============================================================ */
+html[data-theme="aperture"] .diag-wrap {
+  background: var(--panel); border: none; border-radius: var(--r-lg);
+  box-shadow: var(--sh-2); padding: 34px 26px;
+  /* keep the full-bleed escape, just inset it so the card has air */
+  width: calc(100vw - 32px); max-width: calc(100vw - 32px); margin-left: calc(-50vw + 16px);
+}
+@media (max-width: 760px) {
+  html[data-theme="aperture"] .diag-wrap {
+    width: calc(100vw - 16px); max-width: calc(100vw - 16px); margin-left: calc(-50vw + 8px);
+  }
+}
+html[data-theme="aperture"] .flow-pinned {
+  background: transparent; border-right: 1px solid var(--rule); box-shadow: none;
+}
+html[data-theme="aperture"] .flow-pinned .fc-badge {
+  border-radius: 999px; letter-spacing: 0.04em; padding: 4px 0; font-size: 9px;
+}
+html[data-theme="aperture"] .flow-scroll .flow-col + .flow-col { border-left: 1px solid var(--rule) }
+html[data-theme="aperture"] .flow-col .fc-h {
+  font-size: 14px; letter-spacing: -0.015em; border-bottom: none; padding-bottom: 0;
+}
+html[data-theme="aperture"] .flow-col .fc-sub { font-family: var(--sans); letter-spacing: -0.005em; font-size: 11px }
+
+html[data-theme="aperture"] .flow-panels .flow-node {
+  border: none; border-radius: var(--r-md);
+  background: #fafafc; box-shadow: inset 0 0 0 1px rgba(20,20,25,0.055);
+  transition: box-shadow .16s, background .16s;
+}
+html[data-theme="aperture"] .flow-panels .flow-node:hover {
+  background: #fff; box-shadow: inset 0 0 0 1px rgba(20,20,25,0.09), var(--sh-1);
+}
+html[data-theme="aperture"] .flow-panels .flow-node > summary { font-size: 13.5px; letter-spacing: -0.012em }
+html[data-theme="aperture"] .flow-panels .flow-node > summary .ns { font-family: var(--sans); letter-spacing: -0.005em }
+html[data-theme="aperture"] .flow-panels details.sub { border-radius: var(--r-sm); background: #fff }
+html[data-theme="aperture"] .flow-pop {
+  border: none; border-radius: 18px;
+  box-shadow: var(--sh-3), 0 0 0 1px rgba(20,20,25,0.06);
+  padding: 16px 18px 17px;
+}
+html[data-theme="aperture"] .flow-pop-h { font-size: 14px; letter-spacing: -0.015em }
+html[data-theme="aperture"] .flow-hint { font-family: var(--sans); letter-spacing: -0.005em; font-size: 11px }
+html[data-theme="aperture"] .flow-legend { font-size: 11px; gap: 6px 18px }
+html[data-theme="aperture"] .flow-legend i { border-radius: 4px }
+html[data-theme="aperture"] .diag-cap { font-size: 13.5px; letter-spacing: -0.008em }
+
+/* ============================================================ */
+/* TABLES — hairlines, generous rows                            */
+/* ============================================================ */
+html[data-theme="aperture"] table.diff thead th {
+  font: 600 11px/1.3 var(--sans); letter-spacing: -0.005em;
+  text-transform: none; color: var(--mut); border-bottom: 1px solid var(--rule);
+}
+html[data-theme="aperture"] table.diff th,
+html[data-theme="aperture"] table.diff td { padding: 18px 16px 18px 0 }
+html[data-theme="aperture"] table.diff td.dim { font-weight: 600; letter-spacing: -0.01em }
+
+html[data-theme="aperture"] table.variants {
+  font-family: var(--sans); font-size: 13.5px; letter-spacing: -0.008em;
+  border-collapse: separate; border-spacing: 0;
+  background: var(--panel); border-radius: var(--r-md);
+  box-shadow: var(--sh-1); overflow: hidden;
+}
+html[data-theme="aperture"] table.variants th,
+html[data-theme="aperture"] table.variants td {
+  border: none; border-bottom: 1px solid var(--rule-soft); padding: 13px 16px;
+}
+html[data-theme="aperture"] table.variants thead th {
+  background: #fafafc; font: 600 11.5px/1.3 var(--sans); color: var(--mut);
+  border-bottom: 1px solid var(--rule);
+}
+html[data-theme="aperture"] table.variants tbody tr:last-child td { border-bottom: none }
+html[data-theme="aperture"] table.variants tbody tr:hover td { background: #fafafc }
+html[data-theme="aperture"] table.variants td.name .dot { width: 7px; height: 7px }
+html[data-theme="aperture"] table.variants tr.is-ours td { background: rgba(124,58,237,0.045) }
+html[data-theme="aperture"] .table-hint { font-family: var(--sans); letter-spacing: -0.005em; font-size: 12.5px }
+
+/* medals: tinted, not highlighter */
+html[data-theme="aperture"] td.medal-gold   { background: #fdf1cd; color: var(--ink) }
+html[data-theme="aperture"] td.medal-silver { background: #eceef1 }
+html[data-theme="aperture"] td.medal-bronze { background: #f6e3d2 }
+html[data-theme="aperture"] button.row-toggle { border-radius: 999px; border-color: var(--rule) }
+
+/* ============================================================ */
+/* MODULE GRID                                                  */
+/* ============================================================ */
+html[data-theme="aperture"] .arch-diag .col {
+  border: none; border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px rgba(20,20,25,0.06);
+}
+html[data-theme="aperture"] .arch-diag .col.shared {
+  background: #fafafc !important; box-shadow: inset 0 0 0 1px rgba(20,20,25,0.06) !important;
+}
+html[data-theme="aperture"] .arch-diag .col-header { font-size: 15px; letter-spacing: -0.015em }
+html[data-theme="aperture"] .arch-diag .col-sub,
+html[data-theme="aperture"] .arch-diag .row-label {
+  font-family: var(--sans); letter-spacing: 0.01em; text-transform: none;
+}
+html[data-theme="aperture"] .arch-diag code,
+html[data-theme="aperture"] code {
+  background: rgba(20,20,25,0.045); border: none; border-radius: 5px; padding: 1px 6px;
+}
+html[data-theme="aperture"] .arch-diag .or-block,
+html[data-theme="aperture"] .arch-diag .sub-rect { border-radius: var(--r-sm) }
+html[data-theme="aperture"] .train-icon { border-radius: 5px }
+
+/* ============================================================ */
+/* DARK SURFACES — softened, rounded                            */
+/* ============================================================ */
+html[data-theme="aperture"] pre {
+  border: none; border-left: none; border-radius: var(--r-md);
+  padding: 20px 24px; box-shadow: var(--sh-1);
+}
+html[data-theme="aperture"] .pull {
+  border: none; border-left: none; border-radius: var(--r-lg);
+  padding: 30px 32px; box-shadow: var(--sh-2);
+}
+html[data-theme="aperture"] .pull::before {
+  background: none; color: var(--dark-mut);
+  position: static; display: block; padding: 0 0 10px;
+  font: 600 11px/1 var(--sans); letter-spacing: 0.01em; text-transform: none;
+}
+html[data-theme="aperture"] .pull p { font-size: 17px; letter-spacing: -0.015em }
+
+/* ============================================================ */
+/* CODA + FOOTER                                                */
+/* ============================================================ */
+html[data-theme="aperture"] .gridn { border: none; gap: 12px; margin: 28px 0 44px }
+html[data-theme="aperture"] .gridn .col {
+  background: var(--panel); border: none !important; border-radius: var(--r-md);
+  box-shadow: var(--sh-1); padding: 22px 24px !important;
+}
+html[data-theme="aperture"] .gridn .col h4 {
+  font: 600 13px/1.3 var(--sans); letter-spacing: -0.01em; text-transform: none;
+}
+html[data-theme="aperture"] .gridn .col li { border-bottom: 1px solid var(--rule-soft) }
+html[data-theme="aperture"] ol.actions li { border-bottom: 1px solid var(--rule-soft); padding-left: 46px }
+html[data-theme="aperture"] ol.actions li::before {
+  font: 600 13px/1 var(--sans); font-style: normal; color: var(--a1); top: 21px;
+}
+html[data-theme="aperture"] .footer-band {
+  background: transparent; border-top: 1px solid var(--rule); margin-top: 40px;
+}
+html[data-theme="aperture"] footer { color: var(--mut) }
+html[data-theme="aperture"] footer code { background: rgba(20,20,25,0.045); color: var(--mut); border: none }
+
+/* ============================================================ */
+/* DOCS + FINDINGS                                              */
+/* ============================================================ */
+html[data-theme="aperture"] .docs-sidebar .group-h {
+  font: 600 11px/1 var(--sans); letter-spacing: 0.01em;
+  text-transform: none; color: var(--mut); border-bottom: none; margin-bottom: 4px;
+}
+html[data-theme="aperture"] .docs-sidebar a.doc-link {
+  border-left: none; border-radius: var(--r-sm); padding: 10px 12px;
+}
+html[data-theme="aperture"] .docs-sidebar a.doc-link:hover { background: rgba(20,20,25,0.045) }
+html[data-theme="aperture"] .docs-sidebar a.doc-link.active {
+  background: var(--panel); box-shadow: var(--sh-1); color: var(--ink);
+}
+html[data-theme="aperture"] .docs-sidebar a.doc-link .doc-link-badge {
+  border-radius: 999px; background: var(--a1); color: #fff;
+  font-family: var(--sans); letter-spacing: 0.01em;
+}
+html[data-theme="aperture"] .docs-pathbar {
+  background: transparent; border: none; border-bottom: 1px solid var(--rule);
+  font: 500 12px/1 var(--sans); letter-spacing: -0.005em; text-transform: none;
+  padding: 0 0 12px;
+}
+html[data-theme="aperture"] .md h1, html[data-theme="aperture"] .md h2 {
+  font-family: var(--display); font-weight: 600; letter-spacing: -0.025em; border-bottom: none;
+}
+html[data-theme="aperture"] .md h3 {
+  font: 600 13px/1.3 var(--sans); letter-spacing: -0.008em;
+  text-transform: none; color: var(--ink);
+}
+html[data-theme="aperture"] .md a { color: var(--a1); border-bottom-color: rgba(10,108,255,0.28) }
+html[data-theme="aperture"] .md pre { border: none; border-left: none; border-radius: var(--r-md) }
+html[data-theme="aperture"] .md th { background: #fafafc }
+html[data-theme="aperture"] .md th, html[data-theme="aperture"] .md td { border-color: var(--rule-soft) }
+
+html[data-theme="aperture"] .find-toolbar {
+  background: var(--panel); border: none; border-radius: var(--r-md);
+  box-shadow: var(--sh-1); padding: 12px 16px;
+}
+html[data-theme="aperture"] .find-toolbar .fk,
+html[data-theme="aperture"] .find-toolbar button {
+  font-family: var(--sans); letter-spacing: 0.005em; text-transform: none; font-size: 11.5px;
+}
+html[data-theme="aperture"] .find-toolbar button { border-radius: 999px; padding: 6px 13px 7px }
+html[data-theme="aperture"] .find-toolbar button.on { background: var(--ink); color: #fff; border-color: var(--ink) }
+html[data-theme="aperture"] .finding {
+  border: none; border-left: 3px solid var(--mut); border-radius: var(--r-md);
+  box-shadow: var(--sh-1); padding: 6px 22px 18px;
+}
+html[data-theme="aperture"] .verdict-chip {
+  border-radius: 999px; font-family: var(--sans);
+  letter-spacing: 0.01em; text-transform: none; font-size: 10.5px;
+}
+html[data-theme="aperture"] .finding .fid,
+html[data-theme="aperture"] .finding .fmeta { font-family: var(--sans); letter-spacing: -0.005em }
+
+/* ============================================================ */
+/* MOTION — one orchestrated entrance, then stillness           */
+/* ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-theme="aperture"] header.cover > * {
+    animation: ap-rise .62s cubic-bezier(.22,.61,.36,1) both;
+  }
+  html[data-theme="aperture"] header.cover > :nth-child(2) { animation-delay: .04s }
+  html[data-theme="aperture"] header.cover > :nth-child(3) { animation-delay: .08s }
+  html[data-theme="aperture"] header.cover > :nth-child(4) { animation-delay: .12s }
+  html[data-theme="aperture"] header.cover > :nth-child(5) { animation-delay: .16s }
+  html[data-theme="aperture"] header.cover > :nth-child(6) { animation-delay: .20s }
+  @keyframes ap-rise {
+    from { opacity: 0; transform: translateY(10px) }
+    to   { opacity: 1; transform: none }
+  }
+}
