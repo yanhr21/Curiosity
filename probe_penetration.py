@@ -84,7 +84,13 @@ def main():
         flush=True,
     )
     has_force = getattr(contacts, "force", None) is not None
-    print(f"[probe] per-contact force attribute allocated: {has_force}", flush=True)
+    total_mass = float(model.body_mass.numpy().sum())  # only the robot has bodies; furniture is static
+    weight = total_mass * 9.81
+    print(
+        f"[probe] per-contact force attribute allocated: {has_force} | robot mass {total_mass:.2f} kg "
+        f"(weight {weight:.1f} N)",
+        flush=True,
+    )
 
     # settle first (same pre-roll as the render), so we measure the walking robot, not the drop-in.
     if getattr(args, "settle", 0) > 0:
@@ -103,6 +109,9 @@ def main():
     root_z = np.zeros(args.frames)
     peak_force = dict.fromkeys(cats, 0.0)  # peak per-contact force magnitude [N] per category
     peak_sensor = 0.0  # peak SensorContact.total_force [N] — the end-to-end tactile readout
+    # Vertical ground reaction summed over all robot<->floor contacts. Standing still it must equal
+    # the robot's weight; that is the units/sign check on the whole contact-force path.
+    support = np.full(args.frames, np.nan)
 
     t0 = time.perf_counter()
     for f in range(args.frames):
@@ -110,8 +119,11 @@ def main():
 
         n = int(contacts.rigid_contact_count.numpy()[0])
         root_z[f] = float(ex.state_0.joint_q.numpy()[2])
-        if ex.contact_sensor is not None and getattr(ex.contact_sensor, "total_force", None) is not None:
-            peak_sensor = max(peak_sensor, float(np.linalg.norm(ex.contact_sensor.total_force.numpy(), axis=-1).max()))
+        if ex.contact_sensor is not None and getattr(ex.contact_sensor, "force_matrix", None) is not None:
+            # force_matrix is the per-counterpart breakdown, so this really is robot<->furniture;
+            # total_force would include the floor reaction and track footsteps instead.
+            per_link = ex.contact_sensor.force_matrix.numpy().sum(axis=1)
+            peak_sensor = max(peak_sensor, float(np.linalg.norm(per_link, axis=-1).max()))
         if n == 0:
             for c in cats:
                 trace[c][f] = np.nan
@@ -143,6 +155,15 @@ def main():
             "furniture-furniture": fu & ~r & ~g,
         }
         masks["other"] = ~(masks["robot-furniture"] | masks["robot-floor"] | masks["furniture-furniture"])
+        if has_force:
+            gm = (s0 == ex.ground_shape) | (s1 == ex.ground_shape)
+            if gm.any():
+                fv = contacts.force.numpy()[:n, :3].astype(np.float64)
+                # force is stored on shape0; flip it when the ground is shape0 to get the reaction
+                # acting on the robot.
+                fv = np.where((s0 == ex.ground_shape)[:, None], -fv, fv)
+                support[f] = float(fv[gm, 2].sum())
+
         fmag = None
         if has_force:
             # SensorContact reads the linear force as wp.spatial_top(contacts.force) -> components 0:3.
@@ -178,12 +199,22 @@ def main():
         else:
             print(f"[probe]   {c:22s} no contacts", flush=True)
     print(f"[probe] robot root z: min {root_z.min():.4f} max {root_z.max():.4f} (floor {ex.floor_top_z:.4f})")
-    print(f"[probe] peak SensorContact.total_force (robot<->furniture) = {peak_sensor:.1f} N", flush=True)
+    tail = support[args.frames // 2 :]
+    tail = tail[np.isfinite(tail)]
+    if tail.size:
+        mean_support = tail.mean()
+        print(
+            f"[probe] ground reaction over the last {tail.size} frames: {mean_support:.1f} N "
+            f"vs weight {weight:.1f} N  ->  ratio {mean_support / weight:.3f} "
+            f"(1.000 = the contact-force path is correctly scaled)",
+            flush=True,
+        )
+    print(f"[probe] peak SensorContact force_matrix (robot<->furniture) = {peak_sensor:.1f} N", flush=True)
     if has_force:
         print("[probe] peak per-contact force [N]: " + "  ".join(f"{c}={peak_force[c]:.1f}" for c in cats), flush=True)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    np.savez(args.out, root_z=root_z, **{c.replace("-", "_"): trace[c] for c in cats})
+    np.savez(args.out, root_z=root_z, support=support, **{c.replace("-", "_"): trace[c] for c in cats})
     print(f"[probe] wrote {os.path.abspath(args.out)}", flush=True)
 
 

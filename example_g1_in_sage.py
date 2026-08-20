@@ -281,7 +281,9 @@ def build(args, viewer):
     ex.state_0, ex.state_1 = model.state(), model.state()
     ex.control = model.control()
 
-    # tactile: net contact force on the robot from furniture (excludes the floor).
+    # tactile: contact force on the robot, broken down per furniture object. NOTE the breakdown
+    # lives in `force_matrix` (gated on counterpart membership); `total_force` is every contact on
+    # a sensing link, so reading it here would report mostly the floor reaction, not touch.
     ex.contact_sensor = None
     try:
         from newton.sensors import SensorContact
@@ -487,11 +489,14 @@ def main():
         peak_touch = 0.0  # peak robot↔furniture contact force [N] over the clip (tactile signal)
         for f in range(args.frames):
             policy_step(ex)
-            if ex.contact_sensor is not None and getattr(ex.contact_sensor, "total_force", None) is not None:
+            if ex.contact_sensor is not None and getattr(ex.contact_sensor, "force_matrix", None) is not None:
                 try:
                     import numpy as _np
 
-                    fmag = float(_np.linalg.norm(ex.contact_sensor.total_force.numpy(), axis=-1).max())
+                    # (sensing link, furniture object) -> force vec3; sum the furniture columns for
+                    # the net force each link feels from furniture, then take the worst link.
+                    per_link = ex.contact_sensor.force_matrix.numpy().sum(axis=1)
+                    fmag = float(_np.linalg.norm(per_link, axis=-1).max())
                     if fmag > peak_touch:
                         peak_touch = fmag
                 except Exception:
