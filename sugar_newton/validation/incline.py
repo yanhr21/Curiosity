@@ -39,6 +39,7 @@ import warp as wp
 
 import newton
 from newton import Contacts
+from newton.geometry import HydroelasticSDF
 from sugar_newton.tactile.reducer import PatchTactile, TactileConfig
 
 
@@ -56,9 +57,23 @@ class InclineScene:
     ``velocity_at_point`` paths, which a static patch would not.
     """
 
-    def __init__(self, theta_deg: float, mu: float, matching: str = "latest"):
+    def __init__(
+        self,
+        theta_deg: float,
+        mu: float,
+        matching: str = "latest",
+        mu_ramp: float | None = None,
+        mu_block: float | None = None,
+        fallback_friction: float | None = None,
+        hydroelastic: bool = False,
+    ):
         self.theta = math.radians(theta_deg)
         self.mu = mu
+        # Per-shape friction, so the pair-combination rule can be exercised.
+        # MuJoCo resolves a contact pair by elementwise MAX (kernels.py:165).
+        self.mu_ramp = mu if mu_ramp is None else mu_ramp
+        self.mu_block = mu if mu_block is None else mu_block
+        self.hydroelastic = hydroelastic
 
         builder = newton.ModelBuilder(gravity=-GRAVITY)
         newton.solvers.SolverMuJoCo.register_custom_attributes(builder)
@@ -66,9 +81,26 @@ class InclineScene:
         # density=0: the shape must contribute no mass, otherwise add_shape_box
         # silently adds (density x volume) on top of add_body(mass=...) and the
         # block weighs more than SLIDER_MASS.  Asserted after finalize().
-        cfg = newton.ModelBuilder.ShapeConfig(
-            mu=mu, ke=1.0e5, kd=1.0e3, kf=1.0e3, density=0.0
+        # Box primitives can be hydroelastic directly -- no mesh SDF build is
+        # needed, unlike imported meshes (example_robot_panda_hydro.py:79-85).
+        # This is what allocates and fills rigid_contact_friction, the
+        # per-contact scale (collide.py:896), so it is what exercises the scale
+        # half of mu_contact = max(mu_a, mu_b) * scale.
+        extra = (
+            dict(
+                is_hydroelastic=True,
+                kh=1.0e11,
+                gap=0.01,
+                mu_torsional=0.0,
+                mu_rolling=0.0,
+                sdf_max_resolution=64,
+                sdf_narrow_band_range=(-0.01, 0.01),
+            )
+            if hydroelastic
+            else dict(ke=1.0e5, kd=1.0e3, kf=1.0e3)
         )
+        cfg_ramp = newton.ModelBuilder.ShapeConfig(mu=self.mu_ramp, density=0.0, **extra)
+        cfg_block = newton.ModelBuilder.ShapeConfig(mu=self.mu_block, density=0.0, **extra)
 
         # Ramp: static, rotated about +Y so its top face normal tilts toward +X.
         tilt = wp.quat_from_axis_angle(wp.vec3(0.0, 1.0, 0.0), self.theta)
@@ -78,7 +110,7 @@ class InclineScene:
             hx=RAMP_HALF[0],
             hy=RAMP_HALF[1],
             hz=RAMP_HALF[2],
-            cfg=cfg,
+            cfg=cfg_ramp,
             label="ramp",
         )
 
@@ -97,7 +129,7 @@ class InclineScene:
             hx=SLIDER_HALF,
             hy=SLIDER_HALF,
             hz=SLIDER_HALF,
-            cfg=cfg,
+            cfg=cfg_block,
             label="patch",
         )
 
@@ -116,6 +148,7 @@ class InclineScene:
             self.model,
             contact_matching=matching,
             contact_report=matching != "disabled",
+            sdf_hydroelastic_config=HydroelasticSDF.Config() if hydroelastic else None,
         )
         self.contacts = self.pipeline.contacts()
 
@@ -140,7 +173,9 @@ class InclineScene:
             self.model,
             patch_shapes=[self.patch_shape],
             counterpart_shapes=[self.ramp_shape],
-            config=TactileConfig(fallback_friction=mu),
+            config=TactileConfig(
+                fallback_friction=mu if fallback_friction is None else fallback_friction
+            ),
         )
 
         self.alignment_ok: bool | None = None

@@ -154,7 +154,8 @@ def reduce_contacts_kernel(
     contact_point1: wp.array[wp.vec3],
     contact_normal: wp.array[wp.vec3],
     contact_force: wp.array[wp.spatial_vector],
-    contact_friction: wp.array[wp.float32],
+    contact_friction_scale: wp.array[wp.float32],
+    shape_material_mu: wp.array[wp.float32],
     anchor: wp.array[wp.vec3],
     anchor_age: wp.array[wp.int32],
     shape_to_patch: wp.array[wp.int32],
@@ -251,12 +252,32 @@ def reduce_contacts_kernel(
     if normal_load < min_normal_load:
         return
 
+    # The friction coefficient the solve actually used for this contact.
+    #
+    # NOTE: rigid_contact_friction is NOT mu.  It is a per-contact *scale*
+    # (default 1.0) that hydroelastic contact reduction uses for moment
+    # matching when many surface faces collapse to a few representative
+    # contacts (contact_reduction_hydroelastic.py:885).  MuJoCo multiplies the
+    # resolved material friction by it (kernels.py:460-468).  The material
+    # friction itself is combined across the pair by elementwise MAX
+    # (kernels.py:165), which is MuJoCo's standard rule -- not an average, and
+    # not shape0's value.
+    #
+    #     mu_contact = max(mu_a, mu_b) * friction_scale
+    #
+    # Reading the scale alone as mu yields ~1.0 for every contact regardless of
+    # material, which is a different flavour of exactly the Plan 15 defect this
+    # module exists to avoid: a friction channel that cannot see friction.
     mu = fallback_friction
-    if contact_friction:
-        mu_c = contact_friction[i]
+    if shape_material_mu:
+        mu = wp.max(shape_material_mu[patch_shape], shape_material_mu[other_shape])
+    if contact_friction_scale:
+        scale = contact_friction_scale[i]
         # 0.0 means "no friction was set" for this contact (contact_data.py:39).
-        if mu_c > 0.0:
-            mu = mu_c
+        if scale > 0.0:
+            mu = mu * scale
+    if mu < 1.0e-6:
+        return
 
     utilization = friction_mag / (mu * normal_load)
     wp.atomic_max(out_util_max, row, utilization)
@@ -519,6 +540,7 @@ class PatchTactile:
                 contacts.rigid_contact_normal,
                 contacts.force,
                 contacts.rigid_contact_friction,
+                self.model.shape_material_mu,
                 self._anchor,
                 self._anchor_age,
                 self.shape_to_patch,

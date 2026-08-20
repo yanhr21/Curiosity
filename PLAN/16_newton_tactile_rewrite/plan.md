@@ -89,10 +89,23 @@ true contact normal; `f_t = f − f_n`. This is the decomposition `SensorContact
 performs (`newton/_src/sensors/sensor_contact.py:90-95`). It is the physically correct one,
 and it is the one TacSL did not do.
 
-**Friction utilization (5-6) uses the real per-contact μ.** `rigid_contact_friction` is
-written by the collision pipeline (`newton/_src/sim/collide.py:1067`) and read by the
-MuJoCo solver as `friction_scale` (`newton/_src/solvers/mujoco/kernels.py:460`) — it is the
-coefficient the solve actually used, so it tracks domain randomization by construction.
+**Friction utilization (5-6) uses the real per-contact μ.**
+
+    mu_contact = max(mu_a, mu_b) * friction_scale
+
+`rigid_contact_friction` is **not** μ — it is a per-contact *scale*, default 1.0, that
+hydroelastic contact reduction writes for moment matching when many surface faces collapse
+to a few representative contacts (`contact_reduction_hydroelastic.py:885`). MuJoCo
+multiplies the resolved material friction by it (`kernels.py:460-468`). The material
+friction itself is combined across the pair by elementwise **max** (`kernels.py:165`),
+MuJoCo's standard rule — not an average, and not shape0's value.
+
+An earlier draft of this section claimed `rigid_contact_friction` *was* the coefficient,
+and the reducer was written to match. That would have read ≈1.0 for every contact
+regardless of material: a friction channel that cannot see friction, which is audit #4
+again in a new costume. Corrected in both places, and
+`sugar_newton/validation/friction.py` now fails if it ever regresses.
+
 This is the direct repair of audit #4.
 
 Both a max and a load-weighted mean are reported because Coulomb's condition is *per

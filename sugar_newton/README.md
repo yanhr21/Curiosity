@@ -81,6 +81,38 @@ whole does, which is exactly the per-contact detail a single patch-level ratio
 would hide. Slip displacement and slip velocity are two independent estimates
 and agree to ~2%.
 
+## Friction: verified, after the test found a bug
+
+`validation/friction.py` exists to close audit #4 — Plan 15's utilization divided
+by a sensor-fixed `mu = 0.5` while training randomized the box's friction over
+`U[0.2, 0.8]`, so the channel was blind to the quantity it was named after.
+
+Writing the test found the same class of bug in this code. The reducer used
+`rigid_contact_friction` **as** μ. It is not μ; it is a per-contact *scale*
+(default 1.0) that hydroelastic reduction writes for moment matching, and which
+MuJoCo multiplies the resolved material friction by. The pair itself combines by
+elementwise **max**. The correct form is
+
+    mu_contact = max(mu_a, mu_b) * friction_scale
+
+The original incline test could not have caught it: both shapes had `mu = 0.5`,
+so `max` coincided with the fallback constant and every number came out right
+for the wrong reason.
+
+The test is built to fail under each way of getting this wrong — the fallback is
+set to an absurd `7.0`, and cases A and B are the same pair with μ *swapped
+between the shapes*, which must read identically if the rule is really `max`:
+
+```
+case                        mu_ramp  mu_blk  mu_pair     util  util exp
+A  high ramp / low block       0.80    0.30     0.80   0.2657    0.2657
+B  low ramp / high block       0.30    0.80     0.80   0.2657    0.2657
+C  both low                    0.30    0.30     0.30   0.7085    0.7085
+D  both high                   0.90    0.90     0.90   0.2362    0.2362
+
+PASSED — utilization tracks max(mu_a, mu_b); spread 0.4723 across mu 0.3-0.9
+```
+
 ## What the first run taught us
 
 Recorded here because each one is a fact about the platform, not about this code.
@@ -117,12 +149,11 @@ Recorded here because each one is a fact about the platform, not about this code
 
 ## Open — do not assume these are done
 
-- **The real-μ path is not yet exercised.** `rigid_contact_friction` is only
-  allocated when the pipeline is built with a hydroelastic SDF config
-  (`collide.py:896`), and the validator's box-on-box scene has none — so it ran
-  on `TactileConfig.fallback_friction`. Repairing audit #4 depends on the
-  per-contact path, and **it is still unverified**. Re-run with hydroelastic
-  mesh shapes and a randomized μ before claiming that finding is fixed.
+- **The friction SCALE path needs a GPU and has not run.** Hydroelastic SDF
+  construction uses `wp.Volume.allocate_by_tiles` and `wp.Texture3D`, which are
+  CUDA-only, so `rigid_contact_friction` is not even allocated on a CPU device.
+  `friction.py --hydroelastic` exits 2 with an explanation rather than reporting
+  a pass. The material-μ half is verified (below); the scale half is not.
 - Contact area and peak pressure (Plan 16 §4 channels 9-10) are not implemented;
   they need the hydroelastic contact surface.
 - The quantitative sliding test should be a prescribed-velocity scene, where

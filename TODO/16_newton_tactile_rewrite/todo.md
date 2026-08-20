@@ -56,11 +56,27 @@ against upstream Newton must stay empty.
 
 ### B-open — do not mark Phase 1 done until these close
 
-- [ ] **The real-μ path is still unverified.** `rigid_contact_friction` is only allocated
-      when the pipeline has a hydroelastic SDF config (`collide.py:896`); the validator's
-      box-on-box scene has none, so it ran on `TactileConfig.fallback_friction`.
-      **Audit #4 is not yet repaired in fact** — re-run with hydroelastic mesh shapes and
-      a randomized μ before claiming it is.
+- [x] **Material-μ half verified** — `sugar_newton/validation/friction.py`, exits 0 on CPU.
+      Utilization tracks `max(mu_a, mu_b)` to 4 decimals across μ = 0.3…0.9 (spread
+      0.4723), and swapping μ between the two shapes leaves the reading unchanged, which
+      is what proves the pair rule is MAX rather than one shape's value. The fallback is
+      set to an absurd 7.0 so any silent fall-through fails the test.
+- [x] **Bug found and fixed by writing that test.** The reducer used
+      `rigid_contact_friction` *as* μ. It is not μ — it is a per-contact **scale**
+      (default 1.0) written by hydroelastic reduction for moment matching
+      (`contact_reduction_hydroelastic.py:885`); MuJoCo multiplies the resolved material
+      friction by it (`kernels.py:460-468`), and the pair itself combines by elementwise
+      max (`kernels.py:165`). Correct form: `mu_contact = max(mu_a, mu_b) * scale`.
+      The original incline test could not catch this because both shapes had μ = 0.5, so
+      `max` coincided with the fallback. Plan 16 §4 corrected too.
+- [ ] **Scale half needs a GPU — blocked here.** Hydroelastic SDF construction uses
+      `wp.Volume.allocate_by_tiles` and `wp.Texture3D`, which are **CUDA-only**, so
+      `rigid_contact_friction` is never even allocated on a CPU device. Run
+      `python -m sugar_newton.validation.friction --hydroelastic` inside the CUDA
+      container (recipe: `Curiosity_newton/renders/build_and_render.sh`). The test exits 2
+      with an explanation on CPU rather than reporting a pass.
+      **Until this runs, audit #4 is repaired for material friction but not for the
+      contact-reduction scale.**
 - [ ] Contact area and peak pressure (Plan 16 §4 channels 9-10) — need the hydroelastic
       contact surface.
 - [ ] Prescribed-velocity sliding scene for a *quantitative* slip test; the free-slide
