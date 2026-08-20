@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Environments — Newton is a dependency, never vendored here (Plan 16 §3)
+.venv/
+venv/
+.uvcache/
+
+# Warp kernel cache
+.cache/
+
+# Runtime outputs. Checkpoints, traces, videos and logs are never committed.
+outputs/
+runs/
+logs/
+experiments/
+*.pt
+*.npy
+*.mp4
+*.usd
+*.usda
