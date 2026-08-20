@@ -175,7 +175,7 @@ def build(args, viewer):
         is_hydroelastic=True,
         is_visible=False,
     )
-    builder.add_ground_plane(height=floor_top_z, cfg=floor_cfg)
+    ground_shape = builder.add_ground_plane(height=floor_top_z, cfg=floor_cfg)
     print(f"[g1_in_sage] floor mu={floor_mu}, ground plane at z={floor_top_z:.4f} (== floor mesh top)")
 
     # drop the ceiling + the wall nearest the camera so we can see into the room
@@ -243,8 +243,7 @@ def build(args, viewer):
     ex.state_0, ex.state_1 = model.state(), model.state()
     ex.control = model.control()
 
-    # tactile: net contact force on the robot from furniture (excludes the floor). Must be
-    # created before the Contacts buffer so the "force" contact attribute is allocated.
+    # tactile: net contact force on the robot from furniture (excludes the floor).
     ex.contact_sensor = None
     try:
         from newton.sensors import SensorContact
@@ -260,9 +259,26 @@ def build(args, viewer):
     except Exception as e:  # sensor API mismatch must not kill the render
         print(f"[g1_in_sage] tactile sensor unavailable: {e}")
 
-    ex.contacts = newton.Contacts(solver.get_max_contact_count(), 0)
+    # SensorContact's constructor already requested the per-contact "force" attribute, but
+    # request_contact_attributes() only RECORDS the request on the model — it is consumed where the
+    # buffer is built through the model/collision pipeline. This buffer is built directly (MuJoCo
+    # requires it sized to solver.get_max_contact_count()), so the request must be forwarded here.
+    # Without it `Contacts.force` is None, SolverMuJoCo's conversion kernel skips filling it, and
+    # SensorContact.update() raises on the first frame — which the guard below turns into a silent
+    # 0 N tactile reading no matter what the robot touches.
+    ex.contacts = newton.Contacts(
+        solver.get_max_contact_count(), 0, requested_attributes=model.get_requested_contact_attributes()
+    )
     ex.torch_device = "cuda" if wp.get_device().is_cuda else "cpu"
     newton.eval_fk(model, ex.state_0.joint_q, ex.state_0.joint_qd, ex.state_0)
+    # shape-index groups, so validation tools (probe_penetration.py) can classify each contact
+    # as robot-vs-furniture / robot-vs-floor rather than re-deriving the split from the model.
+    ex.n_robot_shapes, ex.obj_shapes, ex.ground_shape, ex.floor_top_z = (
+        n_robot_shapes,
+        obj_shapes,
+        ground_shape,
+        floor_top_z,
+    )
     ex.config = config
     ex.n_dof = config["num_dofs"]  # robot actuated joints (policy slice width)
     ex.n_ctrl = ex.control.joint_target_q.shape[0]  # full target vector incl. furniture free joints
