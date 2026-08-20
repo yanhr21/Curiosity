@@ -7,3 +7,4 @@ _toolcache/
 penetration_*.npz
 friction_sweep*/
 .devnode
+_scratch/
