@@ -74,3 +74,6 @@ __pycache__/
 # Newton tactile rewrite (Plan 16). Warp kernel cache and local envs.
 sugar_newton/.cache/
 sugar_newton/.venv/
+# Plan 16 GPU run outputs: traces, frames, videos and job logs stay local.
+sugar_newton/_gpu_out/
+sugar_newton/_*.log

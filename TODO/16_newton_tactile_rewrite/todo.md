@@ -69,20 +69,44 @@ against upstream Newton must stay empty.
       max (`kernels.py:165`). Correct form: `mu_contact = max(mu_a, mu_b) * scale`.
       The original incline test could not catch this because both shapes had μ = 0.5, so
       `max` coincided with the fallback. Plan 16 §4 corrected too.
-- [ ] **Scale half needs a GPU — blocked here.** Hydroelastic SDF construction uses
-      `wp.Volume.allocate_by_tiles` and `wp.Texture3D`, which are **CUDA-only**, so
-      `rigid_contact_friction` is never even allocated on a CPU device. Run
-      `python -m sugar_newton.validation.friction --hydroelastic` inside the CUDA
-      container (recipe: `Curiosity_newton/renders/build_and_render.sh`). The test exits 2
-      with an explanation on CPU rather than reporting a pass.
-      **Until this runs, audit #4 is repaired for material friction but not for the
-      contact-reduction scale.**
+- [x] **Scale half run on GPU — passes.** A100-SXM4-80GB, in the CUDA container via
+      `sugar_newton/gpu_run.sh`. All four cases match, normal load 4.7979 N across the
+      board, A == B to 3 decimals.
+      Two things this took, both worth remembering:
+      **(a) `njmax` must be sized for hydroelastic.** At 64 MuJoCo warned
+      `nefc overflow - please increase njmax to 93` and silently dropped constraint rows;
+      the symptom was an inflated normal load and a case reading 0.7848 vs 0.7085, not an
+      error. Now 1024/512.
+      **(b) Geometry must be sized to the SDF.** An 8 m ramp at `sdf_max_resolution=64`
+      gives 12.5 cm voxels against a 1 cm narrow band, so hydroelastic found no contact
+      surface at all — every case read zero contacts. Hydroelastic now defaults to a
+      0.25 m ramp. Also dropped `gap`, which gates MuJoCo contact activation.
+- [ ] **The scale is still only confirmed as a no-op.** `rigid_contact_friction` reads
+      exactly `1.0` for every contact in this scene, so `mu * scale` is verified to not
+      corrupt the value, and **not** verified against a non-trivial factor. Moment-matching
+      only produces scale != 1 when a contact patch is large enough for hydroelastic
+      reduction to actually reduce — which the 54-pad hand will produce naturally.
+      Re-check there, and do not describe audit #4 as fully closed until then.
+- [ ] **`validation/incline.py` currently exits 1** on the one sliding case
+      (theta = critical + 5): time-averaged normal load reads 6.01 N against 4.18 N
+      expected. This is the *measurement*, not the sensor — the 40-step window is far too
+      short to average a bounce cycle, so it is biased by whatever phase it lands in. The
+      four sticking cases pass to 4 decimals. Fix the window (or drive the sliding case
+      at prescribed velocity) rather than loosening the tolerance.
 - [ ] Contact area and peak pressure (Plan 16 §4 channels 9-10) — need the hydroelastic
       contact surface.
 - [ ] Prescribed-velocity sliding scene for a *quantitative* slip test; the free-slide
       assertions are deliberately qualitative because a bouncing block's finite-differenced
       speed and an instantaneous tactile reading are not the same quantity.
-- [ ] Run on GPU, and with more than one world.
+- [x] Run on GPU — done, A100. Sticking cases reproduce the CPU numbers to 4 decimals.
+- [ ] Run with more than one world.
+- [ ] **Video.** `validation/render_friction.py` (pass 1, in-container) +
+      `validation/compose_friction_video.py` (pass 2, login node: matplotlib + ffmpeg).
+      Sweeps mu down through the critical value at a fixed 20 deg so the clip shows
+      stick -> incipient -> gross slip with nothing else in the scene changing.
+      Two traps found: `render_env.sh` exports its own `OUT`, and `G1_XVFB=1` means a
+      *windowed* GLX context -- setting `pyglet.options['headless']` forces EGL, which
+      has no usable device here. Camera is workable but still frames the ramp too wide.
 
 ## C. Phase 2 — asset and throughput
 
