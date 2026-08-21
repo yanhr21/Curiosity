@@ -169,6 +169,20 @@ def build(args, viewer):
                 src.build_sdf(max_resolution=SDF_MAX_RES, narrow_band_range=SDF_NARROW_BAND, margin=0.01)
             n_robot_sdf += 1
         builder.shape_flags[s] |= int(newton.ShapeFlags.HYDROELASTIC)
+    # Two shapes on the SAME body are rigidly attached and can never separate, so a contact between
+    # them is a permanent spurious constraint -- measured at 9.4 kN across the torso's three meshes,
+    # which also robbed the ground reaction of ~3% of the robot's weight. add_usd's self-collision
+    # filtering covers distinct bodies only; MuJoCo excludes same-body geoms internally, so this
+    # stayed hidden until Newton's pipeline started generating the contacts.
+    by_body: dict[int, list[int]] = {}
+    for s in range(n_robot_shapes):
+        if builder.shape_flags[s] & int(newton.ShapeFlags.COLLIDE_SHAPES):
+            by_body.setdefault(builder.shape_body[s], []).append(s)
+    for shapes in by_body.values():
+        for i, a in enumerate(shapes):
+            for b in shapes[i + 1 :]:
+                builder.add_shape_collision_filter_pair(a, b)
+
     n_robot_colliders = sum(
         1 for s in range(n_robot_shapes) if builder.shape_flags[s] & int(newton.ShapeFlags.COLLIDE_SHAPES)
     )
@@ -273,11 +287,36 @@ def build(args, viewer):
 
     model = builder.finalize()
     model.set_gravity((0.0, 0.0, -9.81))
+
+    # Contacts come from Newton's collision pipeline, not MuJoCo's. This matters: MuJoCo collides
+    # mesh geoms as CONVEX POLYTOPES (<=124 faces here, whatever the source mesh), so under
+    # use_mujoco_contacts=True every SDF built above is inert and the room is effectively hulled --
+    # exactly what the no-convex-hull directive rules out. Newton's pipeline runs the hydroelastic
+    # SDF narrow phase instead, which is what gives concave contact AND the pressure field that the
+    # tactile signal is read from (same wiring as example_panda_clock_metal.py).
+    use_hydro = getattr(args, "contacts", "hydro") == "hydro"
+    collision_pipeline = None
+    if use_hydro:
+        from newton.geometry import HydroelasticSDF
+
+        collision_pipeline = newton.CollisionPipeline(
+            model,
+            reduce_contacts=True,
+            broad_phase="explicit",
+            sdf_hydroelastic_config=HydroelasticSDF.Config(output_contact_surface=True),
+        )
     # budgets scaled for ~40 dynamic bodies resting/colliding, not just the lone robot
-    solver = newton.solvers.SolverMuJoCo(model, use_mujoco_cpu=False, solver="newton", nconmax=1024, njmax=2048)
+    solver = newton.solvers.SolverMuJoCo(
+        model,
+        use_mujoco_cpu=False,
+        use_mujoco_contacts=not use_hydro,
+        solver="newton",
+        nconmax=1024,
+        njmax=2048,
+    )
 
     ex = argparse.Namespace()
-    ex.model, ex.solver = model, solver
+    ex.model, ex.solver, ex.collision_pipeline = model, solver, collision_pipeline
     ex.state_0, ex.state_1 = model.state(), model.state()
     ex.control = model.control()
 
@@ -299,15 +338,16 @@ def build(args, viewer):
     except Exception as e:  # sensor API mismatch must not kill the render
         print(f"[g1_in_sage] tactile sensor unavailable: {e}")
 
-    # SensorContact's constructor already requested the per-contact "force" attribute, but
-    # request_contact_attributes() only RECORDS the request on the model — it is consumed where the
-    # buffer is built through the model/collision pipeline. This buffer is built directly (MuJoCo
-    # requires it sized to solver.get_max_contact_count()), so the request must be forwarded here.
-    # Without it `Contacts.force` is None, SolverMuJoCo's conversion kernel skips filling it, and
-    # SensorContact.update() raises on the first frame — which the guard below turns into a silent
-    # 0 N tactile reading no matter what the robot touches.
-    ex.contacts = newton.Contacts(
-        solver.get_max_contact_count(), 0, requested_attributes=model.get_requested_contact_attributes()
+    # The sensor above already requested the per-contact "force" attribute; the request is only
+    # consumed where the buffer is allocated, so the Contacts object must be built AFTER it.
+    # Without that, `Contacts.force` is None, the force never gets filled, and SensorContact.update()
+    # raises on frame 1 — which the guard above turns into a silent 0 N tactile reading.
+    ex.contacts = (
+        collision_pipeline.contacts()
+        if collision_pipeline is not None
+        else newton.Contacts(
+            solver.get_max_contact_count(), 0, requested_attributes=model.get_requested_contact_attributes()
+        )
     )
     ex.torch_device = "cuda" if wp.get_device().is_cuda else "cpu"
     newton.eval_fk(model, ex.state_0.joint_q, ex.state_0.joint_qd, ex.state_0)
@@ -380,8 +420,13 @@ def policy_step(ex):
         wp.copy(ex.control.joint_target_q, wp.from_torch(a_full, dtype=wp.float32, requires_grad=False))
     for _ in range(ex.decimation):
         ex.state_0.clear_forces()
+        if ex.collision_pipeline is not None:
+            ex.collision_pipeline.collide(ex.state_0, ex.contacts)
         ex.solver.step(ex.state_0, ex.state_1, ex.control, ex.contacts, ex.sim_dt)
         ex.state_0, ex.state_1 = ex.state_1, ex.state_0
+    # Pull the solved contact forces back out of MuJoCo. This is the only thing that fills
+    # `contacts.force`, in BOTH contact modes -- the collision pipeline does geometry, not forces --
+    # so re-running collide() here instead would hand the sensor a zeroed force buffer.
     ex.solver.update_contacts(ex.contacts, ex.state_0)
     if ex.contact_sensor is not None:
         try:
@@ -417,6 +462,13 @@ def _make_parser():
     p.add_argument("--pitch", type=float, default=-13.0, help="camera pitch (deg)")
     p.add_argument(
         "--mu", type=float, default=None, help="global friction override for feet+floor (slippery ~0.05, rough ~1.4)"
+    )
+    p.add_argument(
+        "--contacts",
+        choices=["hydro", "mujoco"],
+        default="hydro",
+        help="contact source: 'hydro' = Newton collision pipeline with hydroelastic SDFs (concave "
+        "contact + pressure field); 'mujoco' = MuJoCo's own narrow phase, which hulls every mesh",
     )
     p.add_argument(
         "--robot-collision",
