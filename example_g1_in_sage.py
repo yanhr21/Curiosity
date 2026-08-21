@@ -371,6 +371,10 @@ def build(args, viewer):
     ex.sim_dt = ex.frame_dt
     # policy joint_pos_initial: ONLY the robot's joints (furniture free-joint coords follow them)
     load_policy_and_setup_tensors(ex, policy_path, config["num_dofs"], slice(7, 7 + config["num_dofs"]))
+    # the contact-surface layer is OFF by default, so log_hydro_contact_surface() would
+    # silently draw nothing (ViewerBase returns early on the flag before it looks at the data).
+    if collision_pipeline is not None:
+        viewer.show_hydro_contact_surface = True
     viewer.set_model(model)
     return ex
 
