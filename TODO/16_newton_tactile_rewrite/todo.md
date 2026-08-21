@@ -12,17 +12,30 @@ against upstream Newton must stay empty.
 
 ## A. Phase 0 — prerequisites (blocking, not code)
 
-- [ ] **Copy the assets off the runtime host.** None of these exist on OCI-ord; they are
-      gitignored and live only at `/public/home/yanhongru/Curiosity`:
-      - `SUGAR/descriptions/robots/g1/meshes` — the hand meshes the 54 patches are
-        generated from (`anatomical_whole_hand_tacsl_g1.py:43`)
-      - `SUGAR/data/CarryBox` — reference motion (`--motion_folder`)
-      - `experiments/.../official_sugar/baseline/ckpts/refiner_model10000.pt` — teacher
-      - the official Tracker checkpoint — actor warm start
-      - `experiments/sugar_reproduction/assets/official_tacsl/gelsight_r15_finger/gelsight_r15_finger.usd`
-      - the official CarryBox asset
-- [ ] **Record SHA-256 for each** on arrival. Plan 15's teacher pin was disabled
-      (`expected_sha256=None`); do not repeat that.
+- [x] **Assets fetched — from the public SUGAR release, not the runtime host.** The premise
+      here was wrong: they are not only at `/public/home/yanhongru/Curiosity` (a path on a
+      different cluster, not mounted on OCI-ord). SUGAR publishes them from its README's
+      "download data" section as three Google Drive archives. `bash SUGAR/_downloads/fetch_assets.sh`
+      pulls and unpacks all three into the already-gitignored `SUGAR/{descriptions,data,demo_ckpts}`.
+      Provenance and every hash: `SUGAR/_downloads/MANIFEST.md`. Got 4 of 6:
+      - [x] `SUGAR/descriptions/robots/g1/meshes` — 165 files / 137 MB, with
+            `g1_29dof_rev_1_0_with_rubber_hand.urdf`
+      - [x] `SUGAR/data/CarryBox` — 100 clips / 101 MB (all six tasks: 565 MB)
+      - [x] the official Tracker checkpoint — `demo_ckpts/CarryBox/tracker.pt`
+            (`generator.ckpt` came with it, not on the original list)
+      - [x] the official CarryBox asset — `descriptions/objects/{big_box,small_box}`
+      - [ ] **teacher `refiner_model10000.pt` — NOT in the public release.** `demo_ckpts/`
+            ships tracker + generator only. The refiner is step 1 of SUGAR's own `train.sh`
+            (`Sugar-G129dof-CarryBox-Refiner`, 4096 envs, 30001 iters), so that filename was
+            an artifact of our run, not a published file. Its **training config is present**
+            (`train_refiner/carry_box_refiner_env_cfg.py` + the `..._tacsl_audit_` variant).
+            Either copy it off the runtime host or retrain — §D already budgets for retraining.
+      - [ ] `gelsight_r15_finger.usd` — a TacSL asset, not a SUGAR one, so it is not in this
+            release. §C says do not port the TacSL sensing half; confirm it is needed at all
+            before chasing it.
+- [x] **SHA-256 recorded for every archive and for the key individual assets** —
+      `SUGAR/_downloads/MANIFEST.md`. Plan 15's teacher pin was disabled
+      (`expected_sha256=None`); this is the thing that stops a repeat.
 - [ ] **Newton env on this cluster.** Container recipe is in
       `Curiosity_newton/renders/build_and_render.sh` (uv sync inside an interactive CUDA
       container). A CPU-only login-node env also works for Phase 1 — see §B.
