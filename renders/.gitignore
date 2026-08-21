@@ -8,3 +8,5 @@ penetration_*.npz
 friction_sweep*/
 .devnode
 _scratch/
+tactile_*.npz
+*.png

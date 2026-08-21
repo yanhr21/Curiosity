@@ -559,6 +559,14 @@ def main():
                 viewer.log_contacts(ex.contacts, ex.state_0)
             except Exception:
                 pass
+            # draw the hydroelastic contact patches themselves (the pressure field's support)
+            if ex.collision_pipeline is not None and ex.collision_pipeline.hydroelastic_sdf is not None:
+                try:
+                    viewer.log_hydro_contact_surface(
+                        ex.collision_pipeline.hydroelastic_sdf.get_contact_surface(), penetrating_only=True
+                    )
+                except Exception:
+                    pass
             viewer.end_frame()
             img = viewer.get_frame().numpy()  # (H,W,3) uint8, top-left origin
             Image.fromarray(img).save(f"{frames_dir}/f{f:05d}.png")
