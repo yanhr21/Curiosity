@@ -106,8 +106,19 @@ against upstream Newton must stay empty.
       short to average a bounce cycle, so it is biased by whatever phase it lands in. The
       four sticking cases pass to 4 decimals. Fix the window (or drive the sliding case
       at prescribed velocity) rather than loosening the tolerance.
-- [ ] Contact area and peak pressure (Plan 16 §4 channels 9-10) — need the hydroelastic
-      contact surface.
+- [x] **Contact area and peak pressure (channels 9-10) implemented and validated.**
+      `reduce_contact_surface_kernel` + `finalize_pressure_kernel` in the reducer;
+      `validation/pressure.py` exits 0 on GPU. Seated on a ramp: contact area reads
+      **96.90 cm² against the block's 100.00 cm² face**, and peak/mean pressure climbs
+      1.570 → 1.654 → 2.005 across θ = 5/12/20°, which is the gravity moment shifting
+      load to the downhill edge.
+      **Plan §4's definition was wrong twice and this test caught both.** `kh·depth` is
+      the hydroelastic law, but with `use_mujoco_contacts=False` the force is MuJoCo's
+      constraint solve — `∫ kh·depth dA` measured **328.8 N against a true 4.886 N**.
+      And the sign was inverted: `depth < 0` is penetration. Channel 10 now scales the
+      depth field to integrate to the solved `normal_load`. Plan §4 corrected to match.
+      The surface only reaches the reducer when the pipeline is built with
+      `HydroelasticSDF.Config(output_contact_surface=True)` — off by default.
 - [ ] Prescribed-velocity sliding scene for a *quantitative* slip test; the free-slide
       assertions are deliberately qualitative because a bouncing block's finite-differenced
       speed and an instantaneous tactile reading are not the same quantity.

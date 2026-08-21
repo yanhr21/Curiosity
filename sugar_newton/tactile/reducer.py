@@ -55,6 +55,8 @@ CHANNELS: tuple[str, ...] = (
     "slip_velocity",
     "gross_slip_fraction",
     "signed_normal_load",
+    "contact_area",
+    "peak_pressure",
 )
 NUM_CHANNELS = len(CHANNELS)
 
@@ -317,6 +319,94 @@ def reduce_contacts_kernel(
 
 
 @wp.kernel
+def reduce_contact_surface_kernel(
+    face_count: wp.array[wp.int32],
+    surface_point: wp.array[wp.vec3f],
+    surface_depth: wp.array[wp.float32],
+    surface_shape_pair: wp.array[wp.vec2i],
+    shape_to_patch: wp.array[wp.int32],
+    shape_is_counterpart: wp.array[wp.int32],
+    contact_area: wp.array[wp.float32],
+    depth_area_sum: wp.array[wp.float32],
+    peak_depth: wp.array[wp.float32],
+):
+    """Channels 9-10, reduced over the hydroelastic contact surface.
+
+    Neither can come from the contact buffer: reduction collapses a patch's surface
+    into a few representative contacts that carry force but no footprint.
+
+    Area is the true triangle area of each iso-pressure surface face.
+
+    Pressure is deliberately NOT ``kh * depth``. That is the hydroelastic model's own
+    law, but with ``use_mujoco_contacts=False`` the normal force is whatever MuJoCo's
+    constraint solve produces from solref/solimp -- the surface supplies geometry, not
+    force. Measured on the incline scene, ``integral(kh * depth) dA`` came to 328.8 N
+    against a true normal load of 4.886 N: a factor of 67, and it would drift with
+    timestep and solver settings while looking perfectly plausible.
+
+    So the depth field supplies the *shape* and the solved normal load supplies the
+    *magnitude*::
+
+        p_i = penetration_i * normal_load / sum_j(penetration_j * area_j)
+
+    which integrates to the measured normal load by construction and carries real
+    pascals. This kernel accumulates the two sums; :func:`finalize_kernel` divides.
+
+    Sign: ``depth < 0`` is penetration, which is the convention
+    ``Viewer.log_hydro_contact_surface(penetrating_only=True)`` filters on. The mean
+    depth under a seated block is positive only because a handful of faces sit far
+    outside the overlap and drag it; the median is negative, and non-penetrating faces
+    carry no load, so they are dropped here.
+    """
+    face = wp.tid()
+    if face >= face_count[0]:
+        return
+
+    pair = surface_shape_pair[face]
+    shape_a, shape_b = pair[0], pair[1]
+    if shape_a < 0 or shape_b < 0:
+        return
+
+    # orient the pair so `patch_shape` is ours and `other` is what it touches
+    row = shape_to_patch[shape_a]
+    patch_shape = shape_a
+    other = shape_b
+    if row < 0:
+        row = shape_to_patch[shape_b]
+        patch_shape = shape_b
+        other = shape_a
+    if row < 0 or shape_is_counterpart[other] == 0:
+        return
+
+    penetration = -surface_depth[face]
+    if penetration <= 0.0:
+        return  # face lies outside the overlap; it carries no load
+
+    v0 = surface_point[3 * face + 0]
+    v1 = surface_point[3 * face + 1]
+    v2 = surface_point[3 * face + 2]
+    area = 0.5 * wp.length(wp.cross(v1 - v0, v2 - v0))
+
+    wp.atomic_add(contact_area, row, area)
+    wp.atomic_add(depth_area_sum, row, penetration * area)
+    wp.atomic_max(peak_depth, row, penetration)
+
+
+@wp.kernel
+def finalize_pressure_kernel(
+    normal_load: wp.array[wp.float32],
+    depth_area_sum: wp.array[wp.float32],
+    peak_depth: wp.array[wp.float32],
+    peak_pressure: wp.array[wp.float32],
+):
+    """Scale the depth field so it integrates to the solved normal load, take its max."""
+    row = wp.tid()
+    denom = depth_area_sum[row]
+    if denom > 0.0:
+        peak_pressure[row] = peak_depth[row] * normal_load[row] / denom
+
+
+@wp.kernel
 def finalize_kernel(
     out_normal_load: wp.array[wp.float32],
     out_friction_vec: wp.array[wp.vec3],
@@ -420,6 +510,10 @@ class PatchTactile:
             self.slip_displacement = wp.zeros(n, dtype=wp.float32)
             self.slip_velocity = wp.zeros(n, dtype=wp.float32)
             self.gross_slip_fraction = wp.zeros(n, dtype=wp.float32)
+            self.contact_area = wp.zeros(n, dtype=wp.float32)
+            self.peak_pressure = wp.zeros(n, dtype=wp.float32)
+            self._depth_area_sum = wp.zeros(n, dtype=wp.float32)
+            self._peak_depth = wp.zeros(n, dtype=wp.float32)
             self._reanchor_count = wp.zeros(n, dtype=wp.int32)
             self._util_wsum = wp.zeros(n, dtype=wp.float32)
             self._slip_disp_wsum = wp.zeros(n, dtype=wp.float32)
@@ -434,6 +528,11 @@ class PatchTactile:
             self._prev_anchor_valid = None
             self._prev_anchor_age = None
             self._prev_count = wp.zeros(1, dtype=wp.int32)
+
+        self.contact_surface_available: bool | None = None
+        """Set on every :meth:`update`.  ``False`` means no contact surface was
+        passed, so ``contact_area`` and ``peak_pressure`` read zero because they
+        were never measured -- not because the patch was untouched."""
 
         self.match_index_available: bool | None = None
         """Set on the first :meth:`update`.  ``False`` means the pipeline was
@@ -472,8 +571,17 @@ class PatchTactile:
             self._prev_anchor_age.zero_()
         self._prev_count.zero_()
 
-    def update(self, state, contacts) -> None:
-        """Recompute every channel from the current contact buffer."""
+    def update(self, state, contacts, contact_surface=None) -> None:
+        """Recompute every channel from the current contact buffer.
+
+        Args:
+            contact_surface: ``ContactSurfaceData`` from
+                ``pipeline.hydroelastic_sdf.get_contact_surface()``, supplying
+                channels 9-10.  ``None`` leaves both at zero and sets
+                :attr:`contact_surface_available` to ``False``.  Needs the pipeline
+                built with ``HydroelasticSDF.Config(output_contact_surface=True)``,
+                which is off by default.
+        """
         if contacts.force is None:
             raise ValueError(
                 "PatchTactile requires contacts with the 'force' attribute. Call "
@@ -525,8 +633,29 @@ class PatchTactile:
             self._slip_vel_wsum,
             self._reanchor_count,
             self._weight,
+            self.contact_area,
+            self.peak_pressure,
+            self._depth_area_sum,
+            self._peak_depth,
         ):
             buf.zero_()
+
+        self.contact_surface_available = contact_surface is not None
+        if self.contact_surface_available:
+            wp.launch(
+                reduce_contact_surface_kernel,
+                dim=contact_surface.max_num_face_contacts,
+                inputs=[
+                    contact_surface.face_contact_count,
+                    contact_surface.contact_surface_point,
+                    contact_surface.contact_surface_depth,
+                    contact_surface.contact_surface_shape_pair,
+                    self.shape_to_patch,
+                    self.shape_is_counterpart,
+                ],
+                outputs=[self.contact_area, self._depth_area_sum, self._peak_depth],
+                device=self.device,
+            )
 
         wp.launch(
             reduce_contacts_kernel,
@@ -592,6 +721,16 @@ class PatchTactile:
             device=self.device,
         )
 
+        if self.contact_surface_available:
+            # after finalize_kernel, so normal_load is the solved value for this step
+            wp.launch(
+                finalize_pressure_kernel,
+                dim=self.num_patches,
+                inputs=[self.normal_load, self._depth_area_sum, self._peak_depth],
+                outputs=[self.peak_pressure],
+                device=self.device,
+            )
+
         # Anchors become the previous frame's anchors.  Contact indices are
         # stable only because a non-disabled contact_matching mode implies
         # deterministic=True, so match_index refers into this sorted ordering.
@@ -628,4 +767,6 @@ class PatchTactile:
             "slip_velocity": self.slip_velocity.numpy(),
             "gross_slip_fraction": self.gross_slip_fraction.numpy(),
             "signed_normal_load": self.signed_normal_load.numpy(),
+            "contact_area": self.contact_area.numpy(),
+            "peak_pressure": self.peak_pressure.numpy(),
         }

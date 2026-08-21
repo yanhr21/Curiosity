@@ -45,6 +45,11 @@ echo "===== MARK_INCLINE ====="
 uv run python -m sugar_newton.validation.incline 2>&1 | grep -v "load on device" | tail -16
 echo "incline_rc=${PIPESTATUS[0]}"
 
+echo "===== MARK_PRESSURE ====="
+# Channels 9-10. Needs the contact surface, so it is GPU-only like the scale half.
+uv run python -m sugar_newton.validation.pressure 2>&1 | grep -v "load on device" | tail -14
+echo "pressure_rc=${PIPESTATUS[0]}"
+
 echo "===== MARK_RENDER ====="
 # Software mesa + Xvfb: the GPU runs the physics, mesa rasterizes the viewer.
 # render_env.sh exports G1_XVFB=1, which selects a windowed GLX context --

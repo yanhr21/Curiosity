@@ -158,7 +158,12 @@ class InclineScene:
             self.model,
             contact_matching=matching,
             contact_report=matching != "disabled",
-            sdf_hydroelastic_config=HydroelasticSDF.Config() if hydroelastic else None,
+            # output_contact_surface is off by default and is what channels 9-10
+            # (contact_area, peak_pressure) are reduced from -- without it the
+            # surface exists inside the solve but is never handed back.
+            sdf_hydroelastic_config=(
+                HydroelasticSDF.Config(output_contact_surface=True) if hydroelastic else None
+            ),
         )
         self.contacts = self.pipeline.contacts()
 
@@ -237,7 +242,12 @@ class InclineScene:
                     and np.allclose(p1, pre[4], atol=1e-3)
                 )
 
-        self.tactile.update(self.state_0, self.contacts)
+        surface = (
+            self.pipeline.hydroelastic_sdf.get_contact_surface()
+            if self.pipeline.hydroelastic_sdf is not None
+            else None
+        )
+        self.tactile.update(self.state_0, self.contacts, contact_surface=surface)
 
     def slider_position(self) -> np.ndarray:
         return self.state_0.body_q.numpy()[self.slider_body][:3].copy()

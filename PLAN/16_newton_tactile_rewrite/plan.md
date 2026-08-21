@@ -82,7 +82,24 @@ shape pair is (patch shape, object shape), read from the buffer the solver integ
 | 7 | `slip_displacement` | load-weighted `‖tangential anchor drift‖` | m |
 | 8 | `slip_velocity` | load-weighted `‖tangential relative velocity‖` | m/s |
 | 9 | `contact_area` | hydroelastic contact-surface area on the patch | m² |
-| 10 | `peak_pressure` | `kh · max(0, −depth)` max over faces | Pa |
+| 10 | `peak_pressure` | depth field scaled to integrate to `normal_load`, max over faces | Pa |
+
+**Contact area and pressure (9-10) come from the surface, and pressure is not `kh·depth`.**
+Reduction collapses a patch's surface into a few contacts that carry force but no
+footprint, so both channels read the hydroelastic contact surface directly. An earlier
+draft of this row specified `kh · max(0, −depth)`. That is the hydroelastic model's own
+law, but under `use_mujoco_contacts=False` the normal force is MuJoCo's constraint solve
+— the surface supplies geometry, not force. Measured on the incline scene,
+`∫ kh·depth dA` came to **328.8 N against a true normal load of 4.886 N**, a factor of
+67 that would drift with timestep and solver settings while looking plausible. So the
+depth field supplies the shape and the solved load supplies the magnitude:
+
+    p_i = penetration_i · normal_load / Σ_j (penetration_j · area_j)
+
+which integrates to the measured load by construction. `depth < 0` is penetration, the
+convention `Viewer.log_hydro_contact_surface(penetrating_only=True)` filters on.
+`sugar_newton/validation/pressure.py` is what caught both errors and fails if either
+returns.
 
 **Normal and friction (channels 2-4).** `f_n = (f·n)n` against `rigid_contact_normal`, the
 true contact normal; `f_t = f − f_n`. This is the decomposition `SensorContact` already
