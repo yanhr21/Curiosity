@@ -6,18 +6,65 @@ transfers: it lifts the box about a third of the reference height, and its wrist
 their effort limit 37% of the carry against Isaac's 1.9%.
 
     # smoke test
-    python -m sugar_newton.rl.train --num-envs 16 --iterations 4 --clips data_000
+    python -m sugar_newton.rl.train_bcppo --num-envs 16 --max-iterations 3 \
+        --clips data_000 --logger tensorboard
 
-    # the intended use: fine-tune from the official checkpoint
-    python -m sugar_newton.rl.train --num-envs 512 --iterations 2000 \
-        --warm-start SUGAR/demo_ckpts/CarryBox/tracker.pt --out runs/finetune
+    # training, logging to wandb
+    python -m sugar_newton.rl.train_bcppo --num-envs 512 --max-iterations 30001 \
+        --wandb-project sugar_newton --run-name carrybox_bcppo
 
 Run inside the Newton container; `renders/render_carrybox_policy.sh` in the `third_party/newton`
 submodule shows the srun incantation.
 
-## STATUS: the environment runs; the trainer does not train yet
+## The algorithm is SUGAR's, imported not reimplemented
 
-Measured, 16 worlds, from scratch, 3 iterations:
+`train_bcppo.py` imports `BCPPO` from `SUGAR/source/sugar_rl/sugar_rl/utils/rsl_rl_bcppo.py`
+and runs it inside `rsl_rl`'s own `OnPolicyRunner`, with the hyperparameters transcribed
+from `BCPPORunnerCfg`. `BCPPO` is registered by the same mechanism SUGAR uses
+(`setattr(builtins, "BCPPO", ...)`, `scripts/sugar_rl/train.py:147-150`), because the
+runner resolves the algorithm with `eval(alg_cfg["class_name"])`.
+
+The only local code in the training loop is `vec_env.py`, which presents the Newton
+environment as an `rsl_rl.env.VecEnv` with the three observation groups the config asks
+for:
+
+    policy   510-D   validated against Isaac's recorded actions to RMSE 0.088
+    critic   890-D   obs_890.py
+    teacher  890-D   obs_890.py -- what the frozen refiner is asked to imitate
+
+BCPPO's curriculum, for reference:
+
+    stage 1   step < 500          loss = distill                    (LR schedule fixed)
+    stage 2   500 <= step < 1000  loss = distill + alpha * value    (no policy gradient)
+    stage 3   step >= 2000 ramp   loss = alpha * surrogate + value
+                                         - alpha * entropy + distill * max(1-alpha, floor)
+
+The teacher checkpoint is required, not optional: `BCPPO.__init__` asserts on a missing
+one, and stages 1-2 have no loss without it. Default path is the recovered
+`refiner_model10000.pt` (see TODO 16).
+
+An earlier version of this directory carried a hand-written PPO (`ppo.py`, `train.py`).
+It has been deleted. It was stage 3 with the distillation dropped, which is not the
+algorithm SUGAR trains the tracker with.
+
+## Logging
+
+`rsl_rl` has native wandb support, so nothing here writes to wandb directly: the runner
+config sets `logger: wandb` and `wandb_project`, and the run name is the log directory's
+basename. Credentials follow the convention used elsewhere in this workspace --
+`WANDB_API_KEY` from the environment, else `~/.netrc` for `api.wandb.ai` -- and
+`train_bcppo.py` checks for one before building the environment, so a run cannot get
+several minutes in with logging silently off. Pass `--logger tensorboard` to opt out.
+
+## STATUS: environment runs; BCPPO port is UNTESTED
+
+The numbers below are from the deleted hand-written PPO, from scratch with no teacher.
+They are kept because the throughput figure is a property of the environment, not the
+algorithm, and it is still unexplained. The reward collapse should not recur under BCPPO,
+whose stages 1-2 exist precisely to stop the policy flailing -- but that is a prediction,
+not a measurement.
+
+Measured, 16 worlds, from scratch, 3 iterations, hand-written PPO (deleted):
 
     it 1  return    -15.8  ep_len 4.6  diverged  47   4 env-steps/s
     it 2  return  -1242.9  ep_len 2.8  diverged 138   4 env-steps/s
