@@ -96,7 +96,10 @@ during the grip -- and every number measured before this was measured on it. Now
 
 ### Speed, measured against correct physics
 
-    envs   step_ms   obs+rew   contacts   env-steps/s
+`env-steps/s` below is AGGREGATE across worlds (num_envs / step). The per-world rate is
+`1000 / step_ms` -- at 8 worlds that is 1.45 policy steps/s, not 11.6.
+
+    envs   step_ms   obs+rew   contacts   env-steps/s (aggregate)
       1     133.8m     10.6m       1677      7.5
       2     231.9m     10.7m       2437      8.6
       4     258.8m     10.8m       3011     15.5
@@ -131,6 +134,17 @@ loop or the benchmark; video rendering happens once per `--video-interval` and i
 * remainder -> **~85% is collision detection**, over a 45 748-triangle hand and a
   100 000-triangle box, generating 1 677-6 082 contacts per world.
 
+### Which contact path is active -- check this before trusting any of the above
+
+`use_mujoco_contacts=False` (carrybox_env.py), so Newton's `CollisionPipeline` does the
+collision and MuJoCo only keeps a stable geom id -- see the comment at
+`solver_mujoco.py:5131`. This matters because in the *other* regime
+(`use_mujoco_contacts=True`, the solver default) MuJoCo compiles every mesh through its own
+convex-hull path capped at `Mesh.MAX_HULL_VERTICES = 64`, so the source triangle counts
+would be irrelevant and the argument below would invert. Hydroelastic is also NOT enabled
+here; when it is turned on for tactile, `sdf_max_resolution` becomes the collision lever
+instead.
+
 ### The lever: the asset's own collision approximation
 
 `descriptions/objects/small_box/Props/instanceable_meshes.usd` authors
@@ -145,6 +159,13 @@ preserves the concavity with a set of convex parts, and it is the setting the as
 declares. Honouring it is arguably more faithful than what is done here now.
 
 The hand is concave too (hull adds 135%), so the same distinction applies there.
+
+**Newton already implements this and we bypass it.** `import_usd.py` maps
+`physics:approximation` onto a remeshing method (`convexdecomposition` -> `coacd`, which is
+installed). `load_box_mesh` here reads USD points by hand and hands `add_shape_mesh` a raw
+`newton.Mesh`, so the asset's declared approximation never fires. The fix is Newton's own
+hook -- `ModelBuilder.approximate_meshes(method="coacd", ...)` (`builder.py:6831`) or
+loading through `import_usd` -- not a hand-rolled decomposition.
 
 Part of the gap is not a defect:  Isaac is fast partly *because* its URDF importer hulls
 every collider, and this project does not hull interacting geometry. Accurate contact
