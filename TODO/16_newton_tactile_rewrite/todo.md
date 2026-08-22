@@ -17,19 +17,24 @@ against upstream Newton must stay empty.
       different cluster, not mounted on OCI-ord). SUGAR publishes them from its README's
       "download data" section as three Google Drive archives. `bash SUGAR/_downloads/fetch_assets.sh`
       pulls and unpacks all three into the already-gitignored `SUGAR/{descriptions,data,demo_ckpts}`.
-      Provenance and every hash: `SUGAR/_downloads/MANIFEST.md`. Got 4 of 6:
+      Provenance and every hash: `SUGAR/_downloads/MANIFEST.md`. Got 5 of 6:
       - [x] `SUGAR/descriptions/robots/g1/meshes` — 165 files / 137 MB, with
             `g1_29dof_rev_1_0_with_rubber_hand.urdf`
       - [x] `SUGAR/data/CarryBox` — 100 clips / 101 MB (all six tasks: 565 MB)
       - [x] the official Tracker checkpoint — `demo_ckpts/CarryBox/tracker.pt`
             (`generator.ckpt` came with it, not on the original list)
       - [x] the official CarryBox asset — `descriptions/objects/{big_box,small_box}`
-      - [ ] **teacher `refiner_model10000.pt` — NOT in the public release.** `demo_ckpts/`
-            ships tracker + generator only. The refiner is step 1 of SUGAR's own `train.sh`
-            (`Sugar-G129dof-CarryBox-Refiner`, 4096 envs, 30001 iters), so that filename was
-            an artifact of our run, not a published file. Its **training config is present**
-            (`train_refiner/carry_box_refiner_env_cfg.py` + the `..._tacsl_audit_` variant).
-            Either copy it off the runtime host or retrain — §D already budgets for retraining.
+      - [x] **teacher `refiner_model10000.pt` — RECOVERED 2026-08-21, Phase 0 is now
+            complete.** Never in the public release (`demo_ckpts/` ships tracker +
+            generator only) because it was step 1 of SUGAR's own `train.sh` and therefore
+            an artifact of *our* run. It was in our archived workspace on the Hub:
+            `Railgun526/curiosity-workspace-large-files-20260708`, under
+            `experiments/sugar_reproduction/outputs/final/official_sugar/baseline/ckpts/`.
+            Downloaded to the exact path the scripts expect
+            (`SUGAR/scripts/sugar_rl/train_online_patch_mass_bcppo.py:16`); 14 957 503 B,
+            sha256 `a398a729…16124c3`. Verified real: `iter = 10000`, actor
+            `890 -> 512 -> 256 -> 128 -> 29`, matching critic. **This makes the §D teacher
+            gate runnable instead of a retrain budget.**
       - [ ] `gelsight_r15_finger.usd` — a TacSL asset, not a SUGAR one, so it is not in this
             release. §C says do not port the TacSL sensing half; confirm it is needed at all
             before chasing it.
@@ -131,6 +136,106 @@ against upstream Newton must stay empty.
       Two traps found: `render_env.sh` exports its own `OUT`, and `G1_XVFB=1` means a
       *windowed* GLX context -- setting `pyglet.options['headless']` forces EGL, which
       has no usable device here. Camera is workable but still frames the ramp too wide.
+- [x] **Channels 1-10 as a continuous FIELD, not a per-link table.**
+      `sugar_newton/tactile/field.py` (`ContactField`) samples pressure, tangential
+      traction and slip velocity once **per contact-surface triangle**, in a chosen body
+      frame, alongside the per-patch reduction and off the same solved loads.
+      `validation/compose_allegro_field.py` renders it as three continuous maps
+      (area-weighted Gaussian splat, one sequential hue each) over a silhouette of the
+      hand, with the loaded links direct-labelled.
+      Two of the three channels are genuinely per-face and one is not, and the module
+      says so: **traction is the patch's measured friction load distributed across its
+      faces in proportion to pressure**, which reduces to `tau_i = p_i * F_t / F_n`.
+      It integrates to the measured friction load by construction; it is an estimate of
+      the *shape*, not a per-face measurement. Newton's contact buffer has no per-triangle
+      friction to read -- reduction collapses a patch to a few contacts before the solve.
+      Trap while writing it: **`wp.float32` is not a numpy dtype.** `np.zeros(0, wp.float32)`
+      silently yields an OBJECT array, `np.concatenate` keeps it, and the failure only
+      surfaces at `np.load` as "Object arrays cannot be loaded when allow_pickle=False" --
+      one whole recording later. (`wp.vec3f` happens to work, via ctypes.) Spell numpy
+      dtypes out when building empty arrays to match a warp buffer.
+- [x] **The Allegro scene was never holding the cube properly, and the cause was one
+      missing line.** The stock example overwrites the root joint's parent rotation with
+      `hand_rotation = normalize(quat(0.21643, 0.706218, -0.648166, 0.185191))`, which
+      turns the palm **up**; our scene skipped it, so the hand sat in the USD's own tilted
+      pose and the cube balanced on the palm edge, out of the thumb's reach and sunk into
+      the proximal links. Every one of ~20 drive settings swept before that line was added
+      dropped the cube on the floor (`reach` from the palm ~1 m). With it, the cube is
+      cradled and worked: **45 deg of rotation, 92 mm of travel, contact on 2-5 links for
+      the whole clip**, penetration 1.0-1.7 mm steady on a 50 mm cube.
+      Three other numbers are load-bearing and were each established by
+      `validation/allegro_grasp_sweep.py`, not by taste:
+      **(a) `kh` 1e8 -> 1e10.** At 1e8 the contact is soft enough that the cube sinks
+      through the fingers and escapes regardless of the drive -- the stiffness is not
+      cosmetic, it is what makes the grasp exist.
+      **(b) the digits must ease into the grasp.** A 0.2 rad step on 16 dofs at
+      `ke = 150` on frame 0 is a snap-close, and it flicks the cube out.
+      **(c) the swing rides on the flexion dofs only.** Driving each digit's `_0` dof
+      (spread, and the thumb's opposition) with the same sinusoid unpicks the thumb from
+      the grasp. The earlier "manipulate harder" patch (amplitude 0.22, rate 2.2) did
+      neither and **threw the cube 1.15 m in 3 s with contact on 1 frame out of 150**.
+- [x] **`joint_label` is per JOINT and must not be indexed by dof.** It includes the fixed
+      root, mount and biotac-tip joints, which carry no coordinates, so the stock example's
+      `for i in range(joint_dof_count - 6): ... joint_label[i][-2:] == "_0"` lands on the
+      wrong joint -- it sets 0.6 on `index_joint_2`, `middle_joint_1`, `ring_joint_2`, not
+      on the spread dofs it means. Bridge with `joint_q_start` instead.
+- [x] **`HydroelasticSDF.Config(buffer_fraction=0.4)` overflows on this scene**
+      ("iso subblock L1 overflow: 1789 > 1670"). An overflow silently DROPS contacts,
+      i.e. punches holes in the field. Now 1.0 with `buffer_mult_iso=2`.
+- [ ] **Penetration is ~1 mm and contact stiffness does not fix it.** Measured on 8 GPUs
+      in parallel, `ke` from 1e3 to 1e6 with matched damping gives 1.16 / 1.20 / 1.23 /
+      1.27 mm (p99 of the deepest face) -- flat. An earlier single run that read 1.22 ->
+      0.40 mm was noise, not signal. Typical depth over a clip is lower than the p99
+      suggests: median 0.74 mm, mean 1.01 mm, p99 2.06 mm on a 50 mm cube. What to try
+      next is `solimp`, not `ke`.
+- [ ] **Contact stiffness and damping must still be raised together.** `ke` (not `kh`) is
+      the stiffness the solve sees, but `convert_solref` (`mujoco/kernels.py:192`, called at `:432`) yields
+      a damping ratio of `(kd/2)*sqrt(factor/ke)` -- so raising `ke` alone divides the
+      damping by `sqrt(ke)`. Going 1e3 -> 1e5 at a fixed `kd = 1e2` takes the ratio from
+      ~1.5 to ~0.15, and the springy contact threw the cube **several metres**. Scale `kd`
+      as `sqrt(ke)`. Also: **`--substeps 4` is unstable** -- verified standalone at two
+      stiffnesses, the cube is flung ~1.1 m; 16 dropped it too. 8 is the operating point,
+      and it is ~20 fps.
+- [x] **The viewer was rendering on the CPU, and one missing file was why.** The image
+      ships `libEGL_nvidia.so.0`, but `/usr/share/glvnd/egl_vendor.d/` contained only
+      `50_mesa.json`, so EGL enumerated zero NVIDIA devices and `render_env.sh` worked
+      around it with `LIBGL_ALWAYS_SOFTWARE=true` + Xvfb + mesa swrast -- the A100 idle
+      while the CPU drew every frame. Writing `10_nvidia.json` makes
+      `gl_info.get_renderer()` report `NVIDIA A100-SXM4-80GB`. Now in
+      `setup_container.sh`; use `renders/render_env_egl.sh` (no Xvfb, so parallel render
+      jobs no longer fight over `DISPLAY :99`).
+- [x] **PNG encoding cost more than the physics.** 106 ms/frame against a 56 ms step.
+      JPEG is 8.3 ms. `--image-format jpg`.
+- [ ] **ViewerRTX is not the fast path, and is not installable here.** `ovrtx` fails to
+      build in this container. It is also a path tracer: for a 19-shape scene GL
+      rasterisation is 8.8 ms/frame against a 56 ms physics step, so rendering is already
+      6x cheaper than the thing it would be waiting for. RTX is worth revisiting for
+      *image quality* (domain randomisation), not for throughput.
+- [ ] **End to end, 300 frames: ~28 s of process time for sim+render+encode, ~88 s to
+      composite the figure.** The composite is ~265 ms/frame and is 90 % matplotlib's
+      `canvas.draw`. It is a debugging artefact, not part of a training loop -- optimise
+      it only if clips are being made constantly. Reusing artists instead of rebuilding
+      the figure was already 7x; freezing tick locators another 1.4x.
+- [ ] **Speed is the MuJoCo solve, not the tactile stack.** Profiled: `solve` 95 %,
+      `collide` 4 %, reducer + field together 0.4 %. At `iterations=100` an EMPTY scene
+      still costs 4.3 ms per substep, i.e. kernel-launch overhead, not arithmetic -- one
+      environment cannot amortise it. ~20 fps at `--substeps 8`. CUDA-graph capture is
+      implemented (`AllegroTactileScene.capture`) and needs
+      `mjw_model.opt.graph_conditional = False` on this cluster, whose driver is 12.2
+      while conditional graph nodes need 12.4.
+- [ ] **Third law holds.** With the drive off, the tactile sensor weighs the cube:
+      2.1187 N measured against a true 2.1190 N (ratio 0.9999). Note the SIGN -- the
+      reducer orients force onto the patch, so it reports the force the cube exerts on the
+      hand, along `m g`, not against it. `validation/allegro_static.py`.
+- [ ] **This scene is chaotic and not bit-reproducible across GPU nodes.** The same
+      config run on batch-block1 and batch-block7 gives 45.4 vs 52.4 deg of cube rotation
+      and 2.17 vs 2.70 mm peak penetration. Report ranges, not single figures, and do not
+      treat a one-run number as a regression signal.
+- [ ] **`AllegroTactileScene.reset` does not reset the solver.** The sweep reuses one
+      `SolverMuJoCo` across candidates, and its warm-start/contact caches carry over: a
+      setting that survives 300 frames in its own process was scored as dropped when it
+      ran fifth in a row. The sweep is a screen; re-run winners standalone. Fix by
+      rebuilding the solver in `reset`, or accept and document.
 
 ## C. Phase 2 — asset and throughput
 

@@ -169,3 +169,72 @@ def add_hand_patches(builder, body: int, side: str, cfg, mesh=None) -> list[int]
             )
         )
     return shapes
+
+# --- the patches as a LABELLING of the real hand surface ----------------------
+#
+# The 27 specs above were originally used to *build* 27 boxes standing proud of the
+# hand. That substitutes flat rectangles for the G1's actual curved skin, and tactile
+# measured off a substituted shape is not tactile. SUGAR's own asset
+# (``anatomical_whole_hand_tacsl_g1.py``) never does that either: its patches are curved
+# meshes conforming to the hand's exact outer surface, fixed to "the existing official
+# rubber-hand body".
+#
+# So the specs are used here for what they actually are -- a fixed anatomical partition
+# of the palm-side surface. The rubber hand mesh itself is the collider, and every
+# contact-surface face is assigned to whichever footprint it falls inside. Faces on
+# skin no patch covers get -1, which is real information rather than a silent drop.
+
+
+def palm_normal_sign(side: str) -> float:
+    """+1 if this hand's palm faces +Y in its mesh frame, -1 if it faces -Y.
+
+    Measured off the released meshes: the left hand spans y = -0.0479..0.0187 and the
+    right hand y = -0.0187..0.0479 -- they are mirrored in Y, not Z. Code that assumes
+    "the palm is at maximum Y" for both puts every right-hand patch on the BACK of the
+    hand, which is what the earlier box-pad implementation did.
+    """
+    return 1.0 if side == "left" else -1.0
+
+
+def patch_footprints() -> np.ndarray:
+    """The 27 footprints as ``(centre_x, centre_z, half_width_x, half_length_z, angle)``.
+
+    Angle is in radians about the palm normal, matching ``tangent_angle_deg``. Shape
+    ``(27, 5)``, in the frozen within-hand order.
+    """
+    return np.array(
+        [
+            (s.center_x_m, s.center_z_m, s.width_m * 0.5, s.length_m * 0.5,
+             math.radians(s.tangent_angle_deg))
+            for s in PATCH_SPECS
+        ],
+        dtype=np.float32,
+    )
+
+
+def add_hand_collider(builder, body: int, side: str, cfg, mesh=None) -> int:
+    """Add the hand's OWN mesh as its collision surface, and return the shape index.
+
+    This is the whole hand, watertight and unmodified -- 45 748 triangles on the left,
+    43 852 on the right -- so the contact surface a tactile reading comes from is the
+    G1's real skin.
+    """
+    import warp as wp  # noqa: F401  (kept for symmetry with add_hand_patches)
+
+    m = mesh if mesh is not None else load_hand_mesh(side)
+    return builder.add_shape_mesh(
+        body=body,
+        mesh=_newton_mesh(m),
+        cfg=cfg,
+        label=f"{side}_rubber_hand_skin",
+    )
+
+
+def _newton_mesh(m):
+    import newton
+
+    return newton.Mesh(
+        np.asarray(m.vertices, dtype=np.float32),
+        np.asarray(m.faces, dtype=np.int32).flatten(),
+        compute_inertia=False,
+    )

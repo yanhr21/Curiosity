@@ -47,6 +47,8 @@ CHANNELS = (
     "slip_velocity",
     "gross_slip_fraction",
     "contact_count",
+    "contact_area",
+    "peak_pressure",
 )
 
 
@@ -77,9 +79,16 @@ def main() -> int:
     ap.add_argument("--no-viewer", action="store_true", help="numbers only, no PNGs")
     ap.add_argument("--ramp-half-x", type=float, default=1.2,
                     help="short enough that the 10 cm block is not lost on an 8 m slab")
-    ap.add_argument("--cam", type=float, nargs=3, default=(0.55, -0.75, 0.30))
-    ap.add_argument("--look-at", type=float, nargs=3, default=(-0.35, 0.0, 0.05))
-    ap.add_argument("--pitch", type=float, default=-14.0)
+    # Auto-framed on the block by default: --cam-offset is applied to the slider's own
+    # start position, so the 10 cm subject stays centred whatever the ramp geometry is.
+    # The previous fixed pair sat ~1 m out aimed at a point the block was not on, which
+    # is why the block read as a speck in the corner.
+    ap.add_argument("--cam", type=float, nargs=3, default=None, help="absolute camera position; overrides --cam-offset")
+    ap.add_argument("--cam-offset", type=float, nargs=3, default=(0.34, -0.40, 0.20),
+                    help="camera position relative to the slider's start position [m]")
+    ap.add_argument("--look-at", type=float, nargs=3, default=None,
+                    help="aim point; default is the slider's own start position")
+    ap.add_argument("--pitch", type=float, default=-18.0)
     args = ap.parse_args()
 
     wp.init()
@@ -130,8 +139,14 @@ def main() -> int:
             # the look-at point; pitch is given directly (same convention as
             # example_g1_in_sage.py:406).
             if hasattr(viewer, "set_camera"):
-                px, py, pz = args.cam
-                tx, ty, _ = args.look_at
+                target = scene.slider_position()
+                if args.look_at is not None:
+                    target = np.asarray(args.look_at, dtype=float)
+                if args.cam is not None:
+                    px, py, pz = args.cam
+                else:
+                    px, py, pz = (target + np.asarray(args.cam_offset, dtype=float)).tolist()
+                tx, ty = float(target[0]), float(target[1])
                 yaw = math.degrees(math.atan2(ty - py, tx - px))
                 viewer.set_camera(wp.vec3(px, py, pz), args.pitch, yaw)
                 print(f"camera pos=({px},{py},{pz}) pitch={args.pitch} yaw={yaw:.1f}", flush=True)

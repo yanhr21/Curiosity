@@ -34,10 +34,30 @@ Reproduce with `bash _downloads/fetch_assets.sh` (idempotent; skips what is pres
 | 2 | `data/CarryBox` — reference motion (`--motion_folder`) | **yes**, 100 clips / 101 MB (all six tasks: 565 MB) |
 | 3 | official CarryBox asset | **yes**, `descriptions/objects/big_box` and `small_box` |
 | 4 | official Tracker checkpoint — actor warm start | **yes**, `demo_ckpts/CarryBox/tracker.pt` (+ `generator.ckpt`, not on the list) |
-| 5 | teacher `refiner_model10000.pt` | **NO — not in the public release.** See below. |
+| 5 | teacher `refiner_model10000.pt` | **yes** — not from the public release; recovered from our own workspace backup on the Hub (see below) |
 | 6 | `gelsight_r15_finger.usd` | **no** — it is a TacSL asset, not a SUGAR one. Plan 16 §C says do not port the TacSL sensing half, so this is likely not needed; confirm before chasing it. |
 
-## The refiner is the one real gap
+## The refiner: recovered, not published
+
+**Found 2026-08-21.** It was never in SUGAR's public release, but it was in our own
+archived workspace on the Hub:
+
+```
+hf download Railgun526/curiosity-workspace-large-files-20260708 --type dataset \
+  --include "experiments/sugar_reproduction/outputs/final/official_sugar/baseline/ckpts/refiner_model10000.pt" \
+  --local-dir <Curiosity>
+```
+
+which lands it at exactly the path the scripts look for
+(`train_online_patch_mass_bcppo.py:16`). 14 957 503 bytes,
+sha256 `a398a7293fcea0ef948234e5de47b990fa586d2efd4e54ad7e481151c16124c3`.
+
+Verified as a real teacher, not a stub: `iter = 10000`, and the actor is
+`890 -> 512 -> 256 -> 128 -> 29` with a matching critic head -- 29 outputs being the G1
+29-DoF action space Plan 16 §C keeps. So the Phase 3 teacher gate can be *run* rather
+than budgeted for.
+
+## What the gap used to be
 
 `demo_ckpts/` ships **tracker + generator only**. The refiner is trained as step 1 of
 SUGAR's own `train.sh`:
