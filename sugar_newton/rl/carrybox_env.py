@@ -219,7 +219,9 @@ class CarryBoxEnv:
                  box: str = "small", mu: float = 1.0, ke: float = 1.0e4,
                  kd: float = 3.2e2, substeps: int = 4, episode_length: int = 300,
                  device: str = "cuda:0", seed: int = 0,
-                 njmax: int = 2048, nconmax: int = 8192):
+                 njmax: int = 2048, nconmax: int = 8192,
+                 collision: str = "mesh", sdf_resolution: int = 64,
+                 contact_surface: bool = False):
         self.num_envs = num_envs
         self.substeps = substeps
         self.episode_length = episode_length
@@ -235,6 +237,8 @@ class CarryBoxEnv:
         self.num_motions = len(clip_names)
         self.dt = 1.0 / raw["fps"]
 
+        self.collision = collision
+        self.sdf_resolution = sdf_resolution
         world = self._build_world(box, mu, ke, kd)
         builder = newton.ModelBuilder()
         # Zero spacing on purpose. Worlds do not collide with each other, and Newton's
@@ -245,7 +249,18 @@ class CarryBoxEnv:
         builder.replicate(world, world_count=num_envs, spacing=(0.0, 0.0, 0.0))
         self.model = builder.finalize(device=device)
 
-        self.pipeline = newton.CollisionPipeline(self.model, contact_matching="latest")
+        # Hydroelastic handles concavity natively -- no decomposition, and its cost scales
+        # with sdf_resolution rather than with mesh complexity, which is what removes the
+        # per-object tail variance a convex decomposition introduces across a dataset.
+        pipe_kwargs = {}
+        if collision == "hydro":
+            from newton.geometry import HydroelasticSDF
+
+            pipe_kwargs["sdf_hydroelastic_config"] = HydroelasticSDF.Config(
+                output_contact_surface=contact_surface, buffer_fraction=1.0,
+                buffer_mult_iso=2)
+        self.pipeline = newton.CollisionPipeline(self.model, contact_matching="latest",
+                                                 **pipe_kwargs)
         self.contacts = self.pipeline.contacts()
         # njmax and nconmax are PER WORLD (solver_mujoco.py:3183-3184), and they must be
         # sized for the WORST case, not the initial one. Leaving them None lets Newton
@@ -346,12 +361,22 @@ class CarryBoxEnv:
             b.joint_effort_limit[i] = eff
             b.joint_target_mode[i] = int(JointTargetMode.POSITION)
 
+        if self.collision == "hydro":
+            self._make_hydroelastic_hands(b)
         verts, tris = load_box_mesh(box)
         # add_body already creates the free joint and its own articulation; adding another
         # gives the box two parents and MuJoCo silently drops it (g1_carrybox.py:312)
         body = b.add_body(mass=BOX_MASS[box], label="box")
-        b.add_shape_mesh(body=body, mesh=newton.Mesh(verts, tris.flatten()),
-                         cfg=newton.ModelBuilder.ShapeConfig(ke=ke, kd=kd, mu=mu))
+        box_mesh = newton.Mesh(verts, tris.flatten(), compute_inertia=False)
+        box_cfg = newton.ModelBuilder.ShapeConfig(ke=ke, kd=kd, mu=mu)
+        if self.collision == "hydro":
+            # narrow band, not a full interior field: this "box" is an open carton with no
+            # well-defined inside, so only a shell around the surface is meaningful
+            box_mesh.build_sdf(max_resolution=self.sdf_resolution,
+                               narrow_band_range=(-0.006, 0.006), margin=0.004)
+            box_cfg.is_hydroelastic = True
+            box_cfg.kh = 1.0e10
+        b.add_shape_mesh(body=body, mesh=box_mesh, cfg=box_cfg)
         box_joint = next(j for j in range(len(b.joint_label)) if b.joint_child[j] == body)
         self.box_q0 = int(b.joint_q_start[box_joint])
         self.box_qd0 = int(b.joint_qd_start[box_joint])
@@ -375,6 +400,36 @@ class CarryBoxEnv:
         self.ref_body_idx = torch.as_tensor([clip_bodies.index(n) for n in BODY_NAMES],
                                             device=self.device)
         return b
+
+    def _make_hydroelastic_hands(self, b) -> None:
+        """Rebuild each rubber hand's collider as a hydroelastic SDF mesh.
+
+        The builder's per-shape ``sdf_*`` fields never reach an imported mesh, so the SDF
+        has to be built on a fresh :class:`newton.Mesh` and re-added -- the same trap
+        documented in ``validation/g1_carrybox.py``. The original shape keeps drawing but
+        stops colliding, so the hand is not counted twice.
+        """
+        labels = [l.split("/")[-1] for l in b.body_label]
+        hands = {i for i, n in enumerate(labels) if n.endswith("_rubber_hand")}
+        for sh in [s for s in range(b.shape_count) if b.shape_body[s] in hands]:
+            src = b.shape_source[sh]
+            if src is None or not hasattr(src, "vertices"):
+                continue
+            m = newton.Mesh(np.asarray(src.vertices, dtype=np.float32),
+                            np.asarray(src.indices, dtype=np.int32).flatten(),
+                            compute_inertia=False)
+            m.build_sdf(max_resolution=self.sdf_resolution,
+                        narrow_band_range=(-0.004, 0.004), margin=0.002)
+            cfg = newton.ModelBuilder.ShapeConfig(
+                ke=b.default_shape_cfg.ke, kd=b.default_shape_cfg.kd,
+                mu=b.default_shape_cfg.mu)
+            cfg.is_hydroelastic = True
+            cfg.kh = 1.0e10
+            new = b.add_shape_mesh(body=b.shape_body[sh], xform=b.shape_transform[sh],
+                                   mesh=m, scale=b.shape_scale[sh], cfg=cfg,
+                                   label=f"{labels[b.shape_body[sh]]}_skin")
+            b.shape_flags[new] &= ~int(newton.ShapeFlags.VISIBLE)
+            b.shape_flags[sh] &= ~int(newton.ShapeFlags.COLLIDE_SHAPES)
 
     # ---- state views --------------------------------------------------------
     def _body_q(self) -> torch.Tensor:
