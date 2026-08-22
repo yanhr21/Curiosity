@@ -64,4 +64,13 @@ if kill -0 $_xp 2>/dev/null; then echo "[setup] Xvfb starts OK"; kill $_xp 2>/de
   echo "[setup] Xvfb FAILED to start:"; cat /tmp/xvfb97.log; echo "SETUP_FAIL_XVFB_START"; exit 1
 fi
 ldconfig -p 2>/dev/null | grep -q libGL.so && echo "[setup] libGL present" || echo "[setup] WARN libGL not in ldconfig"
+# Headless hardware GL: the image ships libEGL_nvidia.so.0 but no NVIDIA entry in the
+# glvnd ICD directory, so EGL sees zero NVIDIA devices and every viewer falls back to
+# software rasterisation. One file fixes it; without it the A100 sits idle while the
+# CPU draws the frames.
+ICD=/usr/share/glvnd/egl_vendor.d/10_nvidia.json
+if [ ! -f "$ICD" ]; then
+  printf '{\n    "file_format_version" : "1.0.0",\n    "ICD" : {\n        "library_path" : "libEGL_nvidia.so.0"\n    }\n}\n' > "$ICD" 2>/dev/null && echo "wrote $ICD"
+fi
+
 echo "SETUP_CONTAINER_DONE"
