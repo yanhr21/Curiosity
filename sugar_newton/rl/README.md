@@ -120,7 +120,33 @@ At ~12 env-steps/s, SUGAR's 30k iterations x 24 steps x 8 envs is about 5.8M env
 i.e. **~5.5 days**. SUGAR trains in Isaac with thousands of environments. One to two
 orders of magnitude are missing and more worlds alone will not supply them.
 
-Part of that gap is not a defect: Isaac is fast partly *because* its URDF importer hulls
+### Where the time goes, by elimination
+
+Measured at 8 worlds. This is physics only -- there is no viewer anywhere in the training
+loop or the benchmark; video rendering happens once per `--video-interval` and is separate.
+
+* `obs+rew`: ~11 ms of a ~690 ms step -> **1.6%**. Not the bottleneck.
+* solver iterations: dropping `iterations`/`ls_iterations` from 100/50 to 10/5 takes the
+  step from 687.5 ms to 602.2 ms -> **~12%** for a tenfold reduction. Not the bottleneck.
+* remainder -> **~85% is collision detection**, over a 45 748-triangle hand and a
+  100 000-triangle box, generating 1 677-6 082 contacts per world.
+
+### The lever: the asset's own collision approximation
+
+`descriptions/objects/small_box/Props/instanceable_meshes.usd` authors
+`physics:approximation = 'convexDecomposition'` on the box mesh, and Isaac honours it.
+This environment collides the raw 100 000-triangle mesh instead.
+
+Note what the box actually is, because it matters: it is an **open carton**, not a solid
+block. Mesh volume 3 889.9 cm^3 against a convex hull of 35 502.8 cm^3 -- a single hull
+would fill it in and add 813% material, which would be a real change to the physics and is
+exactly what the no-hulling rule is about. Convex *decomposition* is a different thing: it
+preserves the concavity with a set of convex parts, and it is the setting the asset itself
+declares. Honouring it is arguably more faithful than what is done here now.
+
+The hand is concave too (hull adds 135%), so the same distinction applies there.
+
+Part of the gap is not a defect:  Isaac is fast partly *because* its URDF importer hulls
 every collider, and this project does not hull interacting geometry. Accurate contact
 costs more. An untested idea worth trying: keep exact meshes for the hands and the box,
 simplify colliders on links that never touch the box.
