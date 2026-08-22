@@ -1,0 +1,4 @@
+[submodule "third_party/newton"]
+	path = third_party/newton
+	url = git@github.com:yanhr21/Curiosity.git
+	branch = mike_2026_7_21_newton
