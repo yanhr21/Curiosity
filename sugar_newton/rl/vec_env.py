@@ -29,6 +29,18 @@ from sugar_newton.rl import obs_890
 from sugar_newton.rl.carrybox_env import N_DOF, OBS_DIM, CarryBoxEnv
 
 
+class EnvCfg(dict):
+    """A dict that rsl_rl's wandb writer will accept.
+
+    ``WandbSummaryWriter.store_config`` calls ``env_cfg.to_dict()`` and falls back to
+    ``dataclasses.asdict``; a plain dict satisfies neither, and the run dies *after*
+    wandb has already opened, which reads as a wandb problem when it is not.
+    """
+
+    def to_dict(self) -> dict:
+        return dict(self)
+
+
 class CarryBoxVecEnv:
     """rsl_rl VecEnv over :class:`CarryBoxEnv`."""
 
@@ -38,7 +50,8 @@ class CarryBoxVecEnv:
         self.num_actions = N_DOF
         self.device = env.device
         self.max_episode_length = env.episode_length
-        self.cfg = {"num_envs": env.num_envs, "episode_length": env.episode_length}
+        self.cfg = EnvCfg(num_envs=env.num_envs, episode_length=env.episode_length,
+                          substeps=env.substeps, dt=env.dt, clips=list(env.clip_names))
         self.episode_length_buf = torch.zeros(env.num_envs, dtype=torch.long,
                                               device=env.device)
 

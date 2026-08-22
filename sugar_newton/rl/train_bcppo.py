@@ -44,7 +44,7 @@ import warp as wp
 
 HERE = Path(__file__).resolve().parent
 SUGAR_SRC = HERE.parents[1] / "SUGAR" / "source" / "sugar_rl"
-DEFAULT_TEACHER = (HERE.parents[2] / "experiments/sugar_reproduction/outputs/final"
+DEFAULT_TEACHER = (HERE.parents[1] / "experiments/sugar_reproduction/outputs/final"
                    / "official_sugar/baseline/ckpts/refiner_model10000.pt")
 
 
