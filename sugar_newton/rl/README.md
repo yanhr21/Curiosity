@@ -33,11 +33,18 @@ Two open problems, neither solved:
    after ~2 steps here, so `reset()` runs almost every step -- that is the next thing to
    rule out, not a diagnosis.
 2. **Reward explodes from scratch.** Diverged envs are detected and zeroed, so this comes
-   from envs that are finite but violent. Two contributors, both ours:
-   - `joint_acc` is computed here as a finite difference `((qd - prev_qd)/dt)**2`, whereas
-     IsaacLab's `joint_acc_l2` reads the engine's own joint acceleration. Same -2.5e-7
-     weight, different quantity, so a single contact impulse produces a huge penalty.
-   - a from-scratch policy flails, which is exactly what BCPPO's stages 1-2 prevent (below).
+   from envs that are finite but violent.
+
+   The `joint_acc` term was the suspect and has been **ruled out by measurement**. Taking
+   Isaac's own recorded `joint_vel` from `isaac/rollouts_isaac` and differencing it exactly
+   the way this env does gives `joint_acc_l2` of mean 25.9k and worst-step 744k, i.e. a
+   reward contribution of -0.0065 mean and -0.19 at worst. SUGAR's -2.5e-7 weight is
+   correctly calibrated for this quantity. Reaching a return of -4.9e4 needs
+   `joint_acc_l2` around 2e11, about 8e6x Isaac's mean -- roughly 3000x Isaac's joint
+   velocities. That is a flailing policy, not a mis-specified reward term.
+
+   Which points at the missing BC curriculum: stages 1-2 exist precisely so the policy is
+   never allowed to flail (below).
 
 ## The algorithm is NOT SUGAR's
 
