@@ -122,6 +122,49 @@ def ensure_wandb_credentials() -> None:
                      "(or pass --logger tensorboard)")
 
 
+def attach_video(runner, args) -> None:
+    """Render an evaluation rollout every ``--video-interval`` iterations.
+
+    rsl_rl has no hook for this, so ``runner.save`` is wrapped: it already fires on
+    ``save_interval``, and piggybacking keeps the cadence tied to something the runner
+    controls rather than duplicating its iteration bookkeeping. A failure to render is
+    logged and swallowed -- a missing video must never end a training run.
+    """
+    from sugar_newton.rl.video import VideoRecorder
+
+    rec = VideoRecorder(clip=(args.clips or ["data_000"])[0], frames=args.video_frames,
+                        out_dir=str(Path(args.log_root) / args.run_name / "videos"),
+                        mu=args.mu, substeps=args.substeps, device=args.device)
+    original_save = runner.save
+    state = {"last": -1}
+
+    def save_and_record(path, infos=None):
+        original_save(path, infos)
+        it = runner.current_learning_iteration
+        if it == state["last"] or it % args.video_interval:
+            return
+        state["last"] = it
+        try:
+            video_path, stats = rec.record(runner.alg.policy, it)
+        except Exception as exc:
+            print(f"[video] skipped at iter {it}: {type(exc).__name__}: {exc}")
+            return
+        if video_path is None:
+            return
+        print(f"[video] iter {it}: {video_path}  lift {stats.get('video/box_lift', 0):.3f} m "
+              f"(reference {stats.get('video/box_lift_reference', 0):.3f} m)")
+        if args.logger == "wandb":
+            import wandb
+
+            if wandb.run is not None:
+                wandb.log({**stats,
+                           "video/rollout": wandb.Video(video_path, fps=rec.fps,
+                                                        format="mp4")},
+                          step=it)
+
+    runner.save = save_and_record
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--num-envs", type=int, default=512)
@@ -137,6 +180,9 @@ def main() -> None:
     ap.add_argument("--log-root", default="logs/newton_bcppo")
     ap.add_argument("--logger", default="wandb", choices=("wandb", "tensorboard"))
     ap.add_argument("--wandb-project", default="sugar_newton")
+    ap.add_argument("--video-interval", type=int, default=100,
+                    help="render an evaluation rollout to wandb every N iterations; 0 disables")
+    ap.add_argument("--video-frames", type=int, default=400)
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
@@ -167,6 +213,9 @@ def main() -> None:
     if args.resume:
         runner.load(args.resume)
         print(f"[alg] resumed from {args.resume}")
+
+    if args.video_interval > 0:
+        attach_video(runner, args)
 
     runner.learn(num_learning_iterations=args.max_iterations, init_at_random_ep_len=True)
 

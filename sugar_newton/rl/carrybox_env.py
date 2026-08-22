@@ -219,7 +219,7 @@ class CarryBoxEnv:
                  box: str = "small", mu: float = 1.0, ke: float = 1.0e4,
                  kd: float = 3.2e2, substeps: int = 4, episode_length: int = 300,
                  device: str = "cuda:0", seed: int = 0,
-                 njmax: int | None = None, nconmax: int | None = None):
+                 njmax: int = 2048, nconmax: int = 8192):
         self.num_envs = num_envs
         self.substeps = substeps
         self.episode_length = episode_length
@@ -247,10 +247,14 @@ class CarryBoxEnv:
 
         self.pipeline = newton.CollisionPipeline(self.model, contact_matching="latest")
         self.contacts = self.pipeline.contacts()
-        # njmax and nconmax are PER WORLD (solver_mujoco.py:3183-3184). Passing a
-        # num_envs-scaled nconmax allocated 128k contacts in every world and cost ~20x
-        # per-world throughput; leaving both None lets Newton size them from the initial
-        # state, which is what a single world actually needs.
+        # njmax and nconmax are PER WORLD (solver_mujoco.py:3183-3184), and they must be
+        # sized for the WORST case, not the initial one. Leaving them None lets Newton
+        # size from the initial near-static pose, which yields nconmax=1024 -- and then
+        # the hand-box grip generates up to 6524 contacts per world, so MJWarp silently
+        # drops everything above the limit ("Number of Newton contacts (6524) exceeded
+        # MJWarp limit (1024)", 489 times in one short benchmark) and the simulation is
+        # simply wrong wherever it matters most. Measured peaks: 6524 contacts, njmax 570.
+        # These defaults carry headroom over both.
         self.solver = newton.solvers.SolverMuJoCo(
             self.model, solver="newton", integrator="implicitfast",
             njmax=njmax, nconmax=nconmax,
