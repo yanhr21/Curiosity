@@ -15,6 +15,58 @@ their effort limit 37% of the carry against Isaac's 1.9%.
 Run inside the Newton container; `renders/render_carrybox_policy.sh` in the `third_party/newton`
 submodule shows the srun incantation.
 
+## STATUS: the environment runs; the trainer does not train yet
+
+Measured, 16 worlds, from scratch, 3 iterations:
+
+    it 1  return    -15.8  ep_len 4.6  diverged  47   4 env-steps/s
+    it 2  return  -1242.9  ep_len 2.8  diverged 138   4 env-steps/s
+    it 3  return -48947.7  ep_len 1.8  diverged 234   3 env-steps/s
+
+Two open problems, neither solved:
+
+1. **Throughput.** 4 env-steps/s across 16 worlds is ~20x *worse* per world than the
+   single-world validation scene (5.2 steps/s). `njmax`/`nconmax` are per world
+   (`solver_mujoco.py:3183`) and an earlier version scaled `nconmax` by `num_envs`,
+   allocating 128k contacts per world; that was wrong and is fixed, but fixing it changed
+   the number not at all, so the cause is still unknown. Note episodes are terminating
+   after ~2 steps here, so `reset()` runs almost every step -- that is the next thing to
+   rule out, not a diagnosis.
+2. **Reward explodes from scratch.** Diverged envs are detected and zeroed, so this comes
+   from envs that are finite but violent. Two contributors, both ours:
+   - `joint_acc` is computed here as a finite difference `((qd - prev_qd)/dt)**2`, whereas
+     IsaacLab's `joint_acc_l2` reads the engine's own joint acceleration. Same -2.5e-7
+     weight, different quantity, so a single contact impulse produces a huge penalty.
+   - a from-scratch policy flails, which is exactly what BCPPO's stages 1-2 prevent (below).
+
+## The algorithm is NOT SUGAR's
+
+SUGAR's tracker uses **BCPPO** (`BCPPORunnerCfg` -> `utils/rsl_rl_bcppo.py`), a three-stage
+curriculum around the frozen refiner as teacher:
+
+    stage 1   step < 500        loss = distill                       (LR schedule fixed)
+    stage 2   500 <= step < 1000  loss = distill + alpha * value     (no policy gradient)
+    stage 3   step >= 2000 ramp   loss = alpha * surrogate + value
+                                         - alpha * entropy + distill * max(1-alpha, floor)
+
+Supervising signals in SUGAR's tracker training:
+
+| signal | where it enters |
+|---|---|
+| RL reward, the 17 terms below | surrogate loss, stage 3 only |
+| teacher action distribution, KL(teacher \|\| student) over the 29-D Gaussians | stages 1-2 dominant, fades in stage 3 |
+| value targets (returns) | critic, warmed up alone in stage 2 |
+| entropy bonus 0.005 | stage 3, scaled by alpha |
+| adaptive-KL LR control, desired_kl 0.01 | fixed during stage 1 |
+
+and three observation groups, not one: policy 510-D, critic 890-D privileged, teacher
+890-D. Symmetry and RND exist in the class but neither config enables them for CarryBox.
+
+**What is implemented here is stage 3 without the distillation term** -- plain PPO. The
+teacher checkpoint is recovered (TODO 16) but the 890-D teacher group is not built, so
+BCPPO is the next piece of work, and is likely a precondition for training stability
+rather than an enhancement.
+
 ## What is faithful to SUGAR, and what is not
 
 Faithful, transcribed rather than re-derived:
@@ -24,7 +76,9 @@ Faithful, transcribed rather than re-derived:
 - actuator gains, armature, effort limits and the `0.25 * effort / stiffness` action scale
 - reward weights and stds (`BaseRewardsCfg`) and the `exp(-error/std^2)` term shapes
 - termination thresholds (`BaseTerminationsCfg`)
-- PPO hyperparameters (`BasePPORunnerCfg`)
+- PPO hyperparameters, identical between `BasePPORunnerCfg` and `BCPPORunnerCfg` except
+  `init_noise_std`, which is 0.5 for the tracker (an earlier version used the inference
+  task's 1.0)
 
 Deliberate gaps, all recorded in the code:
 

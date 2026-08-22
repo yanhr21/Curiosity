@@ -218,7 +218,8 @@ class CarryBoxEnv:
     def __init__(self, num_envs: int, clip_names: list[str] | None = None,
                  box: str = "small", mu: float = 1.0, ke: float = 1.0e4,
                  kd: float = 3.2e2, substeps: int = 4, episode_length: int = 300,
-                 device: str = "cuda:0", seed: int = 0):
+                 device: str = "cuda:0", seed: int = 0,
+                 njmax: int | None = None, nconmax: int | None = None):
         self.num_envs = num_envs
         self.substeps = substeps
         self.episode_length = episode_length
@@ -246,9 +247,13 @@ class CarryBoxEnv:
 
         self.pipeline = newton.CollisionPipeline(self.model, contact_matching="latest")
         self.contacts = self.pipeline.contacts()
+        # njmax and nconmax are PER WORLD (solver_mujoco.py:3183-3184). Passing a
+        # num_envs-scaled nconmax allocated 128k contacts in every world and cost ~20x
+        # per-world throughput; leaving both None lets Newton size them from the initial
+        # state, which is what a single world actually needs.
         self.solver = newton.solvers.SolverMuJoCo(
             self.model, solver="newton", integrator="implicitfast",
-            njmax=16384, nconmax=min(8000 * num_envs, self.contacts.rigid_contact_max),
+            njmax=njmax, nconmax=nconmax,
             impratio=20.0, cone="elliptic", iterations=100, ls_iterations=50,
             use_mujoco_contacts=False)
         self.state_0, self.state_1 = self.model.state(), self.model.state()
@@ -287,6 +292,7 @@ class CarryBoxEnv:
         self.hist: dict[str, torch.Tensor] = {}
         self.extras: dict[str, torch.Tensor] = {}
         self.num_diverged = 0
+        self.diverged = torch.zeros(num_envs, dtype=torch.bool, device=self.device)
         self.reset()
 
     # ---- construction -------------------------------------------------------
@@ -486,9 +492,12 @@ class CarryBoxEnv:
 
         done, timeout = self._done()
         reward, terms = R.compute(self)
-        # a diverged env is reset on this same call, so its reward is meaningless rather
-        # than merely bad -- zero it instead of letting NaN reach the optimiser
+        # A diverged env is reset on this same call, so its reward is meaningless rather
+        # than merely bad. It is also often huge and FINITE -- joint_acc on exploding
+        # velocities reached -1.7e5 and swamped every other env in the batch -- so
+        # nan_to_num alone is not enough and the flagged envs are zeroed outright.
         reward = torch.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0)
+        reward = torch.where(self.diverged, torch.zeros_like(reward), reward)
         self.extras = {"reward_terms": terms, "timeout": timeout}
         obs = self.observe()
         reset_ids = done.nonzero(as_tuple=False).flatten()
@@ -530,6 +539,7 @@ class CarryBoxEnv:
                      & torch.isfinite(self.q).all(dim=1)
                      & torch.isfinite(self.qd).all(dim=1))
         self.num_diverged += int(diverged.sum())
+        self.diverged = diverged
 
         timeout = ((self.t - self.start) >= self.episode_length) | \
                   (self.t >= self.ref["length"][self.motion_id] - 1)

@@ -1,5 +1,28 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""PPO with SUGAR's hyperparameters, small enough to carry no extra dependency.
+"""PPO with SUGAR's hyperparameters -- but NOT the algorithm SUGAR trains the tracker with.
+
+Read this first. SUGAR's tracker registers ``BCPPORunnerCfg`` -> ``BCPPOCfg(class_name=
+"BCPPO")``, implemented in ``sugar_rl/utils/rsl_rl_bcppo.py``. BCPPO is a three-stage
+curriculum around a *frozen teacher* (the refiner, ``refiner_model10000.pt``)::
+
+    stage 1   update_step < 500      loss = distill                      (LR schedule fixed)
+    stage 2   500 <= step < 1000     loss = distill + alpha * value      (no policy gradient yet)
+    stage 3   step >= 2000 ramp      loss = alpha * surrogate + value
+                                            - alpha * entropy
+                                            + distill * max(1 - alpha, floor)
+
+with the distillation term a KL between the student's and the teacher's action Gaussians,
+``log s_s - log s_t + (s_t^2 + (mu_t - mu_s)^2) / (2 s_s^2) - 0.5``, summed over the 29
+actions. RL only enters at stage 3, and distillation fades out as PPO fades in.
+
+What is implemented here is stage 3 with the distillation term removed -- i.e. plain PPO.
+That is a real gap, not a simplification: a from-scratch policy here flails from the first
+step precisely because nothing is pulling it toward a competent teacher, which is what
+stages 1 and 2 exist to do. Implementing BCPPO needs the teacher checkpoint (recovered,
+see TODO 16) and the 890-D teacher observation group (not built).
+
+The rest of this docstring is about why PPO is written out rather than imported.
+
 
 ``rsl-rl-lib`` is what SUGAR trains with, but the Newton container has no package mirror
 and its interpreter is not executable from the login node, so installing it there is a
@@ -44,7 +67,10 @@ class PPOConfig:
     gamma: float = 0.99
     lam: float = 0.95
     max_grad_norm: float = 1.0
-    init_noise_std: float = 1.0
+    # 0.5, from BCPPORunnerCfg -- the tracker's config. An earlier version of this file
+    # took 1.0 from BasePPORunnerCfg, which is the *inference* task's. Every other
+    # hyperparameter is identical between the two, so this was the only numeric error.
+    init_noise_std: float = 0.5
     hidden_dims: tuple[int, ...] = (512, 256, 128)
 
 
