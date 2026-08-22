@@ -298,3 +298,42 @@ against upstream Newton must stay empty.
 - [ ] Never claim "only tactile can sense mass" — mass leaks into proprioception through
       joint sag and tracking error.
 - [ ] A patch is the policy unit, never a contact point.
+
+---
+
+## E. Phase 3 — the tracker in the Newton loop (2026-08-22)
+
+- [x] **The original SUGAR environment runs here.** Not a missing IsaacLab patch, which
+      was the earlier wrong call. IsaacLab's `.kit` sets the asset roots correctly; Kit
+      requested the right S3 URL and timed out after 53 s (`Could not get Sdf layer`)
+      while plain `curl` to the same URL returns 200 in milliseconds — so `omni.client`,
+      not the network. `ISAACLAB_GROUND_PLANE_USD` is a red herring: it appears nowhere in
+      IsaacLab v2.3.0, only SUGAR's scripts *set* it. Fix is three staged assets plus a
+      Kit setting, no code change: see `isaac/RUNNING_ISAAC_HERE.md`.
+- [x] **Ground truth captured from SUGAR's own dumper**, `--task
+      Sugar-G129dof-CarryBox-Tracker-Rollout --rollout_dir`. 7 trajectories with per-step
+      action, joint_pos/vel, root/anchor/body/object poses.
+- [x] **The 510-D observation is validated offline**, `validation/verify_tracker_obs.py`.
+      Rebuild the obs from Isaac's recorded state, run the official actor, compare with
+      the action Isaac applied: correlation 0.970-0.987, RMSE 0.088 against an action std
+      of ~1.3, with SUGAR's own Unoise accounting for 0.080 of it (ratio 1.11).
+      Read RMSE, not correlation — the 29 reference joint angles dominate the prediction,
+      so a wrong convention only costs 0.969 -> 0.945.
+- [x] **`validation/g1_carrybox_policy.py`: floating base, legs on, `tracker.pt` closed
+      loop at 50 Hz.** The G1 stands on its own feet for all 481 frames, walks in, squats,
+      grips and lifts. Lift 0.21-0.30 m against a reference 0.63-0.69 m on three clips,
+      reference joints tracked to ~8 deg. Video:
+      `isaac/newton_carrybox.mp4`.
+- [ ] **The remaining gap is unexplained.** Three hypotheses tested and refuted:
+      friction (saturates by mu=1.0), the convex-hull hand collider (the `--hull-hands`
+      ablation *lowers* the lift, 0.23 -> 0.07 m), contact compliance (`ke=1e4` is already
+      the optimum; 1e3 and 1e5 are both worse). What is measured and stands: Newton
+      demands far more wrist torque than Isaac — wrists at their effort limit 11.7% of
+      frames (37.4% during the carry) against Isaac's 1.9%, while every non-wrist joint
+      agrees at 0.1% vs 0.0%. The discrepancy is localised to the hand-box interface and
+      the wrists are the weakest actuators by 10x (5 N.m against 50-139).
+      Next untested candidate: Isaac hulls *every* link, and the reference carries the box
+      against the chest, so the torso collider — which `--hull-hands` leaves alone — may
+      form the shelf. Caveats: these are PD estimates from position error, not measured
+      joint torques, and two runs at identical parameters gave 0.23 and 0.30 m, so
+      sub-0.1 m single-run differences are not effects.
