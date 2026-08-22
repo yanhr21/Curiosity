@@ -56,6 +56,84 @@ basename. Credentials follow the convention used elsewhere in this workspace --
 `train_bcppo.py` checks for one before building the environment, so a run cannot get
 several minutes in with logging silently off. Pass `--logger tensorboard` to opt out.
 
+## STATUS: BCPPO trains on Newton and logs to wandb
+
+First working run, 8 worlds, 3 iterations, `data_000`
+(https://wandb.ai/nvr-amri/sugar_newton/runs/acs79r73)::
+
+    iter 0   reward  9.48   ep_len 10.75   noise std 0.51   diverged 0
+    iter 1   reward  7.54   ep_len 11.19                    diverged 0
+    iter 2   reward  6.23   ep_len 11.21                    diverged 0
+
+Per-term at iteration 0: anchor_pos 0.869, anchor_ori 0.795, body_pos 0.920,
+obj_pos 0.853, obj_ori 0.946, obj_ang_vel 0.934, joint_pos 0.100.
+Three iterations is far too short to read a trend from; what it establishes is that the
+port runs, stays stable and logs.
+
+### The BC curriculum is the stability mechanism
+
+Against the hand-written PPO that used to live here (deleted), same environment, from
+scratch::
+
+                        hand-written PPO        SUGAR's BCPPO
+    mean reward         -15.8 -> -48948         +9.48
+    divergences         47 -> 138 -> 234        0
+    joint_acc term      ~2e11                   883929
+
+That last row settles an earlier false alarm. 883929 sits inside the range measured from
+Isaac's own rollouts (mean 25.9k, worst step 744k), so `joint_acc` was never
+mis-specified -- the flailing policy was the entire problem, and stages 1-2 remove it.
+
+### Open: throughput
+
+~3.6 env-steps/s at 8 worlds (collection 43-53 s for 192 timesteps). Algorithm-independent
+-- the same figure appeared under the hand-written PPO -- so it is a property of the
+environment. `njmax`/`nconmax` were being scaled by `num_envs` when they are per world;
+that was wrong and is fixed, and fixing it changed nothing. A per-component breakdown
+across 1/2/4/8/16 worlds is the next measurement; the hypothesis to test is that the
+broad phase is N-by-N across all shapes in all worlds rather than per world, which would
+make cost quadratic in world count.
+
+## The algorithm is SUGAR's, imported not reimplemented
+
+`train_bcppo.py` imports `BCPPO` from `SUGAR/source/sugar_rl/sugar_rl/utils/rsl_rl_bcppo.py`
+and runs it inside `rsl_rl`'s own `OnPolicyRunner`, with the hyperparameters transcribed
+from `BCPPORunnerCfg`. `BCPPO` is registered by the same mechanism SUGAR uses
+(`setattr(builtins, "BCPPO", ...)`, `scripts/sugar_rl/train.py:147-150`), because the
+runner resolves the algorithm with `eval(alg_cfg["class_name"])`.
+
+The only local code in the training loop is `vec_env.py`, which presents the Newton
+environment as an `rsl_rl.env.VecEnv` with the three observation groups the config asks
+for:
+
+    policy   510-D   validated against Isaac's recorded actions to RMSE 0.088
+    critic   890-D   obs_890.py
+    teacher  890-D   obs_890.py -- what the frozen refiner is asked to imitate
+
+BCPPO's curriculum, for reference:
+
+    stage 1   step < 500          loss = distill                    (LR schedule fixed)
+    stage 2   500 <= step < 1000  loss = distill + alpha * value    (no policy gradient)
+    stage 3   step >= 2000 ramp   loss = alpha * surrogate + value
+                                         - alpha * entropy + distill * max(1-alpha, floor)
+
+The teacher checkpoint is required, not optional: `BCPPO.__init__` asserts on a missing
+one, and stages 1-2 have no loss without it. Default path is the recovered
+`refiner_model10000.pt` (see TODO 16).
+
+An earlier version of this directory carried a hand-written PPO (`ppo.py`, `train.py`).
+It has been deleted. It was stage 3 with the distillation dropped, which is not the
+algorithm SUGAR trains the tracker with.
+
+## Logging
+
+`rsl_rl` has native wandb support, so nothing here writes to wandb directly: the runner
+config sets `logger: wandb` and `wandb_project`, and the run name is the log directory's
+basename. Credentials follow the convention used elsewhere in this workspace --
+`WANDB_API_KEY` from the environment, else `~/.netrc` for `api.wandb.ai` -- and
+`train_bcppo.py` checks for one before building the environment, so a run cannot get
+several minutes in with logging silently off. Pass `--logger tensorboard` to opt out.
+
 ## STATUS: environment runs; BCPPO port is UNTESTED
 
 The numbers below are from the deleted hand-written PPO, from scratch with no teacher.
