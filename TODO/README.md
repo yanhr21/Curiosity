@@ -11,22 +11,25 @@
 - [x] verify that selected-demo identity changes checkpoint parameters and residual actions;
 - [x] compute predictor-independent behavior adherence from existing traces using object lift,
   lifted/ground transport, robot orbit and available hand-contact topology;
-- [x] record the trace limitation: foot identity and direct kick contact cannot be recovered because
-  per-body pose and foot-contact force were not archived;
+- [x] record that the original seed-161581 trace cannot recover foot identity or direct kick
+  contact because those evaluation fields were not archived;
 - [x] predeclare three matched seed pairs for the fixed 64-update repeat;
-- [ ] add per-body pose, named foot-box contact and hand-box-only contact to the next frozen
+- [x] add per-body pose, named foot-box contact and hand-box-only contact to the repeated frozen
   evaluator as evaluation labels, not actor inputs;
-- [ ] after explicit approval, run seed pairs `161583/161584` and `161585/161586` serially and
+- [x] after explicit approval, run seed pairs `161583/161584` and `161585/161586` serially and
   evaluate them with seeds `171583` and `171585`;
 - [x] add a one-seed-at-a-time runner and a training-seed-level behavior aggregator; neither
   substitutes physics profiles for independent seeds;
-- [ ] only if the multi-seed result is stable, test an identical teacher-authority schedule in both
-  arms;
+- [ ] with explicit approval, run one fixed-profile serious overfit diagnostic that anneals teacher
+  authority identically in both arms and stops at declared 64-update checkpoints;
+- [ ] only if that diagnostic creates the expected contact-role/event shift, repeat the matched
+  teacher-authority schedule across independent training seeds;
 - [ ] redesign or replace the semantic reward gate before any selected-demo SMP integration.
 
-Current endpoint: correct `16/20` success, unrelated `18/20`, with two physical falls in each arm.
-The independent audit observes `0/4` declared semantic directions: both policies remain Carry-like.
-This proves reward-signal use and within-Carry behavior change, not semantic demo following.
+Current endpoint: three training seeds are complete. The independent audit observes the expected
+lift/transport direction in `1/3` seeds and the expected orbit direction in `0/3`; foot-to-box
+contact is absent or negligible. This proves reward-signal use and within-Carry behavior change,
+not semantic demo following.
 
 ## Frozen tactile work
 

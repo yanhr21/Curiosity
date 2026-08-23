@@ -6,14 +6,15 @@ The tactile/mass-adaptation line in
 `PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen. Do not launch new tactile
 training, evaluation or scale tuning unless the user explicitly resumes it.
 
-The current task is to consolidate demo-following evidence, distinguish implemented components
-from proposals, and use the completed predictor-independent behavior audit to run the predeclared
-multi-seed repeat only after explicit user approval. Do not start new policy training implicitly.
+The predeclared three-seed demo-following repeat is complete. The current task is to preserve that
+negative evidence, distinguish implemented components from proposals, and design one matched
+learnability diagnostic before any further formal training. Do not start new policy training
+without explicit user approval.
 
 The completed same-teacher experiment fixes CarryBox45 as teacher in both arms and changes only the
-selected reward demo, CarryBox45 versus KickBox21. Frozen success is `16/20` versus `18/20`, with
-two physical root-height falls per arm. This proves policy change, not correct-demo superiority or
-semantic obedience.
+selected reward demo, CarryBox45 versus KickBox21. Across training seeds 161581/161583/161585,
+the predeclared Kick-like direction appears in only one seed for lift/transport and zero seeds for
+orbit rate. This proves policy change, not correct-demo superiority or semantic obedience.
 
 For the demo goal task, physical fall means relative robot-root height loss `>=0.35 m`. Do not use
 reference-anchor posture or `root up-z < 0.5`: the admitted CarryBox45 source legitimately crouches
@@ -45,13 +46,14 @@ to root up-z about `0.191`, recovers and carries.
   prior into policy before a semantic gate passes.
 - A valid policy comparison keeps teacher, initialization, update budget, seeds, reward weights,
   physics and frozen evaluation identical. Only the selected reward demo may differ.
-- The existing-trace behavior audit is independent of the reward predictor. With the same
-  CarryBox45 teacher, the KickBox21-reward arm still lifts and transports the box rather than
-  becoming Kick-like; none of the four declared semantic directions is observed. This is
-  within-Carry behavior change, not semantic obedience. Task success and predictor loss remain
-  separate.
-- Existing traces do not contain per-body pose or foot-contact state and cannot retrospectively
-  identify which foot kicked. Add these as evaluation-only fields before the next frozen rollout.
+- The behavior audit is independent of the reward predictor. With the same CarryBox45 teacher, the
+  KickBox21-reward arm remains Carry-like. Seeds 161581/161583 observe `0/4` predeclared semantic
+  directions and seed161585 observes a non-replicated `3/4`; orbit rate moves opposite to Kick21
+  in all three. This is within-Carry behavior change, not semantic obedience. Task success and
+  predictor loss remain separate.
+- The original seed-161581 traces do not contain per-body pose or foot-contact state. The repeated
+  frozen evaluator now archives named body positions and left/right foot-to-box contact forces as
+  evaluation-only evidence; these fields never enter the actor or reward.
 - One policy-training seed is one experimental replicate. Multiple physics profiles do not replace
   independent training seeds.
 - Never replace official MimicKit/TinyMDM or SUGAR components with a toy implementation.

@@ -15,18 +15,21 @@ IsaacLab/PhysX；Newton 只作为 asset 来源，不作为执行后端。
 - `unrelated`：KickBox21，任务仍然是 CarryBox。
 
 teacher-only zero-residual gate 在 20/20 profiles 中实现双手接触并抬升至少 5 cm，平均
-最大抬升 0.7128 m。冻结评估得到 correct `16/20` success、unrelated `18/20` success，
-两臂各 `2/20` physical root-height fall。checkpoint 和 residual action 均发生可测差异，
-因此 selected-demo reward 确实进入优化并改变策略；但单个训练 seed 下 correct 没有优于
-unrelated，所以不能声称策略理解或遵循了 demo 语义。
+最大抬升 0.7128 m。三组独立训练 seed 的 correct/unrelated frozen success 分别为
+`16/18`、`18/17`、`16/17`（每臂 20 profiles），physical falls 分别为 `2/2`、`1/1`、
+`2/1`。checkpoint 和 residual action 均发生可测差异，因此 selected-demo reward 确实进入
+优化并改变策略；task success 没有稳定的 correct-demo 优势。
 
-对现有 20 组 matched traces 的 predictor-independent 行为审计进一步排除了“只是分数没
-显示出来”的解释。审计不读取 predictor loss、demo reward 或训练 loss，只读取机器人/
-箱子状态和双手刚体接触力。CarryBox45 reference 最大抬升 `0.7639 m`，KickBox21 最大仅
-`0.0304 m`；但 Kick-reward policy 相对 correct policy 反而有更多 lifted time
-（`+0.0350`）、更多 lifted transport（`+0.0323`）、更少 ground transport（`-0.0323`），
-orbit rate 也没有增加（`-0.0050 rad/s`）。四个预定方向均未出现，所以当前变化属于
-Carry 解内部差异，而不是 Kick 语义遵循。
+predictor-independent 行为审计进一步排除了“只是分数没显示出来”的解释。审计不读取
+predictor loss、demo reward 或训练 loss，只读取机器人/箱子状态、明确过滤到箱子的手脚
+接触和运动学。CarryBox45 reference 最大抬升 `0.7639 m`，KickBox21 最大仅 `0.0304 m`。
+三个 training seeds 上，unrelated 减 correct 的 lifted-frame delta 为
+`+0.0350/+0.0179/-0.0058`，lifted-transport delta 为
+`+0.0323/+0.0132/-0.0277`，orbit-rate delta 为
+`-0.0050/-0.0294/-0.0115 rad/s`。预注册 Kick-like 方向在 lift/transport 上仅 `1/3`
+seeds，在 orbit 上为 `0/3`；新增脚—箱接触也接近零。seed161585 有部分 `3/4` 方向变化，
+但另外两个 seeds 为 `0/4`。因此三种子结果不支持稳定 semantic demo following，只支持
+selected reward 改变 Carry 解族内行为。
 
 当前 internal reward predictor 是约 11.9M 参数的 causal future-mismatch predictor，预测
 body、box position、box 6D rotation 和 box velocity 的未来偏差。held-out normalized MAE
@@ -73,7 +76,9 @@ normal/shear 混合、摩擦不一致、slip reset 丢失、训练/评测 motion
    identity 检查；
 6. 建立 fixed-teacher、只改变 selected-demo reward 的因果实验，排除 teacher replacement
    混杂；
-7. 对 official single-clip TinyMDM 做 exact-identity 与 independent semantic-extension
+7. 建立 predictor/reward-independent、以训练 seed 为重复单位的 Carry/Kick 行为审计，
+   分离 task success、reward use 与 semantic obedience；
+8. 对 official single-clip TinyMDM 做 exact-identity 与 independent semantic-extension
    分离测试，得到“记住 clip 但尚未形成可靠语义空间”的负结果。
 
 官方 SUGAR、IsaacLab TacSL 和 MimicKit TinyMDM 本身不是本仓库的原创方法；本仓库的
@@ -100,6 +105,9 @@ bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
 # 无 GPU：从现有 traces 重算独立行为审计
 $PYTHON_BIN scripts/sugar/demo_following/analyze_behavior_adherence.py
 
+# 无 GPU：汇总三个独立训练 seeds；20 physics profiles 只作 seed 内变化
+$PYTHON_BIN scripts/sugar/demo_following/aggregate_behavior_adherence.py
+
 # GPU compute node：复现完整 G1 CarryBox 与双手 27-patch 在线触觉视频
 bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh \
   experiments/isaaclab_g1_anatomical27_object_demos/reproduce_plain_carrybox
@@ -109,6 +117,8 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 
 - [correct CarryBox demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
 - [unrelated KickBox demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
+- [第三个 seed 的 correct demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161585/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
+- [第三个 seed 的 unrelated demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161585/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [6x、mu=1.5 的 G1/CarryBox 与双手 27-patch](experiments/online_patch_tactile_mass_adaptation/visualizations/official_refiner_mu1p5_6x_friction_hold_single_env/official_refiner_mu1p5_6x_world_bilateral27.mp4)。
 
 ## 活动目录

@@ -437,6 +437,25 @@ def primary_checks(comparison: dict[str, dict[str, float | int]]) -> dict[str, A
     return checks
 
 
+def summarize_behavior_shift(observed: int, total: int) -> str:
+    if observed == 0:
+        return (
+            "The unrelated reward arm does not move toward Kick21 on any "
+            "predeclared primary direction."
+        )
+    if observed < total:
+        return (
+            f"The unrelated reward arm moves toward Kick21 on {observed}/{total} "
+            "predeclared primary directions, but does not reproduce the complete "
+            "Kick21 interaction structure."
+        )
+    return (
+        "The unrelated reward arm moves toward Kick21 on all predeclared "
+        "primary directions in this training seed; independent seed "
+        "replication is still required."
+    )
+
+
 def write_profiles_csv(
     path: Path,
     correct: list[dict[str, float]],
@@ -630,6 +649,10 @@ def main() -> None:
         reference_timelines,
     )
 
+    behavior_conclusion = summarize_behavior_shift(
+        directions_observed, len(checks)
+    )
+
     result = {
         "protocol": "same_teacher_predictor_independent_behavior_audit_v1",
         "status": "complete_existing_trace_audit",
@@ -669,30 +692,40 @@ def main() -> None:
         "semantic_directions_total": len(checks),
         "conclusion": (
             "Both learned policies remain strongly Carry-like under the common "
-            "Carry45 teacher. The unrelated reward arm does not move toward the "
-            "defining Kick21 semantics on any predeclared primary direction. "
-            "The selected reward changes behavior within the Carry solution family, "
-            "but this seed does not establish semantic demo following."
+            f"Carry45 teacher. {behavior_conclusion} The selected reward changes "
+            "behavior within the Carry solution family, but this seed alone does "
+            "not establish semantic demo following."
         ),
         "limitations": [
             "Twenty profiles are matched physics variations from one training seed, not twenty independent policy seeds.",
             "Lifted-transport and ground-transport fractions are complementary views of the same object path, not independent statistical tests.",
-            "The trace has no per-body pose or foot-contact fields, so foot identity and direct kick contact cannot be scored retrospectively.",
             "The frozen evaluation starts from Carry motion state and keeps teacher coefficient at one; teacher behavior can dominate the selected reward.",
             "Reference hand-contact forces are unavailable, so contact metrics compare learned arms but are not assigned a numeric reference target.",
         ],
-        "required_next_trace_fields": [
-            "robot_body_position_w for named feet and hands",
-            "left_foot_box_contact_force_w",
-            "right_foot_box_contact_force_w",
-            "hand_box_contact force separated from other contacts",
-        ],
+        "required_next_trace_fields": [],
         "artifacts": {
             "profiles_csv": "profiles.csv",
             "figure": "behavior_adherence.png",
             "reference_timeline_figure": "reference_semantic_timeline.png",
         },
     }
+    required_trace_fields = {
+        "robot_body_position_w": "robot_body_position_w for named feet and hands",
+        "left_foot_box_contact_force_w": "left_foot_box_contact_force_w",
+        "right_foot_box_contact_force_w": "right_foot_box_contact_force_w",
+        "left_hand_rigid_contact_force_w": "left hand-to-box contact force",
+        "right_hand_rigid_contact_force_w": "right hand-to-box contact force",
+    }
+    missing_trace_fields = [
+        description
+        for key, description in required_trace_fields.items()
+        if key not in correct_trace or key not in unrelated_trace
+    ]
+    result["required_next_trace_fields"] = missing_trace_fields
+    if missing_trace_fields:
+        result["limitations"].append(
+            "Direct contact-role scoring is incomplete because the listed trace fields are missing."
+        )
     (output_dir / "RESULT.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

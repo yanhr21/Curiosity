@@ -26,12 +26,31 @@ declared semantic directions is observed. The two transport fractions are comple
 independent tests. The reward changes the Carry solution, but semantic demo following is not
 established.
 
-The next experiment is a serial three-seed repeat of the same 64-update design. Training/action
-seed pairs are `161581/161582` (existing), `161583/161584`, and `161585/161586`; frozen evaluation
-seeds are `171581`, `171583`, and `171585`. Every seed must use the same teacher, initialization,
-physics profiles, update budget and reward weights across the two arms. Do not launch it without
-explicit approval. Only after the seed-level behavior result is stable should teacher authority be
-changed identically in both arms.
+The serial three-seed repeat is complete. Training/action seed pairs are `161581/161582`,
+`161583/161584`, and `161585/161586`; frozen evaluation seeds are `171581`, `171583`, and `171585`.
+For unrelated minus correct, lifted-frame deltas are `+0.0350/+0.0179/-0.0058`, lifted-transport
+deltas are `+0.0323/+0.0132/-0.0277`, and orbit-rate deltas are
+`-0.0050/-0.0294/-0.0115 rad/s`. Thus the Kick-like direction occurs in only `1/3` seeds for
+lift/transport and `0/3` for orbit. Seed161585's partial `3/4` shift does not replicate. The final
+multiseed verdict is `stable_semantic_following=false`.
+
+### Next matched learnability diagnostic
+
+Do not spend another formal multi-seed budget on the current fixed-one teacher setup. With explicit
+approval, the next experiment should be one fixed-physics overfit pair resumed from the matched
+update-64 endpoints. Keep the official CarryBox45 teacher, task, initialization, selected-demo
+reward and all optimizer settings unchanged; anneal teacher authority identically in correct and
+unrelated arms, checkpoint every 64 updates, and stop as soon as the declared behavior gate can be
+judged. Frozen evaluation must use the same nonzero teacher coefficient in both arms, not a
+teacher-free substitution.
+
+The diagnostic passes only if the correct arm preserves sustained bilateral hand contact and
+lifted transport while the unrelated arm develops the Kick reference's contact/event structure:
+measurable foot-to-box contact, more ground-level box motion, less lifted transport and more
+orbiting. A task-success decrease by itself is not a pass. If this contact-role shift appears,
+repeat the identical schedule across independent seeds. If it does not, stop policy training and
+redesign the internal reward around predicted contact graph, required-contact duration and
+object-motion regime before reconsidering selected-demo SMP integration.
 
 ### Expected behavior, not just reward score
 

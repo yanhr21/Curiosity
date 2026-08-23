@@ -224,8 +224,9 @@ CarryBox45 的 `0.3521 rad/s`。
 
 这些方向不支持 Kick 语义。lifted/ground transport 是互补量，不当作两个独立统计检验。
 20 profiles 共享一个训练 seed，因此只作物理 profile 描述，不冒充多 seed 显著性。现有
-TRACE 没有逐 body pose、foot-box contact 或 hand-box-only contact，不能追溯脚部踢击；
-下一冻结 evaluator 必须补齐这些 evaluation-only 字段。
+seed161581 的旧 TRACE 没有逐 body pose 或 foot-box contact，不能追溯脚部踢击。后续重复实验
+的冻结 evaluator 已补充 `robot_body_position_w`、左右 `foot_box_contact_force_w` 和明确过滤到
+箱子的左右手接触力；这些字段只用于 evaluation，不进入 actor、predictor 或 reward。
 
 `reference_semantic_timeline.png` 同时画出 source clip 的 box lift、XY speed 和官方 binary
 contact proxy。CarryBox45 的 hand-contact proxy 为一个 `4.90--10.82 s` 连续区间，5 cm lift
@@ -237,8 +238,8 @@ interaction event structure；binary proxy 不得被描述为触觉力。
 
 保持两臂 64 updates、CarryBox45 teacher coefficient 1 和所有 reward/physics 设置完全一致，
 只改变 selected demo。三组 training/action seeds 为 `161581/161582`、`161583/161584`、
-`161585/161586`；对应 frozen evaluation seeds 为 `171581/171583/171585`。已有第一组，
-后两组必须串行执行，且未经明确授权不得启动。
+`161585/161586`；对应 frozen evaluation seeds 为 `171581/171583/171585`。三组现已全部
+串行完成。
 
 每次只运行并完成一个 seed pair；脚本会串行执行 correct、unrelated、冻结评估、视频和
 独立行为审计，任一 proof 失败都会停止：
@@ -247,7 +248,7 @@ interaction event structure；binary proxy 不得被描述为触觉力。
 # retained GPU shell
 bash scripts/sugar/demo_following/run_predeclared_multiseed_pair.sh 161583
 
-# 人工检查 seed161583 后才运行下一组
+# 人工检查 seed161583 后运行下一组
 bash scripts/sugar/demo_following/run_predeclared_multiseed_pair.sh 161585
 
 # 三个 seed 全部完成后汇总；训练 seed 才是 replication unit
@@ -256,8 +257,36 @@ $PYTHON_BIN scripts/sugar/demo_following/aggregate_behavior_adherence.py
 
 主要行为判据不是 predictor score：correct arm 应有更多 lifted transport；unrelated arm 应
 有更多 ground-level transport 和更高 orbit rate。task success、fall、双手接触和最大抬升
-分别报告。三个 seed 均应显示相同方向，才把结果称为稳定的 demo-conditioned behavior；
-否则结论仍是 reward 使用但语义遵循未成立。
+分别报告。三个 seed 均应显示相同方向，才把结果称为稳定的 demo-conditioned behavior。
+实际 unrelated-minus-correct 结果为：
+
+- lifted-frame fraction：`+0.0350/+0.0179/-0.0058`，预期负方向仅 `1/3`；
+- lifted-transport fraction：`+0.0323/+0.0132/-0.0277`，预期负方向仅 `1/3`；
+- ground-transport fraction：`-0.0323/-0.0132/+0.0277`，预期正方向仅 `1/3`；
+- orbit rate：`-0.0050/-0.0294/-0.0115 rad/s`，预期正方向 `0/3`。
+
+lifted/ground transport 是同一路径的互补视图，不算两个独立检验。task success 的
+correct/unrelated 计数分别为 seed161581 `16/18`、seed161583 `18/17`、seed161585
+`16/17`；physical falls 分别为 `2/2`、`1/1`、`2/1`。seed161583 和 seed161585 的新增
+foot-to-box channel 显示接触为零或极少，未形成 Kick 接触角色。聚合结果为
+`stable_semantic_following=false`。
+
+聚合证据位于：
+
+```text
+experiments/demo_following/matched_reward_identity_same_teacher_v1/
+└── multiseed_behavior_adherence_v1/
+    ├── RESULT.json
+    └── multiseed_behavior_deltas.png
+```
+
+下一步不是继续相同配置的长训练。经用户明确授权后，先做一个 fixed-profile serious
+overfit pair：从 matched update-64 endpoints 恢复，correct/unrelated 使用完全相同的非零
+teacher-authority anneal，每 64 updates 冻结检查一次。只有 unrelated 臂出现可测脚—箱
+接触、更多 ground motion、更少 lifted transport 和更多 orbit，同时 correct 保持 Carry
+结构，才进入多 seed；单独 task failure 不算通过。若该 gate 仍失败，停止 policy training，
+把 internal reward 重构为 causal predicted contact graph、required-contact duration 和
+object-motion regime，再讨论 SMP。
 
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object

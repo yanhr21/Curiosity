@@ -87,3 +87,9 @@ def test_multiseed_direction_contract() -> None:
     assert not AGGREGATE.expected_direction(0.1, "negative")
     assert AGGREGATE.expected_direction(0.1, "positive")
     assert not AGGREGATE.expected_direction(-0.1, "positive")
+
+
+def test_behavior_conclusion_matches_observed_direction_count() -> None:
+    assert "does not move" in MODULE.summarize_behavior_shift(0, 4)
+    assert "3/4" in MODULE.summarize_behavior_shift(3, 4)
+    assert "all predeclared" in MODULE.summarize_behavior_shift(4, 4)
