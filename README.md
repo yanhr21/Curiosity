@@ -42,12 +42,28 @@ correct 与 unrelated 的双手接触率、5 cm 抬升率和 lifted transport �
 CarryBox 和 99 条 KickBox。binary contact proxy 仅用作示范事件标签，不作触觉力：Carry
 接触帧最近效应器为手的比例均值为 `95.46%`，Kick 接触帧最近效应器为脚的比例均值为
 `99.78%`；Carry 中位 lifted-moving fraction 为 `40.85%`，Kick 为 `0%`。这证明 reference
-中有清晰可分的接触角色和物体运动 regime，但尚未证明新的 predictor 或 policy 有效。
+中有清晰可分的接触角色和物体运动 regime。
 
-当前 internal reward predictor 是约 11.9M 参数的 causal future-mismatch predictor，预测
-body、box position、box 6D rotation 和 box velocity 的未来偏差。held-out normalized MAE
-为 0.1873，constant baseline 为 0.3609，mean Spearman 为 0.7718；permuted/zero demo 会
-显著退化。它读取了指定 demo，但用同一个 predictor 给训练和结果打分仍有循环验证风险。
+actual-rollout redesign 现已完成第一阶段。official Tracker 在 IsaacLab/PhysX 中为每条
+source motion 采集 700 个同钟帧，实际 target 来自分别过滤到箱子的左右手/左右脚
+`force_matrix_w_history`，而不是 reference binary。完整 corpus 覆盖 100 条 CarryBox 和
+99 条 KickBox、无重复和 reset。Carry 的中位双手同时接触率为 `32.93%`、最长手部事件
+`4.60 s`、最大抬升 `0.490 m`；Kick 的中位足部接触率为 `4.14%`、最长足部事件
+`0.22 s`、足力峰值 `60.23 N`、最大抬升仅 `0.0066 m`。
+
+新的 internal reward predictor 保留 serious 6-layer、384-D causal Transformer，具有
+`11,530,010` 个参数，并增加 trajectory、四肢 contact、event duration 和 motion-regime
+共 13 个 mismatch targets。输入只有过去 10 帧 official Tracker 510-D observation 和固定
+numeric selected-demo windows；未来 actual events 只作 label。motion-disjoint formal
+seed271301 在 epoch 13 early-stop，冻结 best epoch 8。validation/test normalized MAE 为
+`0.1878/0.1708`，优于 constant `0.2354/0.2192`；zero-demo 为 `0.2423/0.2279`，
+permuted-demo 为 `0.1985/0.1778`，median Spearman 均约 `0.505`。test 中模型预测的
+cross-task contact mismatch 为 `0.1495`，correct 为 `0.0188`。全部 12 个 predictor gates
+通过。冻结 epoch-8 checkpoint 后，仅用 validation 拟合 13 个 variance multipliers；90%
+区间在 validation/test 上的平均覆盖率为 `95.25%/95.90%`，test 最低单目标覆盖率为
+`86.93%`。这证明它在 held-out motions 上读取并使用了 selected demo 的接触/运动语义，
+且不确定性区间保守可用；仍不等于 policy 已经遵循 demo，下一步必须做 matched policy
+experiment 和独立行为审计。
 
 官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
 完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
@@ -85,8 +101,8 @@ normal/shear 混合、摩擦不一致、slip reset 丢失、训练/评测 motion
 3. 建立不读取物体速度、质量、jump flag 或未来帧的 causal `PatchSlipDetector.update`；
 4. 建立 teacher handoff 后在线改变 mass/inertia 的 matched Z/P/PS 协议及本体感受泄漏
    审计；
-5. 实现 serious causal future-mismatch internal reward predictor，并通过 held-out demo
-   identity 检查；
+5. 实现 11.53M serious causal trajectory/contact/duration/regime mismatch predictor，并通过
+   motion-disjoint held-out、zero-demo 与 permuted-demo 检查；
 6. 建立 fixed-teacher、只改变 selected-demo reward 的因果实验，排除 teacher replacement
    混杂；
 7. 建立 predictor/reward-independent、以训练 seed 为重复单位的 Carry/Kick 行为审计，
@@ -127,6 +143,19 @@ bash scripts/sugar/demo_following/run_teacher_floor_overfit_pair.sh
 # 无 GPU：审计 199 条 official Carry/Kick reference 的 contact/event 标签可分性
 $PYTHON_BIN scripts/sugar/demo_reward/audit_contact_event_reference_corpus.py
 
+# GPU compute node：从已采集的 actual physical rollouts 构建、训练并校准 predictor
+$PYTHON_BIN scripts/sugar/demo_reward/build_actual_contact_event_predictor_dataset.py \
+  --corpus-root experiments/demo_following/contact_event_reward_redesign_v1/actual_tracker_corpus \
+  --output-dir experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1
+$PYTHON_BIN scripts/sugar/demo_reward/train_actual_contact_event_predictor.py \
+  --dataset-root experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1 \
+  --output-dir experiments/demo_following/contact_event_reward_redesign_v1/reproduction_seed271301 \
+  --epochs 20 --seed 271301 --device cuda:0
+$PYTHON_BIN scripts/sugar/demo_reward/calibrate_actual_contact_event_predictor.py \
+  --dataset-root experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1 \
+  --predictor-dir experiments/demo_following/contact_event_reward_redesign_v1/reproduction_seed271301 \
+  --device cuda:0
+
 # GPU compute node：复现完整 G1 CarryBox 与双手 27-patch 在线触觉视频
 bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh \
   experiments/isaaclab_g1_anatomical27_object_demos/reproduce_plain_carrybox
@@ -162,9 +191,8 @@ Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 
 ## 下一步
 
-teacher-floor 诊断未通过，已排除继续增加相同 trajectory-only policy 训练预算。下一条自动
-分支是收集同时包含真实 hand/foot-to-box 接触、接触持续时间和 object-motion regime 的
-actual rollout targets；随后在现有 11.9M causal Transformer 基础上增加 contact graph、
-required-contact duration 和 motion-regime 多任务头，先做 held-out Carry/Kick 预测与
-permuted-demo 检验。只有 predictor-independent 的冻结行为判据通过，才重新进行 matched
-policy comparison；SMP 仍不进入 selected-demo policy reward。
+actual contact/event corpus 与 serious predictor gate 已完成。下一步是在不改变 teacher、
+初始化、seed、物理、budget 和 task reward 的前提下，只把冻结的 event predictor potential
+接到 selected-demo reward，重新做 correct Carry versus unrelated Kick matched policy
+comparison。训练前需先固定 reward scale 与 stopping rule；最终结论只看 predictor-independent
+冻结行为，不用 predictor 自己给自己判成功。SMP 仍不进入 selected-demo policy reward。

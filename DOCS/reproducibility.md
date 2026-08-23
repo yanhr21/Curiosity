@@ -329,12 +329,76 @@ reference event proxy，并用 G1 named hand/foot 到箱子中心的距离确定
 中位数为 `40.85%`，Kick 为 `0%`。全部自动数据 checks 通过，证明示范中存在清楚的
 contact-role、duration 和 motion-regime 标签。
 
-下一步不是直接再次训练 policy，而是先收集 actual rollout 的 left/right hand/foot-to-box
-接触、持续时间以及 ground/lifted motion-regime target，再在现有 11.9M causal Transformer
-上增加多任务 heads。旧 source predictor dataset 明确将 contact/phase 标为 invalid，不能
-被重新包装成 contact predictor 数据。新 predictor 必须先通过 motion-disjoint held-out、
-permuted-demo degradation 和事件校准检查；通过后自动进入 matched policy comparison，
-失败则修复 labels/model。SMP 仍保持 generic shared prior，不进入 selected-demo reward。
+actual rollout corpus 与 predictor gate 已完成。以下命令必须在 retained GPU compute shell
+中串行执行；collector 内置项目已验证的 H200 Vulkan、local ground 和临时目录默认值。
+
+```bash
+ROOT=/public/home/yanhongru/Curiosity
+PYTHON_BIN=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
+CORPUS=$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_corpus
+
+cd "$ROOT"
+
+$PYTHON_BIN -u scripts/sugar/demo_reward/collect_official_tracker_contact_events.py \
+  --task-family CarryBox \
+  --motion-folder "$ROOT/SUGAR/data/CarryBox" \
+  --generator-checkpoint "$ROOT/SUGAR/demo_ckpts/CarryBox/generator.ckpt" \
+  --checkpoint "$ROOT/SUGAR/demo_ckpts/CarryBox/tracker.pt" \
+  --output-dir "$CORPUS/carry_seed271100" \
+  --num-envs 100 --steps 700 --seed 271100 --headless --device cuda:0
+
+$PYTHON_BIN -u scripts/sugar/demo_reward/collect_official_tracker_contact_events.py \
+  --task-family KickBox \
+  --motion-folder "$ROOT/SUGAR/data/KickBox" \
+  --generator-checkpoint "$ROOT/SUGAR/demo_ckpts/KickBox/generator.ckpt" \
+  --checkpoint "$ROOT/SUGAR/demo_ckpts/KickBox/tracker.pt" \
+  --output-dir "$CORPUS/kick_seed271200" \
+  --num-envs 99 --steps 700 --seed 271200 --headless --device cuda:0
+
+$PYTHON_BIN scripts/sugar/demo_reward/audit_actual_contact_event_corpus.py \
+  --corpus-root "$CORPUS" \
+  --output-dir "$CORPUS/audit_v1"
+
+$PYTHON_BIN scripts/sugar/demo_reward/build_actual_contact_event_predictor_dataset.py \
+  --corpus-root "$CORPUS" \
+  --output-dir "$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1"
+
+$PYTHON_BIN scripts/sugar/demo_reward/train_actual_contact_event_predictor.py \
+  --dataset-root "$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1" \
+  --output-dir "$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_predictor_seed271301" \
+  --epochs 20 --batch-size 128 --num-workers 4 --early-stop-patience 5 \
+  --seed 271301 --device cuda:0
+
+$PYTHON_BIN scripts/sugar/demo_reward/calibrate_actual_contact_event_predictor.py \
+  --dataset-root "$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1" \
+  --predictor-dir "$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_predictor_seed271301" \
+  --batch-size 256 --num-workers 4 --device cuda:0
+```
+
+collector 的 actual contact 是左右手/左右脚 named body 对 `/Obj` 的 filtered
+`force_matrix_w_history`，严格按 `0.1 N` 阈值生成；reference binary 只描述 selected-demo
+事件。corpus 审计结果为 100 条 CarryBox、99 条 KickBox、8 shards、0 duplicate、0 reset。
+Carry 中位 bilateral contact/最长手部事件/最大抬升为 `0.3293/4.60 s/0.490 m`；Kick 中位
+foot contact/最长足部事件/足力峰值/最大抬升为
+`0.0414/0.22 s/60.23 N/0.0066 m`。
+
+dataset 固定按 source motion ID 做 `80/10/10`（Kick test 为 9）motion-disjoint split。
+每个 causal base row 只有过去 10 帧 510-D official Tracker observation；每行配 correct、
+same-task wrong 和 cross-task wrong 三个 numeric demo。未来 actual contact、duration 和
+regime 只进入 13-D target。formal predictor 有 `11,530,010` 参数，seed271301 在 epoch 13
+early-stop 并冻结 epoch 8。validation/test full MAE 为 `0.1878/0.1708`，constant 为
+`0.2354/0.2192`，zero-demo 为 `0.2423/0.2279`，permuted-demo 为 `0.1985/0.1778`；两个
+split 的 median Spearman 均约 `0.505`，12/12 gates 通过。
+
+随后冻结 best epoch 8，13 个 uncertainty scale 仅由 validation residual 拟合，test labels
+不参与校准。名义 90% 区间在 validation/test 上的平均覆盖率为 `95.25%/95.90%`；test
+单目标最低覆盖率为 `86.93%`（box rotation 6D mismatch）。这是一组偏保守的 uncertainty
+interval，可用于下一阶段 reward clipping/abstention；它不是 policy 成功证据。
+
+这些结果只证明 predictor 在 held-out motions 上使用 selected demo，不证明 policy semantic
+following。下一次 policy comparison 必须继续固定 teacher、seed、初始化、物理、budget 和
+task reward，并以 predictor-independent frozen behavior 作结论。SMP 仍保持 generic shared
+prior，不进入 selected-demo reward。
 
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object

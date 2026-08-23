@@ -1,6 +1,6 @@
 # Global Agent Rules
 
-## 1. Current priority: demo following and SMP audit
+## 1. Current priority: frozen event predictor and matched policy design
 
 The tactile/mass-adaptation line in
 `PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen while demo following is the active
@@ -9,14 +9,13 @@ queue. Do not interleave new tactile training, evaluation or scale tuning with t
 The predeclared three-seed demo-following repeat and the seed161581 teacher-floor learnability
 diagnostic are complete. The latter annealed the common CarryBox45 teacher from `1.0` to `0.25` but
 collapsed both arms: no bilateral hold, no 5 cm lift, no foot-to-box contact and `0/4` Kick-like
-directions. Do not repeat that schedule across seeds. The active branch is contact/event internal
-reward redesign. Proceed through the documented queue without a manual user-authorization gate.
+directions. Do not repeat that schedule across seeds. The actual contact/event corpus and serious
+predictor redesign are complete; seed271301 passes all held-out data/model gates with best epoch 8.
+The next branch is a matched policy experiment design. Do not start new policy training without
+explicit user approval.
 
-Routine in-scope experiments never require a separate human approval step. Once an experiment and
-its stopping criteria are recorded in PLAN/TODO, run it, inspect the endpoint, and automatically
-take the evidence-selected next branch. Pause only for a genuine technical blocker, unavailable
-required input/resource, destructive external action, or a change that would alter the research
-question—not merely to ask permission to continue.
+Routine read-only audits, dataset builds and predictor-only gates may proceed through the documented
+queue. Policy training is the explicit exception and requires user approval.
 
 The completed same-teacher experiment fixes CarryBox45 as teacher in both arms and changes only the
 selected reward demo, CarryBox45 versus KickBox21. Across training seeds 161581/161583/161585,
@@ -45,8 +44,9 @@ to root up-z about `0.191`, recovers and carries.
   demo experiment.
 - The archived 1216-update experiment changed both teacher and selected demo, and its goal task
   still penalized tactile contact. It is diagnostic history, not an active result.
-- The current internal reward predictor is a serious causal future-mismatch predictor over body,
-  box position, box rotation and box velocity. It is not an SMP-latent predictor.
+- The current frozen internal reward predictor is a serious 11,530,010-parameter causal Transformer
+  over body, box position, box rotation, box velocity, four-limb contact mismatch, event duration
+  and motion regime. It is not an SMP-latent predictor.
 - The official MimicKit TinyMDM currently provides a shared generic motion prior. Exact
   single-clip identity passes, but the independent CarryBox96/KickBox22 semantic extension fails.
   Do not call an arbitrary hidden state an official SMP latent and do not integrate the selected
@@ -63,9 +63,13 @@ to root up-z about `0.191`, recovers and carries.
   evidence, not proof that the unrelated demo was followed.
 - Official reference binary contact labels may define reference-event supervision only. Across
   100 CarryBox and 99 KickBox motions they cleanly separate hand/foot role and lifted/ground object
-  motion, but they are not tactile force or actual rollout contact. Before another policy run,
-  collect named body-to-box contact, event duration and motion-regime targets from actual rollouts
-  and extend the existing serious causal Transformer; do not substitute a toy predictor.
+  motion, but they are not tactile force or actual rollout contact. The completed actual corpus
+  instead uses named left/right hand/foot body-to-box filtered force, reset-bounded duration and
+  episode-relative regime over 100 CarryBox plus 99 KickBox motions. The 11,530,010-parameter
+  6-layer causal event predictor passes motion-disjoint full/zero/permuted gates. Its frozen
+  validation-only variance calibration yields `95.90%` mean test coverage for nominal 90%
+  intervals, with `86.93%` minimum per-target coverage. This proves selected-demo-conditioned
+  prediction with conservative uncertainty, not policy semantic following.
 - The original seed-161581 traces do not contain per-body pose or foot-contact state. The repeated
   frozen evaluator now archives named body positions and left/right foot-to-box contact forces as
   evaluation-only evidence; these fields never enter the actor or reward.

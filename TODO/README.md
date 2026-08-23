@@ -26,17 +26,20 @@
   foot contact stays zero and the Kick-like behavior gate is `0/4`;
 - [x] audit contact-role, duration and object-motion event labels over all 100 CarryBox and 99
   KickBox official references;
-- [ ] collect actual rollout targets with named hand/foot box contact, required-contact duration
+- [x] collect actual rollout targets with named hand/foot box contact, required-contact duration
   and ground/lifted object-motion regime;
-- [ ] extend the existing serious causal Transformer with multitask contact/event heads and pass
+- [x] extend the existing serious causal Transformer with multitask contact/event heads and pass
   motion-disjoint held-out plus permuted-demo checks;
-- [ ] only after that predictor passes, run a matched policy comparison and judge
+- [x] freeze the seed271301 best-epoch-8 predictor and fit validation-only variance calibration;
+- [ ] fix the potential-difference reward scale and stopping rule, and obtain explicit authority
+  before new policy training;
+- [ ] run a matched policy comparison and judge
   predictor-independent frozen behavior; keep selected-demo SMP out until its semantic gate passes.
 
-Current endpoint: the three-seed fixed-one result remains negative, and the teacher-floor
-learnability diagnostic also fails by behavioral collapse. Reference event labels are separable;
-the missing evidence is a valid actual-rollout contact/event target corpus and a predictor that
-generalizes to held-out motions.
+Current endpoint: the earlier three-seed policy result remains negative and the teacher-floor
+diagnostic collapses, but the new actual-rollout corpus and 11.53M event predictor pass all frozen
+data/model gates. The missing evidence is now policy-level causal benefit under a matched rerun;
+predictor scores alone cannot provide that verdict.
 
 ## Frozen tactile work
 

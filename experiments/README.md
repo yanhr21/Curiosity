@@ -14,6 +14,14 @@ are under root `legacy/`.
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick
   reference-event feasibility result; binary labels are reference proxies, not tactile force;
+- `contact_event_reward_redesign_v1/actual_tracker_corpus/`: 100 Carry plus 99 Kick actual
+  IsaacLab rollouts with named hand/foot-to-box force, event duration and motion regime;
+- `contact_event_reward_redesign_v1/actual_tracker_corpus_audit_v1/`: complete coverage,
+  force-threshold and motion-disjoint corpus verdict;
+- `contact_event_reward_redesign_v1/actual_contact_event_predictor_dataset_v1/`: causal
+  correct/same-task-wrong/cross-task-wrong numeric-demo pairs and 13-D mismatch targets;
+- `contact_event_reward_redesign_v1/predictor_formal_seed271301_v1/`: frozen best-epoch-8
+  11.53M event predictor, 12/12 held-out gate result and validation-only uncertainty calibration;
 - `predictor/`: frozen 11.9M causal future-mismatch predictor result and checkpoint;
 - `smp_prior/`: generic official MimicKit TinyMDM prior used identically by both arms;
 - `selected_demo_smp_v1/`: official CarryBox45/KickBox21 single-clip priors and the failed

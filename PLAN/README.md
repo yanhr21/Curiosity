@@ -55,13 +55,30 @@ nearest named effector in `95.46%` on average; Kick contact frames select a foot
 Carry median lifted-moving fraction is `40.85%`; Kick is exactly zero. Thus the desired semantic
 targets exist in the reference data.
 
-The next automatic step is to collect actual rollout targets with explicit left/right hand and
-foot box-contact, event duration and ground/lifted object-motion regime. The serious existing
-11.9M causal Transformer is then extended with multitask contact-graph, required-duration and
-motion-regime heads; it is not replaced by a toy model. Admission requires motion-disjoint held-out
-performance, demo permutation degradation and calibrated event predictions before any new policy
-comparison. If those checks fail, repair the labels/model; if they pass, run a matched fixed-teacher
-reward comparison and judge only predictor-independent frozen behavior.
+The actual-rollout target corpus and predictor admission gate are now complete. The corpus contains
+100 CarryBox and 99 KickBox source motions, each with 700 same-clock frames. Actual left/right
+hand/foot contact is the exact 0.1 N threshold of named body-to-box filtered force; event duration
+is reset-bounded and motion regime is episode-relative. No reference binary label is used as an
+actual target. Carry median bilateral contact/longest hand event/lift are `0.3293`, `4.60 s` and
+`0.490 m`; Kick median foot contact/longest foot event/lift are `0.0414`, `0.22 s` and `0.0066 m`.
+
+The 11,530,010-parameter event predictor retains the existing 6-layer, 384-D causal Transformer and
+predicts 13 trajectory/contact/duration/regime mismatch targets. Its input is only a past 10-frame
+510-D official Tracker prefix plus fixed numeric selected-demo windows. The seed271301 formal run
+early-stops at epoch 13 and freezes epoch 8. Validation/test normalized MAE is `0.1878/0.1708`
+against constant `0.2354/0.2192`; zero-demo and permuted-demo both degrade on both splits, median
+Spearman is about `0.505`, and all 12 admission checks pass.
+
+The epoch-8 checkpoint is frozen before uncertainty calibration. Thirteen variance multipliers are
+fit on validation residuals only. Nominal 90% intervals cover `95.25%` of validation targets and
+`95.90%` of the untouched test targets on average; the weakest test target still covers `86.93%`.
+The intervals are therefore conservative and admissible for reward clipping or abstention.
+
+This establishes selected-demo-conditioned prediction, not policy obedience. The next experiment
+is one matched fixed-teacher policy comparison using the frozen predictor as a potential-difference
+reward. Teacher, initialization, physics, task reward, seeds, budget and evaluation remain fixed;
+only the selected demo changes. The run must be authorized before policy training and must be
+judged by predictor-independent frozen behavior.
 
 ### Expected behavior, not just reward score
 
