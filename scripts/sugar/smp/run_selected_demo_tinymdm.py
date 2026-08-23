@@ -616,7 +616,7 @@ def score_priors(
         "passed": overall_gate,
         "selected_demo_identity_gate_passed": exact_gate,
         "semantic_extension_gate_passed": semantic_gate,
-        "policy_integration_authorized": overall_gate,
+        "policy_integration_supported": overall_gate,
         "diffusion_steps": list(DIFFUSION_STEPS),
         "noise_repeats": len(SCORE_SEEDS),
         "matrix": {

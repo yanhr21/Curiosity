@@ -16,23 +16,30 @@
 - [x] predeclare three matched seed pairs for the fixed 64-update repeat;
 - [x] add per-body pose, named foot-box contact and hand-box-only contact to the repeated frozen
   evaluator as evaluation labels, not actor inputs;
-- [x] after explicit approval, run seed pairs `161583/161584` and `161585/161586` serially and
+- [x] run seed pairs `161583/161584` and `161585/161586` serially and
   evaluate them with seeds `171583` and `171585`;
 - [x] add a one-seed-at-a-time runner and a training-seed-level behavior aggregator; neither
   substitutes physics profiles for independent seeds;
-- [ ] with explicit approval, run one fixed-profile serious overfit diagnostic that anneals teacher
-  authority identically in both arms and stops at declared 64-update checkpoints;
-- [ ] only if that diagnostic creates the expected contact-role/event shift, repeat the matched
-  teacher-authority schedule across independent training seeds;
-- [ ] redesign or replace the semantic reward gate before any selected-demo SMP integration.
+- [x] run one fixed-profile serious overfit diagnostic that anneals teacher authority identically
+  from `1.0` to `0.25` and adds exactly 64 updates to both seed161581 endpoints;
+- [x] freeze-evaluate the diagnostic and reject a multi-seed repeat because both arms collapse,
+  foot contact stays zero and the Kick-like behavior gate is `0/4`;
+- [x] audit contact-role, duration and object-motion event labels over all 100 CarryBox and 99
+  KickBox official references;
+- [ ] collect actual rollout targets with named hand/foot box contact, required-contact duration
+  and ground/lifted object-motion regime;
+- [ ] extend the existing serious causal Transformer with multitask contact/event heads and pass
+  motion-disjoint held-out plus permuted-demo checks;
+- [ ] only after that predictor passes, run a matched policy comparison and judge
+  predictor-independent frozen behavior; keep selected-demo SMP out until its semantic gate passes.
 
-Current endpoint: three training seeds are complete. The independent audit observes the expected
-lift/transport direction in `1/3` seeds and the expected orbit direction in `0/3`; foot-to-box
-contact is absent or negligible. This proves reward-signal use and within-Carry behavior change,
-not semantic demo following.
+Current endpoint: the three-seed fixed-one result remains negative, and the teacher-floor
+learnability diagnostic also fails by behavioral collapse. Reference event labels are separable;
+the missing evidence is a valid actual-rollout contact/event target corpus and a predictor that
+generalizes to held-out motions.
 
 ## Frozen tactile work
 
 [`15_online_patch_tactile_mass_adaptation/todo.md`](15_online_patch_tactile_mass_adaptation/todo.md)
-records the completed bug fixes, diagnostics and unfinished matched Z/P/PS work. It is frozen; do
-not resume training, evaluation or scale tuning without explicit user authorization.
+records the completed bug fixes, diagnostics and unfinished matched Z/P/PS work. It remains outside
+the active execution queue until the demo-following branch completes or evidence changes priority.

@@ -248,7 +248,7 @@ interaction event structure；binary proxy 不得被描述为触觉力。
 # retained GPU shell
 bash scripts/sugar/demo_following/run_predeclared_multiseed_pair.sh 161583
 
-# 人工检查 seed161583 后运行下一组
+# 前一组 proof、冻结评估和行为审计全部通过后，脚本按固定顺序进入下一组
 bash scripts/sugar/demo_following/run_predeclared_multiseed_pair.sh 161585
 
 # 三个 seed 全部完成后汇总；训练 seed 才是 replication unit
@@ -280,13 +280,61 @@ experiments/demo_following/matched_reward_identity_same_teacher_v1/
     └── multiseed_behavior_deltas.png
 ```
 
-下一步不是继续相同配置的长训练。经用户明确授权后，先做一个 fixed-profile serious
-overfit pair：从 matched update-64 endpoints 恢复，correct/unrelated 使用完全相同的非零
-teacher-authority anneal，每 64 updates 冻结检查一次。只有 unrelated 臂出现可测脚—箱
-接触、更多 ground motion、更少 lifted transport 和更多 orbit，同时 correct 保持 Carry
-结构，才进入多 seed；单独 task failure 不算通过。若该 gate 仍失败，停止 policy training，
-把 internal reward 重构为 causal predicted contact graph、required-contact duration 和
-object-motion regime，再讨论 SMP。
+### 3.8 Teacher-floor learnability diagnostic
+
+该 fixed-profile pair 已完成。两臂分别从 seed161581 的 update-64 endpoint 恢复，只新增
+64 updates；共同 CarryBox45 teacher 以同一 global schedule 从 `1.0` 降到 `0.25`，冻结评估
+也保持 `0.25`，没有换成 teacher-free。固定物理为 mass `1.0x`、static/dynamic friction
+`0.6/0.5`、COM-y `0`、pulse `0`。复现完整训练、proof、冻结评估和视频：
+
+```bash
+# retained GPU shell；脚本自动串行 correct、unrelated、evaluation、render 和行为审计
+bash scripts/sugar/demo_following/run_teacher_floor_overfit_pair.sh
+```
+
+两臂 proof 均记录 `resume_update=64`、`updates_executed_this_process=64`、最终 teacher floor
+`0.25`，且全部 checks 通过。20-profile frozen behavior 的结果不是语义分离，而是两臂坍塌：
+
+- correct/unrelated bilateral-contact mean：`0/0`；
+- correct/unrelated lifted-frame mean：`0/0`；
+- correct/unrelated lifted-transport mean：`0/0`；
+- correct/unrelated foot-to-box contact mean：`0/0`；
+- 四个预登记 Kick-like 方向：`0/4`；
+- episode duration 均约 `0.88 s`，correct 最大抬升为 `0`，unrelated 平均最大抬升约
+  `0.00027 m`。
+
+因此 teacher 降权没有暴露 trajectory predictor 的语义控制能力，而是先破坏了共同 Carry
+解。该 schedule 不进入多 seed。视频与直接行为证据位于：
+
+```text
+experiments/demo_following/teacher_floor_overfit_v1/seed161581/
+├── videos_update0128/01_correct_demo_and_actual_behavior.mp4
+├── videos_update0128/02_unrelated_kickbox_demo_and_actual_behavior.mp4
+├── behavior_adherence_audit_v1/RESULT.json
+└── TEACHER_FLOOR_GATE.json
+```
+
+### 3.9 Contact/event reward redesign
+
+第一项 reference 可行性审计已完成：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_reward/audit_contact_event_reference_corpus.py
+```
+
+它读取全部 100 条 CarryBox 和 99 条 KickBox official source。官方 binary contact label 只作
+reference event proxy，并用 G1 named hand/foot 到箱子中心的距离确定角色；不声称是触觉力
+或真实 contact wrench。Carry 接触帧 hand-nearest 比例均值/中位数为
+`95.46%/97.09%`，Kick 的 foot-nearest 为 `99.78%/100%`；Carry lifted-moving fraction
+中位数为 `40.85%`，Kick 为 `0%`。全部自动数据 checks 通过，证明示范中存在清楚的
+contact-role、duration 和 motion-regime 标签。
+
+下一步不是直接再次训练 policy，而是先收集 actual rollout 的 left/right hand/foot-to-box
+接触、持续时间以及 ground/lifted motion-regime target，再在现有 11.9M causal Transformer
+上增加多任务 heads。旧 source predictor dataset 明确将 contact/phase 标为 invalid，不能
+被重新包装成 contact predictor 数据。新 predictor 必须先通过 motion-disjoint held-out、
+permuted-demo degradation 和事件校准检查；通过后自动进入 matched policy comparison，
+失败则修复 labels/model。SMP 仍保持 generic shared prior，不进入 selected-demo reward。
 
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object
@@ -339,7 +387,7 @@ $PYTHON_BIN scripts/sugar/smp/run_selected_demo_tinymdm.py score
 ```
 
 exact selected-clip pairwise preference 两个方向均为 1.0，但 independent CarryBox96/KickBox22
-semantic extension 失败，`policy_integration_authorized=false`。该结果是严肃负结果，不是
+semantic extension 失败，`policy_integration_supported=false`。该结果是严肃负结果，不是
 执行失败；保留完整 priors、dataset 和 cross-score 于
 `experiments/demo_following/selected_demo_smp_v1/`。
 

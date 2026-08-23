@@ -121,7 +121,7 @@ result = {
         for branch in ("z", "p", "ps")
     },
     "overall_pass": True,
-    "next_step": "manual review, then fixed 3x PS overfit; formal training is not auto-started",
+    "next_step": "if every preflight passes, run the fixed 3x PS overfit next; any failed preflight stops this branch",
 }
 (root / "gate_summary.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
 print(json.dumps(result, indent=2))

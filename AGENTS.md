@@ -3,13 +3,20 @@
 ## 1. Current priority: demo following and SMP audit
 
 The tactile/mass-adaptation line in
-`PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen. Do not launch new tactile
-training, evaluation or scale tuning unless the user explicitly resumes it.
+`PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen while demo following is the active
+queue. Do not interleave new tactile training, evaluation or scale tuning with that queue.
 
-The predeclared three-seed demo-following repeat is complete. The current task is to preserve that
-negative evidence, distinguish implemented components from proposals, and design one matched
-learnability diagnostic before any further formal training. Do not start new policy training
-without explicit user approval.
+The predeclared three-seed demo-following repeat and the seed161581 teacher-floor learnability
+diagnostic are complete. The latter annealed the common CarryBox45 teacher from `1.0` to `0.25` but
+collapsed both arms: no bilateral hold, no 5 cm lift, no foot-to-box contact and `0/4` Kick-like
+directions. Do not repeat that schedule across seeds. The active branch is contact/event internal
+reward redesign. Proceed through the documented queue without a manual user-authorization gate.
+
+Routine in-scope experiments never require a separate human approval step. Once an experiment and
+its stopping criteria are recorded in PLAN/TODO, run it, inspect the endpoint, and automatically
+take the evidence-selected next branch. Pause only for a genuine technical blocker, unavailable
+required input/resource, destructive external action, or a change that would alter the research
+question—not merely to ask permission to continue.
 
 The completed same-teacher experiment fixes CarryBox45 as teacher in both arms and changes only the
 selected reward demo, CarryBox45 versus KickBox21. Across training seeds 161581/161583/161585,
@@ -28,7 +35,7 @@ to root up-z about `0.191`, recovers and carries.
   adapters and glue needed to connect them to project data.
 - If official code or weights are unavailable or incompatible, report the blocker. A simplified
   diagnostic must be labelled diagnostic and cannot be called a faithful implementation.
-- Plan 15, if explicitly resumed, retains the serious SUGAR policy, official Tracker warm start,
+- When Plan 15 becomes active again, it retains the serious SUGAR policy, official Tracker warm start,
   frozen Refiner teacher, repository BCPPO and anatomical patch Transformer. No offline tactile
   replay or taxel-CNN substitute is allowed.
 
@@ -51,6 +58,14 @@ to root up-z about `0.191`, recovers and carries.
   directions and seed161585 observes a non-replicated `3/4`; orbit rate moves opposite to Kick21
   in all three. This is within-Carry behavior change, not semantic obedience. Task success and
   predictor loss remain separate.
+- The teacher-floor diagnostic is also negative: correct and unrelated both lose the Carry
+  interaction before any meaningful semantic separation. Its synchronized videos are failure
+  evidence, not proof that the unrelated demo was followed.
+- Official reference binary contact labels may define reference-event supervision only. Across
+  100 CarryBox and 99 KickBox motions they cleanly separate hand/foot role and lifted/ground object
+  motion, but they are not tactile force or actual rollout contact. Before another policy run,
+  collect named body-to-box contact, event duration and motion-regime targets from actual rollouts
+  and extend the existing serious causal Transformer; do not substitute a toy predictor.
 - The original seed-161581 traces do not contain per-body pose or foot-contact state. The repeated
   frozen evaluator now archives named body positions and left/right foot-to-box contact forces as
   evaluation-only evidence; these fields never enter the actor or reward.
@@ -108,7 +123,7 @@ evaluation labels only. They may not enter the callable or deployed actor.
 
 ## 6. Frozen matched formal training
 
-If explicitly resumed, run exactly three branches serially:
+When this line becomes active again, run exactly three branches serially:
 
 - `Z`: exact-zero patch/slip tensors and zero TacSL reads;
 - `P`: live patch contact/load/pressure/shear/friction with zero slip fields;

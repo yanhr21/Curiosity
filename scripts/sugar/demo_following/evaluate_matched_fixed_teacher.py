@@ -761,8 +761,13 @@ def main() -> None:
     is_fixed_teacher_identity = (
         config_protocol == "sugar_plan11_fixed_teacher_demo_identity_v2"
     )
+    is_teacher_floor_overfit = (
+        config_protocol == "sugar_plan11_teacher_floor_overfit_v1"
+    )
     is_teacher_demo64 = (
-        is_wrong_teacher_reward_conflict or is_fixed_teacher_identity
+        is_wrong_teacher_reward_conflict
+        or is_fixed_teacher_identity
+        or is_teacher_floor_overfit
     )
     legacy_preview_update128 = PREVIEW_UPDATE128 and not is_teacher_demo64
     unrelated_teacher_arm = (
@@ -779,6 +784,7 @@ def main() -> None:
             "sugar_plan11_demo_conflict_authority_rework_matched_v3",
             "sugar_plan11_wrong_teacher_reward_conflict_v1",
             "sugar_plan11_fixed_teacher_demo_identity_v2",
+            "sugar_plan11_teacher_floor_overfit_v1",
         }
         or config.get("execution_ready") is not True
         or config["shared_runtime"].get("tactile_regime")
@@ -813,7 +819,7 @@ def main() -> None:
             or proof.get("tactile_regime") != "explicit_zero_control"
             or proof.get("protocol_config", {}).get("arm") != args.arm
             or (
-                is_fixed_teacher_identity
+                (is_fixed_teacher_identity or is_teacher_floor_overfit)
                 and UPDATES[-1] > 64
                 and (
                     proof.get("resume_update") != UPDATES[-1] - 64
@@ -822,7 +828,7 @@ def main() -> None:
             )
         ):
             raise RuntimeError("fixed-teacher interval training proof drift")
-        if is_fixed_teacher_identity:
+        if is_fixed_teacher_identity or is_teacher_floor_overfit:
             failed = [
                 name
                 for name, passed in proof.get("checks", {}).items()
@@ -832,12 +838,13 @@ def main() -> None:
                 proof.get("passed") is not True
                 or failed
                 or proof.get("checks", {}).get(
-                    "explicit_zero_control_keeps_teacher_authority_fixed"
-                )
-                is not True
+                    "teacher_floor_schedule_reaches_exact_nonzero_floor"
+                    if is_teacher_floor_overfit
+                    else "explicit_zero_control_keeps_teacher_authority_fixed"
+                ) is not True
                 or proof.get("protocol") != config_protocol
             ):
-                raise RuntimeError("fixed-teacher update-64 proof is not admitted")
+                raise RuntimeError("matched teacher-control proof is not admitted")
     elif not legacy_preview_update128:
         proof = json.loads(proof_path.read_text(encoding="utf-8"))
         admission = json.loads(admission_path.read_text(encoding="utf-8"))
@@ -910,6 +917,24 @@ def main() -> None:
     cfg.events.latent_contact_dynamics.params["distribution_seed"] = int(
         shared["latent_physics_distribution_seed"]
     )
+    if is_teacher_floor_overfit:
+        fixed = shared["fixed_physics_profile"]
+        event = cfg.events.latent_contact_dynamics
+        event.params["mass_scale_range"] = (
+            float(fixed["mass_scale"]), float(fixed["mass_scale"])
+        )
+        event.params["static_friction_range"] = (
+            float(fixed["static_friction"]),
+            float(fixed["static_friction"]),
+        )
+        event.params["dynamic_friction_range"] = (
+            float(fixed["dynamic_friction"]),
+            float(fixed["dynamic_friction"]),
+        )
+        event.params["com_y_range_m"] = (
+            float(fixed["com_y_m"]), float(fixed["com_y_m"])
+        )
+        event.params["pulse_magnitude_range_mps"] = (0.0, 0.0)
     configure_explicit_zero(cfg)
 
     output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -941,9 +966,12 @@ def main() -> None:
                 teacher_anneal_control_steps=(
                     int(shared["teacher_anneal_updates"]) * 24
                 ),
+                teacher_final_coefficient=float(
+                    shared.get("teacher_final_coefficient", 0.0)
+                ),
                 clip_actions=None,
             )
-            if is_wrong_teacher_reward_conflict
+            if (is_wrong_teacher_reward_conflict or is_teacher_floor_overfit)
             else OfficialRefinerResidualVecEnvWrapper(
                 gym_env,
                 teacher_path,
@@ -971,6 +999,14 @@ def main() -> None:
             ):
                 raise RuntimeError(
                     "update-64 checkpoint did not restore zero teacher authority"
+                )
+            if is_teacher_floor_overfit and (
+                env.release.global_control_steps
+                != env.release.linear_release_steps
+                or not bool(torch.all(env.release.coefficient == 0.25))
+            ):
+                raise RuntimeError(
+                    "update-128 checkpoint did not restore teacher floor"
                 )
             if is_fixed_teacher_identity and (
                 env.release.mode != "fixed_one"
@@ -1097,6 +1133,10 @@ def main() -> None:
             torch.count_nonzero(env.release.coefficient)
         ):
             raise RuntimeError("teacher authority changed during reset")
+        if is_teacher_floor_overfit and not bool(
+            torch.all(env.release.coefficient == 0.25)
+        ):
+            raise RuntimeError("teacher floor changed during reset")
         if is_fixed_teacher_identity and not bool(
             torch.all(env.release.coefficient == 1.0)
         ):
@@ -1117,7 +1157,7 @@ def main() -> None:
             policies.append(policy)
             policy_states.append(clone_tensor_state(policy.state_dict()))
 
-        if is_fixed_teacher_identity:
+        if is_fixed_teacher_identity or is_teacher_floor_overfit:
             fixed_correct_key = (
                 "same_teacher_correct_reward"
                 if "same_teacher_correct_reward" in config["arms"]
@@ -1398,14 +1438,22 @@ def main() -> None:
             "all_tactile_inputs_exact_zero": tactile_nonzero == 0 and tactile_abs_max == 0.0,
             "no_tactile_arrays_or_sensor_read": not reset_record["tactile_arrays_loaded"] and not reset_record["tactile_sensor_data_read"],
             (
-                "frozen_evaluation_teacher_coefficient_exact_zero"
-                if is_wrong_teacher_reward_conflict
-                else "frozen_evaluation_teacher_coefficient_exact_one"
+                "frozen_evaluation_teacher_coefficient_exact_floor"
+                if is_teacher_floor_overfit
+                else (
+                    "frozen_evaluation_teacher_coefficient_exact_zero"
+                    if is_wrong_teacher_reward_conflict
+                    else "frozen_evaluation_teacher_coefficient_exact_one"
+                )
             ): (
                 np.count_nonzero(arrays["failure_closed"]) == 0
                 and np.all(
                     arrays["teacher_coefficient"]
-                    == (0.0 if is_wrong_teacher_reward_conflict else 1.0)
+                    == (
+                        0.25
+                        if is_teacher_floor_overfit
+                        else (0.0 if is_wrong_teacher_reward_conflict else 1.0)
+                    )
                 )
             ),
             "all_demo_predictors_frozen": all(
@@ -1448,6 +1496,10 @@ def main() -> None:
         elif is_fixed_teacher_identity:
             result_protocol = (
                 "sugar_plan11_fixed_teacher_demo_identity_frozen_eval_interval_v3"
+            )
+        elif is_teacher_floor_overfit:
+            result_protocol = (
+                "sugar_plan11_teacher_floor_overfit_frozen_eval_v1"
             )
         elif is_wrong_teacher_reward_conflict:
             result_protocol = (

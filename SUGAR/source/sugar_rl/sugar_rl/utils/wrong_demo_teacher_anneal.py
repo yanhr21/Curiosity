@@ -81,12 +81,22 @@ class GlobalLinearTeacherAnneal:
 
     mode = "global_linear_schedule"
 
-    def __init__(self, num_envs: int, device, *, total_control_steps: int) -> None:
+    def __init__(
+        self,
+        num_envs: int,
+        device,
+        *,
+        total_control_steps: int,
+        final_coefficient: float = 0.0,
+    ) -> None:
         if total_control_steps <= 0:
             raise ValueError("teacher anneal requires positive total_control_steps")
+        if not 0.0 <= final_coefficient < 1.0:
+            raise ValueError("teacher final coefficient must stay in [0, 1)")
         self.num_envs = int(num_envs)
         self.device = torch.device(device)
         self.linear_release_steps = int(total_control_steps)
+        self.final_coefficient = float(final_coefficient)
         self.release_latched = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
@@ -118,7 +128,10 @@ class GlobalLinearTeacherAnneal:
         progress = min(
             self.global_control_steps / float(self.linear_release_steps), 1.0
         )
-        self.coefficient.fill_(1.0 - progress)
+        coefficient = self.final_coefficient + (
+            1.0 - self.final_coefficient
+        ) * (1.0 - progress)
+        self.coefficient.fill_(coefficient)
         self.release_latched.fill_(self.global_control_steps > 0)
         self.release_progress.fill_(
             min(self.global_control_steps, self.linear_release_steps)
@@ -130,6 +143,7 @@ class GlobalLinearTeacherAnneal:
         return {
             "mode": self.mode,
             "linear_release_steps": self.linear_release_steps,
+            "final_coefficient": self.final_coefficient,
             "global_control_steps": self.global_control_steps,
             "coefficient": self.coefficient.tolist(),
         }
@@ -149,6 +163,7 @@ class WrongReferenceScheduledOfficialRefinerResidualVecEnvWrapper(
         *,
         residual_scale: float,
         teacher_anneal_control_steps: int,
+        teacher_final_coefficient: float = 0.0,
         clip_actions=None,
     ) -> None:
         super().__init__(
@@ -174,14 +189,17 @@ class WrongReferenceScheduledOfficialRefinerResidualVecEnvWrapper(
             self.num_envs,
             self.device,
             total_control_steps=teacher_anneal_control_steps,
+            final_coefficient=teacher_final_coefficient,
         )
         self.teacher_anneal_control_steps = int(teacher_anneal_control_steps)
+        self.teacher_final_coefficient = float(teacher_final_coefficient)
 
     def checkpoint_state_dict(self) -> dict[str, Any]:
         state = super().checkpoint_state_dict()
         state.update(
             {
                 "teacher_anneal_control_steps": self.teacher_anneal_control_steps,
+                "teacher_final_coefficient": self.teacher_final_coefficient,
                 "teacher_reference_source": "motion_command.teacher_motion",
                 "teacher_motion_folder": self.teacher.teacher_motion_folder,
                 "global_schedule_control_steps": self.release.global_control_steps,
@@ -195,6 +213,10 @@ class WrongReferenceScheduledOfficialRefinerResidualVecEnvWrapper(
             self.teacher_anneal_control_steps
         ):
             raise ValueError("wrong-reference teacher anneal checkpoint drift")
+        if float(state.get("teacher_final_coefficient", 0.0)) != (
+            self.teacher_final_coefficient
+        ):
+            raise ValueError("wrong-reference teacher floor checkpoint drift")
         super().load_checkpoint_state_dict(state)
         self.release.global_control_steps = int(
             state["global_schedule_control_steps"]

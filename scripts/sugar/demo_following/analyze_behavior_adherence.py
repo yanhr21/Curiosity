@@ -652,6 +652,27 @@ def main() -> None:
     behavior_conclusion = summarize_behavior_shift(
         directions_observed, len(checks)
     )
+    correct_summary = numeric_summary(correct_records)
+    unrelated_summary = numeric_summary(unrelated_records)
+    carry_preserved = (
+        correct_summary["bilateral_contact_fraction"]["mean"] >= 0.50
+        and correct_summary["lifted_fraction"]["mean"] >= 0.50
+        and correct_summary["lifted_transport_fraction"]["mean"] >= 0.80
+    )
+    if carry_preserved:
+        conclusion = (
+            "Both learned policies retain a usable Carry solution under the common "
+            f"teacher. {behavior_conclusion} The selected reward changes behavior "
+            "within the Carry solution family, but this seed alone does not establish "
+            "semantic demo following."
+        )
+    else:
+        conclusion = (
+            "The correct arm does not preserve the predeclared Carry contact/lift/"
+            "transport structure, so this teacher-authority setting causes behavioral "
+            f"collapse rather than a valid Carry-versus-Kick separation. {behavior_conclusion} "
+            "This endpoint cannot establish semantic demo following."
+        )
 
     result = {
         "protocol": "same_teacher_predictor_independent_behavior_audit_v1",
@@ -683,23 +704,18 @@ def main() -> None:
         },
         "reference_event_timeline": reference_timelines,
         "actual_arm_summary": {
-            "correct": numeric_summary(correct_records),
-            "unrelated": numeric_summary(unrelated_records),
+            "correct": correct_summary,
+            "unrelated": unrelated_summary,
         },
         "paired_profile_comparison": comparison,
         "predeclared_semantic_directions": checks,
         "semantic_directions_observed": directions_observed,
         "semantic_directions_total": len(checks),
-        "conclusion": (
-            "Both learned policies remain strongly Carry-like under the common "
-            f"Carry45 teacher. {behavior_conclusion} The selected reward changes "
-            "behavior within the Carry solution family, but this seed alone does "
-            "not establish semantic demo following."
-        ),
+        "conclusion": conclusion,
         "limitations": [
             "Twenty profiles are matched physics variations from one training seed, not twenty independent policy seeds.",
             "Lifted-transport and ground-transport fractions are complementary views of the same object path, not independent statistical tests.",
-            "The frozen evaluation starts from Carry motion state and keeps teacher coefficient at one; teacher behavior can dominate the selected reward.",
+            "The frozen evaluation starts from the Carry motion state; the common teacher schedule can still dominate or destabilize both selected-demo arms.",
             "Reference hand-contact forces are unavailable, so contact metrics compare learned arms but are not assigned a numeric reference target.",
         ],
         "required_next_trace_fields": [],

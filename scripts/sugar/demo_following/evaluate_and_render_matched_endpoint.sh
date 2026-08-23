@@ -6,18 +6,22 @@ PYTHON=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
 UPDATE=${1:-}
 DESIGN=${2:-same_teacher_reward_only}
 RUN_ROOT_OVERRIDE=${3:-}
-if [[ "$UPDATE" != "64" ]]; then
-    echo "usage: $0 64 [same_teacher_reward_only] [run_root]" >&2
+if [[ ! "$UPDATE" =~ ^[0-9]+$ ]] || (( UPDATE < 64 || UPDATE % 64 != 0 )); then
+    echo "usage: $0 UPDATE_MULTIPLE_OF_64 [design] [run_root]" >&2
     exit 2
 fi
 case "$DESIGN" in
-    same_teacher_reward_only) ;;
+    same_teacher_reward_only|teacher_floor_overfit) ;;
     *) echo "unknown matched demo design: $DESIGN" >&2; exit 2 ;;
 esac
 PADDED_UPDATE=$(printf '%04d' "$UPDATE")
 EVALUATOR="$ROOT/scripts/sugar/demo_following/evaluate_matched_fixed_teacher.py"
 RENDERER="$ROOT/scripts/sugar/demo_following/render_demo_and_actual.py"
-RUN_ROOT=${RUN_ROOT_OVERRIDE:-"$ROOT/experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581"}
+if [[ -n "$RUN_ROOT_OVERRIDE" ]]; then
+    RUN_ROOT=$(realpath -m "$RUN_ROOT_OVERRIDE")
+else
+    RUN_ROOT="$ROOT/experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581"
+fi
 CONFIG="$RUN_ROOT/correct/update_${PADDED_UPDATE}/protocol.json"
 EVAL_ROOT="$RUN_ROOT/evaluation_update${PADDED_UPDATE}"
 VIDEO_ROOT="$RUN_ROOT/videos_update${PADDED_UPDATE}"

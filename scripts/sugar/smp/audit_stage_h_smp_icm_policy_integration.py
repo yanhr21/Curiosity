@@ -219,6 +219,12 @@ parser.add_argument(
     help="global full-body wrong-teacher anneal horizon in PPO updates",
 )
 parser.add_argument(
+    "--teacher-final-coefficient",
+    type=float,
+    default=0.0,
+    help="nonzero floor for the declared global teacher schedule",
+)
+parser.add_argument(
     "--explicit-zero-source-frame",
     type=int,
     default=103,
@@ -423,6 +429,13 @@ _enforce_strict_torch_determinism()
 WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 PURE_DISCOVERY_TASK_ID = "Sugar-G129dof-CarryBox-SMP-ICM-Pure-Discovery"
 GOAL_RECOVERY_TASK_ID = "Sugar-G129dof-CarryBox-SMP-ICM-Goal-Coherent-Latent"
+TEACHER_FLOOR_FIXED_PHYSICS_PROFILE = {
+    "mass_scale": 1.0,
+    "static_friction": 0.6,
+    "dynamic_friction": 0.5,
+    "com_y_m": 0.0,
+    "pulse_delta_velocity_w_mps": [0.0, 0.0, 0.0],
+}
 EXPECTED_TACSL_MOUNT_ENVIRONMENT = {
     "CURIOSITY_TACSL_R15_USD": str(
         (
@@ -1673,7 +1686,10 @@ def _restore_explicit_zero_control_state(
 
 
 def _coherent_latent_dynamics_audit(
-    base_env, expected_distribution_seed: int
+    base_env,
+    expected_distribution_seed: int,
+    *,
+    fixed_profile: bool = False,
 ) -> dict[str, object]:
     """Freeze the exact training physics tuple and its startup readback."""
 
@@ -1724,19 +1740,29 @@ def _coherent_latent_dynamics_audit(
             (com_y >= -0.04).all() and (com_y <= 0.04).all()
         ),
         "reference_pulse_disabled": bool(torch.count_nonzero(pulse) == 0),
-        "twenty_distinct_mass_dynamic_com_strata": (
-            int(torch.unique(mass).numel()) == base_env.num_envs
-            and int(torch.unique(dynamic).numel()) == base_env.num_envs
-            and int(torch.unique(com_y).numel()) == base_env.num_envs
-        ),
         "physics_tuple_hidden_from_policy_and_icm": not any(
             fragment in name.lower()
             for name in policy_terms + icm_terms
             for fragment in hidden_fields
         ),
     }
+    if fixed_profile:
+        checks["fixed_nominal_profile_exact_across_all_envs"] = bool(
+            torch.all(mass == 1.0)
+            and torch.all(static == 0.6)
+            and torch.all(dynamic == 0.5)
+            and torch.all(com_y == 0.0)
+            and torch.count_nonzero(pulse) == 0
+        )
+    else:
+        checks["twenty_distinct_mass_dynamic_com_strata"] = (
+            int(torch.unique(mass).numel()) == base_env.num_envs
+            and int(torch.unique(dynamic).numel()) == base_env.num_envs
+            and int(torch.unique(com_y).numel()) == base_env.num_envs
+        )
     return {
         "passed": all(checks.values()),
+        "profile_mode": "fixed_nominal" if fixed_profile else "stratified",
         "event_class": (
             f"{term.__class__.__module__}.{term.__class__.__qualname__}"
         ),
@@ -1861,6 +1887,7 @@ def main() -> None:
         in {
             "sugar_plan11_wrong_teacher_reward_conflict_v1",
             "sugar_plan11_fixed_teacher_demo_identity_v2",
+            "sugar_plan11_teacher_floor_overfit_v1",
         }
     )
     fixed_teacher_demo_identity_contract = (
@@ -1868,9 +1895,18 @@ def main() -> None:
         and early_protocol_config.get("protocol")
         == "sugar_plan11_fixed_teacher_demo_identity_v2"
     )
+    teacher_floor_overfit_contract = (
+        early_protocol_config is not None
+        and early_protocol_config.get("protocol")
+        == "sugar_plan11_teacher_floor_overfit_v1"
+    )
     annealed_wrong_teacher_contract = (
         wrong_teacher_reward_conflict_contract
         and not fixed_teacher_demo_identity_contract
+        and not teacher_floor_overfit_contract
+    )
+    scheduled_teacher_contract = (
+        annealed_wrong_teacher_contract or teacher_floor_overfit_contract
     )
     fixed_teacher_interval_resume_contract = (
         fixed_teacher_demo_identity_contract
@@ -1879,14 +1915,23 @@ def main() -> None:
         and resume_update % 64 == 0
         and args.num_updates % 64 == 0
     )
-    if resume_payload is not None and not fixed_teacher_interval_resume_contract:
+    teacher_floor_resume_contract = (
+        teacher_floor_overfit_contract
+        and resume_payload is not None
+        and resume_update == 64
+        and updates_executed == 64
+        and args.num_updates == 128
+    )
+    if resume_payload is not None and not (
+        fixed_teacher_interval_resume_contract or teacher_floor_resume_contract
+    ):
         raise ValueError(
-            "checkpoint continuation is admitted only for consecutive "
-            "64-update fixed-teacher identity segments"
+            "checkpoint continuation must be a consecutive 64-update "
+            "fixed-teacher segment or the declared update64-to-floor overfit"
         )
-    if wrong_reference_wrapper_contract != annealed_wrong_teacher_contract:
+    if wrong_reference_wrapper_contract != scheduled_teacher_contract:
         raise ValueError(
-            "annealed wrong-reference wrapper/protocol mismatch"
+            "scheduled wrong-reference wrapper/protocol mismatch"
         )
     if (
         wrong_reference_fixed_wrapper_contract
@@ -2030,7 +2075,10 @@ def main() -> None:
         and args.num_envs == 20
         and (
             (
-                fixed_teacher_interval_resume_contract
+                (
+                    fixed_teacher_interval_resume_contract
+                    or teacher_floor_resume_contract
+                )
                 and args.checkpoint_updates == str(args.num_updates)
             )
             or (
@@ -2051,11 +2099,19 @@ def main() -> None:
             (
                 annealed_wrong_teacher_contract
                 and args.teacher_anneal_updates == 64
+                and args.teacher_final_coefficient == 0.0
+                and args.teacher_release_mode == "linear"
+            )
+            or (
+                teacher_floor_resume_contract
+                and args.teacher_anneal_updates == 64
+                and args.teacher_final_coefficient == 0.25
                 and args.teacher_release_mode == "linear"
             )
             or (
                 fixed_teacher_demo_identity_contract
                 and args.teacher_anneal_updates == 0
+                and args.teacher_final_coefficient == 0.0
                 and args.teacher_release_mode == "fixed_one"
             )
         )
@@ -2551,6 +2607,7 @@ def main() -> None:
                 "sugar_plan11_demo_conflict_authority_rework_matched_v3",
                 "sugar_plan11_wrong_teacher_reward_conflict_v1",
                 "sugar_plan11_fixed_teacher_demo_identity_v2",
+                "sugar_plan11_teacher_floor_overfit_v1",
             }
         )
         plan11_icm_policy_credit_protocol = (
@@ -2568,6 +2625,7 @@ def main() -> None:
                 "sugar_plan11_demo_conflict_authority_rework_matched_v3",
                 "sugar_plan11_wrong_teacher_reward_conflict_v1",
                 "sugar_plan11_fixed_teacher_demo_identity_v2",
+                "sugar_plan11_teacher_floor_overfit_v1",
                 "sugar_plan11_original_icm_policy_credit_zero_tactile_v1",
             }
         )
@@ -2597,6 +2655,7 @@ def main() -> None:
             "sugar_plan11_demo_conflict_authority_rework_matched_v3",
             "sugar_plan11_wrong_teacher_reward_conflict_v1",
             "sugar_plan11_fixed_teacher_demo_identity_v2",
+            "sugar_plan11_teacher_floor_overfit_v1",
             "sugar_plan11_original_icm_policy_credit_zero_tactile_v1",
         }
         mount_contract_exact = (
@@ -2638,6 +2697,7 @@ def main() -> None:
                 "sugar_plan11_demo_conflict_authority_rework_matched_v3",
                 "sugar_plan11_wrong_teacher_reward_conflict_v1",
                 "sugar_plan11_fixed_teacher_demo_identity_v2",
+                "sugar_plan11_teacher_floor_overfit_v1",
                 "sugar_plan11_original_icm_policy_credit_zero_tactile_v1",
             }
             and int(shared["sim_and_policy_seed"]) == args.seed
@@ -2716,6 +2776,13 @@ def main() -> None:
             )
             and int(shared.get("teacher_anneal_updates", 0))
             == args.teacher_anneal_updates
+            and float(shared.get("teacher_final_coefficient", 0.0))
+            == args.teacher_final_coefficient
+            and (
+                not teacher_floor_overfit_contract
+                or shared.get("fixed_physics_profile")
+                == TEACHER_FLOOR_FIXED_PHYSICS_PROFILE
+            )
             and int(shared.get("explicit_zero_source_frame", 103))
             == args.explicit_zero_source_frame
             and float(shared.get("residual_scale", 0.05))
@@ -2790,6 +2857,22 @@ def main() -> None:
         cfg.events.latent_contact_dynamics.params[
             "distribution_seed"
         ] = latent_distribution_seed
+        if teacher_floor_overfit_contract:
+            fixed = TEACHER_FLOOR_FIXED_PHYSICS_PROFILE
+            event = cfg.events.latent_contact_dynamics
+            event.params["mass_scale_range"] = (
+                fixed["mass_scale"], fixed["mass_scale"]
+            )
+            event.params["static_friction_range"] = (
+                fixed["static_friction"], fixed["static_friction"]
+            )
+            event.params["dynamic_friction_range"] = (
+                fixed["dynamic_friction"], fixed["dynamic_friction"]
+            )
+            event.params["com_y_range_m"] = (
+                fixed["com_y_m"], fixed["com_y_m"]
+            )
+            event.params["pulse_magnitude_range_mps"] = (0.0, 0.0)
         if reference_waypoint_foundation_contract:
             foundation_event = cfg.events.latent_contact_dynamics
             foundation_event.params["mass_scale_range"] = (1.0, 3.0)
@@ -2861,13 +2944,16 @@ def main() -> None:
                 residual_scale=args.residual_scale,
                 clip_actions=None,
             )
-        elif wrong_teacher_reward_conflict_contract:
+        elif scheduled_teacher_contract:
             env = WrongReferenceScheduledOfficialRefinerResidualVecEnvWrapper(
                 gym_env,
                 teacher_checkpoint,
                 residual_scale=args.residual_scale,
                 teacher_anneal_control_steps=(
                     args.teacher_anneal_updates * 24
+                ),
+                teacher_final_coefficient=(
+                    args.teacher_final_coefficient
                 ),
                 clip_actions=None,
             )
@@ -2988,7 +3074,9 @@ def main() -> None:
             )
         latent_dynamics_proof = (
             _coherent_latent_dynamics_audit(
-                base_env, latent_distribution_seed
+                base_env,
+                latent_distribution_seed,
+                fixed_profile=teacher_floor_overfit_contract,
             )
             if goal_recovery_contract
             else None
@@ -3440,6 +3528,7 @@ def main() -> None:
         resume_rng_mode = "fresh_action_seed"
         resume_temporal_boundary = None
         resume_restore_record = None
+        resume_wrapper_transition_valid = None
         if resume_payload is not None:
             if int(resume_payload["iteration"]) != resume_update:
                 raise RuntimeError("resume iteration changed after admission")
@@ -3470,9 +3559,37 @@ def main() -> None:
                 resume_integration["demo"] = resume_demo_state
             integrator.load_state_dict(resume_integration)
             if residual_teacher_contract:
-                env.load_checkpoint_state_dict(
-                    resume_payload["residual_wrapper_state_dict"]
-                )
+                source_wrapper_state = resume_payload[
+                    "residual_wrapper_state_dict"
+                ]
+                if teacher_floor_resume_contract:
+                    resume_wrapper_transition_valid = bool(
+                        source_wrapper_state.get("protocol")
+                        == "sugar_wrong_reference_fixed_official_refiner_v1"
+                        and source_wrapper_state.get(
+                            "teacher_authority_contract"
+                        )
+                        == "fixed_one"
+                        and torch.all(
+                            source_wrapper_state["teacher_coefficient"]
+                            == 1.0
+                        )
+                        and not bool(
+                            source_wrapper_state["release_latched"].any()
+                        )
+                        and not bool(
+                            source_wrapper_state["release_progress"].any()
+                        )
+                        and env.release.global_control_steps == 0
+                        and torch.all(env.release.coefficient == 1.0)
+                        and env.release.final_coefficient == 0.25
+                    )
+                    if not resume_wrapper_transition_valid:
+                        raise RuntimeError(
+                            "fixed-one to teacher-floor wrapper transition drift"
+                        )
+                else:
+                    env.load_checkpoint_state_dict(source_wrapper_state)
             if (
                 algorithm.completed_updates != resume_update
                 or base_integrator.rollouts_completed != resume_update
@@ -3510,12 +3627,23 @@ def main() -> None:
                         resume_payload["residual_wrapper_state_dict"]
                     )
                     if residual_teacher_contract
-                    else True
+                    and not teacher_floor_resume_contract
+                    else (None if teacher_floor_resume_contract else True)
+                ),
+                "residual_wrapper_transition_valid": (
+                    resume_wrapper_transition_valid
+                    if teacher_floor_resume_contract
+                    else None
                 ),
             }
             resume_temporal_boundary = {
                 "mode": "fresh_episode_boundary_without_physx_snapshot",
-                "policy_optimizer_icm_smp_wrapper_restored": True,
+                "policy_optimizer_icm_smp_restored_exact": True,
+                "wrapper_boundary": (
+                    "fixed_one_to_declared_nonzero_floor_schedule"
+                    if teacher_floor_resume_contract
+                    else "exact_wrapper_restore"
+                ),
                 "smp_window_reinitialized_from_live_reset": True,
                 "demo_prefix_reinitialized_from_live_reset": bool(
                     demo_reward_contract
@@ -4954,13 +5082,27 @@ def main() -> None:
             **optimizer_checks,
             "resume_checkpoint_state_restored_exact": (
                 resume_restore_record is None
-                or all(
-                    bool(resume_restore_record[name])
-                    for name in (
-                        "policy_state_exact",
-                        "optimizer_state_exact",
-                        "hybrid_integration_state_exact",
-                        "residual_wrapper_state_exact",
+                or (
+                    all(
+                        bool(resume_restore_record[name])
+                        for name in (
+                            "policy_state_exact",
+                            "optimizer_state_exact",
+                            "hybrid_integration_state_exact",
+                        )
+                    )
+                    and (
+                        bool(
+                            resume_restore_record[
+                                "residual_wrapper_transition_valid"
+                            ]
+                        )
+                        if teacher_floor_resume_contract
+                        else bool(
+                            resume_restore_record[
+                                "residual_wrapper_state_exact"
+                            ]
+                        )
                     )
                 )
             ),
@@ -5443,11 +5585,28 @@ def main() -> None:
             if explicit_zero_tactile_contract:
                 checks[
                     (
-                        "wrong_teacher_global_schedule_reaches_zero"
-                        if annealed_wrong_teacher_contract
-                        else "explicit_zero_control_keeps_teacher_authority_fixed"
+                        "teacher_floor_schedule_reaches_exact_nonzero_floor"
+                        if teacher_floor_overfit_contract
+                        else (
+                            "wrong_teacher_global_schedule_reaches_zero"
+                            if annealed_wrong_teacher_contract
+                            else "explicit_zero_control_keeps_teacher_authority_fixed"
+                        )
                     )
                 ] = (
+                    (
+                        teacher_coefficients
+                        and max(teacher_coefficients) <= 1.0
+                        and min(teacher_coefficients) >= 0.25
+                        and teacher_zero_control_steps == 0
+                        and env.release.global_control_steps
+                        == args.teacher_anneal_updates * 24
+                        and bool(
+                            torch.all(env.release.coefficient == 0.25)
+                        )
+                    )
+                    if teacher_floor_overfit_contract
+                    else (
                     (
                         teacher_coefficients
                         and max(teacher_coefficients) <= 1.0
@@ -5465,6 +5624,7 @@ def main() -> None:
                         and max(teacher_coefficients) == 1.0
                         and not bool(env.release.release_latched.any())
                         and not bool(env.release.release_progress.any())
+                    )
                     )
                 )
             elif reference_waypoint_foundation_contract:
@@ -6043,9 +6203,13 @@ def main() -> None:
             elif goal_recovery_contract:
                 endpoint_check_name = (
                     (
-                        "fixed_teacher_continuation_advances_exactly_64_updates"
-                        if fixed_teacher_interval_resume_contract
-                        else "wrong_teacher_reward_conflict_endpoint_is_64_updates"
+                        "teacher_floor_overfit_advances_exactly_64_updates"
+                        if teacher_floor_resume_contract
+                        else (
+                            "fixed_teacher_continuation_advances_exactly_64_updates"
+                            if fixed_teacher_interval_resume_contract
+                            else "wrong_teacher_reward_conflict_endpoint_is_64_updates"
+                        )
                     )
                     if wrong_teacher_reward_conflict_64_contract
                     else (
@@ -6098,7 +6262,10 @@ def main() -> None:
                         and checkpoint_updates == {args.num_updates}
                         and len(policy_update_metrics_by_update) == 64
                     )
-                    if fixed_teacher_interval_resume_contract
+                    if (
+                        fixed_teacher_interval_resume_contract
+                        or teacher_floor_resume_contract
+                    )
                     else (
                         args.num_updates == 64
                         and checkpoint_updates == {1, 64}
@@ -6175,6 +6342,8 @@ def main() -> None:
         elif goal_recovery_contract:
             if fixed_teacher_demo_identity_contract:
                 protocol = "sugar_plan11_fixed_teacher_demo_identity_v2"
+            elif teacher_floor_overfit_contract:
+                protocol = "sugar_plan11_teacher_floor_overfit_v1"
             elif wrong_teacher_reward_conflict_contract:
                 protocol = "sugar_plan11_wrong_teacher_reward_conflict_v1"
             elif reference_waypoint_foundation_contract:
@@ -6859,6 +7028,9 @@ def main() -> None:
                         args.post_release_residual_scale
                     ),
                     "release_mode": args.teacher_release_mode,
+                    "scheduled_final_coefficient": (
+                        args.teacher_final_coefficient
+                    ),
                     "reference_advance_mode": (
                         args.teacher_reference_advance_mode
                     ),

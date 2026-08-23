@@ -34,23 +34,34 @@ deltas are `+0.0323/+0.0132/-0.0277`, and orbit-rate deltas are
 lift/transport and `0/3` for orbit. Seed161585's partial `3/4` shift does not replicate. The final
 multiseed verdict is `stable_semantic_following=false`.
 
-### Next matched learnability diagnostic
+### Teacher-authority learnability diagnostic：已完成
 
-Do not spend another formal multi-seed budget on the current fixed-one teacher setup. With explicit
-approval, the next experiment should be one fixed-physics overfit pair resumed from the matched
-update-64 endpoints. Keep the official CarryBox45 teacher, task, initialization, selected-demo
-reward and all optimizer settings unchanged; anneal teacher authority identically in correct and
-unrelated arms, checkpoint every 64 updates, and stop as soon as the declared behavior gate can be
-judged. Frozen evaluation must use the same nonzero teacher coefficient in both arms, not a
-teacher-free substitution.
+The fixed-physics overfit pair resumed both seed161581 update-64 endpoints and executed exactly 64
+new updates. The common official CarryBox45 teacher was annealed from `1.0` to a nonzero `0.25`
+floor in both arms; task, initialization, optimizer, physics and frozen evaluation stayed matched.
+Both endpoint proofs and frozen evaluations passed their execution checks.
 
-The diagnostic passes only if the correct arm preserves sustained bilateral hand contact and
-lifted transport while the unrelated arm develops the Kick reference's contact/event structure:
-measurable foot-to-box contact, more ground-level box motion, less lifted transport and more
-orbiting. A task-success decrease by itself is not a pass. If this contact-role shift appears,
-repeat the identical schedule across independent seeds. If it does not, stop policy training and
-redesign the internal reward around predicted contact graph, required-contact duration and
-object-motion regime before reconsidering selected-demo SMP integration.
+The behavioral gate failed decisively. In 20 frozen profiles per arm, correct and unrelated both
+have zero bilateral-contact fraction, zero lifted fraction and zero lifted-transport fraction;
+both have zero foot-to-box contact, and `0/4` Kick-like directions are observed. Episodes terminate
+after about `0.88 s`. This is behavioral collapse after reducing teacher authority, not semantic
+separation, so the schedule is not repeated across seeds.
+
+### Current branch: contact/event internal reward redesign
+
+The official reference-corpus audit now covers 100 CarryBox and 99 KickBox motions. Binary source
+contact is retained only as a reference-event proxy. Carry contact frames select a hand as the
+nearest named effector in `95.46%` on average; Kick contact frames select a foot in `99.78%`.
+Carry median lifted-moving fraction is `40.85%`; Kick is exactly zero. Thus the desired semantic
+targets exist in the reference data.
+
+The next automatic step is to collect actual rollout targets with explicit left/right hand and
+foot box-contact, event duration and ground/lifted object-motion regime. The serious existing
+11.9M causal Transformer is then extended with multitask contact-graph, required-duration and
+motion-regime heads; it is not replaced by a toy model. Admission requires motion-disjoint held-out
+performance, demo permutation degradation and calibrated event predictions before any new policy
+comparison. If those checks fail, repair the labels/model; if they pass, run a matched fixed-teacher
+reward comparison and judge only predictor-independent frozen behavior.
 
 ### Expected behavior, not just reward score
 
@@ -79,12 +90,13 @@ loss, predicted reward or task success alone is not a demo-following verdict.
 
 The official selected-demo TinyMDM gate is also complete. Exact selected-clip identity passes, but
 the independent CarryBox96/KickBox22 semantic extension fails. Policy integration is not
-authorized, and an arbitrary Transformer hidden state must not be called an official SMP latent.
+scientifically supported by this result, and an arbitrary Transformer hidden state must not be
+called an official SMP latent.
 
 Training, frozen evaluation, evidence paths and exact commands are consolidated in
-[`DOCS/reproducibility.md`](../DOCS/reproducibility.md). The active entrypoint is
-`scripts/sugar/demo_following/run_matched_state_predictor.py`; its default design is the current
-same-teacher 64-update experiment.
+[`DOCS/reproducibility.md`](../DOCS/reproducibility.md). The policy entrypoint remains
+`scripts/sugar/demo_following/run_matched_state_predictor.py`; reference-event feasibility is
+reproduced with `scripts/sugar/demo_reward/audit_contact_event_reference_corpus.py`.
 
 ## Frozen historical plan
 

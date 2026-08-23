@@ -61,6 +61,51 @@ DESIGNS = {
             },
         },
     },
+    "teacher_floor_overfit": {
+        "seed": 161581,
+        "action_seed": 161582,
+        "endpoint_updates": 128,
+        "start_update": 128,
+        "protocol": "sugar_plan11_teacher_floor_overfit_v1",
+        "resume_source": ROOT
+        / "experiments/demo_following/matched_reward_identity_same_teacher_v1",
+        "output": ROOT
+        / "experiments/demo_following/teacher_floor_overfit_v1",
+        "teacher_wrapper_mode": "wrong_reference_anneal_v1",
+        "teacher_anneal_updates": 64,
+        "teacher_final_coefficient": 0.25,
+        "fixed_physics_profile": {
+            "mass_scale": 1.0,
+            "static_friction": 0.6,
+            "dynamic_friction": 0.5,
+            "com_y_m": 0.0,
+            "pulse_delta_velocity_w_mps": [0.0, 0.0, 0.0],
+        },
+        "question": (
+            "Fixed-profile learnability diagnostic: after the matched update-64 "
+            "endpoints, does the selected reward create Carry-versus-Kick "
+            "interaction structure when the common Carry45 teacher is annealed "
+            "identically to a nonzero 0.25 floor?"
+        ),
+        "arms": {
+            "correct": {
+                "protocol_arm": "same_teacher_correct_reward",
+                "teacher": CORRECT_TEACHER,
+                "demo_config": CORRECT_DEMO,
+                "meaning": (
+                    "CarryBox45 selected reward with the common CarryBox45 teacher"
+                ),
+            },
+            "unrelated": {
+                "protocol_arm": "same_teacher_unrelated_reward",
+                "teacher": CORRECT_TEACHER,
+                "demo_config": UNRELATED_DEMO,
+                "meaning": (
+                    "KickBox21 selected reward with the common CarryBox45 teacher"
+                ),
+            },
+        },
+    },
 }
 PREDECLARED_SEED_PAIRS = {
     (161581, 161582),
@@ -75,7 +120,7 @@ def parse_args() -> argparse.Namespace:
         "--design", choices=tuple(DESIGNS), default="same_teacher_reward_only"
     )
     parser.add_argument("--arm", choices=("correct", "unrelated"), required=True)
-    parser.add_argument("--endpoint-updates", type=int, default=64)
+    parser.add_argument("--endpoint-updates", type=int)
     parser.add_argument("--segment-updates", type=int, default=64)
     parser.add_argument("--seed", type=int)
     parser.add_argument("--action-seed", type=int)
@@ -172,7 +217,9 @@ def protocol_payload(
             "checkpoint": workspace_relative(paths["checkpoint"]),
         }
     return {
-        "protocol": "sugar_plan11_fixed_teacher_demo_identity_v2",
+        "protocol": design.get(
+            "protocol", "sugar_plan11_fixed_teacher_demo_identity_v2"
+        ),
         "execution_ready": True,
         "question": design["question"],
         "shared_runtime": {
@@ -194,8 +241,16 @@ def protocol_payload(
             "checkpoint_updates": checkpoint_updates,
             "strict_deterministic_torch": True,
             "cublas_workspace_config": ":4096:8",
-            "teacher_wrapper_mode": "wrong_reference_fixed_v1",
-            "teacher_anneal_updates": 0,
+            "teacher_wrapper_mode": design.get(
+                "teacher_wrapper_mode", "wrong_reference_fixed_v1"
+            ),
+            "teacher_anneal_updates": int(
+                design.get("teacher_anneal_updates", 0)
+            ),
+            "teacher_final_coefficient": float(
+                design.get("teacher_final_coefficient", 0.0)
+            ),
+            "fixed_physics_profile": design.get("fixed_physics_profile"),
             "explicit_zero_source_frame": 1,
             "residual_scale": 1.0,
             "tactile_regime": "explicit_zero_control",
@@ -239,6 +294,14 @@ def runner_command(
     contract: dict[str, object],
 ) -> list[str]:
     task_motion_folder = CORRECT_TEACHER
+    design = DESIGNS[args.design]
+    teacher_wrapper_mode = str(
+        design.get("teacher_wrapper_mode", "wrong_reference_fixed_v1")
+    )
+    teacher_anneal_updates = int(design.get("teacher_anneal_updates", 0))
+    teacher_final_coefficient = float(
+        design.get("teacher_final_coefficient", 0.0)
+    )
     command = [
         str(PYTHON),
         "-u",
@@ -283,17 +346,19 @@ def runner_command(
         str(args.action_seed),
         "--strict-deterministic-torch",
         "--teacher-wrapper-mode",
-        "wrong_reference_fixed_v1",
+        teacher_wrapper_mode,
         "--wrong-teacher-motion-folder",
         str(contract["teacher"]),
         "--teacher-anneal-updates",
-        "0",
+        str(teacher_anneal_updates),
+        "--teacher-final-coefficient",
+        str(teacher_final_coefficient),
         "--explicit-zero-source-frame",
         "1",
         "--residual-scale",
         "1.0",
         "--teacher-release-mode",
-        "fixed_one",
+        "linear" if teacher_wrapper_mode == "wrong_reference_anneal_v1" else "fixed_one",
         "--teacher-linear-release-steps",
         "4",
         "--teacher-release-scope",
@@ -376,6 +441,11 @@ def main() -> None:
     args.output_root = (
         design["output"] if args.output_root is None else args.output_root
     )
+    args.endpoint_updates = (
+        int(design.get("endpoint_updates", 64))
+        if args.endpoint_updates is None
+        else args.endpoint_updates
+    )
     if (args.seed, args.action_seed) not in PREDECLARED_SEED_PAIRS or args.num_envs != 20:
         raise ValueError(
             "matched design requires one predeclared sim/action seed pair and 20 environments"
@@ -384,13 +454,37 @@ def main() -> None:
         raise ValueError("endpoint must be a positive multiple of segment updates")
     if args.segment_updates != 64:
         raise ValueError("the matched segment contract uses 64 updates")
+    if args.design == "teacher_floor_overfit" and (
+        args.seed, args.action_seed
+    ) != (161581, 161582):
+        raise ValueError("teacher-floor overfit is one fixed seed161581 diagnostic")
     arm_contract = design["arms"][args.arm]
     require_inputs(arm_contract)
     output_root = args.output_root.expanduser().resolve()
     previous_checkpoint: Path | None = None
     previous_update = 0
+    start_update = int(design.get("start_update", 64))
+    resume_source = design.get("resume_source")
+    if resume_source is not None:
+        source_paths = segment_paths(
+            Path(resume_source).expanduser().resolve(),
+            args.arm,
+            start_update - 64,
+            args.seed,
+        )
+        if not (
+            proof_passed(source_paths["proof"])
+            and source_paths["checkpoint"].is_file()
+        ):
+            raise RuntimeError(
+                f"declared overfit resume source is incomplete: {source_paths['directory']}"
+            )
+        previous_checkpoint = source_paths["checkpoint"]
+        previous_update = start_update - 64
+    if start_update > args.endpoint_updates:
+        raise ValueError("design start update exceeds requested endpoint")
 
-    for update in range(64, args.endpoint_updates + 1, 64):
+    for update in range(start_update, args.endpoint_updates + 1, 64):
         paths = segment_paths(output_root, args.arm, update, args.seed)
         if proof_passed(paths["proof"]) and paths["checkpoint"].is_file():
             previous_checkpoint = paths["checkpoint"]

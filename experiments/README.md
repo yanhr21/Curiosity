@@ -10,6 +10,10 @@ are under root `legacy/`.
 - `teacher_only_carry45_gate_corrected_v1/`: 20-profile zero-residual prerequisite gate;
 - `matched_reward_identity_same_teacher_v1/`: current 64-update causal comparison, both policy
   checkpoints, matched frozen traces/results and full videos;
+- `teacher_floor_overfit_v1/`: seed161581 update-128 correct/unrelated endpoints, frozen traces,
+  failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
+- `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick
+  reference-event feasibility result; binary labels are reference proxies, not tactile force;
 - `predictor/`: frozen 11.9M causal future-mismatch predictor result and checkpoint;
 - `smp_prior/`: generic official MimicKit TinyMDM prior used identically by both arms;
 - `selected_demo_smp_v1/`: official CarryBox45/KickBox21 single-clip priors and the failed

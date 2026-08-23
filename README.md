@@ -31,6 +31,19 @@ seeds，在 orbit 上为 `0/3`；新增脚—箱接触也接近零。seed161585 
 但另外两个 seeds 为 `0/4`。因此三种子结果不支持稳定 semantic demo following，只支持
 selected reward 改变 Carry 解族内行为。
 
+随后完成固定物理的 teacher-authority learnability diagnostic：两臂都从各自 update-64
+端点继续 64 updates，共同 CarryBox45 teacher 从 `1.0` 线性降至 `0.25`，只有 selected
+reward demo 不同。两臂训练 proof 和 20-profile frozen evaluation 都通过，但行为发生坍塌：
+correct 与 unrelated 的双手接触率、5 cm 抬升率和 lifted transport 均为 `0`，足—箱接触也
+均为 `0`，四个预登记 Kick-like 方向为 `0/4`。因此不能进入多 seed；降低 teacher authority
+既没有保住 Carry，也没有使 trajectory-only reward 产生 Kick 接触语义。
+
+自动转入 contact/event reward redesign 后，官方 reference corpus 审计已覆盖 100 条
+CarryBox 和 99 条 KickBox。binary contact proxy 仅用作示范事件标签，不作触觉力：Carry
+接触帧最近效应器为手的比例均值为 `95.46%`，Kick 接触帧最近效应器为脚的比例均值为
+`99.78%`；Carry 中位 lifted-moving fraction 为 `40.85%`，Kick 为 `0%`。这证明 reference
+中有清晰可分的接触角色和物体运动 regime，但尚未证明新的 predictor 或 policy 有效。
+
 当前 internal reward predictor 是约 11.9M 参数的 causal future-mismatch predictor，预测
 body、box position、box 6D rotation 和 box velocity 的未来偏差。held-out normalized MAE
 为 0.1873，constant baseline 为 0.3609，mean Spearman 为 0.7718；permuted/zero demo 会
@@ -38,8 +51,8 @@ body、box position、box 6D rotation 和 box velocity 的未来偏差。held-ou
 
 官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
 完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
-任意 Transformer hidden state 冒充 SMP latent，也没有授权 selected-demo SMP policy
-integration。
+任意 Transformer hidden state 冒充 SMP latent，现有证据也不支持 selected-demo SMP
+policy integration。
 
 ### 在线整手触觉：实现保留，收益结论冻结
 
@@ -108,6 +121,12 @@ $PYTHON_BIN scripts/sugar/demo_following/analyze_behavior_adherence.py
 # 无 GPU：汇总三个独立训练 seeds；20 physics profiles 只作 seed 内变化
 $PYTHON_BIN scripts/sugar/demo_following/aggregate_behavior_adherence.py
 
+# GPU compute node：复现 teacher 1.0 -> 0.25 的单 seed 诊断、冻结评估和视频
+bash scripts/sugar/demo_following/run_teacher_floor_overfit_pair.sh
+
+# 无 GPU：审计 199 条 official Carry/Kick reference 的 contact/event 标签可分性
+$PYTHON_BIN scripts/sugar/demo_reward/audit_contact_event_reference_corpus.py
+
 # GPU compute node：复现完整 G1 CarryBox 与双手 27-patch 在线触觉视频
 bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh \
   experiments/isaaclab_g1_anatomical27_object_demos/reproduce_plain_carrybox
@@ -119,6 +138,8 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 - [unrelated KickBox demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [第三个 seed 的 correct demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161585/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
 - [第三个 seed 的 unrelated demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161585/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
+- [teacher-floor correct demo 与坍塌行为](experiments/demo_following/teacher_floor_overfit_v1/seed161581/videos_update0128/01_correct_demo_and_actual_behavior.mp4)；
+- [teacher-floor unrelated demo 与坍塌行为](experiments/demo_following/teacher_floor_overfit_v1/seed161581/videos_update0128/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [6x、mu=1.5 的 G1/CarryBox 与双手 27-patch](experiments/online_patch_tactile_mass_adaptation/visualizations/official_refiner_mu1p5_6x_friction_hold_single_env/official_refiner_mu1p5_6x_world_bilateral27.mp4)。
 
 ## 活动目录
@@ -141,7 +162,9 @@ Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 
 ## 下一步
 
-当前不自动启动新训练。现有 rollout 的独立行为审计已经完成；TRACE 缺少逐 body pose 和
-足部接触，因此不能追溯证明哪只脚踢箱。下一次冻结 evaluator 先补齐这些 evaluation-only
-字段，再串行完成预登记的三个 matched training seeds。只有 seed-level 行为差异稳定后，
-才考虑以相同 schedule 降低 teacher authority 或重新设计语义 predictor。
+teacher-floor 诊断未通过，已排除继续增加相同 trajectory-only policy 训练预算。下一条自动
+分支是收集同时包含真实 hand/foot-to-box 接触、接触持续时间和 object-motion regime 的
+actual rollout targets；随后在现有 11.9M causal Transformer 基础上增加 contact graph、
+required-contact duration 和 motion-regime 多任务头，先做 held-out Carry/Kick 预测与
+permuted-demo 检验。只有 predictor-independent 的冻结行为判据通过，才重新进行 matched
+policy comparison；SMP 仍不进入 selected-demo policy reward。

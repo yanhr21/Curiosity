@@ -3,8 +3,8 @@
 > **Frozen 2026-08-22.** All listed source bugs were corrected, but the corrected tactile-only
 > P continuation did not yield a valid endpoint: model1100 gives `14/20` physical holds but only
 > `6/20` strict successes, and model1250 regresses. No matched corrected Z/P/PS comparison was
-> completed. Preserve the artifacts, make no tactile benefit/harm claim, and do not resume without
-> explicit user authorization.
+> completed. Preserve the artifacts, make no tactile benefit/harm claim, and keep this line outside
+> the active queue while demo following remains the current evidence-selected priority.
 
 ## 1. 科学问题
 
@@ -220,7 +220,7 @@ G1/CarryBox/54-patch H.264 位于
 `experiments/online_patch_tactile_mass_adaptation/visualizations/`
 `official_refiner_mu1p5_6x_friction_hold_single_env/official_refiner_mu1p5_6x_world_bilateral27.mp4`。
 
-## 9. 已批准的 corrected rerun 顺序
+## 9. Corrected rerun 固定顺序
 
 2026-08-20 source/runtime gate 当时通过：三 seeds × 五质量的 paired sweep 中 action
 最大误差为零、jump-frame 最大误差为零；actor 为 `504-D` 且不含 measured object state。

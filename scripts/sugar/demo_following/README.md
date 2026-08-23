@@ -27,3 +27,15 @@ overwritten.
 
 The archived historical design changed both teacher and reward demo and is not an active result.
 Exact assets, commands, expected outputs and claim boundaries are in `DOCS/reproducibility.md`.
+
+The fixed-physics teacher-floor diagnostic is reproduced inside a retained allocation with:
+
+```bash
+bash scripts/sugar/demo_following/run_teacher_floor_overfit_pair.sh
+```
+
+It resumes both seed161581 update-64 arms, executes 64 new updates while the common teacher moves
+from `1.0` to `0.25`, then freezes, evaluates and renders. The recorded result is behavioral
+collapse in both arms, not Carry/Kick semantic separation. The automatic next branch is therefore
+the contact/event reward redesign documented in `PLAN/README.md`; do not repeat this schedule over
+more seeds.

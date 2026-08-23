@@ -1,7 +1,7 @@
 {
   "protocol": "sugar_demo_reward_runtime_preflight_v1",
   "version": 1,
-  "claim_scope": "Unit-eta runtime preflight for the frozen positive V2 selected-demo predictor on motion 45. This config permits causal inference, masked-potential reconstruction, scale calibration, and live integration audit only. It does not authorize policy optimization, behavior claims, recovery, alternative strategy, physical tactile, or sim-to-real.",
+  "claim_scope": "Unit-eta runtime preflight for the frozen positive V2 selected-demo predictor on motion 45. This config performs causal inference, masked-potential reconstruction, scale calibration, and live integration audit only. It does not perform or support policy optimization, behavior claims, recovery, alternative strategy, physical tactile, or sim-to-real.",
   "selected_demo": {
     "motion_id": 45,
     "split": "train",
@@ -86,7 +86,7 @@
     "success_or_recovery_used_for_scale_selection": false,
     "policy_update_during_calibration": false
   },
-  "authorization": {
+  "execution_scope": {
     "predictor_inference": true,
     "scale_calibration": true,
     "live_integration_audit": true,

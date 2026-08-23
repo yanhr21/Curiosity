@@ -18,7 +18,6 @@
   non-strict results.
 - [x] percentile bootstrap removed; future inference uses exact paired training-seed sign flips
   with Holm familywise correction.
-- [x] 用户已明确批准 corrected rerun。
 - [x] schema-v2 scale、三分支 preflight、固定 3x PS overfit 和 fresh formal 单-seed 入口
   已建立；入口拒绝旧 scale 与既有 output directory。
 - [x] 独立 PhysX audit 分开记录 normal/friction；修正了把 `force_matrix_w` 当作总力的

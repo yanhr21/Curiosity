@@ -1,7 +1,7 @@
 {
   "protocol": "sugar_demo_reward_prefailure_crossdemo_predictor_v2",
   "version": 2,
-  "authorization": {
+  "instruction_provenance": {
     "user_instruction_date": "2026-07-25",
     "scope": "Continue the demo-referenced internal reward predictor and keep slip detection separate.",
     "correction": "V1 predicted held-out trajectory error but failed selected-demo dependence and uncertainty calibration on test. V2 adds exact numeric cross-demo supervision and validation-only variance calibration."
@@ -156,8 +156,8 @@
     "slip_is_separate_external_causal_ledger": true,
     "oracle_slip_runtime_input": false,
     "original_icm_unchanged_and_ungated": true,
-    "policy_integration_authorized_by_this_config": false,
-    "global_or_postfailure_predictor_authorized": false
+    "policy_integration_supported_by_this_config": false,
+    "global_or_postfailure_predictor_supported": false
   },
   "output": {
     "derived_dataset_root": "experiments/sugar_demo_reward/datasets/prefailure_crossdemo_causal_predictor_v2",
