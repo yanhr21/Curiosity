@@ -16,6 +16,7 @@ from sugar_rl.utils.demo_event_reward_potential import (  # noqa: E402
     event_internal_reward,
 )
 from sugar_rl.utils.demo_event_reward_runtime import (  # noqa: E402
+    FrozenPhaseAwareDemoEventScorer,
     GOAL_POLICY_CORE_TERM_NAMES,
     extract_goal_policy_core,
 )
@@ -83,3 +84,49 @@ def test_dense_internal_reward_has_no_warmup_or_benign_terminal_bonus():
     assert reward[2] == 0
     assert reward[3] == 0
     assert reward[4] == -1.0
+
+
+class _RecordingRuntime:
+    def __init__(self):
+        self.phases = []
+        self.started = False
+
+    def begin(self, core):
+        assert core.shape == (2, 121)
+        self.started = True
+
+    def process_step(self, core, phase, done, failure_done):
+        assert self.started
+        assert core.shape == (2, 121)
+        assert not failure_done.any()
+        self.phases.append(phase.clone())
+        return {"phase": phase, "done": done}
+
+    def audit(self):
+        return {"model_training": False, "trainable_parameters": 0}
+
+
+def test_phase_scorer_uses_only_reset_bounded_causal_clock():
+    scorer = FrozenPhaseAwareDemoEventScorer.__new__(
+        FrozenPhaseAwareDemoEventScorer
+    )
+    scorer.num_envs = 2
+    scorer.device = torch.device("cpu")
+    scorer.cfg = type(
+        "Cfg", (), {"phase_horizon_steps": 650, "selected_option": "correct"}
+    )()
+    scorer.runtime = _RecordingRuntime()
+    scorer.episode_steps = torch.zeros(2, dtype=torch.long)
+    scorer.transitions_scored = 0
+    scorer.started = False
+    observation = {"policy": torch.randn(2, 175)}
+    scorer.begin(observation)
+    scorer.process_step(observation, torch.tensor([False, True]))
+    assert torch.allclose(
+        scorer.runtime.phases[-1], torch.tensor([2.0 / 650.0, 1.0 / 650.0])
+    )
+    scorer.process_step(observation, torch.tensor([False, False]))
+    assert torch.allclose(
+        scorer.runtime.phases[-1], torch.tensor([3.0 / 650.0, 2.0 / 650.0])
+    )
+    assert scorer.transitions_scored == 4

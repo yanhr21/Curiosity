@@ -1,24 +1,27 @@
 # Same-teacher demo-following
 
 The active experiment fixes the CarryBox45 official Refiner teacher in both arms and changes only
-the selected reward demo: CarryBox45 (`correct`) or KickBox21 (`unrelated`). Defaults are the
-current `same_teacher_reward_only` design and 64 updates.
+the selected reward demo: CarryBox45 (`correct`) or KickBox21 (`unrelated`). The active
+`phase_event_reward_only` design uses the frozen phase-aware contact/event scorer and stops at
+updates 32 and 64. No policy training may start without explicit user approval.
 
 Validate without simulation:
 
 ```bash
 PYTHON=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
 $PYTHON scripts/sugar/demo_following/run_matched_state_predictor.py \
-  --arm correct --stop-after-segment --dry-run
+  --design phase_event_reward_only --arm correct \
+  --endpoint-updates 64 --stop-after-segment --dry-run
 ```
 
-Run the two arms serially inside a retained GPU allocation. Use
-`scripts/sugar/native_tactile/launch_retained_child.sh` and pass a fresh `--output-root`. After both
-endpoints pass, evaluate and render with:
+After explicit approval, run the two arms serially inside a retained GPU allocation with
+`--policy-training-authorized`. Use `scripts/sugar/native_tactile/launch_retained_child.sh` and a
+fresh `--output-root`. After both endpoints pass, evaluate updates 32/64, run the independent
+behavior audit for each checkpoint, and render update 64 with:
 
 ```bash
 bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
-  64 same_teacher_reward_only /absolute/path/to/output/seed161581
+  64 phase_event_reward_only /absolute/path/to/output/seed161587
 ```
 
 Set `TEACHER_ONLY_GATE=1` on the same command to run the zero-residual prerequisite gate. Existing

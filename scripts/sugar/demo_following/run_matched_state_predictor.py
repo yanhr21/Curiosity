@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Run the same-teacher selected-demo comparison in 64-update segments.
+"""Prepare or run same-teacher selected-demo comparisons in 64-update segments.
 
 Both arms use the same correct CarryBox45 teacher and differ only in whether
 the selected reward demo is CarryBox45 or KickBox21. The design retains the
 serious SUGAR PPO, official frozen Refiner, official MimicKit prior, frozen
-11.9M predictor, matched seeds and reward weights. Experiment files remain
-below the ignored ``experiments/`` tree.
+serious frozen predictor, matched seeds and reward weights. The active
+phase-aware branch requires an explicit execution flag in addition to a
+non-dry run. Experiment files remain below the ignored ``experiments/`` tree.
 """
 
 from __future__ import annotations
@@ -31,7 +32,40 @@ UNRELATED_DEMO = ROOT / (
     "scripts/sugar/demo_reward/config/"
     "plan11_demo_runtime_unrelated_kickbox21_v1.json"
 )
+PHASE_EVENT_RUNTIME = ROOT / (
+    "experiments/demo_following/contact_event_reward_redesign_v1/"
+    "phase_aware_dense_feedback_scale_audit_v1/RUNTIME_CONFIG.json"
+)
 DESIGNS = {
+    "phase_event_reward_only": {
+        "seed": 161587,
+        "action_seed": 161588,
+        "protocol": "sugar_phase_event_reward_matched_policy_v1",
+        "checkpoint_updates": [32, 64],
+        "output": ROOT
+        / "experiments/demo_following/matched_phase_event_reward_v1",
+        "question": (
+            "With one fixed CarryBox45 teacher and identical optimization, "
+            "does causal phase-aware dense feedback produce behavior that "
+            "depends on CarryBox45 versus unrelated KickBox21?"
+        ),
+        "arms": {
+            "correct": {
+                "protocol_arm": "same_teacher_correct_reward",
+                "teacher": CORRECT_TEACHER,
+                "event_runtime_config": PHASE_EVENT_RUNTIME,
+                "selected_option": "correct",
+                "meaning": "CarryBox45 teacher and CarryBox45 phase-event reward",
+            },
+            "unrelated": {
+                "protocol_arm": "same_teacher_unrelated_reward",
+                "teacher": CORRECT_TEACHER,
+                "event_runtime_config": PHASE_EVENT_RUNTIME,
+                "selected_option": "unrelated",
+                "meaning": "CarryBox45 teacher and KickBox21 phase-event reward",
+            },
+        },
+    },
     "same_teacher_reward_only": {
         "seed": 161581,
         "action_seed": 161582,
@@ -111,13 +145,14 @@ PREDECLARED_SEED_PAIRS = {
     (161581, 161582),
     (161583, 161584),
     (161585, 161586),
+    (161587, 161588),
 }
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--design", choices=tuple(DESIGNS), default="same_teacher_reward_only"
+        "--design", choices=tuple(DESIGNS), default="phase_event_reward_only"
     )
     parser.add_argument("--arm", choices=("correct", "unrelated"), required=True)
     parser.add_argument("--endpoint-updates", type=int)
@@ -137,6 +172,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="validate assets and print the next command without IsaacLab",
     )
+    parser.add_argument(
+        "--policy-training-authorized",
+        action="store_true",
+        help="explicit operator acknowledgement required by the phase-event branch",
+    )
     return parser.parse_args()
 
 
@@ -147,6 +187,9 @@ def workspace_relative(path: Path) -> str:
 
 
 def require_inputs(contract: dict[str, object]) -> None:
+    demo_input = contract.get("demo_config") or contract.get(
+        "event_runtime_config"
+    )
     files = (
         RUNNER,
         PYTHON,
@@ -159,12 +202,17 @@ def require_inputs(contract: dict[str, object]) -> None:
         / "experiments/demo_following/runtime_assets/contact_source/env45_sequence.npz",
         ROOT
         / "experiments/sugar_reproduction/outputs/final/official_sugar/baseline/ckpts/refiner_model10000.pt",
-        contract["demo_config"],
+        demo_input,
         contract["teacher"] / "data_045/robot_50hz.npz",
     )
     missing = [str(path) for path in files if not path.is_file()]
     if missing:
         raise FileNotFoundError(f"required matched-demo inputs missing: {missing}")
+    if contract.get("event_runtime_config") is not None:
+        runtime = json.loads(Path(demo_input).read_text(encoding="utf-8"))
+        for path in (runtime["dataset_root"], runtime["predictor_dir"]):
+            if not Path(path).is_dir():
+                raise FileNotFoundError(path)
     if (ROOT / "MimicKit/.git/HEAD").read_text().strip() != (
         "2ed1e6c093bb0829f55d33cb4f7a1731cfe6cb69"
     ):
@@ -203,7 +251,12 @@ def protocol_payload(
     num_envs: int,
     design: dict[str, object],
 ) -> dict[str, object]:
-    checkpoint_updates = [1, 64] if update == 64 else [update]
+    checkpoint_updates = list(
+        design.get(
+            "checkpoint_updates",
+            [1, 64] if update == 64 else [update],
+        )
+    )
     arms: dict[str, object] = {}
     for name, contract in design["arms"].items():
         paths = segment_paths(output_root, name, update, seed)
@@ -212,7 +265,16 @@ def protocol_payload(
             "teacher_motion_folder": workspace_relative(contract["teacher"]),
             "demo_reward_enabled": True,
             "demo_predictor_telemetry_loaded": True,
-            "demo_runtime_config": workspace_relative(contract["demo_config"]),
+            "demo_runtime_config": workspace_relative(
+                contract.get("demo_config")
+                or contract["event_runtime_config"]
+            ),
+            "demo_reward_kind": (
+                "phase_aware_dense_event"
+                if contract.get("event_runtime_config") is not None
+                else "legacy_potential_difference"
+            ),
+            "selected_option": contract.get("selected_option"),
             "output": workspace_relative(paths["proof"]),
             "checkpoint": workspace_relative(paths["checkpoint"]),
         }
@@ -261,6 +323,9 @@ def protocol_payload(
                 "smp": 0.5,
                 "original_icm": 1,
             },
+            "demo_event_phase_horizon_steps": (
+                650 if design.get("protocol") == "sugar_phase_event_reward_matched_policy_v1" else None
+            ),
         },
         "arms": arms,
         "artifacts": {
@@ -335,10 +400,16 @@ def runner_command(
         "--num-updates",
         str(int(paths["directory"].name.removeprefix("update_"))),
         "--checkpoint-updates",
-        (
-            "1,64"
-            if paths["directory"].name == "update_0064"
-            else str(int(paths["directory"].name.removeprefix("update_")))
+        ",".join(
+            str(value)
+            for value in design.get(
+                "checkpoint_updates",
+                (
+                    [1, 64]
+                    if paths["directory"].name == "update_0064"
+                    else [int(paths["directory"].name.removeprefix("update_"))]
+                ),
+            )
         ),
         "--seed",
         str(args.seed),
@@ -371,8 +442,6 @@ def runner_command(
         "0",
         "--reward-control",
         "full",
-        "--demo-reward-config",
-        str(contract["demo_config"]),
         "--output",
         str(paths["proof"]),
         "--checkpoint",
@@ -381,6 +450,19 @@ def runner_command(
         args.device,
         "--headless",
     ]
+    if contract.get("event_runtime_config") is not None:
+        command.extend(
+            [
+                "--demo-event-reward-config",
+                str(contract["event_runtime_config"]),
+                "--demo-event-selected-option",
+                str(contract["selected_option"]),
+                "--demo-event-phase-horizon-steps",
+                "650",
+            ]
+        )
+    else:
+        command.extend(["--demo-reward-config", str(contract["demo_config"])])
     if previous_checkpoint is not None:
         command[3:3] = ["--resume-checkpoint", str(previous_checkpoint)]
     return command
@@ -446,6 +528,13 @@ def main() -> None:
         if args.endpoint_updates is None
         else args.endpoint_updates
     )
+    phase_event_design = args.design == "phase_event_reward_only"
+    if phase_event_design and not args.dry_run and not args.policy_training_authorized:
+        raise PermissionError(
+            "phase-event policy training requires explicit --policy-training-authorized"
+        )
+    if not phase_event_design and args.policy_training_authorized:
+        raise ValueError("policy authorization flag is scoped to phase_event_reward_only")
     if (args.seed, args.action_seed) not in PREDECLARED_SEED_PAIRS or args.num_envs != 20:
         raise ValueError(
             "matched design requires one predeclared sim/action seed pair and 20 environments"
@@ -454,6 +543,8 @@ def main() -> None:
         raise ValueError("endpoint must be a positive multiple of segment updates")
     if args.segment_updates != 64:
         raise ValueError("the matched segment contract uses 64 updates")
+    if phase_event_design and args.endpoint_updates != 64:
+        raise ValueError("phase-event first endpoint is fixed at 64 updates")
     if args.design == "teacher_floor_overfit" and (
         args.seed, args.action_seed
     ) != (161581, 161582):

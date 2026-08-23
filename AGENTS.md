@@ -20,6 +20,12 @@ causal normalized clock phase. Its training, calibration and fixed CarryBox45/Ki
 reward-scale gates pass. The next branch is a matched policy experiment. Do not start new policy
 training without explicit user approval.
 
+The phase-aware dense runtime is connected to the serious SUGAR rollout integrator and the matched
+correct/unrelated launcher. Frozen evaluation reads both update 32 and 64, runs predictor-independent
+behavior audits separately, and renders the final update-64 demo/actual pair. This integration is
+dry-run and CPU-test complete, but no phase-aware policy checkpoint exists yet. Do not describe
+integration readiness as a policy result.
+
 Routine read-only audits, dataset builds and predictor-only gates may proceed through the documented
 queue. Policy training is the explicit exception and requires user approval.
 

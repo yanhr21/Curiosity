@@ -10,7 +10,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 import torch
@@ -295,15 +295,6 @@ class FrozenDemoEventReward:
             prediction["potential"],
             torch.zeros_like(prediction["potential"]),
         )
-        unit_reward = event_internal_reward(
-            next_potential,
-            next_ready,
-            done,
-            failure_done,
-            compatibility_baseline=self.cfg.compatibility_baseline,
-            eta=1.0,
-            reward_clip=self.cfg.reward_clip,
-        )
         reward = event_internal_reward(
             next_potential,
             next_ready,
@@ -313,6 +304,9 @@ class FrozenDemoEventReward:
             eta=self.cfg.eta,
             reward_clip=self.cfg.reward_clip,
         )
+        if self.cfg.eta <= 0.0:
+            raise ValueError("event reward eta must be positive")
+        unit_reward = reward / float(self.cfg.eta)
         return DemoEventRewardSignals(
             reward=reward,
             unit_eta_reward=unit_reward,
@@ -346,3 +340,256 @@ class FrozenDemoEventReward:
             "history_steps": self.history_steps,
             "alignment_mode": "clock_phase",
         }
+
+
+@dataclass(frozen=True)
+class FrozenPhaseAwareDemoEventScorerCfg:
+    runtime_config_path: str
+    selected_option: str
+    phase_horizon_steps: int = 650
+
+
+class FrozenPhaseAwareDemoEventScorer:
+    """Adapt the frozen event runtime to SUGAR rollout-boundary integration."""
+
+    def __init__(
+        self,
+        *,
+        num_envs: int,
+        device: torch.device | str,
+        cfg: FrozenPhaseAwareDemoEventScorerCfg,
+    ) -> None:
+        self.num_envs = int(num_envs)
+        self.device = torch.device(device)
+        self.cfg = cfg
+        if cfg.phase_horizon_steps <= self.history_steps:
+            raise ValueError("phase horizon must exceed the causal history")
+        config_path = Path(cfg.runtime_config_path).expanduser().resolve()
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+        if payload.get("protocol") != "sugar_dense_demo_event_feedback_runtime_v1":
+            raise ValueError("unexpected demo-event runtime protocol")
+        if payload.get("potential_difference_shaping_used") is not False:
+            raise ValueError("phase event reward must remain dense compatibility feedback")
+        options = payload.get("selected_demo_options", {})
+        if cfg.selected_option not in options:
+            raise ValueError("selected demo option is not declared by the runtime config")
+        selected = options[cfg.selected_option]
+        event_cfg = FrozenDemoEventRewardCfg(
+            dataset_root=str(payload["dataset_root"]),
+            predictor_dir=str(payload["predictor_dir"]),
+            selected_task=str(selected["selected_task"]),
+            selected_motion_id=int(selected["selected_motion_id"]),
+            compatibility_baseline=float(payload["compatibility_baseline"]),
+            eta=float(payload["eta"]),
+            uncertainty_beta=float(payload["uncertainty_beta"]),
+            reward_clip=float(payload["reward_clip"]),
+            per_target_risk_clip=float(payload["per_target_risk_clip"]),
+            target_weights=tuple(float(value) for value in payload["target_weights"]),
+        )
+        self.runtime_config_path = config_path
+        self.runtime = FrozenDemoEventReward(
+            num_envs=self.num_envs,
+            device=self.device,
+            cfg=event_cfg,
+        )
+        self.episode_steps = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self.transitions_scored = 0
+        self.started = False
+
+    @property
+    def history_steps(self) -> int:
+        return FrozenDemoEventReward.history_steps
+
+    def _core(self, observation: Mapping[str, torch.Tensor]) -> torch.Tensor:
+        if "policy" not in observation:
+            raise KeyError("goal-policy observation is missing")
+        return extract_goal_policy_core(observation["policy"])
+
+    @torch.no_grad()
+    def begin(self, observation: Mapping[str, torch.Tensor]) -> dict[str, Any]:
+        if self.started:
+            raise RuntimeError("phase-aware demo event scorer already started")
+        self.runtime.begin(self._core(observation))
+        self.episode_steps.zero_()
+        self.started = True
+        return self.frozen_model_audit()
+
+    @torch.no_grad()
+    def process_step(
+        self,
+        observation_tp1: Mapping[str, torch.Tensor],
+        dones: torch.Tensor,
+    ) -> DemoEventRewardSignals:
+        if not self.started:
+            raise RuntimeError("call begin() before phase-aware event scoring")
+        dones = dones.to(device=self.device, dtype=torch.bool).reshape(-1)
+        if dones.shape != (self.num_envs,):
+            raise ValueError("done mask geometry drift")
+        self.episode_steps += 1
+        phase = torch.clamp(
+            (self.episode_steps.float() + 1.0) / float(self.cfg.phase_horizon_steps),
+            min=0.0,
+            max=1.0,
+        )
+        phase = torch.where(
+            dones,
+            torch.full_like(phase, 1.0 / float(self.cfg.phase_horizon_steps)),
+            phase,
+        )
+        signals = self.runtime.process_step(
+            self._core(observation_tp1),
+            phase,
+            dones,
+            torch.zeros_like(dones),
+        )
+        self.episode_steps[dones] = 0
+        self.transitions_scored += self.num_envs
+        return signals
+
+    def frozen_model_audit(self) -> dict[str, Any]:
+        audit = self.runtime.audit()
+        return {
+            **audit,
+            "model_frozen": (
+                audit["model_training"] is False
+                and int(audit["trainable_parameters"]) == 0
+            ),
+            "transitions_scored": self.transitions_scored,
+            "selected_option": self.cfg.selected_option,
+            "phase_horizon_steps": int(self.cfg.phase_horizon_steps),
+            "phase_source": "reset_bounded_causal_control_clock",
+            "future_actual_events_used": False,
+        }
+
+    def state_dict(self) -> dict[str, Any]:
+        if not self.started:
+            raise RuntimeError("cannot checkpoint an unstarted event scorer")
+        return {
+            "protocol": "sugar_phase_aware_demo_event_scorer_state_v1",
+            "selected_option": self.cfg.selected_option,
+            "phase_horizon_steps": int(self.cfg.phase_horizon_steps),
+            "policy_prefix": self.runtime.policy_prefix.detach().clone(),
+            "valid_count": self.runtime.valid_count.detach().clone(),
+            "episode_steps": self.episode_steps.detach().clone(),
+            "transitions_scored": int(self.transitions_scored),
+        }
+
+    def load_state_dict(self, state: Mapping[str, Any]) -> None:
+        if state.get("protocol") != "sugar_phase_aware_demo_event_scorer_state_v1":
+            raise ValueError("unexpected phase-aware event scorer checkpoint")
+        if (
+            state.get("selected_option") != self.cfg.selected_option
+            or int(state.get("phase_horizon_steps", -1))
+            != int(self.cfg.phase_horizon_steps)
+        ):
+            raise ValueError("phase-aware scorer checkpoint config drift")
+        for name, destination in (
+            ("policy_prefix", self.runtime.policy_prefix),
+            ("valid_count", self.runtime.valid_count),
+            ("episode_steps", self.episode_steps),
+        ):
+            source = state[name].to(device=destination.device, dtype=destination.dtype)
+            if source.shape != destination.shape:
+                raise ValueError(f"phase-aware scorer checkpoint {name} shape drift")
+            destination.copy_(source)
+        self.transitions_scored = int(state["transitions_scored"])
+        self.runtime.started = True
+        self.started = True
+
+
+@dataclass
+class DemoEventRewardAugmentedStepSignals:
+    policy_reward: torch.Tensor
+    task_outcome_reward: torch.Tensor
+    external_constraint_reward: torch.Tensor
+    smp_reward: torch.Tensor
+    icm_discovery_reward: torch.Tensor
+    smp_raw_sds_mean: torch.Tensor
+    smp_raw_sds_by_step: torch.Tensor
+    reward_terms: dict[str, torch.Tensor]
+    transition_valid: torch.Tensor
+    icm_normalizer_bootstrap: bool
+    demo_reward: torch.Tensor
+    demo_unit_eta_reward: torch.Tensor
+    demo_event_potential: torch.Tensor
+    demo_event_risk: torch.Tensor
+    demo_event_uncertainty: torch.Tensor
+    demo_event_ready: torch.Tensor
+    demo_event_phase: torch.Tensor
+
+
+class DemoEventRewardAugmentedSMPICMRolloutIntegrator:
+    """Add phase-aware dense demo feedback after unchanged SMP/ICM scoring."""
+
+    def __init__(self, *, base: Any, demo: FrozenPhaseAwareDemoEventScorer) -> None:
+        if base.device != demo.device or base.env.num_envs != demo.num_envs:
+            raise ValueError("base and demo-event integrations differ")
+        self.base = base
+        self.demo = demo
+        self.last_base_signals: Any | None = None
+
+    @property
+    def at_rollout_boundary(self) -> bool:
+        return self.base.at_rollout_boundary
+
+    def begin(self, observation: Mapping[str, torch.Tensor]) -> dict[str, Any]:
+        return {"smp_window": self.base.begin(), "demo_event": self.demo.begin(observation)}
+
+    @torch.no_grad()
+    def process_step(
+        self,
+        *,
+        observation_t: Mapping[str, torch.Tensor],
+        applied_action_policy_units_t: torch.Tensor,
+        observation_tp1: Mapping[str, torch.Tensor],
+        external_reward: torch.Tensor,
+        dones: torch.Tensor,
+    ) -> DemoEventRewardAugmentedStepSignals:
+        base_signals = self.base.process_step(
+            observation_t=observation_t,
+            applied_action_policy_units_t=applied_action_policy_units_t,
+            observation_tp1=observation_tp1,
+            external_reward=external_reward,
+            dones=dones,
+        )
+        self.last_base_signals = base_signals
+        event = self.demo.process_step(observation_tp1, dones)
+        policy_reward = base_signals.policy_reward + event.reward
+        if not torch.isfinite(policy_reward).all():
+            raise RuntimeError("non-finite phase-aware demo-event policy reward")
+        values = dict(vars(base_signals))
+        values["policy_reward"] = policy_reward.detach().clone()
+        return DemoEventRewardAugmentedStepSignals(
+            **values,
+            demo_reward=event.reward,
+            demo_unit_eta_reward=event.unit_eta_reward,
+            demo_event_potential=event.next_potential,
+            demo_event_risk=event.next_risk,
+            demo_event_uncertainty=event.next_weighted_uncertainty,
+            demo_event_ready=event.next_ready,
+            demo_event_phase=event.selected_demo_phase,
+        )
+
+    def finish_rollout(self) -> dict[str, Any]:
+        return {
+            **self.base.finish_rollout(),
+            "demo_event_predictor_updated": False,
+            "demo_event_model_frozen": self.demo.frozen_model_audit()["model_frozen"],
+        }
+
+    def state_dict(self) -> dict[str, Any]:
+        if not self.at_rollout_boundary:
+            raise RuntimeError("checkpoint event integration at rollout boundary")
+        return {
+            "protocol": "sugar_demo_event_reward_augmented_smp_icm_v1",
+            "base": self.base.state_dict(),
+            "demo_event": self.demo.state_dict(),
+        }
+
+    def load_state_dict(self, state: Mapping[str, Any]) -> None:
+        if state.get("protocol") != "sugar_demo_event_reward_augmented_smp_icm_v1":
+            raise ValueError("unexpected demo-event integration checkpoint")
+        self.base.load_state_dict(state["base"])
+        self.demo.load_state_dict(state["demo_event"])

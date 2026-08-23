@@ -135,6 +135,23 @@ parser.add_argument(
     ),
 )
 parser.add_argument(
+    "--demo-event-reward-config",
+    type=Path,
+    default=None,
+    help="frozen phase-aware dense contact/event reward scale config",
+)
+parser.add_argument(
+    "--demo-event-selected-option",
+    choices=("correct", "unrelated"),
+    default=None,
+)
+parser.add_argument(
+    "--demo-event-phase-horizon-steps",
+    type=int,
+    default=650,
+    help="shared causal clock horizon; Carry45 and Kick21 both contain 660 frames",
+)
+parser.add_argument(
     "--protocol-config",
     type=Path,
     default=None,
@@ -412,6 +429,12 @@ from sugar_rl.utils.demo_reward_runtime import (  # noqa: E402
     DemoRewardAugmentedSMPICMRolloutIntegrator,
     FrozenDemoRewardRuntimeCfg,
     FrozenDemoRewardScorer,
+)
+from sugar_rl.utils.demo_event_reward_runtime import (  # noqa: E402
+    DemoEventRewardAugmentedSMPICMRolloutIntegrator,
+    FrozenPhaseAwareDemoEventScorer,
+    FrozenPhaseAwareDemoEventScorerCfg,
+    extract_goal_policy_core,
 )
 from sugar_rl.utils.paper_cws_rollout_integration import (  # noqa: E402
     PaperCWSAugmentedSMPICMRolloutIntegrator,
@@ -1862,12 +1885,27 @@ def main() -> None:
     demo_reward_telemetry_contract = (
         args.demo_reward_telemetry_config is not None
     )
-    if demo_reward_contract and demo_reward_telemetry_contract:
-        raise ValueError(
-            "demo reward and read-only telemetry modes are mutually exclusive"
+    demo_event_reward_contract = args.demo_event_reward_config is not None
+    if sum(
+        bool(value)
+        for value in (
+            demo_reward_contract,
+            demo_reward_telemetry_contract,
+            demo_event_reward_contract,
         )
+    ) > 1:
+        raise ValueError(
+            "legacy demo, demo telemetry and phase-event reward are mutually exclusive"
+        )
+    if demo_event_reward_contract != (args.demo_event_selected_option is not None):
+        raise ValueError("phase-event config and selected option must be declared together")
     demo_predictor_loaded_contract = (
-        demo_reward_contract or demo_reward_telemetry_contract
+        demo_reward_contract
+        or demo_reward_telemetry_contract
+        or demo_event_reward_contract
+    )
+    active_demo_reward_contract = (
+        demo_reward_contract or demo_event_reward_contract
     )
     early_protocol_config = None
     if args.protocol_config is not None:
@@ -1888,12 +1926,21 @@ def main() -> None:
             "sugar_plan11_wrong_teacher_reward_conflict_v1",
             "sugar_plan11_fixed_teacher_demo_identity_v2",
             "sugar_plan11_teacher_floor_overfit_v1",
+            "sugar_phase_event_reward_matched_policy_v1",
         }
     )
     fixed_teacher_demo_identity_contract = (
         early_protocol_config is not None
         and early_protocol_config.get("protocol")
-        == "sugar_plan11_fixed_teacher_demo_identity_v2"
+        in {
+            "sugar_plan11_fixed_teacher_demo_identity_v2",
+            "sugar_phase_event_reward_matched_policy_v1",
+        }
+    )
+    phase_event_protocol_contract = (
+        early_protocol_config is not None
+        and early_protocol_config.get("protocol")
+        == "sugar_phase_event_reward_matched_policy_v1"
     )
     teacher_floor_overfit_contract = (
         early_protocol_config is not None
@@ -2070,7 +2117,7 @@ def main() -> None:
         wrong_teacher_reward_conflict_contract
         and native_authority_contract
         and residual_teacher_contract
-        and demo_reward_contract
+        and active_demo_reward_contract
         and explicit_zero_tactile_contract
         and args.num_envs == 20
         and (
@@ -2084,7 +2131,8 @@ def main() -> None:
             or (
                 resume_payload is None
                 and args.num_updates == 64
-                and args.checkpoint_updates == "1,64"
+                and args.checkpoint_updates
+                == ("32,64" if phase_event_protocol_contract else "1,64")
             )
         )
         and args.policy_contract
@@ -2126,7 +2174,7 @@ def main() -> None:
     posture_capacity_contract = (
         posture_adaptive_contract
         and native_authority_contract
-        and not demo_reward_contract
+        and not active_demo_reward_contract
         and args.num_envs in (20, 40, 60, 80)
         and args.num_updates == 2
         and args.checkpoint_updates == "1,2"
@@ -2173,7 +2221,7 @@ def main() -> None:
             "floor 0.65, arm-only release, advancing support, no grace, "
             "and the full separately logged reward mix"
         )
-    if demo_reward_contract and not (
+    if active_demo_reward_contract and not (
         native_authority_contract
         and (
             native_authority_smoke_contract
@@ -2197,7 +2245,7 @@ def main() -> None:
             "strict deterministic Torch is locked to a matched action seed"
         )
     if (
-        (args.action_seed is not None or demo_reward_contract)
+        (args.action_seed is not None or active_demo_reward_contract)
         and args.protocol_config is None
     ):
         raise ValueError(
@@ -2441,7 +2489,7 @@ def main() -> None:
     motion_folder = args.motion_folder.expanduser().resolve()
     prior_dir = args.prior_dir.expanduser().resolve()
     contact_source = args.contact_source.expanduser().resolve()
-    demo_reward_config_path = (
+    legacy_demo_reward_config_path = (
         (
             args.demo_reward_config
             if demo_reward_contract
@@ -2449,8 +2497,18 @@ def main() -> None:
         )
         .expanduser()
         .resolve()
-        if demo_predictor_loaded_contract
+        if (demo_reward_contract or demo_reward_telemetry_contract)
         else None
+    )
+    demo_event_reward_config_path = (
+        args.demo_event_reward_config.expanduser().resolve()
+        if demo_event_reward_contract
+        else None
+    )
+    demo_predictor_config_path = (
+        demo_event_reward_config_path
+        if demo_event_reward_contract
+        else legacy_demo_reward_config_path
     )
     protocol_config_path = (
         args.protocol_config.expanduser().resolve()
@@ -2468,8 +2526,14 @@ def main() -> None:
         else None
     )
     demo_reward_config = (
-        _load_demo_reward_config(demo_reward_config_path)
-        if demo_predictor_loaded_contract
+        _load_demo_reward_config(legacy_demo_reward_config_path)
+        if legacy_demo_reward_config_path is not None
+        else None
+    )
+    demo_event_reward_config = (
+        json.loads(demo_event_reward_config_path.read_text(encoding="utf-8"))
+        if demo_event_reward_config_path is not None
+        and demo_event_reward_config_path.is_file()
         else None
     )
     teacher_checkpoint = (
@@ -2497,10 +2561,10 @@ def main() -> None:
     if not contact_source.is_file():
         raise FileNotFoundError(contact_source)
     if (
-        demo_reward_config_path is not None
-        and not demo_reward_config_path.is_file()
+        demo_predictor_config_path is not None
+        and not demo_predictor_config_path.is_file()
     ):
-        raise FileNotFoundError(demo_reward_config_path)
+        raise FileNotFoundError(demo_predictor_config_path)
     if (
         protocol_config_path is not None
         and not protocol_config_path.is_file()
@@ -2608,6 +2672,7 @@ def main() -> None:
                 "sugar_plan11_wrong_teacher_reward_conflict_v1",
                 "sugar_plan11_fixed_teacher_demo_identity_v2",
                 "sugar_plan11_teacher_floor_overfit_v1",
+                "sugar_phase_event_reward_matched_policy_v1",
             }
         )
         plan11_icm_policy_credit_protocol = (
@@ -2627,6 +2692,7 @@ def main() -> None:
                 "sugar_plan11_fixed_teacher_demo_identity_v2",
                 "sugar_plan11_teacher_floor_overfit_v1",
                 "sugar_plan11_original_icm_policy_credit_zero_tactile_v1",
+                "sugar_phase_event_reward_matched_policy_v1",
             }
         )
         if plan11_protocol_arm != (args.protocol_arm is not None):
@@ -2657,6 +2723,7 @@ def main() -> None:
             "sugar_plan11_fixed_teacher_demo_identity_v2",
             "sugar_plan11_teacher_floor_overfit_v1",
             "sugar_plan11_original_icm_policy_credit_zero_tactile_v1",
+            "sugar_phase_event_reward_matched_policy_v1",
         }
         mount_contract_exact = (
             (
@@ -2699,6 +2766,7 @@ def main() -> None:
                 "sugar_plan11_fixed_teacher_demo_identity_v2",
                 "sugar_plan11_teacher_floor_overfit_v1",
                 "sugar_plan11_original_icm_policy_credit_zero_tactile_v1",
+                "sugar_phase_event_reward_matched_policy_v1",
             }
             and int(shared["sim_and_policy_seed"]) == args.seed
             and int(shared["action_seed"]) == args.action_seed
@@ -2718,7 +2786,7 @@ def main() -> None:
             and _workspace_path(arm["output"]) == output
             and _workspace_path(arm["checkpoint"]) == checkpoint
             and bool(arm["demo_reward_enabled"])
-            is demo_reward_contract
+            is active_demo_reward_contract
             and bool(
                 arm.get(
                     "demo_predictor_telemetry_loaded",
@@ -2737,9 +2805,20 @@ def main() -> None:
             )
             and (
                 _workspace_path(arm["demo_runtime_config"])
-                == demo_reward_config_path
+                == demo_predictor_config_path
                 if demo_predictor_loaded_contract
                 else arm.get("demo_runtime_config") is None
+            )
+            and (
+                not phase_event_protocol_contract
+                or (
+                    arm.get("demo_reward_kind")
+                    == "phase_aware_dense_event"
+                    and arm.get("selected_option")
+                    == args.demo_event_selected_option
+                    and int(shared.get("demo_event_phase_horizon_steps", -1))
+                    == args.demo_event_phase_horizon_steps
+                )
             )
             and _workspace_path(
                 protocol_config["artifacts"]["runner_source"]["path"]
@@ -2842,6 +2921,22 @@ def main() -> None:
         or float(demo_reward_config["potential"]["gamma"]) != 0.99
     ):
         raise ValueError("unexpected frozen demo-potential runtime config")
+    if demo_event_reward_contract:
+        if (
+            demo_event_reward_config is None
+            or demo_event_reward_config.get("protocol")
+            != "sugar_dense_demo_event_feedback_runtime_v1"
+            or demo_event_reward_config.get("potential_difference_shaping_used")
+            is not False
+            or demo_event_reward_config.get("future_actual_events_enter_runtime")
+            is not False
+            or args.demo_event_selected_option
+            not in demo_event_reward_config.get("selected_demo_options", {})
+        ):
+            raise ValueError("unexpected phase-aware demo-event runtime config")
+        for source_name in ("dataset_root", "predictor_dir"):
+            if not Path(demo_event_reward_config[source_name]).is_dir():
+                raise FileNotFoundError(demo_event_reward_config[source_name])
     if teacher_checkpoint is not None and not teacher_checkpoint.is_file():
         raise FileNotFoundError(teacher_checkpoint)
 
@@ -3484,7 +3579,7 @@ def main() -> None:
                 num_envs=base_env.num_envs,
                 device=base_env.device,
                 cfg=FrozenDemoRewardRuntimeCfg(
-                    config_path=str(demo_reward_config_path),
+                    config_path=str(legacy_demo_reward_config_path),
                     gamma=float(
                         demo_reward_config["potential"]["gamma"]
                     ),
@@ -3496,9 +3591,27 @@ def main() -> None:
                     ),
                 ),
             )
-            if demo_predictor_loaded_contract
+            if (demo_reward_contract or demo_reward_telemetry_contract)
             else None
         )
+        demo_event_scorer = (
+            FrozenPhaseAwareDemoEventScorer(
+                num_envs=base_env.num_envs,
+                device=base_env.device,
+                cfg=FrozenPhaseAwareDemoEventScorerCfg(
+                    runtime_config_path=str(demo_event_reward_config_path),
+                    selected_option=args.demo_event_selected_option,
+                    phase_horizon_steps=args.demo_event_phase_horizon_steps,
+                ),
+            )
+            if demo_event_reward_contract
+            else None
+        )
+        if demo_event_reward_contract:
+            extract_goal_policy_core(
+                observations["policy"],
+                list(base_env.observation_manager.active_terms["policy"]),
+            )
         integrator = (
             PaperCWSAugmentedSMPICMRolloutIntegrator(
                 base=base_integrator,
@@ -3507,22 +3620,29 @@ def main() -> None:
             )
             if paper_cws_contract
             else (
-                DemoRewardAugmentedSMPICMRolloutIntegrator(
+                DemoEventRewardAugmentedSMPICMRolloutIntegrator(
                     base=base_integrator,
-                    demo=demo_scorer,
+                    demo=demo_event_scorer,
                 )
-                if demo_reward_contract
-                else base_integrator
+                if demo_event_reward_contract
+                else (
+                    DemoRewardAugmentedSMPICMRolloutIntegrator(
+                        base=base_integrator,
+                        demo=demo_scorer,
+                    )
+                    if demo_reward_contract
+                    else base_integrator
+                )
             )
         )
         initial_begin = (
             integrator.begin(observations)
-            if demo_reward_contract
+            if active_demo_reward_contract
             else integrator.begin()
         )
         initial_smp_window = (
             initial_begin["smp_window"]
-            if demo_reward_contract
+            if active_demo_reward_contract
             else initial_begin
         )
         resume_rng_mode = "fresh_action_seed"
@@ -3546,8 +3666,12 @@ def main() -> None:
             resume_integration = dict(
                 resume_payload["integration_state_dict"]
             )
-            if demo_reward_contract:
-                fresh_demo_state = demo_scorer.state_dict()
+            if active_demo_reward_contract:
+                fresh_demo_state = (
+                    demo_event_scorer.state_dict()
+                    if demo_event_reward_contract
+                    else demo_scorer.state_dict()
+                )
                 resume_demo_state = dict(resume_integration["demo"])
                 for name in (
                     "policy_prefix",
@@ -3646,7 +3770,7 @@ def main() -> None:
                 ),
                 "smp_window_reinitialized_from_live_reset": True,
                 "demo_prefix_reinitialized_from_live_reset": bool(
-                    demo_reward_contract
+                    active_demo_reward_contract
                 ),
             }
             initial_action_std = (
@@ -3712,6 +3836,11 @@ def main() -> None:
         raw_sds_means: list[float] = []
         demo_reward_means: list[float] = []
         demo_unit_reward_means: list[float] = []
+        demo_event_potential_means: list[float] = []
+        demo_event_risk_means: list[float] = []
+        demo_event_uncertainty_means: list[float] = []
+        demo_event_ready_fractions: list[float] = []
+        demo_event_phase_means: list[float] = []
         paper_cws_reward_means: list[float] = []
         paper_cws_weighted_reward_means: list[float] = []
         paper_cws_missed_contact_counts: list[int] = []
@@ -4113,7 +4242,7 @@ def main() -> None:
                                 integrator.last_base_signals.icm_discovery_reward,
                             )
                         )
-                    elif demo_reward_contract:
+                    elif active_demo_reward_contract:
                         if integrator.last_base_signals is None:
                             raise RuntimeError(
                                 "demo adapter omitted unchanged base signals"
@@ -4135,7 +4264,7 @@ def main() -> None:
                         * signals.icm_discovery_reward
                         + (
                             signals.demo_reward
-                            if demo_reward_contract
+                            if active_demo_reward_contract
                             else torch.zeros_like(signals.policy_reward)
                         )
                         + (
@@ -4173,7 +4302,7 @@ def main() -> None:
                             (
                                 integrator.last_base_signals.policy_reward
                                 if (
-                                    demo_reward_contract
+                                    active_demo_reward_contract
                                     or paper_cws_contract
                                 )
                                 else signals.policy_reward
@@ -4192,12 +4321,28 @@ def main() -> None:
                     raw_sds_means.append(
                         float(signals.smp_raw_sds_mean.mean())
                     )
-                    if demo_reward_contract:
+                    if active_demo_reward_contract:
                         demo_reward_means.append(
                             float(signals.demo_reward.mean())
                         )
                         demo_unit_reward_means.append(
                             float(signals.demo_unit_eta_reward.mean())
+                        )
+                    if demo_event_reward_contract:
+                        demo_event_potential_means.append(
+                            float(signals.demo_event_potential.mean())
+                        )
+                        demo_event_risk_means.append(
+                            float(signals.demo_event_risk.mean())
+                        )
+                        demo_event_uncertainty_means.append(
+                            float(signals.demo_event_uncertainty.mean())
+                        )
+                        demo_event_ready_fractions.append(
+                            float(signals.demo_event_ready.float().mean())
+                        )
+                        demo_event_phase_means.append(
+                            float(signals.demo_event_phase.mean())
                         )
                     if paper_cws_contract:
                         paper_cws_reward_means.append(
@@ -4449,6 +4594,15 @@ def main() -> None:
                 if demo_reward_contract
                 else None
             )
+            reload_demo_event_scorer = (
+                FrozenPhaseAwareDemoEventScorer(
+                    num_envs=base_env.num_envs,
+                    device=base_env.device,
+                    cfg=demo_event_scorer.cfg,
+                )
+                if demo_event_reward_contract
+                else None
+            )
             reload_integrator = (
                 PaperCWSAugmentedSMPICMRolloutIntegrator(
                     base=reload_base_integrator,
@@ -4457,15 +4611,22 @@ def main() -> None:
                 )
                 if reload_paper_cws_scorer is not None
                 else (
-                    DemoRewardAugmentedSMPICMRolloutIntegrator(
+                    DemoEventRewardAugmentedSMPICMRolloutIntegrator(
                         base=reload_base_integrator,
-                        demo=reload_demo_scorer,
+                        demo=reload_demo_event_scorer,
                     )
-                    if reload_demo_scorer is not None
-                    else reload_base_integrator
+                    if reload_demo_event_scorer is not None
+                    else (
+                        DemoRewardAugmentedSMPICMRolloutIntegrator(
+                            base=reload_base_integrator,
+                            demo=reload_demo_scorer,
+                        )
+                        if reload_demo_scorer is not None
+                        else reload_base_integrator
+                    )
                 )
             )
-            if demo_reward_contract:
+            if active_demo_reward_contract:
                 reload_integrator.begin(observations)
             else:
                 reload_integrator.begin()
@@ -4632,6 +4793,11 @@ def main() -> None:
             + raw_sds_means
             + demo_reward_means
             + demo_unit_reward_means
+            + demo_event_potential_means
+            + demo_event_risk_means
+            + demo_event_uncertainty_means
+            + demo_event_ready_fractions
+            + demo_event_phase_means
             + paper_cws_reward_means
             + paper_cws_weighted_reward_means
             + _numeric_leaves(policy_update_metrics_by_update)
@@ -4681,7 +4847,9 @@ def main() -> None:
             else None
         )
         demo_final_audit = (
-            demo_scorer.frozen_model_audit()
+            demo_event_scorer.frozen_model_audit()
+            if demo_event_scorer is not None
+            else demo_scorer.frozen_model_audit()
             if demo_scorer is not None
             else None
         )
@@ -6105,6 +6273,87 @@ def main() -> None:
                     ),
                 }
             )
+        elif demo_event_reward_contract:
+            event_eta = float(demo_event_reward_config["eta"])
+            selected_event = demo_event_reward_config[
+                "selected_demo_options"
+            ][args.demo_event_selected_option]
+            checks.update(
+                {
+                    "demo_event_predictor_frozen_every_rollout": (
+                        demo_final_audit is not None
+                        and demo_final_audit["model_frozen"] is True
+                        and all(
+                            record["metrics"]["demo_event_model_frozen"]
+                            is True
+                            and record["metrics"][
+                                "demo_event_predictor_updated"
+                            ]
+                            is False
+                            for record in integration_metrics_by_update
+                        )
+                    ),
+                    "demo_event_scored_every_transition": (
+                        demo_final_audit["transitions_scored"]
+                        == expected_samples_per_update * args.num_updates
+                    ),
+                    "demo_event_reward_nonzero_and_finite": (
+                        bool(demo_reward_means)
+                        and max(abs(value) for value in demo_reward_means) > 0.0
+                        and all(
+                            np.isfinite(value)
+                            for value in (
+                                demo_reward_means
+                                + demo_unit_reward_means
+                                + demo_event_potential_means
+                                + demo_event_risk_means
+                                + demo_event_uncertainty_means
+                                + demo_event_ready_fractions
+                                + demo_event_phase_means
+                            )
+                        )
+                    ),
+                    "demo_event_eta_step_means_reconstruct": all(
+                        np.isclose(
+                            reward,
+                            event_eta * unit,
+                            rtol=1.0e-6,
+                            atol=5.0e-7,
+                        )
+                        for reward, unit in zip(
+                            demo_reward_means,
+                            demo_unit_reward_means,
+                            strict=True,
+                        )
+                    ),
+                    "demo_event_does_not_modify_original_icm_output": (
+                        demo_icm_bitwise_unchanged
+                    ),
+                    "demo_event_phase_and_prefix_are_causal": (
+                        demo_final_audit["phase_source"]
+                        == "reset_bounded_causal_control_clock"
+                        and demo_final_audit["future_actual_events_used"]
+                        is False
+                        and demo_final_audit["history_steps"] == 10
+                        and all(
+                            0.0 <= value <= 1.0
+                            for value in demo_event_phase_means
+                        )
+                        and all(
+                            0.0 <= value <= 1.0
+                            for value in demo_event_ready_fractions
+                        )
+                    ),
+                    "demo_event_selected_demo_exact": (
+                        demo_final_audit["selected_option"]
+                        == args.demo_event_selected_option
+                        and demo_final_audit["selected_task"]
+                        == selected_event["selected_task"]
+                        and int(demo_final_audit["selected_motion_id"])
+                        == int(selected_event["selected_motion_id"])
+                    ),
+                }
+            )
         else:
             checks["no_demo_reward_added_to_control"] = (
                 not demo_reward_means
@@ -6268,7 +6517,12 @@ def main() -> None:
                     )
                     else (
                         args.num_updates == 64
-                        and checkpoint_updates == {1, 64}
+                        and checkpoint_updates
+                        == (
+                            {32, 64}
+                            if phase_event_protocol_contract
+                            else {1, 64}
+                        )
                         and len(policy_update_metrics_by_update) == 64
                     )
                 )
@@ -6340,7 +6594,9 @@ def main() -> None:
                 else "sugar_stage_h_h1_multistep_stability_v1"
             )
         elif goal_recovery_contract:
-            if fixed_teacher_demo_identity_contract:
+            if phase_event_protocol_contract:
+                protocol = "sugar_phase_event_reward_matched_policy_v1"
+            elif fixed_teacher_demo_identity_contract:
                 protocol = "sugar_plan11_fixed_teacher_demo_identity_v2"
             elif teacher_floor_overfit_contract:
                 protocol = "sugar_plan11_teacher_floor_overfit_v1"
@@ -6851,7 +7107,7 @@ def main() -> None:
                     ),
                 ]
             )
-        if demo_predictor_loaded_contract:
+        if demo_reward_contract or demo_reward_telemetry_contract:
             source_paths.extend(
                 [
                     WORKSPACE_ROOT
@@ -6864,7 +7120,7 @@ def main() -> None:
                         "SUGAR/source/sugar_rl/sugar_rl/utils/"
                         "demo_reward_potential.py"
                     ),
-                    demo_reward_config_path,
+                    legacy_demo_reward_config_path,
                     WORKSPACE_ROOT
                     / (
                         "scripts/sugar/demo_reward/"
@@ -7341,9 +7597,9 @@ def main() -> None:
             ),
             "demo_reward": (
                 {
-                    "runtime_config": str(demo_reward_config_path),
+                    "runtime_config": str(legacy_demo_reward_config_path),
                     "runtime_config_sha256": _sha256(
-                        demo_reward_config_path
+                        legacy_demo_reward_config_path
                     ),
                     "eta": float(
                         demo_reward_config["potential"]["eta"]
@@ -7364,9 +7620,9 @@ def main() -> None:
             ),
             "demo_reward_telemetry": (
                 {
-                    "runtime_config": str(demo_reward_config_path),
+                    "runtime_config": str(legacy_demo_reward_config_path),
                     "runtime_config_sha256": _sha256(
-                        demo_reward_config_path
+                        legacy_demo_reward_config_path
                     ),
                     "reward_enabled": False,
                     "selected_demo_motion_id": (
@@ -7378,6 +7634,27 @@ def main() -> None:
                     "final_frozen_audit": demo_final_audit,
                 }
                 if demo_reward_telemetry_contract
+                else None
+            ),
+            "demo_event_reward": (
+                {
+                    "runtime_config": str(demo_event_reward_config_path),
+                    "selected_option": args.demo_event_selected_option,
+                    "selected_demo_task": demo_final_audit["selected_task"],
+                    "selected_demo_motion_id": demo_final_audit[
+                        "selected_motion_id"
+                    ],
+                    "selected_demo_bank_row": demo_final_audit[
+                        "selected_demo_row"
+                    ],
+                    "eta": float(demo_event_reward_config["eta"]),
+                    "compatibility_baseline": float(
+                        demo_event_reward_config["compatibility_baseline"]
+                    ),
+                    "phase_horizon_steps": args.demo_event_phase_horizon_steps,
+                    "final_frozen_audit": demo_final_audit,
+                }
+                if demo_event_reward_contract
                 else None
             ),
             "reward_mix": base_integrator.state_dict()["mix_config"],
@@ -7396,6 +7673,11 @@ def main() -> None:
                 "raw_sds": raw_sds_means,
                 "demo_reward": demo_reward_means,
                 "demo_unit_eta_reward": demo_unit_reward_means,
+                "demo_event_potential": demo_event_potential_means,
+                "demo_event_risk": demo_event_risk_means,
+                "demo_event_uncertainty": demo_event_uncertainty_means,
+                "demo_event_ready_fraction": demo_event_ready_fractions,
+                "demo_event_phase": demo_event_phase_means,
                 "paper_cws_reward": paper_cws_reward_means,
                 "paper_cws_weighted_reward": (
                     paper_cws_weighted_reward_means

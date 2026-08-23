@@ -34,6 +34,12 @@ parser.add_argument(
     help="Render only the unrelated-demo update-128 preview (source env 0).",
 )
 parser.add_argument(
+    "--actual-source-env",
+    type=int,
+    default=None,
+    help="environment row to render from each matched trace",
+)
+parser.add_argument(
     "--matched-update64",
     "--matched-endpoint",
     dest="matched_pair",
@@ -334,7 +340,14 @@ def main() -> None:
     }
     correct_reference = load_reference(references["correct"])
     unrelated_reference = load_reference(references["unrelated"])
-    source_env = 0 if args.matched_pair else FINAL_SOURCE_ENV
+    source_env = (
+        args.actual_source_env
+        if args.actual_source_env is not None
+        else (0 if args.matched_pair else FINAL_SOURCE_ENV)
+    )
+    for trace_path in (correct_trace, unrelated_trace):
+        if source_env < 0 or source_env >= load_npz(trace_path)["done"].shape[1]:
+            raise ValueError("actual source environment is outside the trace")
     correct_actual = (
         None
         if args.preview_update128

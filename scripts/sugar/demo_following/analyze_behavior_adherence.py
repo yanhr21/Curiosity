@@ -85,6 +85,7 @@ REQUIRED_TRACE_KEYS = {
     "right_hand_rigid_contact_force_w",
 }
 OPTIONAL_TRACE_KEYS = {
+    "policy_updates",
     "robot_body_position_w",
     "left_foot_box_contact_force_w",
     "right_foot_box_contact_force_w",
@@ -133,6 +134,12 @@ def parse_args() -> argparse.Namespace:
         "--unrelated-reference", type=Path, default=UNRELATED_REFERENCE
     )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--policy-update",
+        type=int,
+        default=None,
+        help="select one checkpoint block from a multi-update frozen trace",
+    )
     return parser.parse_args()
 
 
@@ -145,6 +152,31 @@ def load_trace(path: Path) -> dict[str, np.ndarray]:
             raise KeyError(f"{path} is missing required trace fields: {sorted(missing)}")
         selected = REQUIRED_TRACE_KEYS | OPTIONAL_TRACE_KEYS.intersection(archive.files)
         return {name: np.asarray(archive[name]) for name in selected}
+
+
+def select_policy_update(
+    trace: dict[str, np.ndarray], update: int | None
+) -> dict[str, np.ndarray]:
+    if update is None:
+        return trace
+    if "policy_updates" not in trace:
+        raise KeyError("--policy-update requires policy_updates in the trace")
+    updates = np.asarray(trace["policy_updates"], dtype=np.int64)
+    rows = np.flatnonzero(updates == int(update))
+    if rows.size != 1 or trace["done"].shape[1] % len(updates):
+        raise ValueError("policy update blocks are not uniquely addressable")
+    profiles_per_update = trace["done"].shape[1] // len(updates)
+    start = int(rows[0]) * profiles_per_update
+    stop = start + profiles_per_update
+    selected: dict[str, np.ndarray] = {}
+    for name, value in trace.items():
+        if name == "policy_updates":
+            selected[name] = np.asarray([update], dtype=np.int64)
+        elif value.ndim >= 2 and value.shape[1] == trace["done"].shape[1]:
+            selected[name] = value[:, start:stop]
+        else:
+            selected[name] = value
+    return selected
 
 
 def load_reference(path: Path) -> dict[str, np.ndarray]:
@@ -601,8 +633,12 @@ def initial_state_checks(
 
 def main() -> None:
     args = parse_args()
-    correct_trace = load_trace(args.correct_trace.resolve())
-    unrelated_trace = load_trace(args.unrelated_trace.resolve())
+    correct_trace = select_policy_update(
+        load_trace(args.correct_trace.resolve()), args.policy_update
+    )
+    unrelated_trace = select_policy_update(
+        load_trace(args.unrelated_trace.resolve()), args.policy_update
+    )
     state_checks = initial_state_checks(correct_trace, unrelated_trace)
     if not state_checks["profile_count_equal"] or not state_checks["frame_budget_equal"]:
         raise RuntimeError("correct and unrelated traces are not profile-matched")
@@ -694,6 +730,7 @@ def main() -> None:
         },
         "matched_checks": state_checks,
         "profile_count": profile_count,
+        "policy_update": args.policy_update,
         "reference_motion_semantics": {
             "carry45": references["carry45"],
             "kick21": references["kick21"],

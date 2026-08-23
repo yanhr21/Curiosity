@@ -72,6 +72,11 @@ reward-scale audit 通过全部 10 项门槛，validation/test 都双向偏好�
 121-D 输入、9-transition warmup、reset-safe history、phase 输入、eval mode 和零可训练参数。
 这建立了可接入策略的因果语义奖励，不等于 policy 已经遵循 demo。
 
+该 reward 现已接入正式 SUGAR rollout boundary：base task/SMP/original ICM 保持不变，冻结
+predictor 只把 dense feedback 加到 policy reward，并记录 risk、uncertainty、ready 和 phase。
+correct/unrelated 两臂的同 teacher 协议、update 32/64 checkpoint、冻结评估、独立行为审计和
+最终双视频入口均已通过 dry-run/CPU 回归；截至当前仍未启动新的 policy optimization。
+
 官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
 完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
 任意 Transformer hidden state 冒充 SMP latent，现有证据也不支持 selected-demo SMP
@@ -129,14 +134,22 @@ normal/shear 混合、摩擦不一致、slip reset 丢失、训练/评测 motion
 cd /public/home/yanhongru/Curiosity
 export PYTHON_BIN=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
 
-# 无仿真：检查当前 same-teacher 配置和下一条训练命令
+# 无仿真：检查 phase-aware matched 配置和下一条训练命令
 $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
-  --design same_teacher_reward_only --arm correct \
+  --design phase_event_reward_only --arm correct \
   --endpoint-updates 64 --stop-after-segment --dry-run
 
-# GPU compute node：复核现有冻结评估和完整视频
+# 仅在用户明确授权 policy training 后，GPU compute node 串行执行 correct，再执行 unrelated
+$PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
+  --design phase_event_reward_only --arm correct \
+  --endpoint-updates 64 --stop-after-segment --policy-training-authorized
+$PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
+  --design phase_event_reward_only --arm unrelated \
+  --endpoint-updates 64 --stop-after-segment --policy-training-authorized
+
+# 两臂 endpoint proof 通过后：冻结评估 update 32/64、独立行为审计和完整双视频
 bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
-  64 same_teacher_reward_only
+  64 phase_event_reward_only
 
 # 无 GPU：从现有 traces 重算独立行为审计
 $PYTHON_BIN scripts/sugar/demo_following/analyze_behavior_adherence.py

@@ -90,6 +90,13 @@ experiment is one explicitly authorized matched fixed-teacher policy comparison.
 initialization, physics, task reward, seeds, budget and evaluation remain fixed; only the selected
 demo changes. Inspect updates 32 and 64, and judge only predictor-independent frozen behavior.
 
+Implementation admission is complete: the frozen event scorer consumes the exact 121-D policy
+prefix online, uses a reset-bounded causal clock, waits for ten states, adds dense feedback after the
+unchanged SMP/original-ICM calculation, and exposes no future event label to the actor. The matched
+launcher uses seed/action-seed `161587/161588`; both arms use the same CarryBox45 fixed teacher and
+differ only by `selected_option=correct/unrelated`. Frozen evaluation is predeclared at updates 32
+and 64 with 20 matched physics profiles per checkpoint. No new policy training has started.
+
 ### Expected behavior, not just reward score
 
 For the correct Carry demo, the expected interaction is: approach the box, establish bilateral hand

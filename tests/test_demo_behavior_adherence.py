@@ -93,3 +93,17 @@ def test_behavior_conclusion_matches_observed_direction_count() -> None:
     assert "does not move" in MODULE.summarize_behavior_shift(0, 4)
     assert "3/4" in MODULE.summarize_behavior_shift(3, 4)
     assert "all predeclared" in MODULE.summarize_behavior_shift(4, 4)
+
+
+def test_multi_checkpoint_trace_selects_one_twenty_profile_block() -> None:
+    trace = {
+        "policy_updates": np.asarray([32, 64]),
+        "done": np.zeros((3, 40), dtype=bool),
+        "robot_root_state_w": np.arange(3 * 40 * 13).reshape(3, 40, 13),
+    }
+    selected = MODULE.select_policy_update(trace, 64)
+    assert selected["done"].shape == (3, 20)
+    assert selected["policy_updates"].tolist() == [64]
+    assert np.array_equal(
+        selected["robot_root_state_w"], trace["robot_root_state_w"][:, 20:40]
+    )

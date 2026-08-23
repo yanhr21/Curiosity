@@ -11,16 +11,21 @@ if [[ ! "$UPDATE" =~ ^[0-9]+$ ]] || (( UPDATE < 64 || UPDATE % 64 != 0 )); then
     exit 2
 fi
 case "$DESIGN" in
-    same_teacher_reward_only|teacher_floor_overfit) ;;
+    same_teacher_reward_only|teacher_floor_overfit|phase_event_reward_only) ;;
     *) echo "unknown matched demo design: $DESIGN" >&2; exit 2 ;;
 esac
 PADDED_UPDATE=$(printf '%04d' "$UPDATE")
 EVALUATOR="$ROOT/scripts/sugar/demo_following/evaluate_matched_fixed_teacher.py"
 RENDERER="$ROOT/scripts/sugar/demo_following/render_demo_and_actual.py"
+ANALYZER="$ROOT/scripts/sugar/demo_following/analyze_behavior_adherence.py"
 if [[ -n "$RUN_ROOT_OVERRIDE" ]]; then
     RUN_ROOT=$(realpath -m "$RUN_ROOT_OVERRIDE")
 else
-    RUN_ROOT="$ROOT/experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581"
+    if [[ "$DESIGN" == "phase_event_reward_only" ]]; then
+        RUN_ROOT="$ROOT/experiments/demo_following/matched_phase_event_reward_v1/seed161587"
+    else
+        RUN_ROOT="$ROOT/experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581"
+    fi
 fi
 CONFIG="$RUN_ROOT/correct/update_${PADDED_UPDATE}/protocol.json"
 EVAL_ROOT="$RUN_ROOT/evaluation_update${PADDED_UPDATE}"
@@ -33,6 +38,16 @@ training_seed=$(
 )
 eval_seed=$((training_seed + 10000))
 renderer_design_args=(--same-teacher-reward-only)
+evaluation_updates="$UPDATE"
+renderer_source_env=0
+if [[ "$DESIGN" == "phase_event_reward_only" ]]; then
+    if (( UPDATE != 64 )); then
+        echo "phase-event first evaluation is fixed to update 32 and 64" >&2
+        exit 2
+    fi
+    evaluation_updates="32,64"
+    renderer_source_env=20
+fi
 KIT_ARGS="--/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
 
 if [[ -z "${SLURM_JOB_ID:-}" ]]; then
@@ -118,7 +133,7 @@ for arm in "${arms[@]}"; do
             --config "$CONFIG" \
             --arm "$arm" \
             --output-dir "$EVAL_ROOT/$short" \
-            --updates "$UPDATE" \
+            --updates "$evaluation_updates" \
             --steps 400 \
             --seed "$eval_seed" \
             --headless \
@@ -127,6 +142,23 @@ for arm in "${arms[@]}"; do
     ) > "$EVAL_ROOT/${short}_console.log" 2>&1
     "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$EVAL_ROOT/$short/RESULT.json"
 done
+
+if [[ "$DESIGN" == "phase_event_reward_only" ]]; then
+    for policy_update in 32 64; do
+        audit_dir="$RUN_ROOT/behavior_adherence_update$(printf '%04d' "$policy_update")"
+        if [[ -e "$audit_dir" && ! -f "$audit_dir/RESULT.json" ]]; then
+            echo "incomplete behavior audit requires inspection: $audit_dir" >&2
+            exit 2
+        fi
+        if [[ ! -f "$audit_dir/RESULT.json" ]]; then
+            "$PYTHON" "$ANALYZER" \
+                --correct-trace "$EVAL_ROOT/correct/TRACE.npz" \
+                --unrelated-trace "$EVAL_ROOT/unrelated/TRACE.npz" \
+                --policy-update "$policy_update" \
+                --output-dir "$audit_dir"
+        fi
+    done
+fi
 
 if [[ "$reuse_video" == "1" ]]; then
     exit 0
@@ -141,6 +173,7 @@ fi
         --unrelated-trace "$EVAL_ROOT/unrelated/TRACE.npz" \
         --output-dir "$VIDEO_ROOT" \
         --matched-endpoint \
+        --actual-source-env "$renderer_source_env" \
         "${renderer_design_args[@]}" \
         --headless \
         --enable_cameras \

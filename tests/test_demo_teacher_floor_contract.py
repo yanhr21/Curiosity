@@ -74,6 +74,38 @@ def test_teacher_floor_protocol_is_matched_and_nonzero() -> None:
     assert command[command.index("--resume-checkpoint") + 1] == str(previous)
 
 
+def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
+    design = RUNNER.DESIGNS["phase_event_reward_only"]
+    correct = design["arms"]["correct"]
+    unrelated = design["arms"]["unrelated"]
+    assert correct["teacher"] == unrelated["teacher"]
+    assert correct["event_runtime_config"] == unrelated["event_runtime_config"]
+    assert correct["selected_option"] == "correct"
+    assert unrelated["selected_option"] == "unrelated"
+    assert design["checkpoint_updates"] == [32, 64]
+
+    payload = RUNNER.protocol_payload(
+        arm="correct",
+        update=64,
+        previous_update=0,
+        previous_checkpoint=None,
+        output_root=ROOT / "experiments/unit_test_phase_event",
+        seed=161587,
+        action_seed=161588,
+        num_envs=20,
+        design=design,
+    )
+    shared = payload["shared_runtime"]
+    assert payload["protocol"] == "sugar_phase_event_reward_matched_policy_v1"
+    assert shared["checkpoint_updates"] == [32, 64]
+    assert shared["demo_event_phase_horizon_steps"] == 650
+    for arm in payload["arms"].values():
+        assert arm["demo_reward_kind"] == "phase_aware_dense_event"
+        assert arm["teacher_motion_folder"] == RUNNER.workspace_relative(
+            RUNNER.CORRECT_TEACHER
+        )
+
+
 def behavior_payload(*, passing: bool) -> dict[str, object]:
     directions = {
         name: {"direction_observed": passing}

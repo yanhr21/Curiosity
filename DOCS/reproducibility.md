@@ -404,6 +404,39 @@ trainable parameter 为零。
 semantic following。下一次 comparison 必须获得明确授权，固定 teacher、seed、初始化、
 物理、budget 和 task reward，并只以 predictor-independent frozen behavior 作结论。
 
+策略侧接入现已完成但尚未执行优化。`FrozenPhaseAwareDemoEventScorer` 在线截取 policy
+observation 的前 121 维，维护每环境 10-state reset-safe history，并以
+`(episode_step + 1) / 650` 提供因果 phase；不足十个状态或 benign terminal 时 reward 为零。
+它在原有 task/SMP/original-ICM reward 完成后追加冻结 dense feedback，predictor 始终 eval、
+零 trainable parameter，未来 contact/event target 不进入 runtime 或 actor。
+
+无仿真 admission：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
+  --design phase_event_reward_only --arm correct \
+  --endpoint-updates 64 --stop-after-segment --dry-run
+$PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
+  --design phase_event_reward_only --arm unrelated \
+  --endpoint-updates 64 --stop-after-segment --dry-run
+```
+
+两条命令固定同一个 CarryBox45 teacher、`161587/161588` sim/action seed、20 env、physics、
+optimizer、reward mix 和 update budget；唯一科学变量是 `selected_option=correct/unrelated`。
+checkpoint 为 update 32/64。非 dry-run 还需要用户明确授权后的
+`--policy-training-authorized`，两臂必须串行。两臂 endpoint proof 通过后执行：
+
+```bash
+bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
+  64 phase_event_reward_only
+```
+
+该入口在 evaluation seed `171587` 下分别加载 update 32/64，每个 checkpoint 使用 20 个
+matched physics profiles；随后按 checkpoint 独立计算不读取 predictor/reward 的 lift、
+lifted/ground transport、orbit 和 hand/foot contact 审计。最终视频取 update-64 profile 0，
+分别只显示 Carry45/Kick21 输入 demo 与对应实际策略行为。当前没有上述新 checkpoint，因而
+没有 policy-level 结果或新视频可报告。
+
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object
 关系和 required-contact duration；CHORD 进一步用 object-centric contact wrench 衡量接触

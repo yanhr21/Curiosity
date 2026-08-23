@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Frozen matched evaluation for correct versus unrelated demo packages.
 
-The policy, official Refiner, and three frozen demo scorers are read-only.
+The policy, official Refiner, and selected-demo scorers are read-only.
 All actor/critic/ICM/predictor tactile inputs stay exact zero and no TacSL
 sensor is read.  PhysX hand contact is archived only as a labelled audit
 diagnostic; it is never an actor or reward-model input.
@@ -80,6 +80,7 @@ except ValueError as error:
     raise SystemExit(f"invalid --updates value: {args.updates}") from error
 if not (
     REQUESTED_UPDATES == (1, 128, 512)
+    or REQUESTED_UPDATES == (32, 64)
     or (
         len(REQUESTED_UPDATES) == 1
         and REQUESTED_UPDATES[0] >= 64
@@ -87,7 +88,7 @@ if not (
     )
 ):
     raise SystemExit(
-        "--updates must be 1,128,512 or one positive 64-update endpoint"
+        "--updates must be 1,128,512, 32,64, or one positive 64-update endpoint"
     )
 if args.teacher_only_zero_residual and args.arm not in (
     "wrong_teacher_correct_reward",
@@ -128,6 +129,11 @@ from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_smp_icm_goa
 from sugar_rl.utils.demo_reward_runtime import (  # noqa: E402
     FrozenDemoRewardRuntimeCfg,
     FrozenDemoRewardScorer,
+)
+from sugar_rl.utils.demo_event_reward_runtime import (  # noqa: E402
+    FrozenPhaseAwareDemoEventScorer,
+    FrozenPhaseAwareDemoEventScorerCfg,
+    extract_goal_policy_core,
 )
 from sugar_rl.utils.official_refiner_nominal_teacher import (  # noqa: E402
     OfficialRefinerResidualVecEnvWrapper,
@@ -594,7 +600,27 @@ def replace_envs(
         current[name][ids] = terminal[name][ids]
 
 
-def make_scorer(path: Path, num_envs: int, device) -> FrozenDemoRewardScorer:
+def make_scorer(
+    path: Path,
+    num_envs: int,
+    device,
+    *,
+    phase_event: bool = False,
+    selected_option: str | None = None,
+    phase_horizon_steps: int = 650,
+):
+    if phase_event:
+        if selected_option not in {"correct", "unrelated"}:
+            raise ValueError("phase-event scorer requires a selected option")
+        return FrozenPhaseAwareDemoEventScorer(
+            num_envs=num_envs,
+            device=device,
+            cfg=FrozenPhaseAwareDemoEventScorerCfg(
+                runtime_config_path=str(path),
+                selected_option=selected_option,
+                phase_horizon_steps=phase_horizon_steps,
+            ),
+        )
     config = load_runtime_overlay(path)
     return FrozenDemoRewardScorer(
         num_envs=num_envs,
@@ -764,10 +790,14 @@ def main() -> None:
     is_teacher_floor_overfit = (
         config_protocol == "sugar_plan11_teacher_floor_overfit_v1"
     )
+    is_phase_event_reward = (
+        config_protocol == "sugar_phase_event_reward_matched_policy_v1"
+    )
     is_teacher_demo64 = (
         is_wrong_teacher_reward_conflict
         or is_fixed_teacher_identity
         or is_teacher_floor_overfit
+        or is_phase_event_reward
     )
     legacy_preview_update128 = PREVIEW_UPDATE128 and not is_teacher_demo64
     unrelated_teacher_arm = (
@@ -785,6 +815,7 @@ def main() -> None:
             "sugar_plan11_wrong_teacher_reward_conflict_v1",
             "sugar_plan11_fixed_teacher_demo_identity_v2",
             "sugar_plan11_teacher_floor_overfit_v1",
+            "sugar_phase_event_reward_matched_policy_v1",
         }
         or config.get("execution_ready") is not True
         or config["shared_runtime"].get("tactile_regime")
@@ -819,7 +850,11 @@ def main() -> None:
             or proof.get("tactile_regime") != "explicit_zero_control"
             or proof.get("protocol_config", {}).get("arm") != args.arm
             or (
-                (is_fixed_teacher_identity or is_teacher_floor_overfit)
+                (
+                    is_fixed_teacher_identity
+                    or is_teacher_floor_overfit
+                    or is_phase_event_reward
+                )
                 and UPDATES[-1] > 64
                 and (
                     proof.get("resume_update") != UPDATES[-1] - 64
@@ -828,7 +863,11 @@ def main() -> None:
             )
         ):
             raise RuntimeError("fixed-teacher interval training proof drift")
-        if is_fixed_teacher_identity or is_teacher_floor_overfit:
+        if (
+            is_fixed_teacher_identity
+            or is_teacher_floor_overfit
+            or is_phase_event_reward
+        ):
             failed = [
                 name
                 for name, passed in proof.get("checks", {}).items()
@@ -957,7 +996,7 @@ def main() -> None:
                 residual_scale=float(shared["residual_scale"]),
                 clip_actions=None,
             )
-            if is_fixed_teacher_identity
+            if (is_fixed_teacher_identity or is_phase_event_reward)
             else (
             WrongReferenceScheduledOfficialRefinerResidualVecEnvWrapper(
                 gym_env,
@@ -1008,7 +1047,7 @@ def main() -> None:
                 raise RuntimeError(
                     "update-128 checkpoint did not restore teacher floor"
                 )
-            if is_fixed_teacher_identity and (
+            if (is_fixed_teacher_identity or is_phase_event_reward) and (
                 env.release.mode != "fixed_one"
                 or not bool(torch.all(env.release.coefficient == 1.0))
                 or bool(env.release.release_latched.any())
@@ -1078,6 +1117,11 @@ def main() -> None:
             or torch.count_nonzero(observations["tactile_history"]) != 0
         ):
             raise RuntimeError("explicit-zero observation schema/value drift")
+        if is_phase_event_reward:
+            extract_goal_policy_core(
+                observations["policy"],
+                list(base_env.observation_manager.active_terms["policy"]),
+            )
         with torch.inference_mode():
             teacher_observation, first_teacher_action = env.teacher.action()
         if source_action103 is None:
@@ -1137,7 +1181,7 @@ def main() -> None:
             torch.all(env.release.coefficient == 0.25)
         ):
             raise RuntimeError("teacher floor changed during reset")
-        if is_fixed_teacher_identity and not bool(
+        if (is_fixed_teacher_identity or is_phase_event_reward) and not bool(
             torch.all(env.release.coefficient == 1.0)
         ):
             raise RuntimeError("fixed teacher authority changed during reset")
@@ -1157,7 +1201,11 @@ def main() -> None:
             policies.append(policy)
             policy_states.append(clone_tensor_state(policy.state_dict()))
 
-        if is_fixed_teacher_identity or is_teacher_floor_overfit:
+        if (
+            is_fixed_teacher_identity
+            or is_teacher_floor_overfit
+            or is_phase_event_reward
+        ):
             fixed_correct_key = (
                 "same_teacher_correct_reward"
                 if "same_teacher_correct_reward" in config["arms"]
@@ -1198,7 +1246,16 @@ def main() -> None:
                 config["arms"]["unrelated_demo"]["demo_runtime_config"]
             )
         scorers = {
-            name: make_scorer(path, NUM_ENVS, base_env.device)
+            name: make_scorer(
+                path,
+                NUM_ENVS,
+                base_env.device,
+                phase_event=is_phase_event_reward,
+                selected_option=name if is_phase_event_reward else None,
+                phase_horizon_steps=int(
+                    shared.get("demo_event_phase_horizon_steps", 650)
+                ),
+            )
             for name, path in runtime_paths.items()
         }
         initial_demo = {
@@ -1241,7 +1298,11 @@ def main() -> None:
         base_env._reset_idx = capture_before_reset
         frame_lists = {name: [value] for name, value in capture_state(base_env, joint_ids).items()}
         demo_component_lists = {
-            name: [initial_demo[name]["component_mse"].detach().cpu().numpy()]
+            name: [
+                np.zeros((NUM_ENVS, 1), dtype=np.float32)
+                if is_phase_event_reward
+                else initial_demo[name]["component_mse"].detach().cpu().numpy()
+            ]
             for name in scorers
         }
         transition_lists: dict[str, list[np.ndarray]] = {
@@ -1333,7 +1394,14 @@ def main() -> None:
                     demo_signals[name].reward.detach().cpu().numpy()
                 )
                 demo_component_lists[name].append(
-                    demo_signals[name].component_mse.detach().cpu().numpy()
+                    (
+                        demo_signals[name].next_risk[:, None]
+                        if is_phase_event_reward
+                        else demo_signals[name].component_mse
+                    )
+                    .detach()
+                    .cpu()
+                    .numpy()
                 )
 
             state = capture_state(base_env, joint_ids)
@@ -1457,9 +1525,16 @@ def main() -> None:
                 )
             ),
             "all_demo_predictors_frozen": all(
-                audit["model_bitwise_frozen"]
-                and audit["all_parameters_require_grad_false"]
-                and not audit["training_mode_false"] is False
+                (
+                    audit["model_frozen"]
+                    and audit["future_actual_events_used"] is False
+                    if is_phase_event_reward
+                    else (
+                        audit["model_bitwise_frozen"]
+                        and audit["all_parameters_require_grad_false"]
+                        and audit["training_mode_false"] is True
+                    )
+                )
                 for audit in scorer_audits.values()
             ),
             "all_numeric_arrays_finite": all(
@@ -1493,6 +1568,10 @@ def main() -> None:
         np.savez_compressed(trace_path, **arrays)
         if args.teacher_only_zero_residual:
             result_protocol = "sugar_plan11_correct_teacher_zero_residual_gate_v1"
+        elif is_phase_event_reward:
+            result_protocol = (
+                "sugar_phase_event_reward_matched_frozen_eval_32_64_v1"
+            )
         elif is_fixed_teacher_identity:
             result_protocol = (
                 "sugar_plan11_fixed_teacher_demo_identity_frozen_eval_interval_v3"
@@ -1528,6 +1607,11 @@ def main() -> None:
             "slurm_job_id": os.environ["SLURM_JOB_ID"],
             "arm": args.arm,
             "selected_demo_telemetry": selected_key,
+            "selected_demo_metric": (
+                "calibrated_event_risk"
+                if is_phase_event_reward
+                else "predicted_component_mse"
+            ),
             "selected_demo_feedback_applied_during_training": args.arm != "task_only",
             "teacher_only_zero_residual": args.teacher_only_zero_residual,
             "teacher_only_admission_rule": (

@@ -37,6 +37,10 @@
   pass held-out full/zero/permuted-demo plus uncertainty gates;
 - [x] pass fixed Carry45/Kick21 bidirectional semantic scoring, freeze dense reward scale and the
   update-32/update-64 stopping rule;
+- [x] connect the frozen phase-aware scorer to the serious SUGAR rollout boundary without changing
+  SMP/original ICM, and add correct/unrelated matched dry-runs;
+- [x] freeze update-32/update-64 evaluation, per-checkpoint predictor-independent behavior audits
+  and final demo/actual video generation;
 - [ ] obtain explicit authority before new policy training;
 - [ ] run a matched policy comparison and judge
   predictor-independent frozen behavior; keep selected-demo SMP out until its semantic gate passes.
