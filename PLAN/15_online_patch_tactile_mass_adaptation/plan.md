@@ -1,5 +1,11 @@
 # Plan 15: Online Whole-Hand Patch Tactile for Sudden-Mass Adaptation
 
+> **Frozen 2026-08-22.** All listed source bugs were corrected, but the corrected tactile-only
+> P continuation did not yield a valid endpoint: model1100 gives `14/20` physical holds but only
+> `6/20` strict successes, and model1250 regresses. No matched corrected Z/P/PS comparison was
+> completed. Preserve the artifacts, make no tactile benefit/harm claim, and do not resume without
+> explicit user authorization.
+
 ## 1. 科学问题
 
 在完整 SUGAR G1 已经抬起 CarryBox 后，保持几何、外观、参考轨迹和接触目标不变，
@@ -11,8 +17,8 @@ object state，部署所需的 `joint_pos/joint_vel` 也会在受载后变化。
 触觉相对 `504-D` Tracker-command/proprioception 的增量收益。measured object state、
 真实质量、mass factor、jump flag、RGB 和 future frame 不得进入 actor。
 
-Plan 15 是唯一活动计划。RGB、demo following、ICM/Curiosity、Newton simulator、
-deformable 和软体训练不进入本实验。
+Plan 15 曾在 2026-08-20 invalidity audit 后从零重跑，现已冻结；当前优先级是
+demo-following，不再自动继续 corrected comparison。
 
 ## 2. 物理场景与时序
 
@@ -43,8 +49,29 @@ Z 全程不读取 TacSL。`1.0x` 使用匹配 placebo event，但不写质量。
 - palm `4 x 3`：12；
 - thumb/index/middle/ring/little：各 proximal/middle/distal 3 个，共 15。
 
-官方 TacSL R15 taxels 计算 penetration、normal force 和 signed XY shear；每个 control
-step 在 GPU 上在线归约成一个 patch record。policy 单元永远是 patch，不是 taxel。
+官方 TacSL R15 taxels 计算 penetration 和 penalty forces；每个 control step 在 GPU 上
+在线归约成一个 patch record。修正后的法向载荷只来自 `F_normal`，signed XY shear 只
+来自 `F_friction`，friction utilization 使用未丢失方向分量的 `|F_friction|` 幅值。
+Plan 15 同时把 PhysX box/pad 与 TacSL 的摩擦系数固定为 `0.5`。独立 PhysX audit
+把法向力和摩擦力分开读取。旧 `80621.56402207233/45` 标定只在一个 nominal 十帧聚合
+窗口碰巧得到 `0%/2.90%` 误差；model-750 动态窗口的 TacSL/PhysX normal 总量中位比为
+`2.01`，并漏掉 `18.5%` 的 PhysX pad force，因此该标定和对应 scale 已撤销。
+
+进一步发现 released TacSL 的正方 taxel-spacing 规则映射到不同比例的 anatomical patch
+后，仅覆盖各 patch 中央约 `44--66%`。本地 adapter 保留官方默认行为，但让 54 个
+anatomical sensor 的 20x25 网格分别铺满两轴，并仅在边缘 ray miss 时自动增加 inset；
+几何覆盖约提高到 `96--99%`。SDF 审计显示剩余 false-negative 都位于表面外
+`0.001--0.505 mm`，因此 anatomical adapter 固定使用 `0.3 mm` compliant-layer offset。
+最终 CarryBox 参数为 `kn=7294.8755, kt=9, mu=0.5`。nominal contact precision/recall 为
+`0.910/0.967`、漏掉 PhysX pad force `0.86%`；独立 seed 的 3x post-jump recall 为 `0.892`、
+漏力 `6.5%`，且 TacSL normal 总量约偏高 30%。这是已标定的模拟触觉，不是逐帧完全等于
+PhysX 的力传感器。policy 单元永远是 patch，不是 taxel。
+
+v3 gate 已完成 3 seeds x 5 mass factors 的 15 条 online traces。全部 jump 位于 frame 326，
+质量读回正确且 jump 前十帧双手持续接触；slip precision/recall 为 `0.9914/0.9856`，507 个
+onset 检出 501 个，median/p95 delay 为 `0/1` 帧。Z/P/PS runtime preflight 全部通过：Z
+零 TacSL read，P/PS 各 `19,494` 次 live patch read，P 零 slip update，PS 361 次。v3 scale
+为 `[1, 60.3778, 212561.67, 13.7072, 13.7072, 1, 2, 1, 1]`。
 
 每个 patch 的 9 个通道为：
 
@@ -93,7 +120,9 @@ velocity、mass、jump flag、reward 和 future frames 只能作为 evaluation l
   3-layer Transformer、4 heads、FFN 256、masked pooling 得到 `128-D`；
 - existing SUGAR `512/256/128` actor，输出 `29-D` action；
 - official `890-D` privileged critic，仅训练期可见；
-- repository BCPPO、optimizer、reward、physics 和 mass scheduler。
+- repository BCPPO、optimizer、physics 和 mass scheduler；
+- 修正后的共同 reward 额外包含 post-handoff box lift/hold outcome term，teacher prefix
+  上严格为零。
 
 分支只在在线输入上不同：
 
@@ -109,7 +138,8 @@ velocity、mass、jump flag、reward 和 future frames 只能作为 evaluation l
 - 2000--2999：steady full PPO；
 - stage 3 保留共同 `distill_weight_floor=0.25`。
 
-teacher prefix transition 不进入 PPO surrogate/value/entropy credit。不得写 toy MLP、
+未来训练与评测都只加载 `data/CarryBox/data_045`，不能再用四个训练环境隐式选择
+motion 0--3。teacher prefix transition 不进入 PPO surrogate/value/entropy credit。不得写 toy MLP、
 offline tactile replay、taxel CNN、替代 teacher 或新 reward 来改变实验问题。
 
 ## 6. Endpoint 与冻结评估
@@ -123,6 +153,13 @@ offline tactile replay、taxel CNN、替代 teacher 或新 reward 来改变实�
 4. jump 前 10 帧双手 contact；
 5. 至少 450 帧覆盖 handoff、最大 50 帧 delay 和 80-frame outcome window；
 6. handoff/jump action continuity；
+
+集群约四小时强制撤销 H200 allocation；2026-08-21 的 P seed151014 先后在 update1259、
+update2140 被撤销。matched formal 统一采用显式资源边界：先到 `model_1250.pt`，恢复到
+`model_2000.pt`，再到 `model_2500.pt`，最后恢复到 2999。每次恢复必须加载 model、
+optimizer、adaptive-KL learning rate，并从 checkpoint 的下一 BCPPO update 继续；模拟器/
+RNG 状态不在 RSL-RL checkpoint 中，故每一臂都在相同三个边界以相同配置 seed 重新创建
+环境。不得按各臂实际中断位置选择 checkpoint。
 7. 同钟 G1/CarryBox 和双手 27-patch H.264。
 
 通过后才显式运行 seed pairing：
@@ -139,41 +176,33 @@ recovery latency、action response 和 nominal no-jump behavior。positive resul
 matched frozen-policy physical improvement；loss、gradient、nonzero action difference 或
 单条视频只证明信号可能被读取。
 
-## 7. 已完成证据
+## 7. 2026-08-20 invalidity audit
 
-### Sensing
+旧 Z/P/PS 的“完成”状态与数值比较全部撤回，原因不是单一 scale：
 
-- paired leakage sweep：3 seeds × 5 factors 完成，质量读回、event pairing、双手 contact
-  和 54-patch clock 通过；
-- continuous patch 约 13 帧稳定区分质量，proprio 约 35 帧；
-- 119/119 drops 前 continuous patch change，中位提前 21 帧；
-- 133/133 sag≥`0.02 m` 前 continuous patch change，binary contact 只覆盖 81/133；
-- controlled R15 slip：STICK `109/111`、INCIPIENT `109/109`、GROSS `19/20`；
-- CarryBox 3x slip：precision `1.0`、recall `0.9971`、median delay 0、p95 1 frame。
+1. `undesired_contacts` 把 54 个 anatomical pads 计入负奖励；正向 hand-contact term 却
+   读取已经停用碰撞的原 hand links；
+2. 训练只有间接的 reference object tracking，没有明确 post-handoff lift/hold outcome；
+3. TacSL 把 `F_normal + F_friction` 一起投影后称为 shear，静止斜面法向力也会进入
+   shear；friction utilization 使用 TacSL 固定 `mu=0.5`，PhysX box friction 却独立随机；
+4. same-step reset 会在 slip cache 命中时提前返回，reset mask 没有进入 detector；
+5. 4 个训练环境固定看到 motion 0--3，评测固定 motion45；
+6. 正式 shell 总是打开 continued physical-outcome view，失败后的状态仍被用于主要物理
+   指标；
+7. 旧 percentile hierarchical bootstrap 只有 3 个独立训练 seeds，却对 180 个区间没有
+   multiplicity correction。
 
-这些只证明信息和时序优势，不是 tactile-policy benefit。
+已经完成的源码修正：pad 不再进入 undesired-contact penalty；正向接触奖励使用 54 个
+独立的一-pad-to-box filtered ContactSensors 并每手聚合 27 个（IsaacLab 不支持单个
+filtered regex sensor 覆盖多 bodies）；加入 post-handoff lift reward；TacSL 正常力/摩擦力分离；
+PhysX/TacSL 摩擦固定匹配；reset 优先于 cache return；训练/评测统一 motion45；正式汇总
+只接收 strict SUGAR evaluation；统计改为 3-seed exact paired sign-flip 并对完整 family
+做 Holm correction。三 seeds 下双侧检验最小 raw p-value 是 `0.25`，因此不能再声称
+“显著更好/更差”。
 
-### Formal Z/P
-
-Z 三 seed holds=`59,59,52,1,0`，drops=`0,0,2,58,59`。
-
-P 三 seed holds=`59,59,49,0,0`，drops=`0,0,8,59,59`。3x P-Z paired interval 跨零，
-所以 P 没有证明增益，且当前趋势更差。
-
-### Formal PS
-
-- seed `151014`：19 eligible profiles/factor；holds=`19,19,10,0,0`，
-  drops=`0,0,6,19,19`；
-- seed `151015`：20 profiles/factor；holds=`20,20,16,0,0`，
-  drops=`0,0,4,20,20`；
-- seed `151016`：20 profiles/factor；holds=`20,19,7,0,0`，
-  drops=`0,1,12,20,20`。
-
-PS 三 seed 聚合 holds=`59,58,33,0,0`，drops=`0,1,22,59,59`。严格 300-profile
-comparison 已完成：3x 的 PS-P hold 差值为 `-0.2712`，paired hierarchical-bootstrap
-95% CI=`[-0.4655,-0.0667]`；drop 差值为 `+0.2373`，CI=`[0.1053,0.3833]`。因此
-当前 P/PS 都没有证明相对 Z 的触觉策略收益，PS 在 3x 还显著劣于 P。该结论不否定
-前述连续触觉的信息优势，只说明当前训练没有把信息转化为更好的冻结物理行为。
+这些仍只是源码修复，不是新 policy 结果；当时的 no-learning aggregate force
+calibration 也已被后续动态逐-pad audit 撤销。旧 checkpoints、traces 和 videos 仅供
+追溯，不得用于判断 tactile benefit、harm、sensing 或 slip validity。
 
 ## 8. 高摩擦 6x/10x 可行性
 
@@ -191,93 +220,54 @@ G1/CarryBox/54-patch H.264 位于
 `experiments/online_patch_tactile_mass_adaptation/visualizations/`
 `official_refiner_mu1p5_6x_friction_hold_single_env/official_refiner_mu1p5_6x_world_bilateral27.mp4`。
 
-## 9. 串行执行顺序
+## 9. 已批准的 corrected rerun 顺序
 
-1. Z/P/PS 九个 endpoint、九组冻结评估和 exact paired comparison 已完成；
-2. 独立 friction sweep 已完成；
-3. 6x 已成功，因此未触发 stronger-grip/lower-posture 或 serious overfit；
-4. 已渲染并审查验证通过的 6x 完整持箱；
-5. 更新 README/TODO/AGENTS，只提交源码与文档。
+2026-08-20 source/runtime gate 当时通过：三 seeds × 五质量的 paired sweep 中 action
+最大误差为零、jump-frame 最大误差为零；actor 为 `504-D` 且不含 measured object state。
+causal slip precision/recall 为 `0.99285/0.97938`，675 个 onset 漏 18 个，median/p95 delay
+为 `0/1` 帧，无非 contact-loss 的无接触报警。Z/P/PS runtime preflight 均 overall pass：Z
+零 TacSL read；P/PS 各有 `361 x 54 = 19494` 次在线 patch read；PS 有 361 次 slip update。
+独立 force audit 已改为合法的 object-centric ContactSensor：box 对 27/54 个 exact pad
+filters。当时得到 PhysX `56.964466/15.751346 N` 与 TacSL
+`56.964466/16.207577 N`；unfiltered normal coverage error 仅 `4.77e-8 N`。后续动态
+逐-pad audit 已证明这个十帧 aggregate match 不能作为 calibration admission，因此
+该 gate 的 scale 部分已撤销；其 runtime wiring 结果仍有效。
+额外的逐-pad reward runtime preflight 确认 `hoi_contact` 非零、`30/360` handoff 后
+transitions 和 1 次 mass event，且不再出现 PhysX filter-count error。首轮纯蒸馏中途
+`model_250` 的 4 条 strict 3x profile 均没有完整 80-frame post-jump window，已判废归档；
+它不是 tactile-benefit 结果。随后发现两个已归档进程并未退出，其中一个与新 run 并发
+写同一目录；受污染目录及其 model-0 评测全部撤销。启动器现用稳定 pipeline lock 阻止
+复发，运行时 lock probe 已按预期以 exit 75 拒绝第二 writer。干净的 4-env fixed-3x PS
+overfit 已从零重启。首批 model-0/250/500/750 review 错用了 formal evaluation 的随机
+`10--50` 帧 mass delay 和随机 reset pose，与 overfit 训练固定的 20 帧、零位姿噪声不匹配。
+它们仅保留为更难分布下的行为 diagnostic，不是 fixed-condition overfit gate。评测入口
+现用 `--fixed-3x-overfit-gate` 强制训练同配置，正在不重训的情况下重评已有 checkpoint。
+fixed-condition model-0/250/500/750/1000 均为 `0/4` strict hold、`0` robot fall；3x 后存活帧
+约为 `12`、`19--20`、`19--22`、`66--72`、`19--21`。model-750 最好但仍未达到 80 帧，
+model-1000 又因 object orientation 偏差退化。model-1250 严格评测达到 `3/4` 完整
+80-frame hold、`0` drop、`0` fall，说明 serious policy 在固定条件下可学习；但它早于
+taxel-grid 修复，只能作为行为 diagnostic，不能续训或支持 tactile benefit。
+错配 review 中同一 camera-enabled profile 的 CarryBox 世界画面与双手 27-patch 同步视频为
+`overfit_ps_model500_eval3x_camera_profile0_v3/model500_3x_world_bilateral27.mp4`；该视频只证明
+自身 rollout，不代替 camera-free strict 统计。上游 TacSL pytest 依赖的远程 NVIDIA
+R15 USD 在当前节点不可下载，因此不将其外层 exit code 当作通过证据。
 
-## 10. 审计状态 / Audit status — 2026-08-19
+1. 完成 extent-filled taxel grid 的动态 SDF/contact-offset 与逐 pad PhysX 对照，重做
+   CarryBox TacSL calibration；旧 schema-v2 scale 也必须撤销；
+2. 串行执行 Z/P/PS 360-frame runtime preflight，验证 zero-read、54-pad read、causal slip、
+   handoff、mass readback 和 PPO mask；进入训练前，causal slip 对 held-out simulator
+   tangential-velocity label 的 contact-supported precision/recall 均须至少 0.8，onset miss
+   rate 不超过 20%，且不得在非 contact-loss 的无接触样本报警；
+3. 重新生成尺度后，在固定 motion45、3x mass、20-frame delay、无 reset pose noise 下从
+   official Tracker 运行新的 PS serious overfit；不得从 model-1250 续训；
+4. 只有该 gate 通过才从 official Tracker 重新训练 matched Z/P/PS，旧 checkpoint 不续训；
+5. 三分支使用相同 motion45、reward、摩擦、初始化、3000-update budget 和 seeds；
+6. 严格评测终止即停止计分，continued physical outcome 只能作为明确标注的 diagnostic；
+7. 统计以 training seed 为独立单位，报告每-seed effect 与 Holm-corrected exact test。
 
-§7 的 formal Z/P/PS 结论在 2026-08-19 经过完整代码审计（115 条 findings，见
-[`claude_context/findings.md`](../../claude_context/findings.md)）。**结论：当前 null
-result 不能作为对 §1 科学问题的回答。** 以下条目直接推翻或限定本 plan 中的具体条款。
-
-*English, for precision. The findings log is authoritative.*
-
-### Contract violations found in the implementation
-
-- **§4 "唯一训练期 slip 接口…不读取 relative contact velocity" — violated in substance
-  and literally.** `shear_xy_n` and `friction_utilization`, two of the detector's six
-  inputs, are computed inside TacSL from `relative_velocity_world`, so the callable
-  consumes the simulator's object-relative contact velocity one transform removed.
-  Literally, `update()` also takes `timestamp_s` and `reset_mask`, which are environment
-  state rather than patch signals. What it genuinely never reads: object pose, mass, jump
-  flag, reward, future frames.
-- **§3 "每个 patch 的 9 个通道" — channel 6 (`friction_utilization`) cannot measure what
-  its name claims.** It divides by the *sensor's* fixed `mu = 0.5`, the same constant
-  TacSL already used to cap the shear numerator, so it is invariant to the object's PhysX
-  material friction. Under stick it reduces to `2·tan θ`, a function of taxel-frame
-  misalignment: INCIPIENT fires at θ ≥ 16.7° with **zero** relative motion, and any value
-  above 1.0 is geometric contamination by construction.
-- **§2 "motion 45" holds only for evaluation.** Training runs
-  `motion_id = env_id % num_motion` with `num_envs = 4`, i.e. motions **0–3**. Every
-  reported number is out-of-distribution.
-- **§2 "1.0x 使用匹配 placebo event，但不写质量" — stronger than stated.** At factor 1.0
-  `apply_pending` selects an empty `changed_ids`, so no mass or inertia write happens at
-  all. `1×` is a no-perturbation control, not a 1× jump.
-- **§5 "teacher prefix transition 不进入 PPO surrogate/value/entropy credit" — true for
-  those three terms only.** The distillation loss is an unmasked `.mean()`, so the frozen
-  **nominal-mass** Refiner — trained on 0.5–2.0× and never on 3/6/10× — is a live
-  regression target *inside* the post-jump window.
-- **§5 "stage 3 保留共同 distill_weight_floor=0.25" — the floor starts binding at update
-  1750**, not 2000: `max(1 − alpha, 0.25)` reaches 0.25 at `alpha = 0.75`. Stage 2's
-  critic weight is also a linear ramp from 0, not a switch.
-
-### Defects that plausibly produce the §7 result
-
-1. **The reward penalises grasping.** `hoi_contact` (+1.0) reads ContactSensors on
-   `left/right_rubber_hand`, whose collision subtrees are deactivated at spawn, so it is
-   dead — a pure function of the reference clock with no behavioural gradient.
-   `undesired_contacts` (−1.0) counts bodies over 0.1 N and matches all 54 elastomer
-   patches: −0.02 per contacting body per step against a maximum achievable positive
-   reward of 5.125, so **six patches in contact cancel everything**. No term in the 21
-   asks the policy to hold the box up.
-2. **The slip detector's reset is silently swallowed between evaluation batches** —
-   `_online_patch_slip_history` returns early on a `common_step_counter` match *before*
-   `detector.update`, and `env.reset()` does not increment that counter. The `previous_*`
-   buffers, `gross_evidence_count` and the GROSS latch survive the episode boundary. **P
-   holds no differencing state, so this is asymmetric and favours P over PS**, on exactly
-   the evaluation path that produced the −0.2712. Strongest single candidate for PS < P.
-3. **Training randomizes the box's friction** over `U[0.2, 0.8]` (`obj_physics_material`
-   is not disabled, only `obj_mass` is) — a perturbation no tactile channel can observe.
-4. **The two binary slip channels enter the projection at magnitude exactly 1.0** while
-   shear enters at ~0.05, so the three channels PS adds are the loudest inputs.
-5. **The slip thresholds were calibrated on a flat R15 capsule**, a geometry in which the
-   taxel-frame misalignment that dominates the 54 curved pads does not exist.
-
-### What §6/§7 must be re-stated as
-
-- Every reported number came from `--physical-outcome-view`, which suppresses all six
-  terminations. **`eligible` means "the jump landed by frame 370", not "the rollout stayed
-  inside the SUGAR contract".** The `strict_sugar_hold_success` labels exist in every
-  summary and have never been reported.
-- The 95 % CI is a *percentile* two-level bootstrap over **3 seed clusters**, no BCa, and
-  no correction for the 180 intervals emitted per run. Strong point estimate, optimistic
-  interval.
-- The 20 "profiles" per run are near-replicates — same motion 45 frame 0, no push or
-  observation randomization, differing only in a deterministic jump delay and four per-env
-  friction draws that repeat across the five batches.
-- `hold + drop + safe_lower` does not sum to the eligible count (Z at 3×: 5 of 59
-  unlabelled).
-
-### What survived the audit unchanged
-
-Branch matching (the 54 sensor bodies do **not** change Z's physics — verified), the
-mass/inertia event and its readback, Z's gradient isolation (measured), the 510→504 warm
-start and its `2e-6` audit, the whole dimension contract, and the eligibility gate's
-branch- and factor-invariance (confirmed arithmetically: −16/59 = −0.27119 = −0.2712).
-
-**Plan 15 是否需要重跑，取决于以上 1–2 的修复；既有 checkpoint 不能跨 sensing 修改复用。**
+截至 2026-08-21，旧 Z seed151014/model2999 使用已撤销的 model1750 边界，不能与新协议
+比较；其首轮 seed152014 五档评测也因 evaluator 为画图在 Z 上额外读取 TacSL 而撤回。评测器现将 Z patch/slip trace
+固定为 exact zero，完全不调用 TacSL 或 slip detector，并显式记录 zero-read 合同。P
+P seed151014 的 finite model2000 已审查，将从该 direct child 恢复到 model2500；新 Z
+必须走相同边界并完成 endpoint 后才串行评测。formal evaluator 与 trainer 现共享同一个稳定 pipeline lock；训练活跃时评测入口
+必须以 exit 75 拒绝。正式结论仍必须等待 matched P/PS 和三 seed 配对统计。

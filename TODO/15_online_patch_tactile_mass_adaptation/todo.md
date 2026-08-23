@@ -1,9 +1,75 @@
 # TODO 15: Online Whole-Hand Patch Tactile for Sudden-Mass Adaptation
 
+> **Frozen 2026-08-22.** Old checked runs record execution only and remain invalid evidence. The
+> corrected line stopped without a valid matched Z/P/PS comparison and must not resume implicitly.
+
+## 2026-08-20 audit and source correction
+
+- [x] anatomical pads excluded from `undesired_contacts`.
+- [x] reward-facing contact 改为 54 个 IsaacLab 支持的一-pad-to-box filtered ContactSensors，
+  每手聚合 27 个；禁止单个 regex filtered sensor 覆盖多 pad。
+- [x] explicit post-handoff box-lift/hold reward added; teacher prefix receives zero.
+- [x] TacSL `F_normal` and `F_friction` outputs separated; patch utilization uses full friction
+  magnitude rather than cancellation-prone signed XY sum.
+- [x] Plan 15 PhysX box/pad and TacSL friction fixed to the same `0.5` contract.
+- [x] same-step reset handling moved ahead of patch/slip cache returns.
+- [x] training and evaluation motion source unified to `CarryBox/data_045`.
+- [x] formal launcher no longer passes physical-outcome continuation; summarizer/comparator reject
+  non-strict results.
+- [x] percentile bootstrap removed; future inference uses exact paired training-seed sign flips
+  with Holm familywise correction.
+- [x] 用户已明确批准 corrected rerun。
+- [x] schema-v2 scale、三分支 preflight、固定 3x PS overfit 和 fresh formal 单-seed 入口
+  已建立；入口拒绝旧 scale 与既有 output directory。
+- [x] 独立 PhysX audit 分开记录 normal/friction；修正了把 `force_matrix_w` 当作总力的
+  审计错误。
+- [x] 历史 nominal 十帧 aggregate 曾得到 PhysX `56.9645/15.7513 N` 与 TacSL
+  `56.9645/16.2076 N`；动态逐-pad audit 已否定其 calibration admission，旧 scale 撤销。
+- [x] force audit 改为单 box sensor body + 27/54 exact pad filters；unfiltered box normal 与
+  54-pad filtered normal 的 L2 mean error 为 `4.77e-8 N`，旧 multi-body regex audit 禁用。
+- [x] corrected motion45 scale sweep 与 Z/P/PS runtime preflight：15 条 paired traces、
+  action/jump exact match、504-D no-object-state actor、slip precision/recall
+  `0.99285/0.97938`，Z/P/PS 三分支 overall pass。
+- [x] 54 个 reward sensors 的 live PS preflight：无 PhysX filter-count error，`hoi_contact`
+  非零，`30/360` handoff 后 transitions，1 次真实 mass change。
+- [x] 首轮 `model_250` strict review：`0/4` eligible，3 条 jump 前终止，唯一 jump 条只有
+  9-frame post-jump window；该 run 因旧 reward sensor 运行时无效而归档。
+- [x] 清除 3 个遗留并发 writer；受污染的 v2 checkpoint/evaluation 已归档。overfit 与
+  formal launcher 增加跨目录稳定 pipeline lock，运行时第二 writer probe 返回 exit 75。
+- [x] 发现首批 model-0/250/500/750 review 仍用 formal 随机 delay/pose，与 fixed overfit 不匹配；
+  相关数字降级为 harder-distribution diagnostic，不再作为 overfit gate。
+- [x] 增加 `--fixed-3x-overfit-gate`，强制 PS/3x/20-frame delay/零 reset-pose noise，并在
+  summary 写入实际配置。
+- [x] model-500 同一 rollout 的 CarryBox world + bilateral 27-patch H.264 同步视频已完整
+  解码并人工抽帧检查；它仅是行为证据，不是 tactile-benefit 结论。
+- [x] fixed gate 重评 model-0/250/500/750/1000：全部 `0/4` hold、`0` fall；model-750
+  达到 `66--72` 帧后早停，model-1000 退回 `19--21` 帧，均未通过 80-frame gate。
+- [x] model-1250 fixed review：`3/4` strict 80-frame hold、`0` drop、`0` fall；证明固定条件
+  可学习，但该 checkpoint 早于 taxel-grid 修复，禁止续训或进入 formal。
+- [x] 定位 anatomical taxel 中央裁剪：旧网格仅覆盖约 `44--66%` patch footprint；增加
+  保留官方默认的 extent-fill adapter，理论几何覆盖约 `96--99%`。
+- [x] 完成新网格 SDF/contact-offset、逐 pad recall、normal/friction 标定和独立 3x dynamic
+  审计；固定 `0.3 mm / kn=7294.8755 / kt=9 / mu=0.5`，撤销旧参数与 schema-v2 scale。
+- [x] 完成 3-seed x 5-mass v3 sweep、causal-slip gate 和 Z/P/PS runtime preflight；15 条
+  jump/readback/contact 合同全部成立，slip precision/recall `0.9914/0.9856`。
+- [x] 新 calibration 后从 official Tracker 重跑 fixed 3x PS overfit，不续训 model-1250；
+  fresh model-750 strict review 为 `3/4` hold、`0` drop/fall、三条完整 98-frame window，
+  learnability gate 已通过。
+- [x] fresh corrected Z/P/PS training and evaluation 未完成即冻结；没有形成可比较的正式
+  结果。旧 Z/model2999、P/PS 中间端点和违规读取 TacSL 的评测均不得进入未来 comparison。
+
+## Current status (2026-08-22)
+
+- [x] correct all nine audited source/evaluation/statistics defects and pass regression tests;
+- [x] run a bounded tactile-only stability diagnostic: model1100 reaches `14/20` physical holds but
+  only `6/20` strict successes; model1250 is worse;
+- [ ] no valid corrected matched Z/P/PS result exists;
+- [x] freeze this queue and return priority to demo following. Do not resume implicitly.
+
 ## A. 固定合同
 
-- [x] 唯一 backend 固定为 IsaacLab/PhysX；Newton simulator、RGB、demo、ICM 和软体
-  训练退出当前队列。
+- [x] 本实验 backend 固定为 IsaacLab/PhysX；该规则描述 Plan 15 执行期，不再定义当前
+  仓库优先级。
 - [x] actor 固定为 `504-D` deployable Tracker-command/proprioception，不含 measured
   object state、mass factor、jump flag、RGB 或 future frame。
 - [x] 双手固定 `2 x 27` physical patches；taxel 只作为 TacSL backend/audit source。
@@ -41,12 +107,8 @@
 - [x] 显式运行 `151016->152016` 五质量 × 20 profiles frozen evaluation。
 - [x] 运行 exact three-seed Z/P/PS paired comparison；每分支恰好 300 profiles。
 
-当前结果：
-
-- Z holds=`59,59,52,1,0`，drops=`0,0,2,58,59`；
-- P holds=`59,59,49,0,0`，drops=`0,0,8,59,59`，尚未证明 tactile benefit；
-- PS 三 seed holds=`59,58,33,0,0`，drops=`0,1,22,59,59`；3x PS-P hold 差值
-  `-0.2712`，95% CI=`[-0.4655,-0.0667]`，当前 PS 显著劣于 P。
+上述 endpoint/evaluation 全部属于旧失效 pipeline，只保留追溯，不再报告分支优劣或
+置信区间。
 
 ## D. Endpoint 评审清单
 
