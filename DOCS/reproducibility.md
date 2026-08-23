@@ -455,6 +455,32 @@ unrelated 为 KickBox motion21/demo row97；两者均为 121-D、10-state histor
 eval mode、0 trainable parameter、0 environment、0 policy update。完整本地日志位于 ignored
 `experiments/runtime_allocations/job257762/`。
 
+正式 online reward gate 会创建原始 SUGAR G1/CarryBox 环境并执行恰好一个 24-step rollout，
+调用 actor、frozen Refiner、SMP、original ICM、phase-aware scorer 和 rollout storage，但不调用
+任何 optimizer 或 `update()`：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
+  --design phase_event_reward_only --arm correct \
+  --endpoint-updates 64 --stop-after-segment --runner-rollout-smoke-only
+$PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
+  --design phase_event_reward_only --arm unrelated \
+  --endpoint-updates 64 --stop-after-segment --runner-rollout-smoke-only
+```
+
+输出协议为 `sugar_phase_event_online_rollout_smoke_v1`。它要求 24 步全部完成、10-state
+history 进入 ready、demo reward 非零、`policy_reward=base_reward+demo_reward`、original ICM
+逐元素不变、policy parameter 和 optimizer counter 不变、ICM optimizer 为零，并证明 scene
+中没有 R15/TacSL sensor 或 elastomer body。旧实现虽然把 tactile tensor 置零，仍构建了双
+R15 scene；`NoTactileGoalRobotEnvCfg` 已修正该混杂。
+
+截至 2026-08-24，该 gate 尚未得到通过结果。job257762/server60 与 job257794/server45 均在
+Isaac Sim 5.1 simulation startup 报 `ERROR_DEVICE_LOST`。server45 上独立的五次
+`SimulationApp.update()` canary 也在任何 SUGAR scene 创建前退出，系统 ICD/allocated-GPU
+UUID、独立 portable Kit root 均未消除故障。因此现有日志只能证明 cluster runtime blocker，
+不能证明 online reward 成功或失败。恢复最小 canary 后必须重新顺序执行 correct、unrelated
+smoke；两者通过前不得启动 policy optimization。
+
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object
 关系和 required-contact duration；CHORD 进一步用 object-centric contact wrench 衡量接触

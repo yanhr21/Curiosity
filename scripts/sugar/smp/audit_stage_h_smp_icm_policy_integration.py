@@ -160,6 +160,14 @@ parser.add_argument(
     ),
 )
 parser.add_argument(
+    "--rollout-smoke-only",
+    action="store_true",
+    help=(
+        "create the formal environment and execute one online rollout through "
+        "the actor and phase-event reward path, without optimizer updates"
+    ),
+)
+parser.add_argument(
     "--protocol-config",
     type=Path,
     default=None,
@@ -382,6 +390,7 @@ from sugar_rl.tasks.locomanip.goal_tactile_strategy import (  # noqa: E402
     explicit_zero_tactile_slip_observation,
 )
 from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_smp_icm_goal_env_cfg import (  # noqa: E402
+    NoTactileGoalRobotEnvCfg,
     PureDiscoveryRobotEnvCfg,
     TACTILE_RUNTIME_PARAMS,
 )
@@ -2947,6 +2956,8 @@ def main() -> None:
                 raise FileNotFoundError(demo_event_reward_config[source_name])
     if teacher_checkpoint is not None and not teacher_checkpoint.is_file():
         raise FileNotFoundError(teacher_checkpoint)
+    if args.admission_only and args.rollout_smoke_only:
+        raise ValueError("select exactly one formal runner probe mode")
     if args.admission_only:
         if not (
             phase_event_protocol_contract
@@ -2985,18 +2996,24 @@ def main() -> None:
         return
 
     if goal_recovery_contract:
-        cfg = GoalCoherentLatentRobotEnvCfg()
+        cfg = (
+            NoTactileGoalRobotEnvCfg()
+            if explicit_zero_tactile_contract
+            else GoalCoherentLatentRobotEnvCfg()
+        )
         # A drop is a recoverable state in this branch: set-down, regrasp, and
         # bottom support must remain observable.  Success, unsafe fall,
         # workspace, and timeout remain active.
         cfg.terminations.dropped_after_lift = None
-        latent_distribution_seed = (
-            52017 if native_authority_contract else 42017
-        )
-        cfg.events.latent_contact_dynamics.params[
-            "distribution_seed"
-        ] = latent_distribution_seed
-        if teacher_floor_overfit_contract:
+        latent_distribution_seed = None
+        if not explicit_zero_tactile_contract:
+            latent_distribution_seed = (
+                52017 if native_authority_contract else 42017
+            )
+            cfg.events.latent_contact_dynamics.params[
+                "distribution_seed"
+            ] = latent_distribution_seed
+        if teacher_floor_overfit_contract and not explicit_zero_tactile_contract:
             fixed = TEACHER_FLOOR_FIXED_PHYSICS_PROFILE
             event = cfg.events.latent_contact_dynamics
             event.params["mass_scale_range"] = (
@@ -3012,7 +3029,7 @@ def main() -> None:
                 fixed["com_y_m"], fixed["com_y_m"]
             )
             event.params["pulse_magnitude_range_mps"] = (0.0, 0.0)
-        if reference_waypoint_foundation_contract:
+        if reference_waypoint_foundation_contract and not explicit_zero_tactile_contract:
             foundation_event = cfg.events.latent_contact_dynamics
             foundation_event.params["mass_scale_range"] = (1.0, 3.0)
             foundation_event.params["static_friction_range"] = (0.6, 0.6)
@@ -3070,6 +3087,7 @@ def main() -> None:
 
     gym_env = None
     reference_waypoint_foundation_reset = None
+    no_tactile_goal_scene_proof = None
     try:
         gym_env = gym.make(task_id, cfg=cfg)
         # Environment construction can also initialize libraries with their
@@ -3139,6 +3157,42 @@ def main() -> None:
         else:
             env = RslRlVecEnvWrapper(gym_env, clip_actions=None)
         base_env = env.unwrapped
+        if explicit_zero_tactile_contract:
+            scene_sensor_names = tuple(sorted(base_env.scene.sensors.keys()))
+            robot_body_names = tuple(base_env.scene["robot"].body_names)
+            forbidden_sensor_names = {
+                "left_palm_tactile",
+                "right_palm_tactile",
+            }
+            forbidden_body_fragments = (
+                "tacsl",
+                "elastomer",
+                "anatomical_",
+            )
+            no_tactile_goal_scene_proof = {
+                "protocol": "sugar_demo_no_tactile_scene_v1",
+                "passed": bool(
+                    forbidden_sensor_names.isdisjoint(scene_sensor_names)
+                    and not any(
+                        fragment in body_name
+                        for body_name in robot_body_names
+                        for fragment in forbidden_body_fragments
+                    )
+                ),
+                "scene_sensor_names": list(scene_sensor_names),
+                "robot_body_count": len(robot_body_names),
+                "forbidden_tactile_sensor_count": sum(
+                    name in forbidden_sensor_names for name in scene_sensor_names
+                ),
+                "forbidden_tactile_body_count": sum(
+                    any(fragment in name for fragment in forbidden_body_fragments)
+                    for name in robot_body_names
+                ),
+            }
+            if not no_tactile_goal_scene_proof["passed"]:
+                raise RuntimeError(
+                    "explicit-zero demo control instantiated tactile scene assets"
+                )
         if reference_waypoint_foundation_contract:
             foundation_sources = tuple(
                 ReferenceWaypointSource.from_mapping(
@@ -3217,7 +3271,7 @@ def main() -> None:
                 latent_distribution_seed,
                 fixed_profile=teacher_floor_overfit_contract,
             )
-            if goal_recovery_contract
+            if goal_recovery_contract and latent_distribution_seed is not None
             else None
         )
         tactile_stress_runtime = (
@@ -3849,14 +3903,6 @@ def main() -> None:
                 )
         segment_initial_learning_rate = float(algorithm.learning_rate)
 
-        prior_hash_before = _tensor_state_sha256(
-            base_integrator.smp_scorer.prior.state_dict()
-        )
-        teacher_hash_before = (
-            _tensor_state_sha256(env.teacher.actor.state_dict())
-            if residual_teacher_contract
-            else None
-        )
         policy_state_before = {
             name: tensor.detach().clone()
             for name, tensor in policy.state_dict().items()
@@ -3869,6 +3915,196 @@ def main() -> None:
             name: tensor.detach().clone()
             for name, tensor in policy.critic.state_dict().items()
         }
+
+        if args.rollout_smoke_only:
+            if not (
+                phase_event_protocol_contract
+                and demo_event_reward_contract
+                and wrong_teacher_reward_conflict_64_contract
+            ):
+                raise ValueError(
+                    "rollout-smoke-only is scoped to the phase-event matched "
+                    "policy protocol"
+                )
+            smoke_steps = int(runner_dict["num_steps_per_env"])
+            counter_names = (
+                "optimizer_steps",
+                "actor_optimizer_steps",
+                "critic_optimizer_steps",
+                "completed_updates",
+            )
+            counters_before = {
+                name: int(getattr(algorithm, name))
+                for name in counter_names
+                if hasattr(algorithm, name)
+            }
+            step_telemetry: list[dict[str, object]] = []
+            reward_identity_max_abs = 0.0
+            icm_bitwise_unchanged = True
+            finite_runtime = True
+            ready_transition_count = 0
+            nonzero_demo_reward_count = 0
+            with torch.inference_mode():
+                for step_index in range(smoke_steps):
+                    observation_t = observations.clone()
+                    actions = algorithm.act(observation_t)
+                    observations_tp1, external_reward, dones, extras = env.step(
+                        actions
+                    )
+                    applied_action = (
+                        previous_applied_action_policy_units(base_env)
+                        .detach()
+                        .clone()
+                    )
+                    signals = integrator.process_step(
+                        observation_t=observation_t,
+                        applied_action_policy_units_t=applied_action,
+                        observation_tp1=observations_tp1,
+                        external_reward=external_reward,
+                        dones=dones,
+                    )
+                    if integrator.last_base_signals is None:
+                        raise RuntimeError(
+                            "phase-event smoke omitted unchanged base signals"
+                        )
+                    base_signals = integrator.last_base_signals
+                    identity_error = torch.abs(
+                        signals.policy_reward
+                        - base_signals.policy_reward
+                        - signals.demo_reward
+                    )
+                    reward_identity_max_abs = max(
+                        reward_identity_max_abs,
+                        float(identity_error.max()),
+                    )
+                    icm_bitwise_unchanged &= bool(
+                        torch.equal(
+                            signals.icm_discovery_reward,
+                            base_signals.icm_discovery_reward,
+                        )
+                    )
+                    finite_runtime &= bool(
+                        torch.isfinite(actions).all()
+                        and torch.isfinite(signals.policy_reward).all()
+                        and torch.isfinite(signals.demo_reward).all()
+                        and torch.isfinite(signals.demo_event_risk).all()
+                    )
+                    ready_transition_count += int(
+                        signals.demo_event_ready.sum()
+                    )
+                    nonzero_demo_reward_count += int(
+                        torch.count_nonzero(signals.demo_reward)
+                    )
+                    algorithm.process_env_step(
+                        observations_tp1,
+                        signals.policy_reward,
+                        dones,
+                        extras,
+                    )
+                    step_telemetry.append(
+                        {
+                            "step": step_index + 1,
+                            "action_mean": float(actions.mean()),
+                            "action_abs_max": float(actions.abs().max()),
+                            "base_policy_reward_mean": float(
+                                base_signals.policy_reward.mean()
+                            ),
+                            "demo_reward_mean": float(
+                                signals.demo_reward.mean()
+                            ),
+                            "policy_reward_mean": float(
+                                signals.policy_reward.mean()
+                            ),
+                            "demo_risk_mean": float(
+                                signals.demo_event_risk.mean()
+                            ),
+                            "demo_ready_fraction": float(
+                                signals.demo_event_ready.float().mean()
+                            ),
+                            "done_count": int(dones.sum()),
+                        }
+                    )
+                    observations = observations_tp1
+            counters_after = {
+                name: int(getattr(algorithm, name))
+                for name in counter_names
+                if hasattr(algorithm, name)
+            }
+            policy_parameters_unchanged = all(
+                torch.equal(tensor, policy.state_dict()[name])
+                for name, tensor in policy_state_before.items()
+            )
+            model_audit = demo_event_scorer.frozen_model_audit()
+            checks = {
+                "formal_environment_created": gym_env is not None,
+                "demo_control_has_no_tactile_scene": bool(
+                    no_tactile_goal_scene_proof is not None
+                    and no_tactile_goal_scene_proof["passed"]
+                ),
+                "full_rollout_executed": len(step_telemetry) == smoke_steps,
+                "runtime_values_finite": finite_runtime,
+                "event_history_became_ready": ready_transition_count > 0,
+                "online_demo_reward_became_nonzero": (
+                    nonzero_demo_reward_count > 0
+                ),
+                "policy_reward_equals_base_plus_demo": (
+                    reward_identity_max_abs <= 1.0e-6
+                ),
+                "original_icm_signal_bitwise_unchanged": (
+                    icm_bitwise_unchanged
+                ),
+                "policy_parameters_unchanged": policy_parameters_unchanged,
+                "policy_optimizer_counters_unchanged": (
+                    counters_before == counters_after
+                ),
+                "policy_updates_executed_zero": (
+                    int(getattr(algorithm, "completed_updates", 0)) == 0
+                ),
+                "icm_optimizer_updates_zero": (
+                    base_integrator.icm_trainer.optimizer_updates == 0
+                ),
+                "rollout_finalizer_not_called": (
+                    base_integrator.rollouts_completed == 0
+                ),
+                "event_model_frozen": bool(model_audit["model_frozen"]),
+                "future_actual_events_hidden": (
+                    model_audit["future_actual_events_used"] is False
+                ),
+            }
+            payload = {
+                "protocol": "sugar_phase_event_online_rollout_smoke_v1",
+                "passed": all(checks.values()),
+                "selected_option": args.demo_event_selected_option,
+                "environment_created": True,
+                "control_steps_executed": smoke_steps,
+                "policy_updates_executed": 0,
+                "optimizer_counters_before": counters_before,
+                "optimizer_counters_after": counters_after,
+                "ready_transition_count": ready_transition_count,
+                "nonzero_demo_reward_count": nonzero_demo_reward_count,
+                "reward_identity_max_abs": reward_identity_max_abs,
+                "frozen_model_audit": model_audit,
+                "step_telemetry": step_telemetry,
+                "checks": checks,
+            }
+            print(json.dumps(payload, indent=2, sort_keys=True), flush=True)
+            if not payload["passed"]:
+                failed = sorted(
+                    name for name, passed in checks.items() if not passed
+                )
+                raise RuntimeError(
+                    f"phase-event online rollout smoke failed: {failed}"
+                )
+            return
+
+        prior_hash_before = _tensor_state_sha256(
+            base_integrator.smp_scorer.prior.state_dict()
+        )
+        teacher_hash_before = (
+            _tensor_state_sha256(env.teacher.actor.state_dict())
+            if residual_teacher_contract
+            else None
+        )
 
         ledgers: list[dict[str, float]] = []
         icm_means: list[float] = []
@@ -5382,9 +5618,15 @@ def main() -> None:
                             base_integrator.mix_cfg.require_no_success_termination
                         )
                     ),
-                    "goal_coherent_latent_dynamics_pass": (
-                        latent_dynamics_proof is not None
-                        and (
+                    "goal_dynamics_contract_pass": (
+                        bool(
+                            no_tactile_goal_scene_proof is not None
+                            and no_tactile_goal_scene_proof["passed"]
+                        )
+                        if explicit_zero_tactile_contract
+                        else (
+                            latent_dynamics_proof is not None
+                            and (
                             (
                                 latent_dynamics_proof["checks"][
                                     "startup_tuple_readback_bitwise_exact"
@@ -5401,6 +5643,7 @@ def main() -> None:
                             )
                             if reference_waypoint_foundation_contract
                             else bool(latent_dynamics_proof["passed"])
+                            )
                         )
                     ),
                     "v16_direct_tacsl_slip_belief_is_policy_input": (
@@ -7190,7 +7433,8 @@ def main() -> None:
                 (
                     "Predeclared Plan-11 four-arm demo-conflict training "
                     "control with exact-zero actor, ICM, slip, failed-"
-                    "strategy, and demo-predictor tactile inputs. The frozen "
+                    "strategy, and demo-predictor tactile inputs on the "
+                    "original no-TacSL SUGAR scene. The frozen "
                     "official Refiner, serious SUGAR-native PPO actor, "
                     "official SMP, original ICM, and 11.9M demo predictor are "
                     "unchanged. No tactile effectiveness or post-tactile-"
@@ -7430,6 +7674,7 @@ def main() -> None:
             "support_hold": support_hold_proof,
             "bounded_drop_grace": drop_grace_proof,
             "coherent_latent_dynamics": latent_dynamics_proof,
+            "no_tactile_goal_scene": no_tactile_goal_scene_proof,
             "reference_waypoint_foundation": (
                 reference_waypoint_foundation_proof
             ),

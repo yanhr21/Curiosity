@@ -186,6 +186,14 @@ def parse_args() -> argparse.Namespace:
             "runner and exit before environment creation or PPO"
         ),
     )
+    parser.add_argument(
+        "--runner-rollout-smoke-only",
+        action="store_true",
+        help=(
+            "on a retained GPU, execute one formal 24-step online rollout "
+            "through the actor and reward path, with no optimizer step"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -369,6 +377,13 @@ def runner_command(
 ) -> list[str]:
     task_motion_folder = CORRECT_TEACHER
     design = DESIGNS[args.design]
+    portable_kit_root = (
+        Path("/tmp")
+        / (
+            f"Curiosity_demo_kit_{os.environ.get('SLURM_JOB_ID', 'local')}_"
+            f"{paths['directory'].parent.name}_{paths['directory'].name}"
+        )
+    )
     teacher_wrapper_mode = str(
         design.get("teacher_wrapper_mode", "wrong_reference_fixed_v1")
     )
@@ -458,6 +473,14 @@ def runner_command(
         "--device",
         args.device,
         "--headless",
+        "--kit_args",
+        (
+            f"--portable-root {portable_kit_root} "
+            "--/renderer/enabled=false "
+            "--/renderer/multiGpu/enabled=false "
+            "--/renderer/multiGpu/autoEnable=false "
+            "--/renderer/multiGpu/maxGpuCount=1"
+        ),
     ]
     if contract.get("event_runtime_config") is not None:
         command.extend(
@@ -487,7 +510,6 @@ def runtime_environment(args: argparse.Namespace, update: int) -> dict[str, str]
             "PYTHONUNBUFFERED": "1",
             "PYTHONFAULTHANDLER": "1",
             "SUGAR_DISABLE_TRAIN_DEBUG_VIS": "1",
-            "VK_ICD_FILENAMES": "/etc/vulkan/icd.d/nvidia_icd.json",
             "DISPLAY": "",
             "ISAACLAB_GROUND_PLANE_USD": str(
                 ROOT / "SUGAR/descriptions/terrain/sugar_ground_plane.usda"
@@ -502,6 +524,11 @@ def runtime_environment(args: argparse.Namespace, update: int) -> dict[str, str]
             ),
         }
     )
+    # IsaacLab compute/training entrypoints on this cluster use Kit's own
+    # device discovery. The system ICD is reserved for camera-enabled render
+    # entrypoints; forcing it here can make Vulkan and CUDA select different
+    # Slurm-remapped devices at simulation start.
+    env.pop("VK_ICD_FILENAMES", None)
     python_paths = (
         ROOT / "scripts/sugar/smp",
         ROOT / "IsaacLab/source/isaaclab_contrib",
@@ -538,10 +565,15 @@ def main() -> None:
         else args.endpoint_updates
     )
     phase_event_design = args.design == "phase_event_reward_only"
+    runner_probe_mode = bool(
+        args.runner_admission_only or args.runner_rollout_smoke_only
+    )
+    if args.runner_admission_only and args.runner_rollout_smoke_only:
+        raise ValueError("select exactly one formal runner probe mode")
     if (
         phase_event_design
         and not args.dry_run
-        and not args.runner_admission_only
+        and not runner_probe_mode
         and not args.policy_training_authorized
     ):
         raise PermissionError(
@@ -549,11 +581,11 @@ def main() -> None:
         )
     if not phase_event_design and args.policy_training_authorized:
         raise ValueError("policy authorization flag is scoped to phase_event_reward_only")
-    if args.runner_admission_only and (
+    if runner_probe_mode and (
         not phase_event_design or args.dry_run or args.policy_training_authorized
     ):
         raise ValueError(
-            "runner admission is a phase-event, non-training, non-dry execution mode"
+            "runner probes are phase-event, non-training, non-dry execution modes"
         )
     if (args.seed, args.action_seed) not in PREDECLARED_SEED_PAIRS or args.num_envs != 20:
         raise ValueError(
@@ -631,13 +663,18 @@ def main() -> None:
                 )
             )
             return
-        if args.runner_admission_only:
+        if runner_probe_mode:
             if socket.gethostname().startswith(("mgmtserver", "login")):
-                raise SystemExit("runner admission requires a retained compute allocation")
+                raise SystemExit("runner probe requires a retained compute allocation")
+            probe_name = (
+                "admission"
+                if args.runner_admission_only
+                else "rollout_smoke"
+            )
             with tempfile.NamedTemporaryFile(
                 mode="w",
                 suffix=".json",
-                prefix=f"phase_event_{args.arm}_admission_",
+                prefix=f"phase_event_{args.arm}_{probe_name}_",
                 delete=False,
             ) as stream:
                 json.dump(payload, stream, indent=2, sort_keys=True)
@@ -646,7 +683,11 @@ def main() -> None:
             command[command.index("--protocol-config") + 1] = str(
                 temporary_protocol
             )
-            command.append("--admission-only")
+            command.append(
+                "--admission-only"
+                if args.runner_admission_only
+                else "--rollout-smoke-only"
+            )
             try:
                 completed = subprocess.run(
                     command,
@@ -657,7 +698,9 @@ def main() -> None:
             finally:
                 temporary_protocol.unlink(missing_ok=True)
             if completed.returncode != 0:
-                raise RuntimeError("formal inner-runner admission probe failed")
+                raise RuntimeError(
+                    f"formal inner-runner {probe_name} probe failed"
+                )
             return
         paths["directory"].mkdir(parents=True, exist_ok=False)
         paths["protocol"].write_text(

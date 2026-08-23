@@ -31,6 +31,18 @@ probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen 
 unrelated Kick21 model, but creates no environment and executes zero PPO updates. The allocation is
 held after the probes. This is stronger execution-readiness evidence, still not training evidence.
 
+The next online-runtime audit found that the old `explicit_zero_control` composition still
+constructed the dual-R15 TacSL scene even though its tensors were zero. Demo-only controls now use
+`NoTactileGoalRobotEnvCfg`, the original SUGAR G1/CarryBox scene with no VisuoTactileSensor assets.
+Do not restore the TacSL scene in a demo-only arm or claim zero sensor reads from zeroed tensors.
+
+The formal 24-step, zero-optimizer rollout smoke is implemented but has not passed. On 2026-08-24,
+server60/job257762 and server45/job257794 both reproduced Isaac Sim 5.1 `ERROR_DEVICE_LOST`; a
+minimal five-update `SimulationApp` on server45 failed before any SUGAR scene was created, including
+with isolated portable Kit state and explicit allocated-GPU UUID mapping. Treat this as a current
+runtime blocker, not a model result. Policy training remains forbidden until a minimal canary and
+both correct/unrelated online smokes pass. Keep granted allocations held while diagnosing.
+
 Routine read-only audits, dataset builds and predictor-only gates may proceed through the documented
 queue. Policy training is the explicit exception and requires user approval.
 

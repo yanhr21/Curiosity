@@ -23,6 +23,19 @@ $PYTHON scripts/sugar/demo_following/run_matched_state_predictor.py \
   --endpoint-updates 64 --stop-after-segment --runner-admission-only
 ```
 
+Before policy optimization, execute the real 24-step environment/reward path with zero optimizer
+updates:
+
+```bash
+$PYTHON scripts/sugar/demo_following/run_matched_state_predictor.py \
+  --design phase_event_reward_only --arm correct \
+  --endpoint-updates 64 --stop-after-segment --runner-rollout-smoke-only
+```
+
+The demo-only arms use the original SUGAR G1/CarryBox scene and construct no TacSL sensor; exact-zero
+tensors alone are not accepted as zero sensor use. Both correct and unrelated smokes must pass after
+the current Isaac Sim `ERROR_DEVICE_LOST` minimal-canary blocker is resolved.
+
 After explicit approval, run the two arms serially inside a retained GPU allocation with
 `--policy-training-authorized`. Use `scripts/sugar/native_tactile/launch_retained_child.sh` and a
 fresh `--output-root`. After both endpoints pass, evaluate updates 32/64, run the independent

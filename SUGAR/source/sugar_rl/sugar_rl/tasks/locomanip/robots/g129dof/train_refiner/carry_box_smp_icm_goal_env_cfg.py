@@ -39,6 +39,7 @@ from .carry_box_tactile_refiner_env_cfg import (
     TACTILE_GRID_SHAPE,
     RobotSceneCfg as TactileRobotSceneCfg,
 )
+from .carry_box_refiner_env_cfg import RobotSceneCfg as CarryBoxRobotSceneCfg
 
 
 MOTION_BODY_NAMES = [
@@ -344,6 +345,22 @@ class RobotEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.physics_material = self.scene.terrain.physics_material
         self.sim.physx.gpu_max_rigid_patch_count = 10 * 2**15
         self.sim.physx.gpu_collision_stack_size = 2**27
+
+
+@configclass
+class NoTactileGoalRobotEnvCfg(RobotEnvCfg):
+    """Goal task on the original SUGAR G1/CarryBox scene with no TacSL assets.
+
+    This is the environment for demo-only controls whose tactile tensors are
+    explicitly zero. It keeps the goal observations, actions, rewards,
+    terminations and standard SUGAR dynamics randomization from ``RobotEnvCfg``
+    while preventing construction or update of any VisuoTactileSensor.
+    """
+
+    scene: CarryBoxRobotSceneCfg = CarryBoxRobotSceneCfg(
+        num_envs=4096,
+        env_spacing=2.5,
+    )
 
 
 class RobotPlayEnvCfg(RobotEnvCfg):

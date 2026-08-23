@@ -100,6 +100,14 @@ Formal GPU admission also passes for both arms on H200: correct selects CarryBox
 unrelated selects KickBox21 row 97; both report 121-D input, clock-phase alignment, frozen eval mode,
 zero trainable parameters, no environment creation and zero policy updates.
 
+The subsequent online gate corrected an experiment-composition bug: `explicit_zero_control` had
+zeroed policy tensors but still instantiated the dual-R15 TacSL scene. The matched demo experiment
+now uses the original no-TacSL SUGAR G1/CarryBox scene. A 24-step real-environment smoke is available
+and performs no optimizer update. It is not yet admitted because two retained H200 nodes and an
+independent minimal `SimulationApp` canary currently fail with Isaac Sim 5.1
+`ERROR_DEVICE_LOST` before project reward code can run. Minimal canary recovery, then correct smoke,
+then unrelated smoke are mandatory before any authorized policy optimization.
+
 ### Expected behavior, not just reward score
 
 For the correct Carry demo, the expected interaction is: approach the box, establish bilateral hand

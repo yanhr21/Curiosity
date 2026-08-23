@@ -105,6 +105,46 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
             RUNNER.CORRECT_TEACHER
         )
 
+    args = argparse.Namespace(
+        design="phase_event_reward_only",
+        arm="correct",
+        num_envs=20,
+        seed=161587,
+        action_seed=161588,
+        device="cuda:0",
+    )
+    paths = RUNNER.segment_paths(
+        ROOT / "experiments/unit_test_phase_event", "correct", 64, 161587
+    )
+    command = RUNNER.runner_command(
+        args=args,
+        paths=paths,
+        protocol=paths["protocol"],
+        previous_checkpoint=None,
+        contract=correct,
+    )
+    kit_args = command[command.index("--kit_args") + 1]
+    assert command[command.index("--tactile-regime") + 1] == (
+        "explicit_zero_control"
+    )
+    assert "--portable-root /tmp/Curiosity_demo_kit_" in kit_args
+    assert "/renderer/enabled=false" in kit_args
+    assert "/renderer/multiGpu/enabled=false" in kit_args
+    assert "/renderer/multiGpu/autoEnable=false" in kit_args
+    assert "/renderer/multiGpu/maxGpuCount=1" in kit_args
+    assert "VK_ICD_FILENAMES" not in RUNNER.runtime_environment(args, 64)
+
+    inner_source = (
+        ROOT / "scripts/sugar/smp/audit_stage_h_smp_icm_policy_integration.py"
+    ).read_text(encoding="utf-8")
+    config_source = (
+        ROOT
+        / "SUGAR/source/sugar_rl/sugar_rl/tasks/locomanip/robots/g129dof/"
+        "train_refiner/carry_box_smp_icm_goal_env_cfg.py"
+    ).read_text(encoding="utf-8")
+    assert "NoTactileGoalRobotEnvCfg()" in inner_source
+    assert "scene: CarryBoxRobotSceneCfg" in config_source
+
 
 def behavior_payload(*, passing: bool) -> dict[str, object]:
     directions = {

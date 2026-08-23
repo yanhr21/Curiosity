@@ -80,6 +80,14 @@ correct/unrelated 两臂的同 teacher 协议、update 32/64 checkpoint、冻结
 启动成功，correct 解析为 CarryBox45，unrelated 解析为 KickBox21，均为 121-D、clock-phase、
 0 trainable parameter、0 PPO update。该 job 为 5 天 allocation，当前已恢复 GPU hold。
 
+随后 online-rollout 准入发现一个实质性混杂：`explicit_zero_control` 虽把 actor/ICM 的触觉
+tensor 置零，旧配置仍会实例化双 R15 TacSL scene。现已改为原始 SUGAR G1/CarryBox scene，
+完全不创建 TacSL sensor，并新增 24-step、零 optimizer 的正式 online reward smoke。当前
+smoke 尚未通过运行时门槛：server60/job257762 与 server45/job257794 都在最小
+`SimulationApp`（尚未创建 SUGAR scene）阶段复现 Isaac Sim 5.1 `ERROR_DEVICE_LOST`，因此
+不能把它误报为 reward、teacher 或 policy 失败，也不能在 canary 恢复前启动 policy 训练。
+两份 allocation 均继续保持 GPU hold。
+
 官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
 完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
 任意 Transformer hidden state 冒充 SMP latent，现有证据也不支持 selected-demo SMP
@@ -146,6 +154,11 @@ $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
 $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
   --design phase_event_reward_only --arm correct \
   --endpoint-updates 64 --stop-after-segment --runner-admission-only
+
+# retained GPU：真实环境执行一个 24-step online rollout，但不调用 optimizer/update
+$PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
+  --design phase_event_reward_only --arm correct \
+  --endpoint-updates 64 --stop-after-segment --runner-rollout-smoke-only
 
 # 仅在用户明确授权 policy training 后，GPU compute node 串行执行 correct，再执行 unrelated
 $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
