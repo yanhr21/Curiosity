@@ -20,6 +20,14 @@ teacher-only zero-residual gate 在 20/20 profiles 中实现双手接触并抬�
 因此 selected-demo reward 确实进入优化并改变策略；但单个训练 seed 下 correct 没有优于
 unrelated，所以不能声称策略理解或遵循了 demo 语义。
 
+对现有 20 组 matched traces 的 predictor-independent 行为审计进一步排除了“只是分数没
+显示出来”的解释。审计不读取 predictor loss、demo reward 或训练 loss，只读取机器人/
+箱子状态和双手刚体接触力。CarryBox45 reference 最大抬升 `0.7639 m`，KickBox21 最大仅
+`0.0304 m`；但 Kick-reward policy 相对 correct policy 反而有更多 lifted time
+（`+0.0350`）、更多 lifted transport（`+0.0323`）、更少 ground transport（`-0.0323`），
+orbit rate 也没有增加（`-0.0050 rad/s`）。四个预定方向均未出现，所以当前变化属于
+Carry 解内部差异，而不是 Kick 语义遵循。
+
 当前 internal reward predictor 是约 11.9M 参数的 causal future-mismatch predictor，预测
 body、box position、box 6D rotation 和 box velocity 的未来偏差。held-out normalized MAE
 为 0.1873，constant baseline 为 0.3609，mean Spearman 为 0.7718；permuted/zero demo 会
@@ -89,6 +97,9 @@ $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
 bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
   64 same_teacher_reward_only
 
+# 无 GPU：从现有 traces 重算独立行为审计
+$PYTHON_BIN scripts/sugar/demo_following/analyze_behavior_adherence.py
+
 # GPU compute node：复现完整 G1 CarryBox 与双手 27-patch 在线触觉视频
 bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh \
   experiments/isaaclab_g1_anatomical27_object_demos/reproduce_plain_carrybox
@@ -120,7 +131,7 @@ Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 
 ## 下一步
 
-当前不自动启动新训练。下一项有效工作应先使用现有 rollout 建立独立于 predictor 的行为
-级 demo-adherence 指标，包括接近方向、双手接触拓扑、脚部踢击、绕箱路径、箱子位移和
-抬升。随后才用至少三个 matched training seeds 重复 64-update same-teacher 实验。只有
-这些结果稳定后，才考虑以相同 schedule 降低 teacher authority 或重新设计语义 predictor。
+当前不自动启动新训练。现有 rollout 的独立行为审计已经完成；TRACE 缺少逐 body pose 和
+足部接触，因此不能追溯证明哪只脚踢箱。下一次冻结 evaluator 先补齐这些 evaluation-only
+字段，再串行完成预登记的三个 matched training seeds。只有 seed-level 行为差异稳定后，
+才考虑以相同 schedule 降低 teacher authority 或重新设计语义 predictor。

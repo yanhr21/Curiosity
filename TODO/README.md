@@ -9,15 +9,24 @@
 - [x] train correct/unrelated selected-demo arms for 64 updates with the same CarryBox45 teacher;
 - [x] freeze-evaluate 20 matched physics profiles per arm and render complete demo/actual videos;
 - [x] verify that selected-demo identity changes checkpoint parameters and residual actions;
-- [ ] compute predictor-independent behavior adherence from existing traces: approach direction,
-  contact topology, foot interaction, path around the box, box displacement and lift;
-- [ ] predeclare at least three matched training seeds and repeat the fixed 64-update design;
+- [x] compute predictor-independent behavior adherence from existing traces using object lift,
+  lifted/ground transport, robot orbit and available hand-contact topology;
+- [x] record the trace limitation: foot identity and direct kick contact cannot be recovered because
+  per-body pose and foot-contact force were not archived;
+- [x] predeclare three matched seed pairs for the fixed 64-update repeat;
+- [ ] add per-body pose, named foot-box contact and hand-box-only contact to the next frozen
+  evaluator as evaluation labels, not actor inputs;
+- [ ] after explicit approval, run seed pairs `161583/161584` and `161585/161586` serially and
+  evaluate them with seeds `171583` and `171585`;
+- [x] add a one-seed-at-a-time runner and a training-seed-level behavior aggregator; neither
+  substitutes physics profiles for independent seeds;
 - [ ] only if the multi-seed result is stable, test an identical teacher-authority schedule in both
   arms;
 - [ ] redesign or replace the semantic reward gate before any selected-demo SMP integration.
 
 Current endpoint: correct `16/20` success, unrelated `18/20`, with two physical falls in each arm.
-This proves reward-signal use, not semantic demo following.
+The independent audit observes `0/4` declared semantic directions: both policies remain Carry-like.
+This proves reward-signal use and within-Carry behavior change, not semantic demo following.
 
 ## Frozen tactile work
 

@@ -534,7 +534,7 @@ def deterministic_action(policy, observations) -> torch.Tensor:
     return policy.action_mean.detach().clone()
 
 
-def hand_contact_vector(base_env, name: str) -> torch.Tensor:
+def filtered_contact_vector(base_env, name: str) -> torch.Tensor:
     value = base_env.scene[name].data.force_matrix_w_history
     if value is None or value.shape[0] != NUM_ENVS or value.shape[-1] != 3:
         raise RuntimeError(f"rigid contact sensor {name} geometry drift")
@@ -569,14 +569,19 @@ def capture_state(base_env, joint_ids: torch.Tensor) -> dict[str, np.ndarray]:
         "robot_root_state_w": base_env.scene["robot"].data.root_state_w.detach().cpu().numpy().astype(np.float32),
         "robot_joint_pos": base_env.scene["robot"].data.joint_pos[:, joint_ids].detach().cpu().numpy().astype(np.float32),
         "robot_joint_vel": base_env.scene["robot"].data.joint_vel[:, joint_ids].detach().cpu().numpy().astype(np.float32),
+        # Evaluation-only whole-body geometry. It is archived after the actor
+        # call and never enters observations, rewards, or the predictor.
+        "robot_body_position_w": base_env.scene["robot"].data.body_pos_w.detach().cpu().numpy().astype(np.float32),
         "object_root_state_w": base_env.scene["obj"].data.root_state_w.detach().cpu().numpy().astype(np.float32),
         "goal_position_w": command.obj_target_pos_w.detach().cpu().numpy().astype(np.float32),
         "goal_orientation_wxyz": command.obj_target_quat_w.detach().cpu().numpy().astype(np.float32),
         "goal_position_error_m": torch.linalg.vector_norm(command.obj_pos_w - command.obj_target_pos_w, dim=-1).detach().cpu().numpy().astype(np.float32),
         "goal_orientation_error_rad": math_utils.quat_error_magnitude(command.obj_quat_w, command.obj_target_quat_w).detach().cpu().numpy().astype(np.float32),
         "lift_height_m": (command.obj_pos_w[:, 2] - command.initial_obj_height_w).detach().cpu().numpy().astype(np.float32),
-        "left_hand_rigid_contact_force_w": hand_contact_vector(base_env, "left_hand_forces").detach().cpu().numpy().astype(np.float32),
-        "right_hand_rigid_contact_force_w": hand_contact_vector(base_env, "right_hand_forces").detach().cpu().numpy().astype(np.float32),
+        "left_hand_rigid_contact_force_w": filtered_contact_vector(base_env, "left_hand_forces").detach().cpu().numpy().astype(np.float32),
+        "right_hand_rigid_contact_force_w": filtered_contact_vector(base_env, "right_hand_forces").detach().cpu().numpy().astype(np.float32),
+        "left_foot_box_contact_force_w": filtered_contact_vector(base_env, "left_foot_forces").detach().cpu().numpy().astype(np.float32),
+        "right_foot_box_contact_force_w": filtered_contact_vector(base_env, "right_foot_forces").detach().cpu().numpy().astype(np.float32),
     }
 
 
@@ -1325,6 +1330,7 @@ def main() -> None:
             arrays[f"demo_{name}_component_mse"] = np.stack(values)
         arrays["policy_updates"] = np.asarray(UPDATES, dtype=np.int64)
         arrays["ordered_joint_names"] = np.asarray(joint_names)
+        arrays["ordered_body_names"] = np.asarray(base_env.scene["robot"].body_names)
         arrays["reward_term_names"] = np.asarray(reward_term_names)
         arrays["termination_names"] = np.asarray(TERMINATION_NAMES)
 

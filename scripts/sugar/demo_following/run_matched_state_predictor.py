@@ -62,6 +62,11 @@ DESIGNS = {
         },
     },
 }
+PREDECLARED_SEED_PAIRS = {
+    (161581, 161582),
+    (161583, 161584),
+    (161585, 161586),
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -371,13 +376,9 @@ def main() -> None:
     args.output_root = (
         design["output"] if args.output_root is None else args.output_root
     )
-    if (
-        args.seed,
-        args.action_seed,
-        args.num_envs,
-    ) != (design["seed"], design["action_seed"], 20):
+    if (args.seed, args.action_seed) not in PREDECLARED_SEED_PAIRS or args.num_envs != 20:
         raise ValueError(
-            "each matched design has frozen sim/action seeds and 20 environments"
+            "matched design requires one predeclared sim/action seed pair and 20 environments"
         )
     if args.endpoint_updates < 64 or args.endpoint_updates % args.segment_updates:
         raise ValueError("endpoint must be a positive multiple of segment updates")

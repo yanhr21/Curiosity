@@ -189,6 +189,79 @@ seed161581/
 `18 success / 2 fall`。结果证明 reward demo 改变策略，但不证明 correct-demo superiority
 或 semantic obedience；20 个 physics profiles 不是 20 个独立训练 seeds。
 
+### 3.6 Predictor-independent behavior audit
+
+该审计只读取 frozen trace 中的 robot/object state、lift height 和左右手刚体合力。它不会
+加载 predictor，不读取 `demo_*`、reward term、policy loss 或 future mismatch：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/analyze_behavior_adherence.py
+```
+
+输出位于：
+
+```text
+experiments/demo_following/matched_reward_identity_same_teacher_v1/
+└── seed161581/behavior_adherence_audit_v1/
+    ├── RESULT.json
+    ├── profiles.csv
+    └── behavior_adherence.png
+```
+
+物理阈值固定为 lift `>=0.05 m`、每手刚体合力 `>0.1 N`，与冻结 evaluator 的定义一致。
+CarryBox45 reference 最大抬升 `0.7639 m`，lifted transport fraction `0.8141`；KickBox21
+最大抬升 `0.0304 m`，lifted transport fraction `0`，orbit rate 为 `0.5646 rad/s`，高于
+CarryBox45 的 `0.3521 rad/s`。
+
+实际两臂都高度 Carry-like。Kick-reward 减 correct-reward 的 paired-profile mean 为：
+
+- lifted-frame fraction `+0.0350`；
+- lifted-transport fraction `+0.0323`；
+- ground-transport fraction `-0.0323`；
+- orbit rate `-0.0050 rad/s`；
+- bilateral hand-contact fraction `+0.0390`。
+
+这些方向不支持 Kick 语义。lifted/ground transport 是互补量，不当作两个独立统计检验。
+20 profiles 共享一个训练 seed，因此只作物理 profile 描述，不冒充多 seed 显著性。现有
+TRACE 没有逐 body pose、foot-box contact 或 hand-box-only contact，不能追溯脚部踢击；
+下一冻结 evaluator 必须补齐这些 evaluation-only 字段。
+
+### 3.7 Predeclared multi-seed repeat
+
+保持两臂 64 updates、CarryBox45 teacher coefficient 1 和所有 reward/physics 设置完全一致，
+只改变 selected demo。三组 training/action seeds 为 `161581/161582`、`161583/161584`、
+`161585/161586`；对应 frozen evaluation seeds 为 `171581/171583/171585`。已有第一组，
+后两组必须串行执行，且未经明确授权不得启动。
+
+每次只运行并完成一个 seed pair；脚本会串行执行 correct、unrelated、冻结评估、视频和
+独立行为审计，任一 proof 失败都会停止：
+
+```bash
+# retained GPU shell
+bash scripts/sugar/demo_following/run_predeclared_multiseed_pair.sh 161583
+
+# 人工检查 seed161583 后才运行下一组
+bash scripts/sugar/demo_following/run_predeclared_multiseed_pair.sh 161585
+
+# 三个 seed 全部完成后汇总；训练 seed 才是 replication unit
+$PYTHON_BIN scripts/sugar/demo_following/aggregate_behavior_adherence.py
+```
+
+主要行为判据不是 predictor score：correct arm 应有更多 lifted transport；unrelated arm 应
+有更多 ground-level transport 和更高 orbit rate。task success、fall、双手接触和最大抬升
+分别报告。三个 seed 均应显示相同方向，才把结果称为稳定的 demo-conditioned behavior；
+否则结论仍是 reward 使用但语义遵循未成立。
+
+研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
+graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object
+关系和 required-contact duration；CHORD 进一步用 object-centric contact wrench 衡量接触
+如何驱动物体，而不只看接触位置。对应原始来源：
+
+- https://arxiv.org/abs/1804.02717
+- https://arxiv.org/abs/2312.04393
+- https://arxiv.org/abs/2502.20390
+- https://nvidia-isaac.github.io/video_to_data/chord/
+
 ## 4. Internal reward predictor
 
 模型输入为过去 10 帧 policy state 和指定 demo condition，目标为未来 body、box position、

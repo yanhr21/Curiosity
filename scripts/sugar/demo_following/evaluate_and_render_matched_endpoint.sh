@@ -22,7 +22,12 @@ CONFIG="$RUN_ROOT/correct/update_${PADDED_UPDATE}/protocol.json"
 EVAL_ROOT="$RUN_ROOT/evaluation_update${PADDED_UPDATE}"
 VIDEO_ROOT="$RUN_ROOT/videos_update${PADDED_UPDATE}"
 arms=(same_teacher_correct_reward same_teacher_unrelated_reward)
-eval_seed=171581
+training_seed=$(
+    "$PYTHON" -c \
+        'import json,sys; print(json.load(open(sys.argv[1]))["shared_runtime"]["sim_and_policy_seed"])' \
+        "$CONFIG"
+)
+eval_seed=$((training_seed + 10000))
 renderer_design_args=(--same-teacher-reward-only)
 KIT_ARGS="--/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
 

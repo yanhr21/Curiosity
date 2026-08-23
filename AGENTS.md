@@ -7,8 +7,8 @@ The tactile/mass-adaptation line in
 training, evaluation or scale tuning unless the user explicitly resumes it.
 
 The current task is to consolidate demo-following evidence, distinguish implemented components
-from proposals, build a predictor-independent behavior adherence metric, and design the next
-matched multi-seed experiment. Do not start new policy training without explicit user approval.
+from proposals, and use the completed predictor-independent behavior audit to run the predeclared
+multi-seed repeat only after explicit user approval. Do not start new policy training implicitly.
 
 The completed same-teacher experiment fixes CarryBox45 as teacher in both arms and changes only the
 selected reward demo, CarryBox45 versus KickBox21. Frozen success is `16/20` versus `18/20`, with
@@ -45,8 +45,13 @@ to root up-z about `0.191`, recovers and carries.
   prior into policy before a semantic gate passes.
 - A valid policy comparison keeps teacher, initialization, update budget, seeds, reward weights,
   physics and frozen evaluation identical. Only the selected reward demo may differ.
-- Before another training budget, define direct behavior-level adherence independent of the reward
-  predictor. Task success and predictor loss must be reported separately.
+- The existing-trace behavior audit is independent of the reward predictor. With the same
+  CarryBox45 teacher, the KickBox21-reward arm still lifts and transports the box rather than
+  becoming Kick-like; none of the four declared semantic directions is observed. This is
+  within-Carry behavior change, not semantic obedience. Task success and predictor loss remain
+  separate.
+- Existing traces do not contain per-body pose or foot-contact state and cannot retrospectively
+  identify which foot kicked. Add these as evaluation-only fields before the next frozen rollout.
 - One policy-training seed is one experimental replicate. Multiple physics profiles do not replace
   independent training seeds.
 - Never replace official MimicKit/TinyMDM or SUGAR components with a toy implementation.
