@@ -36,6 +36,43 @@ UNRELATED_REFERENCE = ROOT / "SUGAR/data/KickBox/data_021"
 CONTROL_DT_S = 0.02
 LIFT_THRESHOLD_M = 0.05
 HAND_CONTACT_THRESHOLD_N = 0.1
+REFERENCE_BODY_NAMES = (
+    "pelvis",
+    "left_hip_pitch_link",
+    "pelvis_contour_link",
+    "right_hip_pitch_link",
+    "waist_yaw_link",
+    "left_hip_roll_link",
+    "right_hip_roll_link",
+    "waist_roll_link",
+    "left_hip_yaw_link",
+    "right_hip_yaw_link",
+    "torso_link",
+    "left_knee_link",
+    "right_knee_link",
+    "head_link",
+    "left_shoulder_pitch_link",
+    "logo_link",
+    "right_shoulder_pitch_link",
+    "left_ankle_pitch_link",
+    "right_ankle_pitch_link",
+    "left_shoulder_roll_link",
+    "right_shoulder_roll_link",
+    "left_ankle_roll_link",
+    "right_ankle_roll_link",
+    "left_shoulder_yaw_link",
+    "right_shoulder_yaw_link",
+    "left_elbow_link",
+    "right_elbow_link",
+    "left_wrist_roll_link",
+    "right_wrist_roll_link",
+    "left_wrist_pitch_link",
+    "right_wrist_pitch_link",
+    "left_wrist_yaw_link",
+    "right_wrist_yaw_link",
+    "left_rubber_hand",
+    "right_rubber_hand",
+)
 
 REQUIRED_TRACE_KEYS = {
     "done",
@@ -113,16 +150,25 @@ def load_trace(path: Path) -> dict[str, np.ndarray]:
 def load_reference(path: Path) -> dict[str, np.ndarray]:
     robot_path = path / "robot_50hz.npz"
     object_path = path / "obj_motion_global_50hz.pkl"
-    if not robot_path.is_file() or not object_path.is_file():
+    contact_path = path / "contact_labels_50hz.npy"
+    if not robot_path.is_file() or not object_path.is_file() or not contact_path.is_file():
         raise FileNotFoundError(f"incomplete reference motion directory: {path}")
     with np.load(robot_path, allow_pickle=False) as archive:
         robot = {name: np.asarray(archive[name]) for name in archive.files}
     with object_path.open("rb") as stream:
         obj = {name: np.asarray(value) for name, value in pickle.load(stream).items()}
-    length = min(robot["joint_pos"].shape[0], obj["obj_trans"].shape[0])
+    contact = np.load(contact_path, allow_pickle=False)
+    length = min(
+        robot["joint_pos"].shape[0], obj["obj_trans"].shape[0], contact.shape[0]
+    )
+    if robot["body_pos_w"].shape[1] != len(REFERENCE_BODY_NAMES):
+        raise RuntimeError("reference G1 body order no longer matches the 35-body contract")
     return {
         "robot_position_w": robot["body_pos_w"][:length, 0].astype(np.float64),
+        "robot_body_position_w": robot["body_pos_w"][:length].astype(np.float64),
         "object_position_w": obj["obj_trans"][:length].astype(np.float64),
+        "object_linear_velocity_w": obj["obj_lin_vel"][:length].astype(np.float64),
+        "contact_label": contact[:length].astype(bool),
         "joint_pos": robot["joint_pos"][:length].astype(np.float64),
         "joint_vel": robot["joint_vel"][:length].astype(np.float64),
     }
@@ -146,6 +192,86 @@ def longest_true_run(mask: np.ndarray) -> int:
     if edges.size == 0:
         return 0
     return int(np.max(edges[1::2] - edges[::2]))
+
+
+def true_runs(mask: np.ndarray) -> list[tuple[int, int]]:
+    """Return inclusive [start, end] intervals for a boolean sequence."""
+    padded = np.pad(np.asarray(mask, dtype=np.int8), (1, 1))
+    edges = np.flatnonzero(np.diff(padded))
+    return [(int(start), int(stop - 1)) for start, stop in zip(edges[::2], edges[1::2])]
+
+
+def first_sustained(mask: np.ndarray, frames: int = 5) -> int | None:
+    if frames <= 0:
+        raise ValueError("sustained-event length must be positive")
+    values = np.asarray(mask, dtype=np.int8)
+    if values.size < frames:
+        return None
+    hits = np.flatnonzero(np.convolve(values, np.ones(frames, dtype=np.int8), mode="valid") == frames)
+    return int(hits[0]) if hits.size else None
+
+
+def reference_event_timeline(
+    reference: dict[str, np.ndarray], *, contact_role: str
+) -> dict[str, Any]:
+    if contact_role not in ("hands", "feet"):
+        raise ValueError(contact_role)
+    object_position = reference["object_position_w"]
+    baseline_z = float(np.median(object_position[:25, 2]))
+    lift = object_position[:, 2] - baseline_z
+    speed = np.linalg.norm(reference["object_linear_velocity_w"], axis=-1)
+    labels = reference["contact_label"]
+    runs = true_runs(labels)
+    lift_frames = np.flatnonzero(lift >= LIFT_THRESHOLD_M)
+    body_names = (
+        ("left_rubber_hand", "right_rubber_hand")
+        if contact_role == "hands"
+        else ("left_ankle_roll_link", "right_ankle_roll_link")
+    )
+    body_ids = [REFERENCE_BODY_NAMES.index(name) for name in body_names]
+    distances = np.stack(
+        [
+            np.linalg.norm(
+                reference["robot_body_position_w"][:, body_id] - object_position,
+                axis=-1,
+            )
+            for body_id in body_ids
+        ],
+        axis=-1,
+    )
+    frame, side = (
+        int(value)
+        for value in np.unravel_index(int(np.argmin(distances)), distances.shape)
+    )
+    labeled_distances = distances[labels]
+    return {
+        "contact_role": contact_role,
+        "contact_label_is_binary_proxy": True,
+        "contact_run_count": len(runs),
+        "contact_runs": [
+            {
+                "start_frame": start,
+                "end_frame": end,
+                "start_s": start * CONTROL_DT_S,
+                "end_s": end * CONTROL_DT_S,
+            }
+            for start, end in runs
+        ],
+        "first_contact_frame": runs[0][0] if runs else None,
+        "last_contact_frame": runs[-1][1] if runs else None,
+        "contact_fraction": float(np.mean(labels)),
+        "first_sustained_object_motion_frame": first_sustained(speed >= 0.05),
+        "first_sustained_lift_frame": first_sustained(lift >= LIFT_THRESHOLD_M),
+        "last_lift_frame": int(lift_frames[-1]) if lift_frames.size else None,
+        "peak_lift_frame": int(np.argmax(lift)),
+        "peak_lift_m": float(np.max(lift)),
+        "closest_effector": body_names[side],
+        "closest_effector_frame": frame,
+        "closest_effector_center_distance_m": float(distances[frame, side]),
+        "minimum_effector_center_distance_during_labeled_contact_m": (
+            float(np.min(labeled_distances)) if labeled_distances.size else None
+        ),
+    }
 
 
 def kinematic_metrics(
@@ -385,6 +511,53 @@ def write_figure(
     plt.close(fig)
 
 
+def write_reference_timeline(
+    path: Path,
+    references: dict[str, dict[str, np.ndarray]],
+    timelines: dict[str, dict[str, Any]],
+) -> None:
+    fig, axes = plt.subplots(2, 1, figsize=(11, 5.8), sharex=True, constrained_layout=True)
+    contracts = (
+        ("carry45", "CarryBox45: binary hand-contact proxy", "#1f77b4"),
+        ("kick21", "KickBox21: binary foot-contact proxy", "#d62728"),
+    )
+    for axis, (name, title, color) in zip(axes, contracts):
+        reference = references[name]
+        object_position = reference["object_position_w"]
+        lift = object_position[:, 2] - float(np.median(object_position[:25, 2]))
+        speed_xy = np.linalg.norm(reference["object_linear_velocity_w"][:, :2], axis=-1)
+        time_s = np.arange(lift.shape[0]) * CONTROL_DT_S
+        axis.plot(time_s, lift, color="black", lw=1.6, label="box lift")
+        for index, run in enumerate(timelines[name]["contact_runs"]):
+            axis.axvspan(
+                run["start_s"],
+                run["end_s"],
+                color=color,
+                alpha=0.18,
+                label="contact proxy active" if index == 0 else None,
+            )
+        axis.axhline(LIFT_THRESHOLD_M, color="0.4", ls="--", lw=1.0, label="5 cm lift")
+        velocity_axis = axis.twinx()
+        velocity_axis.plot(time_s, speed_xy, color=color, alpha=0.55, lw=1.0, label="box XY speed")
+        velocity_axis.set_ylabel("XY speed (m/s)", color=color)
+        axis.set_ylabel("Lift (m)")
+        axis.set_title(title)
+        axis.grid(axis="y", color="0.9")
+        axis.spines["top"].set_visible(False)
+        velocity_axis.spines["top"].set_visible(False)
+        lines, labels = axis.get_legend_handles_labels()
+        velocity_lines, velocity_labels = velocity_axis.get_legend_handles_labels()
+        axis.legend(lines + velocity_lines, labels + velocity_labels, frameon=False, ncol=4, fontsize=8)
+    axes[-1].set_xlabel("Reference time (s)")
+    fig.suptitle(
+        "Concrete reference interaction timelines (50 Hz)\n"
+        "Shading is the official binary contact proxy, not tactile force",
+        fontsize=12,
+    )
+    fig.savefig(path, dpi=180, facecolor="white")
+    plt.close(fig)
+
+
 def initial_state_checks(
     correct: dict[str, np.ndarray], unrelated: dict[str, np.ndarray]
 ) -> dict[str, Any]:
@@ -424,9 +597,17 @@ def main() -> None:
         actual_metrics(first_episode(unrelated_trace, index))
         for index in range(profile_count)
     ]
+    reference_data = {
+        "carry45": load_reference(args.correct_reference.resolve()),
+        "kick21": load_reference(args.unrelated_reference.resolve()),
+    }
     references = {
-        "carry45": reference_metrics(load_reference(args.correct_reference.resolve())),
-        "kick21": reference_metrics(load_reference(args.unrelated_reference.resolve())),
+        name: reference_metrics(reference)
+        for name, reference in reference_data.items()
+    }
+    reference_timelines = {
+        "carry45": reference_event_timeline(reference_data["carry45"], contact_role="hands"),
+        "kick21": reference_event_timeline(reference_data["kick21"], contact_role="feet"),
     }
     comparison = compare_profiles(correct_records, unrelated_records)
     checks = primary_checks(comparison)
@@ -442,6 +623,11 @@ def main() -> None:
         correct_records,
         unrelated_records,
         references,
+    )
+    write_reference_timeline(
+        output_dir / "reference_semantic_timeline.png",
+        reference_data,
+        reference_timelines,
     )
 
     result = {
@@ -472,6 +658,7 @@ def main() -> None:
                 "5 cm lift threshold and has more robot orbiting around the box."
             ),
         },
+        "reference_event_timeline": reference_timelines,
         "actual_arm_summary": {
             "correct": numeric_summary(correct_records),
             "unrelated": numeric_summary(unrelated_records),
@@ -503,6 +690,7 @@ def main() -> None:
         "artifacts": {
             "profiles_csv": "profiles.csv",
             "figure": "behavior_adherence.png",
+            "reference_timeline_figure": "reference_semantic_timeline.png",
         },
     }
     (output_dir / "RESULT.json").write_text(

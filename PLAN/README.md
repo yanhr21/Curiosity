@@ -42,6 +42,14 @@ observable shift toward ground-level object motion, more motion around the box, 
 body/object contact mode, even though the external task still asks for CarryBox completion. Task
 success and demo adherence are reported separately.
 
+The exact source timelines make this concrete. CarryBox45 has one continuous binary hand-contact
+proxy interval from frame `245` to `541` (`4.90--10.82 s`), crosses the 5 cm lift threshold at frame
+`286` (`5.72 s`), peaks at frame `350` (`7.00 s`) and remains lifted through frame `508`
+(`10.16 s`). KickBox21 has 14 intermittent binary foot-contact proxy intervals, its closest named
+end-effector is the right ankle at frame `190` (`3.80 s`), and it never crosses 5 cm. These binary
+labels describe reference contact roles only; they are not tactile force. The learned unrelated
+arm must measurably move toward this event structure, not merely change predictor score.
+
 This standard follows the behavior-level structure used in physics-based interaction imitation:
 [DeepMimic](https://arxiv.org/abs/1804.02717) separates imitation from the task objective;
 [PhysHOI](https://arxiv.org/abs/2312.04393) explicitly evaluates body-object contact topology;

@@ -205,7 +205,8 @@ experiments/demo_following/matched_reward_identity_same_teacher_v1/
 └── seed161581/behavior_adherence_audit_v1/
     ├── RESULT.json
     ├── profiles.csv
-    └── behavior_adherence.png
+    ├── behavior_adherence.png
+    └── reference_semantic_timeline.png
 ```
 
 物理阈值固定为 lift `>=0.05 m`、每手刚体合力 `>0.1 N`，与冻结 evaluator 的定义一致。
@@ -225,6 +226,12 @@ CarryBox45 的 `0.3521 rad/s`。
 20 profiles 共享一个训练 seed，因此只作物理 profile 描述，不冒充多 seed 显著性。现有
 TRACE 没有逐 body pose、foot-box contact 或 hand-box-only contact，不能追溯脚部踢击；
 下一冻结 evaluator 必须补齐这些 evaluation-only 字段。
+
+`reference_semantic_timeline.png` 同时画出 source clip 的 box lift、XY speed 和官方 binary
+contact proxy。CarryBox45 的 hand-contact proxy 为一个 `4.90--10.82 s` 连续区间，5 cm lift
+从 `5.72 s` 持续至 `10.16 s`，峰值在 `7.00 s`。KickBox21 有 14 段间歇 foot-contact proxy，
+右脚踝在 `3.80 s` 最接近箱子中心，且全段不超过 5 cm。该图把下一实验的语义预期固定为
+interaction event structure；binary proxy 不得被描述为触觉力。
 
 ### 3.7 Predeclared multi-seed repeat
 

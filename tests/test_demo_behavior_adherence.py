@@ -31,6 +31,9 @@ def test_longest_true_run() -> None:
     assert MODULE.longest_true_run(np.array([False, True, True, False, True])) == 2
     assert MODULE.longest_true_run(np.zeros(4, dtype=bool)) == 0
     assert MODULE.longest_true_run(np.ones(4, dtype=bool)) == 4
+    assert MODULE.true_runs(np.array([False, True, True, False, True])) == [(1, 2), (4, 4)]
+    assert MODULE.first_sustained(np.array([False, True, True, True]), frames=3) == 1
+    assert MODULE.first_sustained(np.array([False, True, False]), frames=2) is None
 
 
 def test_lifted_and_ground_transport_partition() -> None:
