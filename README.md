@@ -44,26 +44,33 @@ CarryBox 和 99 条 KickBox。binary contact proxy 仅用作示范事件标签�
 `99.78%`；Carry 中位 lifted-moving fraction 为 `40.85%`，Kick 为 `0%`。这证明 reference
 中有清晰可分的接触角色和物体运动 regime。
 
-actual-rollout redesign 现已完成第一阶段。official Tracker 在 IsaacLab/PhysX 中为每条
+actual-rollout redesign 已完成。official Tracker 在 IsaacLab/PhysX 中为每条
 source motion 采集 700 个同钟帧，实际 target 来自分别过滤到箱子的左右手/左右脚
 `force_matrix_w_history`，而不是 reference binary。完整 corpus 覆盖 100 条 CarryBox 和
 99 条 KickBox、无重复和 reset。Carry 的中位双手同时接触率为 `32.93%`、最长手部事件
 `4.60 s`、最大抬升 `0.490 m`；Kick 的中位足部接触率为 `4.14%`、最长足部事件
 `0.22 s`、足力峰值 `60.23 N`、最大抬升仅 `0.0066 m`。
 
-新的 internal reward predictor 保留 serious 6-layer、384-D causal Transformer，具有
-`11,530,010` 个参数，并增加 trajectory、四肢 contact、event duration 和 motion-regime
-共 13 个 mismatch targets。输入只有过去 10 帧 official Tracker 510-D observation 和固定
-numeric selected-demo windows；未来 actual events 只作 label。motion-disjoint formal
-seed271301 在 epoch 13 early-stop，冻结 best epoch 8。validation/test normalized MAE 为
-`0.1878/0.1708`，优于 constant `0.2354/0.2192`；zero-demo 为 `0.2423/0.2279`，
-permuted-demo 为 `0.1985/0.1778`，median Spearman 均约 `0.505`。test 中模型预测的
-cross-task contact mismatch 为 `0.1495`，correct 为 `0.0188`。全部 12 个 predictor gates
-通过。冻结 epoch-8 checkpoint 后，仅用 validation 拟合 13 个 variance multipliers；90%
-区间在 validation/test 上的平均覆盖率为 `95.25%/95.90%`，test 最低单目标覆盖率为
-`86.93%`。这证明它在 held-out motions 上读取并使用了 selected demo 的接触/运动语义，
-且不确定性区间保守可用；仍不等于 policy 已经遵循 demo，下一步必须做 matched policy
-experiment 和独立行为审计。
+第一版 predictor 虽通过 held-out MAE，却不能作为 reward：它读取不可直接接入 actor 的
+510-D Tracker observation，并允许每个时刻从 32 个 demo windows 中自由选择最小误差。
+直接审计发现该规则会让 Kick 轨迹错误偏好 Carry45；原因不是 uncertainty，而是任意跳到
+静止 demo 片段的 phase loophole。该版本已降为失败诊断。
+
+正式版本保留 serious 6-layer、384-D causal Transformer，具有 `11,386,010` 个参数，输入为
+过去 `10 x 121` 的部署侧核心观测、固定 numeric selected demo 和 `[0,1]` 因果归一化时钟
+phase；未来 actual events 只作 13-D label。phase 固定后，真实 mismatch 在 validation/test
+同时恢复 Carry→Carry45、Kick→Kick21 的正确方向。formal seed271303 冻结 epoch 20，
+validation/test normalized MAE 为 `0.1771/0.1560`，优于 constant `0.2803/0.2566`；
+zero-demo 为 `0.2945/0.2766`，permuted-demo 为 `0.2018/0.1761`，median Spearman 为
+`0.677/0.694`，12/12 gates 通过。
+
+冻结 checkpoint 后，仅用 validation 拟合 uncertainty；90% 区间在 validation/test 的平均
+覆盖率为 `97.13%/97.77%`，test 最低单目标为 `91.86%`。固定 Carry45/Kick21 的完整
+reward-scale audit 通过全部 10 项门槛，validation/test 都双向偏好匹配任务。dense feedback
+固定为 `eta * (exp(-calibrated_event_risk) - train baseline)`，`eta=0.2427623309`、clip
+`0.1431077421`，平均绝对幅度为既有 task/constraint reward 的 25%。冻结 runtime 已验证
+121-D 输入、9-transition warmup、reset-safe history、phase 输入、eval mode 和零可训练参数。
+这建立了可接入策略的因果语义奖励，不等于 policy 已经遵循 demo。
 
 官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
 完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
@@ -101,8 +108,8 @@ normal/shear 混合、摩擦不一致、slip reset 丢失、训练/评测 motion
 3. 建立不读取物体速度、质量、jump flag 或未来帧的 causal `PatchSlipDetector.update`；
 4. 建立 teacher handoff 后在线改变 mass/inertia 的 matched Z/P/PS 协议及本体感受泄漏
    审计；
-5. 实现 11.53M serious causal trajectory/contact/duration/regime mismatch predictor，并通过
-   motion-disjoint held-out、zero-demo 与 permuted-demo 检查；
+5. 实现 11.386M phase-aware causal trajectory/contact/duration/regime mismatch predictor，
+   修复自由窗口静止片段漏洞，并通过 motion-disjoint、zero/permuted-demo 与双向语义检查；
 6. 建立 fixed-teacher、只改变 selected-demo reward 的因果实验，排除 teacher replacement
    混杂；
 7. 建立 predictor/reward-independent、以训练 seed 为重复单位的 Carry/Kick 行为审计，
@@ -143,18 +150,29 @@ bash scripts/sugar/demo_following/run_teacher_floor_overfit_pair.sh
 # 无 GPU：审计 199 条 official Carry/Kick reference 的 contact/event 标签可分性
 $PYTHON_BIN scripts/sugar/demo_reward/audit_contact_event_reference_corpus.py
 
-# GPU compute node：从已采集的 actual physical rollouts 构建、训练并校准 predictor
+# GPU compute node：采集部署侧 121-D corpus；脚本串行覆盖 100 Carry + 99 Kick motions
+bash scripts/sugar/demo_reward/collect_deployable_goal_core_corpus.sh \
+  experiments/demo_following/contact_event_reward_redesign_v1/reproduction_goal_core_corpus
+
+# GPU compute node：构建 phase-aware targets、训练、校准并冻结 dense reward scale
 $PYTHON_BIN scripts/sugar/demo_reward/build_actual_contact_event_predictor_dataset.py \
-  --corpus-root experiments/demo_following/contact_event_reward_redesign_v1/actual_tracker_corpus \
-  --output-dir experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1
+  --corpus-root experiments/demo_following/contact_event_reward_redesign_v1/reproduction_goal_core_corpus \
+  --output-dir experiments/demo_following/contact_event_reward_redesign_v1/reproduction_phase_dataset \
+  --policy-observation-key goal_policy_core_observation --alignment-mode clock_phase
 $PYTHON_BIN scripts/sugar/demo_reward/train_actual_contact_event_predictor.py \
-  --dataset-root experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1 \
-  --output-dir experiments/demo_following/contact_event_reward_redesign_v1/reproduction_seed271301 \
-  --epochs 20 --seed 271301 --device cuda:0
+  --dataset-root experiments/demo_following/contact_event_reward_redesign_v1/reproduction_phase_dataset \
+  --output-dir experiments/demo_following/contact_event_reward_redesign_v1/reproduction_phase_seed271303 \
+  --epochs 20 --seed 271303 --device cuda:0
 $PYTHON_BIN scripts/sugar/demo_reward/calibrate_actual_contact_event_predictor.py \
-  --dataset-root experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1 \
-  --predictor-dir experiments/demo_following/contact_event_reward_redesign_v1/reproduction_seed271301 \
+  --dataset-root experiments/demo_following/contact_event_reward_redesign_v1/reproduction_phase_dataset \
+  --predictor-dir experiments/demo_following/contact_event_reward_redesign_v1/reproduction_phase_seed271303 \
   --device cuda:0
+$PYTHON_BIN scripts/sugar/demo_reward/audit_deployable_demo_event_reward.py \
+  --corpus-root experiments/demo_following/contact_event_reward_redesign_v1/reproduction_goal_core_corpus \
+  --dataset-root experiments/demo_following/contact_event_reward_redesign_v1/reproduction_phase_dataset \
+  --predictor-dir experiments/demo_following/contact_event_reward_redesign_v1/reproduction_phase_seed271303 \
+  --output-dir experiments/demo_following/contact_event_reward_redesign_v1/reproduction_reward_scale \
+  --unrelated-motion-id 21 --device cuda:0
 
 # GPU compute node：复现完整 G1 CarryBox 与双手 27-patch 在线触觉视频
 bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh \
@@ -191,8 +209,9 @@ Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 
 ## 下一步
 
-actual contact/event corpus 与 serious predictor gate 已完成。下一步是在不改变 teacher、
-初始化、seed、物理、budget 和 task reward 的前提下，只把冻结的 event predictor potential
-接到 selected-demo reward，重新做 correct Carry versus unrelated Kick matched policy
-comparison。训练前需先固定 reward scale 与 stopping rule；最终结论只看 predictor-independent
-冻结行为，不用 predictor 自己给自己判成功。SMP 仍不进入 selected-demo policy reward。
+phase-aware actual contact/event predictor、uncertainty 和 reward scale 已冻结。下一步是在获得
+明确 policy-training 授权后，不改变 teacher、初始化、seed、物理、budget 和 task reward，
+只改变 selected demo，做 correct Carry45 versus unrelated Kick21 matched comparison。先检查
+update 32/64；若物理交互失效、correct success 相对 teacher-only 下降超过 20 个百分点，或
+update-64 没有 predictor-independent 语义分离，就停止。最终结论不用 predictor 自己给自己
+判成功。SMP 仍不进入 selected-demo policy reward。

@@ -65,6 +65,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--corpus-root", type=Path, default=DEFAULT_CORPUS)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--data-root", type=Path, default=ROOT / "SUGAR/data")
+    parser.add_argument(
+        "--policy-observation-key",
+        choices=("policy_observation", "goal_policy_core_observation"),
+        default="policy_observation",
+    )
+    parser.add_argument(
+        "--alignment-mode",
+        choices=("clock_phase", "free_window"),
+        default="clock_phase",
+        help=(
+            "clock_phase binds every target to causal normalized episode time; "
+            "free_window is retained only to reproduce the rejected v1 diagnostic"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -227,12 +241,14 @@ def batched_pair_targets(
     demo_bank: np.ndarray,
     pair_base: np.ndarray,
     pair_demo: np.ndarray,
+    pair_phase: np.ndarray,
     actual_continuous: np.ndarray,
     actual_contact: np.ndarray,
     actual_duration: np.ndarray,
     actual_regime: np.ndarray,
     target: np.ndarray,
     alignment: np.ndarray,
+    alignment_mode: str,
     batch_size: int = 256,
 ) -> None:
     if not torch.cuda.is_available():
@@ -254,7 +270,17 @@ def batched_pair_targets(
             ],
             dim=-1,
         )
-        winner = torch.argmin(torch.mean(component / scales, dim=-1), dim=1)
+        if alignment_mode == "clock_phase":
+            phase = torch.from_numpy(pair_phase[begin:end]).to(device)
+            winner = torch.clamp(
+                torch.round(phase * float(DEMO_WINDOWS - 1)).long(),
+                min=0,
+                max=DEMO_WINDOWS - 1,
+            )
+        elif alignment_mode == "free_window":
+            winner = torch.argmin(torch.mean(component / scales, dim=-1), dim=1)
+        else:
+            raise ValueError(f"unsupported alignment mode: {alignment_mode}")
         rows = torch.arange(end - begin, device=device)
         chosen = demo[rows, winner]
         contact = torch.from_numpy(actual_contact[base]).to(device)
@@ -299,6 +325,9 @@ def build_split(
     entries: list[dict[str, object]],
     references: dict[tuple[str, int], dict[str, np.ndarray]],
     output: Path,
+    policy_observation_key: str,
+    policy_dim: int,
+    alignment_mode: str,
 ) -> dict[str, object]:
     selected_entries = [entry for entry in entries if motion_split(int(entry["source_id"])) == split]
     demo_keys = sorted((str(entry["task"]), int(entry["source_id"])) for entry in selected_entries)
@@ -306,11 +335,18 @@ def build_split(
     demo_index = {key: index for index, key in enumerate(demo_keys)}
     demo_bank = np.stack([window_features(references[key]) for key in demo_keys])
     by_task = {task: [key for key in demo_keys if key[0] == task] for task in TASKS}
-    descriptor: list[tuple[dict[str, object], int]] = []
+    descriptor: list[tuple[dict[str, object], int, float]] = []
     for entry in selected_entries:
         reference_length = len(references[(str(entry["task"]), int(entry["source_id"]))]["object_position"])
         last_anchor = min(700 - FUTURE_STEPS - 1, reference_length - FUTURE_STEPS - 1)
-        descriptor.extend((entry, anchor) for anchor in range(HISTORY_STEPS - 1, last_anchor + 1, ANCHOR_STRIDE))
+        descriptor.extend(
+            (
+                entry,
+                anchor,
+                float(np.clip((anchor + 1) / max(reference_length - FUTURE_STEPS, 1), 0.0, 1.0)),
+            )
+            for anchor in range(HISTORY_STEPS - 1, last_anchor + 1, ANCHOR_STRIDE)
+        )
     if not descriptor:
         raise RuntimeError(f"{split}: no causal rows")
 
@@ -318,13 +354,19 @@ def build_split(
     split_dir.mkdir(parents=True)
     base_count = len(descriptor)
     pair_count = base_count * len(PAIR_ROLE_NAMES)
-    policy = np.lib.format.open_memmap(split_dir / "policy_prefix.npy", mode="w+", dtype=np.float32, shape=(base_count, HISTORY_STEPS, 510))
+    policy = np.lib.format.open_memmap(
+        split_dir / "policy_prefix.npy",
+        mode="w+",
+        dtype=np.float32,
+        shape=(base_count, HISTORY_STEPS, policy_dim),
+    )
     base_task = np.empty(base_count, dtype=np.uint8)
     base_source = np.empty(base_count, dtype=np.int16)
     base_anchor = np.empty(base_count, dtype=np.int16)
     pair_base = np.repeat(np.arange(base_count, dtype=np.int32), len(PAIR_ROLE_NAMES))
     pair_demo = np.empty(pair_count, dtype=np.int16)
     pair_role = np.tile(np.arange(len(PAIR_ROLE_NAMES), dtype=np.uint8), base_count)
+    base_phase = np.empty(base_count, dtype=np.float32)
     target = np.lib.format.open_memmap(split_dir / "target_mismatch.npy", mode="w+", dtype=np.float32, shape=(pair_count, len(TARGET_NAMES)))
     alignment = np.empty(pair_count, dtype=np.uint8)
     actual_continuous = np.empty((base_count, FUTURE_STEPS, 120), dtype=np.float32)
@@ -334,7 +376,7 @@ def build_split(
 
     trace_cache: dict[Path, dict[str, np.ndarray]] = {}
     task_position = {task: {key: index for index, key in enumerate(by_task[task])} for task in TASKS}
-    for base_row, (entry, anchor) in enumerate(descriptor):
+    for base_row, (entry, anchor, phase) in enumerate(descriptor):
         trace_path = Path(entry["trace"])
         if trace_path not in trace_cache:
             with np.load(trace_path, allow_pickle=False) as archive:
@@ -349,15 +391,22 @@ def build_split(
                         "motion_regime",
                     )
                 }
+                if policy_observation_key != "policy_observation":
+                    trace_cache[trace_path][policy_observation_key] = np.asarray(
+                        archive[policy_observation_key]
+                    )
         trace = trace_cache[trace_path]
         env = int(entry["env"])
         task = str(entry["task"])
         source_id = int(entry["source_id"])
         key = (task, source_id)
-        policy[base_row] = trace["policy_observation"][anchor - HISTORY_STEPS + 1 : anchor + 1, env]
+        policy[base_row] = trace[policy_observation_key][
+            anchor - HISTORY_STEPS + 1 : anchor + 1, env
+        ]
         base_task[base_row] = TASKS.index(task)
         base_source[base_row] = source_id
         base_anchor[base_row] = anchor
+        base_phase[base_row] = phase
         same_pool = by_task[task]
         same_wrong = same_pool[(task_position[task][key] + 1) % len(same_pool)]
         other_pool = by_task[TASKS[1 - TASKS.index(task)]]
@@ -382,12 +431,14 @@ def build_split(
         demo_bank=demo_bank,
         pair_base=pair_base,
         pair_demo=pair_demo,
+        pair_phase=base_phase[pair_base],
         actual_continuous=actual_continuous,
         actual_contact=actual_contact,
         actual_duration=actual_duration,
         actual_regime=actual_regime,
         target=target,
         alignment=alignment,
+        alignment_mode=alignment_mode,
     )
     policy.flush()
     target.flush()
@@ -401,6 +452,8 @@ def build_split(
         pair_selected_demo_row=pair_demo,
         pair_role=pair_role,
         selected_alignment_window=alignment,
+        base_normalized_demo_phase=base_phase,
+        pair_normalized_demo_phase=base_phase[pair_base],
         demo_task=np.asarray([TASKS.index(key[0]) for key in demo_keys], dtype=np.uint8),
         demo_source_motion_id=np.asarray([key[1] for key in demo_keys], dtype=np.int16),
     )
@@ -427,6 +480,7 @@ def build_split(
         "task_motion_counts": {task: len(by_task[task]) for task in TASKS},
         "target_median_by_pair_role": role_median,
         "semantic_metrics_by_pair_role": semantic_metrics,
+        "alignment_mode": alignment_mode,
     }
 
 
@@ -439,6 +493,17 @@ def main() -> None:
     if output.exists() or staging.exists():
         raise FileExistsError(f"refusing to overwrite {output} or {staging}")
     entries = actual_entries(corpus_root)
+    if not entries:
+        raise RuntimeError("actual rollout corpus is empty")
+    with np.load(Path(entries[0]["trace"]), allow_pickle=False) as first_trace:
+        if args.policy_observation_key not in first_trace:
+            raise KeyError(
+                f"corpus does not contain {args.policy_observation_key!r}"
+            )
+        first_policy = first_trace[args.policy_observation_key]
+        if first_policy.ndim != 3:
+            raise RuntimeError("policy observation must have [time, env, feature] shape")
+        policy_dim = int(first_policy.shape[-1])
     references = {
         (str(entry["task"]), int(entry["source_id"])): load_reference(
             str(entry["task"]), int(entry["source_id"]), data_root
@@ -447,7 +512,15 @@ def main() -> None:
     }
     staging.mkdir(parents=True)
     splits = {
-        split: build_split(split, entries, references, staging)
+        split: build_split(
+            split,
+            entries,
+            references,
+            staging,
+            args.policy_observation_key,
+            policy_dim,
+            args.alignment_mode,
+        )
         for split in SPLITS
     }
     train_target = np.load(staging / "train/target_mismatch.npy", mmap_mode="r")
@@ -500,17 +573,22 @@ def main() -> None:
         "reference_binary_proxy_is_selected_demo_input_only": True,
     }
     manifest = {
-        "protocol": "sugar_actual_contact_event_crossdemo_dataset_v1",
+        "protocol": "sugar_actual_contact_event_crossdemo_dataset_v2",
         "passed": all(checks.values()),
         "checks": checks,
         "splits": splits,
         "model_inputs": {
-            "policy_prefix": [HISTORY_STEPS, 510],
+            "policy_prefix": [HISTORY_STEPS, policy_dim],
+            "policy_observation_key": args.policy_observation_key,
             "selected_demo_bank": [DEMO_WINDOWS, FUTURE_STEPS, 132],
+            "selected_demo_phase": "causal scalar in [0,1]"
+            if args.alignment_mode == "clock_phase"
+            else False,
             "categorical_task_or_motion_id": False,
             "future_actual_event_input": False,
         },
         "target_names": TARGET_NAMES,
+        "alignment_mode": args.alignment_mode,
         "pair_role_names": PAIR_ROLE_NAMES,
         "claim_boundary": (
             "Passing validates causal inputs, actual-event targets and motion-disjoint "

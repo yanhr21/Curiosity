@@ -369,6 +369,8 @@ class DemoConditionedCausalEventPredictorV2(nn.Module):
     accepted by ``forward``.
     """
 
+    phase_aware = False
+
     def __init__(
         self,
         *,
@@ -536,6 +538,112 @@ class DemoConditionedCausalEventPredictorV2(nn.Module):
             torch.exp(-log_variance) * torch.square(target - mean)
             + log_variance
         )
+
+
+class DemoConditionedCausalEventPredictorV3(DemoConditionedCausalEventPredictorV2):
+    """Phase-aware event predictor that cannot freely relabel demo time."""
+
+    phase_aware = True
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.total_tokens += 1
+        self.position_embedding = nn.Parameter(
+            torch.zeros(1, self.total_tokens, self.d_model)
+        )
+        self.token_type_embedding = nn.Embedding(4, self.d_model)
+        self.phase_projection = nn.Sequential(
+            nn.Linear(9, self.d_model),
+            nn.LayerNorm(self.d_model),
+        )
+        nn.init.normal_(self.position_embedding, mean=0.0, std=0.02)
+
+    @staticmethod
+    def _phase_features(phase: torch.Tensor) -> torch.Tensor:
+        frequencies = torch.as_tensor(
+            (1.0, 2.0, 4.0, 8.0), dtype=phase.dtype, device=phase.device
+        )
+        angles = 2.0 * torch.pi * phase.unsqueeze(-1) * frequencies
+        return torch.cat((phase.unsqueeze(-1), torch.sin(angles), torch.cos(angles)), dim=-1)
+
+    def forward(
+        self,
+        *,
+        policy_prefix: torch.Tensor,
+        selected_demo_condition: torch.Tensor,
+        selected_demo_phase: torch.Tensor,
+        zero_demo: bool = False,
+    ) -> Mapping[str, torch.Tensor]:
+        batch = policy_prefix.shape[0]
+        if tuple(policy_prefix.shape) != (
+            batch,
+            self.policy_history_steps,
+            self.policy_dim,
+        ):
+            raise ValueError("policy_prefix shape mismatch")
+        if tuple(selected_demo_condition.shape) != (
+            batch,
+            self.demo_windows,
+            self.demo_window_steps,
+            self.demo_feature_dim,
+        ):
+            raise ValueError("selected_demo_condition shape mismatch")
+        if tuple(selected_demo_phase.shape) != (batch,):
+            raise ValueError("selected_demo_phase shape mismatch")
+        if (
+            not torch.isfinite(selected_demo_phase).all()
+            or torch.any(selected_demo_phase < 0)
+            or torch.any(selected_demo_phase > 1)
+        ):
+            raise ValueError("selected_demo_phase must be finite and lie in [0,1]")
+
+        state = (policy_prefix - self.state_mean) / self.state_std
+        demo = (selected_demo_condition - self.demo_mean) / self.demo_std
+        if zero_demo:
+            demo = torch.zeros_like(demo)
+        state_tokens = self.state_projection(state)
+        demo_tokens = self.demo_projection(
+            demo.reshape(
+                batch,
+                self.demo_windows,
+                self.demo_window_steps * self.demo_feature_dim,
+            )
+        )
+        phase_token = self.phase_projection(
+            self._phase_features(selected_demo_phase)
+        ).unsqueeze(1)
+        cls = self.cls_token.expand(batch, -1, -1)
+        tokens = torch.cat((cls, demo_tokens, state_tokens, phase_token), dim=1)
+        type_ids = torch.cat(
+            (
+                torch.zeros(1, dtype=torch.long, device=tokens.device),
+                torch.ones(self.demo_windows, dtype=torch.long, device=tokens.device),
+                torch.full(
+                    (self.policy_history_steps,),
+                    2,
+                    dtype=torch.long,
+                    device=tokens.device,
+                ),
+                torch.full((1,), 3, dtype=torch.long, device=tokens.device),
+            )
+        )
+        encoded = self.transformer(
+            tokens
+            + self.position_embedding
+            + self.token_type_embedding(type_ids).unsqueeze(0)
+        )
+        representation = self.readout(encoded[:, 0])
+        raw = torch.stack(
+            [self.target_heads[name](representation) for name in EVENT_TARGET_NAMES],
+            dim=1,
+        )
+        return {
+            "mean_log1p_scaled": raw[..., 0],
+            "log_variance_log1p_scaled": torch.clamp(
+                raw[..., 1], min=-10.0, max=8.0
+            ),
+            "representation": representation,
+        }
 
 
 def count_trainable_parameters(model: nn.Module) -> int:

@@ -62,23 +62,33 @@ is reset-bounded and motion regime is episode-relative. No reference binary labe
 actual target. Carry median bilateral contact/longest hand event/lift are `0.3293`, `4.60 s` and
 `0.490 m`; Kick median foot contact/longest foot event/lift are `0.0414`, `0.22 s` and `0.0066 m`.
 
-The 11,530,010-parameter event predictor retains the existing 6-layer, 384-D causal Transformer and
-predicts 13 trajectory/contact/duration/regime mismatch targets. Its input is only a past 10-frame
-510-D official Tracker prefix plus fixed numeric selected-demo windows. The seed271301 formal run
-early-stops at epoch 13 and freezes epoch 8. Validation/test normalized MAE is `0.1878/0.1708`
-against constant `0.2354/0.2192`; zero-demo and permuted-demo both degrade on both splits, median
-Spearman is about `0.505`, and all 12 admission checks pass.
+The first 510-D predictor passed ordinary held-out gates but failed deployment and reward semantics.
+The goal actor exposes a 121-D causal core, and the target builder independently minimized over 32
+demo windows at every frame. That free alignment allowed a trajectory to keep matching an easy
+static phase. Fixed Carry45/Kick21 scoring consequently preferred Carry45 even on held-out Kick
+rollouts. Removing uncertainty did not fix it; directly recomputed targets isolated phase alignment
+as the cause. This version is rejected evidence, not the active reward.
 
-The epoch-8 checkpoint is frozen before uncertainty calibration. Thirteen variance multipliers are
-fit on validation residuals only. Nominal 90% intervals cover `95.25%` of validation targets and
-`95.90%` of the untouched test targets on average; the weakest test target still covers `86.93%`.
-The intervals are therefore conservative and admissible for reward clipping or abstention.
+The corrected dataset binds every target to causal normalized episode phase. With that single
+scientific change, direct validation/test targets prefer Carry45 for Carry and Kick21 for Kick. The
+active V3 remains a 6-layer, 384-D serious Transformer and has `11,386,010` parameters. It reads the
+past `10 x 121` deployable core, a fixed numeric selected demo and one normalized phase scalar; no
+future event, task ID or motion ID is an input. Seed271303 freezes epoch 20. Validation/test MAE is
+`0.1771/0.1560` against constant `0.2803/0.2566`; zero-demo is `0.2945/0.2766`, permuted-demo is
+`0.2018/0.1761`, median Spearman is `0.677/0.694`, and all 12 model gates pass.
 
-This establishes selected-demo-conditioned prediction, not policy obedience. The next experiment
-is one matched fixed-teacher policy comparison using the frozen predictor as a potential-difference
-reward. Teacher, initialization, physics, task reward, seeds, budget and evaluation remain fixed;
-only the selected demo changes. The run must be authorized before policy training and must be
-judged by predictor-independent frozen behavior.
+Validation-only calibration gives nominal-90% coverage of `97.13%/97.77%` on validation/test, with
+`91.86%` minimum test target coverage. The fixed Carry45/Kick21 scale audit passes all ten checks:
+both held-out splits prefer their matching task, and held-out Carry receives positive mean feedback
+under Carry45 and negative mean feedback under Kick21. Dense feedback is
+`eta * (exp(-calibrated_event_risk) - train_baseline)`, with `eta=0.2427623309` and clip
+`0.1431077421`; it is not potential-difference shaping because the purpose is to change the policy
+objective toward the selected demonstration.
+
+This establishes a causal deployable reward before optimization, not policy obedience. The next
+experiment is one explicitly authorized matched fixed-teacher policy comparison. Teacher,
+initialization, physics, task reward, seeds, budget and evaluation remain fixed; only the selected
+demo changes. Inspect updates 32 and 64, and judge only predictor-independent frozen behavior.
 
 ### Expected behavior, not just reward score
 

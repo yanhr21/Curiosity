@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / "scripts/sugar/demo_reward"))
 from demo_conditioned_causal_predictor_v1 import (  # noqa: E402
     EVENT_TARGET_NAMES,
     DemoConditionedCausalEventPredictorV2,
+    DemoConditionedCausalEventPredictorV3,
     count_trainable_parameters,
 )
 
@@ -65,6 +66,11 @@ class PairDataset(Dataset):
             )
             self.pair_role = np.asarray(routing["pair_role"], dtype=np.int64)
             self.demo_task = np.asarray(routing["demo_task"], dtype=np.int64)
+            self.selected_demo_phase = (
+                np.asarray(routing["pair_normalized_demo_phase"], dtype=np.float32)
+                if "pair_normalized_demo_phase" in routing
+                else np.zeros(len(self.base_row), dtype=np.float32)
+            )
         if len(self.base_row) != len(self.target):
             raise RuntimeError(f"{split}: pair routing and targets differ")
 
@@ -96,6 +102,9 @@ class PairDataset(Dataset):
                 np.array(self.target[index], dtype=np.float32, copy=True)
             ),
             "pair_role": torch.tensor(int(self.pair_role[index]), dtype=torch.int64),
+            "selected_demo_phase": torch.tensor(
+                float(self.selected_demo_phase[index]), dtype=torch.float32
+            ),
         }
 
 
@@ -144,8 +153,19 @@ def model_from_normalization(path: Path, device: torch.device) -> DemoConditione
             name: torch.from_numpy(np.asarray(statistics[name], dtype=np.float32))
             for name in statistics.files
         }
-    model = DemoConditionedCausalEventPredictorV2(
-        policy_dim=510,
+    policy_dim = int(tensors["state_mean"].numel())
+    manifest_path = path.parent / "MANIFEST.json"
+    phase_aware = False
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        phase_aware = manifest.get("alignment_mode") == "clock_phase"
+    model_class = (
+        DemoConditionedCausalEventPredictorV3
+        if phase_aware
+        else DemoConditionedCausalEventPredictorV2
+    )
+    model = model_class(
+        policy_dim=policy_dim,
         policy_history_steps=10,
         demo_windows=32,
         demo_window_steps=10,
@@ -162,6 +182,24 @@ def model_from_normalization(path: Path, device: torch.device) -> DemoConditione
         target_scale=tensors["target_scale"],
     )
     return model.to(device)
+
+
+def forward_model(
+    model: DemoConditionedCausalEventPredictorV2,
+    *,
+    policy_prefix: torch.Tensor,
+    selected_demo_condition: torch.Tensor,
+    selected_demo_phase: torch.Tensor,
+    zero_demo: bool = False,
+):
+    kwargs = {
+        "policy_prefix": policy_prefix,
+        "selected_demo_condition": selected_demo_condition,
+        "zero_demo": zero_demo,
+    }
+    if getattr(model, "phase_aware", False):
+        kwargs["selected_demo_phase"] = selected_demo_phase
+    return model(**kwargs)
 
 
 @torch.no_grad()
@@ -181,10 +219,13 @@ def evaluate(
         if mode == "permuted_demo":
             selected = permutation.index_select(0, selected)
         demo = demo_bank.index_select(0, selected)
+        phase = batch["selected_demo_phase"].to(device, non_blocking=True)
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-            output = model(
+            output = forward_model(
+                model,
                 policy_prefix=policy,
                 selected_demo_condition=demo,
+                selected_demo_phase=phase,
                 zero_demo=mode == "zero_demo",
             )
         prediction = model.decode_mean(output["mean_log1p_scaled"].float())
@@ -232,7 +273,11 @@ def save_checkpoint(
     temporary = path.with_suffix(path.suffix + ".tmp")
     torch.save(
         {
-            "protocol": "sugar_causal_contact_event_predictor_v2",
+            "protocol": (
+                "sugar_phase_aware_causal_contact_event_predictor_v3"
+                if getattr(model, "phase_aware", False)
+                else "sugar_causal_contact_event_predictor_v2"
+            ),
             "epoch": epoch,
             "validation_mean_normalized_mae": validation_mae,
             "target_names": EVENT_TARGET_NAMES,
@@ -319,12 +364,15 @@ def main() -> None:
             selected = batch["selected_demo"].to(device, non_blocking=True)
             demo = demo_banks["train"].index_select(0, selected)
             target = batch["target"].to(device, non_blocking=True)
+            phase = batch["selected_demo_phase"].to(device, non_blocking=True)
             transformed = model.encode_targets(target)
             optimizer.zero_grad(set_to_none=True)
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                model_output = model(
+                model_output = forward_model(
+                    model,
                     policy_prefix=policy,
                     selected_demo_condition=demo,
+                    selected_demo_phase=phase,
                 )
                 loss = model.gaussian_nll(
                     model_output["mean_log1p_scaled"],

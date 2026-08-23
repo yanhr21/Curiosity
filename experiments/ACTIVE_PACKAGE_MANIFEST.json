@@ -1,7 +1,7 @@
 {
-  "schema": "curiosity_active_experiments_v10",
-  "date": "2026-08-23",
-  "current_focus": "same_teacher_demo_following_semantic_audit",
+  "schema": "curiosity_active_experiments_v11",
+  "date": "2026-08-24",
+  "current_focus": "phase_aware_demo_event_reward_ready_for_authorized_policy_test",
   "demo_following": {
     "teacher": "CarryBox45 official Refiner in both arms",
     "selected_demos": ["CarryBox45", "KickBox21"],
@@ -12,8 +12,10 @@
     "evidence": "experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581"
   },
   "internal_reward": {
-    "implementation": "11.9M causal future-mismatch predictor over body and box state components",
-    "status": "demo identity gate passed; independent behavior-semantic gate pending"
+    "implementation": "11.386M phase-aware causal Transformer over a 10x121 deployable prefix, fixed numeric demo and causal clock phase",
+    "status": "data, model, calibration, runtime and fixed Carry45/Kick21 bidirectional scale gates passed; policy behavior test not authorized or run",
+    "predictor": "experiments/demo_following/contact_event_reward_redesign_v1/phase_aware_event_predictor_formal_seed271303_v1",
+    "scale_audit": "experiments/demo_following/contact_event_reward_redesign_v1/phase_aware_dense_feedback_scale_audit_v1/RESULT.json"
   },
   "smp": {
     "implementation": "official MimicKit TinyMDM",

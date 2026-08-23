@@ -17,8 +17,8 @@ SPEC.loader.exec_module(MODULE)
 
 
 def test_serious_event_predictor_shapes_parameters_and_demo_dependence():
-    model = MODULE.DemoConditionedCausalEventPredictorV2(
-        policy_dim=510,
+    model = MODULE.DemoConditionedCausalEventPredictorV3(
+        policy_dim=121,
         policy_history_steps=10,
         demo_windows=32,
         demo_window_steps=10,
@@ -28,24 +28,38 @@ def test_serious_event_predictor_shapes_parameters_and_demo_dependence():
         num_layers=6,
         dim_feedforward=1536,
         dropout=0.0,
-        state_mean=torch.zeros(510),
-        state_std=torch.ones(510),
+        state_mean=torch.zeros(121),
+        state_std=torch.ones(121),
         demo_mean=torch.zeros(132),
         demo_std=torch.ones(132),
         target_scale=torch.ones(len(MODULE.EVENT_TARGET_NAMES)),
     ).eval()
     parameter_count = MODULE.count_trainable_parameters(model)
     assert 10_000_000 <= parameter_count <= 15_000_000
-    policy = torch.randn(2, 10, 510)
+    policy = torch.randn(2, 10, 121)
     demo = torch.randn(2, 32, 10, 132)
+    phase = torch.tensor([0.2, 0.8])
     with torch.inference_mode():
-        full = model(policy_prefix=policy, selected_demo_condition=demo)
+        full = model(
+            policy_prefix=policy,
+            selected_demo_condition=demo,
+            selected_demo_phase=phase,
+        )
         zero = model(
             policy_prefix=policy,
             selected_demo_condition=demo,
+            selected_demo_phase=phase,
             zero_demo=True,
+        )
+        shifted_phase = model(
+            policy_prefix=policy,
+            selected_demo_condition=demo,
+            selected_demo_phase=1.0 - phase,
         )
     assert full["mean_log1p_scaled"].shape == (2, 13)
     assert full["log_variance_log1p_scaled"].shape == (2, 13)
     assert full["representation"].shape == (2, 384)
     assert not torch.equal(full["mean_log1p_scaled"], zero["mean_log1p_scaled"])
+    assert not torch.equal(
+        full["mean_log1p_scaled"], shifted_phase["mean_log1p_scaled"]
+    )

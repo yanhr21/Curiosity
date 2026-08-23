@@ -46,7 +46,14 @@ def test_collector_reads_physical_filtered_force_and_not_reference_proxy():
     assert "reference_binary_proxy_used_as_target\": False" in source
     assert "contact_labels_50hz" not in source
     assert "np.max(source_reference_steps_by_local)" in source
-    assert {"_event_durations", "_motion_regime", "_summarize"}.issubset(_functions())
+    assert "goal_policy_core_observation" in source
+    assert "base.action_manager.action" in source
+    assert {
+        "_goal_policy_core_observation",
+        "_event_durations",
+        "_motion_regime",
+        "_summarize",
+    }.issubset(_functions())
 
 
 def test_event_duration_stops_before_reset_state_frame():

@@ -31,15 +31,20 @@
 - [x] extend the existing serious causal Transformer with multitask contact/event heads and pass
   motion-disjoint held-out plus permuted-demo checks;
 - [x] freeze the seed271301 best-epoch-8 predictor and fit validation-only variance calibration;
-- [ ] fix the potential-difference reward scale and stopping rule, and obtain explicit authority
-  before new policy training;
+- [x] reject seed271301 as a deployable reward after finding the 510-D actor mismatch and
+  per-frame free-window phase loophole;
+- [x] rebuild `10 x 121` targets with causal normalized clock phase, train/freeze seed271303 and
+  pass held-out full/zero/permuted-demo plus uncertainty gates;
+- [x] pass fixed Carry45/Kick21 bidirectional semantic scoring, freeze dense reward scale and the
+  update-32/update-64 stopping rule;
+- [ ] obtain explicit authority before new policy training;
 - [ ] run a matched policy comparison and judge
   predictor-independent frozen behavior; keep selected-demo SMP out until its semantic gate passes.
 
 Current endpoint: the earlier three-seed policy result remains negative and the teacher-floor
-diagnostic collapses, but the new actual-rollout corpus and 11.53M event predictor pass all frozen
-data/model gates. The missing evidence is now policy-level causal benefit under a matched rerun;
-predictor scores alone cannot provide that verdict.
+diagnostic collapses. The phase-aware 11.386M event predictor now passes data, model, calibration,
+runtime and fixed-demo bidirectional reward-scale gates. The missing evidence is policy-level causal
+behavior under a matched rerun; predictor scores alone cannot provide that verdict.
 
 ## Frozen tactile work
 

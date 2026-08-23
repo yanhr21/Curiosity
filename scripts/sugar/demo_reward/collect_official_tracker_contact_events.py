@@ -91,6 +91,8 @@ from isaaclab.envs import DirectMARLEnv, multi_agent_to_single_agent  # noqa: E4
 from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper  # noqa: E402
 
 import sugar_rl.tasks  # noqa: F401,E402
+import sugar_rl.tasks.locomanip.mdp as mdp  # noqa: E402
+from sugar_rl.tasks.locomanip import goal_carry_mdp as goal_mdp  # noqa: E402
 from sugar_rl.utils.parser_cfg import parse_env_cfg  # noqa: E402
 from sugar_rl.utils.rsl_rl_bcppo import BCPPO  # noqa: E402
 
@@ -108,6 +110,42 @@ SENSOR_ROLES = ("left_hand", "right_hand", "left_foot", "right_foot")
 CONTROL_DT_S = 0.02
 LIFT_THRESHOLD_M = 0.05
 MOVE_THRESHOLD_MPS = 0.05
+GOAL_POLICY_CORE_DIM = 121
+
+
+def _goal_policy_core_observation(base) -> torch.Tensor:
+    """Return the deployable, non-tactile prefix of the goal-policy observation.
+
+    The terms and order exactly match ``CarryBox SMP/ICM Goal`` PolicyCfg up to
+    and including the goal orientation.  The two later tactile/strategy terms
+    are deliberately excluded; the demo reward model must not depend on them.
+    """
+
+    value = torch.cat(
+        (
+            mdp.projected_gravity(base),
+            goal_mdp.base_height(base, "motion"),
+            mdp.base_lin_vel(base),
+            mdp.base_ang_vel(base),
+            mdp.joint_pos_rel(base),
+            mdp.joint_vel_rel(base),
+            base.action_manager.action,
+            goal_mdp.box_position_body(base, "motion"),
+            goal_mdp.box_orientation_tangent_normal_body(base, "motion"),
+            goal_mdp.box_linear_velocity_body(base, "motion"),
+            goal_mdp.box_angular_velocity_body(base, "motion"),
+            goal_mdp.goal_position_body(base, "motion"),
+            goal_mdp.goal_orientation_tangent_normal_body(base, "motion"),
+        ),
+        dim=-1,
+    )
+    if value.shape != (base.num_envs, GOAL_POLICY_CORE_DIM):
+        raise RuntimeError(
+            f"goal-policy core geometry drift: {tuple(value.shape)}"
+        )
+    if not torch.isfinite(value).all():
+        raise RuntimeError("goal-policy core contains non-finite values")
+    return value
 
 
 def _latest_filtered_force(sensor) -> torch.Tensor:
@@ -348,6 +386,7 @@ def main() -> None:
         "motion_frame": [],
         "local_motion_id": [],
         "policy_observation": [],
+        "goal_policy_core_observation": [],
     }
     started = time.time()
     print("COLLECTOR_PHASE=rollout_started", flush=True)
@@ -377,6 +416,9 @@ def main() -> None:
         records["local_motion_id"].append(command.motion_id.detach().cpu().numpy().copy())
         records["policy_observation"].append(
             obs["policy"].detach().cpu().numpy().copy()
+        )
+        records["goal_policy_core_observation"].append(
+            _goal_policy_core_observation(base).detach().cpu().numpy().copy()
         )
         if (step + 1) % 100 == 0 or step + 1 == args.steps:
             print(

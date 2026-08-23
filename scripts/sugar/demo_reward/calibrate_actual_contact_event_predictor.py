@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT / "scripts/sugar/demo_reward"))
 from train_actual_contact_event_predictor import (  # noqa: E402
     EVENT_TARGET_NAMES,
     PairDataset,
+    forward_model,
     make_loader,
     model_from_normalization,
 )
@@ -50,10 +51,13 @@ def collect(
         selected = batch["selected_demo"].to(device, non_blocking=True)
         demo = demo_bank.index_select(0, selected)
         target = batch["target"].to(device, non_blocking=True)
+        phase = batch["selected_demo_phase"].to(device, non_blocking=True)
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-            output = model(
+            output = forward_model(
+                model,
                 policy_prefix=policy,
                 selected_demo_condition=demo,
+                selected_demo_phase=phase,
             )
         targets.append(model.encode_targets(target).cpu().numpy())
         means.append(output["mean_log1p_scaled"].float().cpu().numpy())

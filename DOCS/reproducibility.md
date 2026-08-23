@@ -335,25 +335,15 @@ actual rollout corpus 与 predictor gate 已完成。以下命令必须在 retai
 ```bash
 ROOT=/public/home/yanhongru/Curiosity
 PYTHON_BIN=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
-CORPUS=$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_corpus
+BASE=$ROOT/experiments/demo_following/contact_event_reward_redesign_v1
+CORPUS=$BASE/reproduction_goal_core_corpus
+DATASET=$BASE/reproduction_phase_dataset
+PREDICTOR=$BASE/reproduction_phase_predictor_seed271303
+SCALE=$BASE/reproduction_phase_reward_scale
 
 cd "$ROOT"
 
-$PYTHON_BIN -u scripts/sugar/demo_reward/collect_official_tracker_contact_events.py \
-  --task-family CarryBox \
-  --motion-folder "$ROOT/SUGAR/data/CarryBox" \
-  --generator-checkpoint "$ROOT/SUGAR/demo_ckpts/CarryBox/generator.ckpt" \
-  --checkpoint "$ROOT/SUGAR/demo_ckpts/CarryBox/tracker.pt" \
-  --output-dir "$CORPUS/carry_seed271100" \
-  --num-envs 100 --steps 700 --seed 271100 --headless --device cuda:0
-
-$PYTHON_BIN -u scripts/sugar/demo_reward/collect_official_tracker_contact_events.py \
-  --task-family KickBox \
-  --motion-folder "$ROOT/SUGAR/data/KickBox" \
-  --generator-checkpoint "$ROOT/SUGAR/demo_ckpts/KickBox/generator.ckpt" \
-  --checkpoint "$ROOT/SUGAR/demo_ckpts/KickBox/tracker.pt" \
-  --output-dir "$CORPUS/kick_seed271200" \
-  --num-envs 99 --steps 700 --seed 271200 --headless --device cuda:0
+bash scripts/sugar/demo_reward/collect_deployable_goal_core_corpus.sh "$CORPUS"
 
 $PYTHON_BIN scripts/sugar/demo_reward/audit_actual_contact_event_corpus.py \
   --corpus-root "$CORPUS" \
@@ -361,18 +351,22 @@ $PYTHON_BIN scripts/sugar/demo_reward/audit_actual_contact_event_corpus.py \
 
 $PYTHON_BIN scripts/sugar/demo_reward/build_actual_contact_event_predictor_dataset.py \
   --corpus-root "$CORPUS" \
-  --output-dir "$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1"
+  --output-dir "$DATASET" \
+  --policy-observation-key goal_policy_core_observation \
+  --alignment-mode clock_phase
 
 $PYTHON_BIN scripts/sugar/demo_reward/train_actual_contact_event_predictor.py \
-  --dataset-root "$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1" \
-  --output-dir "$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_predictor_seed271301" \
+  --dataset-root "$DATASET" --output-dir "$PREDICTOR" \
   --epochs 20 --batch-size 128 --num-workers 4 --early-stop-patience 5 \
-  --seed 271301 --device cuda:0
+  --seed 271303 --device cuda:0
 
 $PYTHON_BIN scripts/sugar/demo_reward/calibrate_actual_contact_event_predictor.py \
-  --dataset-root "$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_dataset_v1" \
-  --predictor-dir "$ROOT/experiments/demo_following/contact_event_reward_redesign_v1/reproduction_predictor_seed271301" \
+  --dataset-root "$DATASET" --predictor-dir "$PREDICTOR" \
   --batch-size 256 --num-workers 4 --device cuda:0
+
+$PYTHON_BIN scripts/sugar/demo_reward/audit_deployable_demo_event_reward.py \
+  --corpus-root "$CORPUS" --dataset-root "$DATASET" --predictor-dir "$PREDICTOR" \
+  --output-dir "$SCALE" --unrelated-motion-id 21 --device cuda:0
 ```
 
 collector 的 actual contact 是左右手/左右脚 named body 对 `/Obj` 的 filtered
@@ -382,23 +376,33 @@ Carry 中位 bilateral contact/最长手部事件/最大抬升为 `0.3293/4.60 s
 foot contact/最长足部事件/足力峰值/最大抬升为
 `0.0414/0.22 s/60.23 N/0.0066 m`。
 
-dataset 固定按 source motion ID 做 `80/10/10`（Kick test 为 9）motion-disjoint split。
-每个 causal base row 只有过去 10 帧 510-D official Tracker observation；每行配 correct、
-same-task wrong 和 cross-task wrong 三个 numeric demo。未来 actual contact、duration 和
-regime 只进入 13-D target。formal predictor 有 `11,530,010` 参数，seed271301 在 epoch 13
-early-stop 并冻结 epoch 8。validation/test full MAE 为 `0.1878/0.1708`，constant 为
-`0.2354/0.2192`，zero-demo 为 `0.2423/0.2279`，permuted-demo 为 `0.1985/0.1778`；两个
-split 的 median Spearman 均约 `0.505`，12/12 gates 通过。
+dataset 固定按 source motion ID 做 `80/10/10`（Kick test 为 9）motion-disjoint split。每个
+causal base row 只有过去 `10 x 121` 部署侧核心观测、固定 numeric demo 和 `[0,1]` normalized
+clock phase；每行配 correct、same-task wrong 和 cross-task wrong。未来 actual contact、
+duration 和 regime 只进入 13-D target。
 
-随后冻结 best epoch 8，13 个 uncertainty scale 仅由 validation residual 拟合，test labels
-不参与校准。名义 90% 区间在 validation/test 上的平均覆盖率为 `95.25%/95.90%`；test
-单目标最低覆盖率为 `86.93%`（box rotation 6D mismatch）。这是一组偏保守的 uncertainty
-interval，可用于下一阶段 reward clipping/abstention；它不是 policy 成功证据。
+必须使用 `clock_phase`。被否决的 `free_window` 版本在每个时刻独立选 32 个 demo windows 中
+误差最小者，使不动的轨迹可以反复匹配静止片段。它虽然通过普通 MAE gate，却让 held-out
+Kick 轨迹错误偏好 Carry45。将同一批真实 target 绑定到因果时钟后，validation/test 同时恢复
+Carry→Carry45 与 Kick→Kick21 的正确方向。
 
-这些结果只证明 predictor 在 held-out motions 上使用 selected demo，不证明 policy semantic
-following。下一次 policy comparison 必须继续固定 teacher、seed、初始化、物理、budget 和
-task reward，并以 predictor-independent frozen behavior 作结论。SMP 仍保持 generic shared
-prior，不进入 selected-demo reward。
+formal V3 predictor 有 `11,386,010` 参数，seed271303 冻结 epoch 20。validation/test full
+MAE 为 `0.1771/0.1560`，constant 为 `0.2803/0.2566`，zero-demo 为 `0.2945/0.2766`，
+permuted-demo 为 `0.2018/0.1761`；median Spearman 为 `0.677/0.694`，12/12 gates 通过。
+13 个 uncertainty scale 只由 validation residual 拟合，名义 90% interval 在
+validation/test 的覆盖率为 `97.13%/97.77%`，test 最低单目标为 `91.86%`。
+
+最终 scale audit 固定 CarryBox45/KickBox21 并在完整 motion-disjoint corpus 上逐帧评分。
+validation/test 都更偏好匹配任务；held-out Carry 的 correct/unrelated mean feedback 分别为
+`+0.01463/-0.01737`。冻结 baseline 为 `0.5322520137`，`eta=0.2427623309`，reward clip
+为 `0.1431077421`，平均绝对 feedback 是现有 task/constraint reward 的 25%。reward 定义为
+`eta * (exp(-calibrated_event_risk) - baseline)`，不是 potential difference；它有意改变策略
+目标。runtime 前 9 个 transition 不足 10-frame history 时精确为零，模型为 eval mode 且
+trainable parameter 为零。
+
+这些结果证明 reward 在策略优化前满足因果、部署输入、phase 和双向语义门槛，不证明 policy
+semantic following。下一次 comparison 必须获得明确授权，固定 teacher、seed、初始化、
+物理、budget 和 task reward，并只以 predictor-independent frozen behavior 作结论。
 
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object
@@ -410,11 +414,12 @@ graph 防止错误 body-object interaction；InterMimic 同时约束 object devi
 - https://arxiv.org/abs/2502.20390
 - https://nvidia-isaac.github.io/video_to_data/chord/
 
-## 4. Internal reward predictor
+## 4. Earlier trajectory-only predictor
 
-模型输入为过去 10 帧 policy state 和指定 demo condition，目标为未来 body、box position、
-box rotation 6D 和 box velocity mismatch。policy 使用 predicted mismatch potential
-difference；冻结测试时不把未来 GT trajectory 输入 actor。
+这是 contact/event redesign 之前保留的 11.9M trajectory-only 模型。输入为过去 10 帧
+policy state 和指定 demo condition，目标只有未来 body、box position、box rotation 6D 和
+box velocity mismatch。它证明 demo identity 被读取，但从未建立可靠语义遵循，也不是当前
+reward。当前 phase-aware 13-target 模型与 dense feedback 见 3.9 节。
 
 保留文件：
 

@@ -14,23 +14,24 @@ are under root `legacy/`.
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick
   reference-event feasibility result; binary labels are reference proxies, not tactile force;
-- `contact_event_reward_redesign_v1/actual_tracker_corpus/`: 100 Carry plus 99 Kick actual
-  IsaacLab rollouts with named hand/foot-to-box force, event duration and motion regime;
-- `contact_event_reward_redesign_v1/actual_tracker_corpus_audit_v1/`: complete coverage,
-  force-threshold and motion-disjoint corpus verdict;
-- `contact_event_reward_redesign_v1/actual_contact_event_predictor_dataset_v1/`: causal
-  correct/same-task-wrong/cross-task-wrong numeric-demo pairs and 13-D mismatch targets;
-- `contact_event_reward_redesign_v1/predictor_formal_seed271301_v1/`: frozen best-epoch-8
-  11.53M event predictor, 12/12 held-out gate result and validation-only uncertainty calibration;
+- `contact_event_reward_redesign_v1/deployable_goal_core_corpus_v1/`: 100 Carry plus 99 Kick
+  IsaacLab rollouts with the exact 121-D policy core and named physical hand/foot-to-box events;
+- `contact_event_reward_redesign_v1/deployable_goal_core_corpus_v1_audit/`: complete coverage,
+  exact previous-action slice, force-threshold and motion-disjoint corpus verdict;
+- `contact_event_reward_redesign_v1/phase_aware_goal_core_dataset_v1/`: clock-bound causal
+  correct/same-task-wrong/cross-task-wrong pairs and 13-D mismatch targets;
+- `contact_event_reward_redesign_v1/phase_aware_event_predictor_formal_seed271303_v1/`: frozen
+  epoch-20 11.386M V3 predictor, 12/12 held-out gates and validation-only calibration;
+- `contact_event_reward_redesign_v1/phase_aware_dense_feedback_scale_audit_v1/`: passing fixed
+  Carry45/Kick21 bidirectional semantic gate, runtime scale and update-32/64 stopping rule;
 - `predictor/`: frozen 11.9M causal future-mismatch predictor result and checkpoint;
 - `smp_prior/`: generic official MimicKit TinyMDM prior used identically by both arms;
 - `selected_demo_smp_v1/`: official CarryBox45/KickBox21 single-clip priors and the failed
   independent semantic-extension gate;
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
-The old 1216-update experiment changed both teacher and reward demo and used a defective task. It
-has been moved to `legacy/repository_cleanup_20260823/experiments/demo_following/` and is not an
-active result.
+The old 1216-update policy experiment and the rejected 510-D/free-window event predictor are under
+root `legacy/`; neither is an active result.
 
 ## 2. `online_patch_tactile_mass_adaptation/`
 
