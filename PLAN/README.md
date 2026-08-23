@@ -96,6 +96,9 @@ unchanged SMP/original-ICM calculation, and exposes no future event label to the
 launcher uses seed/action-seed `161587/161588`; both arms use the same CarryBox45 fixed teacher and
 differ only by `selected_option=correct/unrelated`. Frozen evaluation is predeclared at updates 32
 and 64 with 20 matched physics profiles per checkpoint. No new policy training has started.
+Formal GPU admission also passes for both arms on H200: correct selects CarryBox45 row 37 and
+unrelated selects KickBox21 row 97; both report 121-D input, clock-phase alignment, frozen eval mode,
+zero trainable parameters, no environment creation and zero policy updates.
 
 ### Expected behavior, not just reward score
 

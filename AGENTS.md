@@ -26,6 +26,11 @@ behavior audits separately, and renders the final update-64 demo/actual pair. Th
 dry-run and CPU-test complete, but no phase-aware policy checkpoint exists yet. Do not describe
 integration readiness as a policy result.
 
+Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
+probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
+unrelated Kick21 model, but creates no environment and executes zero PPO updates. The allocation is
+held after the probes. This is stronger execution-readiness evidence, still not training evidence.
+
 Routine read-only audits, dataset builds and predictor-only gates may proceed through the documented
 queue. Policy training is the explicit exception and requires user approval.
 

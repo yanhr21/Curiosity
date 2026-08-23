@@ -18,6 +18,7 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
+import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -176,6 +177,14 @@ def parse_args() -> argparse.Namespace:
         "--policy-training-authorized",
         action="store_true",
         help="explicit operator acknowledgement required by the phase-event branch",
+    )
+    parser.add_argument(
+        "--runner-admission-only",
+        action="store_true",
+        help=(
+            "on a retained GPU, load the frozen model through the formal inner "
+            "runner and exit before environment creation or PPO"
+        ),
     )
     return parser.parse_args()
 
@@ -529,12 +538,23 @@ def main() -> None:
         else args.endpoint_updates
     )
     phase_event_design = args.design == "phase_event_reward_only"
-    if phase_event_design and not args.dry_run and not args.policy_training_authorized:
+    if (
+        phase_event_design
+        and not args.dry_run
+        and not args.runner_admission_only
+        and not args.policy_training_authorized
+    ):
         raise PermissionError(
             "phase-event policy training requires explicit --policy-training-authorized"
         )
     if not phase_event_design and args.policy_training_authorized:
         raise ValueError("policy authorization flag is scoped to phase_event_reward_only")
+    if args.runner_admission_only and (
+        not phase_event_design or args.dry_run or args.policy_training_authorized
+    ):
+        raise ValueError(
+            "runner admission is a phase-event, non-training, non-dry execution mode"
+        )
     if (args.seed, args.action_seed) not in PREDECLARED_SEED_PAIRS or args.num_envs != 20:
         raise ValueError(
             "matched design requires one predeclared sim/action seed pair and 20 environments"
@@ -610,6 +630,34 @@ def main() -> None:
                     indent=2,
                 )
             )
+            return
+        if args.runner_admission_only:
+            if socket.gethostname().startswith(("mgmtserver", "login")):
+                raise SystemExit("runner admission requires a retained compute allocation")
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".json",
+                prefix=f"phase_event_{args.arm}_admission_",
+                delete=False,
+            ) as stream:
+                json.dump(payload, stream, indent=2, sort_keys=True)
+                stream.write("\n")
+                temporary_protocol = Path(stream.name)
+            command[command.index("--protocol-config") + 1] = str(
+                temporary_protocol
+            )
+            command.append("--admission-only")
+            try:
+                completed = subprocess.run(
+                    command,
+                    cwd=ROOT / "SUGAR",
+                    env=runtime_environment(args, update),
+                    check=False,
+                )
+            finally:
+                temporary_protocol.unlink(missing_ok=True)
+            if completed.returncode != 0:
+                raise RuntimeError("formal inner-runner admission probe failed")
             return
         paths["directory"].mkdir(parents=True, exist_ok=False)
         paths["protocol"].write_text(

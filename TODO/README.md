@@ -41,6 +41,8 @@
   SMP/original ICM, and add correct/unrelated matched dry-runs;
 - [x] freeze update-32/update-64 evaluation, per-checkpoint predictor-independent behavior audits
   and final demo/actual video generation;
+- [x] pass correct and unrelated formal inner-runner admission on retained H200 with zero PPO
+  updates, then restore the allocation GPU hold;
 - [ ] obtain explicit authority before new policy training;
 - [ ] run a matched policy comparison and judge
   predictor-independent frozen behavior; keep selected-demo SMP out until its semantic gate passes.

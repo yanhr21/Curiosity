@@ -14,6 +14,15 @@ $PYTHON scripts/sugar/demo_following/run_matched_state_predictor.py \
   --endpoint-updates 64 --stop-after-segment --dry-run
 ```
 
+Inside a retained GPU allocation, validate the formal inner runner and frozen model without
+creating the environment or executing PPO:
+
+```bash
+$PYTHON scripts/sugar/demo_following/run_matched_state_predictor.py \
+  --design phase_event_reward_only --arm correct \
+  --endpoint-updates 64 --stop-after-segment --runner-admission-only
+```
+
 After explicit approval, run the two arms serially inside a retained GPU allocation with
 `--policy-training-authorized`. Use `scripts/sugar/native_tactile/launch_retained_child.sh` and a
 fresh `--output-root`. After both endpoints pass, evaluate updates 32/64, run the independent

@@ -437,6 +437,24 @@ lifted/ground transport、orbit 和 hand/foot contact 审计。最终视频取 u
 分别只显示 Carry45/Kick21 输入 demo 与对应实际策略行为。当前没有上述新 checkpoint，因而
 没有 policy-level 结果或新视频可报告。
 
+正式内层 runner admission 可在 retained GPU 上单独执行，不创建环境、不写 checkpoint、
+不执行 PPO：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
+  --design phase_event_reward_only --arm correct \
+  --endpoint-updates 64 --stop-after-segment --runner-admission-only
+$PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
+  --design phase_event_reward_only --arm unrelated \
+  --endpoint-updates 64 --stop-after-segment --runner-admission-only
+```
+
+2026-08-24 在 H200 job257762 上两臂均返回
+`sugar_phase_event_policy_admission_only_v1/pass`：correct 为 CarryBox45 motion45/demo row37，
+unrelated 为 KickBox motion21/demo row97；两者均为 121-D、10-state history、clock-phase、
+eval mode、0 trainable parameter、0 environment、0 policy update。完整本地日志位于 ignored
+`experiments/runtime_allocations/job257762/`。
+
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object
 关系和 required-contact duration；CHORD 进一步用 object-centric contact wrench 衡量接触

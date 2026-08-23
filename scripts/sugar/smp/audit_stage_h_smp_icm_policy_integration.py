@@ -152,6 +152,14 @@ parser.add_argument(
     help="shared causal clock horizon; Carry45 and Kick21 both contain 660 frames",
 )
 parser.add_argument(
+    "--admission-only",
+    action="store_true",
+    help=(
+        "validate the phase-event protocol and load its frozen model, then "
+        "exit before environment creation or any PPO update"
+    ),
+)
+parser.add_argument(
     "--protocol-config",
     type=Path,
     default=None,
@@ -2939,6 +2947,42 @@ def main() -> None:
                 raise FileNotFoundError(demo_event_reward_config[source_name])
     if teacher_checkpoint is not None and not teacher_checkpoint.is_file():
         raise FileNotFoundError(teacher_checkpoint)
+    if args.admission_only:
+        if not (
+            phase_event_protocol_contract
+            and demo_event_reward_contract
+            and wrong_teacher_reward_conflict_64_contract
+        ):
+            raise ValueError(
+                "admission-only is scoped to the phase-event matched policy protocol"
+            )
+        scorer = FrozenPhaseAwareDemoEventScorer(
+            num_envs=args.num_envs,
+            device=args.device,
+            cfg=FrozenPhaseAwareDemoEventScorerCfg(
+                runtime_config_path=str(demo_event_reward_config_path),
+                selected_option=args.demo_event_selected_option,
+                phase_horizon_steps=args.demo_event_phase_horizon_steps,
+            ),
+        )
+        audit = scorer.frozen_model_audit()
+        payload = {
+            "protocol": "sugar_phase_event_policy_admission_only_v1",
+            "passed": bool(
+                audit["model_frozen"]
+                and audit["policy_dim"] == 121
+                and audit["alignment_mode"] == "clock_phase"
+                and audit["future_actual_events_used"] is False
+            ),
+            "selected_option": args.demo_event_selected_option,
+            "policy_updates_executed": 0,
+            "environment_created": False,
+            "frozen_model_audit": audit,
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True), flush=True)
+        if not payload["passed"]:
+            raise RuntimeError("phase-event admission-only probe failed")
+        return
 
     if goal_recovery_contract:
         cfg = GoalCoherentLatentRobotEnvCfg()
