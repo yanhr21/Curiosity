@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -11,6 +12,7 @@ SUMMARIZER = (
 )
 PAIRING = ((151014, 152014), (151015, 152015), (151016, 152016))
 FACTORS = (1.0, 1.5, 3.0, 6.0, 10.0)
+PYTHON = shutil.which("python3") or sys.executable
 
 
 def episode(branch: str) -> dict[str, object]:
@@ -37,7 +39,7 @@ def write_branch(root: Path, branch: str) -> None:
             run.mkdir(parents=True)
             summary = {
                 "branch": branch,
-                "evaluation_view": "physical_outcome",
+                "evaluation_view": "strict_sugar_reference",
                 "training_seed": train_seed,
                 "seed": evaluation_seed,
                 "mass_factor": factor,
@@ -53,7 +55,7 @@ def test_completed_paired_sweeps_compare_all_300_profiles(tmp_path: Path) -> Non
     output = tmp_path / "comparison.json"
     subprocess.run(
         [
-            sys.executable,
+            PYTHON,
             str(SCRIPT),
             "--z-root",
             str(roots["Z"]),
@@ -63,8 +65,6 @@ def test_completed_paired_sweeps_compare_all_300_profiles(tmp_path: Path) -> Non
             str(roots["PS"]),
             "--output",
             str(output),
-            "--bootstrap-samples",
-            "100",
         ],
         check=True,
         capture_output=True,
@@ -90,6 +90,12 @@ def test_completed_paired_sweeps_compare_all_300_profiles(tmp_path: Path) -> Non
     )
     ps_minus_p = result["comparisons"]["PS-P"]["3.0"]
     assert ps_minus_p["hold_success"]["mean_difference_first_minus_second"] == 0.0
+    assert result["inference"]["independent_unit"] == "training seed"
+    assert result["inference"]["multiple_comparison_correction"] == (
+        "Holm familywise correction"
+    )
+    assert p_minus_z["hold_success"]["exact_seed_sign_flip_pvalue"] == 0.25
+    assert p_minus_z["hold_success"]["holm_familywise_pvalue"] == 1.0
 
 
 def test_comparison_rejects_total_300_with_wrong_seed_factor_profile_counts(
@@ -108,7 +114,7 @@ def test_comparison_rejects_total_300_with_wrong_seed_factor_profile_counts(
     extra.write_text(json.dumps(payload), encoding="utf-8")
     result = subprocess.run(
         [
-            sys.executable,
+            PYTHON,
             str(SCRIPT),
             "--z-root",
             str(roots["Z"]),
@@ -118,8 +124,6 @@ def test_comparison_rejects_total_300_with_wrong_seed_factor_profile_counts(
             str(roots["PS"]),
             "--output",
             str(tmp_path / "comparison.json"),
-            "--bootstrap-samples",
-            "10",
         ],
         capture_output=True,
         text=True,
@@ -136,7 +140,7 @@ def test_summary_accepts_only_the_exact_15_run_300_profile_design(
     output = tmp_path / "summary.json"
     subprocess.run(
         [
-            sys.executable,
+            PYTHON,
             str(SUMMARIZER),
             "--input-root",
             str(root),
@@ -156,7 +160,7 @@ def test_summary_accepts_only_the_exact_15_run_300_profile_design(
     missing.unlink()
     rejected = subprocess.run(
         [
-            sys.executable,
+            PYTHON,
             str(SUMMARIZER),
             "--input-root",
             str(root),

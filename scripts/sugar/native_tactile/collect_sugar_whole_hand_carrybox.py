@@ -156,8 +156,8 @@ parser.add_argument(
 )
 parser.add_argument("--physical-stiffness", type=float, default=1500.0)
 parser.add_argument("--physical-damping", type=float, default=300.0)
-parser.add_argument("--normal-stiffness", type=float, default=199.35014495534745)
-parser.add_argument("--tangential-stiffness", type=float, default=19.935014495534745)
+parser.add_argument("--normal-stiffness", type=float, default=7294.8755)
+parser.add_argument("--tangential-stiffness", type=float, default=9.0)
 parser.add_argument(
     "--contact-friction",
     type=float,

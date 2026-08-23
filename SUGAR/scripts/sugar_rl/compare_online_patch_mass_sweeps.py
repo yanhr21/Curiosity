@@ -4,10 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 from pathlib import Path
-
-import numpy as np
+from statistics import mean
 
 
 TRAIN_TO_EVAL = {151014: 152014, 151015: 152015, 151016: 152016}
@@ -38,8 +38,6 @@ parser.add_argument("--z-root", type=Path, nargs="+", required=True)
 parser.add_argument("--p-root", type=Path, nargs="+", required=True)
 parser.add_argument("--ps-root", type=Path, nargs="+", required=True)
 parser.add_argument("--output", type=Path, required=True)
-parser.add_argument("--bootstrap-samples", type=int, default=10_000)
-parser.add_argument("--bootstrap-seed", type=int, default=153015)
 args = parser.parse_args()
 
 
@@ -74,10 +72,10 @@ def load_branch(
         summary = json.loads(path.read_text(encoding="utf-8"))
         if summary["branch"] != branch:
             raise ValueError(f"{path} contains branch {summary['branch']}, expected {branch}")
-        if summary.get("evaluation_view") != "physical_outcome":
+        if summary.get("evaluation_view") != "strict_sugar_reference":
             raise ValueError(
-                f"{path} is not a physical-outcome evaluation with strict "
-                "SUGAR termination labels"
+                f"{path} is not a strict SUGAR evaluation; continued "
+                "physical-outcome diagnostics are not scoreable"
             )
         train_seed = summary.get("training_seed")
         if train_seed is None:
@@ -104,26 +102,24 @@ def load_branch(
     return rows
 
 
-def hierarchical_interval(
-    differences: dict[int, np.ndarray], samples: int, rng: np.random.Generator
-) -> tuple[float, float]:
-    seeds = np.asarray(sorted(differences), dtype=np.int64)
-    draws = np.empty(samples, dtype=np.float64)
-    for index in range(samples):
-        selected_seeds = rng.choice(seeds, size=len(seeds), replace=True)
-        values = []
-        for seed in selected_seeds:
-            block = differences[int(seed)]
-            values.append(rng.choice(block, size=len(block), replace=True))
-        draws[index] = np.concatenate(values).mean()
-    low, high = np.percentile(draws, [2.5, 97.5])
-    return float(low), float(high)
+def exact_seed_sign_flip_pvalue(seed_differences: list[float]) -> float:
+    """Two-sided exact paired randomization test over independent train seeds."""
+
+    observed = abs(mean(seed_differences))
+    extreme = 0
+    total = 0
+    for signs in itertools.product((-1.0, 1.0), repeat=len(seed_differences)):
+        randomized = [
+            value * sign for value, sign in zip(seed_differences, signs)
+        ]
+        extreme += abs(mean(randomized)) >= observed - 1.0e-12
+        total += 1
+    return float(extreme / total)
 
 
 def compare(
     first: dict[tuple[int, int, float, int], dict[str, object]],
     second: dict[tuple[int, int, float, int], dict[str, object]],
-    rng: np.random.Generator,
 ) -> dict[str, object]:
     if set(first) != set(second):
         raise ValueError("frozen sweep profile keys do not match across branches")
@@ -146,37 +142,57 @@ def compare(
                 if left_value is None or right_value is None:
                     continue
                 by_seed.setdefault(key[0], []).append(left_value - right_value)
-            arrays = {
-                seed: np.asarray(values, dtype=np.float64)
-                for seed, values in by_seed.items()
-                if values
-            }
+            arrays = {seed: values for seed, values in by_seed.items() if values}
             count = sum(len(values) for values in arrays.values())
             if count == 0 or set(arrays) != set(TRAIN_TO_EVAL):
                 factor_result[metric] = {
                     "paired_profiles": count,
                     "mean_difference_first_minus_second": None,
-                    "hierarchical_bootstrap_95ci": None,
+                    "paired_training_seed_differences": None,
+                    "exact_seed_sign_flip_pvalue": None,
+                    "holm_familywise_pvalue": None,
                     "better_direction": better,
                 }
                 continue
-            difference = float(np.concatenate(list(arrays.values())).mean())
-            low, high = hierarchical_interval(
-                arrays, int(args.bootstrap_samples), rng
-            )
+            seed_differences = [mean(arrays[seed]) for seed in sorted(arrays)]
+            difference = mean(seed_differences)
             factor_result[metric] = {
                 "paired_profiles": count,
                 "mean_difference_first_minus_second": difference,
-                "hierarchical_bootstrap_95ci": [low, high],
+                "paired_training_seed_differences": seed_differences,
+                "exact_seed_sign_flip_pvalue": exact_seed_sign_flip_pvalue(
+                    seed_differences
+                ),
+                "holm_familywise_pvalue": None,
                 "better_direction": better,
             }
         result[str(factor)] = factor_result
     return result
 
 
+def apply_holm_familywise_correction(
+    comparisons: dict[str, object],
+) -> int:
+    """Adjust the complete comparison/factor/metric family in one step."""
+
+    tests: list[tuple[float, dict[str, object]]] = []
+    for comparison in comparisons.values():
+        for factor in comparison.values():
+            for metric in factor.values():
+                pvalue = metric["exact_seed_sign_flip_pvalue"]
+                if pvalue is not None:
+                    tests.append((float(pvalue), metric))
+    tests.sort(key=lambda item: item[0])
+    family_size = len(tests)
+    running = 0.0
+    for rank, (pvalue, metric) in enumerate(tests):
+        adjusted = min(1.0, pvalue * (family_size - rank))
+        running = max(running, adjusted)
+        metric["holm_familywise_pvalue"] = running
+    return family_size
+
+
 def main() -> None:
-    if args.bootstrap_samples < 1:
-        raise ValueError("bootstrap-samples must be positive")
     branches = {
         "Z": load_branch(args.z_root, "Z"),
         "P": load_branch(args.p_root, "P"),
@@ -188,20 +204,29 @@ def main() -> None:
             raise ValueError(
                 f"{branch} contains {len(rows)} profiles, expected {expected_profiles}"
             )
-    rng = np.random.default_rng(int(args.bootstrap_seed))
+    comparisons = {
+        "P-Z": compare(branches["P"], branches["Z"]),
+        "PS-P": compare(branches["PS"], branches["P"]),
+        "PS-Z": compare(branches["PS"], branches["Z"]),
+    }
+    family_size = apply_holm_familywise_correction(comparisons)
     output = {
-        "schema": "plan15_paired_frozen_comparison_v2_physical_and_reference",
+        "schema": "plan15_paired_frozen_comparison_v3_strict_seed_randomization",
         "profile_count_per_branch": expected_profiles,
-        "bootstrap": {
-            "method": "paired hierarchical percentile bootstrap: training seed then profile",
-            "samples": int(args.bootstrap_samples),
-            "seed": int(args.bootstrap_seed),
+        "inference": {
+            "independent_unit": "training seed",
+            "method": "two-sided exact paired sign-flip randomization",
+            "training_seed_count": len(TRAIN_TO_EVAL),
+            "multiple_comparison_correction": "Holm familywise correction",
+            "family_size": family_size,
+            "minimum_attainable_two_sided_raw_pvalue": 0.25,
+            "confidence_intervals": None,
+            "reason_no_interval": (
+                "three independent training seeds are insufficient for a "
+                "reliable BCa or cluster-bootstrap confidence interval"
+            ),
         },
-        "comparisons": {
-            "P-Z": compare(branches["P"], branches["Z"], rng),
-            "PS-P": compare(branches["PS"], branches["P"], rng),
-            "PS-Z": compare(branches["PS"], branches["Z"], rng),
-        },
+        "comparisons": comparisons,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")

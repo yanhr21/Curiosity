@@ -10,6 +10,13 @@ class BCPPOCfg(RslRlPpoAlgorithmCfg):
     # a nonzero value through a separately named runner/task.
     stage3_distill_weight_floor = 0.0
     training_mask_obs_group = None
+    distill_mask_start_step = 0
+    actor_hold_start_step = -1
+    actor_hold_end_step = -1
+    behavior_anchor_checkpoint = None
+    behavior_anchor_coef = 0.0
+    behavior_anchor_start_step = 0
+    stage3_tactile_only_actor = False
 @configclass
 class BCPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24

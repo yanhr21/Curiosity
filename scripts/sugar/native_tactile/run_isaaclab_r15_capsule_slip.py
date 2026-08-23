@@ -427,6 +427,7 @@ def main() -> None:
             sensor.data.penetration_depth,
             sensor.data.tactile_normal_force,
             sensor.data.tactile_shear_force,
+            sensor.data.tactile_friction_force_magnitude,
             0.023977 * 0.032001,
             0.5,
         )

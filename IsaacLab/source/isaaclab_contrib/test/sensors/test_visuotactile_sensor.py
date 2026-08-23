@@ -241,6 +241,7 @@ def test_sensor_minimum_config(setup_minimum_config):
     assert sensor_minimum.data.penetration_depth is None
     assert sensor_minimum.data.tactile_normal_force is None
     assert sensor_minimum.data.tactile_shear_force is None
+    assert sensor_minimum.data.tactile_friction_force_magnitude is None
 
     # Check reset functionality
     sensor_minimum.reset()
@@ -361,6 +362,7 @@ def test_sensor_rgb_forcefield(setup_nut_rgb_ff):
     assert sensor.data.penetration_depth.shape == (1, 50)
     assert sensor.data.tactile_normal_force.shape == (1, 50)
     assert sensor.data.tactile_shear_force.shape == (1, 50, 2)
+    assert sensor.data.tactile_friction_force_magnitude.shape == (1, 50)
     assert sensor.data.tactile_relative_velocity_w.shape == (1, 50, 3)
     assert sensor.data.tactile_relative_tangential_velocity_w.shape == (1, 50, 3)
     assert sensor.data.tactile_contact_normal_w.shape == (1, 50, 3)
@@ -370,6 +372,8 @@ def test_sensor_rgb_forcefield(setup_nut_rgb_ff):
     assert normal_force_sum > 0.0
     assert sum_depth > 0.0
     assert shear_force_sum > 0.0
+    assert torch.all(sensor.data.tactile_normal_force >= 0.0)
+    assert torch.all(sensor.data.tactile_friction_force_magnitude >= 0.0)
     active = sensor.data.penetration_depth > 0.0
     full_velocity = sensor.data.tactile_relative_velocity_w
     tangential_velocity = sensor.data.tactile_relative_tangential_velocity_w

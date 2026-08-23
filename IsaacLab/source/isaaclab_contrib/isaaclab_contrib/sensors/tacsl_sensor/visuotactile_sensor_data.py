@@ -43,12 +43,11 @@ class VisuoTactileSensorData:
     """Penetration depth at each tactile point. Shape is (num_instances, num_tactile_points)."""
 
     tactile_normal_force: torch.Tensor | None = None
-    """Signed local-Z force at each tactile point.
+    """Penalty-model normal load magnitude at each tactile point.
 
-    Shape is ``(num_instances, num_tactile_points)``. This preserves the
-    released v2.3.2 TacSL projection of the complete SDF penalty force into
-    each taxel frame; geometry-bound frames may therefore report compression
-    with either local-Z sign.
+    Shape is ``(num_instances, num_tactile_points)``. This is ``k_n * depth``
+    on penetrating taxels and zero elsewhere. Friction is not mixed into this
+    field.
     """
 
     tactile_shear_force: torch.Tensor | None = None
@@ -57,6 +56,23 @@ class VisuoTactileSensorData:
     Shape is ``(num_instances, num_tactile_points, 2)``.  This channel is the
     physical-tangent projection of TacSL's ``F_t`` only; normal pressure is
     never projected into or mixed with signed shear.
+    """
+
+    tactile_friction_force_magnitude: torch.Tensor | None = None
+    """Magnitude of TacSL's friction force ``F_t`` at each tactile point.
+
+    Shape is ``(num_instances, num_tactile_points)``. This retains the full
+    tangential magnitude before projecting it into the two elastomer-frame
+    shear axes and is used for force-weighted patch friction utilization.
+    """
+
+    tactile_signed_distance_m: torch.Tensor | None = None
+    """Object SDF value at every taxel before the penetration clamp.
+
+    Shape is ``(num_instances, num_tactile_points)``. Negative values are
+    penetrating. This is evaluator-only geometry telemetry used to distinguish
+    an unsampled physical contact from a positive PhysX contact-offset gap; it
+    is never a policy feature.
     """
 
     tactile_relative_tangential_velocity_w: torch.Tensor | None = None

@@ -19,6 +19,7 @@ sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 MassJumpConfig = module.MassJumpConfig
 OnlineMassJumpController = module.OnlineMassJumpController
+post_handoff_box_lift_reward = module.post_handoff_box_lift_reward
 
 
 class FakeRigidBodyView:
@@ -203,3 +204,17 @@ def test_training_assignment_cycles_all_mass_factors_per_env():
     expected = sorted(config.mass_factors)
     for env_index in range(env.num_envs):
         assert sorted(assigned[:, env_index].tolist()) == expected
+
+
+def test_explicit_lift_reward_is_zero_for_teacher_and_tracks_student_hold():
+    env = fake_env(2)
+    controller = OnlineMassJumpController(env, "obj", MassJumpConfig())
+    controller.reset()
+    controller.advance(control_step=0)
+    env._online_mass_jump_controller = controller
+    env._online_teacher_handoff_controller = SimpleNamespace(
+        handoff_active=torch.tensor([False, True])
+    )
+    env.scene["obj"].data.root_pos_w[:, 2] = torch.tensor([0.10, 0.025])
+    reward = post_handoff_box_lift_reward(env, target_lift_m=0.05)
+    torch.testing.assert_close(reward, torch.tensor([0.0, 0.5]))

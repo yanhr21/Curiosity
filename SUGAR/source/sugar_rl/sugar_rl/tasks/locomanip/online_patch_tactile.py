@@ -84,8 +84,9 @@ def normalized_motion_phase(env, command_name: str = "motion") -> torch.Tensor:
 
 def reduce_patch_taxels(
     penetration_m: torch.Tensor,
-    signed_normal_force_n: torch.Tensor,
+    normal_force_n: torch.Tensor,
     signed_shear_xy_n: torch.Tensor,
+    friction_force_magnitude_n: torch.Tensor,
     patch_area_m2: torch.Tensor | float,
     friction_coefficient: torch.Tensor | float,
     *,
@@ -94,16 +95,22 @@ def reduce_patch_taxels(
     """Reduce official taxels to six physical features for one patch.
 
     The leading dimensions are arbitrary and the final dimension is taxel.
-    TacSL local-Z compression may have either sign because anatomical patch
-    frames are geometry-fixed.  Normal load is therefore the summed magnitude
-    of signed local-Z force on penetrating taxels; signed XY components retain
-    their declared patch-local directions.
+    Normal load is the sum of TacSL's nonnegative ``k_n * depth`` magnitudes.
+    Signed XY components are the local projection of friction traction only.
+    Friction utilization uses the sum of full tangential-force magnitudes, so
+    opposing signed taxels cannot cancel before the Coulomb-ratio reduction.
     """
 
-    if penetration_m.shape != signed_normal_force_n.shape:
+    if penetration_m.shape != normal_force_n.shape:
         raise ValueError(
             "penetration and normal tensors must have identical shapes, got "
-            f"{tuple(penetration_m.shape)} and {tuple(signed_normal_force_n.shape)}"
+            f"{tuple(penetration_m.shape)} and {tuple(normal_force_n.shape)}"
+        )
+    if friction_force_magnitude_n.shape != penetration_m.shape:
+        raise ValueError(
+            "friction magnitude and penetration tensors must have identical "
+            f"shapes, got {tuple(friction_force_magnitude_n.shape)} and "
+            f"{tuple(penetration_m.shape)}"
         )
     if signed_shear_xy_n.shape != (*penetration_m.shape, 2):
         raise ValueError(
@@ -116,14 +123,18 @@ def reduce_patch_taxels(
         raise ValueError("epsilon must be positive and finite")
 
     penetration = torch.nan_to_num(penetration_m)
-    normal = torch.nan_to_num(signed_normal_force_n)
+    normal = torch.nan_to_num(normal_force_n)
     shear = torch.nan_to_num(signed_shear_xy_n)
+    friction_magnitude = torch.nan_to_num(friction_force_magnitude_n)
+    if torch.any(normal < 0.0) or torch.any(friction_magnitude < 0.0):
+        raise ValueError("normal and friction magnitudes must be nonnegative")
     active = penetration > 0.0
     active_float = active.to(normal.dtype)
 
     contact = active.any(dim=-1).to(normal.dtype)
-    normal_load = (normal.abs() * active_float).sum(dim=-1)
+    normal_load = (normal * active_float).sum(dim=-1)
     signed_shear = (shear * active_float.unsqueeze(-1)).sum(dim=-2)
+    friction_load = (friction_magnitude * active_float).sum(dim=-1)
 
     area = torch.as_tensor(
         patch_area_m2,
@@ -141,7 +152,7 @@ def reduce_patch_taxels(
         raise ValueError("friction coefficient must be positive and finite")
 
     mean_pressure = normal_load / area
-    friction_utilization = torch.linalg.vector_norm(signed_shear, dim=-1) / (
+    friction_utilization = friction_load / (
         mu * normal_load + float(epsilon)
     )
     friction_utilization = torch.where(
@@ -228,7 +239,13 @@ def current_whole_hand_patch_features(
             penetration = data.penetration_depth
             normal = data.tactile_normal_force
             shear = data.tactile_shear_force
-            if penetration is None or normal is None or shear is None:
+            friction_magnitude = data.tactile_friction_force_magnitude
+            if (
+                penetration is None
+                or normal is None
+                or shear is None
+                or friction_magnitude is None
+            ):
                 raise RuntimeError(f"official TacSL data unavailable for {sensor_name}")
             if penetration.shape[0] != env.num_envs:
                 raise RuntimeError(
@@ -242,6 +259,7 @@ def current_whole_hand_patch_features(
                     penetration,
                     normal,
                     shear,
+                    friction_magnitude,
                     patch_areas_m2[patch_index],
                     sensor_mu,
                 )
@@ -381,7 +399,13 @@ def _patch_history(
         setattr(env, "_online_patch_tactile_history_cache", cache)
     step = int(env.common_step_counter)
     entry = cache.get(key)
-    if entry is None or int(entry["step"]) != step:
+    reset_mask = env.episode_length_buf == 0
+    same_step = entry is not None and int(entry["step"]) == step
+    reset_not_yet_applied = bool(
+        reset_mask.any()
+        and (entry is None or int(entry.get("reset_step", -1)) != step)
+    )
+    if not same_step or reset_not_yet_applied:
         current = current_whole_hand_patch_features(
             env,
             sensor_names_by_hand=sensor_names_by_hand,
@@ -390,18 +414,20 @@ def _patch_history(
         )
         if entry is None:
             history = current[:, None].repeat(1, history_steps, 1, 1, 1)
-            entry = {"step": step, "history": history}
+            entry = {"step": step, "history": history, "reset_step": -1}
             cache[key] = entry
-        else:
+        elif not same_step:
             history = entry["history"]
             history[:, :-1] = history[:, 1:].clone()
             history[:, -1] = current
             entry["step"] = step
-        reset_mask = env.episode_length_buf == 0
+        else:
+            history = entry["history"]
         if reset_mask.any():
             history[reset_mask] = current[reset_mask, None].expand(
                 -1, history_steps, -1, -1, -1
             )
+            entry["reset_step"] = step
         entry["history"] = history
     return entry["history"]
 
@@ -443,8 +469,19 @@ def _online_patch_slip_history(
 
     step = int(env.common_step_counter)
     cache = getattr(env, "_online_patch_slip_history_cache", None)
-    if cache is not None and int(cache["step"]) == step:
+    reset_mask = env.episode_length_buf == 0
+    same_step = cache is not None and int(cache["step"]) == step
+    reset_not_yet_applied = bool(
+        reset_mask.any()
+        and (cache is None or int(cache.get("reset_step", -1)) != step)
+    )
+    if same_step and not reset_not_yet_applied:
         return cache["history"]
+    if same_step and reset_not_yet_applied and not bool(reset_mask.all()):
+        raise RuntimeError(
+            "partial reset reused a Plan-15 control-step timestamp; process "
+            "the reset before another observation read"
+        )
     detector = getattr(env, "_online_patch_slip_detector", None)
     if detector is None:
         detector = PatchSlipDetector(env.num_envs, device=env.device)
@@ -464,26 +501,33 @@ def _online_patch_slip_history(
         shear_xy_n=current[..., 3:5],
         friction_utilization=current[..., 5],
         timestamp_s=timestamp_s,
-        reset_mask=env.episode_length_buf == 0,
+        reset_mask=reset_mask,
     )
     current_slip = output.features()
     if cache is None:
         history = current_slip[:, None].repeat(
             1, PATCH_HISTORY_STEPS, 1, 1, 1
         )
-        cache = {"step": step, "history": history}
+        cache = {"step": step, "history": history, "reset_step": -1}
         setattr(env, "_online_patch_slip_history_cache", cache)
-    else:
+    elif not same_step:
         history = cache["history"]
         history[:, :-1] = history[:, 1:].clone()
         history[:, -1] = current_slip
-        reset_mask = env.episode_length_buf == 0
         if reset_mask.any():
             history[reset_mask] = current_slip[reset_mask, None].expand(
                 -1, PATCH_HISTORY_STEPS, -1, -1, -1
             )
         cache["step"] = step
         cache["history"] = history
+    else:
+        history = cache["history"]
+        history[reset_mask] = current_slip[reset_mask, None].expand(
+            -1, PATCH_HISTORY_STEPS, -1, -1, -1
+        )
+        cache["history"] = history
+    if reset_mask.any():
+        cache["reset_step"] = step
     env._online_patch_slip_diagnostics = {
         "state": output.state,
         "slip_score": output.slip_score,

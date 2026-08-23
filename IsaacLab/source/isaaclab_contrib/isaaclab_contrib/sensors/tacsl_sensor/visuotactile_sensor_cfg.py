@@ -142,6 +142,27 @@ class VisuoTactileSensorCfg(SensorBaseCfg):
     of the sensor surface where geometry might be unstable or less relevant for contact.
     """
 
+    tactile_fill_mesh_extents: bool = False
+    """Fill each in-plane mesh extent independently with its taxel axis.
+
+    The released TacSL grid preserves square taxel spacing by using the
+    smaller of the two in-plane spacings. That is appropriate for released
+    sensor meshes whose aspect ratio matches their array, but it leaves
+    unsensed strips when the same array is mapped onto an anatomical patch
+    with a different aspect ratio. Enabling this adapter preserves the array
+    size and puts the first and last taxels at the declared margin on each
+    in-plane axis. The default retains released TacSL behavior.
+    """
+
+    tactile_contact_offset_m: float = 0.0
+    """Outward SDF contact layer used by the force field, in metres.
+
+    The released TacSL behavior is exactly ``0.0`` and activates a taxel only
+    after geometric penetration. Anatomical adapters may set a small positive
+    layer to match the compliant collider's PhysX contact offset. The
+    resulting depth is ``max(offset - sdf, 0)``.
+    """
+
     tactile_sampling_axis: int | None = None
     """Optional exact local mesh axis normal to the tactile face.
 

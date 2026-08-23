@@ -31,7 +31,12 @@ def run(command: list[str]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-root", type=Path, required=True)
-    parser.add_argument("--motion-id", type=int, default=45)
+    parser.add_argument(
+        "--motion-folder",
+        type=Path,
+        default=ROOT / "SUGAR/data/CarryBox/data_045",
+    )
+    parser.add_argument("--motion-id", type=int, default=0)
     parser.add_argument("--max-steps", type=int, default=420)
     parser.add_argument("--jump-delay-frames", type=int, default=30)
     parser.add_argument("--device", default="cuda:0")
@@ -54,6 +59,8 @@ def main() -> None:
             str(COLLECTOR),
             "--motion-id",
             str(args.motion_id),
+            "--motion-folder",
+            str(args.motion_folder.expanduser().resolve()),
             "--seed",
             str(seed),
             "--max-steps",
@@ -117,9 +124,10 @@ def main() -> None:
     run(scale_command)
 
     manifest = {
-        "schema": "plan15_paired_online_mass_leakage_sweep_v1",
+        "schema": "plan15_paired_online_mass_leakage_sweep_v3_extent_offset_calibrated",
         "semantics": "online IsaacLab collection; fixed nominal action replay",
         "motion_id": int(args.motion_id),
+        "motion_folder": str(args.motion_folder.expanduser().resolve()),
         "seeds": list(seeds),
         "mass_factors": list(FACTORS),
         "fixed_jump_delay_frames": int(args.jump_delay_frames),

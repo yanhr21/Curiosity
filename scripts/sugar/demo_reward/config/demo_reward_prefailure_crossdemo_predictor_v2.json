@@ -1,0 +1,167 @@
+{
+  "protocol": "sugar_demo_reward_prefailure_crossdemo_predictor_v2",
+  "version": 2,
+  "authorization": {
+    "user_instruction_date": "2026-07-25",
+    "scope": "Continue the demo-referenced internal reward predictor and keep slip detection separate.",
+    "correction": "V1 predicted held-out trajectory error but failed selected-demo dependence and uncertainty calibration on test. V2 adds exact numeric cross-demo supervision and validation-only variance calibration."
+  },
+  "claim_scope": "A pre-failure, phase-tolerant, selected-demo-conditioned trajectory-mismatch predictor. It remains separate from ICM, SMP, slip, task success, PPO, and post-failure strategy claims.",
+  "source_dataset": {
+    "root": "experiments/sugar_demo_reward/datasets/frozen_official_nominal_multidemo_labels_v1",
+    "manifest_sha256": "8a455ad2a0821ecff2bd627c2bf57d552af1f48e99d147d1bfa70504db3d1945",
+    "split_manifest_sha256": {
+      "train": "cbb987e3d8e9a3fac4aa78a303bd87156e4593c8475c75aef5762802122db076",
+      "validation": "a28b395f1ea388c8179a9788397ae17eaafb4648694d14862b9887df2b605034",
+      "test": "38ba3eee5ceddba7d4dc719ae79bb28797bfdc17be28a55a3cdf7527b53f73e4"
+    },
+    "base_rows": {
+      "train": 35187,
+      "validation": 3461,
+      "test": 4693
+    },
+    "motion_counts": {
+      "train": 74,
+      "validation": 8,
+      "test": 10
+    }
+  },
+  "base_normalization": {
+    "path": "experiments/sugar_demo_reward/datasets/prefailure_causal_predictor_v1/NORMALIZATION.npz",
+    "sha256": "400fa5b988507ae601e5fdac7119ceef46915cd19cd411b460c4e4641f17ca27",
+    "reuse": ["state_mean", "state_std", "demo_mean", "demo_std", "tactile_rms"]
+  },
+  "causal_field_contract": {
+    "path": "scripts/sugar/demo_reward/config/demo_reward_causal_fields_v1.json",
+    "sha256": "70246ab78974b1ae9ecf8498c0deec0c06fcbd91e63bc4356dfa8947acec5aff"
+  },
+  "model_source": {
+    "path": "scripts/sugar/demo_reward/demo_conditioned_causal_predictor_v1.py",
+    "sha256": "6174b11e473f1bef2548e8ee3853181ee0a4ed7063e68ffa7eff5135367a744b",
+    "class": "DemoConditionedCausalPredictorV1",
+    "new_project_method": true
+  },
+  "spatial_tactile_encoder_source": {
+    "path": "SUGAR/source/sugar_rl/sugar_rl/utils/tactile_actor_critic.py",
+    "sha256": "b6e43b01d59ebfbc676ddb4d1c74d018119f1acbc1192c408f80024188511eb6",
+    "class": "SpatialTactileEncoder",
+    "reuse": "exact source import"
+  },
+  "execution_sources": {
+    "dataset_builder": {
+      "path": "scripts/sugar/demo_reward/build_prefailure_crossdemo_predictor_dataset_v2.py",
+      "sha256": "a523e0e8281a4de73abe1a5cbd7fd00a13b6ca488d255731b28ac5c50503d05e"
+    },
+    "dataset_auditor": {
+      "path": "scripts/sugar/demo_reward/audit_prefailure_crossdemo_predictor_dataset_v2.py",
+      "sha256": "71b0902bf4638c7d04dda28ee352eb80ad4ec0172360a7fd558cfb48675e19cb"
+    },
+    "trainer": {
+      "path": "scripts/sugar/demo_reward/train_prefailure_crossdemo_predictor_v2.py",
+      "sha256": "eab65535c76283f1f7a95fd39564a98a1fbe7bd969ff2496bf3f37c130d2fa45"
+    },
+    "v1_training_helpers": {
+      "path": "scripts/sugar/demo_reward/train_prefailure_causal_predictor_v1.py",
+      "sha256": "32f709abc5039cb770aea2b69d98b2551a1c1d9dae35501548d416a6333ed365"
+    }
+  },
+  "model_inputs": {
+    "policy_prefix_shape": [10, 175],
+    "prefix_valid_mask_shape": [10],
+    "direct_tacsl_history_shape": [4, 2, 3, 20, 25],
+    "selected_demo_condition_shape": [32, 10, 216],
+    "categorical_id_model_input": false,
+    "future_or_outcome_model_input": false
+  },
+  "pair_target": {
+    "pairs_per_base_row": 4,
+    "matched_pairs_per_base_row": 1,
+    "mismatched_pairs_per_base_row": 3,
+    "derangement_seeds": {
+      "train": [26072541, 26072542, 26072543],
+      "validation": [26072551, 26072552, 26072553],
+      "test": [26072561, 26072562, 26072563]
+    },
+    "candidate_demo_windows": 32,
+    "future_steps": 10,
+    "components": {
+      "body": [0, 201],
+      "box_position": [201, 204],
+      "box_rotation_6d": [204, 210],
+      "box_velocity": [210, 216]
+    },
+    "alignment_rule": "For each live-future/selected-demo pair, compute four MSE components against each of 32 numeric ten-step demo windows; divide each component by the frozen V1 train p90, average the four dimensionless components, select one common minimum-score window, and retain all four raw MSEs at that window.",
+    "existing_r1_controlled_pairs_used": false,
+    "phase_label_or_head_present": false,
+    "contact_label_or_head_present": false
+  },
+  "architecture": {
+    "d_model": 384,
+    "nhead": 8,
+    "num_layers": 6,
+    "dim_feedforward": 1536,
+    "dropout": 0.1,
+    "tactile_encoder_channels": [32, 64, 64],
+    "tactile_embedding_dim_per_hand": 128,
+    "minimum_trainable_parameters": 10000000,
+    "maximum_trainable_parameters": 15000000
+  },
+  "optimization": {
+    "seed": 26072571,
+    "epochs": 30,
+    "batch_size": 128,
+    "num_workers": 4,
+    "optimizer": "AdamW",
+    "learning_rate": 0.0002,
+    "weight_decay": 0.0001,
+    "warmup_fraction": 0.05,
+    "schedule": "linear_warmup_cosine_decay",
+    "gradient_clip_norm": 1.0,
+    "automatic_mixed_precision": "bfloat16",
+    "checkpoint_epochs": [1, 10, 20, 30],
+    "selection_split": "validation",
+    "selection_metric": "mean_component_normalized_mae",
+    "early_stopping_patience_epochs": 8,
+    "minimum_epochs_before_early_stop": 15
+  },
+  "calibration": {
+    "fit_split": "validation",
+    "rule": "Per component, multiply predicted transformed variance by mean((target-mu)^2 / predicted_variance) on the complete frozen validation split.",
+    "minimum_variance_multiplier": 0.1,
+    "maximum_variance_multiplier": 1000.0,
+    "test_labels_used": false
+  },
+  "evaluation": {
+    "ablations": ["full", "zero_demo", "permuted_demo", "zero_tactile"],
+    "permuted_demo_seeds": {
+      "validation": 26072581,
+      "test": 26072582
+    },
+    "test_open_rule": "Open test exactly once after checkpoint and variance-calibrator identities are frozen.",
+    "scientific_positive_gate": {
+      "validation_and_test_mean_mae_improvement_over_constant_min": 0.05,
+      "validation_and_test_mean_spearman_min": 0.4,
+      "validation_and_test_components_with_spearman_at_least_0_30_min": 3,
+      "validation_and_test_zero_demo_mae_degradation_min": 0.02,
+      "validation_and_test_permuted_demo_mae_degradation_min": 0.02,
+      "validation_and_test_90pct_coverage_min": 0.78,
+      "validation_and_test_90pct_coverage_max": 0.98
+    },
+    "zero_tactile_is_report_only": true
+  },
+  "reward_boundary": {
+    "raw_prediction_paid_each_step": false,
+    "potential_difference_required_before_policy_use": true,
+    "eta_after_direct_tacsl_failure_closed": 0.0,
+    "slip_is_separate_external_causal_ledger": true,
+    "oracle_slip_runtime_input": false,
+    "original_icm_unchanged_and_ungated": true,
+    "policy_integration_authorized_by_this_config": false,
+    "global_or_postfailure_predictor_authorized": false
+  },
+  "output": {
+    "derived_dataset_root": "experiments/sugar_demo_reward/datasets/prefailure_crossdemo_causal_predictor_v2",
+    "training_root": "experiments/sugar_demo_reward/predictors/prefailure_crossdemo_causal_predictor_formal_seed26072571_v2",
+    "overwrite": false
+  }
+}

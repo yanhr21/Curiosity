@@ -1,9 +1,11 @@
+import copy
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 from rsl_rl.algorithms import PPO
 from rsl_rl.modules import ActorCritic
 from rsl_rl.networks.mlp import MLP
-import copy
 
 class BCPPO(PPO):
     def __init__(
@@ -12,17 +14,68 @@ class BCPPO(PPO):
         teacher_ckpt=None,
         stage3_distill_weight_floor=0.0,
         training_mask_obs_group=None,
+        distill_mask_start_step=0,
+        actor_hold_start_step=-1,
+        actor_hold_end_step=-1,
+        behavior_anchor_checkpoint=None,
+        behavior_anchor_coef=0.0,
+        behavior_anchor_start_step=0,
+        stage3_tactile_only_actor=False,
         **kwargs,
     ):
         super().__init__(policy, **kwargs)
 
         self.stage3_distill_weight_floor = float(stage3_distill_weight_floor)
         self.training_mask_obs_group = training_mask_obs_group
+        self.distill_mask_start_step = int(distill_mask_start_step)
+        self.actor_hold_start_step = int(actor_hold_start_step)
+        self.actor_hold_end_step = int(actor_hold_end_step)
+        self.behavior_anchor_coef = float(behavior_anchor_coef)
+        self.behavior_anchor_start_step = int(behavior_anchor_start_step)
+        self.stage3_tactile_only_actor = bool(stage3_tactile_only_actor)
+        self._actor_optimization_parameters = tuple(
+            parameter
+            for name, parameter in self.policy.named_parameters()
+            if not name.startswith("critic.")
+        )
+        self._tactile_actor_parameters = tuple(
+            parameter
+            for name, parameter in self.policy.named_parameters()
+            if name.startswith("actor_tactile_encoder.")
+        )
+        tactile_parameter_ids = {
+            id(parameter) for parameter in self._tactile_actor_parameters
+        }
+        self._base_actor_parameters = tuple(
+            parameter
+            for parameter in self._actor_optimization_parameters
+            if id(parameter) not in tactile_parameter_ids
+        )
+        self._actor_optimizer_reset_done = False
         if not 0.0 <= self.stage3_distill_weight_floor <= 1.0:
             raise ValueError(
                 "stage3_distill_weight_floor must lie in [0, 1], got "
                 f"{self.stage3_distill_weight_floor}"
             )
+        if self.distill_mask_start_step < 0:
+            raise ValueError("distill_mask_start_step must be non-negative")
+        hold_disabled = (
+            self.actor_hold_start_step == -1
+            and self.actor_hold_end_step == -1
+        )
+        hold_valid = (
+            self.actor_hold_start_step >= 0
+            and self.actor_hold_end_step >= self.actor_hold_start_step
+        )
+        if not (hold_disabled or hold_valid):
+            raise ValueError(
+                "actor hold must be disabled with -1/-1 or use an ordered "
+                "non-negative interval"
+            )
+        if self.behavior_anchor_coef < 0.0:
+            raise ValueError("behavior_anchor_coef must be non-negative")
+        if self.behavior_anchor_start_step < 0:
+            raise ValueError("behavior_anchor_start_step must be non-negative")
         
         self.distill_loss_coef = 1.0
         self.bc_only_steps = 500
@@ -74,13 +127,112 @@ class BCPPO(PPO):
             print("[Warning] No teacher_ckpt provided")
             assert False
 
-    def _reduce_distill_loss(self, per_sample_loss, obs_batch):
-        """Reduce teacher KL without changing official SUGAR's default mean."""
+        self.behavior_anchor_policy = None
+        self.behavior_anchor_std = None
+        self.behavior_anchor_checkpoint = None
+        if behavior_anchor_checkpoint is not None:
+            anchor_path = Path(behavior_anchor_checkpoint).expanduser().resolve()
+            if not anchor_path.is_file():
+                raise FileNotFoundError(anchor_path)
+            anchor_payload = torch.load(
+                anchor_path, map_location=self.device, weights_only=False
+            )
+            anchor_state = anchor_payload.get("model_state_dict")
+            if not isinstance(anchor_state, dict):
+                raise KeyError("behavior anchor is missing model_state_dict")
+            self.behavior_anchor_policy = copy.deepcopy(self.policy)
+            self.behavior_anchor_policy.load_state_dict(anchor_state, strict=True)
+            self.behavior_anchor_policy.eval()
+            for parameter in self.behavior_anchor_policy.parameters():
+                parameter.requires_grad_(False)
+            self.behavior_anchor_checkpoint = str(anchor_path)
+            if "std" in anchor_state:
+                self.behavior_anchor_std = anchor_state["std"].detach().to(self.device)
+            elif "log_std" in anchor_state:
+                self.behavior_anchor_std = anchor_state["log_std"].detach().to(
+                    self.device
+                ).exp()
+            else:
+                raise KeyError("behavior anchor is missing std/log_std")
+            print(
+                "[BCPPO] Loaded frozen deployment behavior anchor: "
+                f"{anchor_path}",
+                flush=True,
+            )
+        elif self.behavior_anchor_coef > 0.0:
+            raise ValueError(
+                "positive behavior_anchor_coef requires a behavior anchor checkpoint"
+            )
 
-        del obs_batch
-        return per_sample_loss.mean()
+    def _reset_actor_optimizer_state(self) -> dict[str, int]:
+        """Remove stale pre-hold Adam moments before PPO receives authority."""
+
+        cleared_parameters = 0
+        cleared_tensors = 0
+        for parameter in self._actor_optimization_parameters:
+            state = self.optimizer.state.get(parameter)
+            if not state:
+                continue
+            cleared_parameters += 1
+            for value in state.values():
+                if torch.is_tensor(value):
+                    value.zero_()
+                    cleared_tensors += 1
+        self._actor_optimizer_reset_done = True
+        return {
+            "cleared_parameters": cleared_parameters,
+            "cleared_state_tensors": cleared_tensors,
+        }
+
+    def _reduce_distill_loss(self, per_sample_loss, obs_batch):
+        """Reduce teacher KL on transitions where the student actually acts.
+
+        Official SUGAR does not configure ``training_mask_obs_group`` and
+        therefore retains its original full-batch mean.  The live-handoff
+        Plan-15 tasks do configure the mask: their teacher-controlled pickup
+        prefix is useful for reaching a physical handoff, but it is not part
+        of the deployed student's state distribution and must not keep
+        steering the actor after handoff training begins.
+        """
+
+        if (
+            self.training_mask_obs_group is None
+            or self.update_step < self.distill_mask_start_step
+        ):
+            return per_sample_loss.mean()
+        active_weight = obs_batch[
+            self.training_mask_obs_group
+        ].reshape(per_sample_loss.shape[0], -1)[:, 0]
+        active_weight = (active_weight > 0.5).to(per_sample_loss.dtype)
+        return (per_sample_loss * active_weight).sum() / active_weight.sum().clamp_min(
+            1.0
+        )
 
     def update(self):  # noqa: C901
+        actor_hold_active = (
+            self.actor_hold_start_step >= 0
+            and self.actor_hold_start_step
+            <= self.update_step
+            <= self.actor_hold_end_step
+        )
+        behavior_anchor_active = (
+            self.behavior_anchor_policy is not None
+            and self.behavior_anchor_coef > 0.0
+            and self.update_step >= self.behavior_anchor_start_step
+            and not actor_hold_active
+        )
+        actor_optimizer_reset_report = None
+        if (
+            self.actor_hold_end_step >= 0
+            and self.update_step == self.actor_hold_end_step + 1
+            and not self._actor_optimizer_reset_done
+        ):
+            actor_optimizer_reset_report = self._reset_actor_optimizer_state()
+            print(
+                "[BCPPO] Cleared stale actor optimizer state at PPO handoff: "
+                f"{actor_optimizer_reset_report}",
+                flush=True,
+            )
         if self.update_step >= self.bc_only_steps:
             self.schedule = "adaptive"
         else:
@@ -91,6 +243,10 @@ class BCPPO(PPO):
         mean_entropy = 0
         mean_distill_loss = 0 # Teacher 统计
         mean_distill_weight = 0
+        mean_behavior_anchor_loss = 0
+        mean_actor_optimizer_active = 0
+        mean_base_actor_optimizer_active = 0
+        mean_tactile_actor_optimizer_active = 0
 
         if self.training_mask_obs_group is not None:
             rollout_mask = self.storage.observations[
@@ -208,6 +364,26 @@ class BCPPO(PPO):
             mu_batch = self.policy.action_mean[:original_batch_size]
             sigma_batch = self.policy.action_std[:original_batch_size]
             entropy_batch = self.policy.entropy[:original_batch_size]
+
+            behavior_anchor_loss = mu_batch.sum() * 0.0
+            if behavior_anchor_active:
+                with torch.no_grad():
+                    anchor_mu = self.behavior_anchor_policy.act_inference(
+                        obs_batch
+                    )[:original_batch_size]
+                    anchor_sigma = self.behavior_anchor_std.expand_as(anchor_mu)
+                anchor_kl_per_sample = (
+                    torch.log(sigma_batch / anchor_sigma + 1.0e-5)
+                    + (
+                        anchor_sigma.square()
+                        + (anchor_mu - mu_batch).square()
+                    )
+                    / (2.0 * sigma_batch.square())
+                    - 0.5
+                ).sum(dim=-1)
+                behavior_anchor_loss = (
+                    anchor_kl_per_sample * active_weight
+                ).sum() / active_denom
 
             # KL
             if self.desired_kl is not None and self.schedule == "adaptive":
@@ -339,10 +515,29 @@ class BCPPO(PPO):
                 )
                 loss = (
                     surrogate_loss * alpha
-                    + self.value_loss_coef * value_loss 
+                    + self.value_loss_coef * value_loss
                     - self.entropy_coef * entropy_mean * alpha
                     + self.distill_loss_coef * distill_loss * distill_weight
                 )
+
+            # Once the live-handoff student reaches its admitted checkpoint,
+            # the remainder of critic warmup must not keep moving the actor.
+            # The actor and critic are disjoint modules, so a value-only loss
+            # preserves the actor bit-for-bit while still completing critic
+            # preparation for PPO.
+            if actor_hold_active:
+                distill_weight = 0.0
+                if self.update_step < self.critic_warmup_steps:
+                    critic_alpha = min(
+                        (self.update_step - self.bc_only_steps)
+                        / (self.critic_warmup_steps - self.bc_only_steps),
+                        1.0,
+                    )
+                    loss = critic_alpha * self.value_loss_coef * value_loss
+                else:
+                    loss = self.value_loss_coef * value_loss
+            if behavior_anchor_active:
+                loss = loss + self.behavior_anchor_coef * behavior_anchor_loss
 
 
             # Symmetry loss
@@ -397,6 +592,29 @@ class BCPPO(PPO):
             # -- For PPO
             self.optimizer.zero_grad()
             loss.backward()
+            # A zero-valued gradient is not the same as no actor update for
+            # Adam: old momentum still moves parameters. Before deployment-
+            # aligned masking begins, full-trajectory distillation provides
+            # actor credit. Afterwards, minibatches without a student-
+            # controlled transition must set actor gradients to None.
+            actor_optimizer_active = (
+                not actor_hold_active
+                and (
+                    self.update_step < self.distill_mask_start_step
+                    or active_count.item() > 0
+                )
+            )
+            if not actor_optimizer_active:
+                for parameter in self._actor_optimization_parameters:
+                    parameter.grad = None
+            tactile_only_active = (
+                actor_optimizer_active
+                and self.stage3_tactile_only_actor
+                and self.update_step > self.actor_hold_end_step
+            )
+            if tactile_only_active:
+                for parameter in self._base_actor_parameters:
+                    parameter.grad = None
             # -- For RND
             if self.rnd:
                 self.rnd_optimizer.zero_grad()  # type: ignore
@@ -419,6 +637,14 @@ class BCPPO(PPO):
             mean_surrogate_loss += surrogate_loss.item()
             mean_entropy += entropy_mean.item()
             mean_distill_weight += distill_weight
+            mean_behavior_anchor_loss += behavior_anchor_loss.item()
+            mean_actor_optimizer_active += float(actor_optimizer_active)
+            mean_base_actor_optimizer_active += float(
+                actor_optimizer_active and not tactile_only_active
+            )
+            mean_tactile_actor_optimizer_active += float(
+                actor_optimizer_active
+            )
             # -- RND loss
             if mean_rnd_loss is not None:
                 mean_rnd_loss += rnd_loss.item()
@@ -433,6 +659,10 @@ class BCPPO(PPO):
         mean_entropy /= num_updates
         mean_distill_loss /= num_updates
         mean_distill_weight /= num_updates
+        mean_behavior_anchor_loss /= num_updates
+        mean_actor_optimizer_active /= num_updates
+        mean_base_actor_optimizer_active /= num_updates
+        mean_tactile_actor_optimizer_active /= num_updates
         # -- For RND
         if mean_rnd_loss is not None:
             mean_rnd_loss /= num_updates
@@ -449,7 +679,36 @@ class BCPPO(PPO):
             "entropy": mean_entropy,
             "distill": mean_distill_loss,
             "distill_weight": mean_distill_weight,
+            "actor_hold_active": float(actor_hold_active),
+            "behavior_anchor": mean_behavior_anchor_loss,
+            "behavior_anchor_active": float(behavior_anchor_active),
+            "actor_optimizer_active_fraction": mean_actor_optimizer_active,
+            "base_actor_optimizer_active_fraction": (
+                mean_base_actor_optimizer_active
+            ),
+            "tactile_actor_optimizer_active_fraction": (
+                mean_tactile_actor_optimizer_active
+            ),
+            "actor_optimizer_state_reset": float(
+                actor_optimizer_reset_report is not None
+            ),
         }
+        if self.last_training_mask_report is not None:
+            active_transitions = int(
+                self.last_training_mask_report["active_policy_transitions"]
+            )
+            total_transitions = int(
+                self.last_training_mask_report["total_transitions"]
+            )
+            loss_dict["post_handoff_transitions"] = active_transitions
+            loss_dict["post_handoff_fraction"] = (
+                float(active_transitions / total_transitions)
+                if total_transitions > 0
+                else 0.0
+            )
+            loss_dict["distill_post_handoff_only"] = float(
+                self.update_step >= self.distill_mask_start_step
+            )
         if self.rnd:
             loss_dict["rnd"] = mean_rnd_loss
         if self.symmetry:

@@ -510,38 +510,96 @@ class VisuoTactileSensor(SensorBase):
         # Determine gap between adjacent tactile points
         axis_idxs = list(range(3))
         axis_idxs.remove(int(slim_axis))  # Remove slim idx
-        div_sz = (elastomer_dims[axis_idxs] - margin * 2.0) / (np.array(num_divs) + 1)
-        tactile_points_dx = min(div_sz)
-
-        # Sample points on the flat plane
-        planar_grid_points = []
         center = (mesh_bounds[0] + mesh_bounds[1]) / 2.0
-        idx = 0
-        for axis_i in range(3):
-            if axis_i == slim_axis:
-                # On the slim axis, place a point far away so ray is pointing at the elastomer tip
-                planar_grid_points.append([tip_direction_sign])
-            else:
-                axis_grid_points = np.linspace(
-                    center[axis_i] - tactile_points_dx * (num_divs[idx] + 1.0) / 2.0,
-                    center[axis_i] + tactile_points_dx * (num_divs[idx] + 1.0) / 2.0,
-                    num_divs[idx] + 2,
-                )
-                planar_grid_points.append(axis_grid_points[1:-1])  # Leave out the extreme corners
-                idx += 1
-
-        grid_corners = itertools.product(planar_grid_points[0], planar_grid_points[1], planar_grid_points[2])
-        grid_corners = np.array(list(grid_corners))
-
-        # Project ray in positive y direction on the mesh
         mesh_data = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
         ray_dir = np.array([0, 0, 0])
         ray_dir[slim_axis] = -tip_direction_sign  # Ray points towards elastomer (opposite of tip direction)
+        expected_points = int(np.prod(num_divs))
 
-        # Handle the ray intersection result
-        index_tri, index_ray, locations = mesh_data.intersects_id(
-            grid_corners, np.tile([ray_dir], (grid_corners.shape[0], 1)), return_locations=True, multiple_hits=False
-        )
+        def sample_grid(active_margin: float):
+            div_sz = (elastomer_dims[axis_idxs] - active_margin * 2.0) / (
+                np.array(num_divs) + 1
+            )
+            if np.any(div_sz <= 0.0):
+                return None
+            # Released TacSL behavior preserves square spacing and also leaves
+            # one extra grid interval inside the declared margin. The
+            # anatomical adapter puts the first/last taxel at the margin on
+            # each axis so the grid covers the physical patch footprint.
+            tactile_points_dx = np.repeat(np.min(div_sz), len(axis_idxs))
+            planar_grid_points = []
+            idx = 0
+            for axis_i in range(3):
+                if axis_i == slim_axis:
+                    planar_grid_points.append([tip_direction_sign])
+                else:
+                    if self.cfg.tactile_fill_mesh_extents:
+                        axis_grid_points = np.linspace(
+                            mesh_bounds[0, axis_i] + active_margin,
+                            mesh_bounds[1, axis_i] - active_margin,
+                            num_divs[idx],
+                        )
+                        planar_grid_points.append(axis_grid_points)
+                    else:
+                        axis_grid_points = np.linspace(
+                            center[axis_i]
+                            - tactile_points_dx[idx]
+                            * (num_divs[idx] + 1.0)
+                            / 2.0,
+                            center[axis_i]
+                            + tactile_points_dx[idx]
+                            * (num_divs[idx] + 1.0)
+                            / 2.0,
+                            num_divs[idx] + 2,
+                        )
+                        planar_grid_points.append(axis_grid_points[1:-1])
+                    idx += 1
+            grid_corners = np.array(
+                list(itertools.product(*planar_grid_points))
+            )
+            return mesh_data.intersects_id(
+                grid_corners,
+                np.tile([ray_dir], (grid_corners.shape[0], 1)),
+                return_locations=True,
+                multiple_hits=False,
+            )
+
+        if self.cfg.tactile_fill_mesh_extents:
+            maximum_margin = min(
+                0.003,
+                0.5 * float(np.min(elastomer_dims[axis_idxs])) - 1.0e-6,
+            )
+            candidate_margins = np.arange(
+                margin, maximum_margin + 5.0e-5, 1.0e-4
+            )
+        else:
+            candidate_margins = np.asarray([margin])
+        sampled = None
+        effective_margin = float(margin)
+        for candidate_margin in candidate_margins:
+            candidate = sample_grid(float(candidate_margin))
+            if candidate is None:
+                continue
+            if len(candidate[2]) == expected_points:
+                sampled = candidate
+                effective_margin = float(candidate_margin)
+                break
+        if sampled is None:
+            raise RuntimeError(
+                f"{elastomer_prim_path}: could not place {expected_points} "
+                f"taxels inside the mesh from margin {margin} through "
+                f"{float(candidate_margins[-1])}"
+            )
+        index_tri, index_ray, locations = sampled
+        self.tactile_grid_effective_margin_m = effective_margin
+        if effective_margin > float(margin) + 1.0e-12:
+            logger.info(
+                "%s: increased anatomical taxel margin from %.6f m to "
+                "%.6f m to keep all taxels on the sampling mesh",
+                elastomer_prim_path,
+                margin,
+                effective_margin,
+            )
 
         if visualize:
             query_pointcloud = trimesh.PointCloud(locations, colors=(0.0, 0.0, 1.0))
@@ -554,7 +612,7 @@ class VisuoTactileSensor(SensorBase):
         # in the frame of the elastomer
         self._tactile_pos_local = torch.tensor(tactile_points, dtype=torch.float32, device=self._device)
         self.num_tactile_points = self._tactile_pos_local.shape[0]
-        if self.num_tactile_points != self.cfg.tactile_array_size[0] * self.cfg.tactile_array_size[1]:
+        if self.num_tactile_points != expected_points:
             raise RuntimeError(
                 f"{elastomer_prim_path}: number of tactile points does not "
                 f"match expected: {self.num_tactile_points} !="
@@ -619,6 +677,12 @@ class VisuoTactileSensor(SensorBase):
         self._data.penetration_depth = torch.zeros((self._num_envs, num_pts), device=self._device)
         self._data.tactile_normal_force = torch.zeros((self._num_envs, num_pts), device=self._device)
         self._data.tactile_shear_force = torch.zeros((self._num_envs, num_pts, 2), device=self._device)
+        self._data.tactile_friction_force_magnitude = torch.zeros(
+            (self._num_envs, num_pts), device=self._device
+        )
+        self._data.tactile_signed_distance_m = torch.zeros(
+            (self._num_envs, num_pts), device=self._device
+        )
         # Simulator-oracle output: this exposes the exact tangential relative
         # velocity already computed by the TacSL friction equation below. It
         # is not consumed by the force path; only the explicitly authorized
@@ -894,24 +958,37 @@ class VisuoTactileSensor(SensorBase):
         depth = self._data.penetration_depth[env_ids]
         tactile_normal_force = self._data.tactile_normal_force[env_ids]
         tactile_shear_force = self._data.tactile_shear_force[env_ids]
+        tactile_friction_force_magnitude = (
+            self._data.tactile_friction_force_magnitude[env_ids]
+        )
         tactile_relative_tangential_velocity_w = (
             self._data.tactile_relative_tangential_velocity_w[env_ids]
         )
         tactile_relative_velocity_w = self._data.tactile_relative_velocity_w[env_ids]
         tactile_contact_normal_w = self._data.tactile_contact_normal_w[env_ids]
+        tactile_signed_distance_m = self._data.tactile_signed_distance_m[env_ids]
 
         # Clear the output tensors
         tactile_normal_force.zero_()
         tactile_shear_force.zero_()
+        tactile_friction_force_magnitude.zero_()
         tactile_relative_tangential_velocity_w.zero_()
         tactile_relative_velocity_w.zero_()
         tactile_contact_normal_w.zero_()
         depth.zero_()
+        tactile_signed_distance_m.copy_(sdf_values[env_ids])
 
-        # Convert SDF values to penetration depth (positive for penetration)
-        depth[:] = torch.clamp(-sdf_values[env_ids], min=0.0)  # Negative SDF means inside (penetrating)
+        contact_offset_m = float(self.cfg.tactile_contact_offset_m)
+        if not (0.0 <= contact_offset_m < float("inf")):
+            raise ValueError("tactile_contact_offset_m must be nonnegative and finite")
+        # Released TacSL uses zero offset. The anatomical adapter models the
+        # same thin compliant contact layer that lets PhysX produce pad force
+        # before the undeformed visual surface has geometrically penetrated.
+        depth[:] = torch.clamp(
+            contact_offset_m - sdf_values[env_ids], min=0.0
+        )
 
-        # Get collision mask for points that are penetrating
+        # Get collision mask for points inside the configured compliant layer.
         collision_mask = depth > 0.0
 
         # Use pre-allocated tensors instead of creating new ones
@@ -956,7 +1033,6 @@ class VisuoTactileSensor(SensorBase):
 
             # Compute normal contact force: F_n = k_n * depth
             fc_norm = self.cfg.normal_contact_stiffness * depth
-            fc_world = fc_norm.unsqueeze(-1) * normals_world
 
             # Get tactile point velocities using precomputed velocities
             tactile_velocity_world = self._get_tactile_points_velocities(
@@ -1009,19 +1085,26 @@ class VisuoTactileSensor(SensorBase):
             # Apply friction force opposite to tangential velocity
             ft_world = -ft_norm.unsqueeze(-1) * vt_world / (vt_norm.unsqueeze(-1).clamp(min=1e-9))
 
-            # Preserve the released IsaacLab v2.3.2 TacSL output semantics:
-            # project the complete SDF penalty force into the taxel frame and
-            # expose local Z plus signed local X/Y.  Geometry-bound frames may
-            # report compression with a negative local-Z sign; callers must
-            # preserve that sign instead of substituting ``k_n * depth`` or
-            # applying abs/clamp.
-            tactile_force_world = fc_world + ft_world
-            tactile_force_tactile = math_utils.quat_apply_inverse(
+            # Keep the two physical sources separate. Projecting
+            # ``fc_world + ft_world`` and calling local X/Y "shear" makes a
+            # stationary angled normal load look like sliding. Normal load is
+            # the nonnegative penalty magnitude; signed XY shear contains
+            # only the friction traction in the geometry-bound taxel frame.
+            friction_force_tactile = math_utils.quat_apply_inverse(
                 self._data.tactile_points_quat_w[env_ids],
-                tactile_force_world,
+                ft_world,
             )
-            tactile_normal_force[:] = tactile_force_tactile[..., 2]
-            tactile_shear_force[:] = tactile_force_tactile[..., :2]
+            tactile_normal_force[:] = torch.where(
+                collision_mask, fc_norm, torch.zeros_like(fc_norm)
+            )
+            tactile_shear_force[:] = torch.where(
+                collision_mask.unsqueeze(-1),
+                friction_force_tactile[..., :2],
+                torch.zeros_like(friction_force_tactile[..., :2]),
+            )
+            tactile_friction_force_magnitude[:] = torch.where(
+                collision_mask, ft_norm, torch.zeros_like(ft_norm)
+            )
 
     #########################################################################################
     # Debug visualization

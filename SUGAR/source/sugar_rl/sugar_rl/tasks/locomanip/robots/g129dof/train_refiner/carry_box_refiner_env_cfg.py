@@ -90,7 +90,9 @@ class RewardsCfg(BaseRewardsCfg):
             "sensor_cfg": SceneEntityCfg(
                 "contact_forces",
                 body_names=[
-                    r"^(?!left_ankle_roll_link$)(?!right_ankle_roll_link$)(?!left_rubber_hand$)(?!right_rubber_hand$).+$"
+                    r"^(?!left_ankle_roll_link$)(?!right_ankle_roll_link$)"
+                    r"(?!left_rubber_hand$)(?!right_rubber_hand$)"
+                    r"(?!left_anatomical_.*$)(?!right_anatomical_.*$).+$"
                 ],
             ),
             "threshold": 0.1,

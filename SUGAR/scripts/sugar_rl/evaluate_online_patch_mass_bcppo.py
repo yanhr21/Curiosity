@@ -9,6 +9,7 @@ import json
 import math
 import os
 from pathlib import Path
+import socket
 import subprocess
 import sys
 
@@ -21,9 +22,16 @@ BRANCH_TASKS = {
     "P": "Sugar-G129dof-CarryBox-OnlineMass-Patch-P-BCPPO",
     "PS": "Sugar-G129dof-CarryBox-OnlineMass-Patch-PS-BCPPO",
 }
+FIXED_OVERFIT_TASK = "Sugar-G129dof-CarryBox-OnlineMass-Patch-PS-Overfit-BCPPO"
+FIXED_OVERFIT_AUDIT_TASK = (
+    "Sugar-G129dof-CarryBox-OnlineMass-Patch-PS-Overfit-Audit-BCPPO"
+)
 EVALUATION_SEEDS = (152014, 152015, 152016)
 TRAINING_SEEDS = (151014, 151015, 151016)
 MASS_FACTORS = (1.0, 1.5, 3.0, 6.0, 10.0)
+CORRECTED_SCALE_SCHEMA = (
+    "plan15_live_patch_channel_scales_v3_extent_offset_calibrated"
+)
 OFFICIAL_REFINER = (
     ROOT
     / "experiments/sugar_reproduction/outputs/final/official_sugar/"
@@ -38,11 +46,29 @@ parser.add_argument("--output-root", type=Path, required=True)
 parser.add_argument("--seed", type=int, choices=EVALUATION_SEEDS, required=True)
 parser.add_argument("--training-seed", type=int, choices=TRAINING_SEEDS)
 parser.add_argument("--mass-factor", type=float, choices=MASS_FACTORS, required=True)
-parser.add_argument("--motion-id", type=int, default=45)
+parser.add_argument(
+    "--motion-folder",
+    type=Path,
+    default=ROOT / "SUGAR/data/CarryBox/data_045",
+)
+parser.add_argument("--motion-id", type=int, default=0)
 parser.add_argument("--profiles", type=int, default=20)
 parser.add_argument("--num-envs", type=int, default=4)
 parser.add_argument("--max-steps", type=int, default=450)
 parser.add_argument("--post-jump-window", type=int, default=80)
+parser.add_argument(
+    "--fixed-3x-overfit-gate",
+    action="store_true",
+    help=(
+        "Use the exact fixed-condition overfit config: PS, 3x mass, "
+        "20-frame delay and zero reset-pose noise."
+    ),
+)
+parser.add_argument(
+    "--audit-contact-forces",
+    action="store_true",
+    help="Record evaluator-only independent PhysX box/pad normal and friction forces.",
+)
 parser.add_argument(
     "--object-static-friction",
     type=float,
@@ -96,6 +122,17 @@ parser.add_argument("--fps", type=int, default=50)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 
+host = socket.gethostname()
+if host.startswith(("mgmtserver", "login")):
+    raise SystemExit(f"refusing Plan-15 evaluation on login node {host}")
+if not os.environ.get("SLURM_JOB_ID"):
+    raise SystemExit("Plan-15 evaluation requires a retained Slurm allocation")
+if os.environ.get("PLAN15_PIPELINE_LOCK_HELD") != "1":
+    raise SystemExit(
+        "Plan-15 evaluation requires the locked formal launcher "
+        "(PLAN15_PIPELINE_LOCK_HELD=1)"
+    )
+
 if args.profiles < 1 or args.num_envs < 1 or args.profiles % args.num_envs:
     parser.error("profiles must be positive and divisible by num-envs")
 if args.max_steps < args.post_jump_window:
@@ -111,6 +148,12 @@ if args.record_world and not 0 <= args.record_batch_index < args.profiles // arg
     parser.error("record-batch-index must select an evaluation batch")
 if args.fps < 1:
     parser.error("fps must be positive")
+if args.fixed_3x_overfit_gate and (
+    args.branch != "PS" or args.mass_factor != 3.0 or args.motion_id != 0
+):
+    parser.error("fixed 3x overfit gate requires branch PS, mass 3x and local motion 0")
+if args.audit_contact_forces and not args.fixed_3x_overfit_gate:
+    parser.error("contact-force audit is currently restricted to the fixed overfit gate")
 if (args.object_static_friction is None) != (
     args.object_dynamic_friction is None
 ):
@@ -126,6 +169,13 @@ if args.object_static_friction is not None and not (
     parser.error("object friction must satisfy 0 <= dynamic <= static")
 if args.record_world:
     args.enable_cameras = True
+    # Cluster H200 rendering requires the system NVIDIA Vulkan ICD. Without
+    # this exact path Isaac Sim's renderer crashes during plugin startup even
+    # though camera-free PhysX evaluation is healthy.
+    vulkan_icd = Path("/etc/vulkan/icd.d/nvidia_icd.json")
+    if not vulkan_icd.is_file():
+        raise FileNotFoundError(vulkan_icd)
+    os.environ["VK_ICD_FILENAMES"] = str(vulkan_icd)
 
 checkpoint = args.checkpoint.expanduser().resolve()
 scale_file = args.patch_scale_file.expanduser().resolve()
@@ -135,9 +185,12 @@ for required_path in (checkpoint, scale_file, OFFICIAL_REFINER):
         raise FileNotFoundError(required_path)
 if output_root.exists():
     raise FileExistsError(output_root)
-scales = json.loads(scale_file.read_text(encoding="utf-8")).get(
-    "patch_channel_scales"
-)
+scale_payload = json.loads(scale_file.read_text(encoding="utf-8"))
+if scale_payload.get("schema") != CORRECTED_SCALE_SCHEMA:
+    raise ValueError(
+        "frozen Plan-15 evaluation requires corrected-force patch scales"
+    )
+scales = scale_payload.get("patch_channel_scales")
 if not isinstance(scales, list) or len(scales) != 9:
     raise ValueError("patch scale file must contain nine patch_channel_scales")
 scales = [float(value) for value in scales]
@@ -151,8 +204,9 @@ os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "Y")
 os.environ.setdefault("DISPLAY", "")
 os.environ.setdefault("CURIOSITY_ANATOMICAL_PHYSX_COMPLIANT_STIFFNESS", "100")
 os.environ.setdefault("CURIOSITY_ANATOMICAL_PHYSX_COMPLIANT_DAMPING", "20")
-os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_NORMAL_STIFFNESS", "20")
-os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_TANGENTIAL_STIFFNESS", "2")
+os.environ["CURIOSITY_ANATOMICAL_TACSL_CONTACT_OFFSET_M"] = "0.0003"
+os.environ["CURIOSITY_ANATOMICAL_TACSL_NORMAL_STIFFNESS"] = "7294.8755"
+os.environ["CURIOSITY_ANATOMICAL_TACSL_TANGENTIAL_STIFFNESS"] = "9"
 os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_FRICTION_COEFFICIENT", "0.5")
 os.environ.setdefault(
     "CURIOSITY_TACSL_CALIBRATION_DIR",
@@ -187,6 +241,8 @@ from rsl_rl.runners import OnPolicyRunner  # noqa: E402
 
 from isaaclab_tasks.utils import load_cfg_from_registry  # noqa: E402
 from sugar_rl.tasks.locomanip.online_patch_tactile import (  # noqa: E402
+    BASE_PATCH_CHANNELS,
+    SENSOR_NAMES_BY_HAND,
     current_whole_hand_patch_features,
 )
 from sugar_rl.tasks.locomanip.patch_slip import PatchSlipDetector  # noqa: E402
@@ -409,7 +465,12 @@ def main() -> None:
     setattr(builtins, "OnlinePatchTactileActorCritic", OnlinePatchTactileActorCritic)
     setattr(on_policy_runner_module, "OnlinePatchTactileActorCritic", OnlinePatchTactileActorCritic)
 
-    task = BRANCH_TASKS[args.branch]
+    if args.audit_contact_forces:
+        task = FIXED_OVERFIT_AUDIT_TASK
+    elif args.fixed_3x_overfit_gate:
+        task = FIXED_OVERFIT_TASK
+    else:
+        task = BRANCH_TASKS[args.branch]
     task_spec = gym.spec(task)
     env_cfg_type = task_spec.kwargs["play_env_cfg_entry_point"]
     module_name, class_name = env_cfg_type.split(":")
@@ -418,7 +479,10 @@ def main() -> None:
     env_cfg.seed = int(args.seed)
     env_cfg.scene.num_envs = int(args.num_envs)
     env_cfg.sim.device = args.device
-    env_cfg.commands.motion.motion_folder = "data/CarryBox"
+    motion_folder = args.motion_folder.expanduser().resolve()
+    if not motion_folder.is_dir():
+        raise FileNotFoundError(motion_folder)
+    env_cfg.commands.motion.motion_folder = str(motion_folder)
     if args.ignore_object_reference_termination:
         env_cfg.terminations.obj_pos = None
         env_cfg.terminations.obj_ori = None
@@ -440,6 +504,19 @@ def main() -> None:
         params = getattr(env_cfg.events, term_name).params
         params["mass_factors"] = (float(args.mass_factor),)
         params["seed"] = int(args.seed)
+    mass_jump_delay_frames = tuple(
+        int(value) for value in env_cfg.events.step_mass_jump.params["delay_frames"]
+    )
+    pose_ranges = tuple(env_cfg.commands.motion.pose_range.values())
+    joint_position_range = env_cfg.commands.motion.joint_position_range
+    reset_pose_noise_disabled = bool(
+        all(tuple(value) == (0.0, 0.0) for value in pose_ranges)
+        and tuple(joint_position_range) == (0.0, 0.0)
+    )
+    if args.fixed_3x_overfit_gate and (
+        mass_jump_delay_frames != (20, 20) or not reset_pose_noise_disabled
+    ):
+        raise RuntimeError("fixed overfit evaluation config was not preserved")
     for group_name in (
         "policy",
         "online_patch_tactile_history",
@@ -471,10 +548,33 @@ def main() -> None:
     policy = runner.get_inference_policy(device=base_env.device)
     output_root.mkdir(parents=True)
     obj = base_env.scene["obj"]
+    robot = base_env.scene["robot"]
     command = base_env.command_manager.get_term("motion")
     world_camera = base_env.scene["world_camera"] if args.record_world else None
+    physx_pad_contact = (
+        base_env.scene["all_pads_box_contact"]
+        if args.audit_contact_forces
+        else None
+    )
+    physx_box_all_normal = (
+        base_env.scene["box_all_normal_contact"]
+        if args.audit_contact_forces
+        else None
+    )
+    tacsl_audit_sensors = (
+        [
+            base_env.scene[name]
+            for names in SENSOR_NAMES_BY_HAND
+            for name in names
+        ]
+        if args.audit_contact_forces
+        else []
+    )
     world_writer = None
     friction_readback: np.ndarray | None = None
+    robot_friction_readback: np.ndarray | None = None
+    tacsl_feature_read_calls = 0
+    slip_detector_update_calls = 0
 
     def fixed_start(env_ids) -> None:
         ids = torch.as_tensor(
@@ -533,6 +633,20 @@ def main() -> None:
         "reference_frame": [],
         "valid_frame": [],
     }
+    if args.audit_contact_forces:
+        traces.update(
+            {
+                "physx_box_normal_force_from_all_pads_w": [],
+                "physx_box_friction_force_from_all_pads_w": [],
+                "physx_box_normal_force_per_pad_w": [],
+                "physx_box_friction_force_per_pad_w": [],
+                "physx_box_contact_position_per_pad_w": [],
+                "physx_contact_to_nearest_taxel_distance_m": [],
+                "tacsl_active_taxel_count_per_pad": [],
+                "tacsl_min_signed_distance_per_pad_m": [],
+                "physx_box_all_contact_normal_force_w": [],
+            }
+        )
     original_reset_idx = base_env._reset_idx
     try:
         for batch in range(total_profiles // int(args.num_envs)):
@@ -570,6 +684,21 @@ def main() -> None:
                     friction_readback = current_friction
                 elif not np.array_equal(friction_readback, current_friction):
                     raise RuntimeError("CarryBox friction changed between profile batches")
+                current_robot_friction = (
+                    robot.root_physx_view.get_material_properties()
+                    .detach()
+                    .cpu()[..., :2]
+                    .numpy()
+                    .copy()
+                )
+                if not np.all(current_robot_friction == 0.5):
+                    raise RuntimeError("G1/pad friction is not fixed at TacSL mu=0.5")
+                if robot_friction_readback is None:
+                    robot_friction_readback = current_robot_friction
+                elif not np.array_equal(
+                    robot_friction_readback, current_robot_friction
+                ):
+                    raise RuntimeError("G1/pad friction changed between profile batches")
             print(
                 f"[PLAN15 EVAL] batch {batch + 1}/"
                 f"{total_profiles // int(args.num_envs)} reset complete",
@@ -602,10 +731,18 @@ def main() -> None:
                 update_history=False
             )
             obs = observations(env)
-            robot = base_env.scene["robot"]
             initial_robot_root_height = robot.data.root_pos_w[:, 2].clone()
             base_env._reset_idx = lambda env_ids: None
-            detector = PatchSlipDetector(base_env.num_envs, device=base_env.device)
+            # Z is the exact-zero sensing control.  Its actor already receives
+            # zero patch/slip tensors, and the evaluator must not silently
+            # read TacSL merely to populate plots or outcome labels.  P/PS may
+            # recompute causal slip as an evaluator-only label; it is never
+            # fed back into either actor.
+            detector = (
+                None
+                if args.branch == "Z"
+                else PatchSlipDetector(base_env.num_envs, device=base_env.device)
+            )
             done_latched = torch.zeros(
                 base_env.num_envs, dtype=torch.bool, device=base_env.device
             )
@@ -631,27 +768,49 @@ def main() -> None:
                     obs, reward, done, _ = env.step(action)
                 executed_action = env.last_executed_action
                 teacher_control = env.last_teacher_control_mask
-                patch = current_whole_hand_patch_features(base_env)
-                timestamp = torch.full(
-                    (base_env.num_envs,),
-                    (step + 1) * float(base_env.step_dt),
-                    dtype=torch.float32,
-                    device=base_env.device,
-                )
-                slip = detector.update(
-                    contact=patch[..., 0].bool(),
-                    normal_load_n=patch[..., 1],
-                    mean_pressure_pa=patch[..., 2],
-                    shear_xy_n=patch[..., 3:5],
-                    friction_utilization=patch[..., 5],
-                    timestamp_s=timestamp,
-                    reset_mask=torch.full(
-                        (base_env.num_envs,),
-                        step == 0,
-                        dtype=torch.bool,
+                if args.branch == "Z":
+                    patch = torch.zeros(
+                        (
+                            base_env.num_envs,
+                            2,
+                            27,
+                            len(BASE_PATCH_CHANNELS),
+                        ),
+                        dtype=torch.float32,
                         device=base_env.device,
-                    ),
-                )
+                    )
+                    slip_state = torch.zeros(
+                        (base_env.num_envs, 2, 27),
+                        dtype=torch.long,
+                        device=base_env.device,
+                    )
+                else:
+                    if detector is None:
+                        raise RuntimeError("P/PS evaluation requires a slip detector")
+                    patch = current_whole_hand_patch_features(base_env)
+                    tacsl_feature_read_calls += 1
+                    timestamp = torch.full(
+                        (base_env.num_envs,),
+                        (step + 1) * float(base_env.step_dt),
+                        dtype=torch.float32,
+                        device=base_env.device,
+                    )
+                    slip = detector.update(
+                        contact=patch[..., 0].bool(),
+                        normal_load_n=patch[..., 1],
+                        mean_pressure_pa=patch[..., 2],
+                        shear_xy_n=patch[..., 3:5],
+                        friction_utilization=patch[..., 5],
+                        timestamp_s=timestamp,
+                        reset_mask=torch.full(
+                            (base_env.num_envs,),
+                            step == 0,
+                            dtype=torch.bool,
+                            device=base_env.device,
+                        ),
+                    )
+                    slip_detector_update_calls += 1
+                    slip_state = slip.state
                 diagnostics = base_env._online_mass_jump_diagnostics
                 ref_pos_error = torch.linalg.vector_norm(
                     command.obj_pos_w - command.obj_ref_pos_w, dim=-1
@@ -694,7 +853,7 @@ def main() -> None:
                 batch_rows["reference_position_error_m"].append(cpu(ref_pos_error))
                 batch_rows["reference_orientation_error_rad"].append(cpu(ref_ori_error))
                 batch_rows["patch_features"].append(cpu(patch))
-                batch_rows["slip_state"].append(cpu(slip.state))
+                batch_rows["slip_state"].append(cpu(slip_state))
                 batch_rows["bilateral_patch_contact"].append(
                     cpu((patch[..., 0] > 0.5).any(dim=-1).all(dim=-1))
                 )
@@ -711,6 +870,59 @@ def main() -> None:
                 batch_rows["termination_terms"].append(cpu(termination_terms))
                 batch_rows["reference_frame"].append(cpu(command.time_steps))
                 batch_rows["valid_frame"].append(cpu(active_before_step))
+                if physx_pad_contact is not None:
+                    batch_rows["physx_box_normal_force_from_all_pads_w"].append(
+                        cpu(physx_pad_contact.data.force_matrix_w.sum(dim=(1, 2)))
+                    )
+                    batch_rows["physx_box_friction_force_from_all_pads_w"].append(
+                        cpu(physx_pad_contact.data.friction_forces_w.sum(dim=(1, 2)))
+                    )
+                    batch_rows["physx_box_normal_force_per_pad_w"].append(
+                        cpu(physx_pad_contact.data.force_matrix_w[:, 0])
+                    )
+                    batch_rows["physx_box_friction_force_per_pad_w"].append(
+                        cpu(physx_pad_contact.data.friction_forces_w[:, 0])
+                    )
+                    contact_position = physx_pad_contact.data.contact_pos_w[:, 0]
+                    taxel_positions = torch.stack(
+                        [sensor.data.tactile_points_pos_w for sensor in tacsl_audit_sensors],
+                        dim=1,
+                    )
+                    active_taxels = torch.stack(
+                        [sensor.data.penetration_depth > 0.0 for sensor in tacsl_audit_sensors],
+                        dim=1,
+                    )
+                    minimum_signed_distance = torch.stack(
+                        [
+                            sensor.data.tactile_signed_distance_m.amin(dim=-1)
+                            for sensor in tacsl_audit_sensors
+                        ],
+                        dim=1,
+                    )
+                    contact_is_finite = torch.isfinite(contact_position).all(dim=-1)
+                    nearest_taxel = torch.linalg.vector_norm(
+                        taxel_positions - contact_position.unsqueeze(-2), dim=-1
+                    ).amin(dim=-1)
+                    nearest_taxel = torch.where(
+                        contact_is_finite,
+                        nearest_taxel,
+                        torch.full_like(nearest_taxel, float("nan")),
+                    )
+                    batch_rows["physx_box_contact_position_per_pad_w"].append(
+                        cpu(contact_position)
+                    )
+                    batch_rows[
+                        "physx_contact_to_nearest_taxel_distance_m"
+                    ].append(cpu(nearest_taxel))
+                    batch_rows["tacsl_active_taxel_count_per_pad"].append(
+                        cpu(active_taxels.sum(dim=-1))
+                    )
+                    batch_rows["tacsl_min_signed_distance_per_pad_m"].append(
+                        cpu(minimum_signed_distance)
+                    )
+                    batch_rows["physx_box_all_contact_normal_force_w"].append(
+                        cpu(physx_box_all_normal.data.net_forces_w.sum(dim=1))
+                    )
                 if world_camera is not None and batch == int(args.record_batch_index):
                     rgb = cpu(
                         world_camera.data.output["rgb"][
@@ -778,15 +990,50 @@ def main() -> None:
             if friction_readback is not None
             else None
         ),
+        "robot_pad_material_contract": {
+            "all_robot_shapes_static_friction": 0.5,
+            "all_robot_shapes_dynamic_friction": 0.5,
+            "anatomical_pad_combine_mode": "average",
+            "effective_pad_box_friction": 0.5,
+        },
         "motion_id": int(args.motion_id),
+        "motion_folder": str(motion_folder),
         "start_frame": 0,
         "profiles": total_profiles,
+        "num_envs": int(args.num_envs),
         "max_steps": int(args.max_steps),
         "post_jump_window_frames": int(args.post_jump_window),
+        "fixed_3x_overfit_gate": bool(args.fixed_3x_overfit_gate),
+        "evaluator_only_physx_contact_force_audit": bool(
+            args.audit_contact_forces
+        ),
+        "tacsl_effective_grid_margin_m_by_pad": (
+            [
+                float(sensor.tactile_grid_effective_margin_m)
+                for sensor in tacsl_audit_sensors
+            ]
+            if args.audit_contact_forces
+            else None
+        ),
+        "mass_jump_delay_frames": list(mass_jump_delay_frames),
+        "reset_pose_noise_disabled": reset_pose_noise_disabled,
         "actor_mass_or_jump_input": False,
         "online_teacher_handoff": True,
         "pre_handoff_actor_control": False,
-        "evaluation_patch_and_slip_labels_feed_actor": False,
+        # The branch actor consumes its own live rollout observation. The
+        # separately recomputed evaluator tensors below are outcome labels and
+        # are never fed back into the policy.
+        "actor_receives_live_patch_observation": args.branch in {"P", "PS"},
+        "actor_receives_causal_slip_observation": args.branch == "PS",
+        "evaluator_reads_tacsl": tacsl_feature_read_calls > 0,
+        "evaluator_tacsl_feature_read_calls": tacsl_feature_read_calls,
+        "evaluator_slip_detector_update_calls": slip_detector_update_calls,
+        "trace_patch_semantics": (
+            "exact_zero_control"
+            if args.branch == "Z"
+            else "online_tacsl_evaluator_label"
+        ),
+        "evaluation_recomputed_patch_slip_labels_feed_actor": False,
         "diagnostic_ignore_object_reference_termination": bool(
             args.ignore_object_reference_termination
         ),
@@ -800,7 +1047,10 @@ def main() -> None:
                 else "strict_sugar_reference"
             )
         ),
-        "diagnostic_only": bool(args.ignore_object_reference_termination),
+        "diagnostic_only": bool(
+            args.ignore_object_reference_termination
+            or args.physical_outcome_view
+        ),
         "formal_termination_contract": not bool(
             args.ignore_object_reference_termination
             or args.physical_outcome_view
@@ -853,8 +1103,13 @@ if __name__ == "__main__":
         )
         try:
             simulation_app.close()
-        except SystemExit:
+        except BaseException:
             pass
-        raise
+        # Isaac Kit installs process-level exception handling that can turn a
+        # re-raised Python exception into exit code 0 during shutdown.  A
+        # formal launcher must never accept an exception as a successful
+        # evaluation, so leave with an unambiguous nonzero status after the
+        # diagnostic line has been flushed.
+        os._exit(1)
     else:
         simulation_app.close()

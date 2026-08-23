@@ -94,7 +94,7 @@ def main() -> None:
     slips = np.concatenate(slip_rows, axis=0)
     scales = fit_channel_scales(patches, slips, quantile=float(args.quantile))
     result = {
-        "schema": "plan15_live_patch_channel_scales_v1",
+        "schema": "plan15_live_patch_channel_scales_v3_extent_offset_calibrated",
         "source": "online IsaacLab mass-sweep traces",
         "quantile_over_nonzero_magnitude": float(args.quantile),
         "channel_order": list(CHANNELS),

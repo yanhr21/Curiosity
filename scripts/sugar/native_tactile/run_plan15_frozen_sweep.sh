@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 5 || $# -gt 6 ]]; then
-    echo "usage: $0 Z|P|PS CKPT_151014 CKPT_151015 CKPT_151016 OUTPUT_ROOT [DEVICE]" >&2
+if [[ $# -lt 6 || $# -gt 7 ]]; then
+    echo "usage: $0 Z|P|PS CKPT_151014 CKPT_151015 CKPT_151016 CORRECTED_SCALE_FILE OUTPUT_ROOT [DEVICE]" >&2
     exit 2
 fi
 
@@ -14,8 +14,9 @@ case "$branch" in
 esac
 
 checkpoints=("$1" "$2" "$3")
-output_root=$4
-device=${5:-cuda:0}
+scale_file=$4
+output_root=$5
+device=${6:-cuda:0}
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 cd "$repo_root"
@@ -32,6 +33,7 @@ for index in 0 1 2; do
         "${checkpoints[$index]}" \
         "$train_seed" \
         "$evaluation_seed" \
+        "$scale_file" \
         "$output_root" \
         "$device"
 done

@@ -1,19 +1,12 @@
 #!/usr/bin/env bash
-# Run the post-comparison CarryBox friction-feasibility sweep.
+# Run the independent frozen-Refiner CarryBox friction-feasibility sweep.
 
 set -euo pipefail
 
 device=${1:-cuda:0}
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 python_bin=${PYTHON_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python}
-evaluation_root="$root/experiments/online_patch_tactile_mass_adaptation/frozen_evaluation_handoff"
-comparison="$evaluation_root/z_p_ps_formal_comparison_v1.json"
-output_root="$root/experiments/online_patch_tactile_mass_adaptation/friction_feasibility_after_ps"
-
-if [[ ! -s "$comparison" ]]; then
-    echo "Run the exact completed Z/P/PS comparison before changing friction: $comparison" >&2
-    exit 2
-fi
+output_root=${OUTPUT_ROOT:-"$root/experiments/online_patch_tactile_mass_adaptation/friction_feasibility_after_ps"}
 
 mkdir -p "$output_root"
 for friction in 0.5 1.0 1.5 2.0; do
@@ -49,10 +42,10 @@ for friction in 0.5 1.0 1.5 2.0; do
     done
 done
 
-jq -s --arg comparison "$comparison" '{
-    schema: "plan15_carrybox_friction_feasibility_v1",
+jq -s '{
+    schema: "plan15_carrybox_friction_feasibility_v2",
     controller: "frozen official Refiner",
-    original_comparison: $comparison,
+    protocol: "independent frozen-Refiner feasibility sweep; no Z/P/PS result dependency",
     runs: map({
         mass_factor: .target_mass_factor,
         static_friction: .object_static_friction_readback,

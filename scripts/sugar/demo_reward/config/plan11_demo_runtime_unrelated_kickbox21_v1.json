@@ -1,0 +1,30 @@
+{
+  "base_config": "scripts/sugar/demo_reward/config/demo_reward_runtime_preflight_v1.json",
+  "protocol": "sugar_demo_reward_runtime_frozen_scale_v1",
+  "claim_scope": "Plan-11 behavior experiment with an intentionally unrelated official SUGAR KickBox motion as the demo condition while the unchanged task objective remains CarryBox. The condition is OOD for the frozen CarryBox predictor; this experiment makes a behavior observation only, not a predictor-accuracy claim.",
+  "selected_demo": {
+    "motion_id": 21,
+    "split": "external_official_kickbox",
+    "bank_row": -1,
+    "condition_mode": "external_numeric"
+  },
+  "artifacts": {
+    "external_demo_condition": {
+      "path": "experiments/demo_following/runtime_assets/unrelated_demo/kickbox_motion21_condition.npy",
+      "sha256": "8e39aa077e102a639210edc1301074452bebdfb2337cdef1ad5b530050f1adde"
+    },
+    "external_demo_proof": {
+      "path": "experiments/demo_following/runtime_assets/unrelated_demo/PROOF.json",
+      "sha256": "6b0707aaeca771699a3ed6a11cbd2eee6c098068cbfc9d1ff190830e259df661"
+    }
+  },
+  "tactile_control": {
+    "mode": "explicit_zero_no_sensor_read",
+    "failure_mask": "inactive_no_proxy_substitution"
+  },
+  "potential": {
+    "eta": 10,
+    "gamma": 0.99,
+    "eta_role": "matched to the completed correct-demo V3 arm"
+  }
+}

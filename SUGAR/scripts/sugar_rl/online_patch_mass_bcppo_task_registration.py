@@ -16,6 +16,7 @@ _AGENT_MODULE = (
 )
 _FORMAL_AGENT_CFG = f"{_AGENT_MODULE}:OnlinePatchMassBCPPORunnerCfg"
 _PREFLIGHT_AGENT_CFG = f"{_AGENT_MODULE}:OnlinePatchMassPreflightBCPPORunnerCfg"
+_OVERFIT_AGENT_CFG = f"{_AGENT_MODULE}:OnlinePatchMassOverfitBCPPORunnerCfg"
 
 TASKS = {
     "Sugar-G129dof-CarryBox-OnlineMass-Patch-Z-Preflight-BCPPO": (
@@ -32,6 +33,16 @@ TASKS = {
         "OnlinePatchSlipMassRobotEnvCfg",
         "OnlinePatchSlipMassRobotPlayEnvCfg",
         _PREFLIGHT_AGENT_CFG,
+    ),
+    "Sugar-G129dof-CarryBox-OnlineMass-Patch-PS-Overfit-BCPPO": (
+        "Fixed3xOnlinePatchSlipMassRobotEnvCfg",
+        "Fixed3xOnlinePatchSlipMassRobotPlayEnvCfg",
+        _OVERFIT_AGENT_CFG,
+    ),
+    "Sugar-G129dof-CarryBox-OnlineMass-Patch-PS-Overfit-Audit-BCPPO": (
+        "Fixed3xOnlinePatchSlipMassRobotEnvCfg",
+        "Fixed3xOnlinePatchSlipMassAuditPlayEnvCfg",
+        _OVERFIT_AGENT_CFG,
     ),
     "Sugar-G129dof-CarryBox-OnlineMass-Patch-Z-BCPPO": (
         "ExactZeroPatchMassRobotEnvCfg",

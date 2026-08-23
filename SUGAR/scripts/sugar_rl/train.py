@@ -477,6 +477,16 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 stage3_distill_weight_floor = float(
                     runner.alg.stage3_distill_weight_floor
                 )
+                distill_mask_start_step = int(
+                    runner.alg.distill_mask_start_step
+                )
+                actor_hold_interval = [
+                    int(runner.alg.actor_hold_start_step),
+                    int(runner.alg.actor_hold_end_step),
+                ]
+                behavior_anchor_checkpoint = getattr(
+                    runner.alg, "behavior_anchor_checkpoint", None
+                )
                 if not 0.0 <= stage3_distill_weight_floor <= 1.0:
                     raise RuntimeError(
                         "Invalid resumed Stage-3 distillation floor: "
@@ -496,6 +506,29 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                     "critic_warmup_steps": int(runner.alg.critic_warmup_steps),
                     "full_ppo_warmup_steps": int(runner.alg.full_ppo_warmup_steps),
                     "stage3_distill_weight_floor": stage3_distill_weight_floor,
+                    "distill_mask_start_step": distill_mask_start_step,
+                    "actor_hold_interval": actor_hold_interval,
+                    "actor_hold_active": (
+                        actor_hold_interval[0]
+                        <= int(runner.alg.update_step)
+                        <= actor_hold_interval[1]
+                    ),
+                    "behavior_anchor_coefficient": float(
+                        runner.alg.behavior_anchor_coef
+                    ),
+                    "behavior_anchor_start_step": int(
+                        runner.alg.behavior_anchor_start_step
+                    ),
+                    "behavior_anchor_loaded": (
+                        runner.alg.behavior_anchor_policy is not None
+                    ),
+                    "behavior_anchor_checkpoint": behavior_anchor_checkpoint,
+                    "stage3_tactile_only_actor": bool(
+                        runner.alg.stage3_tactile_only_actor
+                    ),
+                    "deployment_aligned_distillation_active": (
+                        int(runner.alg.update_step) >= distill_mask_start_step
+                    ),
                     "modified_persistent_distillation": (
                         stage3_distill_weight_floor > 0.0
                     ),
@@ -551,7 +584,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         resumed_finetune_report.update(
             {
                 "resume_checkpoint": os.path.abspath(args_cli.resume_checkpoint_path),
-                "semantics": "reinstalled tactile-only actor gradient gate after checkpoint load",
+                "semantics": (
+                    "reinstalled full student actor and anatomical patch encoder "
+                    "gradient configuration after checkpoint load"
+                ),
             }
         )
         os.makedirs(log_dir, exist_ok=True)

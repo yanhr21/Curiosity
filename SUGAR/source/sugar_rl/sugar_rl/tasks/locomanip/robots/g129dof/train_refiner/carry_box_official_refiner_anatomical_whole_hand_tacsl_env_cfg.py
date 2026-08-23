@@ -16,7 +16,8 @@ from pathlib import Path
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets.rigid_object.rigid_object_cfg import RigidObjectCfg
-from isaaclab.sensors import TiledCameraCfg
+from isaaclab.managers import RewardTermCfg as RewTerm
+from isaaclab.sensors import ContactSensorCfg, TiledCameraCfg
 from isaaclab.utils import configclass
 from isaaclab_assets.sensors import GELSIGHT_R15_CFG
 from isaaclab_contrib.sensors.tacsl_sensor import VisuoTactileSensorCfg
@@ -27,15 +28,21 @@ from sugar_rl.assets.robots.anatomical_whole_hand_tacsl_g1 import (
     anatomical_whole_hand_tacsl_robot_cfg,
 )
 from sugar_rl.assets.robots.unitree import UNITREE_G1_29DOF_MIMIC_CFG
+import sugar_rl.tasks.locomanip.mdp as mdp
 
 from .carry_box_refiner_env_cfg import (
     ObservationsCfg as OfficialRefinerObservationsCfg,
 )
+from .carry_box_refiner_env_cfg import RewardsCfg as OfficialCarryBoxRewardsCfg
 from .carry_box_refiner_env_cfg import RobotEnvCfg as OfficialRefinerEnvCfg
 from .carry_box_refiner_env_cfg import RobotSceneCfg as OfficialRefinerSceneCfg
 
 
 TACTILE_GRID_SHAPE = (20, 25)
+PATCH_OBJECT_CONTACT_SENSOR_NAMES_BY_HAND = tuple(
+    tuple(f"{side}_{spec.name}_object_contact" for spec in ANATOMICAL_WHOLE_HAND_PATCH_SPECS)
+    for side in ("left", "right")
+)
 _WORKSPACE_ROOT = Path(__file__).resolve().parents[9]
 _R15_CALIBRATION_ROOT = Path(
     os.environ.get(
@@ -62,6 +69,19 @@ def _positive_parameter(name: str, default: float) -> float:
     return value
 
 
+def _nonnegative_parameter(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = float(raw)
+    except ValueError as error:
+        raise ValueError(f"{name} must be a nonnegative finite float") from error
+    if not (0.0 <= value < float("inf")):
+        raise ValueError(f"{name} must be a nonnegative finite float")
+    return value
+
+
 def _patch_sensor_cfg(
     side: str,
     patch_name: str,
@@ -77,7 +97,11 @@ def _patch_sensor_cfg(
         enable_camera_tactile=False,
         enable_force_field=True,
         tactile_array_size=TACTILE_GRID_SHAPE,
-        tactile_margin=0.003 if optical_r15 else 0.0004,
+        tactile_margin=0.0001,
+        tactile_fill_mesh_extents=True,
+        tactile_contact_offset_m=_nonnegative_parameter(
+            "CURIOSITY_ANATOMICAL_TACSL_CONTACT_OFFSET_M", 0.0003
+        ),
         tactile_sampling_axis=1,
         tactile_tip_direction_sign=-1,
         contact_object_prim_path_expr="{ENV_REGEX_NS}/Obj",
@@ -106,6 +130,25 @@ def _patch_sensor_cfg(
             data_types=["distance_to_image_plane"],
             spawn=None,
         ),
+    )
+
+
+def _patch_object_contact_sensor_cfg(
+    side: str,
+    patch_name: str,
+) -> ContactSensorCfg:
+    """One supported one-pad-to-one-box filtered PhysX contact sensor."""
+
+    return ContactSensorCfg(
+        prim_path=(
+            f"{{ENV_REGEX_NS}}/Robot/{side}_anatomical_"
+            f"{patch_name}_elastomer"
+        ),
+        history_length=3,
+        track_air_time=True,
+        force_threshold=0.1,
+        debug_vis=False,
+        filter_prim_paths_expr=["{ENV_REGEX_NS}/Obj"],
     )
 
 
@@ -146,8 +189,14 @@ class OfficialRefinerAnatomicalWholeHandTacSLSceneCfg(OfficialRefinerSceneCfg):
         "{ENV_REGEX_NS}/Robot",
     )
     obj: RigidObjectCfg = SMALLBOX_SDF_CFG.replace(
-        prim_path="{ENV_REGEX_NS}/Obj"
+        prim_path="{ENV_REGEX_NS}/Obj",
+        spawn=SMALLBOX_SDF_CFG.spawn.replace(activate_contact_sensors=True),
     )
+    # IsaacLab does not support filtering several sensor bodies against one
+    # object in a single ContactSensor. The inherited dead-hand sensors are
+    # removed; __post_init__ creates 54 supported one-pad-to-one-box sensors.
+    left_hand_forces = None
+    right_hand_forces = None
     world_camera: TiledCameraCfg = _review_camera(
         name="WorldCamera",
         position=(3.6, 3.6, 2.4),
@@ -193,6 +242,27 @@ class OfficialRefinerAnatomicalWholeHandTacSLSceneCfg(OfficialRefinerSceneCfg):
                     f"{side}_{spec.name}_tactile",
                     _patch_sensor_cfg(side, spec.name, spec.optical_r15),
                 )
+                setattr(
+                    self,
+                    f"{side}_{spec.name}_object_contact",
+                    _patch_object_contact_sensor_cfg(side, spec.name),
+                )
+
+
+@configclass
+class AnatomicalCarryBoxRewardsCfg(OfficialCarryBoxRewardsCfg):
+    """Official rewards with bilateral contact read from all live pads."""
+
+    hoi_contact = RewTerm(
+        func=mdp.hands_contact,
+        weight=1.0,
+        params={
+            "left_hand_sensor_cfg": PATCH_OBJECT_CONTACT_SENSOR_NAMES_BY_HAND[0],
+            "right_hand_sensor_cfg": PATCH_OBJECT_CONTACT_SENSOR_NAMES_BY_HAND[1],
+            "command_name": "motion",
+            "threshold": 0.1,
+        },
+    )
 
 
 @configclass
@@ -206,6 +276,7 @@ class OfficialRefinerAnatomicalWholeHandTacSLEnvCfg(OfficialRefinerEnvCfg):
         )
     )
     observations: OfficialRefinerObservationsCfg = OfficialRefinerObservationsCfg()
+    rewards: AnatomicalCarryBoxRewardsCfg = AnatomicalCarryBoxRewardsCfg()
 
     def __post_init__(self):
         super().__post_init__()

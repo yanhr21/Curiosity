@@ -38,10 +38,10 @@ def main() -> None:
     grouped: dict[float, list[dict[str, object]]] = {}
     run_keys = set()
     for summary in summaries:
-        if summary.get("evaluation_view") != "physical_outcome":
+        if summary.get("evaluation_view") != "strict_sugar_reference":
             raise ValueError(
-                "formal Plan-15 sweep requires the physical-outcome view "
-                "with strict SUGAR termination retained as labels"
+                "formal Plan-15 sweep requires strict SUGAR termination; "
+                "continued physical-outcome diagnostics are not scoreable"
             )
         train_seed = int(summary["training_seed"])
         eval_seed = int(summary["seed"])
@@ -103,7 +103,7 @@ def main() -> None:
         }
 
     result = {
-        "schema": "plan15_frozen_sweep_summary_v2_physical_and_reference",
+        "schema": "plan15_frozen_sweep_summary_v3_strict_sugar",
         "branch": next(iter(branches)),
         "source_runs": len(summaries),
         "profiles": sum(len(item["episodes"]) for item in summaries),

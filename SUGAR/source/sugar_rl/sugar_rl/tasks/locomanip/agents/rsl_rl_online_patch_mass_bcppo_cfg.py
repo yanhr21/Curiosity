@@ -88,6 +88,21 @@ class OnlinePatchMassBCPPORunnerCfg(BCPPORunnerCfg):
         # unchanged by Z, P, and PS.
         stage3_distill_weight_floor=0.25,
         training_mask_obs_group="training_handoff_mask",
+        # The first 751 updates retain the released SUGAR full-trajectory
+        # distillation that produced the first strictly valid checkpoint.
+        # Thereafter, teacher KL is deployment-aligned to student-controlled
+        # post-handoff transitions so the pickup prefix cannot erase it.
+        distill_mask_start_step=751,
+        actor_hold_start_step=751,
+        actor_hold_end_step=1000,
+        behavior_anchor_checkpoint=os.environ.get(
+            "SUGAR_PLAN15_BEHAVIOR_ANCHOR_CHECKPOINT"
+        ),
+        behavior_anchor_coef=float(
+            os.environ.get("SUGAR_PLAN15_BEHAVIOR_ANCHOR_COEF", "0.0")
+        ),
+        behavior_anchor_start_step=1001,
+        stage3_tactile_only_actor=True,
     )
 
 
@@ -99,3 +114,12 @@ class OnlinePatchMassPreflightBCPPORunnerCfg(OnlinePatchMassBCPPORunnerCfg):
     num_steps_per_env = 360
     max_iterations = 1
     save_interval = 1
+
+
+@configclass
+class OnlinePatchMassOverfitBCPPORunnerCfg(OnlinePatchMassBCPPORunnerCfg):
+    """Same serious BCPPO schedule, bounded after the first 500 PPO updates."""
+
+    experiment_name = "sugar_carrybox_online_patch_mass_corrected_overfit"
+    max_iterations = 1500
+    save_interval = 250

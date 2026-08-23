@@ -1,6 +1,26 @@
 import gymnasium as gym
 
 
+# Demo-following research environment.  This registration deliberately exposes
+# only the serious SUGAR + official MimicKit/TinyMDM integration restored for
+# the matched correct-vs-unrelated experiment.
+gym.register(
+    id="Sugar-G129dof-CarryBox-SMP-ICM-Goal-Coherent-Latent",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.carry_box_smp_icm_goal_coherent_env_cfg:"
+            "GoalCoherentLatentRobotEnvCfg"
+        ),
+        "play_env_cfg_entry_point": (
+            f"{__name__}.carry_box_smp_icm_goal_coherent_env_cfg:"
+            "GoalCoherentLatentRobotPlayEnvCfg"
+        ),
+    },
+)
+
+
 # carry box
 gym.register(
     id="Sugar-G129dof-CarryBox-Refiner",

@@ -1,0 +1,97 @@
+{
+  "protocol": "sugar_demo_reward_runtime_preflight_v1",
+  "version": 1,
+  "claim_scope": "Unit-eta runtime preflight for the frozen positive V2 selected-demo predictor on motion 45. This config permits causal inference, masked-potential reconstruction, scale calibration, and live integration audit only. It does not authorize policy optimization, behavior claims, recovery, alternative strategy, physical tactile, or sim-to-real.",
+  "selected_demo": {
+    "motion_id": 45,
+    "split": "train",
+    "bank_row": 34,
+    "numeric_condition_shape": [
+      32,
+      10,
+      216
+    ],
+    "categorical_id_is_model_tensor": false,
+    "routing_identity_is_audit_only": true
+  },
+  "runtime_inputs": {
+    "policy_prefix_shape": [
+      10,
+      175
+    ],
+    "prefix_valid_mask_shape": [
+      10
+    ],
+    "direct_tacsl_history_shape": [
+      4,
+      2,
+      3,
+      20,
+      25
+    ],
+    "future_reference": false,
+    "outcome_or_reward": false,
+    "oracle_slip": false,
+    "hidden_physics": false
+  },
+  "potential": {
+    "gamma": 0.99,
+    "eta": 1.0,
+    "eta_role": "unit-scale calibration only",
+    "component_weights": [
+      0.25,
+      0.25,
+      0.25,
+      0.25
+    ],
+    "failure_closed_policy_index": 174,
+    "mask_state_potential": true,
+    "raw_prediction_paid_each_step": false
+  },
+  "artifacts": {
+    "predictor_config": {
+      "path": "scripts/sugar/demo_reward/config/demo_reward_prefailure_crossdemo_predictor_v2.json",
+      "sha256": "06eb7f534baf078ea97d9c5988a2f492870097c2abe4b3d8e30dded72411b890"
+    },
+    "model_source": {
+      "path": "scripts/sugar/demo_reward/demo_conditioned_causal_predictor_v1.py",
+      "sha256": "6174b11e473f1bef2548e8ee3853181ee0a4ed7063e68ffa7eff5135367a744b"
+    },
+    "normalization": {
+      "path": "experiments/demo_following/runtime_assets/predictor/NORMALIZATION.npz",
+      "sha256": "0746b45ef41d5559617caef1dd000faa0c5b944dfa19983d3fa5257686b6aa5f"
+    },
+    "checkpoint": {
+      "path": "experiments/demo_following/predictor/validation_best.pt",
+      "sha256": "8486fda0f2497e323d46ac71ac003238f980f97e3de4ed5caba2b35b435adfbc"
+    },
+    "frozen_endpoint": {
+      "path": "experiments/demo_following/predictor/FROZEN_ENDPOINT.json",
+      "sha256": "fb4d1c0ad5e86f68e1d2278f1370527f4295125190569f3c061f520e192c87df"
+    },
+    "demo_condition_bank": {
+      "path": "experiments/demo_following/runtime_assets/predictor/demo_condition_bank.npy",
+      "sha256": "8ad92ecf15e28ef37d797b6cd03ba2d95938e64244e62c399dd4c850ac86c7c7"
+    },
+    "demo_routing": {
+      "path": "experiments/demo_following/runtime_assets/predictor/demo_routing.npz",
+      "sha256": "e245001f5062e9de0421731920c66a14a2f0fdc69fc4bf659a3faea69befa171"
+    }
+  },
+  "scale_calibration": {
+    "source": "one no-policy-update live rollout from the new-from-scratch native-authority initialization under all five H2R1 roles and the frozen latent-physics strata",
+    "reference_non_demo_reward": "the same transitions' task + external constraint + 0.5*SMP + original-ICM ledger before demo addition",
+    "eta_rule_frozen_before_observation": "min(2.0, 0.25*q95(abs(non_demo_policy_reward))/q95(abs(unit_demo_reward)), q95(abs(non_demo_policy_reward))/q99(abs(unit_demo_reward)))",
+    "minimum_denominator": 1e-8,
+    "success_or_recovery_used_for_scale_selection": false,
+    "policy_update_during_calibration": false
+  },
+  "authorization": {
+    "predictor_inference": true,
+    "scale_calibration": true,
+    "live_integration_audit": true,
+    "policy_optimization": false,
+    "policy_integration": false,
+    "recovery_claim": false
+  }
+}

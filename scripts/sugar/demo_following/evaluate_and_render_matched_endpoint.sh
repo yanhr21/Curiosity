@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT=/public/home/yanhongru/Curiosity
+PYTHON=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
+UPDATE=${1:-}
+DESIGN=${2:-same_teacher_reward_only}
+RUN_ROOT_OVERRIDE=${3:-}
+if [[ "$UPDATE" != "64" ]]; then
+    echo "usage: $0 64 [same_teacher_reward_only] [run_root]" >&2
+    exit 2
+fi
+case "$DESIGN" in
+    same_teacher_reward_only) ;;
+    *) echo "unknown matched demo design: $DESIGN" >&2; exit 2 ;;
+esac
+PADDED_UPDATE=$(printf '%04d' "$UPDATE")
+EVALUATOR="$ROOT/scripts/sugar/demo_following/evaluate_matched_fixed_teacher.py"
+RENDERER="$ROOT/scripts/sugar/demo_following/render_demo_and_actual.py"
+RUN_ROOT=${RUN_ROOT_OVERRIDE:-"$ROOT/experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581"}
+CONFIG="$RUN_ROOT/correct/update_${PADDED_UPDATE}/protocol.json"
+EVAL_ROOT="$RUN_ROOT/evaluation_update${PADDED_UPDATE}"
+VIDEO_ROOT="$RUN_ROOT/videos_update${PADDED_UPDATE}"
+arms=(same_teacher_correct_reward same_teacher_unrelated_reward)
+eval_seed=171581
+renderer_design_args=(--same-teacher-reward-only)
+KIT_ARGS="--/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
+
+if [[ -z "${SLURM_JOB_ID:-}" ]]; then
+    echo "evaluation requires a retained Slurm allocation" >&2
+    exit 2
+fi
+reuse_video=0
+if [[ -e "$VIDEO_ROOT" ]]; then
+    if [[ ! -f "$VIDEO_ROOT/RENDER_PROOF.json" ]]; then
+        echo "incomplete video directory requires inspection: $VIDEO_ROOT" >&2
+        exit 2
+    fi
+    "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$VIDEO_ROOT/RENDER_PROOF.json"
+    reuse_video=1
+fi
+
+export PYTHONPATH="$ROOT/scripts/sugar/smp:$ROOT/IsaacLab/source/isaaclab_contrib:$ROOT/IsaacLab/source/isaaclab_assets:$ROOT/IsaacLab/source/isaaclab:$ROOT/IsaacLab/source/isaaclab_tasks:$ROOT/IsaacLab/source/isaaclab_rl:$ROOT/SUGAR/source/sugar_rl:$ROOT/SUGAR/source/sugar_il"
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+export NVIDIA_TF32_OVERRIDE=0
+export PYTHONUNBUFFERED=1
+export PYTHONFAULTHANDLER=1
+export SUGAR_DISABLE_TRAIN_DEBUG_VIS=1
+export ISAACLAB_GROUND_PLANE_USD="$ROOT/SUGAR/descriptions/terrain/sugar_ground_plane.usda"
+# Cluster H200 rendering must use the installed NVIDIA Vulkan ICD.  Leaving
+# discovery implicit can select an incompatible loader and fail during scene
+# initialization with VK_ERROR_DEVICE_LOST.
+export VK_ICD_FILENAMES=/etc/vulkan/icd.d/nvidia_icd.json
+export DISPLAY=
+unset CURIOSITY_TACSL_R15_USD
+unset CURIOSITY_TACSL_LEFT_MOUNT_TRANSLATION_OFFSET
+unset CURIOSITY_TACSL_RIGHT_MOUNT_TRANSLATION_OFFSET
+
+if [[ "${TEACHER_ONLY_GATE:-0}" == "1" ]]; then
+    gate_root=${TEACHER_GATE_OUTPUT:-"$RUN_ROOT/teacher_only_gate"}
+    if [[ -f "$gate_root/RESULT.json" && -f "$gate_root/TRACE.npz" ]]; then
+        "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$gate_root/RESULT.json"
+        exit 0
+    fi
+    if [[ -e "$gate_root" ]]; then
+        echo "incomplete teacher-only gate requires inspection: $gate_root" >&2
+        exit 2
+    fi
+    (
+        cd "$ROOT/SUGAR"
+        ISAACLAB_TMP_ROOT="/tmp/Curiosity_teacher_gate_${SLURM_JOB_ID}" \
+        SUGAR_UNITREE_TMP_ROOT="/tmp/Curiosity_teacher_gate_unitree_${SLURM_JOB_ID}" \
+        "$PYTHON" "$EVALUATOR" \
+            --config "$CONFIG" \
+            --arm same_teacher_correct_reward \
+            --output-dir "$gate_root" \
+            --updates "$UPDATE" \
+            --steps 400 \
+            --seed 171581 \
+            --teacher-only-zero-residual \
+            --headless \
+            --device cuda:0 \
+            --kit_args "$KIT_ARGS"
+    ) > "${gate_root}.log" 2>&1
+    "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$gate_root/RESULT.json"
+    exit 0
+fi
+
+mkdir -p "$EVAL_ROOT"
+for arm in "${arms[@]}"; do
+    if [[ "$arm" == "wrong_teacher_correct_reward" || "$arm" == "same_teacher_correct_reward" ]]; then
+        short=correct
+    else
+        short=unrelated
+    fi
+    if [[ -f "$EVAL_ROOT/$short/RESULT.json" && -f "$EVAL_ROOT/$short/TRACE.npz" ]]; then
+        "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$EVAL_ROOT/$short/RESULT.json"
+        continue
+    fi
+    if [[ -e "$EVAL_ROOT/$short" ]]; then
+        echo "incomplete evaluation requires inspection: $EVAL_ROOT/$short" >&2
+        exit 2
+    fi
+    (
+        cd "$ROOT/SUGAR"
+        ISAACLAB_TMP_ROOT="/tmp/Curiosity_matched_eval${UPDATE}_${short}_${SLURM_JOB_ID}" \
+        SUGAR_UNITREE_TMP_ROOT="/tmp/Curiosity_matched_eval${UPDATE}_unitree_${short}_${SLURM_JOB_ID}" \
+        "$PYTHON" "$EVALUATOR" \
+            --config "$CONFIG" \
+            --arm "$arm" \
+            --output-dir "$EVAL_ROOT/$short" \
+            --updates "$UPDATE" \
+            --steps 400 \
+            --seed "$eval_seed" \
+            --headless \
+            --device cuda:0 \
+            --kit_args "$KIT_ARGS"
+    ) > "$EVAL_ROOT/${short}_console.log" 2>&1
+    "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$EVAL_ROOT/$short/RESULT.json"
+done
+
+if [[ "$reuse_video" == "1" ]]; then
+    exit 0
+fi
+
+(
+    cd "$ROOT/SUGAR"
+    ISAACLAB_TMP_ROOT="/tmp/Curiosity_matched_render${UPDATE}_${SLURM_JOB_ID}" \
+    SUGAR_UNITREE_TMP_ROOT="/tmp/Curiosity_matched_render${UPDATE}_unitree_${SLURM_JOB_ID}" \
+    "$PYTHON" "$RENDERER" \
+        --correct-trace "$EVAL_ROOT/correct/TRACE.npz" \
+        --unrelated-trace "$EVAL_ROOT/unrelated/TRACE.npz" \
+        --output-dir "$VIDEO_ROOT" \
+        --matched-endpoint \
+        "${renderer_design_args[@]}" \
+        --headless \
+        --enable_cameras \
+        --device cuda:0 \
+        --kit_args "$KIT_ARGS"
+) > "$EVAL_ROOT/render_console.log" 2>&1
+
+"$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$VIDEO_ROOT/RENDER_PROOF.json"

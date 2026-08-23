@@ -3,9 +3,9 @@
 
 """Continuous CarryBox audit scene for the physical anatomical-27 hands.
 
-The two additional ContactSensors expose independent raw patch/box PhysX
-tuples for force and spatial audits only. They do not construct or modify an
-official TacSL taxel value and do not enter the frozen policy or reward.
+The additional object-centric ContactSensors expose independent raw box/pad
+PhysX tuples for force and spatial audits only. They do not construct or
+modify an official TacSL taxel value and do not enter policy or reward.
 """
 
 from __future__ import annotations
@@ -16,6 +16,9 @@ from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils import configclass
 
 import sugar_rl.tasks.locomanip.mdp as mdp
+from sugar_rl.assets.robots.anatomical_whole_hand_tacsl_g1 import (
+    ANATOMICAL_WHOLE_HAND_PATCH_SPECS,
+)
 
 from .carry_box_official_refiner_anatomical_whole_hand_tacsl_env_cfg import (
     OfficialRefinerAnatomicalWholeHandTacSLEnvCfg,
@@ -27,52 +30,52 @@ from .carry_box_refiner_env_cfg import EventCfg as OfficialRefinerEventCfg
 RAW_PHYSX_CONTACT_AUDIT_CAPACITY_PER_PATCH = 256
 
 
-def _box_contact_cfg(side: str) -> ContactSensorCfg:
+def _pad_filter_paths(side: str) -> tuple[str, ...]:
+    return tuple(
+        f"{{ENV_REGEX_NS}}/Robot/{side}_anatomical_{spec.name}_elastomer"
+        for spec in ANATOMICAL_WHOLE_HAND_PATCH_SPECS
+    )
+
+
+def _box_contact_cfg(filter_exprs: tuple[str, ...]) -> ContactSensorCfg:
+    """Use the supported one-box-to-many-filter ContactSensor direction."""
+
     return ContactSensorCfg(
-        prim_path=(
-            f"{{ENV_REGEX_NS}}/Robot/"
-            f"{side}_anatomical_.*_elastomer"
-        ),
+        prim_path="{ENV_REGEX_NS}/Obj",
         update_period=0.0,
         history_length=0,
         debug_vis=False,
-        filter_prim_paths_expr=["{ENV_REGEX_NS}/Obj"],
+        filter_prim_paths_expr=list(filter_exprs),
         track_pose=True,
         track_contact_points=True,
         track_friction_forces=True,
         max_contact_data_count_per_prim=(
-            RAW_PHYSX_CONTACT_AUDIT_CAPACITY_PER_PATCH
+            RAW_PHYSX_CONTACT_AUDIT_CAPACITY_PER_PATCH * len(filter_exprs)
         ),
     )
 
 
-def _all_robot_box_contact_cfg() -> ContactSensorCfg:
-    """Expose which real G1 bodies carry the box, for audit only."""
+def _box_unfiltered_normal_cfg() -> ContactSensorCfg:
+    """Independent total normal contact on the box, for coverage audit."""
 
     return ContactSensorCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/.*",
+        prim_path="{ENV_REGEX_NS}/Obj",
         update_period=0.0,
         history_length=0,
         debug_vis=False,
-        filter_prim_paths_expr=["{ENV_REGEX_NS}/Obj"],
-        track_pose=True,
-        track_contact_points=False,
-        track_friction_forces=True,
-        max_contact_data_count_per_prim=(
-            RAW_PHYSX_CONTACT_AUDIT_CAPACITY_PER_PATCH
-        ),
     )
-
-
 @configclass
 class OfficialRefinerAnatomicalWholeHandTacSLAuditSceneCfg(
     OfficialRefinerAnatomicalWholeHandTacSLSceneCfg
 ):
     """The unchanged physical sensor scene plus raw audit-only contacts."""
 
-    left_patch_box_contact = _box_contact_cfg("left")
-    right_patch_box_contact = _box_contact_cfg("right")
-    all_robot_box_contact = _all_robot_box_contact_cfg()
+    left_patch_box_contact = _box_contact_cfg(_pad_filter_paths("left"))
+    right_patch_box_contact = _box_contact_cfg(_pad_filter_paths("right"))
+    all_pads_box_contact = _box_contact_cfg(
+        _pad_filter_paths("left") + _pad_filter_paths("right")
+    )
+    box_all_normal_contact = _box_unfiltered_normal_cfg()
 
 
 @configclass

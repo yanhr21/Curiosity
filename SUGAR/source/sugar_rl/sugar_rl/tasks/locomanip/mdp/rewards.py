@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import torch
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from isaaclab.managers import SceneEntityCfg
@@ -142,29 +143,45 @@ def obj2body_ori_error_exp(env: ManagerBasedRLEnv, command_name: str, std: float
 def hands_contact(
     env: ManagerBasedRLEnv, 
     threshold: float, 
-    left_hand_sensor_cfg: SceneEntityCfg, 
-    right_hand_sensor_cfg: SceneEntityCfg, 
+    left_hand_sensor_cfg: SceneEntityCfg | str | Sequence[SceneEntityCfg | str],
+    right_hand_sensor_cfg: SceneEntityCfg | str | Sequence[SceneEntityCfg | str],
     command_name: str
 ) -> torch.Tensor:
     
     # Only single object is supported.
     command: MotionCommand = env.command_manager.get_term(command_name)
 
-    left_hand_contact_sensor: ContactSensor = env.scene.sensors[left_hand_sensor_cfg.name]
-    right_hand_contact_sensor: ContactSensor = env.scene.sensors[right_hand_sensor_cfg.name]
-    left_hand_forces = left_hand_contact_sensor.data.force_matrix_w_history  # [num_envs, history(3), body_ids(1), filter_num(1), 3]
-    right_hand_forces = right_hand_contact_sensor.data.force_matrix_w_history
+    def maximum_filtered_force(
+        sensor_cfgs: SceneEntityCfg | str | Sequence[SceneEntityCfg | str],
+    ) -> torch.Tensor:
+        if isinstance(sensor_cfgs, (SceneEntityCfg, str)):
+            sensor_cfgs = (sensor_cfgs,)
+        maxima = []
+        for sensor_cfg in sensor_cfgs:
+            sensor_name = (
+                sensor_cfg if isinstance(sensor_cfg, str) else sensor_cfg.name
+            )
+            sensor: ContactSensor = env.scene.sensors[sensor_name]
+            forces = sensor.data.force_matrix_w_history
+            if forces is None:
+                raise RuntimeError(
+                    f"filtered contact matrix is unavailable for {sensor_name}"
+                )
+            maxima.append(
+                torch.linalg.vector_norm(forces, dim=-1).amax(dim=(1, 2, 3))
+            )
+        if not maxima:
+            raise ValueError("hands_contact requires at least one sensor per hand")
+        return torch.stack(maxima, dim=1).amax(dim=1)
 
-
-    left_curr_contact_force = torch.max(
-        torch.norm(left_hand_forces[:, :, 0, 0, :], dim=-1),
-        dim=1
-    )[0]    # num_envs
-    right_curr_contact_force = torch.max(
-        torch.norm(right_hand_forces[:, :, 0, 0, :], dim=-1),
-        dim=1
-    )[0]    # num_envs
-    is_contact = (left_curr_contact_force > threshold) * (right_curr_contact_force  > threshold)
+    # IsaacLab filtered contacts are one-sensor-body-to-many only. The
+    # anatomical variant therefore supplies 27 independent pad/box sensors
+    # per side and this reduction combines their scalar maxima.
+    left_curr_contact_force = maximum_filtered_force(left_hand_sensor_cfg)
+    right_curr_contact_force = maximum_filtered_force(right_hand_sensor_cfg)
+    is_contact = (left_curr_contact_force > threshold) & (
+        right_curr_contact_force > threshold
+    )
     contact_label = command.contact_label
     
     is_consistent = (is_contact == contact_label).float()

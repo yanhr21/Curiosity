@@ -17,7 +17,12 @@ from isaaclab.app import AppLauncher
 ROOT = Path(__file__).resolve().parents[3]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-root", type=Path, required=True)
-parser.add_argument("--motion-id", type=int, default=45)
+parser.add_argument(
+    "--motion-folder",
+    type=Path,
+    default=ROOT / "SUGAR/data/CarryBox/data_045",
+)
+parser.add_argument("--motion-id", type=int, default=0)
 parser.add_argument("--seed", type=int, default=150814)
 parser.add_argument("--mass-factor", type=float, default=3.0)
 parser.add_argument(
@@ -78,8 +83,11 @@ os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "Y")
 os.environ.setdefault("DISPLAY", "")
 os.environ.setdefault("CURIOSITY_ANATOMICAL_PHYSX_COMPLIANT_STIFFNESS", "100")
 os.environ.setdefault("CURIOSITY_ANATOMICAL_PHYSX_COMPLIANT_DAMPING", "20")
-os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_NORMAL_STIFFNESS", "20")
-os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_TANGENTIAL_STIFFNESS", "2")
+os.environ.setdefault(
+    "CURIOSITY_ANATOMICAL_TACSL_CONTACT_OFFSET_M", "0.0003"
+)
+os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_NORMAL_STIFFNESS", "7294.8755")
+os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_TANGENTIAL_STIFFNESS", "9")
 os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_FRICTION_COEFFICIENT", "0.5")
 os.environ.setdefault(
     "CURIOSITY_TACSL_CALIBRATION_DIR",
@@ -117,6 +125,7 @@ from official_refiner_anatomical_whole_hand_tacsl_audit_task_registration import
 
 from sugar_rl.tasks.locomanip.online_patch_tactile import (  # noqa: E402
     BASE_PATCH_CHANNELS,
+    SENSOR_NAMES_BY_HAND,
     current_whole_hand_patch_features,
     current_whole_hand_patch_oracle_tangential_speed,
     current_whole_hand_patch_timestamps_s,
@@ -124,7 +133,7 @@ from sugar_rl.tasks.locomanip.online_patch_tactile import (  # noqa: E402
 )
 import sugar_rl.tasks.locomanip.mdp as mdp  # noqa: E402
 from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_online_patch_tactile_mass_env_cfg import (  # noqa: E402
-    OnlinePatchSlipMassRobotPlayEnvCfg,
+    OnlinePatchSlipMassAuditPlayEnvCfg,
 )
 from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_official_refiner_anatomical_whole_hand_tacsl_env_cfg import (  # noqa: E402
     _review_camera,
@@ -201,6 +210,9 @@ def main() -> None:
     if not output_root.is_absolute():
         output_root = ROOT / output_root
     output_root.mkdir(parents=True, exist_ok=False)
+    motion_folder = args.motion_folder.expanduser().resolve()
+    if not motion_folder.is_dir():
+        raise FileNotFoundError(motion_folder)
     action_trace = args.action_trace
     if action_trace is not None:
         action_trace = action_trace.expanduser()
@@ -209,10 +221,10 @@ def main() -> None:
         action_trace = action_trace.resolve()
 
     register_official_refiner_anatomical_whole_hand_tacsl_audit_task()
-    cfg = OnlinePatchSlipMassRobotPlayEnvCfg()
+    cfg = OnlinePatchSlipMassAuditPlayEnvCfg()
     cfg.seed = int(args.seed)
     cfg.sim.device = args.device
-    cfg.commands.motion.motion_folder = "data/CarryBox"
+    cfg.commands.motion.motion_folder = str(motion_folder)
     cfg.commands.motion.pose_range = {
         key: (0.0, 0.0) for key in ("x", "y", "z", "roll", "pitch", "yaw")
     }
@@ -287,7 +299,14 @@ def main() -> None:
             else None
         )
         obj = base_env.scene["obj"]
+        robot = base_env.scene["robot"]
+        left_pad_contact_sensor = base_env.scene.sensors["left_patch_box_contact"]
+        right_pad_contact_sensor = base_env.scene.sensors["right_patch_box_contact"]
+        all_pads_contact_sensor = base_env.scene.sensors["all_pads_box_contact"]
+        box_all_normal_sensor = base_env.scene.sensors["box_all_normal_contact"]
+        first_tacsl_sensor = base_env.scene.sensors[SENSOR_NAMES_BY_HAND[0][0]]
         object_material = obj.root_physx_view.get_material_properties().detach().cpu()
+        robot_material = robot.root_physx_view.get_material_properties().detach().cpu()
         if not bool(
             (object_material[..., 0] == float(args.object_static_friction)).all()
         ):
@@ -296,7 +315,10 @@ def main() -> None:
             (object_material[..., 1] == float(args.object_dynamic_friction)).all()
         ):
             raise RuntimeError("CarryBox dynamic-friction readback mismatch")
-        robot = base_env.scene["robot"]
+        if not bool((robot_material[..., 0] == 0.5).all()):
+            raise RuntimeError("G1/pad static-friction readback mismatch")
+        if not bool((robot_material[..., 1] == 0.5).all()):
+            raise RuntimeError("G1/pad dynamic-friction readback mismatch")
         world_camera = base_env.scene["world_camera"] if args.record_world else None
         action_term = base_env.action_manager.get_term("JointPositionAction")
         fixed_response_raw_delta = torch.zeros(
@@ -373,6 +395,11 @@ def main() -> None:
             "joint_vel": [],
             "applied_action": [],
             "fixed_response_action_delta": [],
+            "physx_box_normal_force_from_pads_w": [],
+            "physx_box_friction_force_from_pads_w": [],
+            "physx_box_normal_force_from_all_pads_w": [],
+            "physx_box_friction_force_from_all_pads_w": [],
+            "physx_box_all_contact_normal_force_w": [],
             "mass_readback_kg": [],
             "inertia_readback_kg_m2": [],
             "target_factor": [],
@@ -448,6 +475,83 @@ def main() -> None:
             rows["joint_vel"].append(cpu(robot.data.joint_vel[0]))
             rows["applied_action"].append(cpu(action[0]))
             rows["fixed_response_action_delta"].append(cpu(response_delta[0]))
+            left_normal = left_pad_contact_sensor.data.force_matrix_w
+            right_normal = right_pad_contact_sensor.data.force_matrix_w
+            left_friction = left_pad_contact_sensor.data.friction_forces_w
+            right_friction = right_pad_contact_sensor.data.friction_forces_w
+            all_pads_normal = all_pads_contact_sensor.data.force_matrix_w
+            all_pads_friction = all_pads_contact_sensor.data.friction_forces_w
+            box_all_normal = box_all_normal_sensor.data.net_forces_w
+            if any(
+                value is None
+                for value in (
+                    left_normal,
+                    right_normal,
+                    left_friction,
+                    right_friction,
+                    all_pads_normal,
+                    all_pads_friction,
+                    box_all_normal,
+                )
+            ):
+                raise RuntimeError(
+                    "normal/friction PhysX box-contact audit data are unavailable"
+                )
+            assert left_normal is not None
+            assert right_normal is not None
+            assert left_friction is not None
+            assert right_friction is not None
+            assert all_pads_normal is not None
+            assert all_pads_friction is not None
+            assert box_all_normal is not None
+            if left_normal.shape[1:] != (1, 27, 3) or right_normal.shape[1:] != (
+                1,
+                27,
+                3,
+            ):
+                raise RuntimeError(
+                    "unexpected object/filtered-pad normal-force shapes: "
+                    f"left={tuple(left_normal.shape)} "
+                    f"right={tuple(right_normal.shape)}"
+                )
+            if left_friction.shape != left_normal.shape or right_friction.shape != right_normal.shape:
+                raise RuntimeError(
+                    "pad/object friction-force shapes do not match normal forces: "
+                    f"left={tuple(left_friction.shape)} "
+                    f"right={tuple(right_friction.shape)}"
+                )
+            if (
+                all_pads_normal.shape != (1, 1, 54, 3)
+                or all_pads_friction.shape != all_pads_normal.shape
+                or box_all_normal.shape != (1, 1, 3)
+            ):
+                raise RuntimeError(
+                    "unexpected object/pad or unfiltered contact-force shapes: "
+                    f"normal={tuple(all_pads_normal.shape)} "
+                    f"friction={tuple(all_pads_friction.shape)} "
+                    f"unfiltered={tuple(box_all_normal.shape)}"
+                )
+            pad_normal = torch.stack(
+                (left_normal[:, 0, :, :], right_normal[:, 0, :, :]), dim=1
+            )
+            pad_friction = torch.stack(
+                (left_friction[:, 0, :, :], right_friction[:, 0, :, :]), dim=1
+            )
+            rows["physx_box_normal_force_from_pads_w"].append(
+                cpu(pad_normal[0])
+            )
+            rows["physx_box_friction_force_from_pads_w"].append(
+                cpu(pad_friction[0])
+            )
+            rows["physx_box_normal_force_from_all_pads_w"].append(
+                cpu(all_pads_normal[0, 0, :, :].sum(dim=0))
+            )
+            rows["physx_box_friction_force_from_all_pads_w"].append(
+                cpu(all_pads_friction[0, 0, :, :].sum(dim=0))
+            )
+            rows["physx_box_all_contact_normal_force_w"].append(
+                cpu(box_all_normal[0, 0, :])
+            )
             rows["mass_readback_kg"].append(float(diagnostics["mass_readback_kg"][0]))
             rows["inertia_readback_kg_m2"].append(
                 cpu(diagnostics["inertia_readback_kg_m2"][0])
@@ -520,6 +624,98 @@ def main() -> None:
             pre_jump_bilateral_10 = bool(
                 np.all(bilateral[first_jump_frame - 10 : first_jump_frame])
             )
+        physx_pad_normal_w = arrays["physx_box_normal_force_from_pads_w"]
+        physx_pad_friction_w = arrays["physx_box_friction_force_from_pads_w"]
+        physx_pad_total_w = physx_pad_normal_w + physx_pad_friction_w
+        physx_all_pads_normal_w = arrays[
+            "physx_box_normal_force_from_all_pads_w"
+        ]
+        physx_all_pads_friction_w = arrays[
+            "physx_box_friction_force_from_all_pads_w"
+        ]
+        physx_all_pads_total_w = (
+            physx_all_pads_normal_w + physx_all_pads_friction_w
+        )
+        physx_box_all_normal_w = arrays["physx_box_all_contact_normal_force_w"]
+        # The sensor body is the box. These are already the normal/friction
+        # reactions exerted by the 54 exact pad filters on the box.
+        physx_pad_reaction_on_box_w = physx_pad_total_w.sum(axis=(1, 2))
+        physx_all_pads_reaction_on_box_w = physx_all_pads_total_w
+        object_acceleration_z_m_s2 = np.gradient(
+            arrays["object_lin_vel_w"][:, 2], float(base_env.step_dt)
+        )
+        required_non_gravity_force_z_n = arrays["mass_readback_kg"] * (
+            object_acceleration_z_m_s2 + 9.81
+        )
+        force_window = (
+            slice(first_jump_frame - 10, first_jump_frame)
+            if first_jump_frame is not None and first_jump_frame >= 10
+            else slice(0, 0)
+        )
+        tacsl_normal_sum_n = arrays["patch_features"][..., 1].sum(axis=(1, 2))
+        tacsl_friction_sum_n = (
+            arrays["patch_features"][..., 5]
+            * 0.5
+            * arrays["patch_features"][..., 1]
+        ).sum(axis=(1, 2))
+        physx_pad_normal_magnitude_sum_n = np.linalg.norm(
+            physx_pad_normal_w, axis=-1
+        ).sum(axis=(1, 2))
+        physx_pad_friction_magnitude_sum_n = np.linalg.norm(
+            physx_pad_friction_w, axis=-1
+        ).sum(axis=(1, 2))
+        if first_jump_frame is not None and first_jump_frame >= 10:
+            physx_normal_mean = float(
+                physx_pad_normal_magnitude_sum_n[force_window].mean()
+            )
+            physx_friction_mean = float(
+                physx_pad_friction_magnitude_sum_n[force_window].mean()
+            )
+            tacsl_normal_mean = float(tacsl_normal_sum_n[force_window].mean())
+            tacsl_friction_mean = float(tacsl_friction_sum_n[force_window].mean())
+            normal_scale_ratio = physx_normal_mean / max(
+                tacsl_normal_mean, 1.0e-12
+            )
+            friction_scale_ratio = physx_friction_mean / max(
+                tacsl_friction_mean, 1.0e-12
+            )
+            mean_all_pads_support_z = float(
+                physx_all_pads_reaction_on_box_w[force_window, 2].mean()
+            )
+            mean_pad_support_z = float(
+                physx_pad_reaction_on_box_w[force_window, 2].mean()
+            )
+            mean_required_z = float(required_non_gravity_force_z_n[force_window].mean())
+            balance_residual_z = (
+                physx_all_pads_reaction_on_box_w[force_window, 2]
+                - required_non_gravity_force_z_n[force_window]
+            )
+            mean_signed_balance_residual = float(balance_residual_z.mean())
+            mean_abs_balance_residual = float(
+                np.abs(
+                    balance_residual_z
+                ).mean()
+            )
+            mean_unfiltered_normal_coverage_error = float(
+                np.linalg.norm(
+                    physx_box_all_normal_w[force_window]
+                    - physx_all_pads_normal_w[force_window],
+                    axis=-1,
+                ).mean()
+            )
+        else:
+            physx_normal_mean = None
+            physx_friction_mean = None
+            tacsl_normal_mean = None
+            tacsl_friction_mean = None
+            normal_scale_ratio = None
+            friction_scale_ratio = None
+            mean_all_pads_support_z = None
+            mean_pad_support_z = None
+            mean_required_z = None
+            mean_signed_balance_residual = None
+            mean_abs_balance_residual = None
+            mean_unfiltered_normal_coverage_error = None
         patch_timestamps = arrays["patch_sensor_timestamp_s"]
         timestamp_spread_s = np.ptp(patch_timestamps, axis=(1, 2))
         mean_patch_timestamp_s = patch_timestamps.mean(axis=(1, 2))
@@ -559,6 +755,7 @@ def main() -> None:
                 "reads_object_state": False,
             },
             "motion_id": int(args.motion_id),
+            "motion_folder": str(motion_folder),
             "seed": int(args.seed),
             "source_frames": int(args.max_steps),
             "nominal_mass_kg": float(arrays["mass_readback_kg"][0]),
@@ -569,6 +766,12 @@ def main() -> None:
             "object_dynamic_friction_readback": float(
                 object_material[0, 0, 1].item()
             ),
+            "robot_pad_material_contract": {
+                "all_robot_shapes_static_friction": 0.5,
+                "all_robot_shapes_dynamic_friction": 0.5,
+                "anatomical_pad_combine_mode": "average",
+                "effective_pad_box_friction": 0.5,
+            },
             "first_jump_frame": first_jump_frame,
             "post_jump_frames": post_jump_frames,
             "minimum_required_post_jump_frames": 80,
@@ -597,6 +800,43 @@ def main() -> None:
             "maximum_active_patches_right": int(contact[:, 1].sum(axis=-1).max()),
             "maximum_patch_normal_load_n": float(normal_load.max()),
             "maximum_patch_pressure_pa": float(pressure.max()),
+            "tacsl_force_parameters": {
+                "normal_contact_stiffness": float(
+                    first_tacsl_sensor.cfg.normal_contact_stiffness
+                ),
+                "tangential_stiffness": float(
+                    first_tacsl_sensor.cfg.tangential_stiffness
+                ),
+                "friction_coefficient": float(
+                    first_tacsl_sensor.cfg.friction_coefficient
+                ),
+            },
+            "pre_jump_10_frame_force_balance": {
+                "physx_pad_normal_magnitude_sum_mean_n": physx_normal_mean,
+                "physx_pad_friction_magnitude_sum_mean_n": physx_friction_mean,
+                "physx_pad_reaction_on_box_z_mean_n": mean_pad_support_z,
+                "physx_all_pads_reaction_on_box_z_mean_n": mean_all_pads_support_z,
+                "unfiltered_minus_all_pads_normal_l2_mean_n": (
+                    mean_unfiltered_normal_coverage_error
+                ),
+                "required_non_gravity_force_z_mean_n": mean_required_z,
+                "physx_vertical_balance_signed_residual_mean_n": (
+                    mean_signed_balance_residual
+                ),
+                "physx_vertical_balance_abs_residual_mean_n": (
+                    mean_abs_balance_residual
+                ),
+                "tacsl_normal_sum_mean_n": tacsl_normal_mean,
+                "tacsl_friction_sum_mean_n": tacsl_friction_mean,
+                "physx_to_tacsl_normal_scale_ratio": normal_scale_ratio,
+                "physx_to_tacsl_friction_scale_ratio": friction_scale_ratio,
+                "semantics": (
+                    "PhysX normal and friction are recorded separately. Values are "
+                    "forces on the box from 54 exact pad filters. Their reaction "
+                    "is compared directly with m*(a_z+g); an independent "
+                    "unfiltered object-normal stream checks for omitted contacts."
+                ),
+            },
             "maximum_object_lift_m": float(
                 arrays["object_pos_w"][:, 2].max() - arrays["object_pos_w"][0, 2]
             ),

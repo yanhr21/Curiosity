@@ -18,6 +18,15 @@ anatomical.ANATOMICAL_WHOLE_HAND_PATCH_SPECS = tuple(
     for index in range(27)
 )
 sys.modules.setdefault(ANATOMICAL_MODULE, anatomical)
+SLIP_MODULE = "sugar_rl.tasks.locomanip.patch_slip"
+slip_spec = importlib.util.spec_from_file_location(
+    SLIP_MODULE,
+    ROOT / "SUGAR/source/sugar_rl/sugar_rl/tasks/locomanip/patch_slip.py",
+)
+slip_module = importlib.util.module_from_spec(slip_spec)
+assert slip_spec.loader is not None
+sys.modules[SLIP_MODULE] = slip_module
+slip_spec.loader.exec_module(slip_module)
 spec = importlib.util.spec_from_file_location(
     "plan15_online_patch_tactile",
     ROOT / "SUGAR/source/sugar_rl/sugar_rl/tasks/locomanip/online_patch_tactile.py",
@@ -34,9 +43,11 @@ reduce_patch_taxels = module.reduce_patch_taxels
 current_whole_hand_patch_oracle_tangential_speed = (
     module.current_whole_hand_patch_oracle_tangential_speed
 )
+current_whole_hand_patch_features = module.current_whole_hand_patch_features
 current_whole_hand_patch_timestamps_s = (
     module.current_whole_hand_patch_timestamps_s
 )
+_online_patch_slip_history = module._online_patch_slip_history
 
 
 def test_patch_contract_uses_54_patch_tokens_not_taxels():
@@ -48,14 +59,16 @@ def test_patch_contract_uses_54_patch_tokens_not_taxels():
     assert PATCH_FEATURE_WIDTH == 9
 
 
-def test_reduce_patch_taxels_preserves_signed_shear_and_corrects_normal_sign():
+def test_reduce_patch_taxels_preserves_signed_shear_and_force_weighted_utilization():
     penetration = torch.tensor([[0.001, 0.002, 0.0, -0.1]])
-    normal = torch.tensor([[-2.0, 3.0, 99.0, 99.0]])
+    normal = torch.tensor([[2.0, 3.0, 99.0, 99.0]])
     shear = torch.tensor([[[1.0, -2.0], [-0.5, 3.0], [7.0, 7.0], [8.0, 8.0]]])
+    friction_magnitude = torch.tensor([[1.25, 0.75, 99.0, 99.0]])
     features = reduce_patch_taxels(
         penetration,
         normal,
         shear,
+        friction_magnitude,
         patch_area_m2=0.01,
         friction_coefficient=0.5,
     )
@@ -66,7 +79,7 @@ def test_reduce_patch_taxels_preserves_signed_shear_and_corrects_normal_sign():
     torch.testing.assert_close(features[:, 3:5], torch.tensor([[0.5, 1.0]]))
     torch.testing.assert_close(
         features[:, 5],
-        torch.tensor([(0.5**2 + 1.0**2) ** 0.5 / 2.5]),
+        torch.tensor([2.0 / 2.5]),
     )
 
 
@@ -75,10 +88,37 @@ def test_reduce_patch_taxels_returns_zero_without_penetration():
         torch.zeros(2, 4),
         torch.full((2, 4), 3.0),
         torch.full((2, 4, 2), 2.0),
+        torch.full((2, 4), 2.0),
         patch_area_m2=0.01,
         friction_coefficient=0.5,
     )
     torch.testing.assert_close(features, torch.zeros(2, 6))
+
+
+def test_live_patch_utilization_does_not_cancel_opposed_taxel_shear():
+    sensors = {}
+    for hand_names in module.SENSOR_NAMES_BY_HAND:
+        for sensor_name in hand_names:
+            sensors[sensor_name] = SimpleNamespace(
+                cfg=SimpleNamespace(friction_coefficient=0.5),
+                data=SimpleNamespace(
+                    penetration_depth=torch.tensor([[0.001, 0.001]]),
+                    tactile_normal_force=torch.tensor([[2.0, 2.0]]),
+                    tactile_shear_force=torch.tensor(
+                        [[[1.0, 0.0], [-1.0, 0.0]]]
+                    ),
+                    tactile_friction_force_magnitude=torch.tensor([[0.5, 0.5]]),
+                ),
+            )
+    env = SimpleNamespace(
+        num_envs=1,
+        device="cpu",
+        scene=SimpleNamespace(sensors=sensors),
+    )
+    features = current_whole_hand_patch_features(env)
+    assert features.shape == (1, 2, 27, 6)
+    torch.testing.assert_close(features[..., 3:5], torch.zeros(1, 2, 27, 2))
+    torch.testing.assert_close(features[..., 5], torch.full((1, 2, 27), 0.5))
 
 
 def test_exact_zero_does_not_touch_scene_sensors():
@@ -99,6 +139,36 @@ def test_exact_zero_does_not_touch_scene_sensors():
     assert diagnostics["zero_observation_calls"] == 1
     assert diagnostics["zero_env_samples"] == 3
     assert diagnostics["patch_sensor_reads"] == 0
+
+
+def test_same_step_full_reset_reaches_stateful_slip_detector():
+    env = SimpleNamespace(
+        num_envs=2,
+        device="cpu",
+        common_step_counter=17,
+        step_dt=0.02,
+        episode_length_buf=torch.ones(2, dtype=torch.long),
+    )
+    base = torch.zeros(2, 4, 2, 27, 6)
+    base[:, -1, :, :, 0] = 1.0
+    base[:, -1, :, :, 1] = 1.0
+    base[:, -1, :, :, 2] = 100.0
+    base[:, -1, :, :, 3] = 0.4
+    base[:, -1, :, :, 5] = 0.8
+    first = _online_patch_slip_history(env, base)
+    assert first.shape == (2, 4, 2, 27, 3)
+    assert env._online_patch_slip_detector.initialized.all()
+
+    # ManagerBasedRLEnv.reset() does not advance common_step_counter. The old
+    # same-step cache return skipped this reset and leaked the prior episode.
+    env.episode_length_buf.zero_()
+    reset_base = torch.zeros_like(base)
+    reset = _online_patch_slip_history(env, reset_base)
+    assert torch.count_nonzero(reset).item() == 0
+    assert torch.count_nonzero(
+        env._online_patch_slip_detector.previous_contact
+    ).item() == 0
+    assert env._online_patch_slip_history_cache["reset_step"] == 17
 
 
 @pytest.mark.parametrize("branch", ["Z", "P", "PS"])
@@ -238,6 +308,7 @@ def test_patch_reducer_rejects_invalid_area(area):
             torch.ones(1, 2),
             torch.ones(1, 2),
             torch.ones(1, 2, 2),
+            torch.ones(1, 2),
             patch_area_m2=area,
             friction_coefficient=0.5,
         )

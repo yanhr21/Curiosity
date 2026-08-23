@@ -319,3 +319,31 @@ def step_online_mass_jump(
     controller = _controller(env, asset_name, config)
     controller.advance(control_step=int(env.common_step_counter))
     env._online_mass_jump_diagnostics = controller.diagnostics()
+
+
+def post_handoff_box_lift_reward(
+    env,
+    asset_name: str = "obj",
+    target_lift_m: float = 0.05,
+) -> torch.Tensor:
+    """Reward maintaining a physically lifted box after student handoff.
+
+    This is an outcome reward, not an actor observation. It reads the same live
+    object height used by the mass scheduler and is exactly zero throughout the
+    frozen-teacher prefix. The previous Plan-15 configuration had only
+    reference-tracking rewards, so a policy could reduce those losses without
+    receiving a direct signal for keeping the box above its pickup height.
+    """
+
+    if target_lift_m <= 0.0:
+        raise ValueError("target_lift_m must be positive")
+    controller = getattr(env, "_online_mass_jump_controller", None)
+    handoff = getattr(env, "_online_teacher_handoff_controller", None)
+    if controller is None or handoff is None:
+        return torch.zeros(env.num_envs, dtype=torch.float32, device=env.device)
+    if controller.asset_name != asset_name:
+        raise RuntimeError("mass controller and lift-reward asset do not match")
+    lift_m = controller.asset.data.root_pos_w[:, 2] - controller.initial_height_m
+    lift_fraction = torch.clamp(lift_m / float(target_lift_m), min=0.0, max=1.0)
+    valid = controller.initialized & handoff.handoff_active
+    return torch.where(valid, lift_fraction, torch.zeros_like(lift_fraction))

@@ -19,6 +19,9 @@ OFFICIAL_REFINER = (
     "baseline/ckpts/refiner_model10000.pt"
 )
 FORMAL_SEEDS = (151014, 151015, 151016)
+CORRECTED_SCALE_SCHEMA = (
+    "plan15_live_patch_channel_scales_v3_extent_offset_calibrated"
+)
 
 # Keep the formal trainer on the same local IsaacLab assets as the admitted
 # frozen evaluator.  Falling back to the remote default ground USD can create
@@ -28,8 +31,12 @@ os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "Y")
 os.environ.setdefault("DISPLAY", "")
 os.environ.setdefault("CURIOSITY_ANATOMICAL_PHYSX_COMPLIANT_STIFFNESS", "100")
 os.environ.setdefault("CURIOSITY_ANATOMICAL_PHYSX_COMPLIANT_DAMPING", "20")
-os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_NORMAL_STIFFNESS", "20")
-os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_TANGENTIAL_STIFFNESS", "2")
+# CarryBox-specific Newton-unit calibration against the independent per-pad
+# PhysX audit stream.  It uses full-extent anatomical grids and a 0.3-mm
+# compliant-layer offset; formal training must not inherit shell overrides.
+os.environ["CURIOSITY_ANATOMICAL_TACSL_CONTACT_OFFSET_M"] = "0.0003"
+os.environ["CURIOSITY_ANATOMICAL_TACSL_NORMAL_STIFFNESS"] = "7294.8755"
+os.environ["CURIOSITY_ANATOMICAL_TACSL_TANGENTIAL_STIFFNESS"] = "9"
 os.environ.setdefault("CURIOSITY_ANATOMICAL_TACSL_FRICTION_COEFFICIENT", "0.5")
 os.environ.setdefault(
     "CURIOSITY_TACSL_CALIBRATION_DIR",
@@ -87,9 +94,82 @@ def _inject_official_training_contract(argv: list[str]) -> list[str]:
         raise ValueError("Plan-15 requires an explicit matched --seed")
     seed = int(seed_text)
     preflight = "-Preflight-" in task
-    if not preflight and seed not in FORMAL_SEEDS:
+    overfit = "-Overfit-" in task
+    resume = _option_value(argv, "--resume_checkpoint_path")
+    stability_diagnostic = os.environ.get(
+        "SUGAR_PLAN15_MASKED_DISTILL_STABILITY_DIAGNOSTIC", "0"
+    ) == "1"
+    anchored_ppo_diagnostic = os.environ.get(
+        "SUGAR_PLAN15_ANCHORED_PPO_STABILITY_DIAGNOSTIC", "0"
+    ) == "1"
+    if stability_diagnostic and anchored_ppo_diagnostic:
+        raise ValueError("select only one Plan-15 stability diagnostic")
+    if not preflight and not overfit and seed not in FORMAL_SEEDS:
         raise ValueError(f"formal Plan-15 seed must be one of {FORMAL_SEEDS}")
-    os.environ["SUGAR_TOTAL_ITERATION_BUDGET"] = "1" if preflight else "3000"
+    if overfit and seed != FORMAL_SEEDS[0]:
+        raise ValueError("corrected overfit gate uses fixed seed 151014")
+    if anchored_ppo_diagnostic:
+        if preflight or overfit or seed != FORMAL_SEEDS[0]:
+            raise ValueError(
+                "anchored-PPO stability diagnostic requires the formal "
+                "seed 151014 task"
+            )
+        if resume is None or Path(resume).name != "model_1000.pt":
+            raise ValueError(
+                "anchored-PPO stability diagnostic must resume model_1000.pt"
+            )
+        anchor = os.environ.get("SUGAR_PLAN15_BEHAVIOR_ANCHOR_CHECKPOINT")
+        coefficient = float(
+            os.environ.get("SUGAR_PLAN15_BEHAVIOR_ANCHOR_COEF", "0.0")
+        )
+        if anchor is None or Path(anchor).name != "model_750.pt":
+            raise ValueError(
+                "anchored-PPO stability diagnostic requires model_750.pt "
+                "as its frozen behavior anchor"
+            )
+        if coefficient <= 0.0:
+            raise ValueError(
+                "anchored-PPO stability diagnostic requires a positive anchor coefficient"
+            )
+        diagnostic_endpoint = int(
+            os.environ.get("SUGAR_PLAN15_ANCHORED_PPO_ENDPOINT", "1251")
+        )
+        if diagnostic_endpoint < 1001 or diagnostic_endpoint > 1251:
+            raise ValueError(
+                "anchored-PPO diagnostic endpoint must lie in [1001, 1251]"
+            )
+        total_iteration_budget = str(diagnostic_endpoint)
+    elif stability_diagnostic:
+        if preflight or overfit or seed != FORMAL_SEEDS[0]:
+            raise ValueError(
+                "masked-distill stability diagnostic requires the formal "
+                "seed 151014 task"
+            )
+        if resume is None or Path(resume).name != "model_750.pt":
+            raise ValueError(
+                "masked-distill stability diagnostic must resume model_750.pt"
+            )
+        total_iteration_budget = "1251"
+    elif preflight:
+        total_iteration_budget = "1"
+    elif overfit:
+        total_iteration_budget = "1500"
+    elif resume is None:
+        total_iteration_budget = "1251"
+    else:
+        resume_name = Path(resume).name
+        if resume_name == "model_1250.pt":
+            total_iteration_budget = "2001"
+        elif resume_name == "model_2000.pt":
+            total_iteration_budget = "2501"
+        elif resume_name == "model_2500.pt":
+            total_iteration_budget = "3000"
+        else:
+            raise ValueError(
+                "formal Plan-15 resume checkpoint must be model_1250.pt "
+                "model_2000.pt or model_2500.pt"
+            )
+    os.environ["SUGAR_TOTAL_ITERATION_BUDGET"] = total_iteration_budget
     os.environ["SUGAR_INIT_AT_RANDOM_EP_LEN"] = "0"
     os.environ["SUGAR_PLAN15_LIVE_HANDOFF"] = "1"
     os.environ["SUGAR_PLAN15_HANDOFF_TEACHER_CKPT"] = str(OFFICIAL_REFINER)
@@ -102,7 +182,10 @@ def _inject_official_training_contract(argv: list[str]) -> list[str]:
             raise ValueError(f"cannot identify Plan-15 preflight branch: {task}")
     output = list(argv)
     if _option_value(output, "--motion_folder") is None:
-        output.extend(("--motion_folder", "data/CarryBox"))
+        # One local motion means all four training environments use the exact
+        # CarryBox clip used by frozen evaluation. Loading the 100-motion
+        # folder with start_init_env_ratio=1 selected only local IDs 0--3.
+        output.extend(("--motion_folder", "data/CarryBox/data_045"))
     teacher = _option_value(output, "--teacher_ckpt")
     if teacher is None:
         output.extend(("--teacher_ckpt", str(OFFICIAL_REFINER)))
@@ -140,6 +223,11 @@ def _consume_scale_file(argv: list[str]) -> list[str]:
     path = Path(argv[index + 1]).expanduser().resolve()
     with path.open("r", encoding="utf-8") as stream:
         payload = json.load(stream)
+    if payload.get("schema") != CORRECTED_SCALE_SCHEMA:
+        raise ValueError(
+            "Plan-15 requires scales collected after the corrected "
+            f"normal/shear/friction semantics ({CORRECTED_SCALE_SCHEMA})"
+        )
     values = payload.get("patch_channel_scales")
     if not isinstance(values, list) or len(values) != 9:
         raise ValueError("patch scale JSON must contain nine patch_channel_scales")

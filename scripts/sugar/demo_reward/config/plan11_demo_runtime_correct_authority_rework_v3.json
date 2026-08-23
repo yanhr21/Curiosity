@@ -1,0 +1,20 @@
+{
+  "base_config": "scripts/sugar/demo_reward/config/demo_reward_runtime_preflight_v1.json",
+  "protocol": "sugar_demo_reward_runtime_frozen_scale_v1",
+  "claim_scope": "Plan-11 V3 correct-demo behavior arm. The serious frozen 11.9M predictor is unchanged. Eta 10 is a predeclared reward-authority calibration, not a predictor or architecture change; every tactile tensor remains exact zero with no sensor read.",
+  "selected_demo": {
+    "motion_id": 45,
+    "split": "train",
+    "bank_row": 34,
+    "condition_mode": "selected_numeric"
+  },
+  "tactile_control": {
+    "mode": "explicit_zero_no_sensor_read",
+    "failure_mask": "inactive_no_proxy_substitution"
+  },
+  "potential": {
+    "eta": 10,
+    "gamma": 0.99,
+    "eta_role": "predeclared from V2 reward-scale telemetry: eta 2 contributed about 0.021--0.027 mean absolute reward versus about 0.14 non-demo policy reward; eta 10 makes demo feedback comparable without changing the frozen predictor"
+  }
+}
