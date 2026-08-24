@@ -368,7 +368,8 @@ def protocol_payload(
             "checkpoint_updates": checkpoint_updates,
             "strict_deterministic_torch": True,
             "cublas_workspace_config": ":4096:8",
-            "headless_renderer": "disabled_no_vulkan_for_policy_training",
+            "headless_renderer": "disabled_for_policy_training",
+            "headless_graphics_icd": "mesa_lavapipe_cpu_no_render",
             "process_shutdown": "fast_exit_after_passing_evidence",
             "teacher_wrapper_mode": design.get(
                 "teacher_wrapper_mode", "wrong_reference_fixed_v1"
@@ -575,9 +576,13 @@ def runtime_environment(args: argparse.Namespace, update: int) -> dict[str, str]
             ),
         }
     )
-    # Use the cluster NVIDIA ICD explicitly. A fresh-allocation SimulationApp
-    # canary establishes this exact path before the policy rollout gate runs.
-    env["VK_ICD_FILENAMES"] = "/etc/vulkan/icd.d/nvidia_icd.json"
+    # Policy training has no cameras or rendering consumers.  Keep PhysX and
+    # torch on CUDA, but use the CPU Vulkan ICD for Kit's mandatory graphics
+    # bootstrap: the current H200 NVIDIA Vulkan path device-loses after about
+    # one minute even when no frame is rendered.
+    env["VK_ICD_FILENAMES"] = (
+        "/usr/share/vulkan/icd.d/lvp_icd.x86_64.json"
+    )
     python_paths = (
         ROOT / "scripts/sugar/smp",
         ROOT / "IsaacLab/source/isaaclab_contrib",

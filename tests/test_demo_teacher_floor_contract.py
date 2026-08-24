@@ -141,7 +141,10 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert "--/app/vulkan=false" in kit_args
     assert "--fast-exit-after-evidence" in command
     assert shared["headless_renderer"] == (
-        "disabled_no_vulkan_for_policy_training"
+        "disabled_for_policy_training"
+    )
+    assert shared["headless_graphics_icd"] == (
+        "mesa_lavapipe_cpu_no_render"
     )
     assert shared["process_shutdown"] == "fast_exit_after_passing_evidence"
     assert "/renderer/multiGpu/enabled=false" in kit_args
@@ -149,7 +152,7 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert "/renderer/multiGpu/maxGpuCount=1" in kit_args
     assert (
         RUNNER.runtime_environment(args, 64)["VK_ICD_FILENAMES"]
-        == "/etc/vulkan/icd.d/nvidia_icd.json"
+        == "/usr/share/vulkan/icd.d/lvp_icd.x86_64.json"
     )
 
     inner_source = (
@@ -474,4 +477,4 @@ def test_matched_policy_training_disables_unused_vulkan_renderer() -> None:
         ROOT / "scripts/sugar/demo_following/run_matched_state_predictor.py"
     ).read_text(encoding="utf-8")
     assert '"--/renderer/enabled= --/app/vulkan=false "' in source
-    assert '"headless_renderer": "disabled_no_vulkan_for_policy_training"' in source
+    assert '"headless_renderer": "disabled_for_policy_training"' in source
