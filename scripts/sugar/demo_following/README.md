@@ -51,6 +51,16 @@ Set `TEACHER_ONLY_GATE=1` on the same command to run the zero-residual prerequis
 complete results and videos are validated and reused; incomplete directories are never silently
 overwritten.
 
+The admitted teacher prerequisite is `teacher_only_gate_no_tactile_v2`. It uses the original SUGAR
+scene with no TacSL assets and requires a runtime scene proof in addition to exact-zero residual,
+nominal PhysX readback, bilateral contact and a 5 cm lift. The job257815 run passes all 20 profiles;
+the observed lift range is `0.6854--0.7224 m` with no physical robot fall.
+
+Each active phase-event training proof also contains `no_tactile_startup_physics`, the exact
+per-environment standard-SUGAR material/mass/inertia/COM readback. Frozen evaluation restores this
+record before stepping. Both job257815 online smokes pass the record gate and have exactly matched
+physics, actions and base rewards.
+
 The archived historical design changed both teacher and reward demo and is not an active result.
 Exact assets, commands, expected outputs and claim boundaries are in `DOCS/reproducibility.md`.
 

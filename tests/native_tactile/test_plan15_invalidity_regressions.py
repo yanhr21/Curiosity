@@ -50,6 +50,11 @@ def test_demo_following_goal_reward_does_not_penalize_tactile_surfaces():
     assert '"sugar_plan11_correct_teacher_zero_residual_gate_v1"' in evaluator
     assert '"maximum_robot_root_height_loss_m"' in evaluator
     assert '"physical_robot_fall"' in evaluator
+    assert "NoTactileGoalRobotEnvCfg()" in evaluator
+    assert "active_no_tactile_scene" in evaluator
+    assert "apply_no_tactile_training_physics(base_env, proof)" in evaluator
+    assert '"demo_control_has_no_tactile_scene"' in evaluator
+    assert '"sugar_demo_no_tactile_scene_v1"' in evaluator
 
 
 def test_demo_following_fall_termination_uses_physical_robot_root():

@@ -1817,6 +1817,61 @@ def _coherent_latent_dynamics_audit(
     }
 
 
+def _no_tactile_startup_physics_audit(base_env) -> dict[str, object]:
+    """Freeze the exact standard-SUGAR startup physics for matched evaluation."""
+
+    obj = base_env.scene["obj"]
+    robot = base_env.scene["robot"]
+    values = {
+        "object_materials": obj.root_physx_view.get_material_properties()
+        .detach()
+        .cpu()
+        .clone(),
+        "robot_materials": robot.root_physx_view.get_material_properties()
+        .detach()
+        .cpu()
+        .clone(),
+        "object_masses": obj.root_physx_view.get_masses().detach().cpu().clone(),
+        "object_inertias": obj.root_physx_view.get_inertias()
+        .detach()
+        .cpu()
+        .clone(),
+        "object_coms": obj.root_physx_view.get_coms().detach().cpu().clone(),
+    }
+    policy_terms = list(base_env.observation_manager.active_terms["policy"])
+    icm_terms = list(base_env.observation_manager.active_terms["icm_vector"])
+    hidden_fields = (
+        "mass",
+        "friction",
+        "inertia",
+        "center_of_mass",
+        "material",
+    )
+    checks = {
+        "all_values_finite": all(
+            bool(torch.isfinite(value).all()) for value in values.values()
+        ),
+        "all_values_cover_every_environment": all(
+            value.shape[0] == base_env.num_envs for value in values.values()
+        ),
+        "positive_object_mass": bool((values["object_masses"] > 0.0).all()),
+        "physics_hidden_from_policy_and_icm": not any(
+            fragment in name.lower()
+            for name in policy_terms + icm_terms
+            for fragment in hidden_fields
+        ),
+    }
+    return {
+        "protocol": "sugar_demo_no_tactile_startup_physics_v1",
+        "passed": all(checks.values()),
+        "checks": checks,
+        "num_envs": base_env.num_envs,
+        "values": {
+            name: tensor.tolist() for name, tensor in values.items()
+        },
+    }
+
+
 def main() -> None:
     if args.num_envs < 2:
         raise ValueError("Stage-H diagnostic requires at least two environments")
@@ -3274,6 +3329,11 @@ def main() -> None:
             if goal_recovery_contract and latent_distribution_seed is not None
             else None
         )
+        no_tactile_startup_physics_proof = (
+            _no_tactile_startup_physics_audit(base_env)
+            if explicit_zero_tactile_contract
+            else None
+        )
         tactile_stress_runtime = (
             configure_h2_direct_tactile_stress(
                 base_env,
@@ -4041,6 +4101,10 @@ def main() -> None:
                     no_tactile_goal_scene_proof is not None
                     and no_tactile_goal_scene_proof["passed"]
                 ),
+                "no_tactile_startup_physics_recorded": bool(
+                    no_tactile_startup_physics_proof is not None
+                    and no_tactile_startup_physics_proof["passed"]
+                ),
                 "full_rollout_executed": len(step_telemetry) == smoke_steps,
                 "runtime_values_finite": finite_runtime,
                 "event_history_became_ready": ready_transition_count > 0,
@@ -4084,6 +4148,9 @@ def main() -> None:
                 "nonzero_demo_reward_count": nonzero_demo_reward_count,
                 "reward_identity_max_abs": reward_identity_max_abs,
                 "frozen_model_audit": model_audit,
+                "no_tactile_startup_physics": (
+                    no_tactile_startup_physics_proof
+                ),
                 "step_telemetry": step_telemetry,
                 "checks": checks,
             }
@@ -5622,6 +5689,8 @@ def main() -> None:
                         bool(
                             no_tactile_goal_scene_proof is not None
                             and no_tactile_goal_scene_proof["passed"]
+                            and no_tactile_startup_physics_proof is not None
+                            and no_tactile_startup_physics_proof["passed"]
                         )
                         if explicit_zero_tactile_contract
                         else (
@@ -7675,6 +7744,7 @@ def main() -> None:
             "bounded_drop_grace": drop_grace_proof,
             "coherent_latent_dynamics": latent_dynamics_proof,
             "no_tactile_goal_scene": no_tactile_goal_scene_proof,
+            "no_tactile_startup_physics": no_tactile_startup_physics_proof,
             "reference_waypoint_foundation": (
                 reference_waypoint_foundation_proof
             ),

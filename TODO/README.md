@@ -49,6 +49,10 @@
   optimizer updates;
 - [x] pass a fresh-allocation Isaac Sim 5.1 H200 canary, then pass correct and unrelated 24-step
   online smokes with zero optimizer updates;
+- [x] replace the stale TacSL teacher evaluator with the no-TacSL scene and pass the shared
+  CarryBox45 exact-zero-residual physical prerequisite over 20 profiles and 400 steps;
+- [x] bind standard-SUGAR startup material/mass/inertia/COM readback into every phase-event proof,
+  restore it in frozen evaluation and re-pass both online smokes with exact matched physics;
 - [ ] obtain explicit authority before new policy training;
 - [ ] run a matched policy comparison and judge
   predictor-independent frozen behavior; keep selected-demo SMP out until its semantic gate passes.

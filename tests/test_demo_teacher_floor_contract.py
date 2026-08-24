@@ -146,7 +146,16 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
         "train_refiner/carry_box_smp_icm_goal_env_cfg.py"
     ).read_text(encoding="utf-8")
     assert "NoTactileGoalRobotEnvCfg()" in inner_source
+    assert '"no_tactile_startup_physics"' in inner_source
+    assert '"no_tactile_startup_physics_recorded"' in inner_source
     assert "scene: CarryBoxRobotSceneCfg" in config_source
+
+    evaluation_launcher = (
+        ROOT / "scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh"
+    ).read_text(encoding="utf-8")
+    assert "teacher_only_gate_no_tactile_v2" in evaluation_launcher
+    assert 'p["checks"]["demo_control_has_no_tactile_scene"]' in evaluation_launcher
+    assert 'records[0]["values"] == records[1]["values"]' in evaluation_launcher
 
 
 def behavior_payload(*, passing: bool) -> dict[str, object]:

@@ -81,9 +81,9 @@ unset CURIOSITY_TACSL_LEFT_MOUNT_TRANSLATION_OFFSET
 unset CURIOSITY_TACSL_RIGHT_MOUNT_TRANSLATION_OFFSET
 
 if [[ "${TEACHER_ONLY_GATE:-0}" == "1" ]]; then
-    gate_root=${TEACHER_GATE_OUTPUT:-"$RUN_ROOT/teacher_only_gate"}
+    gate_root=${TEACHER_GATE_OUTPUT:-"$RUN_ROOT/teacher_only_gate_no_tactile_v2"}
     if [[ -f "$gate_root/RESULT.json" && -f "$gate_root/TRACE.npz" ]]; then
-        "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$gate_root/RESULT.json"
+        "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values()) and p["checks"]["demo_control_has_no_tactile_scene"] and p["no_tactile_scene"]["passed"]' "$gate_root/RESULT.json"
         exit 0
     fi
     if [[ -e "$gate_root" ]]; then
@@ -106,8 +106,24 @@ if [[ "${TEACHER_ONLY_GATE:-0}" == "1" ]]; then
             --device cuda:0 \
             --kit_args "$KIT_ARGS"
     ) > "${gate_root}.log" 2>&1
-    "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$gate_root/RESULT.json"
+    "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values()) and p["checks"]["demo_control_has_no_tactile_scene"] and p["no_tactile_scene"]["passed"]' "$gate_root/RESULT.json"
     exit 0
+fi
+
+if [[ "$DESIGN" == "phase_event_reward_only" ]]; then
+    "$PYTHON" - \
+        "$RUN_ROOT/correct/update_${PADDED_UPDATE}/proof.json" \
+        "$RUN_ROOT/unrelated/update_${PADDED_UPDATE}/proof.json" <<'PY'
+import json
+import sys
+
+proofs = [json.load(open(path, encoding="utf-8")) for path in sys.argv[1:]]
+records = [proof.get("no_tactile_startup_physics") for proof in proofs]
+assert all(isinstance(record, dict) and record.get("passed") for record in records)
+assert records[0]["values"] == records[1]["values"], (
+    "correct/unrelated startup physics differ"
+)
+PY
 fi
 
 mkdir -p "$EVAL_ROOT"

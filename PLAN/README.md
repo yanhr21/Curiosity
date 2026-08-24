@@ -111,6 +111,16 @@ matched actions/base reward but different ready-step demo reward (`0.04013` vers
 confirming online selected-demo sensitivity. The remaining gate is explicit user authority for
 policy optimization.
 
+The common-teacher physical prerequisite is now admitted separately. A corrected no-TacSL frozen
+evaluator runs exact-zero residual for 400 steps over 20 nominal profiles; every profile has
+bilateral contact, `0.6854--0.7224 m` maximum lift and no physical robot fall. This removes teacher
+inability and accidental TacSL construction as explanations for a future matched-policy result.
+
+The active no-TacSL runner now records the exact official-SUGAR startup materials, object mass,
+inertia and COM in every formal proof, and frozen evaluation restores that record. Repeated online
+smokes show exact correct/unrelated physics equality as well as exact action/base-reward equality;
+the only online difference remains the selected-demo feedback.
+
 ### Expected behavior, not just reward score
 
 For the correct Carry demo, the expected interaction is: approach the box, establish bilateral hand

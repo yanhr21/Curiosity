@@ -92,6 +92,19 @@ reward 为 correct `0.04013`、unrelated `0.01734`，对应 mean risk `0.36048/0
 selector 确实在同一物理 rollout 上读到了不同 demo，而不是由行为差异伪造 reward 差异。
 这仍然只是在线接入证据；尚未启动新的 policy optimization。
 
+同一 fresh H200 上还完成了正式训练前的 frozen teacher-only 门禁。旧 evaluator 虽然把触觉
+tensor 置零，却仍构造 TacSL scene；现已与 training/smoke 统一为原始无 TacSL 的 SUGAR
+G1/CarryBox scene，并直接写入、回读 nominal object/robot mass、inertia 和 `0.5/0.5`
+friction。20 个 profile、400 control steps、exact-zero residual 全部通过：最大抬升范围
+`0.6854--0.7224 m`，双手刚体接触 `153--156` 帧，物理跌倒 `0/20`。因此 matched
+experiment 的共同 CarryBox45 teacher 起点本身具备稳定抓取和抬升能力。
+
+进一步审计发现：无 TacSL scene 仍继承官方 SUGAR 的 startup mass/material randomization；若只
+保存 seed 而不保存实际 PhysX readback，冻结评估不能严格恢复训练物理。现已在每个正式 proof
+记录逐环境 object/robot material、object mass、inertia 和 COM，评估前逐项恢复并回读。重新
+执行的 correct/unrelated online smoke 证明两臂 startup physics 完全相同，且 action/base
+reward 仍逐步完全一致，只有 selected-demo reward 保持 `0.04013/0.01734` 的差异。
+
 官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
 完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
 任意 Transformer hidden state 冒充 SMP latent，现有证据也不支持 selected-demo SMP

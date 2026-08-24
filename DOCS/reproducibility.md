@@ -495,6 +495,30 @@ runtime 损坏解释为模型结果，也不要在同一块已 device-lost 的 G
 runner 现与通过的 canary 一致，显式设置系统 NVIDIA ICD。online gate 已满足，但 policy
 optimization 仍必须取得用户明确授权。
 
+训练前的 shared-teacher prerequisite 使用：
+
+```bash
+TEACHER_ONLY_GATE=1 \
+bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
+  64 same_teacher_reward_only
+```
+
+输出目录固定为 ignored
+`experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581/`
+`teacher_only_gate_no_tactile_v2/`。该 evaluator 不再实例化 TacSL scene；RESULT 必须同时
+通过 exact-zero residual、nominal PhysX readback、no-tactile scene、双手接触和至少 5 cm
+抬升。job257815/server54 的 20 个 nominal profile、400 control steps 均通过：residual
+absolute maximum `0`，最大抬升 `0.685389--0.722354 m`，双手接触 `153--156` 帧，物理跌倒
+`0/20`。这证明共同冻结 teacher 是有效起点，不证明尚未训练的 selected-demo policy 行为。
+
+正式 phase-event proof 还必须包含
+`no_tactile_startup_physics`：逐环境保存 standard SUGAR startup randomization 产生的完整
+object/robot material tensor 以及 object mass、inertia、COM。冻结 evaluator 不再尝试调用
+TacSL-coupled latent event，而是从对应训练 proof 写回这些值并进行 PhysX readback。修正后的
+job257815 correct/unrelated 24-step smokes 都通过
+`no_tactile_startup_physics_recorded`，两臂保存的物理数组完全一致；动作与 base reward 的
+逐步最大差仍为 `0`。缺少该记录的 phase-event checkpoint 不得进入冻结评估。
+
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object
 关系和 required-contact duration；CHORD 进一步用 object-centric contact wrench 衡量接触

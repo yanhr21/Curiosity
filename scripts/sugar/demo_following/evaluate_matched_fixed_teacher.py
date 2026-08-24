@@ -123,6 +123,9 @@ from sugar_rl.tasks.locomanip.goal_tactile_strategy import (  # noqa: E402
 from sugar_rl.tasks.locomanip.latent_contact_dynamics_events import (  # noqa: E402
     apply_stratified_latent_contact_dynamics,
 )
+from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_smp_icm_goal_env_cfg import (  # noqa: E402
+    NoTactileGoalRobotEnvCfg,
+)
 from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_smp_icm_goal_coherent_env_cfg import (  # noqa: E402
     GoalCoherentLatentRobotEnvCfg,
 )
@@ -213,7 +216,9 @@ def load_runtime_overlay(path: Path) -> dict[str, object]:
     return merge(base, overlay)
 
 
-def configure_explicit_zero(cfg: GoalCoherentLatentRobotEnvCfg) -> None:
+def configure_explicit_zero(
+    cfg: NoTactileGoalRobotEnvCfg | GoalCoherentLatentRobotEnvCfg,
+) -> None:
     cfg.observations.tactile_history.force_history.func = (
         explicit_zero_tactile_force_history
     )
@@ -284,6 +289,85 @@ def apply_repeated_training_physics(
     }
 
 
+def apply_no_tactile_training_physics(
+    base_env, proof: dict[str, object]
+) -> dict[str, object]:
+    """Restore the exact standard-SUGAR startup physics saved by training."""
+
+    source = proof.get("no_tactile_startup_physics")
+    if not isinstance(source, dict) or source.get("passed") is not True:
+        raise RuntimeError("training no-tactile startup physics proof is missing")
+    values = source.get("values")
+    if not isinstance(values, dict):
+        raise RuntimeError("training no-tactile startup physics values are missing")
+    required = {
+        "object_materials",
+        "robot_materials",
+        "object_masses",
+        "object_inertias",
+        "object_coms",
+    }
+    if set(values) != required:
+        raise RuntimeError("training no-tactile startup physics schema drift")
+
+    obj = base_env.scene["obj"]
+    robot = base_env.scene["robot"]
+    env_ids = torch.arange(NUM_ENVS, dtype=torch.long)
+    current = {
+        "object_materials": obj.root_physx_view.get_material_properties(),
+        "robot_materials": robot.root_physx_view.get_material_properties(),
+        "object_masses": obj.root_physx_view.get_masses(),
+        "object_inertias": obj.root_physx_view.get_inertias(),
+        "object_coms": obj.root_physx_view.get_coms(),
+    }
+    expected = {
+        name: torch.as_tensor(values[name], dtype=tensor.dtype, device=tensor.device)
+        for name, tensor in current.items()
+    }
+    for name in required:
+        if expected[name].shape != current[name].shape:
+            raise RuntimeError(
+                f"training no-tactile physics {name} shape drift: "
+                f"expected {tuple(current[name].shape)}, got {tuple(expected[name].shape)}"
+            )
+
+    obj.root_physx_view.set_material_properties(expected["object_materials"], env_ids)
+    robot.root_physx_view.set_material_properties(expected["robot_materials"], env_ids)
+    obj.root_physx_view.set_masses(expected["object_masses"], env_ids)
+    obj.root_physx_view.set_inertias(expected["object_inertias"], env_ids)
+    obj.root_physx_view.set_coms(expected["object_coms"], env_ids)
+
+    observed = {
+        "object_materials": obj.root_physx_view.get_material_properties(),
+        "robot_materials": robot.root_physx_view.get_material_properties(),
+        "object_masses": obj.root_physx_view.get_masses(),
+        "object_inertias": obj.root_physx_view.get_inertias(),
+        "object_coms": obj.root_physx_view.get_coms(),
+    }
+    failed = [
+        name
+        for name in required
+        if not torch.allclose(
+            observed[name], expected[name], rtol=0.0, atol=1.0e-7
+        )
+    ]
+    if failed:
+        raise RuntimeError(
+            f"no-tactile training physics readback mismatch: {failed}"
+        )
+    return {
+        "passed": True,
+        "protocol": source.get("protocol"),
+        "restored_from_training_proof": True,
+        "updates": list(UPDATES),
+        "profiles_per_update": PROFILES_PER_UPDATE,
+        "values": {
+            name: tensor.detach().cpu().tolist()
+            for name, tensor in expected.items()
+        },
+    }
+
+
 def audit_reconstructed_training_physics(
     base_env, expected_distribution_seed: int
 ) -> dict[str, object]:
@@ -337,35 +421,95 @@ def audit_reconstructed_training_physics(
 def apply_teacher_gate_nominal_physics(base_env) -> dict[str, object]:
     """Apply one repeated nominal tuple for the teacher prerequisite gate."""
 
-    term_cfg = base_env.event_manager.get_term_cfg("latent_contact_dynamics")
-    term = term_cfg.func
-    if not isinstance(term, apply_stratified_latent_contact_dynamics):
-        raise TypeError("latent dynamics event class drift")
-    current = term.tuple_for_device("cpu")
+    obj = base_env.scene["obj"]
+    robot = base_env.scene["robot"]
+    env_ids = torch.arange(NUM_ENVS, dtype=torch.long)
+
+    # The explicit-zero matched scene intentionally has no TacSL-coupled
+    # latent-contact event. Set the nominal tuple directly through PhysX and
+    # verify the resulting object and robot material/mass state.
+    default_mass = obj.data.default_mass.detach().clone()
+    default_inertia = obj.data.default_inertia.detach().clone()
+    obj.root_physx_view.set_masses(default_mass, env_ids)
+    obj.root_physx_view.set_inertias(default_inertia, env_ids)
+
+    object_materials = obj.root_physx_view.get_material_properties()
+    object_materials[env_ids, :, 0] = 0.5
+    object_materials[env_ids, :, 1] = 0.5
+    object_materials[env_ids, :, 2] = 0.0
+    obj.root_physx_view.set_material_properties(object_materials, env_ids)
+
+    robot_materials = robot.root_physx_view.get_material_properties()
+    robot_materials[env_ids, :, 0] = 0.5
+    robot_materials[env_ids, :, 1] = 0.5
+    robot_materials[env_ids, :, 2] = 0.0
+    robot.root_physx_view.set_material_properties(robot_materials, env_ids)
+
     declared = {
-        "mass_scale": torch.ones_like(current["mass_scale"]),
-        "static_friction": torch.full_like(current["static_friction"], 0.5),
-        "dynamic_friction": torch.full_like(current["dynamic_friction"], 0.5),
-        "com_y_m": torch.zeros_like(current["com_y_m"]),
-        "pulse_delta_velocity_w_mps": torch.zeros_like(
-            current["pulse_delta_velocity_w_mps"]
+        "mass_scale": torch.ones(NUM_ENVS, dtype=torch.float32),
+        "static_friction": torch.full((NUM_ENVS,), 0.5, dtype=torch.float32),
+        "dynamic_friction": torch.full((NUM_ENVS,), 0.5, dtype=torch.float32),
+        "com_y_m": torch.zeros(NUM_ENVS, dtype=torch.float32),
+        "pulse_delta_velocity_w_mps": torch.zeros(
+            NUM_ENVS, 3, dtype=torch.float32
         ),
     }
-    term._tuple_cpu = {name: value.clone() for name, value in declared.items()}
-    env_ids = torch.arange(NUM_ENVS, dtype=torch.long)
-    term(base_env, env_ids, **term_cfg.params)
-    observed = term.tuple_for_device("cpu")
-    readback = {
-        name: value.detach().cpu().clone()
-        for name, value in term.last_readback.items()
+    mass_after = obj.root_physx_view.get_masses().detach().cpu()
+    inertia_after = obj.root_physx_view.get_inertias().detach().cpu()
+    object_after = obj.root_physx_view.get_material_properties().detach().cpu()
+    robot_after = robot.root_physx_view.get_material_properties().detach().cpu()
+    physics_checks = {
+        "mass": torch.allclose(
+            mass_after,
+            default_mass.detach().cpu(),
+            rtol=0.0,
+            atol=1.0e-7,
+        ),
+        "inertia": torch.allclose(
+            inertia_after,
+            default_inertia.detach().cpu(),
+            rtol=0.0,
+            atol=1.0e-7,
+        ),
+        "object_friction": torch.allclose(
+            object_after[:, :, :2],
+            torch.full_like(object_after[:, :, :2], 0.5),
+            rtol=0.0,
+            atol=1.0e-7,
+        ),
+        "object_restitution": torch.allclose(
+            object_after[:, :, 2],
+            torch.zeros_like(object_after[:, :, 2]),
+            rtol=0.0,
+            atol=1.0e-7,
+        ),
+        "robot_friction": torch.allclose(
+            robot_after[:, :, :2],
+            torch.full_like(robot_after[:, :, :2], 0.5),
+            rtol=0.0,
+            atol=1.0e-7,
+        ),
+        "robot_restitution": torch.allclose(
+            robot_after[:, :, 2],
+            torch.zeros_like(robot_after[:, :, 2]),
+            rtol=0.0,
+            atol=1.0e-7,
+        ),
     }
-    exact = all(
-        torch.equal(observed[name], declared[name])
-        and torch.equal(readback[name], declared[name])
-        for name in declared
-    ) and torch.equal(readback["env_ids"], env_ids)
-    if not exact:
-        raise RuntimeError("teacher-gate nominal physics readback mismatch")
+    failed = [name for name, passed in physics_checks.items() if not passed]
+    if failed:
+        raise RuntimeError(
+            "teacher-gate nominal physics readback mismatch: "
+            f"failed={failed}, "
+            f"object_material_range="
+            f"({float(object_after.min())}, {float(object_after.max())}), "
+            f"robot_material_range="
+            f"({float(robot_after.min())}, {float(robot_after.max())}), "
+            f"mass_max_abs="
+            f"{float((mass_after - default_mass.detach().cpu()).abs().max())}, "
+            f"inertia_max_abs="
+            f"{float((inertia_after - default_inertia.detach().cpu()).abs().max())}"
+        )
     return {
         "passed": True,
         "teacher_prerequisite_nominal_physics": True,
@@ -882,6 +1026,16 @@ def main() -> None:
                     else "explicit_zero_control_keeps_teacher_authority_fixed"
                 ) is not True
                 or proof.get("protocol") != config_protocol
+                or (
+                    is_phase_event_reward
+                    and (
+                        not isinstance(
+                            proof.get("no_tactile_startup_physics"), dict
+                        )
+                        or proof["no_tactile_startup_physics"].get("passed")
+                        is not True
+                    )
+                )
             ):
                 raise RuntimeError("matched teacher-control proof is not admitted")
     elif not legacy_preview_update128:
@@ -919,7 +1073,15 @@ def main() -> None:
         checkpoints[update] = checkpoint
 
     shared = config["shared_runtime"]
-    cfg = GoalCoherentLatentRobotEnvCfg()
+    # The active phase-event and teacher-only controls use the original SUGAR
+    # scene with no TacSL assets. Historical packages retain their archived
+    # scene so old traces are not silently reinterpreted.
+    active_no_tactile_scene = args.teacher_only_zero_residual or is_phase_event_reward
+    cfg = (
+        NoTactileGoalRobotEnvCfg()
+        if active_no_tactile_scene
+        else GoalCoherentLatentRobotEnvCfg()
+    )
     cfg.terminations.dropped_after_lift = None
     cfg.scene.num_envs = NUM_ENVS
     cfg.seed = args.seed
@@ -953,27 +1115,28 @@ def main() -> None:
     cfg.commands.motion.generator_checkpoint_path = None
     cfg.commands.motion.start_init_env_ratio = 0.0
     cfg.commands.motion.init_with_ref = True
-    cfg.events.latent_contact_dynamics.params["distribution_seed"] = int(
-        shared["latent_physics_distribution_seed"]
-    )
-    if is_teacher_floor_overfit:
-        fixed = shared["fixed_physics_profile"]
-        event = cfg.events.latent_contact_dynamics
-        event.params["mass_scale_range"] = (
-            float(fixed["mass_scale"]), float(fixed["mass_scale"])
+    if not active_no_tactile_scene:
+        cfg.events.latent_contact_dynamics.params["distribution_seed"] = int(
+            shared["latent_physics_distribution_seed"]
         )
-        event.params["static_friction_range"] = (
-            float(fixed["static_friction"]),
-            float(fixed["static_friction"]),
-        )
-        event.params["dynamic_friction_range"] = (
-            float(fixed["dynamic_friction"]),
-            float(fixed["dynamic_friction"]),
-        )
-        event.params["com_y_range_m"] = (
-            float(fixed["com_y_m"]), float(fixed["com_y_m"])
-        )
-        event.params["pulse_magnitude_range_mps"] = (0.0, 0.0)
+        if is_teacher_floor_overfit and not active_no_tactile_scene:
+            fixed = shared["fixed_physics_profile"]
+            event = cfg.events.latent_contact_dynamics
+            event.params["mass_scale_range"] = (
+                float(fixed["mass_scale"]), float(fixed["mass_scale"])
+            )
+            event.params["static_friction_range"] = (
+                float(fixed["static_friction"]),
+                float(fixed["static_friction"]),
+            )
+            event.params["dynamic_friction_range"] = (
+                float(fixed["dynamic_friction"]),
+                float(fixed["dynamic_friction"]),
+            )
+            event.params["com_y_range_m"] = (
+                float(fixed["com_y_m"]), float(fixed["com_y_m"])
+            )
+            event.params["pulse_magnitude_range_mps"] = (0.0, 0.0)
     configure_explicit_zero(cfg)
 
     output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -1057,9 +1220,35 @@ def main() -> None:
                     "update-64 checkpoint did not restore fixed teacher authority"
                 )
         base_env = env.unwrapped
+        scene_sensor_names = tuple(sorted(base_env.scene.sensors.keys()))
+        robot_body_names = tuple(base_env.scene["robot"].body_names)
+        forbidden_tactile_sensor_names = {
+            "left_palm_tactile",
+            "right_palm_tactile",
+        }
+        forbidden_tactile_body_fragments = (
+            "tacsl",
+            "elastomer",
+            "anatomical_",
+        )
+        no_tactile_scene_proof = {
+            "protocol": "sugar_demo_no_tactile_scene_v1",
+            "scene_sensor_names": list(scene_sensor_names),
+            "robot_body_count": len(robot_body_names),
+            "passed": bool(
+                forbidden_tactile_sensor_names.isdisjoint(scene_sensor_names)
+                and not any(
+                    fragment in body_name
+                    for body_name in robot_body_names
+                    for fragment in forbidden_tactile_body_fragments
+                )
+            ),
+        }
         physics = (
             apply_teacher_gate_nominal_physics(base_env)
             if args.teacher_only_zero_residual
+            else apply_no_tactile_training_physics(base_env, proof)
+            if is_phase_event_reward
             else audit_reconstructed_training_physics(
                 base_env, int(shared["latent_physics_distribution_seed"])
             )
@@ -1505,6 +1694,7 @@ def main() -> None:
             ): physics["passed"],
             "all_tactile_inputs_exact_zero": tactile_nonzero == 0 and tactile_abs_max == 0.0,
             "no_tactile_arrays_or_sensor_read": not reset_record["tactile_arrays_loaded"] and not reset_record["tactile_sensor_data_read"],
+            "demo_control_has_no_tactile_scene": no_tactile_scene_proof["passed"],
             (
                 "frozen_evaluation_teacher_coefficient_exact_floor"
                 if is_teacher_floor_overfit
@@ -1644,6 +1834,7 @@ def main() -> None:
                 teacher_observation_drift_from_env0.tolist()
             ),
             "physics": physics,
+            "no_tactile_scene": no_tactile_scene_proof,
             "reward_term_names": reward_term_names,
             "summaries": summary_records,
             "final_update_aggregate": {

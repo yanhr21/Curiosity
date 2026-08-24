@@ -50,6 +50,21 @@ After any Vulkan device loss, do not reuse that GPU for Isaac evidence in the sa
 retain the allocation as required and move the Isaac gate to a fresh GPU. Policy training still
 requires explicit user approval.
 
+The shared CarryBox45 teacher-only prerequisite also passes on job257815. The evaluator now uses
+`NoTactileGoalRobotEnvCfg` rather than the old zero-tensor TacSL scene, writes nominal object/robot
+physics directly through PhysX and requires an explicit no-tactile-scene proof. Across 20 nominal
+profiles and 400 control steps, the exact-zero residual has maximum lift `0.6854--0.7224 m`,
+bilateral rigid contact for `153--156` frames and zero physical robot falls. Do not reuse the older
+teacher-only result lacking the scene proof; the admitted directory name is
+`teacher_only_gate_no_tactile_v2`.
+
+The no-TacSL scene still inherits official SUGAR startup randomization. Every formal phase-event
+training proof must therefore record exact per-environment object/robot material tensors and object
+mass, inertia and COM under `no_tactile_startup_physics`; frozen evaluation restores those values
+before rollout. The corrected correct/unrelated online smokes on job257815 record bitwise-identical
+startup physics, actions and base rewards while retaining the selected-demo reward difference.
+Never evaluate a phase-event checkpoint whose training proof lacks this physics record.
+
 Routine read-only audits, dataset builds and predictor-only gates may proceed through the documented
 queue. Policy training is the explicit exception and requires user approval.
 
