@@ -95,6 +95,21 @@ def test_behavior_conclusion_matches_observed_direction_count() -> None:
     assert "all predeclared" in MODULE.summarize_behavior_shift(4, 4)
 
 
+def test_carry_structure_requires_both_conditions_to_be_checked_separately() -> None:
+    stable = {
+        "bilateral_contact_fraction": {"mean": 0.84},
+        "lifted_fraction": {"mean": 0.62},
+        "lifted_transport_fraction": {"mean": 0.94},
+    }
+    failed = {
+        "bilateral_contact_fraction": {"mean": 0.0},
+        "lifted_fraction": {"mean": 0.001},
+        "lifted_transport_fraction": {"mean": 0.002},
+    }
+    assert MODULE.carry_structure_preserved(stable)
+    assert not MODULE.carry_structure_preserved(failed)
+
+
 def test_multi_checkpoint_trace_selects_one_twenty_profile_block() -> None:
     trace = {
         "policy_updates": np.asarray([32, 64]),

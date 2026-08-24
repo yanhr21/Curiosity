@@ -86,6 +86,23 @@ The second command reuses admitted frozen results, performs the predictor-indepe
 audit and writes two H.264 videos under
 `experiments/demo_following/shared_actionable_demo_conditioning_v1/seed161591/`.
 
+The fixed contact-topology diagnostic is also complete. It uses the existing shared actor and
+official Carry45/Kick21 Tracker action directions; it is an actor-residual overfit diagnostic, not
+a replacement model or final policy result. Run it serially inside a retained allocation:
+
+```bash
+$PYTHON scripts/sugar/demo_following/train_shared_topology_distillation.py
+bash scripts/sugar/demo_following/evaluate_shared_topology_distillation_pair.sh
+```
+
+The first command executes exactly 3000 optimizer steps. The second freezes that one checkpoint,
+evaluates 20 matched Carry initial states under correct and unrelated conditioning, runs the
+predictor-independent audit and renders two exact-trace H.264 videos. Correct remains a stable
+Carry (`0/20` falls); unrelated leaves Carry but falls in `15/20`. This proves a strong
+condition-dependent split, not successful KickBox imitation. The next implementation must learn
+from both official Carry and Kick physical rollout distributions; extending this fixed Carry
+Refiner residual diagnostic is not the active route.
+
 On the current cluster, NVIDIA Vulkan camera rendering repeatedly loses the H200 device during
 scene creation before a valid frame is emitted. This does not invalidate camera-free frozen traces.
 The exact-trace fallback renders recorded robot body centers and box pose without rerunning physics:

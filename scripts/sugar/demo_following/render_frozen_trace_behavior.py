@@ -77,6 +77,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Render the same update-64 checkpoint evaluated under two selected demos.",
     )
+    parser.add_argument(
+        "--topology-distillation",
+        action="store_true",
+        help="Label the shared checkpoint as the fixed 3000-step topology distillation diagnostic.",
+    )
     return parser.parse_args()
 
 
@@ -243,6 +248,7 @@ def render_pair(
     body_names: np.ndarray,
     demo_label: str,
     output: Path,
+    actual_label: str = "ACTUAL FROZEN POLICY (UPDATE 64)",
 ) -> dict[str, object]:
     reference, actual = recenter(reference), recenter(actual)
     name_to_id = {str(name): index for index, name in enumerate(body_names)}
@@ -280,7 +286,7 @@ def render_pair(
             draw_sequence(frame, reference, reference_index, PANEL_ORIGINS[0], name_to_id)
             draw_sequence(frame, actual, actual_index, PANEL_ORIGINS[1], name_to_id)
             cv2.putText(frame, demo_label, (18, 46), cv2.FONT_HERSHEY_SIMPLEX, 0.61, (20, 20, 20), 2, cv2.LINE_AA)
-            cv2.putText(frame, "ACTUAL FROZEN POLICY (UPDATE 64)", (658, 46), cv2.FONT_HERSHEY_SIMPLEX, 0.60, (20, 20, 20), 2, cv2.LINE_AA)
+            cv2.putText(frame, actual_label, (658, 46), cv2.FONT_HERSHEY_SIMPLEX, 0.60, (20, 20, 20), 2, cv2.LINE_AA)
             cv2.putText(frame, "DEMO 1x (then holds)", (18, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.43, (70, 70, 70), 1, cv2.LINE_AA)
             cv2.putText(frame, "ACTUAL 0.25x (then holds)", (658, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.43, (70, 70, 70), 1, cv2.LINE_AA)
             cv2.putText(frame, "Exact recorded body centers + box pose; no physics replay", (385, 712), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (70, 70, 70), 1, cv2.LINE_AA)
@@ -309,10 +315,16 @@ def main() -> None:
         raise ValueError("all paths must remain under experiments/")
     if output.exists():
         raise FileExistsError(output)
-    expected_source_env = 0 if args.shared_checkpoint else 20
-    if args.source_env != expected_source_env or args.policy_update != 64:
+    if args.topology_distillation and not args.shared_checkpoint:
+        raise ValueError("topology distillation rendering requires --shared-checkpoint")
+    if args.shared_checkpoint:
+        if args.source_env != 0 or args.policy_update != 64:
+            raise ValueError(
+                "the shared-checkpoint visualization is fixed to update 64, env 0"
+            )
+    elif args.source_env != 20 or args.policy_update != 64:
         raise ValueError(
-            f"the admitted visualization is fixed to update 64, env {expected_source_env}"
+            "the matched-pair visualization is fixed to update 64, env 20"
         )
 
     expected_arms = (
@@ -320,7 +332,15 @@ def main() -> None:
         if args.shared_checkpoint
         else ("same_teacher_correct_reward", "same_teacher_unrelated_reward")
     )
-    expected_updates = [64] if args.shared_checkpoint else [32, 64]
+    expected_result_protocol = (
+        "sugar_shared_topology_distillation_frozen_eval_v1"
+        if args.topology_distillation
+        else (
+            "sugar_shared_actionable_demo_conditioning_frozen_eval_v1"
+            if args.shared_checkpoint
+            else "sugar_phase_event_reward_matched_frozen_eval_32_64_v2"
+        )
+    )
     loaded: list[dict[str, np.ndarray]] = []
     results: list[dict[str, object]] = []
     admitted_results: list[str] = []
@@ -333,8 +353,16 @@ def main() -> None:
             result.get("passed") is not True
             or not all(result.get("checks", {}).values())
             or result.get("arm") != expected_arm
-            or result.get("policy_updates") != expected_updates
+            or (
+                args.shared_checkpoint
+                and result.get("policy_updates") != [64]
+            )
+            or (
+                not args.shared_checkpoint
+                and result.get("policy_updates") != [32, 64]
+            )
             or result.get("profiles_per_update") != 20
+            or result.get("protocol") != expected_result_protocol
             or (
                 args.shared_checkpoint
                 and result.get("selected_demo_telemetry")
@@ -382,10 +410,20 @@ def main() -> None:
         render_pair(
             references[0], actuals[0], loaded[0]["ordered_body_names"],
             "INPUT DEMO: CARRYBOX MOTION 45", output / "01_correct_demo_and_actual_behavior.mp4",
+            (
+                "ACTUAL SHARED POLICY (DISTILL 3000)"
+                if args.topology_distillation
+                else "ACTUAL FROZEN POLICY (UPDATE 64)"
+            ),
         ),
         render_pair(
             references[1], actuals[1], loaded[1]["ordered_body_names"],
             "INPUT DEMO: UNRELATED KICKBOX MOTION 21", output / "02_unrelated_kickbox_demo_and_actual_behavior.mp4",
+            (
+                "ACTUAL SHARED POLICY (DISTILL 3000)"
+                if args.topology_distillation
+                else "ACTUAL FROZEN POLICY (UPDATE 64)"
+            ),
         ),
     )
     checks = {
@@ -403,7 +441,9 @@ def main() -> None:
     }
     proof = {
         "protocol": (
-            "sugar_shared_actionable_demo_condition_swap_exact_trace_video_v1"
+            "sugar_shared_topology_distillation_exact_trace_video_v1"
+            if args.topology_distillation
+            else "sugar_shared_actionable_demo_condition_swap_exact_trace_video_v1"
             if args.shared_checkpoint
             else "sugar_phase_event_reward_matched_exact_trace_video_v1"
         ),

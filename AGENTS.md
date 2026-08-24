@@ -1,6 +1,6 @@
 # Global Agent Rules
 
-## 1. No human authorization gates; current priority: actionable demo conditioning
+## 1. No human authorization gates; current priority: executable demo-conditioned topology
 
 - Hard user rule from 2026-08-24: never add, require or wait on an artificial human-approval flag,
   environment variable, sentinel file or repeated confirmation for an experiment already in the
@@ -100,6 +100,30 @@ conditions remain bilateral Carry. Mean maximum lift is `0.68367/0.66868 m`; phy
 `0/20` versus `1/20`. This proves same-policy demo-conditioned modulation, not semantic switching or
 complete Kick following. Do not increase reward scale or claim success from this single seed; the
 next matched experiment must address contact-topology generation under the same shared-policy rule.
+
+The fixed action-direction topology diagnostic is now complete. It reused the existing serious
+SUGAR `512/256/128` actor, frozen 11.386M causal predictor and official Carry45/Kick21 Tracker
+corpus. For each Carry and Kick causal state, correct and unrelated conditions were both present;
+the residual labels were exact zero and `Kick21 Tracker action - Carry45 Tracker action`. Future
+actions were training labels only and never entered the deployed actor. Exactly 3000 actor-only
+optimizer steps reduced MSE from `1.48955` to `0.10764`; critic and tactile encoder remained
+bitwise unchanged.
+
+Frozen evaluation loaded the same step-3000 checkpoint and identical Carry initial state twice,
+changing only the selected-demo condition over 20 profiles. Correct preserved Carry with
+`0.68792 m` mean lift, `0.84006` bilateral-contact fraction and `0/20` falls. Unrelated left the
+Carry solution with `0.00267 m` mean lift, zero bilateral contact, `0.99764` ground-transport
+fraction and increased foot contact, but fell in `15/20`. The videos show unstable leg/orbit
+behavior, not a successful Kick. This proves that official action-direction supervision can create
+a strong same-checkpoint behavior split; it does not prove semantic demo following.
+
+Do not extend the fixed Carry Refiner residual diagnostic or run another reward-scale sweep. The
+next serious matched implementation must train one shared conditioned actor on physically valid
+official Carry and Kick rollout state/action distributions, then freeze the checkpoint and test a
+condition-only swap. Future action labels remain training-only; no toy policy, teacher or model may
+replace the official SUGAR components. Once the active experiment is documented, its predeclared
+stages run continuously without any approval flag, sentinel, manual checkpoint gate or repeated
+user confirmation.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

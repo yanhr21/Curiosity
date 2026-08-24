@@ -794,6 +794,54 @@ mean/max absolute difference 为 `0.01319/0.37943`。correct/unrelated 的平均
 `0/20` 和 `1/20`。独立行为审计得到 `3/4` 预登记方向，但两边仍为双手 Carry，无完整 Kick
 脚—箱接触结构。因此该结果证明 same-policy causal modulation，不证明 semantic switching。
 
+### 3.12 Official-action direction topology diagnostic
+
+该诊断复用 3.11 节的 serious SUGAR `512/256/128` shared actor 和冻结 seed271303 causal
+predictor，不新建 toy policy。训练数据来自已通过 admission 的 official Tracker actual-rollout
+corpus：CarryBox45 与 KickBox21 各 649 个 causal states、29-D released Tracker actions。同一个
+state 同时配对 correct/unrelated condition，因此 actor 不能从 state 猜 selected demo。
+
+- correct residual label：exact zero，保持 frozen Carry Refiner 执行基线；
+- unrelated residual label：`KickBox21 Tracker action - CarryBox45 Tracker action`；
+- future action 只在 supervised optimizer step 中作训练 label；
+- frozen evaluation 的 actor 输入仍只有当前 175-D causal policy observation、798-D
+  selected-demo condition 和 exact-zero tactile tensor。
+
+在 retained GPU allocation 内串行执行：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/train_shared_topology_distillation.py
+bash scripts/sugar/demo_following/evaluate_shared_topology_distillation_pair.sh
+```
+
+第一条命令固定 `seed=161593`、`batch=512`、`lr=1e-4` 和恰好 3000 optimizer steps。第二条
+命令使用 eval seed `171593`、20 profiles、400 control steps，加载同一个 step-3000 checkpoint
+两次并只切换 selected-demo condition，随后执行 predictor-independent behavior audit 和两个
+H.264/yuv420p exact-trace videos。各阶段连续运行，不依赖人工授权 flag 或 sentinel。
+
+```text
+experiments/demo_following/shared_topology_distillation_v1/seed161593/
+├── step_3000/{policy.pt,proof.json,protocol.json}
+├── evaluation_fixed_carry_teacher_step3000/
+│   ├── correct/{RESULT.json,TRACE.npz}
+│   └── unrelated/{RESULT.json,TRACE.npz}
+├── behavior_adherence_fixed_carry_teacher_step3000/{RESULT.json,profiles.csv}
+└── videos_fixed_carry_teacher_step3000/
+    ├── 01_correct_demo_and_actual_behavior.mp4
+    ├── 02_unrelated_kickbox_demo_and_actual_behavior.mp4
+    └── RENDER_PROOF.json
+```
+
+训练 MSE 为 `1.48955 -> 0.10764`，same-state condition swap 的 residual mean/max absolute
+差为 `0.98783/12.1281`；actor 参数改变，critic 和 tactile encoder 的最大变化均为精确零。
+冻结 correct 分支平均最大 lift `0.68792 m`、bilateral-contact fraction `0.84006`、fall
+`0/20`。unrelated 分支相应为 `0.00267 m`、`0` 和 `15/20`，ground-transport fraction
+`0.99764`，foot-box contact fraction 从 `0.00289` 增到 `0.03646`。四个预登记方向均变化，
+但视频显示的是不稳定抬腿/绕箱及摔倒，不是成功 KickBox。允许的结论只有：official action
+direction 能让同一个 conditioned actor 离开 Carry 解；固定 Carry Refiner 和 Carry 初始状态下
+没有获得可执行 Kick 语义。下一实验必须使用 official Carry/Kick 两种物理 rollout 分布训练
+共享 actor，仍禁止 future action 进入部署输入。
+
 ## 4. Earlier trajectory-only predictor
 
 这是 contact/event redesign 之前保留的 11.9M trajectory-only 模型。输入为过去 10 帧

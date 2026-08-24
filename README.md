@@ -8,7 +8,24 @@ IsaacLab/PhysX；Newton 只作为 asset 来源，不作为执行后端。
 
 ### Demo following：信号被使用，语义遵循尚未成立
 
-最新实验已经消除了“两个 demo 对应两个 checkpoint”的混杂。一个共享的 serious SUGAR
+最新的固定 overfit 诊断进一步定位了瓶颈。它保留同一个 serious SUGAR `512/256/128`
+shared actor、冻结 11.386M predictor 和 CarryBox45 Refiner 执行基线，只训练 actor residual：
+correct 条件目标为零残差，unrelated 条件目标为 official
+`KickBox21 Tracker action - CarryBox45 Tracker action`。同一状态同时配对两种条件，未来 action
+只作为训练 label，冻结评估时 actor 仍只读取当前因果状态和 selected-demo condition。3000
+optimizer steps 后，训练 MSE 从 `1.48955` 降到 `0.10764`，同一状态切换条件的动作 mean/max
+差为 `0.98783/12.1281`。
+
+同一个 step-3000 checkpoint 在 20 个完全相同的 Carry 初始状态上只切换条件后，correct
+保持稳定搬运：平均最大抬升 `0.68792 m`、双手接触比例 `0.84006`、physical fall `0/20`。
+unrelated 则平均只抬升 `0.00267 m`、双手接触比例为 `0`、ground-transport 为 `0.99764`、
+足—箱接触比例从 `0.00289` 增至 `0.03646`，但 physical fall 达 `15/20`。视频中可看到抬腿和
+绕箱倾向，也可看到摔倒；它不是成功 KickBox。该结果首次证明 action-direction supervision
+足以让同一 actor 离开 Carry 解，但也证明“行为分叉”不等于“语义正确的 demo following”。
+固定 Carry Refiner 基线和 Carry frame-197 初始化不提供可稳定执行的 Kick 状态分布，下一步
+必须在 official Carry/Kick 两种物理 rollout 上训练共享条件 actor，再做同 checkpoint 条件交换。
+
+上一阶段已经消除了“两个 demo 对应两个 checkpoint”的混杂。一个共享的 serious SUGAR
 actor 在同一批 20 个 CarryBox 环境中训练 64 updates：10 个环境读取 Carry45 条件，10 个读取
 Kick21 条件，teacher、任务和物理全部仍为 CarryBox45。actor 每步读取冻结 11.386M causal
 predictor 提供的 798-D selected-demo/当前轨迹条件；未来事件和 GT 轨迹不进入 actor。
@@ -300,6 +317,10 @@ $PYTHON_BIN scripts/sugar/demo_following/render_frozen_trace_behavior.py \
 # 无 GPU：从现有 traces 重算独立行为审计
 $PYTHON_BIN scripts/sugar/demo_following/analyze_behavior_adherence.py
 
+# retained GPU：固定 3000-step official-action direction overfit，然后串行冻结评估并渲染
+$PYTHON_BIN scripts/sugar/demo_following/train_shared_topology_distillation.py
+bash scripts/sugar/demo_following/evaluate_shared_topology_distillation_pair.sh
+
 # 无 GPU：汇总三个独立训练 seeds；20 physics profiles 只作 seed 内变化
 $PYTHON_BIN scripts/sugar/demo_following/aggregate_behavior_adherence.py
 
@@ -340,6 +361,8 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 
 当前保留视频（标为“旧 phase-0”的两条是时钟错位负结果，不是 corrected policy endpoint）：
 
+- [action-direction 诊断：Carry45 条件与稳定搬运](experiments/demo_following/shared_topology_distillation_v1/seed161593/videos_fixed_carry_teacher_step3000/01_correct_demo_and_actual_behavior.mp4)；
+- [action-direction 诊断：Kick21 条件与失败/摔倒行为](experiments/demo_following/shared_topology_distillation_v1/seed161593/videos_fixed_carry_teacher_step3000/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [共享 checkpoint：Carry45 输入与实际行为](experiments/demo_following/shared_actionable_demo_conditioning_v1/seed161591/videos_same_checkpoint_update0064/01_correct_demo_and_actual_behavior.mp4)；
 - [共享 checkpoint：Kick21 输入与实际行为](experiments/demo_following/shared_actionable_demo_conditioning_v1/seed161591/videos_same_checkpoint_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [新 reference-aware correct demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/videos_update0064_trace_exact/01_correct_demo_and_actual_behavior.mp4)；
@@ -387,8 +410,10 @@ official Generator/Tracker Kick gate 也以 `8/9` profile preference 通过，�
 可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。第一组从零 reference-aware matched
 pair、独立 seed 复现和固定 4x 诊断均已完成。1x 在 update 64 的同一 `3/4` 小幅变化可重复，
 4x 却退化为 `1/4`，所以问题不是单纯 reward 太小。共享 checkpoint 的 serious SUGAR actor
-现已完成：训练时混合 Carry45/Kick21 condition，测试时固定 checkpoint 只交换 demo，actor
-每步只读取冻结 predictor 的因果 condition。它证明同一策略会随 demo 改变动作，但两种输入
-仍停留在 Carry 解族，尚未产生 Kick 的脚—箱接触拓扑。下一步应针对“如何在保留 Carry
-teacher 稳定性的同时生成新的接触拓扑”做一个 matched serious experiment，而不是继续放大
-reward 或增加无关训练长度。未来 GT events 仍禁止进入 actor，SMP 仍不接入。
+和固定 3000-step action-direction diagnostic 均已完成。前者证明纯 predictor condition 会调制
+同一策略但仍留在 Carry 解；后者证明加入 official Carry/Kick action-direction supervision 后
+可以产生强烈条件分叉，却以 `15/20` unrelated falls 失败，尚未形成稳定 Kick。下一实验应让
+一个共享 actor 在 official CarryBox45 与 KickBox21 物理 rollout/state distribution 上学习各自
+可执行动作，再在相同物理初态下只换 demo condition 做 frozen causal test。不得继续 reward
+scale sweep，不得把 future action label 放进 deployed actor，也不得用 toy teacher/MLP 替代
+official SUGAR Tracker、Refiner 或现有 serious actor。SMP 仍不接入。

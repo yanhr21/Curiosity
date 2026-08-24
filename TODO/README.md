@@ -112,8 +112,14 @@
   Kick21-conditioned environments under the common CarryBox45 teacher;
 - [x] freeze-evaluate the exact same checkpoint and initial state under each demo condition for 20
   profiles, run the predictor-independent behavior audit and render two complete H.264 videos;
-- [ ] design one matched serious contact-topology experiment that can generate a qualitatively new
-  foot-box interaction rather than only perturbing the existing Carry solution.
+- [x] design and execute one fixed serious contact-topology diagnostic using the existing shared
+  SUGAR actor, frozen predictor and official Carry45/Kick21 Tracker action directions;
+- [x] train exactly 3000 actor-only overfit steps, confirm critic/tactile encoder remain frozen,
+  and freeze-evaluate the same checkpoint under condition-only swap on 20 matched profiles;
+- [x] record the diagnostic boundary: correct preserves Carry, unrelated produces a strong
+  leg/ground-motion split but falls in `15/20`, so it proves condition use rather than valid Kick;
+- [ ] build the next shared conditioned actor from both official Carry and Kick physical rollout
+  state/action distributions, then test condition-only switching without future-action actor input.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -124,7 +130,11 @@ behavioral movement at update 64 and that pattern repeats in seed161589, but bot
 solutions. The fixed 4x diagnostic then degrades the paired result to `1/4`, so no scale sweep is
 allowed. The shared-checkpoint actionable condition is now implemented and causally changes the
 same frozen policy's actions, but update 64 still yields bilateral Carry under both demos despite a
-`3/4` directional shift. The next work targets contact-topology generation, not more reward scale.
+`3/4` directional shift. The fixed 3000-step official-action diagnostic then creates a strong
+same-checkpoint split: correct remains a stable Carry, while unrelated leaves Carry but falls in
+`15/20` and is not a valid Kick solution. The next work must learn executable conditional actions
+from both official task rollout distributions, not increase reward scale or extend the failed
+Carry-Refiner residual setup.
 
 ## Frozen tactile work
 

@@ -444,6 +444,15 @@ def numeric_summary(records: list[dict[str, float]]) -> dict[str, dict[str, floa
     }
 
 
+def carry_structure_preserved(summary: dict[str, dict[str, float]]) -> bool:
+    """Require sustained bilateral hold, lift and airborne transport."""
+    return bool(
+        summary["bilateral_contact_fraction"]["mean"] >= 0.50
+        and summary["lifted_fraction"]["mean"] >= 0.50
+        and summary["lifted_transport_fraction"]["mean"] >= 0.80
+    )
+
+
 def compare_profiles(
     correct: list[dict[str, float]], unrelated: list[dict[str, float]]
 ) -> dict[str, dict[str, float | int]]:
@@ -707,12 +716,9 @@ def main() -> None:
     )
     correct_summary = numeric_summary(correct_records)
     unrelated_summary = numeric_summary(unrelated_records)
-    carry_preserved = (
-        correct_summary["bilateral_contact_fraction"]["mean"] >= 0.50
-        and correct_summary["lifted_fraction"]["mean"] >= 0.50
-        and correct_summary["lifted_transport_fraction"]["mean"] >= 0.80
-    )
-    if carry_preserved:
+    correct_carry_preserved = carry_structure_preserved(correct_summary)
+    unrelated_carry_preserved = carry_structure_preserved(unrelated_summary)
+    if correct_carry_preserved and unrelated_carry_preserved:
         if args.same_checkpoint_condition_swap:
             conclusion = (
                 "The same frozen policy retains a usable Carry solution under both "
@@ -727,6 +733,20 @@ def main() -> None:
                 "within the Carry solution family, but this seed alone does not establish "
                 "semantic demo following."
             )
+    elif correct_carry_preserved:
+        subject = (
+            "Swapping only the selected demo condition"
+            if args.same_checkpoint_condition_swap
+            else "Selecting the unrelated reward arm"
+        )
+        conclusion = (
+            "The correct condition preserves the predeclared Carry contact/lift/"
+            f"transport structure, while the unrelated condition does not. {behavior_conclusion} "
+            f"{subject} therefore creates a strong physical behavior split, but the "
+            "unrelated condition is a failed/falling response rather than verified "
+            "KickBox imitation. This endpoint establishes condition use, not semantic "
+            "demo following."
+        )
     else:
         conclusion = (
             "The correct arm does not preserve the predeclared Carry contact/lift/"
@@ -778,6 +798,8 @@ def main() -> None:
         "predeclared_semantic_directions": checks,
         "semantic_directions_observed": directions_observed,
         "semantic_directions_total": len(checks),
+        "correct_carry_structure_preserved": correct_carry_preserved,
+        "unrelated_carry_structure_preserved": unrelated_carry_preserved,
         "conclusion": conclusion,
         "limitations": [
             "Twenty profiles are matched physics variations from one training seed, not twenty independent policy seeds.",

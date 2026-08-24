@@ -7,8 +7,9 @@ are under root `legacy/`.
 
 The completed reference-aware matched policy results are
 `demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/` and `seed161589/`. The
-fixed 4x feedback-strength overfit diagnostic is also complete. The next focus is the shared
-demo-conditioned actor contract. This README is the only
+fixed 4x feedback-strength overfit and shared action-direction topology diagnostics are also
+complete. The next focus is a single conditioned actor trained on both official Carry and Kick
+physical rollout distributions. This README is the only
 experiment index; the stale package manifest has been archived.
 
 ## 1. `demo_following/`
@@ -38,6 +39,12 @@ experiment index; the stale package manifest has been archived.
   magnitude diagnostic. Direction count degrades from baseline `3/4` to `1/4`, paired effects
   reverse and unrelated foot contact does not increase. `STRENGTH_COMPARISON.json` is the compact
   machine-readable verdict; no further scale is active;
+- `shared_actionable_demo_conditioning_v1/seed161591/`: one update-64 SUGAR checkpoint conditioned
+  on Carry45/Kick21. Condition-only swapping changes actions, but both outcomes remain Carry;
+- `shared_topology_distillation_v1/seed161593/`: fixed 3000-step official-action direction
+  diagnostic and its 20-profile same-checkpoint evaluation. Correct preserves Carry; unrelated
+  increases leg/ground interaction but falls in `15/20`, so it is not valid Kick imitation. The
+  two complete H.264 videos are under `videos_fixed_carry_teacher_step3000/`;
 - `teacher_floor_overfit_v1/`: seed161581 update-128 correct/unrelated endpoints, frozen traces,
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick

@@ -72,6 +72,20 @@ parser.add_argument(
     help="shared-checkpoint evaluation: swap only the selected demo condition",
 )
 parser.add_argument(
+    "--topology-distillation-checkpoint",
+    type=Path,
+    help=(
+        "Optional shared-policy actor override produced by the fixed official "
+        "Carry/Kick topology distillation diagnostic. The original update-64 "
+        "wrapper, physics and critic state remain the evaluation base."
+    ),
+)
+parser.add_argument(
+    "--topology-distillation-proof",
+    type=Path,
+    help="Required admitted proof for --topology-distillation-checkpoint.",
+)
+parser.add_argument(
     "--updates",
     default="1,128,512",
     help="Frozen checkpoints to evaluate; 128 alone is allowed for a labelled preview.",
@@ -1095,6 +1109,20 @@ def main() -> None:
     is_shared_actionable_demo = (
         config_protocol == "sugar_shared_actionable_demo_conditioning_v1"
     )
+    topology_distillation_eval = (
+        args.topology_distillation_checkpoint is not None
+        or args.topology_distillation_proof is not None
+    )
+    if topology_distillation_eval and (
+        not is_shared_actionable_demo
+        or args.topology_distillation_checkpoint is None
+        or args.topology_distillation_proof is None
+        or UPDATES != (64,)
+    ):
+        raise ValueError(
+            "topology distillation evaluation requires the shared protocol, "
+            "both override artifacts and only base update 64"
+        )
     uses_phase_event_scorer = (
         is_phase_event_reward or is_shared_actionable_demo
     )
@@ -1235,6 +1263,8 @@ def main() -> None:
         raise RuntimeError("the update-128 preview is only admitted for unrelated_demo")
     checkpoint_paths: dict[int, Path] = {}
     checkpoints: dict[int, dict[str, object]] = {}
+    topology_distillation_proof: dict[str, object] | None = None
+    topology_distillation_steps: int | None = None
     for update in UPDATES:
         if legacy_preview_update128:
             path = proof_path.parent / f"policy_update{update}.pt"
@@ -1244,7 +1274,51 @@ def main() -> None:
         checkpoint = torch.load(path, map_location=args.device, weights_only=True)
         if int(checkpoint.get("iteration", -1)) != update:
             raise RuntimeError(f"checkpoint {update} iteration drift")
-        checkpoint_paths[update] = path
+        if topology_distillation_eval:
+            override_path = (
+                args.topology_distillation_checkpoint.expanduser().resolve()
+            )
+            override_proof_path = (
+                args.topology_distillation_proof.expanduser().resolve()
+            )
+            if not (
+                override_path.is_relative_to(experiment_root)
+                and override_proof_path.is_relative_to(experiment_root)
+            ):
+                raise ValueError("topology distillation evidence must remain under experiments/")
+            topology_distillation_proof = json.loads(
+                override_proof_path.read_text(encoding="utf-8")
+            )
+            failed = [
+                name
+                for name, passed in topology_distillation_proof.get(
+                    "checks", {}
+                ).items()
+                if passed is not True
+            ]
+            if (
+                topology_distillation_proof.get("protocol")
+                != "sugar_shared_topology_distillation_v1"
+                or topology_distillation_proof.get("passed") is not True
+                or failed
+            ):
+                raise RuntimeError("topology distillation proof is not admitted")
+            override = torch.load(
+                override_path, map_location=args.device, weights_only=True
+            )
+            topology_distillation_steps = int(override.get("iteration", -1))
+            if (
+                override.get("protocol")
+                != "sugar_shared_topology_distillation_checkpoint_v1"
+                or topology_distillation_steps != 3000
+                or Path(override.get("source_checkpoint", "")).resolve() != path
+            ):
+                raise RuntimeError("topology distillation checkpoint provenance drift")
+            checkpoint = dict(checkpoint)
+            checkpoint["policy_state_dict"] = override["policy_state_dict"]
+            checkpoint_paths[update] = override_path
+        else:
+            checkpoint_paths[update] = path
         checkpoints[update] = checkpoint
 
     shared = config["shared_runtime"]
@@ -2102,6 +2176,10 @@ def main() -> None:
         np.savez_compressed(trace_path, **arrays)
         if args.teacher_only_zero_residual:
             result_protocol = "sugar_plan11_correct_teacher_zero_residual_gate_v1"
+        elif topology_distillation_eval:
+            result_protocol = (
+                "sugar_shared_topology_distillation_frozen_eval_v1"
+            )
         elif is_shared_actionable_demo:
             result_protocol = (
                 "sugar_shared_actionable_demo_conditioning_frozen_eval_v1"
@@ -2151,6 +2229,22 @@ def main() -> None:
                 else "predicted_component_mse"
             ),
             "selected_demo_feedback_applied_during_training": args.arm != "task_only",
+            "topology_distillation": (
+                {
+                    "steps": topology_distillation_steps,
+                    "proof": str(
+                        args.topology_distillation_proof.expanduser().resolve()
+                    ),
+                    "training_target": (
+                        "correct=zero residual; unrelated=official Kick21 "
+                        "Tracker minus official Carry45 Tracker"
+                    ),
+                    "future_action_available_at_evaluation": False,
+                    "common_frozen_carry_refiner_unchanged": True,
+                }
+                if topology_distillation_eval
+                else None
+            ),
             "teacher_only_zero_residual": args.teacher_only_zero_residual,
             "teacher_only_admission_rule": (
                 "all profiles show bilateral contact and at least 0.05 m lift; "
@@ -2222,7 +2316,14 @@ def main() -> None:
             "demo_predictor_audits": scorer_audits,
             "training": {
                 "config": str(config_path),
-                "proof": None if legacy_preview_update128 else str(proof_path),
+                "proof": (
+                    str(args.topology_distillation_proof.expanduser().resolve())
+                    if topology_distillation_eval
+                    else None if legacy_preview_update128 else str(proof_path)
+                ),
+                "base_update64_proof": (
+                    str(proof_path) if topology_distillation_eval else None
+                ),
                 "postcheck_admission": (
                     None
                     if (legacy_preview_update128 or is_teacher_demo64)

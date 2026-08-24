@@ -41,6 +41,29 @@ only Carry45 versus Kick21 conditioning. Residual actions change by mean/max abs
 remain bilateral Carry. Maximum lift is `0.68367/0.66868 m` and physical falls are `0/20` versus
 `1/20`. This establishes same-policy demo-conditioned modulation, not complete semantic following.
 
+The fixed action-direction topology diagnostic is also complete. It keeps that same serious
+SUGAR actor family, frozen 11.386M causal predictor and CarryBox45 Refiner execution baseline. For
+both official Carry45 and Kick21 state sequences, each causal state is paired with both demo
+conditions: the correct target is exact-zero residual, and the unrelated target is the released
+`Kick21 Tracker action - Carry45 Tracker action`. Future actions are training labels only and are
+absent from frozen evaluation. Exactly 3000 optimizer steps reduce dataset MSE from `1.48955` to
+`0.10764`; critic and tactile encoder remain unchanged. Swapping only the condition on the same
+state changes residual actions by mean/max `0.98783/12.1281`.
+
+The same step-3000 checkpoint is then evaluated from the same Carry initial state and physics over
+20 profiles. Correct preserves Carry (`0.68792 m` mean lift, `0.84006` bilateral-contact fraction,
+`0/20` falls). Unrelated leaves the Carry solution (`0.00267 m` lift, zero bilateral contact,
+`0.99764` ground-transport fraction and increased foot-box contact), but falls in `15/20` profiles.
+All four predeclared behavior directions move toward Kick21, yet the video shows an unstable leg/
+orbit response rather than successful KickBox imitation. This proves that explicit action-direction
+supervision can create a same-checkpoint behavior split; it does not establish semantic following.
+
+The next matched experiment must train one shared conditioned actor on physically valid official
+Carry and Kick rollout state distributions/actions, then freeze the checkpoint and swap only the
+demo condition under matched evaluation. The fixed Carry Refiner plus Carry-frame initialization
+cannot be assumed to support a stable Kick topology. No reward-scale sweep, toy teacher or future
+action input to the deployed actor is permitted.
+
 The first causal selected-demo experiment is complete:
 
 1. CarryBox45 teacher-only, zero-residual evaluation passes bilateral contact and 5 cm lift in all
