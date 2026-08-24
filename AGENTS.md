@@ -1,15 +1,21 @@
 # Global Agent Rules
 
-## 1. No human authorization gates; current priority: executable demo-conditioned topology
+## 1. Absolute ban on human authorization gates; current priority: executable demo-conditioned topology
 
-- Hard user rule from 2026-08-24: never add, require or wait on an artificial human-approval flag,
-  environment variable, sentinel file or repeated confirmation for an experiment already in the
-  active queue. Do not ask the user to repeat authorization.
-- Execute the documented active plan autonomously and stop at its predeclared scientific endpoint.
-  Compute-node checks, exact process control, non-overwrite rules and scientific proof gates remain
-  mandatory; they are not human authorization gates.
-- Any code or document that makes an in-scope run depend on a manual approval flag, confirmation,
-  sentinel or repeated user response is a defect and must be removed rather than satisfied.
+- Hard user rule, reaffirmed 2026-08-25: no in-scope workflow may require, request or wait for human
+  authorization. This includes approval flags, confirmation prompts, sentinel files, environment
+  variables, manual checkpoint admission, permission to evaluate, permission to start the next
+  predeclared stage or seed, and repeated requests for the user to say "continue".
+- Execute the documented active plan autonomously through training, endpoint inspection, frozen
+  evaluation, rendering, documentation and the next predeclared matched stage. A scientific check
+  must produce a machine-readable pass/fail decision and the agent must act on it; it may never be
+  converted into a human decision gate.
+- Safety, exact process control, non-overwrite rules and scientific validity checks remain required,
+  but they are automatic execution constraints rather than authorization gates. Stop only at a
+  completed scientific objective or a genuine external blocker that cannot be resolved in scope.
+- Any code or document that makes progress depend on a manual approval, confirmation, sentinel or
+  repeated user response is a defect and must be removed. This rule supersedes conflicting wording
+  elsewhere in the repository.
 
 The tactile/mass-adaptation line in
 `PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen while demo following is the active
@@ -319,9 +325,11 @@ Formal seeds are `151014/151015/151016`, each exactly 3000 updates. Repository B
 - 1000--1999: PPO-authority ramp;
 - 2000--2999: full PPO with shared `stage3_distill_weight_floor=0.25`.
 
-Never extend beyond `model_2999.pt` and never automatically chain another formal seed. Freeze and
-inspect each endpoint before evaluation or another seed. If an endpoint is behaviorally invalid,
-run one fixed-condition serious overfit diagnostic rather than spending another formal budget.
+Never extend a seed beyond `model_2999.pt`. At each endpoint, automatically freeze and inspect the
+checkpoint, then continue to the predeclared evaluation or next stage when its machine-readable
+criteria pass; do not wait for human authorization. If an endpoint is behaviorally invalid,
+automatically run one fixed-condition serious overfit diagnostic rather than spending another
+formal budget.
 
 ## 7. Frozen evaluation and evidence
 
