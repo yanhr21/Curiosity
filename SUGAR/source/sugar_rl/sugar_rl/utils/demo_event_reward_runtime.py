@@ -29,6 +29,7 @@ MODEL_SOURCE = (
     / "scripts/sugar/demo_reward/demo_conditioned_causal_predictor_v1.py"
 )
 GOAL_POLICY_CORE_DIM = 121
+ACTIONABLE_DEMO_CONDITIONING_DIM = 798
 GOAL_POLICY_CORE_TERM_NAMES = (
     "projected_gravity",
     "base_height",
@@ -95,6 +96,7 @@ class DemoEventRewardSignals:
     done: torch.Tensor
     failure_done: torch.Tensor
     selected_demo_phase: torch.Tensor
+    actionable_conditioning: torch.Tensor
 
 
 class FrozenDemoEventReward:
@@ -184,15 +186,38 @@ class FrozenDemoEventReward:
         self.variance_multiplier = torch.from_numpy(multiplier).to(self.device)
 
     def _load_selected_demo(self) -> None:
-        if self.cfg.selected_task not in {"CarryBox", "KickBox"}:
+        numeric, row = self._load_numeric_demo(
+            self.cfg.selected_task, self.cfg.selected_motion_id
+        )
+        self.selected_demo_row = row
+        self.selected_demo_tasks = tuple(
+            self.cfg.selected_task for _ in range(self.num_envs)
+        )
+        self.selected_demo_motion_ids = tuple(
+            int(self.cfg.selected_motion_id) for _ in range(self.num_envs)
+        )
+        self.selected_demo_rows = tuple(row for _ in range(self.num_envs))
+        self.demo_condition = (
+            torch.from_numpy(numeric)
+            .to(self.device)
+            .unsqueeze(0)
+            .expand(self.num_envs, -1, -1, -1)
+            .clone()
+        )
+        self._refresh_demo_embedding()
+
+    def _load_numeric_demo(
+        self, selected_task: str, selected_motion_id: int
+    ) -> tuple[np.ndarray, int]:
+        if selected_task not in {"CarryBox", "KickBox"}:
             raise ValueError("selected_task must be CarryBox or KickBox")
         split = self.dataset_root / "train"
         with np.load(split / "routing.npz", allow_pickle=False) as routing:
             task = np.asarray(routing["demo_task"], dtype=np.int64)
             motion = np.asarray(routing["demo_source_motion_id"], dtype=np.int64)
-        task_index = 0 if self.cfg.selected_task == "CarryBox" else 1
+        task_index = 0 if selected_task == "CarryBox" else 1
         rows = np.flatnonzero(
-            (task == task_index) & (motion == int(self.cfg.selected_motion_id))
+            (task == task_index) & (motion == int(selected_motion_id))
         )
         if rows.size != 1:
             raise ValueError("selected demo must identify exactly one train-split motion")
@@ -200,13 +225,56 @@ class FrozenDemoEventReward:
         numeric = np.array(bank[int(rows[0])], dtype=np.float32, copy=True)
         if numeric.shape != (32, 10, 132) or not np.isfinite(numeric).all():
             raise RuntimeError("selected numeric demo has invalid geometry or values")
-        self.selected_demo_row = int(rows[0])
-        self.demo_condition = (
-            torch.from_numpy(numeric)
-            .to(self.device)
-            .unsqueeze(0)
-            .expand(self.num_envs, -1, -1, -1)
+        return numeric, int(rows[0])
+
+    @torch.no_grad()
+    def _refresh_demo_embedding(self) -> None:
+        normalized = (
+            self.demo_condition - self.model.demo_mean
+        ) / self.model.demo_std
+        window_tokens = self.model.demo_projection(
+            normalized.reshape(
+                self.num_envs,
+                self.model.demo_windows,
+                self.model.demo_window_steps * self.model.demo_feature_dim,
+            )
         )
+        self.selected_demo_embedding = window_tokens.mean(dim=1).detach()
+        if self.selected_demo_embedding.shape != (self.num_envs, 384):
+            raise RuntimeError("frozen selected-demo embedding geometry drift")
+
+    @torch.no_grad()
+    def configure_selected_demos(
+        self, selections: tuple[tuple[str, int], ...]
+    ) -> None:
+        """Install one frozen numeric demo per environment before rollout."""
+
+        if self.started:
+            raise RuntimeError("selected demos must be fixed before begin()")
+        if len(selections) != self.num_envs:
+            raise ValueError("selected-demo assignment must cover every environment")
+        cache: dict[tuple[str, int], tuple[np.ndarray, int]] = {}
+        numeric_rows: list[np.ndarray] = []
+        row_ids: list[int] = []
+        for task, motion_id in selections:
+            key = (str(task), int(motion_id))
+            if key not in cache:
+                cache[key] = self._load_numeric_demo(*key)
+            numeric, row = cache[key]
+            numeric_rows.append(numeric)
+            row_ids.append(row)
+        self.demo_condition = torch.from_numpy(
+            np.stack(numeric_rows, axis=0)
+        ).to(self.device)
+        self.selected_demo_tasks = tuple(task for task, _ in selections)
+        self.selected_demo_motion_ids = tuple(
+            int(motion_id) for _, motion_id in selections
+        )
+        self.selected_demo_rows = tuple(row_ids)
+        self.selected_demo_row = (
+            row_ids[0] if len(set(row_ids)) == 1 else -1
+        )
+        self._refresh_demo_embedding()
 
     def _validate_policy_core(self, value: torch.Tensor) -> torch.Tensor:
         value = value.to(device=self.device, dtype=torch.float32)
@@ -243,8 +311,65 @@ class FrozenDemoEventReward:
             target_weights=self.cfg.target_weights,
             per_target_risk_clip=self.cfg.per_target_risk_clip,
         )
+        risk["representation"] = output["representation"]
+        risk["mean_log1p_scaled"] = output["mean_log1p_scaled"]
+        risk["log_variance_log1p_scaled"] = output[
+            "log_variance_log1p_scaled"
+        ]
         risk["potential"] = compatibility_potential(risk["risk"])
         return risk
+
+    def _actionable_conditioning(
+        self,
+        prediction: Mapping[str, torch.Tensor],
+        ready: torch.Tensor,
+        phase: torch.Tensor,
+    ) -> torch.Tensor:
+        ready_column = ready.to(dtype=torch.float32).unsqueeze(-1)
+        mask = ready_column
+        conditioning = torch.cat(
+            (
+                self.selected_demo_embedding,
+                prediction["representation"] * mask,
+                prediction["mean_log1p_scaled"] * mask,
+                prediction["log_variance_log1p_scaled"] * mask,
+                prediction["risk"].unsqueeze(-1) * mask,
+                prediction["weighted_uncertainty"].unsqueeze(-1) * mask,
+                phase.unsqueeze(-1),
+                ready_column,
+            ),
+            dim=-1,
+        )
+        if conditioning.shape != (
+            self.num_envs,
+            ACTIONABLE_DEMO_CONDITIONING_DIM,
+        ) or not torch.isfinite(conditioning).all():
+            raise RuntimeError("actionable selected-demo conditioning drift")
+        return conditioning.detach()
+
+    def initial_actionable_conditioning(
+        self, selected_demo_phase: torch.Tensor
+    ) -> torch.Tensor:
+        zero_scalar = torch.zeros(self.num_envs, device=self.device)
+        prediction = {
+            "representation": torch.zeros(
+                self.num_envs, 384, device=self.device
+            ),
+            "mean_log1p_scaled": torch.zeros(
+                self.num_envs, 13, device=self.device
+            ),
+            "log_variance_log1p_scaled": torch.zeros(
+                self.num_envs, 13, device=self.device
+            ),
+            "risk": zero_scalar,
+            "weighted_uncertainty": zero_scalar,
+        }
+        ready = torch.zeros(
+            self.num_envs, dtype=torch.bool, device=self.device
+        )
+        return self._actionable_conditioning(
+            prediction, ready, selected_demo_phase
+        )
 
     @torch.no_grad()
     def begin(self, policy_core: torch.Tensor) -> None:
@@ -289,6 +414,15 @@ class FrozenDemoEventReward:
                 "potential": zero,
                 "risk": zero,
                 "weighted_uncertainty": zero,
+                "representation": torch.zeros(
+                    self.num_envs, 384, device=self.device
+                ),
+                "mean_log1p_scaled": torch.zeros(
+                    self.num_envs, 13, device=self.device
+                ),
+                "log_variance_log1p_scaled": torch.zeros(
+                    self.num_envs, 13, device=self.device
+                ),
             }
         next_potential = torch.where(
             next_ready,
@@ -323,6 +457,9 @@ class FrozenDemoEventReward:
             done=done,
             failure_done=failure_done,
             selected_demo_phase=selected_demo_phase_tp1,
+            actionable_conditioning=self._actionable_conditioning(
+                prediction, next_ready, selected_demo_phase_tp1
+            ),
         )
 
     def audit(self) -> dict[str, Any]:
@@ -337,6 +474,13 @@ class FrozenDemoEventReward:
             "selected_task": self.cfg.selected_task,
             "selected_motion_id": int(self.cfg.selected_motion_id),
             "selected_demo_row": self.selected_demo_row,
+            "selected_demo_rows": list(self.selected_demo_rows),
+            "selected_demo_tasks": list(self.selected_demo_tasks),
+            "selected_demo_motion_ids": list(self.selected_demo_motion_ids),
+            "actionable_conditioning_dim": ACTIONABLE_DEMO_CONDITIONING_DIM,
+            "actionable_conditioning_source": (
+                "frozen_trained_demo_projection_plus_causal_predictor_outputs"
+            ),
             "history_steps": self.history_steps,
             "alignment_mode": "clock_phase",
         }
@@ -347,6 +491,7 @@ class FrozenPhaseAwareDemoEventScorerCfg:
     runtime_config_path: str
     selected_option: str
     phase_horizon_steps: int = 650
+    selected_options_by_env: tuple[str, ...] | None = None
 
 
 class FrozenPhaseAwareDemoEventScorer:
@@ -392,6 +537,24 @@ class FrozenPhaseAwareDemoEventScorer:
             device=self.device,
             cfg=event_cfg,
         )
+        self.selected_options_by_env = (
+            tuple(cfg.selected_options_by_env)
+            if cfg.selected_options_by_env is not None
+            else tuple(cfg.selected_option for _ in range(self.num_envs))
+        )
+        if len(self.selected_options_by_env) != self.num_envs:
+            raise ValueError("selected options must cover every environment")
+        if any(name not in options for name in self.selected_options_by_env):
+            raise ValueError("unknown selected-demo option in environment assignment")
+        if len(set(self.selected_options_by_env)) > 1:
+            selections = tuple(
+                (
+                    str(options[name]["selected_task"]),
+                    int(options[name]["selected_motion_id"]),
+                )
+                for name in self.selected_options_by_env
+            )
+            self.runtime.configure_selected_demos(selections)
         self.episode_steps = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
@@ -399,6 +562,7 @@ class FrozenPhaseAwareDemoEventScorer:
         self.initial_episode_steps_supplied = False
         self.transitions_scored = 0
         self.started = False
+        self.last_actionable_conditioning: torch.Tensor | None = None
 
     @property
     def history_steps(self) -> int:
@@ -443,6 +607,15 @@ class FrozenPhaseAwareDemoEventScorer:
             self.initial_episode_steps.copy_(initial_episode_steps)
             self.initial_episode_steps_supplied = True
         self.started = True
+        phase = torch.clamp(
+            (self.episode_steps.float() + 1.0)
+            / float(self.cfg.phase_horizon_steps),
+            min=0.0,
+            max=1.0,
+        )
+        self.last_actionable_conditioning = (
+            self.runtime.initial_actionable_conditioning(phase)
+        )
         return self.frozen_model_audit()
 
     @torch.no_grad()
@@ -475,7 +648,13 @@ class FrozenPhaseAwareDemoEventScorer:
         )
         self.episode_steps[dones] = 0
         self.transitions_scored += self.num_envs
+        self.last_actionable_conditioning = signals.actionable_conditioning
         return signals
+
+    def actionable_conditioning(self) -> torch.Tensor:
+        if self.last_actionable_conditioning is None:
+            raise RuntimeError("call begin() before requesting actor conditioning")
+        return self.last_actionable_conditioning
 
     def frozen_model_audit(self) -> dict[str, Any]:
         audit = self.runtime.audit()
@@ -486,7 +665,16 @@ class FrozenPhaseAwareDemoEventScorer:
                 and int(audit["trainable_parameters"]) == 0
             ),
             "transitions_scored": self.transitions_scored,
-            "selected_option": self.cfg.selected_option,
+            "selected_option": (
+                "balanced"
+                if len(set(self.selected_options_by_env)) > 1
+                else self.cfg.selected_option
+            ),
+            "selected_options_by_env": list(self.selected_options_by_env),
+            "selected_option_counts": {
+                name: self.selected_options_by_env.count(name)
+                for name in sorted(set(self.selected_options_by_env))
+            },
             "phase_horizon_steps": int(self.cfg.phase_horizon_steps),
             "phase_source": (
                 "reset_reference_frame_plus_causal_control_clock"
@@ -509,6 +697,7 @@ class FrozenPhaseAwareDemoEventScorer:
         return {
             "protocol": "sugar_phase_aware_demo_event_scorer_state_v1",
             "selected_option": self.cfg.selected_option,
+            "selected_options_by_env": list(self.selected_options_by_env),
             "phase_horizon_steps": int(self.cfg.phase_horizon_steps),
             "policy_prefix": self.runtime.policy_prefix.detach().clone(),
             "valid_count": self.runtime.valid_count.detach().clone(),
@@ -518,6 +707,9 @@ class FrozenPhaseAwareDemoEventScorer:
             ),
             "initial_episode_steps_supplied": bool(
                 self.initial_episode_steps_supplied
+            ),
+            "last_actionable_conditioning": (
+                self.actionable_conditioning().detach().clone()
             ),
             "transitions_scored": int(self.transitions_scored),
         }
@@ -531,6 +723,13 @@ class FrozenPhaseAwareDemoEventScorer:
             != int(self.cfg.phase_horizon_steps)
         ):
             raise ValueError("phase-aware scorer checkpoint config drift")
+        restored_options = tuple(
+            state.get(
+                "selected_options_by_env", self.selected_options_by_env
+            )
+        )
+        if restored_options != self.selected_options_by_env:
+            raise ValueError("phase-aware scorer selected-demo assignment drift")
         for name, destination in (
             ("policy_prefix", self.runtime.policy_prefix),
             ("valid_count", self.runtime.valid_count),
@@ -560,6 +759,36 @@ class FrozenPhaseAwareDemoEventScorer:
             )
         self.runtime.started = True
         self.started = True
+        restored_conditioning = state.get("last_actionable_conditioning")
+        if restored_conditioning is not None:
+            restored_conditioning = restored_conditioning.to(
+                device=self.device, dtype=torch.float32
+            )
+            if restored_conditioning.shape != (
+                self.num_envs,
+                ACTIONABLE_DEMO_CONDITIONING_DIM,
+            ):
+                raise ValueError("checkpoint actionable conditioning shape drift")
+            self.last_actionable_conditioning = restored_conditioning
+        else:
+            phase = torch.clamp(
+                (self.episode_steps.float() + 1.0)
+                / float(self.cfg.phase_horizon_steps),
+                min=0.0,
+                max=1.0,
+            )
+            ready = self.runtime.valid_count == self.runtime.history_steps
+            if ready.any():
+                prediction = self.runtime._predict(phase)
+                self.last_actionable_conditioning = (
+                    self.runtime._actionable_conditioning(
+                        prediction, ready, phase
+                    )
+                )
+            else:
+                self.last_actionable_conditioning = (
+                    self.runtime.initial_actionable_conditioning(phase)
+                )
 
 
 @dataclass
@@ -581,6 +810,7 @@ class DemoEventRewardAugmentedStepSignals:
     demo_event_uncertainty: torch.Tensor
     demo_event_ready: torch.Tensor
     demo_event_phase: torch.Tensor
+    demo_actionable_conditioning: torch.Tensor
 
 
 class DemoEventRewardAugmentedSMPICMRolloutIntegrator:
@@ -644,6 +874,7 @@ class DemoEventRewardAugmentedSMPICMRolloutIntegrator:
             demo_event_uncertainty=event.next_weighted_uncertainty,
             demo_event_ready=event.next_ready,
             demo_event_phase=event.selected_demo_phase,
+            demo_actionable_conditioning=event.actionable_conditioning,
         )
 
     def finish_rollout(self) -> dict[str, Any]:

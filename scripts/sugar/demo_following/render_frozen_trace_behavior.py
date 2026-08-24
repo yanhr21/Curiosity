@@ -72,6 +72,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--source-env", type=int, default=20)
     parser.add_argument("--policy-update", type=int, default=64)
+    parser.add_argument(
+        "--shared-checkpoint",
+        action="store_true",
+        help="Render the same update-64 checkpoint evaluated under two selected demos.",
+    )
     return parser.parse_args()
 
 
@@ -304,29 +309,68 @@ def main() -> None:
         raise ValueError("all paths must remain under experiments/")
     if output.exists():
         raise FileExistsError(output)
-    if args.source_env != 20 or args.policy_update != 64:
-        raise ValueError("the admitted endpoint visualization is fixed to update 64, env 20")
+    expected_source_env = 0 if args.shared_checkpoint else 20
+    if args.source_env != expected_source_env or args.policy_update != 64:
+        raise ValueError(
+            f"the admitted visualization is fixed to update 64, env {expected_source_env}"
+        )
 
-    expected_arms = ("same_teacher_correct_reward", "same_teacher_unrelated_reward")
+    expected_arms = (
+        ("shared_balanced_conditioning", "shared_balanced_conditioning")
+        if args.shared_checkpoint
+        else ("same_teacher_correct_reward", "same_teacher_unrelated_reward")
+    )
+    expected_updates = [64] if args.shared_checkpoint else [32, 64]
     loaded: list[dict[str, np.ndarray]] = []
-    admitted_results = []
-    for trace_path, expected_arm in zip(traces, expected_arms, strict=True):
+    results: list[dict[str, object]] = []
+    admitted_results: list[str] = []
+    for index, (trace_path, expected_arm) in enumerate(
+        zip(traces, expected_arms, strict=True)
+    ):
         result_path = trace_path.with_name("RESULT.json")
         result = json.loads(result_path.read_text(encoding="utf-8"))
         if (
             result.get("passed") is not True
             or not all(result.get("checks", {}).values())
             or result.get("arm") != expected_arm
-            or result.get("policy_updates") != [32, 64]
+            or result.get("policy_updates") != expected_updates
             or result.get("profiles_per_update") != 20
+            or (
+                args.shared_checkpoint
+                and result.get("selected_demo_telemetry")
+                != ("correct", "unrelated")[index]
+            )
         ):
             raise RuntimeError(f"unadmitted frozen evaluation: {trace_path}")
+        results.append(result)
         admitted_results.append(str(result_path))
         loaded.append(load_npz(trace_path))
     if not np.array_equal(loaded[0]["ordered_body_names"], loaded[1]["ordered_body_names"]):
         raise RuntimeError("body order differs between matched arms")
-    if not all(trace["done"].shape[1] == 40 for trace in loaded):
-        raise RuntimeError("unexpected multi-update profile layout")
+    expected_profiles = 20 if args.shared_checkpoint else 40
+    if not all(trace["done"].shape[1] == expected_profiles for trace in loaded):
+        raise RuntimeError("unexpected profile layout")
+    same_checkpoint_path = None
+    same_initial_state_confirmed = not args.shared_checkpoint
+    if args.shared_checkpoint:
+        checkpoint_paths = [
+            result["training"]["checkpoints"]["64"]["path"] for result in results
+        ]
+        if checkpoint_paths[0] != checkpoint_paths[1]:
+            raise RuntimeError("condition-swap rendering requires the exact same checkpoint")
+        same_checkpoint_path = checkpoint_paths[0]
+        exact_initial_arrays = (
+            "robot_root_state_w",
+            "robot_joint_pos",
+            "robot_joint_vel",
+            "object_root_state_w",
+        )
+        if not all(
+            np.array_equal(loaded[0][name][0], loaded[1][name][0])
+            for name in exact_initial_arrays
+        ):
+            raise RuntimeError("condition-swap traces do not share an exact initial state")
+        same_initial_state_confirmed = True
 
     output.mkdir(parents=True)
     references = (
@@ -346,7 +390,11 @@ def main() -> None:
     )
     checks = {
         "matched_frozen_results_admitted": True,
-        "update64_profile_selected": args.source_env == 20,
+        "update64_profile_selected": args.source_env == expected_source_env,
+        "same_checkpoint_confirmed": (
+            same_checkpoint_path is not None if args.shared_checkpoint else True
+        ),
+        "same_initial_state_confirmed": same_initial_state_confirmed,
         "correct_video_decodes_h264_yuv420p": videos[0]["decode"]["passed"],
         "unrelated_video_decodes_h264_yuv420p": videos[1]["decode"]["passed"],
         "both_references_fully_displayed": all(video["reference_fully_displayed"] for video in videos),
@@ -354,11 +402,16 @@ def main() -> None:
         "nonempty_videos": all(video["bytes"] > 100_000 for video in videos),
     }
     proof = {
-        "protocol": "sugar_phase_event_reward_matched_exact_trace_video_v1",
+        "protocol": (
+            "sugar_shared_actionable_demo_condition_swap_exact_trace_video_v1"
+            if args.shared_checkpoint
+            else "sugar_phase_event_reward_matched_exact_trace_video_v1"
+        ),
         "passed": all(checks.values()),
         "checks": checks,
         "policy_update": args.policy_update,
         "source_env": args.source_env,
+        "same_checkpoint_path": same_checkpoint_path,
         "rendering_semantics": (
             "Offline visualization of exact frozen-evaluation robot body centers and object pose. "
             "No camera-enabled physics rerun; pose-marker box dimensions are illustrative."

@@ -142,8 +142,16 @@ parser.add_argument(
 )
 parser.add_argument(
     "--demo-event-selected-option",
-    choices=("correct", "unrelated"),
+    choices=("correct", "unrelated", "balanced"),
     default=None,
+)
+parser.add_argument(
+    "--actionable-demo-conditioning",
+    action="store_true",
+    help=(
+        "append the frozen predictor's selected-demo embedding and causal "
+        "outputs to the shared actor/critic observation before every action"
+    ),
 )
 parser.add_argument(
     "--demo-event-phase-horizon-steps",
@@ -191,6 +199,7 @@ parser.add_argument(
         "wrong_teacher_unrelated_reward",
         "same_teacher_correct_reward",
         "same_teacher_unrelated_reward",
+        "shared_balanced_conditioning",
         "icm_policy_on",
         "icm_policy_weight_zero",
     ),
@@ -473,6 +482,7 @@ from sugar_rl.utils.demo_reward_runtime import (  # noqa: E402
     FrozenDemoRewardScorer,
 )
 from sugar_rl.utils.demo_event_reward_runtime import (  # noqa: E402
+    ACTIONABLE_DEMO_CONDITIONING_DIM,
     DemoEventRewardAugmentedSMPICMRolloutIntegrator,
     FrozenPhaseAwareDemoEventScorer,
     FrozenPhaseAwareDemoEventScorerCfg,
@@ -1166,6 +1176,10 @@ def _valid_icm_batch(
 def _construct_policy_algorithm(observations, env, runner_cfg):
     config = runner_cfg.to_dict()
     obs_groups = config["obs_groups"]
+    if args.actionable_demo_conditioning:
+        for group_name in ("policy", "critic"):
+            if "demo_conditioning" not in obs_groups[group_name]:
+                obs_groups[group_name].append("demo_conditioning")
     policy_cfg = dict(config["policy"])
     policy_class_name = policy_cfg.pop("class_name")
     if policy_class_name == "OfficialSMPTactileActorCritic":
@@ -2100,6 +2114,23 @@ def main() -> None:
         )
     if demo_event_reward_contract != (args.demo_event_selected_option is not None):
         raise ValueError("phase-event config and selected option must be declared together")
+    actionable_demo_conditioning_contract = bool(
+        args.actionable_demo_conditioning
+    )
+    if actionable_demo_conditioning_contract and (
+        not demo_event_reward_contract
+        or args.demo_event_selected_option is None
+    ):
+        raise ValueError(
+            "actionable demo conditioning requires the frozen phase-event runtime"
+        )
+    if (
+        args.demo_event_selected_option == "balanced"
+        and not actionable_demo_conditioning_contract
+    ):
+        raise ValueError(
+            "balanced selected demos are only valid for one shared conditioned actor"
+        )
     demo_predictor_loaded_contract = (
         demo_reward_contract
         or demo_reward_telemetry_contract
@@ -2128,6 +2159,7 @@ def main() -> None:
             "sugar_plan11_fixed_teacher_demo_identity_v2",
             "sugar_plan11_teacher_floor_overfit_v1",
             "sugar_phase_event_reward_matched_policy_v1",
+            "sugar_shared_actionable_demo_conditioning_v1",
         }
     )
     fixed_teacher_demo_identity_contract = (
@@ -2136,12 +2168,18 @@ def main() -> None:
         in {
             "sugar_plan11_fixed_teacher_demo_identity_v2",
             "sugar_phase_event_reward_matched_policy_v1",
+            "sugar_shared_actionable_demo_conditioning_v1",
         }
     )
     phase_event_protocol_contract = (
         early_protocol_config is not None
         and early_protocol_config.get("protocol")
         == "sugar_phase_event_reward_matched_policy_v1"
+    )
+    shared_actionable_demo_protocol_contract = (
+        early_protocol_config is not None
+        and early_protocol_config.get("protocol")
+        == "sugar_shared_actionable_demo_conditioning_v1"
     )
     teacher_floor_overfit_contract = (
         early_protocol_config is not None
@@ -2874,6 +2912,7 @@ def main() -> None:
                 "sugar_plan11_fixed_teacher_demo_identity_v2",
                 "sugar_plan11_teacher_floor_overfit_v1",
                 "sugar_phase_event_reward_matched_policy_v1",
+                "sugar_shared_actionable_demo_conditioning_v1",
             }
         )
         plan11_icm_policy_credit_protocol = (
@@ -2894,6 +2933,7 @@ def main() -> None:
                 "sugar_plan11_teacher_floor_overfit_v1",
                 "sugar_plan11_original_icm_policy_credit_zero_tactile_v1",
                 "sugar_phase_event_reward_matched_policy_v1",
+                "sugar_shared_actionable_demo_conditioning_v1",
             }
         )
         if plan11_protocol_arm != (args.protocol_arm is not None):
@@ -2925,6 +2965,7 @@ def main() -> None:
             "sugar_plan11_teacher_floor_overfit_v1",
             "sugar_plan11_original_icm_policy_credit_zero_tactile_v1",
             "sugar_phase_event_reward_matched_policy_v1",
+            "sugar_shared_actionable_demo_conditioning_v1",
         }
         mount_contract_exact = (
             (
@@ -2968,6 +3009,7 @@ def main() -> None:
                 "sugar_plan11_teacher_floor_overfit_v1",
                 "sugar_plan11_original_icm_policy_credit_zero_tactile_v1",
                 "sugar_phase_event_reward_matched_policy_v1",
+                "sugar_shared_actionable_demo_conditioning_v1",
             }
             and int(shared["sim_and_policy_seed"]) == args.seed
             and int(shared["action_seed"]) == args.action_seed
@@ -3011,7 +3053,10 @@ def main() -> None:
                 else arm.get("demo_runtime_config") is None
             )
             and (
-                not phase_event_protocol_contract
+                not (
+                    phase_event_protocol_contract
+                    or shared_actionable_demo_protocol_contract
+                )
                 or (
                     arm.get("demo_reward_kind")
                     == "phase_aware_dense_event"
@@ -3131,8 +3176,21 @@ def main() -> None:
             is not False
             or demo_event_reward_config.get("future_actual_events_enter_runtime")
             is not False
-            or args.demo_event_selected_option
-            not in demo_event_reward_config.get("selected_demo_options", {})
+            or (
+                args.demo_event_selected_option != "balanced"
+                and args.demo_event_selected_option
+                not in demo_event_reward_config.get(
+                    "selected_demo_options", {}
+                )
+            )
+            or (
+                args.demo_event_selected_option == "balanced"
+                and not {"correct", "unrelated"}.issubset(
+                    demo_event_reward_config.get(
+                        "selected_demo_options", {}
+                    )
+                )
+            )
         ):
             raise ValueError("unexpected phase-aware demo-event runtime config")
         for source_name in ("dataset_root", "predictor_dir"):
@@ -3150,7 +3208,7 @@ def main() -> None:
         )
     if args.admission_only:
         if not (
-            phase_event_protocol_contract
+            (phase_event_protocol_contract or shared_actionable_demo_protocol_contract)
             and demo_event_reward_contract
             and wrong_teacher_reward_conflict_64_contract
         ):
@@ -3162,8 +3220,20 @@ def main() -> None:
             device=args.device,
             cfg=FrozenPhaseAwareDemoEventScorerCfg(
                 runtime_config_path=str(demo_event_reward_config_path),
-                selected_option=args.demo_event_selected_option,
+                selected_option=(
+                    "correct"
+                    if args.demo_event_selected_option == "balanced"
+                    else args.demo_event_selected_option
+                ),
                 phase_horizon_steps=args.demo_event_phase_horizon_steps,
+                selected_options_by_env=(
+                    tuple(
+                        "correct" if index % 2 == 0 else "unrelated"
+                        for index in range(args.num_envs)
+                    )
+                    if args.demo_event_selected_option == "balanced"
+                    else None
+                ),
             ),
         )
         audit = scorer.frozen_model_audit()
@@ -3841,6 +3911,13 @@ def main() -> None:
         # consumption. HN0/HN1 explicitly start policy and Adam from scratch.
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
+        if actionable_demo_conditioning_contract:
+            observations["demo_conditioning"] = torch.zeros(
+                base_env.num_envs,
+                ACTIONABLE_DEMO_CONDITIONING_DIM,
+                device=base_env.device,
+                dtype=torch.float32,
+            )
         runner_cfg = _runner_cfg()
         policy, algorithm, runner_dict = _construct_policy_algorithm(
             observations, env, runner_cfg
@@ -3899,8 +3976,20 @@ def main() -> None:
                 device=base_env.device,
                 cfg=FrozenPhaseAwareDemoEventScorerCfg(
                     runtime_config_path=str(demo_event_reward_config_path),
-                    selected_option=args.demo_event_selected_option,
+                    selected_option=(
+                        "correct"
+                        if args.demo_event_selected_option == "balanced"
+                        else args.demo_event_selected_option
+                    ),
                     phase_horizon_steps=args.demo_event_phase_horizon_steps,
+                    selected_options_by_env=(
+                        tuple(
+                            "correct" if index % 2 == 0 else "unrelated"
+                            for index in range(base_env.num_envs)
+                        )
+                        if args.demo_event_selected_option == "balanced"
+                        else None
+                    ),
                 ),
             )
             if demo_event_reward_contract
@@ -3946,11 +4035,80 @@ def main() -> None:
             initial_begin = integrator.begin(observations)
         else:
             initial_begin = integrator.begin()
+        if actionable_demo_conditioning_contract:
+            observations["demo_conditioning"] = (
+                demo_event_scorer.actionable_conditioning().clone()
+            )
         initial_smp_window = (
             initial_begin["smp_window"]
             if active_demo_reward_contract
             else initial_begin
         )
+        actionable_conditioning_probe = None
+        if (
+            actionable_demo_conditioning_contract
+            and set(demo_event_scorer.selected_options_by_env)
+            == {"correct", "unrelated"}
+        ):
+            correct_index = next(
+                index
+                for index, name in enumerate(
+                    demo_event_scorer.selected_options_by_env
+                )
+                if name == "correct"
+            )
+            unrelated_index = next(
+                index
+                for index, name in enumerate(
+                    demo_event_scorer.selected_options_by_env
+                )
+                if name == "unrelated"
+            )
+            probe_observations = observations.clone()
+            for group_name in probe_observations.keys():
+                if group_name != "demo_conditioning":
+                    probe_observations[group_name][unrelated_index].copy_(
+                        probe_observations[group_name][correct_index]
+                    )
+            actor_probe = policy.get_actor_obs(probe_observations)
+            first_actor_linear = next(
+                module
+                for module in policy.actor.modules()
+                if isinstance(module, torch.nn.Linear)
+            )
+            hidden_probe = first_actor_linear(actor_probe)
+            mean_probe = policy.actor(actor_probe)
+            actionable_conditioning_probe = {
+                "same_state_demo_conditioning_max_abs": float(
+                    torch.abs(
+                        observations["demo_conditioning"][correct_index]
+                        - observations["demo_conditioning"][unrelated_index]
+                    ).max()
+                ),
+                "same_state_actor_input_max_abs": float(
+                    torch.abs(
+                        actor_probe[correct_index]
+                        - actor_probe[unrelated_index]
+                    ).max()
+                ),
+                "same_state_first_hidden_max_abs": float(
+                    torch.abs(
+                        hidden_probe[correct_index]
+                        - hidden_probe[unrelated_index]
+                    ).max()
+                ),
+                "initial_action_mean_max_abs": float(
+                    torch.abs(
+                        mean_probe[correct_index]
+                        - mean_probe[unrelated_index]
+                    ).max()
+                ),
+                "initial_action_equality_reason": (
+                    "required_exact_zero_residual_output_initialization"
+                ),
+                "policy_parameters_updated": False,
+                "optimizer_steps_executed": 0,
+            }
         resume_rng_mode = "fresh_action_seed"
         resume_temporal_boundary = None
         resume_restore_record = None
@@ -4126,7 +4284,10 @@ def main() -> None:
 
         if args.rollout_smoke_only:
             if not (
-                phase_event_protocol_contract
+                (
+                    phase_event_protocol_contract
+                    or shared_actionable_demo_protocol_contract
+                )
                 and demo_event_reward_contract
                 and wrong_teacher_reward_conflict_64_contract
             ):
@@ -4251,6 +4412,10 @@ def main() -> None:
                     demo_reward_steps.append(
                         signals.demo_reward.detach().clone()
                     )
+                    if actionable_demo_conditioning_contract:
+                        observations_tp1["demo_conditioning"] = (
+                            signals.demo_actionable_conditioning.clone()
+                        )
                     algorithm.process_env_step(
                         observations_tp1,
                         signals.policy_reward,
@@ -4415,6 +4580,31 @@ def main() -> None:
                     and model_audit["initial_episode_steps_max"]
                     == int(contact_seed["selected_reference_frame"])
                 ),
+                "shared_actor_receives_balanced_selected_demos": (
+                    (
+                        model_audit["selected_option_counts"]
+                        == {"correct": 10, "unrelated": 10}
+                        and actionable_conditioning_probe is not None
+                        and actionable_conditioning_probe[
+                            "same_state_demo_conditioning_max_abs"
+                        ]
+                        > 0.0
+                        and actionable_conditioning_probe[
+                            "same_state_actor_input_max_abs"
+                        ]
+                        > 0.0
+                        and actionable_conditioning_probe[
+                            "same_state_first_hidden_max_abs"
+                        ]
+                        > 0.0
+                        and "demo_conditioning"
+                        in policy.actor_base_groups
+                        and "demo_conditioning"
+                        in policy.critic_base_groups
+                    )
+                    if actionable_demo_conditioning_contract
+                    else True
+                ),
             }
             payload = {
                 "protocol": (
@@ -4453,6 +4643,9 @@ def main() -> None:
                     "applied_policy_unit_roundtrip_tolerance": 2.0e-6,
                 },
                 "frozen_model_audit": model_audit,
+                "actionable_conditioning_probe": (
+                    actionable_conditioning_probe
+                ),
                 "no_tactile_startup_physics": (
                     no_tactile_startup_physics_proof
                 ),
@@ -4939,6 +5132,10 @@ def main() -> None:
                             ).max()
                         ),
                     )
+                    if actionable_demo_conditioning_contract:
+                        observations_tp1["demo_conditioning"] = (
+                            signals.demo_actionable_conditioning.clone()
+                        )
                     algorithm.process_env_step(
                         observations_tp1,
                         signals.policy_reward,
@@ -6950,9 +7147,13 @@ def main() -> None:
             )
         elif demo_event_reward_contract:
             event_eta = float(demo_event_reward_config["eta"])
-            selected_event = demo_event_reward_config[
-                "selected_demo_options"
-            ][args.demo_event_selected_option]
+            selected_event = (
+                None
+                if args.demo_event_selected_option == "balanced"
+                else demo_event_reward_config["selected_demo_options"][
+                    args.demo_event_selected_option
+                ]
+            )
             checks.update(
                 {
                     "demo_event_predictor_frozen_every_rollout": (
@@ -7030,10 +7231,70 @@ def main() -> None:
                     "demo_event_selected_demo_exact": (
                         demo_final_audit["selected_option"]
                         == args.demo_event_selected_option
-                        and demo_final_audit["selected_task"]
-                        == selected_event["selected_task"]
-                        and int(demo_final_audit["selected_motion_id"])
-                        == int(selected_event["selected_motion_id"])
+                        and (
+                            (
+                                demo_final_audit["selected_option_counts"]
+                                == {"correct": 10, "unrelated": 10}
+                                and set(
+                                    demo_final_audit[
+                                        "selected_demo_tasks"
+                                    ]
+                                )
+                                == {"CarryBox", "KickBox"}
+                                and set(
+                                    demo_final_audit[
+                                        "selected_demo_motion_ids"
+                                    ]
+                                )
+                                == {21, 45}
+                            )
+                            if selected_event is None
+                            else (
+                                demo_final_audit["selected_task"]
+                                == selected_event["selected_task"]
+                                and int(
+                                    demo_final_audit[
+                                        "selected_motion_id"
+                                    ]
+                                )
+                                == int(selected_event["selected_motion_id"])
+                            )
+                        )
+                    ),
+                    "actionable_demo_conditioning_contract_exact": (
+                        (
+                            actionable_conditioning_probe is not None
+                            and demo_final_audit[
+                                "actionable_conditioning_dim"
+                            ]
+                            == ACTIONABLE_DEMO_CONDITIONING_DIM
+                            and "demo_conditioning"
+                            in policy.actor_base_groups
+                            and "demo_conditioning"
+                            in policy.critic_base_groups
+                            and actionable_conditioning_probe[
+                                "same_state_demo_conditioning_max_abs"
+                            ]
+                            > 0.0
+                            and actionable_conditioning_probe[
+                                "same_state_actor_input_max_abs"
+                            ]
+                            > 0.0
+                            and actionable_conditioning_probe[
+                                "same_state_first_hidden_max_abs"
+                            ]
+                            > 0.0
+                            and actionable_conditioning_probe[
+                                "policy_parameters_updated"
+                            ]
+                            is False
+                            and actionable_conditioning_probe[
+                                "optimizer_steps_executed"
+                            ]
+                            == 0
+                        )
+                        if actionable_demo_conditioning_contract
+                        else True
                     ),
                 }
             )
@@ -7277,7 +7538,9 @@ def main() -> None:
                 else "sugar_stage_h_h1_multistep_stability_v1"
             )
         elif goal_recovery_contract:
-            if phase_event_protocol_contract:
+            if shared_actionable_demo_protocol_contract:
+                protocol = "sugar_shared_actionable_demo_conditioning_v1"
+            elif phase_event_protocol_contract:
                 protocol = "sugar_phase_event_reward_matched_policy_v1"
             elif fixed_teacher_demo_identity_contract:
                 protocol = "sugar_plan11_fixed_teacher_demo_identity_v2"
@@ -8338,6 +8601,12 @@ def main() -> None:
                         demo_event_reward_config["compatibility_baseline"]
                     ),
                     "phase_horizon_steps": args.demo_event_phase_horizon_steps,
+                    "actionable_conditioning_enabled": (
+                        actionable_demo_conditioning_contract
+                    ),
+                    "actionable_conditioning_probe": (
+                        actionable_conditioning_probe
+                    ),
                     "final_frozen_audit": demo_final_audit,
                 }
                 if demo_event_reward_contract

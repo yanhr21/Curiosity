@@ -8,6 +8,18 @@ IsaacLab/PhysX；Newton 只作为 asset 来源，不作为执行后端。
 
 ### Demo following：信号被使用，语义遵循尚未成立
 
+最新实验已经消除了“两个 demo 对应两个 checkpoint”的混杂。一个共享的 serious SUGAR
+actor 在同一批 20 个 CarryBox 环境中训练 64 updates：10 个环境读取 Carry45 条件，10 个读取
+Kick21 条件，teacher、任务和物理全部仍为 CarryBox45。actor 每步读取冻结 11.386M causal
+predictor 提供的 798-D selected-demo/当前轨迹条件；未来事件和 GT 轨迹不进入 actor。
+
+冻结评估两次加载完全相同的 `policy.pt` 和初始状态，只交换 demo 条件。残差动作的平均/最大
+绝对差为 `0.01319/0.37943`，证明测试时 demo 条件确实能调制同一策略。20 profiles 中，
+correct/unrelated 的平均最大抬升为 `0.68367/0.66868 m`，双手接触帧为 `294.3/287.4`，
+physical falls 为 `0/20` 与 `1/20`；unrelated 在预登记行为方向上达到 `3/4`，但两边仍主要
+是双手搬箱，没有形成完整 Kick 接触结构。当前准确结论是“same-policy conditioning 有因果
+作用，但 64 updates 尚未产生语义级策略切换”。
+
 当前有效实验固定同一个 CarryBox45 official Refiner teacher、相同初始化、物理、seeds、
 优化器、reward weights 和 64-update budget，只改变 internal reward 读取的 selected demo：
 
@@ -328,6 +340,8 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 
 当前保留视频（标为“旧 phase-0”的两条是时钟错位负结果，不是 corrected policy endpoint）：
 
+- [共享 checkpoint：Carry45 输入与实际行为](experiments/demo_following/shared_actionable_demo_conditioning_v1/seed161591/videos_same_checkpoint_update0064/01_correct_demo_and_actual_behavior.mp4)；
+- [共享 checkpoint：Kick21 输入与实际行为](experiments/demo_following/shared_actionable_demo_conditioning_v1/seed161591/videos_same_checkpoint_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [新 reference-aware correct demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/videos_update0064_trace_exact/01_correct_demo_and_actual_behavior.mp4)；
 - [新 reference-aware unrelated Kick demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/videos_update0064_trace_exact/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [独立复现 correct demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161589/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
@@ -372,9 +386,9 @@ official Generator/Tracker Kick gate 也以 `8/9` profile preference 通过，�
 `generator.ckpt + tracker.pt`，没有 frozen Kick Refiner checkpoint；因此现有 gate 已覆盖最强
 可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。第一组从零 reference-aware matched
 pair、独立 seed 复现和固定 4x 诊断均已完成。1x 在 update 64 的同一 `3/4` 小幅变化可重复，
-4x 却退化为 `1/4`，所以问题不是单纯 reward 太小。当前两个 demo 条件仍分别训练成两个
-checkpoint，冻结 actor 在测试时也不读取 selected-demo identity 或 predictor feedback；reward
-只能在训练期改参数，无法在部署时让同一个 policy 随 demo 切换。下一步是先固化一个共享
-checkpoint 的 serious SUGAR actor 合同：训练时混合 Carry45/Kick21，actor 每步只读取因果的
-冻结 predictor mismatch/risk/uncertainty 与 selected-demo condition，测试时固定 checkpoint
-只交换 demo。未来 GT events 仍禁止进入 actor，SMP 仍不接入。
+4x 却退化为 `1/4`，所以问题不是单纯 reward 太小。共享 checkpoint 的 serious SUGAR actor
+现已完成：训练时混合 Carry45/Kick21 condition，测试时固定 checkpoint 只交换 demo，actor
+每步只读取冻结 predictor 的因果 condition。它证明同一策略会随 demo 改变动作，但两种输入
+仍停留在 Carry 解族，尚未产生 Kick 的脚—箱接触拓扑。下一步应针对“如何在保留 Carry
+teacher 稳定性的同时生成新的接触拓扑”做一个 matched serious experiment，而不是继续放大
+reward 或增加无关训练长度。未来 GT events 仍禁止进入 actor，SMP 仍不接入。

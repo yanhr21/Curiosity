@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import torch
 
@@ -16,6 +17,8 @@ from sugar_rl.utils.demo_event_reward_potential import (  # noqa: E402
     event_internal_reward,
 )
 from sugar_rl.utils.demo_event_reward_runtime import (  # noqa: E402
+    ACTIONABLE_DEMO_CONDITIONING_DIM,
+    FrozenDemoEventReward,
     FrozenPhaseAwareDemoEventScorer,
     GOAL_POLICY_CORE_TERM_NAMES,
     extract_goal_policy_core,
@@ -86,6 +89,32 @@ def test_dense_internal_reward_has_no_warmup_or_benign_terminal_bonus():
     assert reward[4] == -1.0
 
 
+def test_actionable_demo_conditioning_is_causal_and_demo_specific():
+    runtime = FrozenDemoEventReward.__new__(FrozenDemoEventReward)
+    runtime.num_envs = 2
+    runtime.selected_demo_embedding = torch.zeros(2, 384)
+    runtime.selected_demo_embedding[1] = 2.0
+    prediction = {
+        "representation": torch.ones(2, 384),
+        "mean_log1p_scaled": torch.ones(2, 13),
+        "log_variance_log1p_scaled": torch.ones(2, 13),
+        "risk": torch.ones(2),
+        "weighted_uncertainty": torch.ones(2),
+    }
+    conditioning = runtime._actionable_conditioning(
+        prediction,
+        ready=torch.tensor([False, True]),
+        phase=torch.tensor([0.25, 0.25]),
+    )
+    assert conditioning.shape == (2, ACTIONABLE_DEMO_CONDITIONING_DIM)
+    assert torch.count_nonzero(conditioning[0, 384:796]) == 0
+    assert torch.count_nonzero(conditioning[1, 384:796]) > 0
+    assert conditioning[0, 796] == conditioning[1, 796] == 0.25
+    assert conditioning[0, 797] == 0.0
+    assert conditioning[1, 797] == 1.0
+    assert not torch.equal(conditioning[0, :384], conditioning[1, :384])
+
+
 class _RecordingRuntime:
     def __init__(self):
         self.phases = []
@@ -95,12 +124,17 @@ class _RecordingRuntime:
         assert core.shape == (2, 121)
         self.started = True
 
+    def initial_actionable_conditioning(self, phase):
+        return torch.cat((phase.unsqueeze(-1), torch.zeros(2, 797)), dim=-1)
+
     def process_step(self, core, phase, done, failure_done):
         assert self.started
         assert core.shape == (2, 121)
         assert not failure_done.any()
         self.phases.append(phase.clone())
-        return {"phase": phase, "done": done}
+        return SimpleNamespace(
+            actionable_conditioning=self.initial_actionable_conditioning(phase)
+        )
 
     def audit(self):
         return {"model_training": False, "trainable_parameters": 0}
@@ -116,6 +150,7 @@ def test_phase_scorer_uses_only_reset_bounded_causal_clock():
         "Cfg", (), {"phase_horizon_steps": 650, "selected_option": "correct"}
     )()
     scorer.runtime = _RecordingRuntime()
+    scorer.selected_options_by_env = ("correct", "correct")
     scorer.episode_steps = torch.zeros(2, dtype=torch.long)
     scorer.initial_episode_steps = torch.zeros(2, dtype=torch.long)
     scorer.initial_episode_steps_supplied = False
@@ -144,6 +179,7 @@ def test_phase_scorer_can_start_from_restored_reference_frame():
         "Cfg", (), {"phase_horizon_steps": 650, "selected_option": "correct"}
     )()
     scorer.runtime = _RecordingRuntime()
+    scorer.selected_options_by_env = ("correct", "correct")
     scorer.episode_steps = torch.zeros(2, dtype=torch.long)
     scorer.initial_episode_steps = torch.zeros(2, dtype=torch.long)
     scorer.initial_episode_steps_supplied = False

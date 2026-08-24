@@ -31,12 +31,15 @@ reverse, and unrelated foot contact does not increase. The unrelated cumulative 
 `-48.64` versus baseline `-11.99`, so simple signal magnitude is rejected as the demonstrated
 bottleneck. No further scale is planned.
 
-The next method must make demo feedback actionable at deployment: one shared serious SUGAR actor,
-one checkpoint, both selected-demo conditions during training, and causal frozen-predictor
-mismatch/risk/uncertainty plus demo conditioning available before each actor action. Evaluation
-swaps Carry45/Kick21 while holding the checkpoint, teacher, physics and task fixed. Future labels and
-GT trajectory error remain forbidden actor inputs; official TinyMDM remains out after its semantic
-extension failure.
+The first actionable deployment experiment is complete. One serious SUGAR actor/checkpoint trains
+on both selected-demo conditions. Before every action it receives a 798-D condition made from the
+frozen 11.386M predictor's own selected-demo projection, causal representation, mismatch,
+uncertainty, risk, phase and readiness. Future labels and GT trajectory error remain forbidden.
+Frozen evaluation restores the same update-64 checkpoint and exact initial state twice, changing
+only Carry45 versus Kick21 conditioning. Residual actions change by mean/max absolute
+`0.01319/0.37943`; the unrelated condition moves in `3/4` predeclared directions, but both rollouts
+remain bilateral Carry. Maximum lift is `0.68367/0.66868 m` and physical falls are `0/20` versus
+`1/20`. This establishes same-policy demo-conditioned modulation, not complete semantic following.
 
 The first causal selected-demo experiment is complete:
 

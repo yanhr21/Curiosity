@@ -757,6 +757,43 @@ graph 防止错误 body-object interaction；InterMimic 同时约束 object devi
 - https://arxiv.org/abs/2502.20390
 - https://nvidia-isaac.github.io/video_to_data/chord/
 
+### 3.11 Shared-checkpoint actionable demo conditioning
+
+该实验只训练一个 update-64 SUGAR checkpoint。20 个并行 CarryBox 环境共享相同的
+CarryBox45 teacher、任务和 physics；偶数/奇数环境分别使用 Carry45/Kick21 selected demo。
+actor 在每次动作前读取 798-D causal condition：冻结 seed271303 predictor 自身的 384-D
+demo projection、384-D 当前轨迹 causal representation、13-D mismatch mean、13-D log
+variance，以及 risk、weighted uncertainty、phase、ready。未来 actual events、task ID 和
+GT trajectory error 均不进入 actor。
+
+在 retained compute allocation 中运行：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/run_shared_actionable_demo_conditioning.py
+bash scripts/sugar/demo_following/evaluate_shared_actionable_demo_pair.sh
+```
+
+训练输出根目录为：
+
+```text
+experiments/demo_following/shared_actionable_demo_conditioning_v1/seed161591/
+├── update_0064/{policy.pt,policy_update1.pt,proof.json,protocol.json}
+├── evaluation_same_checkpoint_update0064/{correct,unrelated}/{RESULT.json,TRACE.npz}
+├── behavior_adherence_same_checkpoint_update0064/RESULT.json
+└── videos_same_checkpoint_update0064/
+    ├── 01_correct_demo_and_actual_behavior.mp4
+    ├── 02_unrelated_kickbox_demo_and_actual_behavior.mp4
+    └── RENDER_PROOF.json
+```
+
+zero-optimizer rollout smoke 保持参数和 counter 不变，只切换 condition；actor 首层 hidden
+最大变化为 `0.84788`，exact PPO surrogate gradient delta L2 为 `0.16326`。正式冻结评估加载
+同一个 `policy.pt`、相同初始状态和 eval seed `171591` 两次，只切换 selected demo。残差动作
+mean/max absolute difference 为 `0.01319/0.37943`。correct/unrelated 的平均最大 lift 为
+`0.68367/0.66868 m`，bilateral-contact frames 为 `294.3/287.4`，physical falls 为
+`0/20` 和 `1/20`。独立行为审计得到 `3/4` 预登记方向，但两边仍为双手 Carry，无完整 Kick
+脚—箱接触结构。因此该结果证明 same-policy causal modulation，不证明 semantic switching。
+
 ## 4. Earlier trajectory-only predictor
 
 这是 contact/event redesign 之前保留的 11.9M trajectory-only 模型。输入为过去 10 帧

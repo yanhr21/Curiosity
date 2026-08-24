@@ -85,15 +85,21 @@ feedback grows from `-11.99` to `-48.64`, while predicted loss improves only `0.
 remains Carry. Signal magnitude alone is not the bottleneck. Do not run another scale or describe
 the 4x result as improvement.
 
-The next active work is a design/code audit for one shared demo-conditioned serious SUGAR actor.
-The current correct and unrelated arms are separate checkpoints, and the deployed actor does not
-observe selected-demo identity or causal predictor feedback; runtime reward cannot change a frozen
-feed-forward policy. The new design must keep the frozen 11.386M predictor and official SUGAR actor,
-provide only causal predictor mismatch/risk/uncertainty and selected-demo conditioning before each
-actor call, train both demo conditions in one checkpoint, and evaluate by swapping the demo while
-holding that checkpoint fixed. Do not implement a toy network, do not use future/GT events, and do
-not launch policy training until this exact observation/action contract and matched test are written
-and verified in dry-run. This is a scientific design prerequisite, not a human approval gate.
+The first shared-checkpoint actionable-conditioning experiment is complete at update 64. One
+official SUGAR actor was trained across ten Carry45 and ten Kick21 selected-demo environments while
+the common teacher, task and physics remained CarryBox45. Its 798-D causal condition is built from
+the frozen 11.386M predictor's own selected-demo projection, causal representation, predicted
+mismatch, uncertainty, risk, phase and readiness; future/GT events never enter the actor. A
+zero-optimizer smoke proves that swapping only the demo changes the actor input and hidden state and
+changes the exact PPO surrogate gradient.
+
+Frozen evaluation loads the same `policy.pt` twice from an identical initial state and changes only
+Carry45 versus Kick21 conditioning. The residual actions differ (mean/max absolute difference
+`0.01319/0.37943`), and the unrelated condition moves in `3/4` predeclared directions, but both
+conditions remain bilateral Carry. Mean maximum lift is `0.68367/0.66868 m`; physical falls are
+`0/20` versus `1/20`. This proves same-policy demo-conditioned modulation, not semantic switching or
+complete Kick following. Do not increase reward scale or claim success from this single seed; the
+next matched experiment must address contact-topology generation under the same shared-policy rule.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

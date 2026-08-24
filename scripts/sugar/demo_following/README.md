@@ -69,8 +69,22 @@ the exact `3/4` direction pattern with nearly identical lifted/ground transport 
 update 32 does not replicate. Both policies remain Carry and foot interaction stays near zero.
 The same-seed 4x feedback-strength diagnostic is complete: update 64 degrades `3/4 -> 1/4`, effects
 reverse and unrelated foot contact does not increase despite cumulative feedback reaching `-48.64`.
-Do not add a second scale. The next implementation target is one shared actor/checkpoint that reads
-causal frozen-predictor feedback and selected-demo conditioning before each action.
+Do not add a second scale. The shared actionable actor is now implemented and evaluated: one
+update-64 checkpoint reads a 798-D condition from the frozen serious predictor before each action.
+The exact same checkpoint and initial state are evaluated once with Carry45 and once with Kick21.
+Residual actions differ by mean/max absolute `0.01319/0.37943`, and behavior moves in `3/4`
+predeclared directions, but both conditions remain bilateral Carry.
+
+Reproduce the shared run inside a retained compute allocation:
+
+```bash
+$PYTHON scripts/sugar/demo_following/run_shared_actionable_demo_conditioning.py
+bash scripts/sugar/demo_following/evaluate_shared_actionable_demo_pair.sh
+```
+
+The second command reuses admitted frozen results, performs the predictor-independent behavior
+audit and writes two H.264 videos under
+`experiments/demo_following/shared_actionable_demo_conditioning_v1/seed161591/`.
 
 On the current cluster, NVIDIA Vulkan camera rendering repeatedly loses the H200 device during
 scene creation before a valid frame is emitted. This does not invalidate camera-free frozen traces.

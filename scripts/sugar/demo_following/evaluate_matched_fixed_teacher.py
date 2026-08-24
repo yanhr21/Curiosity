@@ -38,6 +38,13 @@ DEFAULT_CONFIG = ROOT / (
     "experiments/demo_following/matched_reward_identity_same_teacher_v1/"
     "seed161581/correct/update_0064/protocol.json"
 )
+SHARED_REFINER = ROOT / (
+    "experiments/sugar_reproduction/outputs/final/official_sugar/baseline/"
+    "ckpts/refiner_model10000.pt"
+)
+SHARED_CONTACT_SOURCE = ROOT / (
+    "experiments/demo_following/runtime_assets/contact_source/env45_sequence.npz"
+)
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
 parser.add_argument(
@@ -52,12 +59,18 @@ parser.add_argument(
         "wrong_teacher_unrelated_reward",
         "same_teacher_correct_reward",
         "same_teacher_unrelated_reward",
+        "shared_balanced_conditioning",
     ),
     required=True,
 )
 parser.add_argument("--output-dir", type=Path, required=True)
 parser.add_argument("--steps", type=int, default=400)
 parser.add_argument("--seed", type=int, default=120381)
+parser.add_argument(
+    "--selected-demo-option",
+    choices=("correct", "unrelated"),
+    help="shared-checkpoint evaluation: swap only the selected demo condition",
+)
 parser.add_argument(
     "--updates",
     default="1,128,512",
@@ -151,6 +164,7 @@ from sugar_rl.utils.demo_reward_runtime import (  # noqa: E402
     FrozenDemoRewardScorer,
 )
 from sugar_rl.utils.demo_event_reward_runtime import (  # noqa: E402
+    ACTIONABLE_DEMO_CONDITIONING_DIM,
     FrozenPhaseAwareDemoEventScorer,
     FrozenPhaseAwareDemoEventScorerCfg,
     extract_goal_policy_core,
@@ -779,6 +793,8 @@ def construct_policy(
     observations: dict[str, torch.Tensor],
     env,
     state: dict[str, torch.Tensor],
+    *,
+    actionable_demo_conditioning: bool = False,
 ) -> SugarNativeZeroPreservingTactileActorCritic:
     runner = SMPICMSugarNativeZeroPreservingFixedLowLrRunnerCfg().to_dict()
     policy_cfg = dict(runner["policy"])
@@ -786,6 +802,9 @@ def construct_policy(
         "SugarNativeZeroPreservingTactileActorCritic"
     ):
         raise RuntimeError("matched demo actor class drift")
+    if actionable_demo_conditioning:
+        for group_name in ("policy", "critic"):
+            runner["obs_groups"][group_name].append("demo_conditioning")
     policy = SugarNativeZeroPreservingTactileActorCritic(
         observations,
         runner["obs_groups"],
@@ -947,7 +966,16 @@ def summaries(
             comparison_key = (
                 "wrong"
                 if "demo_wrong_component_mse" in arrays
-                else "unrelated"
+                else (
+                    "unrelated"
+                    if "demo_unrelated_component_mse" in arrays
+                    else selected_key
+                )
+            )
+            correct_key = (
+                "correct"
+                if "demo_correct_component_mse" in arrays
+                else selected_key
             )
             mean_comparison_loss = float(
                 arrays[f"demo_{comparison_key}_component_mse"][
@@ -991,7 +1019,7 @@ def summaries(
                         conflict.sum() / max(1, valid_t.sum())
                     ),
                     "mean_correct_demo_predicted_loss": float(
-                        arrays["demo_correct_component_mse"][
+                        arrays[f"demo_{correct_key}_component_mse"][
                             valid_f, env_index
                         ].sum(axis=-1).mean()
                     ),
@@ -1064,11 +1092,27 @@ def main() -> None:
     is_phase_event_reward = (
         config_protocol == "sugar_phase_event_reward_matched_policy_v1"
     )
+    is_shared_actionable_demo = (
+        config_protocol == "sugar_shared_actionable_demo_conditioning_v1"
+    )
+    uses_phase_event_scorer = (
+        is_phase_event_reward or is_shared_actionable_demo
+    )
+    if is_shared_actionable_demo != (
+        args.arm == "shared_balanced_conditioning"
+        and args.selected_demo_option is not None
+    ):
+        raise ValueError(
+            "shared protocol requires its shared arm and one selected demo option"
+        )
+    if not is_shared_actionable_demo and args.selected_demo_option is not None:
+        raise ValueError("selected-demo-option is reserved for the shared checkpoint")
     is_teacher_demo64 = (
         is_wrong_teacher_reward_conflict
         or is_fixed_teacher_identity
         or is_teacher_floor_overfit
         or is_phase_event_reward
+        or is_shared_actionable_demo
     )
     legacy_preview_update128 = PREVIEW_UPDATE128 and not is_teacher_demo64
     unrelated_teacher_arm = (
@@ -1087,8 +1131,12 @@ def main() -> None:
             "sugar_plan11_fixed_teacher_demo_identity_v2",
             "sugar_plan11_teacher_floor_overfit_v1",
             "sugar_phase_event_reward_matched_policy_v1",
+            "sugar_shared_actionable_demo_conditioning_v1",
         }
-        or config.get("execution_ready") is not True
+        or (
+            config.get("execution_ready") is not True
+            and not is_shared_actionable_demo
+        )
         or config["shared_runtime"].get("tactile_regime")
         != "explicit_zero_control"
     ):
@@ -1124,7 +1172,7 @@ def main() -> None:
                 (
                     is_fixed_teacher_identity
                     or is_teacher_floor_overfit
-                    or is_phase_event_reward
+                    or uses_phase_event_scorer
                 )
                 and UPDATES[-1] > 64
                 and (
@@ -1137,7 +1185,7 @@ def main() -> None:
         if (
             is_fixed_teacher_identity
             or is_teacher_floor_overfit
-            or is_phase_event_reward
+            or uses_phase_event_scorer
         ):
             failed = [
                 name
@@ -1154,7 +1202,7 @@ def main() -> None:
                 ) is not True
                 or proof.get("protocol") != config_protocol
                 or (
-                    is_phase_event_reward
+                    uses_phase_event_scorer
                     and (
                         not isinstance(
                             proof.get("no_tactile_startup_physics"), dict
@@ -1203,7 +1251,9 @@ def main() -> None:
     # The active phase-event and teacher-only controls use the original SUGAR
     # scene with no TacSL assets. Historical packages retain their archived
     # scene so old traces are not silently reinterpreted.
-    active_no_tactile_scene = args.teacher_only_zero_residual or is_phase_event_reward
+    active_no_tactile_scene = (
+        args.teacher_only_zero_residual or uses_phase_event_scorer
+    )
     cfg = (
         NoTactileGoalRobotEnvCfg()
         if active_no_tactile_scene
@@ -1213,12 +1263,19 @@ def main() -> None:
     cfg.scene.num_envs = NUM_ENVS
     cfg.seed = args.seed
     cfg.sim.device = args.device
-    causal_same_teacher = "same_teacher_correct_reward" in config["arms"]
+    causal_same_teacher = (
+        "same_teacher_correct_reward" in config["arms"]
+        or is_shared_actionable_demo
+    )
     if args.teacher_only_zero_residual or causal_same_teacher:
         correct_arm = (
-            "same_teacher_correct_reward"
-            if causal_same_teacher
-            else "wrong_teacher_correct_reward"
+            "shared_balanced_conditioning"
+            if is_shared_actionable_demo
+            else (
+                "same_teacher_correct_reward"
+                if causal_same_teacher
+                else "wrong_teacher_correct_reward"
+            )
         )
         task_motion_folder = workspace_path(
             config["arms"][correct_arm]["teacher_motion_folder"]
@@ -1276,8 +1333,12 @@ def main() -> None:
     try:
         gym_env = gym.make(TASK_ID, cfg=cfg)
         enforce_determinism()
-        teacher_path = workspace_path(
-            config["artifacts"]["official_refiner_teacher"]["path"]
+        teacher_path = (
+            SHARED_REFINER
+            if is_shared_actionable_demo
+            else workspace_path(
+                config["artifacts"]["official_refiner_teacher"]["path"]
+            )
         )
         env = (
             WrongReferenceFixedOfficialRefinerResidualVecEnvWrapper(
@@ -1286,7 +1347,10 @@ def main() -> None:
                 residual_scale=float(shared["residual_scale"]),
                 clip_actions=None,
             )
-            if (is_fixed_teacher_identity or is_phase_event_reward)
+            if (
+                is_fixed_teacher_identity
+                or uses_phase_event_scorer
+            )
             else (
             WrongReferenceScheduledOfficialRefinerResidualVecEnvWrapper(
                 gym_env,
@@ -1322,7 +1386,7 @@ def main() -> None:
             wrapper_state = checkpoints[UPDATES[-1]][
                 "residual_wrapper_state_dict"
             ]
-            if is_phase_event_reward:
+            if uses_phase_event_scorer:
                 wrapper_state, wrapper_state_batch_audit = (
                     expand_fixed_one_wrapper_batch_state(
                         wrapper_state,
@@ -1346,7 +1410,7 @@ def main() -> None:
                 raise RuntimeError(
                     "update-128 checkpoint did not restore teacher floor"
                 )
-            if (is_fixed_teacher_identity or is_phase_event_reward) and (
+            if (is_fixed_teacher_identity or uses_phase_event_scorer) and (
                 env.release.mode != "fixed_one"
                 or not bool(torch.all(env.release.coefficient == 1.0))
                 or bool(env.release.release_latched.any())
@@ -1384,7 +1448,7 @@ def main() -> None:
             apply_teacher_gate_nominal_physics(base_env)
             if args.teacher_only_zero_residual
             else apply_no_tactile_training_physics(base_env, proof)
-            if is_phase_event_reward
+            if uses_phase_event_scorer
             else audit_reconstructed_training_physics(
                 base_env, int(shared["latent_physics_distribution_seed"])
             )
@@ -1428,7 +1492,13 @@ def main() -> None:
         else:
             reset_record, source_action103 = restore_state_action_boundary(
                 base_env,
-                workspace_path(config["artifacts"]["state_action_source"]["path"]),
+                (
+                    SHARED_CONTACT_SOURCE
+                    if is_shared_actionable_demo
+                    else workspace_path(
+                        config["artifacts"]["state_action_source"]["path"]
+                    )
+                ),
                 selected_frame=(
                     int(shared["explicit_zero_source_frame"])
                     if is_teacher_demo64
@@ -1445,7 +1515,7 @@ def main() -> None:
         ):
             raise RuntimeError("explicit-zero observation schema/value drift")
         initial_goal_policy_core = None
-        if is_phase_event_reward:
+        if uses_phase_event_scorer:
             initial_goal_policy_core = extract_goal_policy_core(
                 observations["policy"],
                 list(base_env.observation_manager.active_terms["policy"]),
@@ -1516,27 +1586,20 @@ def main() -> None:
             torch.all(env.release.coefficient == 0.25)
         ):
             raise RuntimeError("teacher floor changed during reset")
-        if (is_fixed_teacher_identity or is_phase_event_reward) and not bool(
+        if (is_fixed_teacher_identity or uses_phase_event_scorer) and not bool(
             torch.all(env.release.coefficient == 1.0)
         ):
             raise RuntimeError("fixed teacher authority changed during reset")
 
-        policies = []
-        policy_states = []
-        for index, update in enumerate(UPDATES):
-            start = index * PROFILES_PER_UPDATE
-            stop = start + PROFILES_PER_UPDATE
-            policy = construct_policy(
-                observation_subset(observations, start, stop),
-                env,
-                checkpoints[update]["policy_state_dict"],
-            )
-            if args.teacher_only_zero_residual:
-                policy.initialize_residual_mean_exact_zero()
-            policies.append(policy)
-            policy_states.append(clone_tensor_state(policy.state_dict()))
-
-        if (
+        if is_shared_actionable_demo:
+            runtime_paths = {
+                args.selected_demo_option: workspace_path(
+                    config["arms"]["shared_balanced_conditioning"][
+                        "demo_runtime_config"
+                    ]
+                )
+            }
+        elif (
             is_fixed_teacher_identity
             or is_teacher_floor_overfit
             or is_phase_event_reward
@@ -1585,15 +1648,15 @@ def main() -> None:
                 path,
                 NUM_ENVS,
                 base_env.device,
-                phase_event=is_phase_event_reward,
-                selected_option=name if is_phase_event_reward else None,
+                phase_event=uses_phase_event_scorer,
+                selected_option=name if uses_phase_event_scorer else None,
                 phase_horizon_steps=int(
                     shared.get("demo_event_phase_horizon_steps", 650)
                 ),
             )
             for name, path in runtime_paths.items()
         }
-        if is_phase_event_reward:
+        if uses_phase_event_scorer:
             command = base_env.command_manager.get_term("motion")
             initial_phase_steps = command.last_reset_timestep.detach().clone()
             if args.phase_initialization == "reset-zero-diagnostic":
@@ -1610,17 +1673,44 @@ def main() -> None:
                 name: scorer.begin(observations)
                 for name, scorer in scorers.items()
             }
-        selected_key = {
-            "correct_demo": "correct",
-            "wrong_demo": "wrong",
-            "zero_demo": "zero",
-            "task_only": "correct",
-            "unrelated_demo": "unrelated",
-            "wrong_teacher_correct_reward": "correct",
-            "wrong_teacher_unrelated_reward": "unrelated",
-            "same_teacher_correct_reward": "correct",
-            "same_teacher_unrelated_reward": "unrelated",
-        }[args.arm]
+        if is_shared_actionable_demo:
+            selected_key = args.selected_demo_option
+            observations["demo_conditioning"] = scorers[
+                selected_key
+            ].actionable_conditioning().clone()
+            if observations["demo_conditioning"].shape != (
+                NUM_ENVS,
+                ACTIONABLE_DEMO_CONDITIONING_DIM,
+            ):
+                raise RuntimeError("shared demo conditioning geometry drift")
+        else:
+            selected_key = {
+                "correct_demo": "correct",
+                "wrong_demo": "wrong",
+                "zero_demo": "zero",
+                "task_only": "correct",
+                "unrelated_demo": "unrelated",
+                "wrong_teacher_correct_reward": "correct",
+                "wrong_teacher_unrelated_reward": "unrelated",
+                "same_teacher_correct_reward": "correct",
+                "same_teacher_unrelated_reward": "unrelated",
+            }[args.arm]
+
+        policies = []
+        policy_states = []
+        for index, update in enumerate(UPDATES):
+            start = index * PROFILES_PER_UPDATE
+            stop = start + PROFILES_PER_UPDATE
+            policy = construct_policy(
+                observation_subset(observations, start, stop),
+                env,
+                checkpoints[update]["policy_state_dict"],
+                actionable_demo_conditioning=is_shared_actionable_demo,
+            )
+            if args.teacher_only_zero_residual:
+                policy.initialize_residual_mean_exact_zero()
+            policies.append(policy)
+            policy_states.append(clone_tensor_state(policy.state_dict()))
 
         joint_ids, joint_names = ordered_joint_ids(base_env, env)
         raw_capture = RawTerminationCapture(base_env.termination_manager)
@@ -1645,7 +1735,7 @@ def main() -> None:
 
         base_env._reset_idx = capture_before_reset
         frame_lists = {name: [value] for name, value in capture_state(base_env, joint_ids).items()}
-        if is_phase_event_reward:
+        if uses_phase_event_scorer:
             if initial_goal_policy_core is None:
                 raise RuntimeError("phase-event initial policy core was not captured")
             frame_lists["goal_policy_core_observation"] = [
@@ -1654,7 +1744,7 @@ def main() -> None:
         demo_component_lists = {
             name: [
                 np.zeros((NUM_ENVS, 1), dtype=np.float32)
-                if is_phase_event_reward
+                if uses_phase_event_scorer
                 else initial_demo[name]["component_mse"].detach().cpu().numpy()
             ]
             for name in scorers
@@ -1675,7 +1765,7 @@ def main() -> None:
         }
         for name in scorers:
             transition_lists[f"demo_{name}_reward"] = []
-            if is_phase_event_reward:
+            if uses_phase_event_scorer:
                 transition_lists[f"demo_{name}_phase"] = []
                 transition_lists[f"demo_{name}_ready"] = []
                 transition_lists[f"demo_{name}_risk"] = []
@@ -1714,12 +1804,17 @@ def main() -> None:
                     name: scorer.process_step(observations_next, done)
                     for name, scorer in scorers.items()
                 }
+                if is_shared_actionable_demo:
+                    observations_next["demo_conditioning"] = (
+                        demo_signals[selected_key]
+                        .actionable_conditioning.clone()
+                    )
                 goal_policy_core_next = (
                     extract_goal_policy_core(
                         observations_next["policy"],
                         list(base_env.observation_manager.active_terms["policy"]),
                     )
-                    if is_phase_event_reward
+                    if uses_phase_event_scorer
                     else None
                 )
             runtime = env.latest_step
@@ -1753,14 +1848,21 @@ def main() -> None:
             transition_lists["manager_reward"].append(manager_reward.detach().cpu().numpy())
             transition_lists["reward_terms"].append(reward_terms)
             transition_lists["weighted_task_outcome_reward"].append(
-                (float(shared["reward_mix_without_demo"]["task_outcome"]) * task_outcome).astype(np.float32)
+                (
+                    float(
+                        shared.get("reward_mix_without_demo", {}).get(
+                            "task_outcome", 10.0
+                        )
+                    )
+                    * task_outcome
+                ).astype(np.float32)
             )
             transition_lists["external_constraint_reward"].append(external.astype(np.float32))
             for name in scorers:
                 transition_lists[f"demo_{name}_reward"].append(
                     demo_signals[name].reward.detach().cpu().numpy()
                 )
-                if is_phase_event_reward:
+                if uses_phase_event_scorer:
                     transition_lists[f"demo_{name}_phase"].append(
                         demo_signals[name]
                         .selected_demo_phase.detach()
@@ -1784,7 +1886,7 @@ def main() -> None:
                 demo_component_lists[name].append(
                     (
                         demo_signals[name].next_risk[:, None]
-                        if is_phase_event_reward
+                        if uses_phase_event_scorer
                         else demo_signals[name].component_mse
                     )
                     .detach()
@@ -1808,7 +1910,7 @@ def main() -> None:
             transition_lists["terminal_pre_reset_state"].append(terminal_mask)
             for name, value in state.items():
                 frame_lists[name].append(value)
-            if is_phase_event_reward:
+            if uses_phase_event_scorer:
                 if goal_policy_core_next is None:
                     raise RuntimeError("phase-event next policy core was not captured")
                 frame_lists["goal_policy_core_observation"].append(
@@ -1859,7 +1961,7 @@ def main() -> None:
             "phase_event_fixed_one_wrapper_batch_restored": (
                 wrapper_state_batch_audit is not None
                 and wrapper_state_batch_audit["passed"] is True
-                if is_phase_event_reward
+                if uses_phase_event_scorer
                 else True
             ),
             "policy_parameters_frozen": all(
@@ -1883,7 +1985,7 @@ def main() -> None:
                 else "wrong_teacher_first_action_differs_from_carrybox_source"
                 if unrelated_teacher_arm
                 else "closest_origin_first_teacher_action_matches_source"
-                if is_phase_event_reward
+                if uses_phase_event_scorer
                 else "canonical_first_teacher_action_matches_source103"
             ): (
                 bool(torch.isfinite(first_teacher_action).all())
@@ -1931,7 +2033,7 @@ def main() -> None:
                 (
                     audit["model_frozen"]
                     and audit["future_actual_events_used"] is False
-                    if is_phase_event_reward
+                    if uses_phase_event_scorer
                     else (
                         audit["model_bitwise_frozen"]
                         and audit["all_parameters_require_grad_false"]
@@ -1943,7 +2045,7 @@ def main() -> None:
             "phase_event_exact_policy_core_archived": (
                 arrays.get("goal_policy_core_observation", np.empty(0)).shape
                 == (args.steps + 1, NUM_ENVS, 121)
-                if is_phase_event_reward
+                if uses_phase_event_scorer
                 else True
             ),
             "phase_event_runtime_signals_archived": (
@@ -1960,13 +2062,13 @@ def main() -> None:
                     == (args.steps, NUM_ENVS)
                     for name in scorers
                 )
-                if is_phase_event_reward
+                if uses_phase_event_scorer
                 else True
             ),
             "phase_event_initial_phase_contract_explicit": (
                 args.phase_initialization
                 in {"reference-aware", "reset-zero-diagnostic"}
-                if is_phase_event_reward
+                if uses_phase_event_scorer
                 else True
             ),
             "all_numeric_arrays_finite": all(
@@ -2000,6 +2102,10 @@ def main() -> None:
         np.savez_compressed(trace_path, **arrays)
         if args.teacher_only_zero_residual:
             result_protocol = "sugar_plan11_correct_teacher_zero_residual_gate_v1"
+        elif is_shared_actionable_demo:
+            result_protocol = (
+                "sugar_shared_actionable_demo_conditioning_frozen_eval_v1"
+            )
         elif is_phase_event_reward:
             result_protocol = (
                 "sugar_phase_event_reward_matched_frozen_eval_32_64_v2"
@@ -2041,7 +2147,7 @@ def main() -> None:
             "selected_demo_telemetry": selected_key,
             "selected_demo_metric": (
                 "calibrated_event_risk"
-                if is_phase_event_reward
+                if uses_phase_event_scorer
                 else "predicted_component_mse"
             ),
             "selected_demo_feedback_applied_during_training": args.arm != "task_only",
@@ -2072,7 +2178,7 @@ def main() -> None:
                         else 0
                     ),
                 }
-                if is_phase_event_reward
+                if uses_phase_event_scorer
                 else None
             ),
             "first_teacher_observation_shape": list(teacher_observation.shape),

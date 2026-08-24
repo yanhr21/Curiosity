@@ -140,6 +140,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="select one checkpoint block from a multi-update frozen trace",
     )
+    parser.add_argument(
+        "--same-checkpoint-condition-swap",
+        action="store_true",
+        help="Label the comparison as two conditions of one frozen checkpoint.",
+    )
     return parser.parse_args()
 
 
@@ -473,20 +478,22 @@ def primary_checks(comparison: dict[str, dict[str, float | int]]) -> dict[str, A
     return checks
 
 
-def summarize_behavior_shift(observed: int, total: int) -> str:
+def summarize_behavior_shift(
+    observed: int, total: int, comparison_subject: str = "unrelated reward arm"
+) -> str:
     if observed == 0:
         return (
-            "The unrelated reward arm does not move toward Kick21 on any "
+            f"The {comparison_subject} does not move toward Kick21 on any "
             "predeclared primary direction."
         )
     if observed < total:
         return (
-            f"The unrelated reward arm moves toward Kick21 on {observed}/{total} "
+            f"The {comparison_subject} moves toward Kick21 on {observed}/{total} "
             "predeclared primary directions, but does not reproduce the complete "
             "Kick21 interaction structure."
         )
     return (
-        "The unrelated reward arm moves toward Kick21 on all predeclared "
+        f"The {comparison_subject} moves toward Kick21 on all predeclared "
         "primary directions in this training seed; independent seed "
         "replication is still required."
     )
@@ -690,7 +697,13 @@ def main() -> None:
     )
 
     behavior_conclusion = summarize_behavior_shift(
-        directions_observed, len(checks)
+        directions_observed,
+        len(checks),
+        (
+            "unrelated demo condition"
+            if args.same_checkpoint_condition_swap
+            else "unrelated reward arm"
+        ),
     )
     correct_summary = numeric_summary(correct_records)
     unrelated_summary = numeric_summary(unrelated_records)
@@ -700,12 +713,20 @@ def main() -> None:
         and correct_summary["lifted_transport_fraction"]["mean"] >= 0.80
     )
     if carry_preserved:
-        conclusion = (
-            "Both learned policies retain a usable Carry solution under the common "
-            f"teacher. {behavior_conclusion} The selected reward changes behavior "
-            "within the Carry solution family, but this seed alone does not establish "
-            "semantic demo following."
-        )
+        if args.same_checkpoint_condition_swap:
+            conclusion = (
+                "The same frozen policy retains a usable Carry solution under both "
+                f"demo conditions. {behavior_conclusion} Swapping only the selected "
+                "demo condition changes behavior within the Carry solution family, "
+                "but this seed alone does not establish semantic demo following."
+            )
+        else:
+            conclusion = (
+                "Both learned policies retain a usable Carry solution under the common "
+                f"teacher. {behavior_conclusion} The selected reward changes behavior "
+                "within the Carry solution family, but this seed alone does not establish "
+                "semantic demo following."
+            )
     else:
         conclusion = (
             "The correct arm does not preserve the predeclared Carry contact/lift/"
@@ -715,7 +736,11 @@ def main() -> None:
         )
 
     result = {
-        "protocol": "same_teacher_predictor_independent_behavior_audit_v1",
+        "protocol": (
+            "same_checkpoint_condition_swap_behavior_audit_v1"
+            if args.same_checkpoint_condition_swap
+            else "same_teacher_predictor_independent_behavior_audit_v1"
+        ),
         "status": "complete_existing_trace_audit",
         "question": (
             "With CarryBox45 teacher fixed, did selecting KickBox21 as reward demo "
@@ -731,6 +756,7 @@ def main() -> None:
             "lift_threshold_m": LIFT_THRESHOLD_M,
             "hand_contact_threshold_n": HAND_CONTACT_THRESHOLD_N,
             "control_dt_s": CONTROL_DT_S,
+            "same_checkpoint_condition_swap": args.same_checkpoint_condition_swap,
         },
         "matched_checks": state_checks,
         "profile_count": profile_count,

@@ -104,10 +104,16 @@
   then freeze-evaluate it;
 - [x] reject reward magnitude as the sole bottleneck: update-64 direction count falls `3/4 -> 1/4`,
   effects reverse and unrelated foot-contact advantage stays absent despite `-48.64` feedback;
-- [ ] specify one shared-checkpoint demo-conditioned actor contract using only causal frozen-predictor
+- [x] specify one shared-checkpoint demo-conditioned actor contract using only causal frozen-predictor
   outputs and selected-demo conditioning before the actor call;
-- [ ] add dry-run and zero-optimizer checks that swapping Carry45/Kick21 changes the shared actor
-  input while checkpoint, teacher, task and physics stay fixed; do not train before these pass.
+- [x] add dry-run and zero-optimizer checks that swapping Carry45/Kick21 changes the shared actor
+  input and exact PPO learning direction while checkpoint, teacher, task and physics stay fixed;
+- [x] train one shared actor for 64 updates with ten Carry45-conditioned and ten
+  Kick21-conditioned environments under the common CarryBox45 teacher;
+- [x] freeze-evaluate the exact same checkpoint and initial state under each demo condition for 20
+  profiles, run the predictor-independent behavior audit and render two complete H.264 videos;
+- [ ] design one matched serious contact-topology experiment that can generate a qualitatively new
+  foot-box interaction rather than only perturbing the existing Carry solution.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -116,8 +122,9 @@ online and frozen Carry gates now pass, and the official Generator/Tracker Kick 
 Kick21 on `8/9` profiles. The new from-scratch phase-corrected pair now shows partial `3/4`
 behavioral movement at update 64 and that pattern repeats in seed161589, but both remain Carry
 solutions. The fixed 4x diagnostic then degrades the paired result to `1/4`, so no scale sweep is
-allowed. The next work is a shared-checkpoint actionable-conditioning contract, not more reward
-magnitude.
+allowed. The shared-checkpoint actionable condition is now implemented and causally changes the
+same frozen policy's actions, but update 64 still yields bilateral Carry under both demos despite a
+`3/4` directional shift. The next work targets contact-topology generation, not more reward scale.
 
 ## Frozen tactile work
 
