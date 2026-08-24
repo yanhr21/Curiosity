@@ -352,6 +352,6 @@ official Generator/Tracker Kick gate 也以 `8/9` profile preference 通过，�
 `generator.ckpt + tracker.pt`，没有 frozen Kick Refiner checkpoint；因此现有 gate 已覆盖最强
 可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。第一组从零 reference-aware matched
 pair 已完成；update 32/64 都出现 `3/4` 方向变化，但尚无 Kick 足部接触且只有一个 training
-seed。下一步只做一个独立 seed 的严格复现：teacher、frame-197 phase、20 env、64 updates、
-reward weights、physics 和冻结评估全部不变，不先改权重、延长训练或接入 SMP。预登记阶段
+seed。下一步固定为 `161589/161590 -> 171589` 的独立复现：teacher、frame-197 phase、20 env、
+64 updates、reward weights、physics 和冻结评估全部不变，不先改权重、延长训练或接入 SMP。预登记阶段
 自动连续执行，不设置人工授权 gate；GPU 在任务切换与回报后继续保留。

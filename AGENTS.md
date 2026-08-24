@@ -68,9 +68,10 @@ semantic directions, but both arms still execute a bilateral Carry solution and 
 contact remains approximately one frame per episode. This proves a behavior shift under the
 selected reward; one training seed does not establish semantic following or replication.
 
-The active causal experiment is therefore exactly one independent-seed replication with the same
-teacher, reference-frame-197 phase, update budget, environment count, reward weights, physics and
-frozen evaluation. Change no other variable and do not integrate SMP. Run its correct/unrelated
+The active causal experiment is therefore exactly one independent-seed replication using
+training/action seeds `161589/161590` and frozen-evaluation seed `171589`, with the same teacher,
+reference-frame-197 phase, update budget, environment count, reward weights, physics and frozen
+evaluation. Change no other variable and do not integrate SMP. Run its correct/unrelated
 arms serially and automatically chain the update-32/update-64 evaluation and independent behavior
 audit. Do not wait for human approval between documented stages.
 

@@ -17,7 +17,9 @@ esac
 PADDED_UPDATE=$(printf '%04d' "$UPDATE")
 EVALUATOR="$ROOT/scripts/sugar/demo_following/evaluate_matched_fixed_teacher.py"
 RENDERER="$ROOT/scripts/sugar/demo_following/render_demo_and_actual.py"
+TRACE_RENDERER="$ROOT/scripts/sugar/demo_following/render_frozen_trace_behavior.py"
 ANALYZER="$ROOT/scripts/sugar/demo_following/analyze_behavior_adherence.py"
+RENDER_MODE=${RENDER_MODE:-exact_trace}
 if [[ -n "$RUN_ROOT_OVERRIDE" ]]; then
     RUN_ROOT=$(realpath -m "$RUN_ROOT_OVERRIDE")
 else
@@ -34,6 +36,11 @@ arms=(same_teacher_correct_reward same_teacher_unrelated_reward)
 training_seed=$(
     "$PYTHON" -c \
         'import json,sys; print(json.load(open(sys.argv[1]))["shared_runtime"]["sim_and_policy_seed"])' \
+        "$CONFIG"
+)
+action_seed=$(
+    "$PYTHON" -c \
+        'import json,sys; print(json.load(open(sys.argv[1]))["shared_runtime"]["action_seed"])' \
         "$CONFIG"
 )
 eval_seed=$((training_seed + 10000))
@@ -121,19 +128,23 @@ if [[ "$DESIGN" == "phase_event_reward_only" ]]; then
         "$RUN_ROOT/correct/update_${PADDED_UPDATE}/proof.json" \
         "$RUN_ROOT/unrelated/update_${PADDED_UPDATE}/proof.json" \
         "$RUN_ROOT/correct/update_${PADDED_UPDATE}/protocol.json" \
-        "$RUN_ROOT/unrelated/update_${PADDED_UPDATE}/protocol.json" <<'PY'
+        "$RUN_ROOT/unrelated/update_${PADDED_UPDATE}/protocol.json" \
+        "$training_seed" "$action_seed" <<'PY'
 import json
 import sys
 
 proofs = [json.load(open(path, encoding="utf-8")) for path in sys.argv[1:3]]
 protocols = [json.load(open(path, encoding="utf-8")) for path in sys.argv[3:5]]
+expected_seed = int(sys.argv[5])
+expected_action_seed = int(sys.argv[6])
 for proof, selected_option in zip(proofs, ("correct", "unrelated"), strict=True):
     checks = proof.get("checks", {})
     audit = proof.get("demo_event_reward", {}).get("final_frozen_audit", {})
     assert proof.get("passed") is True and checks and all(checks.values())
     assert checks.get("demo_event_phase_and_prefix_are_causal") is True
     assert proof.get("protocol") == "sugar_phase_event_reward_matched_policy_v1"
-    assert proof.get("seed") == 161587 and proof.get("action_seed") == 161588
+    assert proof.get("seed") == expected_seed
+    assert proof.get("action_seed") == expected_action_seed
     assert proof.get("num_envs") == 20 and proof.get("num_updates") == 64
     assert proof.get("demo_event_reward", {}).get("selected_option") == selected_option
     assert audit.get("phase_source") == "reset_reference_frame_plus_causal_control_clock"
@@ -203,6 +214,22 @@ fi
 
 if [[ "$reuse_video" == "1" ]]; then
     exit 0
+fi
+
+if [[ "$RENDER_MODE" == "exact_trace" ]]; then
+    "$PYTHON" "$TRACE_RENDERER" \
+        --correct-trace "$EVAL_ROOT/correct/TRACE.npz" \
+        --unrelated-trace "$EVAL_ROOT/unrelated/TRACE.npz" \
+        --output-dir "$VIDEO_ROOT" \
+        --source-env "$renderer_source_env" \
+        --policy-update "$UPDATE" \
+        > "$EVAL_ROOT/render_console.log" 2>&1
+    "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$VIDEO_ROOT/RENDER_PROOF.json"
+    exit 0
+fi
+if [[ "$RENDER_MODE" != "isaac_camera" ]]; then
+    echo "unknown RENDER_MODE: $RENDER_MODE" >&2
+    exit 2
 fi
 
 (

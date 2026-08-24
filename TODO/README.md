@@ -95,8 +95,9 @@
   stable bilateral Carry in both arms, and no meaningful Kick foot-contact structure;
 - [x] render both input-demo/actual-behavior H.264 videos from exact frozen PhysX traces after the
   H200 Vulkan camera path failed before producing a valid frame;
-- [ ] run one independent-seed replication with the exact same teacher, phase, 64-update budget,
-  reward weights, physics and evaluation; do not integrate SMP or tune weights first.
+- [ ] run the `161589/161590 -> 171589` independent-seed replication with the exact same teacher,
+  phase, 64-update budget, reward weights, physics and evaluation; do not integrate SMP or tune
+  weights first.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it

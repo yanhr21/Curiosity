@@ -212,6 +212,9 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
         )
     )
     assert "--portable-root /tmp/Curiosity_matched_render_kit_" in evaluation_launcher
+    assert 'RENDER_MODE=${RENDER_MODE:-exact_trace}' in evaluation_launcher
+    assert 'TRACE_RENDERER="$ROOT/scripts/sugar/demo_following/render_frozen_trace_behavior.py"' in evaluation_launcher
+    assert 'if [[ "$RENDER_MODE" == "exact_trace" ]]' in evaluation_launcher
 
     evaluator_source = (
         ROOT / "scripts/sugar/demo_following/evaluate_matched_fixed_teacher.py"

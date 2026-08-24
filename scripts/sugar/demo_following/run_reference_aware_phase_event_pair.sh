@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Run the one predeclared phase-corrected matched pair, serially, then stop.
+# Run one predeclared phase-corrected matched pair, serially, then stop.
 
 set -euo pipefail
 
 ROOT=/public/home/yanhongru/Curiosity
 PYTHON_BIN=${PYTHON_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python}
 OUTPUT_ROOT=${OUTPUT_ROOT:-$ROOT/experiments/demo_following/matched_phase_event_reward_reference_aware_v2}
+TRAIN_SEED=${TRAIN_SEED:-161587}
+ACTION_SEED=${ACTION_SEED:-161588}
+SEED_ROOT="$OUTPUT_ROOT/seed${TRAIN_SEED}"
 LAUNCHER=$ROOT/scripts/sugar/native_tactile/launch_retained_child.sh
 RUNNER=$ROOT/scripts/sugar/demo_following/run_matched_state_predictor.py
 
@@ -19,9 +22,9 @@ esac
 
 check_endpoint() {
     local arm=$1
-    local proof="$OUTPUT_ROOT/seed161587/$arm/update_0064/proof.json"
-    local checkpoint="$OUTPUT_ROOT/seed161587/$arm/update_0064/policy.pt"
-    "$PYTHON_BIN" - "$proof" "$checkpoint" "$arm" <<'PY'
+    local proof="$SEED_ROOT/$arm/update_0064/proof.json"
+    local checkpoint="$SEED_ROOT/$arm/update_0064/policy.pt"
+    "$PYTHON_BIN" - "$proof" "$checkpoint" "$arm" "$TRAIN_SEED" "$ACTION_SEED" <<'PY'
 import json
 from pathlib import Path
 import sys
@@ -29,6 +32,8 @@ import sys
 proof = Path(sys.argv[1])
 checkpoint = Path(sys.argv[2])
 arm = sys.argv[3]
+expected_seed = int(sys.argv[4])
+expected_action_seed = int(sys.argv[5])
 payload = json.loads(proof.read_text(encoding="utf-8"))
 checks = payload.get("checks", {})
 audit = payload.get("demo_event_reward", {}).get("final_frozen_audit", {})
@@ -36,8 +41,8 @@ assert payload.get("passed") is True
 assert checks and all(checks.values())
 assert checks.get("demo_event_phase_and_prefix_are_causal") is True
 assert payload.get("protocol") == "sugar_phase_event_reward_matched_policy_v1"
-assert payload.get("seed") == 161587
-assert payload.get("action_seed") == 161588
+assert payload.get("seed") == expected_seed
+assert payload.get("action_seed") == expected_action_seed
 assert payload.get("num_envs") == 20
 assert payload.get("num_updates") == 64
 assert payload.get("demo_event_reward", {}).get("selected_option") == arm
@@ -51,10 +56,10 @@ PY
 
 check_pair() {
     "$PYTHON_BIN" - \
-        "$OUTPUT_ROOT/seed161587/correct/update_0064/proof.json" \
-        "$OUTPUT_ROOT/seed161587/unrelated/update_0064/proof.json" \
-        "$OUTPUT_ROOT/seed161587/correct/update_0064/protocol.json" \
-        "$OUTPUT_ROOT/seed161587/unrelated/update_0064/protocol.json" <<'PY'
+        "$SEED_ROOT/correct/update_0064/proof.json" \
+        "$SEED_ROOT/unrelated/update_0064/proof.json" \
+        "$SEED_ROOT/correct/update_0064/protocol.json" \
+        "$SEED_ROOT/unrelated/update_0064/protocol.json" <<'PY'
 import json
 import sys
 
@@ -69,10 +74,10 @@ PY
 
 run_arm() {
     local arm=$1
-    local arm_root="$OUTPUT_ROOT/seed161587/$arm/update_0064"
-    local record="$OUTPUT_ROOT/$arm.process"
-    local status="$OUTPUT_ROOT/$arm.status"
-    local log="$OUTPUT_ROOT/$arm.log"
+    local arm_root="$SEED_ROOT/$arm/update_0064"
+    local record="$OUTPUT_ROOT/${arm}_seed${TRAIN_SEED}.process"
+    local status="$OUTPUT_ROOT/${arm}_seed${TRAIN_SEED}.status"
+    local log="$OUTPUT_ROOT/${arm}_seed${TRAIN_SEED}.log"
 
     if [[ -f "$arm_root/proof.json" && -f "$arm_root/policy.pt" ]]; then
         check_endpoint "$arm"
@@ -92,6 +97,8 @@ run_arm() {
         --design phase_event_reward_only \
         --arm "$arm" \
         --output-root "$OUTPUT_ROOT" \
+        --seed "$TRAIN_SEED" \
+        --action-seed "$ACTION_SEED" \
         --endpoint-updates 64 \
         --stop-after-segment
     check_endpoint "$arm"

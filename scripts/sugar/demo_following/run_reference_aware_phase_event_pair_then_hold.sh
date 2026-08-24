@@ -6,6 +6,8 @@ set -uo pipefail
 ROOT=/public/home/yanhongru/Curiosity
 PYTHON_BIN=${PYTHON_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python}
 OUTPUT_ROOT=${OUTPUT_ROOT:-$ROOT/experiments/demo_following/matched_phase_event_reward_reference_aware_v2}
+TRAIN_SEED=${TRAIN_SEED:-161587}
+ACTION_SEED=${ACTION_SEED:-161588}
 LOCK_PATH="$ROOT/experiments/runtime_allocations/reference_aware_phase_event_pair.lock"
 
 if [[ -z "${SLURM_JOB_ID:-}" || -z "${SLURM_STEP_ID:-}" ]]; then
@@ -21,12 +23,13 @@ exec 9>"$LOCK_PATH"
 if flock -n 9; then
     set +e
     OUTPUT_ROOT="$OUTPUT_ROOT" PYTHON_BIN="$PYTHON_BIN" \
+        TRAIN_SEED="$TRAIN_SEED" ACTION_SEED="$ACTION_SEED" \
         bash "$ROOT/scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh"
     pair_rc=$?
     eval_rc=76
     if [[ "$pair_rc" == "0" ]]; then
         bash "$ROOT/scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh" \
-            64 phase_event_reward_only "$OUTPUT_ROOT/seed161587"
+            64 phase_event_reward_only "$OUTPUT_ROOT/seed${TRAIN_SEED}"
         eval_rc=$?
     fi
     set -e

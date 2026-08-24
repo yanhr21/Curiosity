@@ -19,8 +19,9 @@ direction. Both arms nevertheless retain bilateral Carry and foot-box contact re
 frame per episode. This is selected-demo-conditioned behavior change, not complete semantic
 following.
 
-The next matched experiment is exactly one independent-seed replication of this contract. Do not
-change the teacher, phase, budget, reward scale, physics or SMP status before that replication.
+The next matched experiment is exactly one independent-seed replication with training/action seeds
+`161589/161590` and frozen-evaluation seed `171589`. Do not change the teacher, phase, budget,
+reward scale, physics or SMP status before that replication.
 
 The first causal selected-demo experiment is complete:
 
