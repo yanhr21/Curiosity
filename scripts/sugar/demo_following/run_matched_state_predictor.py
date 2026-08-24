@@ -256,7 +256,7 @@ def require_passing_probe_result(
     expected_protocol = (
         "sugar_phase_event_policy_admission_only_v1"
         if admission_only
-        else "sugar_phase_event_online_rollout_gradient_smoke_v2"
+        else "sugar_phase_event_online_rollout_gradient_authority_smoke_v3"
     )
     if (
         returncode != 0

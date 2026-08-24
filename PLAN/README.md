@@ -129,6 +129,12 @@ unrelated changes them by `0.23489/0.16923/0.04430`. Parameters and optimizer co
 unchanged. The selected-demo signal therefore reaches the policy learning direction; whether
 optimization produces semantic behavior remains the unanswered experiment.
 
+The fixed-one teacher does not mask the student. In both admitted arms the exact execution formula
+is `teacher + residual` with coefficient/scale `1.0/1.0`; the sampled 29-D residual reaches the
+ActionManager raw input exactly. Inverse joint scale/offset round-trip error is only `4.77e-7`
+against the existing `2e-6` float32 tolerance. The student therefore retains full residual authority
+while the common teacher preserves a matched Carry baseline.
+
 Runner probes now fail closed on a separate machine-readable result. A zero process return code is
 insufficient because Isaac shutdown can mask an inner Python failure.
 

@@ -154,6 +154,13 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert '"selected_demo_changes_ppo_returns"' in inner_source
     assert '"selected_demo_changes_normalized_advantages"' in inner_source
     assert '"selected_demo_changes_actor_surrogate_gradient"' in inner_source
+    assert '"fixed_one_teacher_keeps_full_residual_authority"' in inner_source
+    assert '"executed_residual_action_reaches_environment"' in inner_source
+    assert "runtime_step.teacher_action" in inner_source
+    assert "runtime_step.residual_action" in inner_source
+    assert "runtime_step.executed_action" in inner_source
+    assert "runtime_step.action_manager_raw_action" in inner_source
+    assert "applied_policy_unit_roundtrip_max_abs <= 2.0e-6" in inner_source
     assert "_actor_surrogate_gradient_comparison(" in inner_source
     assert "algorithm.storage.rewards.copy_(stored_total_rewards)" in inner_source
     assert "args.probe_result_output.write_text(" in inner_source
@@ -164,7 +171,10 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     ).read_text(encoding="utf-8")
     assert "require_passing_probe_result(" in runner_source
     assert '"--probe-result-output", str(temporary_result)' in runner_source
-    assert "sugar_phase_event_online_rollout_gradient_smoke_v2" in runner_source
+    assert (
+        "sugar_phase_event_online_rollout_gradient_authority_smoke_v3"
+        in runner_source
+    )
     assert 'result.get("policy_updates_executed") != 0' in runner_source
 
     evaluation_launcher = (
@@ -180,7 +190,9 @@ def test_runner_probe_requires_machine_readable_success(tmp_path: Path) -> None:
     result.write_text(
         json.dumps(
             {
-                "protocol": "sugar_phase_event_online_rollout_gradient_smoke_v2",
+                "protocol": (
+                    "sugar_phase_event_online_rollout_gradient_authority_smoke_v3"
+                ),
                 "passed": True,
                 "policy_updates_executed": 0,
             }

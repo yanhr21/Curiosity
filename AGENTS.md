@@ -73,6 +73,12 @@ unchanged. This proves the reward reaches the learning signal, not that an optim
 the demo. Probe success must be read from the separate machine-readable result; never accept process
 return code alone because Isaac shutdown can mask an inner exception.
 
+The same online gate proves that `fixed_one` does not suppress the student residual. Both arms use
+the exact action `teacher + residual` with teacher coefficient and residual scale both `1.0`; the
+nonzero 29-D residual reaches the ActionManager raw input exactly. The inverse joint scale/offset
+round trip has maximum float32 error `4.77e-7`, below the frozen `2e-6` tolerance. Do not reinterpret
+fixed teacher authority as zero student authority.
+
 Routine read-only audits, dataset builds and predictor-only gates may proceed through the documented
 queue. Policy training is the explicit exception and requires user approval.
 

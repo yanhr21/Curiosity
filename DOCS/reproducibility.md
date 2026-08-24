@@ -468,7 +468,7 @@ $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
   --endpoint-updates 64 --stop-after-segment --runner-rollout-smoke-only
 ```
 
-输出协议为 `sugar_phase_event_online_rollout_gradient_smoke_v2`。它要求 24 步全部完成、
+输出协议为 `sugar_phase_event_online_rollout_gradient_authority_smoke_v3`。它要求 24 步全部完成、
 10-state history 进入 ready、demo reward 非零、`policy_reward=base_reward+demo_reward`、
 original ICM 逐元素不变、policy parameter 和 optimizer counter 不变、ICM optimizer 为零，
 并证明 scene 中没有 R15/TacSL sensor 或 elastomer body。旧实现虽然把 tactile tensor 置零，
@@ -482,10 +482,16 @@ storage。correct 的 return/advantage/actor-gradient delta 为
 `0.234895/0.169226/0.0442988`。这证明 feedback 会改变策略将要接收的学习方向，但没有执行
 parameter update，也不是行为结果。
 
+该门禁还逐步核对 residual authority：`teacher_coefficient=1.0`、`residual_scale=1.0` 时，正式
+公式是 `executed=teacher+residual`，不是 `(1-teacher_coefficient)*residual`。两臂 sampled
+residual maximum 均为 `3.726743`；wrapper 公式和 ActionManager raw input 逐元素精确。由
+joint scale/offset 逆变换得到的 policy-unit readback 最大误差为 `4.768e-7`，通过既有
+`2e-6` float32 round-trip 容差。因此 fixed CarryBox45 teacher 没有遮蔽 student action。
+
 2026-08-24 的最终 gate 已在 fresh H200 job257815/server54 顺序通过。最小
 `SimulationApp` canary 先以系统 NVIDIA ICD
 `/etc/vulkan/icd.d/nvidia_icd.json` 完成五次 update 并正常关闭；随后 correct、unrelated
-均返回 `sugar_phase_event_online_rollout_gradient_smoke_v2/pass`。correct 的 24 步 mean demo reward
+均返回 `sugar_phase_event_online_rollout_gradient_authority_smoke_v3/pass`。correct 的 24 步 mean demo reward
 非零且 policy reward 逐步等于 base reward 加 demo reward；unrelated 通过相同不变量检查。
 两臂均报告 no-TacSL scene、24 步完整执行、history ready、future labels hidden、frozen event
 model、policy/ICM 参数不变以及 optimizer/update counter 为零。

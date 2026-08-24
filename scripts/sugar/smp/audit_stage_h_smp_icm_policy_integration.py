@@ -4125,6 +4125,10 @@ def main() -> None:
             ready_transition_count = 0
             nonzero_demo_reward_count = 0
             demo_reward_steps: list[torch.Tensor] = []
+            fixed_teacher_residual_authority_exact = True
+            action_manager_raw_matches_executed = True
+            applied_policy_unit_roundtrip_max_abs = 0.0
+            residual_action_abs_max = 0.0
             with torch.inference_mode():
                 for step_index in range(smoke_steps):
                     observation_t = observations.clone()
@@ -4132,10 +4136,50 @@ def main() -> None:
                     observations_tp1, external_reward, dones, extras = env.step(
                         actions
                     )
+                    runtime_step = env.latest_step
+                    if runtime_step is None:
+                        raise RuntimeError(
+                            "phase-event smoke omitted residual runtime record"
+                        )
                     applied_action = (
                         previous_applied_action_policy_units(base_env)
                         .detach()
                         .clone()
+                    )
+                    residual_action_abs_max = max(
+                        residual_action_abs_max,
+                        float(runtime_step.residual_action.abs().max()),
+                    )
+                    fixed_teacher_residual_authority_exact &= bool(
+                        torch.equal(actions, runtime_step.residual_action)
+                        and torch.equal(
+                            runtime_step.teacher_coefficient,
+                            torch.ones_like(runtime_step.teacher_coefficient),
+                        )
+                        and torch.equal(
+                            runtime_step.residual_scale,
+                            torch.ones_like(runtime_step.residual_scale),
+                        )
+                        and torch.equal(
+                            runtime_step.executed_action,
+                            runtime_step.teacher_action
+                            + runtime_step.residual_action,
+                        )
+                    )
+                    action_manager_raw_matches_executed &= bool(
+                        torch.equal(
+                            runtime_step.action_manager_raw_action,
+                            runtime_step.executed_action,
+                        )
+                    )
+                    applied_policy_unit_roundtrip_max_abs = max(
+                        applied_policy_unit_roundtrip_max_abs,
+                        float(
+                            torch.abs(
+                                applied_action
+                                - runtime_step.executed_action
+                            ).max()
+                        ),
                     )
                     signals = integrator.process_step(
                         observation_t=observation_t,
@@ -4281,6 +4325,14 @@ def main() -> None:
                 "selected_demo_changes_actor_surrogate_gradient": bool(
                     gradient_comparison["passed"]
                 ),
+                "fixed_one_teacher_keeps_full_residual_authority": (
+                    fixed_teacher_residual_authority_exact
+                    and residual_action_abs_max > 0.0
+                ),
+                "executed_residual_action_reaches_environment": (
+                    action_manager_raw_matches_executed
+                    and applied_policy_unit_roundtrip_max_abs <= 2.0e-6
+                ),
                 "total_reward_return_state_restored": bool(
                     torch.equal(
                         algorithm.storage.rewards,
@@ -4328,7 +4380,9 @@ def main() -> None:
                 ),
             }
             payload = {
-                "protocol": "sugar_phase_event_online_rollout_gradient_smoke_v2",
+                "protocol": (
+                    "sugar_phase_event_online_rollout_gradient_authority_smoke_v3"
+                ),
                 "passed": all(checks.values()),
                 "selected_option": args.demo_event_selected_option,
                 "environment_created": True,
@@ -4346,6 +4400,21 @@ def main() -> None:
                 "actor_surrogate_gradient_comparison": (
                     gradient_comparison
                 ),
+                "fixed_teacher_residual_authority": {
+                    "teacher_coefficient": 1.0,
+                    "residual_scale": 1.0,
+                    "residual_action_abs_max": residual_action_abs_max,
+                    "executed_action_formula_exact": (
+                        fixed_teacher_residual_authority_exact
+                    ),
+                    "action_manager_raw_matches_executed": (
+                        action_manager_raw_matches_executed
+                    ),
+                    "applied_policy_unit_roundtrip_max_abs": (
+                        applied_policy_unit_roundtrip_max_abs
+                    ),
+                    "applied_policy_unit_roundtrip_tolerance": 2.0e-6,
+                },
                 "frozen_model_audit": model_audit,
                 "no_tactile_startup_physics": (
                     no_tactile_startup_physics_proof

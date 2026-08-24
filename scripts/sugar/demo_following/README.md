@@ -68,6 +68,11 @@ gradients. The admitted correct/unrelated gradient deltas are `0.07804/0.04430`;
 optimizer counters remain unchanged. Probe launchers require a machine-readable passing result and
 do not trust process return code alone.
 
+The admitted protocol is now `sugar_phase_event_online_rollout_gradient_authority_smoke_v3`. It also
+checks `executed=teacher+residual`, coefficient/scale `1.0/1.0`, exact ActionManager raw input and the
+existing `2e-6` policy-unit round-trip tolerance. Both arms pass with a nonzero residual maximum of
+`3.72674` and round-trip error `4.77e-7`.
+
 The archived historical design changed both teacher and reward demo and is not an active result.
 Exact assets, commands, expected outputs and claim boundaries are in `DOCS/reproducibility.md`.
 

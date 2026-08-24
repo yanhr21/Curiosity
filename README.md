@@ -114,6 +114,12 @@ base reward，分别运行同一个 PPO GAE/advantage 计算，并对精确 clip
 不只进入日志或 reward tensor，确实改变了 PPO 将要使用的 actor 学习方向；这仍不是训练后
 行为遵循的证据。
 
+同一门禁还排除了 fixed teacher 遮蔽 student 的疑问。正式动作公式是
+`executed = 1.0 * teacher + 1.0 * residual`；correct/unrelated 两臂中，29-D sampled residual
+最大绝对值均为 `3.72674`，wrapper 公式和 ActionManager raw input 都逐元素精确，joint
+scale/offset 逆变换的最大 float32 误差为 `4.77e-7`，低于既有 `2e-6` 容差。因此 student
+residual 确实到达环境，固定 CarryBox45 teacher 只是共同基线，不会把 student action 乘零。
+
 同时修复了 probe 的失败语义：Isaac Sim 关闭阶段可能掩盖内层 Python 非零退出状态。外层
 runner 现在必须读取独立 machine-readable result，并核对 protocol、`passed=true` 和
 `policy_updates_executed=0`；缺失或无效结果一律失败，不能再只凭 subprocess return code 放行。
