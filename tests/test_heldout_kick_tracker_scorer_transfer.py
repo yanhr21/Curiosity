@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
 
@@ -17,6 +18,35 @@ assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
+
+
+def test_shard_provenance_requires_released_generator_tracker_pair(
+    tmp_path: Path,
+) -> None:
+    trace_path = tmp_path / "TRACE.npz"
+    trace_path.touch()
+    payload = {
+        "protocol": "sugar_official_tracker_actual_contact_event_canary_v1",
+        "passed": True,
+        "task_family": "KickBox",
+        "tracker_checkpoint": str(MODULE.OFFICIAL_TRACKER),
+        "generator_checkpoint": str(MODULE.OFFICIAL_GENERATOR),
+        "checks": {
+            "physical_force_vectors_recorded": True,
+            "contact_is_exact_threshold_of_force": True,
+        },
+    }
+    (tmp_path / "RESULT.json").write_text(json.dumps(payload), encoding="utf-8")
+    assert MODULE.validate_shard_result(trace_path) == payload
+
+    payload["generator_checkpoint"] = str(tmp_path / "replacement.ckpt")
+    (tmp_path / "RESULT.json").write_text(json.dumps(payload), encoding="utf-8")
+    try:
+        MODULE.validate_shard_result(trace_path)
+    except RuntimeError as error:
+        assert "unverified official Kick shard" in str(error)
+    else:
+        raise AssertionError("non-official generator was accepted")
 
 
 def test_semantic_summary_keeps_deployed_and_diagnostic_clocks_separate() -> None:
@@ -68,4 +98,3 @@ def test_behavior_summary_requires_observed_kick_interaction() -> None:
     )
     assert summary["profiles_with_foot_contact"] == 5
     assert summary["profiles_moving_object_at_least_1cm"] == 6
-

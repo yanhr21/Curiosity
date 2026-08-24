@@ -75,21 +75,28 @@
   changes all four arm/update blocks from `0/20` to `20/20` Carry-preferring profiles;
 - [x] update the scorer, formal runner and frozen evaluator to initialize the first causal phase
   clock from the restored reset reference frame instead of silently forcing zero;
-- [ ] re-pass a corrected zero-optimizer online smoke and frozen Carry-domain scorer gate with the
-  initial reference-frame readback recorded;
-- [ ] collect one independent Kick-policy rollout and require the same frozen predictor to prefer
-  Kick21 over Carry45 before any new policy training;
-- [ ] if the independent Kick-domain gate fails, collect a motion-disjoint Refiner-plus-residual
-  corpus and re-admit the serious predictor on both Tracker and policy-rollout domains;
-- [ ] keep selected-demo SMP out until its independent semantic gate passes; do not start another
-  policy pair until actual frozen Carry trajectories prefer Carry45 consistently.
+- [x] re-pass corrected zero-optimizer online smokes for both arms with exact reference-frame-197
+  readback, zero policy updates and unchanged parameters on retained H200 job258074;
+- [x] pass corrected frozen Carry scoring for both arms at updates 32/64: every block has `20/20`
+  Carry-preferring profiles and mean margin `+0.324~+0.328`;
+- [x] score the motion-disjoint official Generator/Tracker Kick test motions `9/19/.../89`: all nine show
+  physical Kick interaction, mean deployed-clock margin is `-0.06508`, and `8/9` profiles prefer
+  Kick21; retain motion29 as a counterexample and do not call this Refiner transfer;
+- [x] audit released Kick artifacts: official inference provides `generator.ckpt + tracker.pt` and
+  the passing corpus executes that pair; no frozen Kick Refiner/residual checkpoint is released in
+  this workspace, so retain that narrower claim instead of substituting or training a toy policy;
+- [x] keep selected-demo SMP out of the phase-corrected matched pair; actual frozen Carry
+  trajectories now prefer Carry45 consistently, while official TinyMDM semantic extension remains
+  a separate unfinished gate;
+- [ ] obtain explicit user authorization, then run exactly one new from-scratch 64-update matched
+  correct/unrelated pair under the reference-aware phase clock; do not add seeds or steps first.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
-was trained with a wrong zero-based phase clock after restoring reference frame 197. Exact-prefix
-rescoring shows that correcting this one clock restores Carry preference in all four frozen-policy
-blocks. The next work is corrected online admission plus an independent Kick-domain transfer gate,
-not more PPO training.
+was trained with a wrong zero-based phase clock after restoring reference frame 197. Corrected
+online and frozen Carry gates now pass, and the official Generator/Tracker Kick test split prefers
+Kick21 on `8/9` profiles. The next work is one explicitly authorized from-scratch phase-corrected
+matched pair, not an extension of the invalid old checkpoints.
 
 ## Frozen tactile work
 

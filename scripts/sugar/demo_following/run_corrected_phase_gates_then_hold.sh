@@ -6,7 +6,7 @@ set -uo pipefail
 ROOT=/public/home/yanhongru/Curiosity
 PYTHON_BIN=${PYTHON_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python}
 job_id=${SLURM_JOB_ID:-unknown}
-output_root="$ROOT/experiments/demo_following/corrected_phase_runtime_gate_job${job_id}"
+output_root=${OUTPUT_ROOT:-$ROOT/experiments/demo_following/corrected_phase_runtime_gate_job${job_id}}
 lock_path="$ROOT/experiments/runtime_allocations/corrected_phase_gate_pipeline.lock"
 
 mkdir -p "$(dirname "$lock_path")"

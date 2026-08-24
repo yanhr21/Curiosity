@@ -150,9 +150,28 @@ reward、risk 和 uncertainty 均在 float32/模型容差内复现。因此在�
 Tracker-to-Refiner rollout shift 仍真实存在，但不再是解释当前 Carry 语义倒置所必需的原因：
 official Tracker test 的 normalized state `mean|z|/p95/p99` 为
 `0.668/1.923/2.882`，当前 frozen Carry rollout 为约 `1.035/3.212/5.420`，主要来自 joint
-position、projected gravity、box velocity 和 previous action。当前结果只通过了 Carry-domain
-必要门槛；尚未在独立 Kick-policy rollout 上验证双向 transfer，也尚未用修正后的 reward
-重新训练策略，所以仍不能声称 policy 已语义遵循 demo。
+position、projected gravity、box velocity 和 previous action。此时结果只通过了 Carry-domain
+必要门槛，也尚未用修正后的 reward 重新训练策略，所以仍不能声称 policy 已语义遵循 demo。
+
+随后完成 motion-disjoint official Generator/Tracker Kick-domain gate。使用 predictor test
+split 的 KickBox motions `9/19/.../89`，9/9 轨迹都有足—箱接触，9/9 都让箱子平移至少 1 cm；冻结
+predictor 在部署用 fixed-650 clock 下得到 mean `Kick risk - Carry risk=-0.06508`，ready frames
+中 `50.50%` 偏好 Kick，`8/9` motion profiles 整体偏好 Kick21。motion29 仍错误偏好 Carry45，
+所以该结果证明 official inference Kick 域上的多数 motion transfer，不证明 universal transfer，
+也不替代 Refiner-plus-residual Kick rollout。
+
+2026-08-24 随后在 retained H200 job258074 的 fresh physical GPU7 上完成正式修正门槛。correct
+和 unrelated 都运行 24 个真实环境 control steps，参数与 optimizer counters 不变、policy
+updates 为 0，且 frozen scorer 均明确从 episode step `197` 起钟。相同未优化 Carry rollout 上，
+ready-step mean reward/risk 为 correct `+0.04804/0.31539`、unrelated
+`-0.00338/0.65776`。因此修正后的在线 reward 已恢复正确方向。
+
+同一 GPU 上的 frozen Carry evaluation 也通过：correct/unrelated 的 update 32/64 四个 block
+均为 `20/20` profiles 偏好 Carry45，mean `Kick risk - Carry risk` 为
+`+0.32437/+0.32724/+0.32451/+0.32787`，Carry-preferred ready-frame fraction 为
+`85.77%/86.10%/85.71%/86.12%`。这与 exact-prefix scorer-only 预测一致，说明 phase 修复已在
+真实 evaluator 中落地；它仍不等于旧 policy 自动获得 semantic following，因为旧 policy 是
+在错误 phase 下训练的。
 
 官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
 完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
@@ -316,11 +335,13 @@ Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 
 ## 下一步
 
-matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
+旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复
-正式 runtime 接口。下一步仍不追加训练步数或 seeds：先用修正后的在线 scorer 重新通过零优化
-smoke 和 frozen Carry gate，再采集与 Carry 对称的独立 Kick-policy rollout，验证双向 transfer。
-只有 correct Carry 与 independent Kick 两域都稳定偏好各自 demo，才向用户申请授权重跑一组
-严格 matched 64-update policy pair。若 Kick-domain gate 失败，再收集 motion-disjoint
-Refiner-plus-residual corpus 重做 calibration/evaluation，而不是立即重训 predictor 或 policy。
-SMP 仍不进入 selected-demo policy reward，直到 official TinyMDM 的独立语义扩展门槛通过。
+正式 runtime 接口。修正后的 online smoke 与 frozen Carry gate 已正式通过；motion-disjoint
+official Generator/Tracker Kick gate 也以 `8/9` profile preference 通过，但 motion29 是明确
+反例。官方发布物当前只有 KickBox
+`generator.ckpt + tracker.pt`，没有 frozen Kick Refiner checkpoint；因此现有 gate 已覆盖最强
+可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。下一步是申请用户明确授权，从零
+重跑一组严格 matched 64-update policy pair；仍不自动增加步数或 seeds。SMP 仍不进入
+selected-demo policy reward，
+直到 official TinyMDM 的独立语义扩展门槛通过。

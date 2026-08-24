@@ -169,20 +169,32 @@ state `mean|z|/p95/p99 = 0.668/1.923/2.882`; the current Carry rollouts are appr
 gate. It does not establish independent Kick-domain transfer or policy semantic following, and the
 old policies were trained under the wrong phase clock. No new policy training is authorized yet.
 
+The missing official Generator/Tracker Kick direction has now been tested without policy training.
+The exact motion-disjoint predictor test split `9/19/.../89` supplies nine 700-step, 121-D online trajectories;
+all nine contain foot-to-box contact and at least 1 cm planar object displacement. With the deployed
+fixed-650 phase clock, frozen Kick21 risk is lower than Carry45 risk by `0.06508` on average,
+`50.50%` of ready valid frames prefer Kick21, and `8/9` motion-level means prefer Kick21. Motion29
+prefers Carry45 and is retained as a counterexample. A source-duration-normalized clock gives `9/9`
+only as an evaluation diagnostic and is not a deployed input. This passes the declared
+official Generator/Tracker Kick transfer gate; it does not establish Refiner-plus-residual Kick transfer.
+
 ### Next matched diagnostic
 
-Proceed serially; do not add PPO updates or seeds yet:
+The corrected scorer gates are complete. On job258074, both 24-step online smokes use initial step
+197 and execute zero optimizer updates; mean ready reward/risk is `+0.04804/0.31539` for Carry45
+and `-0.00338/0.65776` for Kick21. The frozen Carry evaluator passes all four arm/update blocks with
+`20/20` profile preference and `+0.324~+0.328` mean margins. Proceed serially:
 
-1. re-run the zero-optimizer online smoke and frozen Carry evaluation with the corrected runtime
-   phase initialization, recording the initial reference-frame readback;
-2. collect an independent Kick-policy rollout under the same 121-D observation and score it with
-   Carry45 versus Kick21 to test the missing opposite semantic direction;
-3. if both Carry and Kick domains prefer their matching demo, request authorization for one new
-   correct/unrelated 64-update matched policy pair from scratch;
-4. if the Kick gate fails, collect a motion-disjoint Refiner-plus-residual corpus and re-run the
-   serious predictor's zero/permuted-demo, calibration and bidirectional semantic gates before any
-   policy training;
-5. keep selected-demo SMP out until official TinyMDM passes an independent semantic-extension gate.
+1. retain the completed corrected zero-optimizer online and frozen Carry evidence;
+2. retain the completed motion-disjoint official Generator/Tracker Kick gate and its motion29
+   counterexample;
+3. retain the released-artifact boundary: this workspace provides the official KickBox Generator
+   and Tracker but no frozen Kick Refiner checkpoint; do not substitute a toy policy;
+4. request explicit user authorization for one new correct/unrelated 64-update matched policy pair
+   from scratch; do not auto-start it;
+5. if the new pair is behaviorally negative at update 64, run the predictor-independent adherence
+   audit before changing reward weights, teacher authority, update budget or seeds;
+6. keep selected-demo SMP out until official TinyMDM passes an independent semantic-extension gate.
 
 ### Expected behavior, not just reward score
 

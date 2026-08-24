@@ -627,10 +627,40 @@ Tracker-to-Refiner distribution shift 仍被量化：official Tracker test 的 n
 `mean|z|/p95/p99` 为 `0.6679/1.9230/2.8818`，correct policy rollout 为
 `1.0350/3.2120/5.4203`；偏移最大的组包括 joint position、projected gravity、box linear/
 angular velocity 和 previous action。但 phase 修正本身已经足以恢复 Carry-domain 语义方向，
-所以不能再把当前倒置归因于 domain shift。现有证据仍缺少独立 Kick-policy rollout 的反向
-门槛，也没有在修正 reward 下重新训练策略。下一步先运行 corrected zero-optimizer smoke 和
-frozen Carry gate，再采独立 Kick-policy rollout；只有双向 transfer 都通过才申请重跑一组
-64-update matched policy experiment。
+所以不能再把当前倒置归因于 domain shift。motion-disjoint official Generator/Tracker Kick
+反向门槛已可从现有 121-D corpus 独立复现：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/audit_heldout_kick_tracker_scorer_transfer.py \
+  --corpus-root experiments/demo_following/contact_event_reward_redesign_v1/deployable_goal_core_corpus_v1 \
+  --runtime-config experiments/demo_following/contact_event_reward_redesign_v1/phase_aware_dense_feedback_scale_audit_v1/RUNTIME_CONFIG.json \
+  --output-dir experiments/demo_following/reproduce_heldout_kick_gate \
+  --device cpu
+```
+
+该 gate 强制回读 official `generator.ckpt + tracker.pt` provenance、0.1 N filtered physical
+force threshold、无 reset、9/9 foot interaction 和 9/9 至少 1 cm 平移。部署 fixed-650 clock
+得到 mean `Kick risk - Carry risk=-0.06508`、`8/9` profile preference 和 `50.50%` ready-frame
+preference；motion29 是保留的反例。source-duration clock 的 `9/9` 仅为 evaluation diagnostic。
+官方发布物中没有 frozen Kick Refiner/residual checkpoint，因此该结果不能冒充 Refiner transfer。
+corrected online 与 frozen Carry gate 已随后在 retained H200 job258074 上正式通过，证据根目录为：
+
+```text
+experiments/demo_following/corrected_phase_runtime_gate_job258074_compute_v3/
+├── online_smokes/{correct,unrelated}.json
+├── frozen_carry/source_evaluations/{correct,unrelated}/{RESULT.json,TRACE.npz}
+├── frozen_carry/scorer_audit/RESULT.json
+└── heldout_kick_tracker/{RESULT.json,SCORES.npz}
+```
+
+两条 online smoke 都记录 `initial_episode_steps_min=max=197`、0 policy update 和参数不变；
+ready-step mean reward/risk 为 `+0.04804/0.31539` 与 `-0.00338/0.65776`。frozen Carry 四个
+arm/update blocks 均为 `20/20` profiles 偏好 Carry，margin 为
+`+0.32437/+0.32724/+0.32451/+0.32787`。同一 pipeline 的 CUDA Kick gate 重现 `8/9` 结果并
+返回总 `RC=0`。job258067 的物理 GPU0 曾在 Isaac 启动时发生 `ERROR_DEVICE_LOST`，因此没有
+复用作 Isaac 证据；job258074 的独立物理 GPU7 完成全部门槛。两个 retained allocations 均在
+门槛后保持 GPU hold。下一步只有在用户明确授权后才重跑一组 from-scratch 64-update matched
+policy experiment。
 
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object
