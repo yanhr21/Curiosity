@@ -7,7 +7,7 @@ are under root `legacy/`.
 
 Current execution focus is one not-yet-started reference-aware matched policy rerun. The reserved
 output is `demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/`; its absence is
-intentional until policy training is explicitly authorized. This README is the only experiment
+intentional until policy training starts. This README is the only experiment
 index; the stale package manifest has been archived.
 
 ## 1. `demo_following/`

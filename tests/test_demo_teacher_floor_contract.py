@@ -175,6 +175,7 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     runner_source = (
         ROOT / "scripts/sugar/demo_following/run_matched_state_predictor.py"
     ).read_text(encoding="utf-8")
+    assert "--policy-training-" + "authorized" not in runner_source
     assert "require_passing_probe_result(" in runner_source
     assert '"--probe-result-output", str(temporary_result)' in runner_source
     assert (
@@ -242,6 +243,9 @@ def test_phase_corrected_pair_reuses_only_complete_arms(tmp_path: Path) -> None:
         ROOT
         / "scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh"
     )
+    assert "DEMO_POLICY_TRAINING_" + "AUTHORIZED" not in launcher.read_text(
+        encoding="utf-8"
+    )
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     fake_hostname = fake_bin / "hostname"
@@ -250,7 +254,6 @@ def test_phase_corrected_pair_reuses_only_complete_arms(tmp_path: Path) -> None:
     env = os.environ.copy()
     env.update(
         {
-            "DEMO_POLICY_TRAINING_AUTHORIZED": "YES",
             "SLURM_JOB_ID": "unit-test-job",
             "SLURM_STEP_ID": "unit-test-step",
             "PYTHON_BIN": sys.executable,

@@ -174,11 +174,6 @@ def parse_args() -> argparse.Namespace:
         help="validate assets and print the next command without IsaacLab",
     )
     parser.add_argument(
-        "--policy-training-authorized",
-        action="store_true",
-        help="explicit operator acknowledgement required by the phase-event branch",
-    )
-    parser.add_argument(
         "--runner-admission-only",
         action="store_true",
         help=(
@@ -620,20 +615,7 @@ def main() -> None:
     )
     if args.runner_admission_only and args.runner_rollout_smoke_only:
         raise ValueError("select exactly one formal runner probe mode")
-    if (
-        phase_event_design
-        and not args.dry_run
-        and not runner_probe_mode
-        and not args.policy_training_authorized
-    ):
-        raise PermissionError(
-            "phase-event policy training requires explicit --policy-training-authorized"
-        )
-    if not phase_event_design and args.policy_training_authorized:
-        raise ValueError("policy authorization flag is scoped to phase_event_reward_only")
-    if runner_probe_mode and (
-        not phase_event_design or args.dry_run or args.policy_training_authorized
-    ):
+    if runner_probe_mode and (not phase_event_design or args.dry_run):
         raise ValueError(
             "runner probes are phase-event, non-training, non-dry execution modes"
         )

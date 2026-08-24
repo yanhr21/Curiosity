@@ -431,7 +431,7 @@ $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
 
 两条命令固定同一个 CarryBox45 teacher、`161587/161588` sim/action seed、20 env、physics、
 optimizer、reward mix 和 update budget；唯一科学变量是 `selected_option=correct/unrelated`。
-checkpoint 为 update 32/64，训练时必须带 `--policy-training-authorized` 且两臂串行。两臂
+checkpoint 为 update 32/64，两臂必须串行。两臂
 endpoint proof 通过后执行：
 
 ```bash
@@ -668,12 +668,11 @@ arm/update blocks 均为 `20/20` profiles 偏好 Carry，margin 为
 `+0.32437/+0.32724/+0.32451/+0.32787`。同一 pipeline 的 CUDA Kick gate 重现 `8/9` 结果并
 返回总 `RC=0`。job258067 的物理 GPU0 曾在 Isaac 启动时发生 `ERROR_DEVICE_LOST`，因此没有
 复用作 Isaac 证据；job258074 的独立物理 GPU7 完成全部门槛。两个 retained allocations 均在
-门槛后保持 GPU hold。下一步只有在用户明确授权后才从新目录重跑一组 from-scratch
-64-update matched policy experiment。预登记入口是：
+门槛后保持 GPU hold。当前从新目录运行一组 from-scratch 64-update matched policy
+experiment。预登记入口是：
 
 ```bash
-# 仅在用户明确授权后，在 retained srun compute step 内执行；两臂串行且不会自动评估。
-DEMO_POLICY_TRAINING_AUTHORIZED=YES \
+# 在 retained srun compute step 内执行；两臂串行且不会自动评估。
 OUTPUT_ROOT="$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2" \
   bash scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh
 ```

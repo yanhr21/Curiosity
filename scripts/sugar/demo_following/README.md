@@ -3,7 +3,7 @@
 The active experiment fixes the CarryBox45 official Refiner teacher in both arms and changes only
 the selected reward demo: CarryBox45 (`correct`) or KickBox21 (`unrelated`). The active
 `phase_event_reward_only` design uses the frozen phase-aware contact/event scorer and stops at
-updates 32 and 64. No policy training may start without explicit user approval.
+updates 32 and 64. Active experiments execute without artificial human-authorization gates.
 
 Validate without simulation:
 
@@ -37,15 +37,17 @@ tensors alone are not accepted as zero sensor use. On 2026-08-24, a fresh H200 m
 both correct/unrelated 24-step smokes passed. The runner uses the same system NVIDIA ICD as that
 canary. These smokes prove the online reward path and zero optimizer activity, not learned behavior.
 
-After explicit approval, run the two arms serially inside a retained `srun` GPU compute step. The
-predeclared wrapper requires a second explicit authorization variable, uses a fresh output root,
-checks each endpoint before starting the next arm, and stops before evaluation:
+Run the two arms serially inside a retained `srun` GPU compute step. The predeclared wrapper uses a
+fresh output root, checks each endpoint before starting the next arm, and stops before evaluation:
 
 ```bash
-DEMO_POLICY_TRAINING_AUTHORIZED=YES \
 OUTPUT_ROOT="$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2" \
   bash scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh
 ```
+
+For retained allocations, launch `run_reference_aware_phase_event_pair_then_hold.sh`; it runs the
+same bounded pair and returns the GPU to a CUDA hold after success or failure instead of releasing
+the allocation.
 
 After both endpoints pass, evaluate updates 32/64, run the independent behavior audit for each
 checkpoint, and render update 64 with:

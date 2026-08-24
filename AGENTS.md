@@ -1,6 +1,13 @@
 # Global Agent Rules
 
-## 1. Current priority: phase-corrected matched policy authorization
+## 1. No human authorization gates; current priority: phase-corrected matched policy
+
+- Hard user rule from 2026-08-24: never add, require or wait on an artificial human-approval flag,
+  environment variable, sentinel file or repeated confirmation for an experiment already in the
+  active queue. Do not ask the user to repeat authorization.
+- Execute the documented active plan autonomously and stop at its predeclared scientific endpoint.
+  Compute-node checks, exact process control, non-overwrite rules and scientific proof gates remain
+  mandatory; they are not human authorization gates.
 
 The tactile/mass-adaptation line in
 `PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen while demo following is the active
@@ -19,7 +26,7 @@ causal Transformer over the exact past `10 x 121` deployable core, a fixed numer
 causal normalized clock phase. Its training, calibration and fixed CarryBox45/KickBox21 bidirectional
 reward-scale gates pass on the official Generator/Tracker corpus.
 
-The phase-aware dense runtime is connected to the serious SUGAR rollout integrator. The authorized
+The phase-aware dense runtime is connected to the serious SUGAR rollout integrator. The historical
 seed161587 matched pair is complete at 64 updates with the same CarryBox45 teacher and physics; only
 the selected demo differs. Frozen update-32/update-64 behavior remains nearly identical Carry in
 both arms (`2/4` then `1/4` predeclared Kick-like directions). Do not claim semantic following.
@@ -50,11 +57,10 @@ Tracker-domain transfer result, not a universal scorer claim. Refiner-plus-resid
 has not been tested, and the existing Carry policy pair was trained under the wrong clock. The
 released-artifact audit confirms that the official Kick inference path is the Generator/Tracker
 pair and no frozen Kick Refiner checkpoint is available. The necessary scorer gates are therefore
-complete at their declared reproducible scope. The next causal experiment is one new correct versus
-unrelated 64-update pair from scratch under the corrected phase clock, but it must not start without
-explicit user approval.
-Do not launch more policy training, seeds, reward-weight sweeps or SMP integration before both
-directions pass; policy training still requires explicit user approval.
+complete at their declared reproducible scope. The active causal experiment is one new correct
+versus unrelated 64-update pair from scratch under the corrected phase clock. Run the pair serially
+and stop before frozen evaluation. Do not launch more seeds, reward-weight sweeps or SMP integration
+before both endpoints pass.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
@@ -77,8 +83,7 @@ The earlier job257762/server60 and job257794/server45 GPUs entered Isaac Sim 5.1
 minimal `SimulationApp` canaries still failed afterward. A fresh-allocation canary passed with the
 system NVIDIA ICD `/etc/vulkan/icd.d/nvidia_icd.json`, and the matched runner now uses that same ICD.
 After any Vulkan device loss, do not reuse that GPU for Isaac evidence in the same allocation;
-retain the allocation as required and move the Isaac gate to a fresh GPU. Policy training still
-requires explicit user approval.
+retain the allocation as required and move the Isaac gate to a fresh GPU.
 
 The shared CarryBox45 teacher-only prerequisite also passes on job257815. The evaluator now uses
 `NoTactileGoalRobotEnvCfg` rather than the old zero-tensor TacSL scene, writes nominal object/robot
@@ -109,10 +114,9 @@ nonzero 29-D residual reaches the ActionManager raw input exactly. The inverse j
 round trip has maximum float32 error `4.77e-7`, below the frozen `2e-6` tolerance. Do not reinterpret
 fixed teacher authority as zero student authority.
 
-Routine read-only audits, dataset builds and predictor-only gates may proceed through the documented
-queue. Corrected online Carry, frozen Carry and official Generator/Tracker Kick gates have passed.
-Policy training remains frozen until the user explicitly authorizes the one new phase-corrected
-matched pair.
+Routine audits, dataset builds and the active matched pair proceed through the documented queue.
+Corrected online Carry, frozen Carry and official Generator/Tracker Kick gates have passed. Run the
+one new phase-corrected pair now; do not wait for another user confirmation.
 
 The completed same-teacher experiment fixes CarryBox45 as teacher in both arms and changes only the
 selected reward demo, CarryBox45 versus KickBox21. Across training seeds 161581/161583/161585,

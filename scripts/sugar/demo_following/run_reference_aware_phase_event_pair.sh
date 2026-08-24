@@ -9,10 +9,6 @@ OUTPUT_ROOT=${OUTPUT_ROOT:-$ROOT/experiments/demo_following/matched_phase_event_
 LAUNCHER=$ROOT/scripts/sugar/native_tactile/launch_retained_child.sh
 RUNNER=$ROOT/scripts/sugar/demo_following/run_matched_state_predictor.py
 
-if [[ "${DEMO_POLICY_TRAINING_AUTHORIZED:-}" != "YES" ]]; then
-    echo "explicit user authorization required: set DEMO_POLICY_TRAINING_AUTHORIZED=YES" >&2
-    exit 2
-fi
 if [[ -z "${SLURM_JOB_ID:-}" || -z "${SLURM_STEP_ID:-}" ]]; then
     echo "run inside a retained srun compute step" >&2
     exit 2
@@ -97,8 +93,7 @@ run_arm() {
         --arm "$arm" \
         --output-root "$OUTPUT_ROOT" \
         --endpoint-updates 64 \
-        --stop-after-segment \
-        --policy-training-authorized
+        --stop-after-segment
     check_endpoint "$arm"
 }
 

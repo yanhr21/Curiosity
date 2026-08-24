@@ -250,8 +250,7 @@ $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
 OUTPUT_ROOT="$PWD/experiments/demo_following/reproduce_phase_transfer" \
   bash scripts/sugar/demo_following/run_phase_event_scorer_transfer_audit.sh
 
-# 用户明确授权后：从全新目录串行运行 phase-corrected matched pair；脚本完成后停止
-DEMO_POLICY_TRAINING_AUTHORIZED=YES \
+# 从全新目录串行运行 phase-corrected matched pair；脚本完成后停止
 OUTPUT_ROOT="$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2" \
   bash scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh
 
@@ -339,8 +338,8 @@ scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化
 official Generator/Tracker Kick gate 也以 `8/9` profile preference 通过，但 motion29 是明确
 反例。官方发布物当前只有 KickBox
 `generator.ckpt + tracker.pt`，没有 frozen Kick Refiner checkpoint；因此现有 gate 已覆盖最强
-可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。下一步是申请用户明确授权，从零
-重跑一组严格 matched 64-update policy pair；入口固定为
+可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。当前执行队列是从零重跑一组严格
+matched 64-update policy pair；入口固定为
 `run_reference_aware_phase_event_pair.sh`，完成两臂后停止，仍不自动增加步数、seeds 或启动
 评估。SMP 仍不进入
 selected-demo policy reward，

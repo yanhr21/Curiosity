@@ -136,7 +136,7 @@ insufficient because Isaac shutdown can mask an inner Python failure.
 
 ### Matched phase-event policy result: complete, negative
 
-The authorized matched experiment ran both arms serially for exactly 64 updates. Both 65-check
+The historical matched experiment ran both arms serially for exactly 64 updates. Both 65-check
 training proofs pass; update-32/update-64 checkpoints are finite and reload exactly. The evaluator
 restores the same 20 startup-physics profiles into both update slices, expands only the invariant
 fixed-one wrapper state from 20 to 40 environments, and gates the replica closest to the recorded
@@ -167,7 +167,7 @@ A separate Tracker-to-Refiner state shift remains measurable. Official Tracker t
 state `mean|z|/p95/p99 = 0.668/1.923/2.882`; the current Carry rollouts are approximately
 `1.035/3.212/5.420`. Phase correction is nevertheless sufficient for the necessary Carry-domain
 gate. It does not establish independent Kick-domain transfer or policy semantic following, and the
-old policies were trained under the wrong phase clock. No new policy training is authorized yet.
+old policies were trained under the wrong phase clock. The corrected policy pair has not run yet.
 
 The missing official Generator/Tracker Kick direction has now been tested without policy training.
 The exact motion-disjoint predictor test split `9/19/.../89` supplies nine 700-step, 121-D online trajectories;
@@ -190,10 +190,10 @@ and `-0.00338/0.65776` for Kick21. The frozen Carry evaluator passes all four ar
    counterexample;
 3. retain the released-artifact boundary: this workspace provides the official KickBox Generator
    and Tracker but no frozen Kick Refiner checkpoint; do not substitute a toy policy;
-4. request explicit user authorization for one new correct/unrelated 64-update matched policy pair
-   from scratch; the predeclared serial entrypoint is
+4. run one new correct/unrelated 64-update matched policy pair from scratch; the predeclared serial
+   entrypoint is
    `scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh`, and it must stop before
-   frozen evaluation; do not auto-start it;
+   frozen evaluation;
 5. if the new pair is behaviorally negative at update 64, run the predictor-independent adherence
    audit before changing reward weights, teacher authority, update budget or seeds;
 6. keep selected-demo SMP out until official TinyMDM passes an independent semantic-extension gate.

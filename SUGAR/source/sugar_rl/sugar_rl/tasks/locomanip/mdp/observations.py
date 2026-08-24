@@ -205,7 +205,7 @@ def tactile_contact_velocity_maps(
 
     The logical tensor before flattening is
     ``[env, hand, (normal, tangent_x, tangent_y), row, col]``.  The values are
-    simulator-oracle channels admitted only for the explicitly authorized
+    simulator-oracle channels admitted only by the frozen training
     Plan-11 ablation.  They are not deployed tactile measurements, optical
     flow, finite differences, or a sim-to-real claim.  TacSL internally uses
     elastomer-minus-object velocity, so this callable applies one explicit

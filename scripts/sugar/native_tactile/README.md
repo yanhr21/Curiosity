@@ -39,7 +39,7 @@ friction utilization。Plan-15 使用四帧历史；PS 额外加入 causal slip 
 - `run_plan15_friction_feasibility.sh`：正式比较后独立运行
   `mu=0.5/1.0/1.5/2.0 × 6x/10x`，并汇总完整 outcome window；
 - `run_plan15_frozen_seed.sh` / `run_plan15_frozen_sweep.sh`：冻结保留的 motion45-only、
-  strict-termination evaluation 入口；未经明确恢复不得运行；
+  strict-termination evaluation 入口；仅在 Plan 15 回到活动队列后运行；
 - `run_plan15_corrected_gate.sh`：重新采集 corrected-force motion45 scale，并串行执行
   Z/P/PS 三个 live runtime preflight；
 - `run_plan15_corrected_overfit.sh`：固定 motion45、3x、20-frame delay 的 serious PS

@@ -625,7 +625,6 @@ def _load_reference_waypoint_foundation_config(
     payload = json.loads(path.read_text(encoding="utf-8"))
     required = {
         "protocol",
-        "explicit_user_authorization_reference",
         "w0_pair_audit",
         "runner_source",
         "output",

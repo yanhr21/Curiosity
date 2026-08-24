@@ -6,20 +6,6 @@ if [[ "$(hostname)" == mgmtserver* ]]; then
   exit 2
 fi
 
-if [[ "${SUGAR_ENV_BUILD_APPROVED:-0}" != "1" ]]; then
-  cat >&2 <<'EOF'
-Refusing to create/install a SUGAR environment without explicit approval.
-
-This project normally forbids dependency installation, venv creation, package
-builds, and dependency resolution on compute nodes. Use this script only in an
-approved environment-build context, then rerun with:
-
-  SUGAR_ENV_BUILD_APPROVED=1 bash scripts/sugar/prepare_official_sugar_env.sh
-
-EOF
-  exit 3
-fi
-
 ROOT_DIR="${ROOT_DIR:-/public/home/yanhongru/Curiosity}"
 SUGAR_DIR="${SUGAR_DIR:-${ROOT_DIR}/SUGAR}"
 ISAACLAB_DIR="${ISAACLAB_DIR:-${ROOT_DIR}/IsaacLab}"

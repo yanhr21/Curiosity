@@ -59,7 +59,7 @@
   through ActionManager in both arms;
 - [x] make formal runner probes fail closed on a machine-readable result rather than subprocess
   return code alone;
-- [x] obtain explicit authority and run the phase-event matched pair serially for exactly 64 updates;
+- [x] run the historical phase-event matched pair serially for exactly 64 updates;
 - [x] freeze-evaluate update 32/64 on 20 matched physics profiles per checkpoint and render the two
   complete demo/actual H.264 videos;
 - [x] fix evaluator-only batch restoration for 20-training-env wrapper/physics state versus the
@@ -88,14 +88,14 @@
 - [x] keep selected-demo SMP out of the phase-corrected matched pair; actual frozen Carry
   trajectories now prefer Carry45 consistently, while official TinyMDM semantic extension remains
   a separate unfinished gate;
-- [ ] obtain explicit user authorization, then run exactly one new from-scratch 64-update matched
-  correct/unrelated pair under the reference-aware phase clock; do not add seeds or steps first.
+- [ ] run exactly one new from-scratch 64-update matched correct/unrelated pair under the
+  reference-aware phase clock; do not add seeds or steps first.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
 was trained with a wrong zero-based phase clock after restoring reference frame 197. Corrected
 online and frozen Carry gates now pass, and the official Generator/Tracker Kick test split prefers
-Kick21 on `8/9` profiles. The next work is one explicitly authorized from-scratch phase-corrected
+Kick21 on `8/9` profiles. The next work is one from-scratch phase-corrected
 matched pair, not an extension of the invalid old checkpoints.
 
 ## Frozen tactile work
