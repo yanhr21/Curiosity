@@ -50,10 +50,13 @@ if [[ "$DESIGN" == "phase_event_reward_only" ]]; then
 fi
 KIT_ARGS="--/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
 
-if [[ -z "${SLURM_JOB_ID:-}" ]]; then
-    echo "evaluation requires a retained Slurm allocation" >&2
+if [[ -z "${SLURM_JOB_ID:-}" || -z "${SLURM_STEP_ID:-}" ]]; then
+    echo "evaluation requires a retained srun compute step" >&2
     exit 2
 fi
+case "$(hostname)" in
+    mgmtserver*|login*) echo "refusing evaluation/rendering on a login host" >&2; exit 2 ;;
+esac
 reuse_video=0
 if [[ -e "$VIDEO_ROOT" ]]; then
     if [[ ! -f "$VIDEO_ROOT/RENDER_PROOF.json" ]]; then
@@ -113,12 +116,29 @@ fi
 if [[ "$DESIGN" == "phase_event_reward_only" ]]; then
     "$PYTHON" - \
         "$RUN_ROOT/correct/update_${PADDED_UPDATE}/proof.json" \
-        "$RUN_ROOT/unrelated/update_${PADDED_UPDATE}/proof.json" <<'PY'
+        "$RUN_ROOT/unrelated/update_${PADDED_UPDATE}/proof.json" \
+        "$RUN_ROOT/correct/update_${PADDED_UPDATE}/protocol.json" \
+        "$RUN_ROOT/unrelated/update_${PADDED_UPDATE}/protocol.json" <<'PY'
 import json
 import sys
 
-proofs = [json.load(open(path, encoding="utf-8")) for path in sys.argv[1:]]
+proofs = [json.load(open(path, encoding="utf-8")) for path in sys.argv[1:3]]
+protocols = [json.load(open(path, encoding="utf-8")) for path in sys.argv[3:5]]
+for proof, selected_option in zip(proofs, ("correct", "unrelated"), strict=True):
+    checks = proof.get("checks", {})
+    audit = proof.get("demo_event_reward", {}).get("final_frozen_audit", {})
+    assert proof.get("passed") is True and checks and all(checks.values())
+    assert checks.get("demo_event_phase_and_prefix_are_causal") is True
+    assert proof.get("protocol") == "sugar_phase_event_reward_matched_policy_v1"
+    assert proof.get("seed") == 161587 and proof.get("action_seed") == 161588
+    assert proof.get("num_envs") == 20 and proof.get("num_updates") == 64
+    assert proof.get("demo_event_reward", {}).get("selected_option") == selected_option
+    assert audit.get("phase_source") == "reset_reference_frame_plus_causal_control_clock"
+    assert audit.get("initial_episode_steps_supplied") is True
+    assert audit.get("initial_episode_steps_min") == 197
+    assert audit.get("initial_episode_steps_max") == 197
 records = [proof.get("no_tactile_startup_physics") for proof in proofs]
+assert protocols[0] == protocols[1], "correct/unrelated protocols differ"
 assert all(isinstance(record, dict) and record.get("passed") for record in records)
 assert records[0]["values"] == records[1]["values"], (
     "correct/unrelated startup physics differ"

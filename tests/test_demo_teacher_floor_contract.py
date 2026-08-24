@@ -3,7 +3,10 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -229,6 +232,100 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert '"phase_event_runtime_signals_archived"' in evaluator_source
     assert "sugar_phase_event_reward_matched_frozen_eval_32_64_v2" in (
         evaluator_source
+    )
+
+def test_phase_corrected_pair_reuses_only_complete_arms(tmp_path: Path) -> None:
+    launcher = (
+        ROOT
+        / "scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh"
+    )
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_hostname = fake_bin / "hostname"
+    fake_hostname.write_text("#!/usr/bin/env bash\necho server-test\n", encoding="utf-8")
+    fake_hostname.chmod(0o755)
+    env = os.environ.copy()
+    env.update(
+        {
+            "DEMO_POLICY_TRAINING_AUTHORIZED": "YES",
+            "SLURM_JOB_ID": "unit-test-job",
+            "SLURM_STEP_ID": "unit-test-step",
+            "PYTHON_BIN": sys.executable,
+            "PATH": f"{fake_bin}:{env['PATH']}",
+        }
+    )
+
+    def write_endpoint(root: Path, arm: str, phase_source: str) -> None:
+        endpoint = root / f"seed161587/{arm}/update_0064"
+        endpoint.mkdir(parents=True)
+        audit = {
+            "phase_source": phase_source,
+            "initial_episode_steps_supplied": True,
+            "initial_episode_steps_min": 197,
+            "initial_episode_steps_max": 197,
+        }
+        (endpoint / "proof.json").write_text(
+            json.dumps(
+                {
+                    "passed": True,
+                    "checks": {"demo_event_phase_and_prefix_are_causal": True},
+                    "protocol": "sugar_phase_event_reward_matched_policy_v1",
+                    "seed": 161587,
+                    "action_seed": 161588,
+                    "num_envs": 20,
+                    "num_updates": 64,
+                    "demo_event_reward": {
+                        "selected_option": arm,
+                        "final_frozen_audit": audit,
+                    },
+                    "no_tactile_startup_physics": {
+                        "passed": True,
+                        "values": {"mass": [0.3023375869]},
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        (endpoint / "protocol.json").write_text(
+            json.dumps({"protocol": "matched-test"}), encoding="utf-8"
+        )
+        (endpoint / "policy.pt").write_bytes(b"test-checkpoint")
+
+    def run(root: Path) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["bash", str(launcher)],
+            env={**env, "OUTPUT_ROOT": str(root)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    complete_root = tmp_path / "complete"
+    for arm in ("correct", "unrelated"):
+        write_endpoint(
+            complete_root,
+            arm,
+            "reset_reference_frame_plus_causal_control_clock",
+        )
+    completed = run(complete_root)
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.index("reusing_complete_arm=correct") < (
+        completed.stdout.index("reusing_complete_arm=unrelated")
+    )
+    assert "frozen evaluation not started" in completed.stdout
+
+    old_phase_root = tmp_path / "old_phase"
+    write_endpoint(old_phase_root, "correct", "reset_bounded_causal_control_clock")
+    old_phase = run(old_phase_root)
+    assert old_phase.returncode != 0
+    assert "reusing_complete_arm" not in old_phase.stdout
+
+    incomplete_root = tmp_path / "incomplete"
+    (incomplete_root / "seed161587/correct/update_0064").mkdir(parents=True)
+    refused = run(incomplete_root)
+    assert refused.returncode == 2
+    assert "incomplete arm requires inspection; refusing to overwrite: correct" in (
+        refused.stderr
     )
 
 

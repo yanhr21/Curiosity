@@ -683,6 +683,18 @@ optimizer/reward；唯一变量是 CarryBox45 或 KickBox21 selected demo。每�
 完整 proof，尤其是 reference-frame-197 causal phase 检查。脚本完成两臂后停止，不自动追加
 更新、seed、冻结评估或渲染。
 
+人工检查两个 endpoint proof 后，在 retained `srun` compute step 中显式运行：
+
+```bash
+bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
+  64 phase_event_reward_only \
+  "$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587"
+```
+
+active evaluator 会拒绝旧 phase-0 checkpoint：除全部 proof checks 外，它还要求两臂记录
+`reset_reference_frame_plus_causal_control_clock` 且 initial step 精确为 `197`，然后才允许冻结
+评估、独立行为审计和双视频渲染。
+
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object
 关系和 required-contact duration；CHORD 进一步用 object-centric contact wrench 衡量接触

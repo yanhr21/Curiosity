@@ -257,7 +257,8 @@ OUTPUT_ROOT="$PWD/experiments/demo_following/matched_phase_event_reward_referenc
 
 # 两臂 endpoint proof 通过后：复现冻结评估 update 32/64、独立行为审计和完整双视频
 bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
-  64 phase_event_reward_only
+  64 phase_event_reward_only \
+  "$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587"
 
 # 无 GPU：从现有 traces 重算独立行为审计
 $PYTHON_BIN scripts/sugar/demo_following/analyze_behavior_adherence.py
