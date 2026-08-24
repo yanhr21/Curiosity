@@ -214,7 +214,11 @@ def first_episode(trace: dict[str, np.ndarray], env_index: int) -> dict[str, np.
     return {
         name: value[:frame_count, env_index]
         for name, value in trace.items()
-        if name != "done"
+        if (
+            name != "done"
+            and value.ndim >= 2
+            and value.shape[1] == trace["done"].shape[1]
+        )
     }
 
 

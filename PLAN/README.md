@@ -85,17 +85,15 @@ under Carry45 and negative mean feedback under Kick21. Dense feedback is
 `0.1431077421`; it is not potential-difference shaping because the purpose is to change the policy
 objective toward the selected demonstration.
 
-This establishes a causal deployable reward before optimization, not policy obedience. The next
-experiment is one explicitly authorized matched fixed-teacher policy comparison. Teacher,
-initialization, physics, task reward, seeds, budget and evaluation remain fixed; only the selected
-demo changes. Inspect updates 32 and 64, and judge only predictor-independent frozen behavior.
+This established a causal deployable reward on the official-Tracker corpus before optimization,
+not policy obedience or transfer to Refiner-policy rollouts.
 
 Implementation admission is complete: the frozen event scorer consumes the exact 121-D policy
 prefix online, uses a reset-bounded causal clock, waits for ten states, adds dense feedback after the
 unchanged SMP/original-ICM calculation, and exposes no future event label to the actor. The matched
 launcher uses seed/action-seed `161587/161588`; both arms use the same CarryBox45 fixed teacher and
 differ only by `selected_option=correct/unrelated`. Frozen evaluation is predeclared at updates 32
-and 64 with 20 matched physics profiles per checkpoint. No new policy training has started.
+and 64 with 20 matched physics profiles per checkpoint.
 Formal GPU admission also passes for both arms on H200: correct selects CarryBox45 row 37 and
 unrelated selects KickBox21 row 97; both report 121-D input, clock-phase alignment, frozen eval mode,
 zero trainable parameters, no environment creation and zero policy updates.
@@ -108,8 +106,7 @@ the frozen Refiner, actor, SMP, original ICM, phase-aware reward and storage wit
 updates and unchanged parameters. Earlier cross-node `ERROR_DEVICE_LOST` runs are runtime failures,
 not model evidence. Under the identical unoptimized rollout, correct and unrelated have exactly
 matched actions/base reward but different ready-step demo reward (`0.04013` versus `0.01734`),
-confirming online selected-demo sensitivity. The remaining gate is explicit user authority for
-policy optimization.
+confirming online selected-demo sensitivity.
 
 The common-teacher physical prerequisite is now admitted separately. A corrected no-TacSL frozen
 evaluator runs exact-zero residual for 400 steps over 20 nominal profiles; every profile has
@@ -121,13 +118,12 @@ inertia and COM in every formal proof, and frozen evaluation restores that recor
 smokes show exact correct/unrelated physics equality as well as exact action/base-reward equality;
 the only online difference remains the selected-demo feedback.
 
-The pre-optimization reward-to-gradient admission now passes for both arms. On the same collected
+The pre-optimization reward-to-gradient admission passes for both arms. On the same collected
 trajectory, the runner recomputes GAE and normalized advantages after removing only selected-demo
 feedback, then differentiates the exact clipped PPO actor surrogate without calling an optimizer.
 Correct changes return/advantage by `0.45412/0.25342` and the actor gradient by L2 `0.07804`;
 unrelated changes them by `0.23489/0.16923/0.04430`. Parameters and optimizer counters remain
-unchanged. The selected-demo signal therefore reaches the policy learning direction; whether
-optimization produces semantic behavior remains the unanswered experiment.
+unchanged. The selected-demo signal therefore reaches the policy learning direction.
 
 The fixed-one teacher does not mask the student. In both admitted arms the exact execution formula
 is `teacher + residual` with coefficient/scale `1.0/1.0`; the sampled 29-D residual reaches the
@@ -137,6 +133,51 @@ while the common teacher preserves a matched Carry baseline.
 
 Runner probes now fail closed on a separate machine-readable result. A zero process return code is
 insufficient because Isaac shutdown can mask an inner Python failure.
+
+### Matched phase-event policy result: complete, negative
+
+The authorized matched experiment ran both arms serially for exactly 64 updates. Both 65-check
+training proofs pass; update-32/update-64 checkpoints are finite and reload exactly. The evaluator
+restores the same 20 startup-physics profiles into both update slices, expands only the invariant
+fixed-one wrapper state from 20 to 40 environments, and gates the replica closest to the recorded
+source origin at the original `2e-6` action tolerance. Frozen evaluation seed is `171587`.
+
+At update 64, correct/unrelated maximum lift is `0.69453/0.69419 m`, bilateral-contact fraction is
+`0.83348/0.83252`, lifted fraction is `0.61292/0.61214`, lifted-transport fraction is
+`0.94127/0.94219`, and physical falls are `0/20` in both arms. The unrelated arm moves in only one
+of four predeclared Kick-like directions; update 32 moves in two of four, with all behavioral deltas
+very small. Both synchronized videos show a Carry solution. The result therefore rejects semantic
+demo following under this reward and budget; it does not reject the fact that selected reward
+changes gradients and checkpoints.
+
+The frozen score itself fails an online semantic sanity check. On the correct update-64 Carry
+trajectory, mean predicted mismatch is `0.96986` to Carry45 and `0.89087` to Kick21. This inversion
+is consistent across both learned arms for most of the middle rollout. Two concrete transfer gaps
+are now isolated:
+
+1. evaluation restores a state at CarryBox45 reference frame `197`, while the scorer starts its
+   reset-bounded phase clock at zero;
+2. predictor targets were collected from official Tracker rollouts. CarryBox45 in that corpus has
+   only `0.10140 m` lift and `0.05571` bilateral-contact fraction, versus about `0.695 m` and `0.833`
+   under the current Refiner-plus-residual policy.
+
+These are candidate causes, not yet separated causal effects. More policy updates, seeds or reward
+weight sweeps are blocked until scorer transfer is repaired and re-admitted on actual frozen policy
+rollouts.
+
+### Next matched diagnostic
+
+Proceed serially and reuse frozen checkpoints:
+
+1. reconstruct or record the exact `10 x 121` online prefix and score the same trajectories under
+   the current clock and a correctly restored source phase;
+2. measure whether phase correction alone restores Carry45 preference over the complete rollout;
+3. if it does not, collect Refiner-plus-residual rollout prefixes and future event labels, keeping
+   motion-disjoint train/validation/test splits and the same serious Transformer;
+4. re-run zero/permuted-demo, calibration, and bidirectional Carry/Kick gates on both held-out
+   Tracker and Refiner-policy domains;
+5. authorize one new 64-update matched pair only after actual frozen Carry trajectories prefer the
+   correct demo independently of the arm that generated them.
 
 ### Expected behavior, not just reward score
 

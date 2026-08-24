@@ -184,6 +184,33 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert 'p["checks"]["demo_control_has_no_tactile_scene"]' in evaluation_launcher
     assert 'records[0]["values"] == records[1]["values"]' in evaluation_launcher
 
+    evaluator_source = (
+        ROOT / "scripts/sugar/demo_following/evaluate_matched_fixed_teacher.py"
+    ).read_text(encoding="utf-8")
+    assert "def expand_fixed_one_wrapper_batch_state(" in evaluator_source
+    assert '"release_latched": False' in evaluator_source
+    assert '"release_progress": 0' in evaluator_source
+    assert '"teacher_coefficient": 1.0' in evaluator_source
+    assert "evaluation_num_envs=NUM_ENVS" in evaluator_source
+    assert '"phase_event_fixed_one_wrapper_batch_restored"' in evaluator_source
+    assert "training_shape = (PROFILES_PER_UPDATE, *tensor.shape[1:])" in (
+        evaluator_source
+    )
+    assert '"same_profiles_repeated_exactly_across_updates": True' in (
+        evaluator_source
+    )
+    assert 'if name == "object_coms"' in evaluator_source
+    assert "float(torch.finfo(observed[name].dtype).eps)" in evaluator_source
+    assert '"readback_max_abs": readback_max_abs' in evaluator_source
+    assert "source_action_tolerance = 2.0e-6" in evaluator_source
+    assert (
+        '"closest_origin_first_teacher_action_matches_source"'
+        in evaluator_source
+    )
+    assert "canonical_environment_index = int(np.argmin(translation_norm))" in (
+        evaluator_source
+    )
+
 
 def test_runner_probe_requires_machine_readable_success(tmp_path: Path) -> None:
     result = tmp_path / "probe.json"

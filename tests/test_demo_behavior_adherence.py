@@ -107,3 +107,14 @@ def test_multi_checkpoint_trace_selects_one_twenty_profile_block() -> None:
     assert np.array_equal(
         selected["robot_root_state_w"], trace["robot_root_state_w"][:, 20:40]
     )
+
+
+def test_first_episode_ignores_one_dimensional_trace_metadata() -> None:
+    trace = {
+        "policy_updates": np.asarray([64]),
+        "done": np.asarray([[False, False], [True, False], [False, False]]),
+        "robot_root_state_w": np.zeros((4, 2, 13), dtype=np.float32),
+    }
+    episode = MODULE.first_episode(trace, 0)
+    assert "policy_updates" not in episode
+    assert episode["robot_root_state_w"].shape == (3, 13)

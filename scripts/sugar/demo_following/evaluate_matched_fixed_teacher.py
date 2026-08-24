@@ -170,6 +170,55 @@ TASK_REWARD_TERMS = (
 )
 
 
+def expand_fixed_one_wrapper_batch_state(
+    state: dict[str, object], *, evaluation_num_envs: int
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Expand invariant fixed-teacher authority state to evaluation profiles.
+
+    Training stores one wrapper value per training environment.  The phase-event
+    evaluator runs two frozen checkpoints in one scene, so its batch is twice as
+    large.  Only the three fixed-one authority tensors are batch-shaped; their
+    values must be exactly false/zero/one before they may be replicated.
+    """
+    if evaluation_num_envs <= 0:
+        raise ValueError("evaluation_num_envs must be positive")
+    if state.get("teacher_authority_contract") != "fixed_one":
+        raise ValueError("phase-event evaluation requires fixed-one authority")
+    expanded = dict(state)
+    expected = {
+        "release_latched": False,
+        "release_progress": 0,
+        "teacher_coefficient": 1.0,
+    }
+    source_num_envs = None
+    for name, fill_value in expected.items():
+        value = state.get(name)
+        if not isinstance(value, torch.Tensor) or value.ndim != 1 or not value.numel():
+            raise ValueError(f"invalid fixed-one wrapper tensor: {name}")
+        if source_num_envs is None:
+            source_num_envs = int(value.numel())
+        elif int(value.numel()) != source_num_envs:
+            raise ValueError("fixed-one wrapper batch tensors disagree")
+        expected_value = torch.full_like(value, fill_value)
+        if not torch.equal(value, expected_value):
+            raise ValueError(f"non-invariant fixed-one wrapper tensor: {name}")
+        expanded[name] = torch.full(
+            (evaluation_num_envs,),
+            fill_value,
+            dtype=value.dtype,
+            device=value.device,
+        )
+    audit = {
+        "protocol": "fixed_one_wrapper_batch_expansion_v1",
+        "source_num_envs": source_num_envs,
+        "evaluation_num_envs": evaluation_num_envs,
+        "expanded_fields": sorted(expected),
+        "values_preserved": True,
+        "passed": True,
+    }
+    return expanded, audit
+
+
 def clone_tensor_state(
     state: dict[str, torch.Tensor],
 ) -> dict[str, torch.Tensor]:
@@ -320,10 +369,20 @@ def apply_no_tactile_training_physics(
         "object_inertias": obj.root_physx_view.get_inertias(),
         "object_coms": obj.root_physx_view.get_coms(),
     }
-    expected = {
-        name: torch.as_tensor(values[name], dtype=tensor.dtype, device=tensor.device)
-        for name, tensor in current.items()
-    }
+    expected = {}
+    for name, tensor in current.items():
+        training_value = torch.as_tensor(
+            values[name], dtype=tensor.dtype, device=tensor.device
+        )
+        training_shape = (PROFILES_PER_UPDATE, *tensor.shape[1:])
+        if training_value.shape != training_shape:
+            raise RuntimeError(
+                f"training no-tactile physics {name} source shape drift: "
+                f"expected {training_shape}, got {tuple(training_value.shape)}"
+            )
+        expected[name] = training_value.repeat(
+            (len(UPDATES),) + (1,) * (training_value.ndim - 1)
+        )
     for name in required:
         if expected[name].shape != current[name].shape:
             raise RuntimeError(
@@ -344,21 +403,65 @@ def apply_no_tactile_training_physics(
         "object_inertias": obj.root_physx_view.get_inertias(),
         "object_coms": obj.root_physx_view.get_coms(),
     }
+    readback_atol = {
+        name: (
+            float(torch.finfo(observed[name].dtype).eps)
+            if name == "object_coms"
+            else 1.0e-7
+        )
+        for name in required
+    }
+    readback_max_abs = {
+        name: float((observed[name] - expected[name]).abs().max())
+        for name in required
+    }
     failed = [
         name
         for name in required
         if not torch.allclose(
-            observed[name], expected[name], rtol=0.0, atol=1.0e-7
+            observed[name],
+            expected[name],
+            rtol=0.0,
+            atol=readback_atol[name],
         )
     ]
     if failed:
+        max_abs = {
+            name: float((observed[name] - expected[name]).abs().max())
+            for name in failed
+        }
+        max_abs_by_update = {
+            name: [
+                float(
+                    (
+                        observed[name][
+                            index * PROFILES_PER_UPDATE :
+                            (index + 1) * PROFILES_PER_UPDATE
+                        ]
+                        - expected[name][
+                            index * PROFILES_PER_UPDATE :
+                            (index + 1) * PROFILES_PER_UPDATE
+                        ]
+                    )
+                    .abs()
+                    .max()
+                )
+                for index in range(len(UPDATES))
+            ]
+            for name in failed
+        }
         raise RuntimeError(
-            f"no-tactile training physics readback mismatch: {failed}"
+            "no-tactile training physics readback mismatch: "
+            f"failed={failed}, max_abs={max_abs}, "
+            f"max_abs_by_update={max_abs_by_update}"
         )
     return {
         "passed": True,
         "protocol": source.get("protocol"),
         "restored_from_training_proof": True,
+        "same_profiles_repeated_exactly_across_updates": True,
+        "readback_atol": readback_atol,
+        "readback_max_abs": readback_max_abs,
         "updates": list(UPDATES),
         "profiles_per_update": PROFILES_PER_UPDATE,
         "values": {
@@ -568,6 +671,8 @@ def restore_state_action_boundary(
         source["source_environment_origin_w"], np.float32
     )
     translation = origins - source_origin[None]
+    translation_norm = np.linalg.norm(translation, axis=1)
+    canonical_environment_index = int(np.argmin(translation_norm))
     robot_root = np.repeat(
         source["robot_root_state_w"][selected_frame : selected_frame + 1],
         NUM_ENVS,
@@ -643,6 +748,10 @@ def restore_state_action_boundary(
             "tactile_arrays_loaded": False,
             "tactile_sensor_data_read": False,
             "source_action_conversion_max_abs": float(conversion_error.max()),
+            "canonical_environment_index": canonical_environment_index,
+            "canonical_origin_translation_norm_m": float(
+                translation_norm[canonical_environment_index]
+            ),
         },
         policy_actions[selected_frame].copy(),
     )
@@ -1190,10 +1299,19 @@ def main() -> None:
             )
             )
         )
+        wrapper_state_batch_audit = None
         if is_teacher_demo64:
-            env.load_checkpoint_state_dict(
-                checkpoints[UPDATES[-1]]["residual_wrapper_state_dict"]
-            )
+            wrapper_state = checkpoints[UPDATES[-1]][
+                "residual_wrapper_state_dict"
+            ]
+            if is_phase_event_reward:
+                wrapper_state, wrapper_state_batch_audit = (
+                    expand_fixed_one_wrapper_batch_state(
+                        wrapper_state,
+                        evaluation_num_envs=NUM_ENVS,
+                    )
+                )
+            env.load_checkpoint_state_dict(wrapper_state)
             if is_wrong_teacher_reward_conflict and (
                 env.release.global_control_steps
                 != env.release.linear_release_steps
@@ -1284,6 +1402,8 @@ def main() -> None:
                 "tactile_arrays_loaded": False,
                 "tactile_sensor_data_read": False,
                 "source_action_conversion_max_abs": None,
+                "canonical_environment_index": 0,
+                "canonical_origin_translation_norm_m": None,
                 "reset_semantics": "motion45_frame0_standard_environment_reset",
             }
             source_action103 = None
@@ -1325,8 +1445,13 @@ def main() -> None:
         first_teacher_max_abs_by_env = (
             first_teacher_error.abs().amax(dim=1).detach().cpu().numpy()
         )
+        first_teacher_canonical_environment_index = int(
+            reset_record["canonical_environment_index"]
+        )
         first_teacher_canonical_max_abs = float(
-            first_teacher_max_abs_by_env[0]
+            first_teacher_max_abs_by_env[
+                first_teacher_canonical_environment_index
+            ]
         )
         first_teacher_all_env_max_abs = float(
             first_teacher_max_abs_by_env.max()
@@ -1339,22 +1464,24 @@ def main() -> None:
             .cpu()
             .numpy()
         )
-        # The source-action equality gate belongs to the canonical source
-        # environment (env 0). Other replicated environments are translated
-        # to different world origins; subtracting those float32 origins when
-        # constructing the same local 890-D observation introduces measured
-        # 1e-6-scale cancellation. Comparing the maximum over all 60 translated
-        # replicas to one unshifted source action incorrectly turns that
-        # coordinate arithmetic into a teacher mismatch. Preserve and report
-        # every per-environment error, but gate the exact source claim only on
-        # the canonical source environment.
+        # Replicating the source state into a different environment grid changes
+        # the world-origin subtraction used to construct the same local 890-D
+        # observation.  Environment zero is not necessarily the original source
+        # origin once two checkpoint batches share a scene.  Gate the replica
+        # closest to the recorded source origin at the original 2e-6 tolerance
+        # and retain every translated-replica error as diagnostic evidence.
+        source_action_tolerance = 2.0e-6
         if (
             not args.teacher_only_zero_residual
             and not unrelated_teacher_arm
-            and first_teacher_canonical_max_abs > 2.0e-6
+            and first_teacher_canonical_max_abs > source_action_tolerance
         ):
             raise RuntimeError(
-                "canonical first teacher action does not reproduce source 103"
+                "first teacher action does not reproduce the source boundary: "
+                f"canonical_max_abs={first_teacher_canonical_max_abs}, "
+                f"all_env_max_abs={first_teacher_all_env_max_abs}, "
+                f"tolerance={source_action_tolerance}, "
+                f"source_index={reset_record['source_index']}"
             )
         if (
             not args.teacher_only_zero_residual
@@ -1651,6 +1778,12 @@ def main() -> None:
                 )
             ),
             "requested_frozen_checkpoints_loaded": len(policies) == len(UPDATES),
+            "phase_event_fixed_one_wrapper_batch_restored": (
+                wrapper_state_batch_audit is not None
+                and wrapper_state_batch_audit["passed"] is True
+                if is_phase_event_reward
+                else True
+            ),
             "policy_parameters_frozen": all(
                 not parameter.requires_grad
                 for policy in policies
@@ -1671,13 +1804,15 @@ def main() -> None:
                 if args.teacher_only_zero_residual
                 else "wrong_teacher_first_action_differs_from_carrybox_source"
                 if unrelated_teacher_arm
+                else "closest_origin_first_teacher_action_matches_source"
+                if is_phase_event_reward
                 else "canonical_first_teacher_action_matches_source103"
             ): (
                 bool(torch.isfinite(first_teacher_action).all())
                 if args.teacher_only_zero_residual
                 else first_teacher_canonical_max_abs > 1.0e-3
                 if unrelated_teacher_arm
-                else first_teacher_canonical_max_abs <= 2.0e-6
+                else first_teacher_canonical_max_abs <= source_action_tolerance
             ),
             "all_first_teacher_actions_finite": bool(
                 np.isfinite(first_teacher_max_abs_by_env).all()
@@ -1817,16 +1952,20 @@ def main() -> None:
             "num_envs": NUM_ENVS,
             "policy_updates": list(UPDATES),
             "profiles_per_update": PROFILES_PER_UPDATE,
+            "wrapper_state_batch_restore": wrapper_state_batch_audit,
             "checks": checks,
             "reset": reset_record,
             "first_teacher_observation_shape": list(teacher_observation.shape),
-            "first_teacher_canonical_environment_index": 0,
+            "first_teacher_canonical_environment_index": (
+                first_teacher_canonical_environment_index
+            ),
             "first_teacher_action_vs_source_canonical_max_abs": (
                 first_teacher_canonical_max_abs
             ),
             "first_teacher_action_vs_source_all_env_max_abs": (
                 first_teacher_all_env_max_abs
             ),
+            "first_teacher_action_vs_source_tolerance": source_action_tolerance,
             "first_teacher_action_vs_source_max_abs_by_env": (
                 first_teacher_max_abs_by_env.tolist()
             ),

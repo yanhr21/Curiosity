@@ -1,6 +1,6 @@
 # Global Agent Rules
 
-## 1. Current priority: phase-aware event reward and matched policy design
+## 1. Current priority: demo-following scorer transfer audit
 
 The tactile/mass-adaptation line in
 `PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen while demo following is the active
@@ -14,17 +14,23 @@ prefix and per-row free selection among 32 demo windows. It is rejected for depl
 exposes a 121-D causal core, and free-window matching lets every frame jump to an easy static demo
 phase. Do not restore that target or call its passing MAE a valid reward.
 
-The active frozen predictor is seed271303: an 11,386,010-parameter, 6-layer, 384-D phase-aware
+The frozen predictor is seed271303: an 11,386,010-parameter, 6-layer, 384-D phase-aware
 causal Transformer over the exact past `10 x 121` deployable core, a fixed numeric demo and a
 causal normalized clock phase. Its training, calibration and fixed CarryBox45/KickBox21 bidirectional
-reward-scale gates pass. The next branch is a matched policy experiment. Do not start new policy
-training without explicit user approval.
+reward-scale gates pass on the official-Tracker corpus.
 
-The phase-aware dense runtime is connected to the serious SUGAR rollout integrator and the matched
-correct/unrelated launcher. Frozen evaluation reads both update 32 and 64, runs predictor-independent
-behavior audits separately, and renders the final update-64 demo/actual pair. This integration is
-dry-run and CPU-test complete, but no phase-aware policy checkpoint exists yet. Do not describe
-integration readiness as a policy result.
+The phase-aware dense runtime is connected to the serious SUGAR rollout integrator. The authorized
+seed161587 matched pair is complete at 64 updates with the same CarryBox45 teacher and physics; only
+the selected demo differs. Frozen update-32/update-64 behavior remains nearly identical Carry in
+both arms (`2/4` then `1/4` predeclared Kick-like directions). Do not claim semantic following.
+
+The frozen scorer also fails transfer on these actual Refiner-plus-residual rollouts: at correct
+update 64 the mean Carry45/Kick21 predicted mismatch is `0.96986/0.89087`, so a strong Carry rollout
+is scored closer to Kick. The restored state is already at CarryBox45 reference frame `197` while
+the scorer clock begins at zero, and the predictor corpus comes from materially different official
+Tracker rollouts. The current queue is to separate phase error from rollout-domain shift using the
+existing frozen checkpoints. Do not launch more policy training, seeds, reward-weight sweeps or SMP
+integration before this scorer-only audit passes.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
@@ -80,7 +86,8 @@ round trip has maximum float32 error `4.77e-7`, below the frozen `2e-6` toleranc
 fixed teacher authority as zero student authority.
 
 Routine read-only audits, dataset builds and predictor-only gates may proceed through the documented
-queue. Policy training is the explicit exception and requires user approval.
+queue. Policy training is frozen until the scorer-transfer gate passes and then still requires user
+approval.
 
 The completed same-teacher experiment fixes CarryBox45 as teacher in both arms and changes only the
 selected reward demo, CarryBox45 versus KickBox21. Across training seeds 161581/161583/161585,
@@ -119,6 +126,12 @@ to root up-z about `0.191`, recovers and carries.
   prior into policy before a semantic gate passes.
 - A valid policy comparison keeps teacher, initialization, update budget, seeds, reward weights,
   physics and frozen evaluation identical. Only the selected reward demo may differ.
+- The seed161587 phase-event comparison satisfies that matched contract at update 32/64, but both
+  arms remain Carry-like. Its correct frozen rollout is scored closer to Kick21 than Carry45. This
+  is a scorer transfer failure, not evidence that the policy followed Kick21.
+- Before another policy run, score the same frozen `10 x 121` prefixes under current and correctly
+  restored causal phase. If phase correction is insufficient, rebuild motion-disjoint supervision
+  from Refiner-plus-residual rollouts and repeat full/zero/permuted plus bidirectional gates.
 - The behavior audit is independent of the reward predictor. With the same CarryBox45 teacher, the
   KickBox21-reward arm remains Carry-like. Seeds 161581/161583 observe `0/4` predeclared semantic
   directions and seed161585 observes a non-replicated `3/4`; orbit rate moves opposite to Kick21

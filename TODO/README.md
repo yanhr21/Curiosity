@@ -59,14 +59,30 @@
   through ActionManager in both arms;
 - [x] make formal runner probes fail closed on a machine-readable result rather than subprocess
   return code alone;
-- [ ] obtain explicit authority before new policy training;
-- [ ] run a matched policy comparison and judge
-  predictor-independent frozen behavior; keep selected-demo SMP out until its semantic gate passes.
+- [x] obtain explicit authority and run the phase-event matched pair serially for exactly 64 updates;
+- [x] freeze-evaluate update 32/64 on 20 matched physics profiles per checkpoint and render the two
+  complete demo/actual H.264 videos;
+- [x] fix evaluator-only batch restoration for 20-training-env wrapper/physics state versus the
+  40-env two-checkpoint evaluation scene;
+- [x] fix behavior analysis so one-dimensional trace metadata cannot be indexed as environment data;
+- [x] reject semantic following at update 32 and 64: the two policies remain nearly identical Carry
+  solutions and satisfy only `2/4` and `1/4` predeclared Kick-like directions;
+- [x] identify that the frozen scorer rates the correct Carry rollout closer to Kick21 than Carry45
+  over most middle frames;
+- [ ] rescore the same frozen trajectories with the exact recorded 121-D prefix and correctly restored
+  source phase; do not train a new policy for this step;
+- [ ] separate phase-offset error from Tracker-to-Refiner rollout-domain shift with matched scorer-only
+  ablations;
+- [ ] if phase correction is insufficient, collect a motion-disjoint Refiner-plus-residual corpus and
+  re-admit the serious predictor on both Tracker and policy-rollout domains;
+- [ ] keep selected-demo SMP out until its independent semantic gate passes; do not start another
+  policy pair until actual frozen Carry trajectories prefer Carry45 consistently.
 
-Current endpoint: the earlier three-seed policy result remains negative and the teacher-floor
-diagnostic collapses. The phase-aware 11.386M event predictor now passes data, model, calibration,
-runtime and fixed-demo bidirectional reward-scale gates. The missing evidence is policy-level causal
-behavior under a matched rerun; predictor scores alone cannot provide that verdict.
+Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
+collapses, and the new strictly matched seed161587 phase-event run is also behaviorally negative.
+Its frozen score exposes a transfer failure: a strong Carry rollout receives lower predicted
+mismatch under Kick21 than Carry45. The next work is scorer phase/domain audit on existing frozen
+trajectories, not more PPO training.
 
 ## Frozen tactile work
 

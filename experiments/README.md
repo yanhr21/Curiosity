@@ -10,6 +10,10 @@ are under root `legacy/`.
 - `teacher_only_carry45_gate_corrected_v1/`: 20-profile zero-residual prerequisite gate;
 - `matched_reward_identity_same_teacher_v1/`: current 64-update causal comparison, both policy
   checkpoints, matched frozen traces/results and full videos;
+- `matched_phase_event_reward_v1/seed161587/`: newest strict phase-event comparison. Both arms use
+  the same CarryBox45 teacher/physics and differ only in Carry45 versus Kick21 reward demo; update
+  32/64 checkpoints, 20-profile frozen evaluations, independent behavior audits and two full videos
+  are retained. The behavior result is negative and the scorer shows online semantic inversion;
 - `teacher_floor_overfit_v1/`: seed161581 update-128 correct/unrelated endpoints, frozen traces,
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick
@@ -30,8 +34,8 @@ are under root `legacy/`.
   independent semantic-extension gate;
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
-The old 1216-update policy experiment and the rejected 510-D/free-window event predictor are under
-root `legacy/`; neither is an active result.
+The old 1216-update policy experiment, rejected 510-D/free-window event predictor, invalid evaluator
+attempts and obsolete runtime logs are under root `legacy/`; none is active evidence.
 
 ## 2. `online_patch_tactile_mass_adaptation/`
 

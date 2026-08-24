@@ -400,11 +400,10 @@ validation/test 都更偏好匹配任务；held-out Carry 的 correct/unrelated 
 目标。runtime 前 9 个 transition 不足 10-frame history 时精确为零，模型为 eval mode 且
 trainable parameter 为零。
 
-这些结果证明 reward 在策略优化前满足因果、部署输入、phase 和双向语义门槛，不证明 policy
-semantic following。下一次 comparison 必须获得明确授权，固定 teacher、seed、初始化、
-物理、budget 和 task reward，并只以 predictor-independent frozen behavior 作结论。
+这些结果证明 reward 在 official-Tracker corpus 上满足因果、部署输入、phase 和双向语义
+门槛，不证明它能迁移到 Refiner-policy rollout，也不证明 policy semantic following。
 
-策略侧接入现已完成但尚未执行优化。`FrozenPhaseAwareDemoEventScorer` 在线截取 policy
+策略侧接入已完成。`FrozenPhaseAwareDemoEventScorer` 在线截取 policy
 observation 的前 121 维，维护每环境 10-state reset-safe history，并以
 `(episode_step + 1) / 650` 提供因果 phase；不足十个状态或 benign terminal 时 reward 为零。
 它在原有 task/SMP/original-ICM reward 完成后追加冻结 dense feedback，predictor 始终 eval、
@@ -423,8 +422,8 @@ $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
 
 两条命令固定同一个 CarryBox45 teacher、`161587/161588` sim/action seed、20 env、physics、
 optimizer、reward mix 和 update budget；唯一科学变量是 `selected_option=correct/unrelated`。
-checkpoint 为 update 32/64。非 dry-run 还需要用户明确授权后的
-`--policy-training-authorized`，两臂必须串行。两臂 endpoint proof 通过后执行：
+checkpoint 为 update 32/64，训练时必须带 `--policy-training-authorized` 且两臂串行。两臂
+endpoint proof 通过后执行：
 
 ```bash
 bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
@@ -434,8 +433,8 @@ bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
 该入口在 evaluation seed `171587` 下分别加载 update 32/64，每个 checkpoint 使用 20 个
 matched physics profiles；随后按 checkpoint 独立计算不读取 predictor/reward 的 lift、
 lifted/ground transport、orbit 和 hand/foot contact 审计。最终视频取 update-64 profile 0，
-分别只显示 Carry45/Kick21 输入 demo 与对应实际策略行为。当前没有上述新 checkpoint，因而
-没有 policy-level 结果或新视频可报告。
+分别只显示 Carry45/Kick21 输入 demo 与对应实际策略行为。该训练、评估、审计和渲染已经完成；
+结果见 3.10 节。
 
 正式内层 runner admission 可在 retained GPU 上单独执行，不创建环境、不写 checkpoint、
 不执行 PPO：
@@ -510,8 +509,8 @@ policy update。Isaac Sim shutdown 可能掩盖内层 Python 异常并留下零 
 job257762/server60 与 job257794/server45 曾在 Vulkan `ERROR_DEVICE_LOST` 后留下 Kit 子进程；
 按准确 PGID 清理后，同一 GPU 上的最小 canary 仍失败。不要把这种 allocation-local GPU
 runtime 损坏解释为模型结果，也不要在同一块已 device-lost 的 GPU 上采集 Isaac 证据。
-runner 现与通过的 canary 一致，显式设置系统 NVIDIA ICD。online gate 已满足，但 policy
-optimization 仍必须取得用户明确授权。
+runner 现与通过的 canary 一致，显式设置系统 NVIDIA ICD。online gate 已满足，随后完成的
+matched policy optimization 见 3.10 节。
 
 训练前的 shared-teacher prerequisite 使用：
 
@@ -536,6 +535,74 @@ TacSL-coupled latent event，而是从对应训练 proof 写回这些值并进�
 job257815 correct/unrelated 24-step smokes 都通过
 `no_tactile_startup_physics_recorded`，两臂保存的物理数组完全一致；动作与 base reward 的
 逐步最大差仍为 `0`。缺少该记录的 phase-event checkpoint 不得进入冻结评估。
+
+### 3.10 Phase-event matched policy result 与 transfer failure
+
+正式结果根目录为：
+
+```text
+experiments/demo_following/matched_phase_event_reward_v1/seed161587/
+├── correct/update_0064/
+│   ├── policy_update32.pt
+│   ├── policy.pt
+│   └── proof.json
+├── unrelated/update_0064/
+│   ├── policy_update32.pt
+│   ├── policy.pt
+│   └── proof.json
+├── evaluation_update0064/{correct,unrelated}/{RESULT.json,TRACE.npz}
+├── behavior_adherence_update0032/RESULT.json
+├── behavior_adherence_update0064/RESULT.json
+└── videos_update0064/
+    ├── 01_correct_demo_and_actual_behavior.mp4
+    ├── 02_unrelated_kickbox_demo_and_actual_behavior.mp4
+    └── RENDER_PROOF.json
+```
+
+两臂各执行 64 updates，proof 均通过 65/65 checks；actor maximum parameter delta 为
+`0.0055189/0.0066973`，整个 policy delta 为 `0.0167299/0.0169497`。两臂都使用原始
+no-TacSL SUGAR scene，startup mass/inertia/COM/material 完全相同，selected demo 分别是
+CarryBox45 row37 与 KickBox21 row97。
+
+冻结 evaluator 在一个 40-env scene 中同时装载 update 32/64，每个 update 占 20 profiles。
+训练 proof 中 batch-shaped wrapper state 只有 `release_latched=false`、`release_progress=0`、
+`teacher_coefficient=1` 三个不变量，验证后才允许扩展 20 到 40。20 个 startup physics
+profiles 精确重复到两个 update slice；PhysX COM readback 只允许一个 float32 epsilon，其他
+字段仍用 `1e-7`。source origin 不一定落在 env0，因此 first teacher action gate 使用离记录
+source origin 最近的 replica；本次 canonical env 为 15，action error `6.56e-7 < 2e-6`。
+
+update 64 的 predictor-independent mean behavior：
+
+- correct/unrelated maximum lift：`0.694533/0.694187 m`；
+- bilateral hand-contact fraction：`0.833484/0.832515`；
+- lifted-frame fraction：`0.612924/0.612137`；
+- lifted-transport fraction：`0.941271/0.942186`；
+- ground-transport fraction：`0.058729/0.057814`；
+- root orbit rate：`0.374611/0.371613 rad/s`；
+- any foot-box contact：`0.002878/0.002877`；
+- physical fall：两臂均 `0/20`。
+
+update 32/64 分别只有 `2/4`、`1/4` 预登记 Kick-like 方向，而且主要差值只有 `1e-3` 量级。
+两条最终 H.264 视频均完整解码，并各自只显示 official input demo 与 actual policy behavior。
+结论是两臂都保留稳定 Carry 解，没有 semantic separation。
+
+需要单独记录 scorer failure。correct update-64 actual rollout 的 mean Carry45/Kick21
+predicted mismatch 是 `0.969861/0.890871`；unrelated arm 是 `0.970261/0.892214`。即使实际
+行为明显是 Carry，scorer 在多数中段 frames 仍偏好 Kick21。训练时 feedback 已进入 PPO 并
+改变 checkpoint，但错误的在线语义使“有梯度”不能推出“会按 demo 改行为”。
+
+已定位两个 transfer gap。第一，训练/评估从 contact source index 1 恢复，对应 CarryBox45
+reference frame `197`，而 runtime scorer 的 `episode_steps` 从零开始。第二，predictor corpus
+来自 official Tracker actual rollout：CarryBox45 的最大 lift、bilateral contact、foot-contact
+fraction 为 `0.101399/0.055714/0.024286`；当前 Refiner+residual rollout 对应约
+`0.695/0.833/0.00288`，显著超出训练分布。现有 trace 没有保存 exact 121-D online prefix，
+因此不能从这些 NPZ 直接完成严格的 alternative-phase rescore。
+
+下一次执行首先是 scorer-only diagnostic，不训练 policy：记录同一 frozen trajectory 的
+`10 x 121` prefix，比较 reset-zero clock 与 reference-aware causal phase；若 phase 修正不足，
+则用 Refiner+residual rollouts 建立 motion-disjoint corpus，重新执行 full/zero/permuted-demo、
+uncertainty 和 Carry/Kick 双向门槛。只有实际 frozen Carry trajectory 稳定偏好 Carry45 后，
+才允许再启动一组 64-update matched policy experiment。
 
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object

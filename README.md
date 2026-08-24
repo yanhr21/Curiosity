@@ -72,10 +72,10 @@ reward-scale audit 通过全部 10 项门槛，validation/test 都双向偏好�
 121-D 输入、9-transition warmup、reset-safe history、phase 输入、eval mode 和零可训练参数。
 这建立了可接入策略的因果语义奖励，不等于 policy 已经遵循 demo。
 
-该 reward 现已接入正式 SUGAR rollout boundary：base task/SMP/original ICM 保持不变，冻结
+该 reward 已接入正式 SUGAR rollout boundary：base task/SMP/original ICM 保持不变，冻结
 predictor 只把 dense feedback 加到 policy reward，并记录 risk、uncertainty、ready 和 phase。
 correct/unrelated 两臂的同 teacher 协议、update 32/64 checkpoint、冻结评估、独立行为审计和
-最终双视频入口均已通过 dry-run/CPU 回归；截至当前仍未启动新的 policy optimization。
+最终双视频入口均已通过 dry-run/CPU 回归。
 随后在 retained H200 job257762 上通过正式内层 runner 的两臂 admission：Isaac Sim/Vulkan
 启动成功，correct 解析为 CarryBox45，unrelated 解析为 KickBox21，均为 121-D、clock-phase、
 0 trainable parameter、0 PPO update。该 job 为 5 天 allocation，当前已恢复 GPU hold。
@@ -90,7 +90,7 @@ storage，同时 policy/ICM 参数及 optimizer counter 全部不变。此前 se
 两臂未优化时的动作与 base reward 逐步完全相同；history ready 后 16 步的 mean demo
 reward 为 correct `0.04013`、unrelated `0.01734`，对应 mean risk `0.36048/0.50554`。因此
 selector 确实在同一物理 rollout 上读到了不同 demo，而不是由行为差异伪造 reward 差异。
-这仍然只是在线接入证据；尚未启动新的 policy optimization。
+这一步是正式优化前的在线接入证据。
 
 同一 fresh H200 上还完成了正式训练前的 frozen teacher-only 门禁。旧 evaluator 虽然把触觉
 tensor 置零，却仍构造 TacSL scene；现已与 training/smoke 统一为原始无 TacSL 的 SUGAR
@@ -123,6 +123,27 @@ residual 确实到达环境，固定 CarryBox45 teacher 只是共同基线，不
 同时修复了 probe 的失败语义：Isaac Sim 关闭阶段可能掩盖内层 Python 非零退出状态。外层
 runner 现在必须读取独立 machine-readable result，并核对 protocol、`passed=true` 和
 `policy_updates_executed=0`；缺失或无效结果一律失败，不能再只凭 subprocess return code 放行。
+
+2026-08-24 已在 fresh H200 上完成新的严格 matched policy experiment。两臂使用完全相同的
+CarryBox45 official Refiner teacher、seed/action seed `161587/161588`、20 个环境、startup
+PhysX readback、PPO/ICM/SMP、reward weights 和 64 updates；唯一变量是 selected demo：
+CarryBox45 或 KickBox21。两臂 proof 均通过 65/65 checks，update 32/64 checkpoint 均有限且
+可精确 reload。冻结评估使用 seed `171587`，每个 checkpoint 20 个相同 physics profiles。
+
+update 64 时，两臂仍是几乎相同的稳定 Carry 行为：correct/unrelated 平均最大抬升为
+`0.69453/0.69419 m`，双手同时接触比例为 `0.83348/0.83252`，lifted-frame 比例为
+`0.61292/0.61214`，lifted transport 为 `0.94127/0.94219`，均为 `0/20` physical fall。
+四个预登记 Kick-like 方向只有 `1/4`，而且差值在 `1e-3` 量级；update 32 也只有 `2/4`。
+因此该实验没有建立 semantic demo following，也没有建立 correct-demo 行为优势。
+
+冻结评估还暴露出比“训练不够久”更关键的问题：在实际 Refiner+residual Carry 轨迹上，correct
+arm 的平均 Carry45/Kick21 predicted mismatch 为 `0.96986/0.89087`，即 predictor 反而认为
+这个明显的搬箱轨迹更接近 Kick。训练 corpus 来自 official Tracker；其中 CarryBox45 只抬升
+`0.10140 m`、双手同时接触率 `0.05571`，而当前策略抬升约 `0.695 m`、双手同时接触率约
+`0.833`，存在显著 rollout-domain shift。并且当前恢复状态已经位于 CarryBox45 reference
+frame `197`，scorer 却从 episode phase 0 开始计时。两点都是已定位的失效来源；目前尚未用
+matched ablation 判定各自贡献，所以不得把 predictor 的 held-out corpus gate 当作在线策略
+语义有效性的证明。
 
 官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
 完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
@@ -161,7 +182,8 @@ normal/shear 混合、摩擦不一致、slip reset 丢失、训练/评测 motion
 4. 建立 teacher handoff 后在线改变 mass/inertia 的 matched Z/P/PS 协议及本体感受泄漏
    审计；
 5. 实现 11.386M phase-aware causal trajectory/contact/duration/regime mismatch predictor，
-   修复自由窗口静止片段漏洞，并通过 motion-disjoint、zero/permuted-demo 与双向语义检查；
+   修复自由窗口静止片段漏洞，通过 motion-disjoint、zero/permuted-demo 与双向语义检查，并
+   进一步发现其在 Refiner+residual policy rollout 上发生 phase/domain-transfer 失效；
 6. 建立 fixed-teacher、只改变 selected-demo reward 的因果实验，排除 teacher replacement
    混杂；
 7. 建立 predictor/reward-independent、以训练 seed 为重复单位的 Carry/Kick 行为审计，
@@ -196,7 +218,7 @@ $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
   --design phase_event_reward_only --arm correct \
   --endpoint-updates 64 --stop-after-segment --runner-rollout-smoke-only
 
-# 仅在用户明确授权 policy training 后，GPU compute node 串行执行 correct，再执行 unrelated
+# 复现已经完成的 matched 64-update 训练；两臂必须串行
 $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
   --design phase_event_reward_only --arm correct \
   --endpoint-updates 64 --stop-after-segment --policy-training-authorized
@@ -204,7 +226,7 @@ $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
   --design phase_event_reward_only --arm unrelated \
   --endpoint-updates 64 --stop-after-segment --policy-training-authorized
 
-# 两臂 endpoint proof 通过后：冻结评估 update 32/64、独立行为审计和完整双视频
+# 两臂 endpoint proof 通过后：复现冻结评估 update 32/64、独立行为审计和完整双视频
 bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
   64 phase_event_reward_only
 
@@ -251,6 +273,8 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 
 当前关键视频：
 
+- [最新 correct Carry45 demo 与实际行为](experiments/demo_following/matched_phase_event_reward_v1/seed161587/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
+- [最新 unrelated Kick21 demo 与实际 Carry 行为](experiments/demo_following/matched_phase_event_reward_v1/seed161587/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [correct CarryBox demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
 - [unrelated KickBox demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [第三个 seed 的 correct demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161585/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
@@ -279,9 +303,11 @@ Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 
 ## 下一步
 
-phase-aware actual contact/event predictor、uncertainty 和 reward scale 已冻结。下一步是在获得
-明确 policy-training 授权后，不改变 teacher、初始化、seed、物理、budget 和 task reward，
-只改变 selected demo，做 correct Carry45 versus unrelated Kick21 matched comparison。先检查
-update 32/64；若物理交互失效、correct success 相对 teacher-only 下降超过 20 个百分点，或
-update-64 没有 predictor-independent 语义分离，就停止。最终结论不用 predictor 自己给自己
-判成功。SMP 仍不进入 selected-demo policy reward。
+matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation，同时发现
+online scorer 在 Refiner+residual 轨迹上发生语义倒置。下一步不追加训练步数或 seeds：先从
+现有 frozen traces 做 phase/domain-transfer 审计；然后只做两个同 checkpoint、同轨迹的 scorer
+ablation——正确恢复 phase，以及用 Refiner rollout 构建 motion-disjoint calibration/evaluation。
+只有当实际 Carry 轨迹在两个 arms、update 32/64 和独立 profiles 上都稳定偏好 Carry45，才允许
+重跑一组 matched 64-update policy experiment。否则放弃当前 predictor reward 形式，转向对
+Refiner rollout 适用的因果时序对齐或显式 contact-event objective。SMP 仍不进入 selected-demo
+policy reward，直到 official TinyMDM 的独立语义扩展门槛通过。
