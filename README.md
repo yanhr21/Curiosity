@@ -140,6 +140,14 @@ Carry 解。update 64 的 correct/unrelated 平均最大抬升为 `0.69332/0.696
 这比旧错误时钟实验更强：selected reward 确实把行为推向部分 Kick-like 方向；但它仍未产生
 KickBox21 的脚部接触结构，而且只有一个训练 seed，不能声称完整或可复现的 semantic following。
 
+独立复现 `161589/161590 -> 171589` 已完成。update 64 再次得到相同的 `3/4` 方向：两组 seed
+的 unrelated-minus-correct lifted-transport delta 为 `-0.00372/-0.00386`，ground-transport
+delta 为 `+0.00372/+0.00386`，orbit-rate delta 为 `+0.00381/+0.00369 rad/s`；两组都没有
+减少 lifted-frame time。update 32 则为 `3/4` 与 `1/4`，不稳定。第二组 update 64 的
+correct/unrelated 最大抬升为 `0.69619/0.70516 m`，双手接触率为 `0.83439/0.83226`，两臂
+physical fall 都是 `0/20`，足—箱接触仍约一帧。因此当前最准确结论是：64 updates 后可重复
+出现小幅行为方向变化，但没有形成 Kick 接触结构或完整语义遵循。
+
 冻结评估还暴露出比“训练不够久”更关键的问题：在实际 Refiner+residual Carry 轨迹上，correct
 arm 的平均 Carry45/Kick21 predicted mismatch 为 `0.96986/0.89087`，即 predictor 反而认为
 这个明显的搬箱轨迹更接近 Kick。严格 scorer-only 审计现已保存逐帧 exact `121-D` 输入，并在
@@ -314,6 +322,8 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 
 - [新 reference-aware correct demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/videos_update0064_trace_exact/01_correct_demo_and_actual_behavior.mp4)；
 - [新 reference-aware unrelated Kick demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/videos_update0064_trace_exact/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
+- [独立复现 correct demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161589/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
+- [独立复现 unrelated Kick demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161589/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [旧 phase-0 correct Carry45 demo 与实际 Carry 行为](experiments/demo_following/matched_phase_event_reward_v1/seed161587/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
 - [旧 phase-0 unrelated Kick21 demo 与实际 Carry 行为](experiments/demo_following/matched_phase_event_reward_v1/seed161587/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [correct CarryBox demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
@@ -351,7 +361,8 @@ official Generator/Tracker Kick gate 也以 `8/9` profile preference 通过，�
 反例。官方发布物当前只有 KickBox
 `generator.ckpt + tracker.pt`，没有 frozen Kick Refiner checkpoint；因此现有 gate 已覆盖最强
 可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。第一组从零 reference-aware matched
-pair 已完成；update 32/64 都出现 `3/4` 方向变化，但尚无 Kick 足部接触且只有一个 training
-seed。下一步固定为 `161589/161590 -> 171589` 的独立复现：teacher、frame-197 phase、20 env、
-64 updates、reward weights、physics 和冻结评估全部不变，不先改权重、延长训练或接入 SMP。预登记阶段
-自动连续执行，不设置人工授权 gate；GPU 在任务切换与回报后继续保留。
+pair 与独立 seed 复现均已完成；update 64 的同一 `3/4` 小幅方向变化可重复，但没有 Kick
+足部接触。下一步只做一个固定的 4x reward-strength overfit diagnostic：沿用第二组 seed，
+teacher、frame-197 phase、20 env、64 updates、predictor、physics 和评估全部不变，只把
+`eta` 与 `reward_clip` 同时乘四，使 demo feedback 从约 25% 提高到约 100% base-reward scale。
+它不是参数 sweep；完成后直接冻结评估，不再自动增加其他 scale。SMP 仍不接入。

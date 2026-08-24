@@ -95,17 +95,21 @@
   stable bilateral Carry in both arms, and no meaningful Kick foot-contact structure;
 - [x] render both input-demo/actual-behavior H.264 videos from exact frozen PhysX traces after the
   H200 Vulkan camera path failed before producing a valid frame;
-- [ ] run the `161589/161590 -> 171589` independent-seed replication with the exact same teacher,
+- [x] run the `161589/161590 -> 171589` independent-seed replication with the exact same teacher,
   phase, 64-update budget, reward weights, physics and evaluation; do not integrate SMP or tune
-  weights first.
+  weights first;
+- [x] verify the replicated update-64 pattern: the same `3/4` directions and nearly identical
+  lifted/ground transport and orbit deltas, but no meaningful foot-contact structure;
+- [ ] run one same-seed fixed 4x dense-feedback overfit pair, changing only `eta` and `reward_clip`,
+  then freeze-evaluate it; do not add another scale or integrate SMP.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
 was trained with a wrong zero-based phase clock after restoring reference frame 197. Corrected
 online and frozen Carry gates now pass, and the official Generator/Tracker Kick test split prefers
 Kick21 on `8/9` profiles. The new from-scratch phase-corrected pair now shows partial `3/4`
-behavioral movement at both checkpoints but remains a Carry solution. The next work is one exact
-independent-seed replication, not a reward-weight or training-budget sweep.
+behavioral movement at update 64 and that pattern repeats in seed161589, but both remain Carry
+solutions. The next work is one fixed 4x signal-strength diagnostic, not a multi-point sweep.
 
 ## Frozen tactile work
 

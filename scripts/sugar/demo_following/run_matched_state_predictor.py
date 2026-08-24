@@ -165,6 +165,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--output-root", type=Path)
     parser.add_argument(
+        "--phase-event-runtime-config",
+        type=Path,
+        help="override only the frozen phase-event runtime config for a predeclared diagnostic",
+    )
+    parser.add_argument(
         "--stop-after-segment",
         action="store_true",
         help="run only the next 64-update segment, then return for inspection",
@@ -652,7 +657,19 @@ def main() -> None:
         args.seed, args.action_seed
     ) != (161581, 161582):
         raise ValueError("teacher-floor overfit is one fixed seed161581 diagnostic")
-    arm_contract = design["arms"][args.arm]
+    protocol_design = design
+    if args.phase_event_runtime_config is not None:
+        if not phase_event_design:
+            raise ValueError("phase-event runtime override requires phase_event_reward_only")
+        runtime_override = args.phase_event_runtime_config.expanduser().resolve()
+        protocol_design = {
+            **design,
+            "arms": {
+                name: {**contract, "event_runtime_config": runtime_override}
+                for name, contract in design["arms"].items()
+            },
+        }
+    arm_contract = dict(protocol_design["arms"][args.arm])
     require_inputs(arm_contract)
     output_root = args.output_root.expanduser().resolve()
     previous_checkpoint: Path | None = None
@@ -700,7 +717,7 @@ def main() -> None:
             seed=args.seed,
             action_seed=args.action_seed,
             num_envs=args.num_envs,
-            design=design,
+            design=protocol_design,
         )
         command = runner_command(
             args=args,

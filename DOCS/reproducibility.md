@@ -701,6 +701,20 @@ correct/unrelated 最大抬升为 `0.69332/0.69666 m`，bilateral contact 为
 两臂仍是 Carry，足—箱接触近似每 episode 一帧，因此结论是单 seed 的部分语义方向变化，
 不是完整 demo following。
 
+独立复现使用 `161589/161590 -> 171589`，输出位于同一根目录的 `seed161589/`。两臂 proof
+再次通过 `65/65` checks。update 64 重复 seed161587 的同一 `3/4` 方向模式：两 seed 的
+lifted-transport delta 为 `-0.00372/-0.00386`，ground-transport delta 为
+`+0.00372/+0.00386`，orbit-rate delta 为 `+0.00381/+0.00369 rad/s`；lifted-frame time
+都没有按 Kick 方向降低。update 32 为 `3/4` 与 `1/4`，不重复。第二 seed 的两臂仍有约
+`0.70 m` 最大抬升、`0/20` physical fall 和近零足—箱接触。结论因此升级为“update 64 的
+小幅解族内偏移可重复”，仍不能升级为完整 Kick interaction。
+
+下一诊断固定只把 runtime `eta` 与 `reward_clip` 乘四，配置为
+`experiments/demo_following/runtime_assets/phase_aware_dense_feedback_4x_overfit.json`，输出根为
+`experiments/demo_following/matched_phase_event_reward_reference_aware_4x_overfit_v1/`。它复用
+`161589/161590` 以隔离 scale，其他训练和评估合同不变；这是单点 overfit diagnostic，不是
+参数 sweep。
+
 H200 NVIDIA Vulkan 相机路径在场景创建期连续触发 `VK_ERROR_DEVICE_LOST`，未写出有效相机帧。
 统计证据来自已经通过的 camera-free frozen traces，不受该渲染失败影响。精确 trace 视频可在
 登录节点 CPU 上生成：

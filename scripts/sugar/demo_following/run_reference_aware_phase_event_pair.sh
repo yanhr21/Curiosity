@@ -11,6 +11,7 @@ ACTION_SEED=${ACTION_SEED:-161588}
 SEED_ROOT="$OUTPUT_ROOT/seed${TRAIN_SEED}"
 LAUNCHER=$ROOT/scripts/sugar/native_tactile/launch_retained_child.sh
 RUNNER=$ROOT/scripts/sugar/demo_following/run_matched_state_predictor.py
+PHASE_EVENT_RUNTIME_CONFIG=${PHASE_EVENT_RUNTIME_CONFIG:-}
 
 if [[ -z "${SLURM_JOB_ID:-}" || -z "${SLURM_STEP_ID:-}" ]]; then
     echo "run inside a retained srun compute step" >&2
@@ -88,6 +89,10 @@ run_arm() {
         echo "incomplete arm requires inspection; refusing to overwrite: $arm" >&2
         exit 2
     fi
+    local runtime_args=()
+    if [[ -n "$PHASE_EVENT_RUNTIME_CONFIG" ]]; then
+        runtime_args=(--phase-event-runtime-config "$PHASE_EVENT_RUNTIME_CONFIG")
+    fi
     "$LAUNCHER" --foreground \
         --record "$record" \
         --status "$status" \
@@ -99,6 +104,7 @@ run_arm() {
         --output-root "$OUTPUT_ROOT" \
         --seed "$TRAIN_SEED" \
         --action-seed "$ACTION_SEED" \
+        "${runtime_args[@]}" \
         --endpoint-updates 64 \
         --stop-after-segment
     check_endpoint "$arm"

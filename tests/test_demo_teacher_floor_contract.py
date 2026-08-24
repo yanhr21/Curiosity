@@ -255,6 +255,12 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert '"policy_updates") != [32, 64]' in trace_renderer_source
     assert 'args.source_env != 20 or args.policy_update != 64' in trace_renderer_source
     assert "No camera-enabled physics rerun" in trace_renderer_source
+    assert '"--phase-event-runtime-config"' in runner_source
+    assert 'arm_contract = dict(protocol_design["arms"][args.arm])' in runner_source
+    pair_launcher_source = (
+        ROOT / "scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh"
+    ).read_text(encoding="utf-8")
+    assert "PHASE_EVENT_RUNTIME_CONFIG" in pair_launcher_source
     assert "canonical_environment_index = int(np.argmin(translation_norm))" in (
         evaluator_source
     )

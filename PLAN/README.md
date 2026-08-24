@@ -19,9 +19,13 @@ direction. Both arms nevertheless retain bilateral Carry and foot-box contact re
 frame per episode. This is selected-demo-conditioned behavior change, not complete semantic
 following.
 
-The next matched experiment is exactly one independent-seed replication with training/action seeds
-`161589/161590` and frozen-evaluation seed `171589`. Do not change the teacher, phase, budget,
-reward scale, physics or SMP status before that replication.
+The independent-seed replication `161589/161590 -> 171589` is complete. At update 64 it repeats the
+same missing direction and nearly the same three deltas as seed161587: lifted transport
+`-0.00372/-0.00386`, ground transport `+0.00372/+0.00386`, and orbit
+`+0.00381/+0.00369 rad/s`. Update 32 does not replicate (`3/4` versus `1/4`). Both seeds retain
+bilateral Carry and near-zero foot interaction. The next experiment is one fixed 4x feedback-scale
+overfit diagnostic using seed161589; it changes only `eta` and `reward_clip`, not the predictor,
+teacher, phase, budget, physics or SMP status.
 
 The first causal selected-demo experiment is complete:
 

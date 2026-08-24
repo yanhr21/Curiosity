@@ -64,8 +64,10 @@ overwritten.
 The first reference-aware pair is complete. Its independent audit observes `3/4` predeclared
 directions at both update 32 and update 64, while both policies remain bilateral Carry and do not
 reproduce Kick21 foot contact. This is a single-seed partial behavior shift, not semantic-following
-proof. The next run is one exact independent-seed replication; no reward or budget tuning precedes
-it. Its fixed training/action seeds are `161589/161590`; frozen evaluation uses `171589`.
+proof. The independent replication with `161589/161590 -> 171589` is complete. Update 64 repeats
+the exact `3/4` direction pattern with nearly identical lifted/ground transport and orbit deltas;
+update 32 does not replicate. Both policies remain Carry and foot interaction stays near zero.
+The next run is one same-seed 4x feedback-strength overfit diagnostic; no second scale is added.
 
 On the current cluster, NVIDIA Vulkan camera rendering repeatedly loses the H200 device during
 scene creation before a valid frame is emitted. This does not invalidate camera-free frozen traces.

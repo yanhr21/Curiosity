@@ -1,6 +1,6 @@
 # Global Agent Rules
 
-## 1. No human authorization gates; current priority: phase-corrected replication
+## 1. No human authorization gates; current priority: reward-strength diagnostic
 
 - Hard user rule from 2026-08-24: never add, require or wait on an artificial human-approval flag,
   environment variable, sentinel file or repeated confirmation for an experiment already in the
@@ -68,12 +68,22 @@ semantic directions, but both arms still execute a bilateral Carry solution and 
 contact remains approximately one frame per episode. This proves a behavior shift under the
 selected reward; one training seed does not establish semantic following or replication.
 
-The active causal experiment is therefore exactly one independent-seed replication using
-training/action seeds `161589/161590` and frozen-evaluation seed `171589`, with the same teacher,
-reference-frame-197 phase, update budget, environment count, reward weights, physics and frozen
-evaluation. Change no other variable and do not integrate SMP. Run its correct/unrelated
-arms serially and automatically chain the update-32/update-64 evaluation and independent behavior
-audit. Do not wait for human approval between documented stages.
+The independent-seed replication `161589/161590 -> 171589` is now complete. At update 64 it repeats
+the first seed's exact `3/4` direction pattern: unrelated has less lifted transport, more ground
+transport and more orbit, while lifted-frame time does not decrease. The paired deltas are nearly
+identical across seeds (`-0.00372/-0.00386`, `+0.00372/+0.00386`, and
+`+0.00381/+0.00369 rad/s`). Update-32 behavior does not replicate (`3/4` versus `1/4`). Both update-64
+arms remain bilateral Carry, foot-box contact stays near one frame per episode and physical falls
+are zero. This establishes a reproducible small behavior shift at update 64, not Kick interaction
+or complete semantic following.
+
+The active causal diagnostic is one same-seed from-scratch matched pair with only the frozen dense
+feedback magnitude multiplied by four, from 25% to approximately 100% of the existing base-reward
+scale. Keep `161589/161590`, teacher, frame-197 phase, 20 environments, 64 updates, predictor,
+physics and evaluation fixed. Scale both `eta` and `reward_clip` by four and change nothing else.
+This is a fixed overfit diagnostic, not a sweep or formal result. It tests whether signal magnitude
+alone prevents contact-topology change. Automatically evaluate both arms; do not wait for human
+approval or add further scales.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
