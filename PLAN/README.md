@@ -151,33 +151,38 @@ demo following under this reward and budget; it does not reject the fact that se
 changes gradients and checkpoints.
 
 The frozen score itself fails an online semantic sanity check. On the correct update-64 Carry
-trajectory, mean predicted mismatch is `0.96986` to Carry45 and `0.89087` to Kick21. This inversion
-is consistent across both learned arms for most of the middle rollout. Two concrete transfer gaps
-are now isolated:
+trajectory, mean predicted mismatch is `0.96986` to Carry45 and `0.89087` to Kick21. Exact 121-D
+prefixes have now been recollected from both arms, and a scorer-only ablation reproduces every old
+runtime signal within float32/model tolerance before changing one variable: the initial phase.
 
-1. evaluation restores a state at CarryBox45 reference frame `197`, while the scorer starts its
-   reset-bounded phase clock at zero;
-2. predictor targets were collected from official Tracker rollouts. CarryBox45 in that corpus has
-   only `0.10140 m` lift and `0.05571` bilateral-contact fraction, versus about `0.695 m` and `0.833`
-   under the current Refiner-plus-residual policy.
+With the deployed reset-zero clock, `Kick risk - Carry risk` is approximately
+`-0.080~-0.082`; only `30.1%~30.6%` of ready frames and `0/20` profiles prefer Carry in each of the
+four arm/update blocks. Starting the first episode from the restored CarryBox45 reference frame
+`197` changes the margin to `+0.324~+0.328`; `85.7%~86.1%` of ready frames and `20/20` profiles in
+all four blocks prefer Carry. The online inversion is therefore caused directly by the nonzero
+reference state being paired with a zero phase clock. The scorer, runner and frozen evaluator now
+initialize phase from the same reset reference frame.
 
-These are candidate causes, not yet separated causal effects. More policy updates, seeds or reward
-weight sweeps are blocked until scorer transfer is repaired and re-admitted on actual frozen policy
-rollouts.
+A separate Tracker-to-Refiner state shift remains measurable. Official Tracker test has normalized
+state `mean|z|/p95/p99 = 0.668/1.923/2.882`; the current Carry rollouts are approximately
+`1.035/3.212/5.420`. Phase correction is nevertheless sufficient for the necessary Carry-domain
+gate. It does not establish independent Kick-domain transfer or policy semantic following, and the
+old policies were trained under the wrong phase clock. No new policy training is authorized yet.
 
 ### Next matched diagnostic
 
-Proceed serially and reuse frozen checkpoints:
+Proceed serially; do not add PPO updates or seeds yet:
 
-1. reconstruct or record the exact `10 x 121` online prefix and score the same trajectories under
-   the current clock and a correctly restored source phase;
-2. measure whether phase correction alone restores Carry45 preference over the complete rollout;
-3. if it does not, collect Refiner-plus-residual rollout prefixes and future event labels, keeping
-   motion-disjoint train/validation/test splits and the same serious Transformer;
-4. re-run zero/permuted-demo, calibration, and bidirectional Carry/Kick gates on both held-out
-   Tracker and Refiner-policy domains;
-5. authorize one new 64-update matched pair only after actual frozen Carry trajectories prefer the
-   correct demo independently of the arm that generated them.
+1. re-run the zero-optimizer online smoke and frozen Carry evaluation with the corrected runtime
+   phase initialization, recording the initial reference-frame readback;
+2. collect an independent Kick-policy rollout under the same 121-D observation and score it with
+   Carry45 versus Kick21 to test the missing opposite semantic direction;
+3. if both Carry and Kick domains prefer their matching demo, request authorization for one new
+   correct/unrelated 64-update matched policy pair from scratch;
+4. if the Kick gate fails, collect a motion-disjoint Refiner-plus-residual corpus and re-run the
+   serious predictor's zero/permuted-demo, calibration and bidirectional semantic gates before any
+   policy training;
+5. keep selected-demo SMP out until official TinyMDM passes an independent semantic-extension gate.
 
 ### Expected behavior, not just reward score
 

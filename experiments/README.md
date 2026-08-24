@@ -13,7 +13,10 @@ are under root `legacy/`.
 - `matched_phase_event_reward_v1/seed161587/`: newest strict phase-event comparison. Both arms use
   the same CarryBox45 teacher/physics and differ only in Carry45 versus Kick21 reward demo; update
   32/64 checkpoints, 20-profile frozen evaluations, independent behavior audits and two full videos
-  are retained. The behavior result is negative and the scorer shows online semantic inversion;
+  are retained. The behavior result is negative. `scorer_transfer_source_trace_v1/` contains the
+  exact 121-D frozen-policy inputs, and `scorer_transfer_phase_ablation_v1/` proves that restoring
+  reference frame 197 in the causal phase clock reverses the erroneous online Kick preference in
+  all four arm/update blocks;
 - `teacher_floor_overfit_v1/`: seed161581 update-128 correct/unrelated endpoints, frozen traces,
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick

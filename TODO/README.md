@@ -69,20 +69,27 @@
   solutions and satisfy only `2/4` and `1/4` predeclared Kick-like directions;
 - [x] identify that the frozen scorer rates the correct Carry rollout closer to Kick21 than Carry45
   over most middle frames;
-- [ ] rescore the same frozen trajectories with the exact recorded 121-D prefix and correctly restored
-  source phase; do not train a new policy for this step;
-- [ ] separate phase-offset error from Tracker-to-Refiner rollout-domain shift with matched scorer-only
-  ablations;
-- [ ] if phase correction is insufficient, collect a motion-disjoint Refiner-plus-residual corpus and
-  re-admit the serious predictor on both Tracker and policy-rollout domains;
+- [x] recollect the same frozen trajectories with exact recorded 121-D prefixes and reproduce the
+  deployed phase/reward/risk/uncertainty signals within float32/model tolerance;
+- [x] isolate phase offset with a matched scorer-only ablation: reference-frame-197 initialization
+  changes all four arm/update blocks from `0/20` to `20/20` Carry-preferring profiles;
+- [x] update the scorer, formal runner and frozen evaluator to initialize the first causal phase
+  clock from the restored reset reference frame instead of silently forcing zero;
+- [ ] re-pass a corrected zero-optimizer online smoke and frozen Carry-domain scorer gate with the
+  initial reference-frame readback recorded;
+- [ ] collect one independent Kick-policy rollout and require the same frozen predictor to prefer
+  Kick21 over Carry45 before any new policy training;
+- [ ] if the independent Kick-domain gate fails, collect a motion-disjoint Refiner-plus-residual
+  corpus and re-admit the serious predictor on both Tracker and policy-rollout domains;
 - [ ] keep selected-demo SMP out until its independent semantic gate passes; do not start another
   policy pair until actual frozen Carry trajectories prefer Carry45 consistently.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
-collapses, and the new strictly matched seed161587 phase-event run is also behaviorally negative.
-Its frozen score exposes a transfer failure: a strong Carry rollout receives lower predicted
-mismatch under Kick21 than Carry45. The next work is scorer phase/domain audit on existing frozen
-trajectories, not more PPO training.
+collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
+was trained with a wrong zero-based phase clock after restoring reference frame 197. Exact-prefix
+rescoring shows that correcting this one clock restores Carry preference in all four frozen-policy
+blocks. The next work is corrected online admission plus an independent Kick-domain transfer gate,
+not more PPO training.
 
 ## Frozen tactile work
 

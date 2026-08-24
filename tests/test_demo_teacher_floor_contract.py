@@ -210,6 +210,19 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert "canonical_environment_index = int(np.argmin(translation_norm))" in (
         evaluator_source
     )
+    assert 'frame_lists["goal_policy_core_observation"]' in evaluator_source
+    assert 'transition_lists[f"demo_{name}_phase"]' in evaluator_source
+    assert 'transition_lists[f"demo_{name}_ready"]' in evaluator_source
+    assert 'transition_lists[f"demo_{name}_risk"]' in evaluator_source
+    assert "initial_episode_steps=initial_phase_steps" in evaluator_source
+    assert 'choices=("reference-aware", "reset-zero-diagnostic")' in (
+        evaluator_source
+    )
+    assert '"phase_event_exact_policy_core_archived"' in evaluator_source
+    assert '"phase_event_runtime_signals_archived"' in evaluator_source
+    assert "sugar_phase_event_reward_matched_frozen_eval_32_64_v2" in (
+        evaluator_source
+    )
 
 
 def test_runner_probe_requires_machine_readable_success(tmp_path: Path) -> None:

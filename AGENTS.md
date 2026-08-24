@@ -1,6 +1,6 @@
 # Global Agent Rules
 
-## 1. Current priority: demo-following scorer transfer audit
+## 1. Current priority: corrected demo scorer transfer gates
 
 The tactile/mass-adaptation line in
 `PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen while demo following is the active
@@ -24,13 +24,20 @@ seed161587 matched pair is complete at 64 updates with the same CarryBox45 teach
 the selected demo differs. Frozen update-32/update-64 behavior remains nearly identical Carry in
 both arms (`2/4` then `1/4` predeclared Kick-like directions). Do not claim semantic following.
 
-The frozen scorer also fails transfer on these actual Refiner-plus-residual rollouts: at correct
-update 64 the mean Carry45/Kick21 predicted mismatch is `0.96986/0.89087`, so a strong Carry rollout
-is scored closer to Kick. The restored state is already at CarryBox45 reference frame `197` while
-the scorer clock begins at zero, and the predictor corpus comes from materially different official
-Tracker rollouts. The current queue is to separate phase error from rollout-domain shift using the
-existing frozen checkpoints. Do not launch more policy training, seeds, reward-weight sweeps or SMP
-integration before this scorer-only audit passes.
+The old frozen scorer failed transfer on these actual Refiner-plus-residual rollouts because a state
+restored at CarryBox45 reference frame `197` was paired with a phase clock starting at zero. An exact
+121-D scorer-only audit reproduces the old runtime and then changes only this offset. All four
+correct/unrelated x update-32/update-64 blocks move from `0/20` to `20/20` Carry-preferring profiles;
+the mean `Kick risk - Carry risk` changes from approximately `-0.081` to `+0.326`. The scorer,
+training runner and frozen evaluator must initialize the first causal clock from the restored reset
+reference frame. Do not restore the zero-phase behavior.
+
+Tracker-to-Refiner state distribution shift remains measurable, but phase correction alone passes
+the necessary Carry-domain semantic gate. Independent Kick-policy transfer has not been tested, and
+the existing policy pair was trained under the wrong clock. The current queue is corrected
+zero-optimizer online admission, corrected frozen Carry scoring, then one independent Kick-domain
+scorer gate. Do not launch more policy training, seeds, reward-weight sweeps or SMP integration
+before both directions pass; policy training still requires explicit user approval.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
@@ -86,8 +93,8 @@ round trip has maximum float32 error `4.77e-7`, below the frozen `2e-6` toleranc
 fixed teacher authority as zero student authority.
 
 Routine read-only audits, dataset builds and predictor-only gates may proceed through the documented
-queue. Policy training is frozen until the scorer-transfer gate passes and then still requires user
-approval.
+queue. Policy training is frozen until the corrected Carry and independent Kick scorer-transfer
+gates both pass and then still requires user approval.
 
 The completed same-teacher experiment fixes CarryBox45 as teacher in both arms and changes only the
 selected reward demo, CarryBox45 versus KickBox21. Across training seeds 161581/161583/161585,

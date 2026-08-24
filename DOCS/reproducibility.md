@@ -591,18 +591,46 @@ predicted mismatch 是 `0.969861/0.890871`；unrelated arm 是 `0.970261/0.89221
 行为明显是 Carry，scorer 在多数中段 frames 仍偏好 Kick21。训练时 feedback 已进入 PPO 并
 改变 checkpoint，但错误的在线语义使“有梯度”不能推出“会按 demo 改行为”。
 
-已定位两个 transfer gap。第一，训练/评估从 contact source index 1 恢复，对应 CarryBox45
-reference frame `197`，而 runtime scorer 的 `episode_steps` 从零开始。第二，predictor corpus
-来自 official Tracker actual rollout：CarryBox45 的最大 lift、bilateral contact、foot-contact
-fraction 为 `0.101399/0.055714/0.024286`；当前 Refiner+residual rollout 对应约
-`0.695/0.833/0.00288`，显著超出训练分布。现有 trace 没有保存 exact 121-D online prefix，
-因此不能从这些 NPZ 直接完成严格的 alternative-phase rescore。
+严格 scorer-only transfer audit 已完成。首先用同一 frozen checkpoints、同一 physics profiles
+重采 exact `goal_policy_core_observation [401,40,121]`，以及每个 selected-demo scorer 的
+phase/ready/risk/weighted-uncertainty/reward `[400,40]`。然后在不启动仿真、不更新 policy、
+不更新 predictor 的条件下，用 frozen 11.386M predictor 逐帧复现旧 runtime，再只改变第一段
+episode 的 phase 起点。复现最大绝对误差为 phase `2.98e-8`、reward `4.35e-8`、risk
+`4.77e-7`、uncertainty `3.58e-7`，ready exact equal。
 
-下一次执行首先是 scorer-only diagnostic，不训练 policy：记录同一 frozen trajectory 的
-`10 x 121` prefix，比较 reset-zero clock 与 reference-aware causal phase；若 phase 修正不足，
-则用 Refiner+residual rollouts 建立 motion-disjoint corpus，重新执行 full/zero/permuted-demo、
-uncertainty 和 Carry/Kick 双向门槛。只有实际 frozen Carry trajectory 稳定偏好 Carry45 后，
-才允许再启动一组 64-update matched policy experiment。
+reset-zero 结果在 correct/unrelated 两臂的 update 32/64 四个 block 中均错误偏好 Kick：
+`Kick risk - Carry risk = -0.08239/-0.08158/-0.08142/-0.08049`，Carry-preferred frame 为
+`30.13%/30.36%/30.25%/30.59%`，每个 block 均为 `0/20` profiles。reference-aware 版本令
+第一段 episode 从真实 source reference frame `197` 起钟，后续自然 reset 仍从 0 起；四个
+margin 变为 `+0.32437/+0.32724/+0.32451/+0.32787`，Carry-preferred frame 为
+`85.77%/86.10%/85.71%/86.12%`，每个 block 均为 `20/20` profiles。phase-only necessary
+Carry gate 因此通过。正式 scorer、训练 runner 和 frozen evaluator 已统一从 command 的
+reset reference frame 初始化 causal clock。
+
+运行完整审计的入口是：
+
+```bash
+OUTPUT_ROOT="$PWD/experiments/demo_following/reproduce_phase_transfer" \
+PYTHON_BIN=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  bash scripts/sugar/demo_following/run_phase_event_scorer_transfer_audit.sh
+```
+
+关键本地证据为：
+
+```text
+experiments/demo_following/matched_phase_event_reward_v1/seed161587/
+├── scorer_transfer_source_trace_v1/{correct,unrelated}/{RESULT.json,TRACE.npz}
+└── scorer_transfer_phase_ablation_v1/{RESULT.json,SCORES.npz}
+```
+
+Tracker-to-Refiner distribution shift 仍被量化：official Tracker test 的 normalized state
+`mean|z|/p95/p99` 为 `0.6679/1.9230/2.8818`，correct policy rollout 为
+`1.0350/3.2120/5.4203`；偏移最大的组包括 joint position、projected gravity、box linear/
+angular velocity 和 previous action。但 phase 修正本身已经足以恢复 Carry-domain 语义方向，
+所以不能再把当前倒置归因于 domain shift。现有证据仍缺少独立 Kick-policy rollout 的反向
+门槛，也没有在修正 reward 下重新训练策略。下一步先运行 corrected zero-optimizer smoke 和
+frozen Carry gate，再采独立 Kick-policy rollout；只有双向 transfer 都通过才申请重跑一组
+64-update matched policy experiment。
 
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object

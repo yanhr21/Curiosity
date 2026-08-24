@@ -138,12 +138,21 @@ update 64 时，两臂仍是几乎相同的稳定 Carry 行为：correct/unrelat
 
 冻结评估还暴露出比“训练不够久”更关键的问题：在实际 Refiner+residual Carry 轨迹上，correct
 arm 的平均 Carry45/Kick21 predicted mismatch 为 `0.96986/0.89087`，即 predictor 反而认为
-这个明显的搬箱轨迹更接近 Kick。训练 corpus 来自 official Tracker；其中 CarryBox45 只抬升
-`0.10140 m`、双手同时接触率 `0.05571`，而当前策略抬升约 `0.695 m`、双手同时接触率约
-`0.833`，存在显著 rollout-domain shift。并且当前恢复状态已经位于 CarryBox45 reference
-frame `197`，scorer 却从 episode phase 0 开始计时。两点都是已定位的失效来源；目前尚未用
-matched ablation 判定各自贡献，所以不得把 predictor 的 held-out corpus gate 当作在线策略
-语义有效性的证明。
+这个明显的搬箱轨迹更接近 Kick。严格 scorer-only 审计现已保存逐帧 exact `121-D` 输入，并在
+同一 frozen trajectory、同一 frozen 11.386M predictor 上只改变初始 phase。旧的 phase-0
+运行在 correct/unrelated、update 32/64 四个 block 中均得到约 `-0.080~-0.082` 的
+`Kick risk - Carry risk`，且 `0/20` profiles 偏好 Carry；从真实恢复的 CarryBox45 reference
+frame `197` 起钟后，margin 变为 `+0.324~+0.328`，Carry-preferred frame 达
+`85.7%~86.1%`，四个 block 均为 `20/20` profiles 偏好 Carry。旧 runtime 的 phase、ready、
+reward、risk 和 uncertainty 均在 float32/模型容差内复现。因此在线语义倒置的直接原因是
+初始 phase 错位；正式 scorer/runner/evaluator 已改为从 reset reference frame 起钟。
+
+Tracker-to-Refiner rollout shift 仍真实存在，但不再是解释当前 Carry 语义倒置所必需的原因：
+official Tracker test 的 normalized state `mean|z|/p95/p99` 为
+`0.668/1.923/2.882`，当前 frozen Carry rollout 为约 `1.035/3.212/5.420`，主要来自 joint
+position、projected gravity、box velocity 和 previous action。当前结果只通过了 Carry-domain
+必要门槛；尚未在独立 Kick-policy rollout 上验证双向 transfer，也尚未用修正后的 reward
+重新训练策略，所以仍不能声称 policy 已语义遵循 demo。
 
 官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
 完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
@@ -183,7 +192,7 @@ normal/shear 混合、摩擦不一致、slip reset 丢失、训练/评测 motion
    审计；
 5. 实现 11.386M phase-aware causal trajectory/contact/duration/regime mismatch predictor，
    修复自由窗口静止片段漏洞，通过 motion-disjoint、zero/permuted-demo 与双向语义检查，并
-   进一步发现其在 Refiner+residual policy rollout 上发生 phase/domain-transfer 失效；
+   用 exact 121-D frozen-policy 重评分定位并修复 nonzero-reference phase 初始化错误；
 6. 建立 fixed-teacher、只改变 selected-demo reward 的因果实验，排除 teacher replacement
    混杂；
 7. 建立 predictor/reward-independent、以训练 seed 为重复单位的 Carry/Kick 行为审计，
@@ -217,6 +226,10 @@ $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
 $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
   --design phase_event_reward_only --arm correct \
   --endpoint-updates 64 --stop-after-segment --runner-rollout-smoke-only
+
+# scorer-only：重采 exact 121-D frozen trace，并比较 phase-0 与 reference-aware phase
+OUTPUT_ROOT="$PWD/experiments/demo_following/reproduce_phase_transfer" \
+  bash scripts/sugar/demo_following/run_phase_event_scorer_transfer_audit.sh
 
 # 复现已经完成的 matched 64-update 训练；两臂必须串行
 $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
@@ -303,11 +316,11 @@ Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 
 ## 下一步
 
-matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation，同时发现
-online scorer 在 Refiner+residual 轨迹上发生语义倒置。下一步不追加训练步数或 seeds：先从
-现有 frozen traces 做 phase/domain-transfer 审计；然后只做两个同 checkpoint、同轨迹的 scorer
-ablation——正确恢复 phase，以及用 Refiner rollout 构建 motion-disjoint calibration/evaluation。
-只有当实际 Carry 轨迹在两个 arms、update 32/64 和独立 profiles 上都稳定偏好 Carry45，才允许
-重跑一组 matched 64-update policy experiment。否则放弃当前 predictor reward 形式，转向对
-Refiner rollout 适用的因果时序对齐或显式 contact-event objective。SMP 仍不进入 selected-demo
-policy reward，直到 official TinyMDM 的独立语义扩展门槛通过。
+matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
+scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复
+正式 runtime 接口。下一步仍不追加训练步数或 seeds：先用修正后的在线 scorer 重新通过零优化
+smoke 和 frozen Carry gate，再采集与 Carry 对称的独立 Kick-policy rollout，验证双向 transfer。
+只有 correct Carry 与 independent Kick 两域都稳定偏好各自 demo，才向用户申请授权重跑一组
+严格 matched 64-update policy pair。若 Kick-domain gate 失败，再收集 motion-disjoint
+Refiner-plus-residual corpus 重做 calibration/evaluation，而不是立即重训 predictor 或 policy。
+SMP 仍不进入 selected-demo policy reward，直到 official TinyMDM 的独立语义扩展门槛通过。

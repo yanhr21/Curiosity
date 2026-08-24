@@ -130,3 +130,28 @@ def test_phase_scorer_uses_only_reset_bounded_causal_clock():
         scorer.runtime.phases[-1], torch.tensor([3.0 / 650.0, 2.0 / 650.0])
     )
     assert scorer.transitions_scored == 4
+
+
+def test_phase_scorer_can_start_from_restored_reference_frame():
+    scorer = FrozenPhaseAwareDemoEventScorer.__new__(
+        FrozenPhaseAwareDemoEventScorer
+    )
+    scorer.num_envs = 2
+    scorer.device = torch.device("cpu")
+    scorer.cfg = type(
+        "Cfg", (), {"phase_horizon_steps": 650, "selected_option": "correct"}
+    )()
+    scorer.runtime = _RecordingRuntime()
+    scorer.episode_steps = torch.zeros(2, dtype=torch.long)
+    scorer.transitions_scored = 0
+    scorer.started = False
+    observation = {"policy": torch.randn(2, 175)}
+    scorer.begin(
+        observation,
+        initial_episode_steps=torch.tensor([197, 0]),
+    )
+    scorer.process_step(observation, torch.tensor([False, False]))
+    assert torch.allclose(
+        scorer.runtime.phases[-1],
+        torch.tensor([199.0 / 650.0, 2.0 / 650.0]),
+    )

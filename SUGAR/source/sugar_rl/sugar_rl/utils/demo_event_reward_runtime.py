@@ -408,11 +408,34 @@ class FrozenPhaseAwareDemoEventScorer:
         return extract_goal_policy_core(observation["policy"])
 
     @torch.no_grad()
-    def begin(self, observation: Mapping[str, torch.Tensor]) -> dict[str, Any]:
+    def begin(
+        self,
+        observation: Mapping[str, torch.Tensor],
+        *,
+        initial_episode_steps: torch.Tensor | None = None,
+    ) -> dict[str, Any]:
         if self.started:
             raise RuntimeError("phase-aware demo event scorer already started")
         self.runtime.begin(self._core(observation))
-        self.episode_steps.zero_()
+        if initial_episode_steps is None:
+            self.episode_steps.zero_()
+        else:
+            initial_episode_steps = initial_episode_steps.to(
+                device=self.device,
+                dtype=torch.long,
+            ).reshape(-1)
+            if (
+                initial_episode_steps.shape != (self.num_envs,)
+                or torch.any(initial_episode_steps < 0)
+                or torch.any(
+                    initial_episode_steps >= self.cfg.phase_horizon_steps
+                )
+            ):
+                raise ValueError(
+                    "initial demo-event phase steps must be one bounded value "
+                    "per environment"
+                )
+            self.episode_steps.copy_(initial_episode_steps)
         self.started = True
         return self.frozen_model_audit()
 
@@ -459,7 +482,9 @@ class FrozenPhaseAwareDemoEventScorer:
             "transitions_scored": self.transitions_scored,
             "selected_option": self.cfg.selected_option,
             "phase_horizon_steps": int(self.cfg.phase_horizon_steps),
-            "phase_source": "reset_bounded_causal_control_clock",
+            "phase_source": (
+                "reset_reference_frame_plus_causal_control_clock"
+            ),
             "future_actual_events_used": False,
         }
 
@@ -534,8 +559,19 @@ class DemoEventRewardAugmentedSMPICMRolloutIntegrator:
     def at_rollout_boundary(self) -> bool:
         return self.base.at_rollout_boundary
 
-    def begin(self, observation: Mapping[str, torch.Tensor]) -> dict[str, Any]:
-        return {"smp_window": self.base.begin(), "demo_event": self.demo.begin(observation)}
+    def begin(
+        self,
+        observation: Mapping[str, torch.Tensor],
+        *,
+        initial_episode_steps: torch.Tensor | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "smp_window": self.base.begin(),
+            "demo_event": self.demo.begin(
+                observation,
+                initial_episode_steps=initial_episode_steps,
+            ),
+        }
 
     @torch.no_grad()
     def process_step(

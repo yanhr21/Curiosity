@@ -1326,6 +1326,7 @@ def _restore_audited_contact_state(
     command = base_env.command_manager.get_term("motion")
     command.motion_id.fill_(selected_motion_id)
     command.time_steps.fill_(selected_reference_frame)
+    command.last_reset_timestep.fill_(selected_reference_frame)
     command._use_motion_data.fill_(True)
     command._record_reference_targets(env_ids)
     current_object_position = torch.as_tensor(
@@ -3913,11 +3914,18 @@ def main() -> None:
                 )
             )
         )
-        initial_begin = (
-            integrator.begin(observations)
-            if active_demo_reward_contract
-            else integrator.begin()
-        )
+        if demo_event_reward_contract:
+            command = base_env.command_manager.get_term("motion")
+            initial_begin = integrator.begin(
+                observations,
+                initial_episode_steps=(
+                    command.last_reset_timestep.detach().clone()
+                ),
+            )
+        elif active_demo_reward_contract:
+            initial_begin = integrator.begin(observations)
+        else:
+            initial_begin = integrator.begin()
         initial_smp_window = (
             initial_begin["smp_window"]
             if active_demo_reward_contract
@@ -5246,7 +5254,15 @@ def main() -> None:
                     )
                 )
             )
-            if active_demo_reward_contract:
+            if demo_event_reward_contract:
+                command = base_env.command_manager.get_term("motion")
+                reload_integrator.begin(
+                    observations,
+                    initial_episode_steps=(
+                        command.last_reset_timestep.detach().clone()
+                    ),
+                )
+            elif active_demo_reward_contract:
                 reload_integrator.begin(observations)
             else:
                 reload_integrator.begin()

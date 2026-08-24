@@ -72,6 +72,15 @@ parser.add_argument(
         "so every deterministic learned residual is exactly zero."
     ),
 )
+parser.add_argument(
+    "--phase-initialization",
+    choices=("reference-aware", "reset-zero-diagnostic"),
+    default="reference-aware",
+    help=(
+        "Phase-event only. The reset-zero option exists solely to reproduce "
+        "the historical phase bug for the matched scorer ablation."
+    ),
+)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 try:
@@ -710,6 +719,7 @@ def restore_state_action_boundary(
     command = base_env.command_manager.get_term("motion")
     command.motion_id.fill_(motion_loader_index)
     command.time_steps.fill_(reference_frame)
+    command.last_reset_timestep.fill_(reference_frame)
     command._use_motion_data.fill_(True)
     command._record_reference_targets(ids)
     object_position = torch.as_tensor(object_root[:, :3], device=base_env.device)
@@ -1426,11 +1436,12 @@ def main() -> None:
             or torch.count_nonzero(observations["tactile_history"]) != 0
         ):
             raise RuntimeError("explicit-zero observation schema/value drift")
+        initial_goal_policy_core = None
         if is_phase_event_reward:
-            extract_goal_policy_core(
+            initial_goal_policy_core = extract_goal_policy_core(
                 observations["policy"],
                 list(base_env.observation_manager.active_terms["policy"]),
-            )
+            ).detach().cpu().numpy().astype(np.float32)
         with torch.inference_mode():
             teacher_observation, first_teacher_action = env.teacher.action()
         if source_action103 is None:
@@ -1574,10 +1585,23 @@ def main() -> None:
             )
             for name, path in runtime_paths.items()
         }
-        initial_demo = {
-            name: scorer.begin(observations)
-            for name, scorer in scorers.items()
-        }
+        if is_phase_event_reward:
+            command = base_env.command_manager.get_term("motion")
+            initial_phase_steps = command.last_reset_timestep.detach().clone()
+            if args.phase_initialization == "reset-zero-diagnostic":
+                initial_phase_steps.zero_()
+            initial_demo = {
+                name: scorer.begin(
+                    observations,
+                    initial_episode_steps=initial_phase_steps,
+                )
+                for name, scorer in scorers.items()
+            }
+        else:
+            initial_demo = {
+                name: scorer.begin(observations)
+                for name, scorer in scorers.items()
+            }
         selected_key = {
             "correct_demo": "correct",
             "wrong_demo": "wrong",
@@ -1613,6 +1637,12 @@ def main() -> None:
 
         base_env._reset_idx = capture_before_reset
         frame_lists = {name: [value] for name, value in capture_state(base_env, joint_ids).items()}
+        if is_phase_event_reward:
+            if initial_goal_policy_core is None:
+                raise RuntimeError("phase-event initial policy core was not captured")
+            frame_lists["goal_policy_core_observation"] = [
+                initial_goal_policy_core
+            ]
         demo_component_lists = {
             name: [
                 np.zeros((NUM_ENVS, 1), dtype=np.float32)
@@ -1637,6 +1667,11 @@ def main() -> None:
         }
         for name in scorers:
             transition_lists[f"demo_{name}_reward"] = []
+            if is_phase_event_reward:
+                transition_lists[f"demo_{name}_phase"] = []
+                transition_lists[f"demo_{name}_ready"] = []
+                transition_lists[f"demo_{name}_risk"] = []
+                transition_lists[f"demo_{name}_weighted_uncertainty"] = []
         reward_term_names = list(base_env.reward_manager.active_terms)
         task_term_indices = [reward_term_names.index(name) for name in TASK_REWARD_TERMS]
         tactile_nonzero = 0
@@ -1671,6 +1706,14 @@ def main() -> None:
                     name: scorer.process_step(observations_next, done)
                     for name, scorer in scorers.items()
                 }
+                goal_policy_core_next = (
+                    extract_goal_policy_core(
+                        observations_next["policy"],
+                        list(base_env.observation_manager.active_terms["policy"]),
+                    )
+                    if is_phase_event_reward
+                    else None
+                )
             runtime = env.latest_step
             if runtime is None:
                 raise RuntimeError("official residual wrapper omitted runtime")
@@ -1709,6 +1752,27 @@ def main() -> None:
                 transition_lists[f"demo_{name}_reward"].append(
                     demo_signals[name].reward.detach().cpu().numpy()
                 )
+                if is_phase_event_reward:
+                    transition_lists[f"demo_{name}_phase"].append(
+                        demo_signals[name]
+                        .selected_demo_phase.detach()
+                        .cpu()
+                        .numpy()
+                    )
+                    transition_lists[f"demo_{name}_ready"].append(
+                        demo_signals[name].next_ready.detach().cpu().numpy()
+                    )
+                    transition_lists[f"demo_{name}_risk"].append(
+                        demo_signals[name].next_risk.detach().cpu().numpy()
+                    )
+                    transition_lists[
+                        f"demo_{name}_weighted_uncertainty"
+                    ].append(
+                        demo_signals[name]
+                        .next_weighted_uncertainty.detach()
+                        .cpu()
+                        .numpy()
+                    )
                 demo_component_lists[name].append(
                     (
                         demo_signals[name].next_risk[:, None]
@@ -1736,6 +1800,12 @@ def main() -> None:
             transition_lists["terminal_pre_reset_state"].append(terminal_mask)
             for name, value in state.items():
                 frame_lists[name].append(value)
+            if is_phase_event_reward:
+                if goal_policy_core_next is None:
+                    raise RuntimeError("phase-event next policy core was not captured")
+                frame_lists["goal_policy_core_observation"].append(
+                    goal_policy_core_next.detach().cpu().numpy().astype(np.float32)
+                )
             observations = observations_next
 
         base_env._reset_idx = original_reset_idx
@@ -1862,6 +1932,35 @@ def main() -> None:
                 )
                 for audit in scorer_audits.values()
             ),
+            "phase_event_exact_policy_core_archived": (
+                arrays.get("goal_policy_core_observation", np.empty(0)).shape
+                == (args.steps + 1, NUM_ENVS, 121)
+                if is_phase_event_reward
+                else True
+            ),
+            "phase_event_runtime_signals_archived": (
+                all(
+                    arrays.get(f"demo_{name}_phase", np.empty(0)).shape
+                    == (args.steps, NUM_ENVS)
+                    and arrays.get(f"demo_{name}_ready", np.empty(0)).shape
+                    == (args.steps, NUM_ENVS)
+                    and arrays.get(f"demo_{name}_risk", np.empty(0)).shape
+                    == (args.steps, NUM_ENVS)
+                    and arrays.get(
+                        f"demo_{name}_weighted_uncertainty", np.empty(0)
+                    ).shape
+                    == (args.steps, NUM_ENVS)
+                    for name in scorers
+                )
+                if is_phase_event_reward
+                else True
+            ),
+            "phase_event_initial_phase_contract_explicit": (
+                args.phase_initialization
+                in {"reference-aware", "reset-zero-diagnostic"}
+                if is_phase_event_reward
+                else True
+            ),
             "all_numeric_arrays_finite": all(
                 np.isfinite(value).all()
                 for value in arrays.values()
@@ -1895,7 +1994,7 @@ def main() -> None:
             result_protocol = "sugar_plan11_correct_teacher_zero_residual_gate_v1"
         elif is_phase_event_reward:
             result_protocol = (
-                "sugar_phase_event_reward_matched_frozen_eval_32_64_v1"
+                "sugar_phase_event_reward_matched_frozen_eval_32_64_v2"
             )
         elif is_fixed_teacher_identity:
             result_protocol = (
@@ -1955,6 +2054,19 @@ def main() -> None:
             "wrapper_state_batch_restore": wrapper_state_batch_audit,
             "checks": checks,
             "reset": reset_record,
+            "phase_initialization": (
+                {
+                    "mode": args.phase_initialization,
+                    "reference_frame": int(reset_record["reference_frame"]),
+                    "initial_episode_steps": (
+                        int(reset_record["reference_frame"])
+                        if args.phase_initialization == "reference-aware"
+                        else 0
+                    ),
+                }
+                if is_phase_event_reward
+                else None
+            ),
             "first_teacher_observation_shape": list(teacher_observation.shape),
             "first_teacher_canonical_environment_index": (
                 first_teacher_canonical_environment_index
