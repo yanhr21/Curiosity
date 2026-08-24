@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Recollect exact frozen-policy predictor prefixes and run the phase-only audit.
+# Recollect the historical phase-misaligned policy prefixes for a scorer-only audit.
 
 set -euo pipefail
 
@@ -12,10 +12,13 @@ AUDIT_ROOT="$OUTPUT_ROOT/scorer_transfer_phase_ablation_v1"
 EVALUATOR="$ROOT/scripts/sugar/demo_following/evaluate_matched_fixed_teacher.py"
 AUDITOR="$ROOT/scripts/sugar/demo_following/audit_phase_event_scorer_transfer.py"
 
-if [[ -z "${SLURM_JOB_ID:-}" ]]; then
-    echo "scorer transfer recollection requires a retained Slurm allocation" >&2
+if [[ -z "${SLURM_JOB_ID:-}" || -z "${SLURM_STEP_ID:-}" ]]; then
+    echo "scorer transfer recollection requires a retained srun compute step" >&2
     exit 2
 fi
+case "$(hostname)" in
+    mgmtserver*|login*) echo "refusing scorer transfer audit on a login host" >&2; exit 2 ;;
+esac
 if [[ -e "$TRACE_ROOT" || -e "$AUDIT_ROOT" ]]; then
     echo "refusing to overwrite scorer transfer evidence" >&2
     exit 2

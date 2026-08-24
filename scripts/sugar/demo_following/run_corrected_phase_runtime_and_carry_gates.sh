@@ -8,10 +8,13 @@ PYTHON_BIN=${PYTHON_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin
 OUTPUT_ROOT=${OUTPUT_ROOT:-$ROOT/experiments/demo_following/corrected_phase_runtime_gate_v1}
 RUNNER="$ROOT/scripts/sugar/demo_following/run_matched_state_predictor.py"
 
-if [[ -z "${SLURM_JOB_ID:-}" ]]; then
-    echo "corrected phase runtime gates require a retained Slurm allocation" >&2
+if [[ -z "${SLURM_JOB_ID:-}" || -z "${SLURM_STEP_ID:-}" ]]; then
+    echo "corrected phase runtime gates require a retained srun compute step" >&2
     exit 2
 fi
+case "$(hostname)" in
+    mgmtserver*|login*) echo "refusing corrected phase gates on a login host" >&2; exit 2 ;;
+esac
 if [[ -e "$OUTPUT_ROOT" ]]; then
     echo "refusing to overwrite corrected phase runtime evidence: $OUTPUT_ROOT" >&2
     exit 2

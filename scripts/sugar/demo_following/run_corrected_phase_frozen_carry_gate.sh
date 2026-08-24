@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Re-evaluate frozen Carry policies with the corrected reference-aware phase clock.
+# Scorer-only re-evaluation of the historical phase-misaligned Carry policies.
 
 set -euo pipefail
 
@@ -12,10 +12,13 @@ AUDIT_ROOT="$OUTPUT_ROOT/scorer_audit"
 EVALUATOR="$ROOT/scripts/sugar/demo_following/evaluate_matched_fixed_teacher.py"
 ASSESSOR="$ROOT/scripts/sugar/demo_following/assess_corrected_phase_frozen_carry_gate.py"
 
-if [[ -z "${SLURM_JOB_ID:-}" ]]; then
-    echo "corrected frozen Carry gate requires a retained Slurm allocation" >&2
+if [[ -z "${SLURM_JOB_ID:-}" || -z "${SLURM_STEP_ID:-}" ]]; then
+    echo "corrected frozen Carry gate requires a retained srun compute step" >&2
     exit 2
 fi
+case "$(hostname)" in
+    mgmtserver*|login*) echo "refusing corrected Carry gate on a login host" >&2; exit 2 ;;
+esac
 if [[ -e "$OUTPUT_ROOT" ]]; then
     echo "refusing to overwrite corrected Carry gate: $OUTPUT_ROOT" >&2
     exit 2
