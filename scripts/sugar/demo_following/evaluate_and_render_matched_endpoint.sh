@@ -48,7 +48,8 @@ if [[ "$DESIGN" == "phase_event_reward_only" ]]; then
     evaluation_updates="32,64"
     renderer_source_env=20
 fi
-KIT_ARGS="--/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
+EVAL_KIT_ARGS="--/renderer/enabled= --/app/vulkan=false --/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
+RENDER_KIT_ARGS="--/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
 
 if [[ -z "${SLURM_JOB_ID:-}" || -z "${SLURM_STEP_ID:-}" ]]; then
     echo "evaluation requires a retained srun compute step" >&2
@@ -97,6 +98,7 @@ if [[ "${TEACHER_ONLY_GATE:-0}" == "1" ]]; then
         cd "$ROOT/SUGAR"
         ISAACLAB_TMP_ROOT="/tmp/Curiosity_teacher_gate_${SLURM_JOB_ID}" \
         SUGAR_UNITREE_TMP_ROOT="/tmp/Curiosity_teacher_gate_unitree_${SLURM_JOB_ID}" \
+        VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json \
         "$PYTHON" "$EVALUATOR" \
             --config "$CONFIG" \
             --arm same_teacher_correct_reward \
@@ -105,9 +107,10 @@ if [[ "${TEACHER_ONLY_GATE:-0}" == "1" ]]; then
             --steps 400 \
             --seed 171581 \
             --teacher-only-zero-residual \
+            --fast-exit-after-evidence \
             --headless \
             --device cuda:0 \
-            --kit_args "$KIT_ARGS"
+            --kit_args "$EVAL_KIT_ARGS"
     ) > "${gate_root}.log" 2>&1
     "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values()) and p["checks"]["demo_control_has_no_tactile_scene"] and p["no_tactile_scene"]["passed"]' "$gate_root/RESULT.json"
     exit 0
@@ -165,6 +168,7 @@ for arm in "${arms[@]}"; do
         cd "$ROOT/SUGAR"
         ISAACLAB_TMP_ROOT="/tmp/Curiosity_matched_eval${UPDATE}_${short}_${SLURM_JOB_ID}" \
         SUGAR_UNITREE_TMP_ROOT="/tmp/Curiosity_matched_eval${UPDATE}_unitree_${short}_${SLURM_JOB_ID}" \
+        VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json \
         "$PYTHON" "$EVALUATOR" \
             --config "$CONFIG" \
             --arm "$arm" \
@@ -172,9 +176,10 @@ for arm in "${arms[@]}"; do
             --updates "$evaluation_updates" \
             --steps 400 \
             --seed "$eval_seed" \
+            --fast-exit-after-evidence \
             --headless \
             --device cuda:0 \
-            --kit_args "$KIT_ARGS"
+            --kit_args "$EVAL_KIT_ARGS"
     ) > "$EVAL_ROOT/${short}_console.log" 2>&1
     "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$EVAL_ROOT/$short/RESULT.json"
 done
@@ -214,7 +219,7 @@ fi
         --headless \
         --enable_cameras \
         --device cuda:0 \
-        --kit_args "$KIT_ARGS"
+        --kit_args "$RENDER_KIT_ARGS"
 ) > "$EVAL_ROOT/render_console.log" 2>&1
 
 "$PYTHON" -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["passed"] and all(p["checks"].values())' "$VIDEO_ROOT/RENDER_PROOF.json"

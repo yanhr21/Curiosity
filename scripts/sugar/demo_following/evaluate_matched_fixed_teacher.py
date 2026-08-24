@@ -81,6 +81,14 @@ parser.add_argument(
         "the historical phase bug for the matched scorer ablation."
     ),
 )
+parser.add_argument(
+    "--fast-exit-after-evidence",
+    action="store_true",
+    help=(
+        "after a passing RESULT.json and TRACE.npz have been atomically "
+        "published, exit without Isaac Kit shutdown"
+    ),
+)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 try:
@@ -2137,6 +2145,12 @@ def main() -> None:
         raw_capture.restore()
         staging.rename(output_dir)
         print(json.dumps(result, indent=2, sort_keys=True), flush=True)
+        if args.fast_exit_after_evidence:
+            import sys
+
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(0)
     except BaseException:
         traceback.print_exc()
         raise

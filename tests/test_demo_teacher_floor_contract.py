@@ -201,10 +201,18 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert "teacher_only_gate_no_tactile_v2" in evaluation_launcher
     assert 'p["checks"]["demo_control_has_no_tactile_scene"]' in evaluation_launcher
     assert 'records[0]["values"] == records[1]["values"]' in evaluation_launcher
+    assert "VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json" in (
+        evaluation_launcher
+    )
+    assert "--fast-exit-after-evidence" in evaluation_launcher
+    assert 'RENDER_KIT_ARGS="--/renderer/multiGpu/enabled=false' in (
+        evaluation_launcher
+    )
 
     evaluator_source = (
         ROOT / "scripts/sugar/demo_following/evaluate_matched_fixed_teacher.py"
     ).read_text(encoding="utf-8")
+    assert '"--fast-exit-after-evidence"' in evaluator_source
     assert "def expand_fixed_one_wrapper_batch_state(" in evaluator_source
     assert '"release_latched": False' in evaluator_source
     assert '"release_progress": 0' in evaluator_source
