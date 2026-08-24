@@ -26,6 +26,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--kick-unrelated-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--source-env", type=int, default=0)
+    parser.add_argument(
+        "--joint-generator-route",
+        action="store_true",
+        help="Render the complete official Generator+Tracker routing experiment.",
+    )
     return parser.parse_args()
 
 
@@ -51,28 +56,44 @@ def main() -> None:
             ROOT / "SUGAR/data/CarryBox/data_045",
             "INPUT DEMO: CARRYBOX MOTION 45",
             "01_carry_domain_carry45_condition.mp4",
-            "ACTUAL: ROUTED CARRY EXPERT (VALID)",
+            (
+                "ACTUAL: FULL CARRY GENERATOR + TRACKER"
+                if args.joint_generator_route
+                else "ACTUAL: ROUTED CARRY EXPERT (VALID)"
+            ),
         ),
         (
             "carry_unrelated",
             ROOT / "SUGAR/data/KickBox/data_021",
             "INPUT DEMO: KICKBOX MOTION 21",
             "02_carry_domain_kick21_condition.mp4",
-            "ACTUAL: ROUTED KICK EXPERT (ACTION LIMIT FAIL)",
+            (
+                "ACTUAL: FULL KICK GENERATOR + TRACKER"
+                if args.joint_generator_route
+                else "ACTUAL: ROUTED KICK EXPERT (ACTION LIMIT FAIL)"
+            ),
         ),
         (
             "kick_correct",
             ROOT / "SUGAR/data/CarryBox/data_045",
             "INPUT DEMO: CARRYBOX MOTION 45",
             "03_kick_domain_carry45_condition.mp4",
-            "ACTUAL: ROUTED CARRY EXPERT (GENERATOR STILL KICKS)",
+            (
+                "ACTUAL: FULL CARRY PAIR (BIGBOX TRANSFER REJECTED)"
+                if args.joint_generator_route
+                else "ACTUAL: ROUTED CARRY EXPERT (GENERATOR STILL KICKS)"
+            ),
         ),
         (
             "kick_unrelated",
             ROOT / "SUGAR/data/KickBox/data_021",
             "INPUT DEMO: KICKBOX MOTION 21",
             "04_kick_domain_kick21_condition.mp4",
-            "ACTUAL: ROUTED KICK EXPERT (VALID)",
+            (
+                "ACTUAL: FULL KICK GENERATOR + TRACKER"
+                if args.joint_generator_route
+                else "ACTUAL: ROUTED KICK EXPERT (VALID)"
+            ),
         ),
     )
     loaded: dict[str, tuple[dict[str, object], dict[str, np.ndarray]]] = {}
@@ -83,6 +104,8 @@ def main() -> None:
             result.get("protocol") != "sugar_shared_absolute_tracker_frozen_physics_v1"
             or result.get("student_action_fraction") != 1.0
             or result.get("dagger_collection") is not False
+            or bool(result.get("routed_generator_with_expert", False))
+            != args.joint_generator_route
         ):
             raise RuntimeError(f"unadmitted final evaluation: {name}")
         loaded[name] = (result, load_npz(directory / "TRACE.npz"))
@@ -104,6 +127,10 @@ def main() -> None:
                 "initial_robot_joint_vel",
                 "initial_object_root_state_w",
                 "prefix_action",
+                "post_prefix_robot_root_state_w",
+                "post_prefix_robot_joint_pos",
+                "post_prefix_robot_joint_vel",
+                "post_prefix_object_root_state_w",
             )
         )
     if not all(matched_initial_state.values()):
@@ -136,17 +163,6 @@ def main() -> None:
         "kick_initial_state_exact_match": matched_initial_state["kick"],
         "matched_carry_behavior_passed": bool(loaded["carry_correct"][0]["passed"]),
         "matched_kick_behavior_passed": bool(loaded["kick_unrelated"][0]["passed"]),
-        "carry_kick_route_action_explosion_rejected": bool(
-            loaded["carry_unrelated"][0]["checks"][
-                "raw_student_actions_within_released_tracker_envelope"
-            ]
-            is False
-        ),
-        "kick_carry_route_remains_inside_action_envelope": bool(
-            loaded["kick_correct"][0]["checks"][
-                "raw_student_actions_within_released_tracker_envelope"
-            ]
-        ),
         "all_four_videos_written": len(videos) == 4,
         "all_videos_h264_yuv420p": all(
             bool(record["decode"]["passed"]) for record in videos
@@ -157,8 +173,57 @@ def main() -> None:
             for record in videos
         ),
     }
+    if args.joint_generator_route:
+        checks.update(
+            {
+                "matched_carry_and_kick_routes_pass": bool(
+                    loaded["carry_correct"][0]["passed"]
+                    and loaded["kick_unrelated"][0]["passed"]
+                ),
+                "carry_domain_full_kick_route_passes": bool(
+                    loaded["carry_unrelated"][0]["passed"]
+                    and loaded["carry_unrelated"][0]["selected_skill_success_count"]
+                    >= 10
+                ),
+                "kick_domain_full_carry_route_rejection_is_recorded": bool(
+                    not loaded["kick_correct"][0]["passed"]
+                    and not loaded["kick_correct"][0]["checks"][
+                        "selected_skill_behavioral_gate"
+                    ]
+                ),
+                "all_four_route_complete_generator_tracker_pairs": all(
+                    bool(result["routed_generator_with_expert"])
+                    for result, _ in loaded.values()
+                ),
+                "all_four_traces_are_finite_and_reset_free": all(
+                    bool(result["checks"]["all_trace_values_finite"])
+                    and bool(result["checks"]["no_environment_reset"])
+                    for result, _ in loaded.values()
+                ),
+            }
+        )
+    else:
+        checks.update(
+            {
+                "carry_kick_route_action_explosion_rejected": bool(
+                    loaded["carry_unrelated"][0]["checks"][
+                        "raw_student_actions_within_released_tracker_envelope"
+                    ]
+                    is False
+                ),
+                "kick_carry_route_remains_inside_action_envelope": bool(
+                    loaded["kick_correct"][0]["checks"][
+                        "raw_student_actions_within_released_tracker_envelope"
+                    ]
+                ),
+            }
+        )
     proof = {
-        "protocol": "sugar_official_tracker_router_exact_trace_video_v1",
+        "protocol": (
+            "sugar_official_generator_tracker_router_exact_trace_video_v1"
+            if args.joint_generator_route
+            else "sugar_official_tracker_router_exact_trace_video_v1"
+        ),
         "passed": all(checks.values()),
         "checks": checks,
         "shared_checkpoint": next(iter(checkpoints)),

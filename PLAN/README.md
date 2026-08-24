@@ -2,32 +2,34 @@
 
 ## Current priority: demo following
 
-### Executable official-skill router: complete
+### Executable full official-skill router: complete
 
 The physically valid shared-checkpoint baseline is complete. One checkpoint contains the exact
 released CarryBox and KickBox Tracker actors plus a learned router that reads only the frozen
 798-D causal selected-demo condition. Temporal validation routes Carry45/Kick21 with `100%`
-accuracy and positive margin; both official experts remain parameter-exact.
+accuracy and positive margin; both official experts remain parameter-exact. Runtime selection now
+routes the corresponding released Generator together with the Tracker, because the first 36
+dimensions of the 510-D Tracker observation are task-specific Generator commands.
 
-Matched frozen physics passes: Carry condition in CarryBox gives `18/20` successes, `0/20` falls
-and `0.43204 m` mean maximum lift; Kick condition in KickBox gives `20/20` successes, `0/20` falls,
-`0.09892` foot-contact fraction and `1.06092 m` planar displacement. Student actions equal the
-selected released expert exactly. Within each domain, the condition swap uses bitwise-identical
-initial robot/object state and prefix action.
+Matched frozen physics passes: Carry45 in CarryBox gives `18/20` Carry, `0/20` falls and
+`0.43204 m` mean maximum lift; Kick21 in KickBox gives `20/20` Kick, `0/20` falls, `0.09892`
+foot-contact fraction and `1.06092 m` planar displacement. Within each domain, the condition swap
+uses bitwise-identical initial state, post-prefix state and prefix action.
 
-The counterfactuals define the boundary. CarryBox routed to the Kick expert leaves Carry and makes
-foot interaction, but later emits a raw action of `5.87e11`, violates the fixed `25` envelope and
-falls in `9/20`; it is rejected. KickBox routed to the Carry expert remains stable but still kicks
-because the task-specific generator is unchanged: foot contact drops `0.09892 -> 0.02838` and
-planar displacement drops `1.06092 -> 0.72466 m`. This is a causal two-skill router, not arbitrary
-demo imitation.
+The complete-pair counterfactuals define the boundary. In the same CarryBox scene, selecting
+Kick21 now produces `19/20` Kick, `0/20` Carry and `0/20` falls; maximum raw action is `5.1712`.
+The earlier Tracker-only swap reached `5.87e11` and fell in `9/20`, so joint Generator+Tracker
+routing fixes that causal failure. The reverse BIGBOX/KickBox-to-Carry45 transfer reaches only
+`8/20` Carry and raw action `68.437`, so it is rejected. This is an executable endpoint skill
+router on the compatible SMALLBOX scene, not arbitrary-demo imitation or solved cross-asset
+transition.
 
 The preceding full-510D shared-MLP route is now a retained negative diagnostic. Offline BC reached
 MSE `0.00682` but failed Carry `0/20` with `20/20` falls. Three serious DAgger stages over official
 visited-state labels improved transient behavior but ended at `6/20` Carry and `14/20` falls. Do
-not extend that MLP by adding optimizer steps. The next method must preserve executable skill
-stability while reducing task-generator coupling, for example a shared skill prior/latent and
-state-aware safe transition policy trained on multiple official skills.
+not extend that MLP by adding optimizer steps. The next method must preserve the stable SMALLBOX
+Carry/Kick result while learning an official-skill prior/latent and state-aware safe transition
+across object geometry, target pose and initialization. No toy latent model is allowed.
 
 ### Reference-aware matched pair: complete, partial single-seed shift
 

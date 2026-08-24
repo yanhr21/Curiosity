@@ -912,6 +912,57 @@ Carry/unrelated rejection 和四个 H.264/yuv420p decode checks。视频左侧�
 右侧为 exact frozen PhysX body centers/box pose；这是 exact-trace visualization，不是 physics
 replay。该实验只证明两个已发布技能的 causal routing，不证明任意视频生成新技能。
 
+#### 3.13.1 Complete Generator + Tracker routing
+
+官方配置审计显示 CarryBox/KickBox inference env 除 `SMALLBOX_CFG/BIGBOX_CFG` 外相同；但
+Tracker policy observation 的前 36 维是各自 Generator 的在线 command。两个 released
+Generator checkpoint 架构相同但 338 个可比 tensor 中 335 个参数 tensor 不同。因此只替换
+Tracker 会把它放到错误 command distribution；完整技能路由必须联合选择 released Generator
+和 parameter-exact Tracker。
+
+四臂严格串行复现：
+
+```bash
+OUT="$PWD/experiments/demo_following/official_tracker_router_v1/seed161610"
+OUTPUT_ROOT="$OUT/frozen_eval_joint_final" \
+  bash scripts/sugar/demo_following/run_joint_generator_tracker_router_eval.sh
+```
+
+每个 pair 先执行相同的一步 domain Tracker prefix；只有 prefix 后的 causal selected-demo
+condition 选择完整 Carry45 或 Kick21 pair。Carry pair 使用同一 seed `171610`，Kick pair 使用
+`171611`。`initial_*`、`post_prefix_*` 和 `prefix_action` 在各自 pair 内必须 bitwise equal。
+
+最终结果：
+
+- SMALLBOX + Carry45：`18/20` Carry，`0/20` fall，mean max lift `0.43204 m`，raw max
+  `15.8607`；
+- SMALLBOX + Kick21：`19/20` Kick，`0/20` Carry，`0/20` fall，planar displacement
+  `0.49079 m`，raw max `5.1712`；
+- BIGBOX + Carry45：`8/20` Carry，`1/20` fall，raw max `68.437`，自动判为 rejected；
+- BIGBOX + Kick21：`20/20` Kick，`0/20` fall，planar displacement `1.06092 m`，raw max
+  `5.7300`。
+
+SMALLBOX pair 的 36-D Generator command 与 29-D action mean absolute difference 分别为
+`0.27559/1.00992`。相较旧的 Tracker-only Carry-to-Kick arm，完整 pair 把 raw action max 从
+`5.87e11` 降至 `5.1712`，fall 从 `9/20` 降至 `0/20`。这建立 compatible-scene 的 executable
+semantic skill switch；BIGBOX-to-Carry45 的拒绝说明跨 object geometry、goal pose 和
+initialization 的 safe transition 仍未解决。
+
+视频复现：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/render_official_tracker_router.py \
+  --carry-correct-dir "$OUT/frozen_eval_joint_final/carry_carry45" \
+  --carry-unrelated-dir "$OUT/frozen_eval_joint_final/carry_kick21" \
+  --kick-correct-dir "$OUT/frozen_eval_joint_final/kick_carry45" \
+  --kick-unrelated-dir "$OUT/frozen_eval_joint_final/kick_kick21" \
+  --output-dir "$OUT/videos_joint_reference_actual_final" \
+  --source-env 0 --joint-generator-route
+```
+
+`RENDER_PROOF.json` 要求四条 trace finite/reset-free、两个域内 exact paired states、两个
+matched endpoint 通过、SMALLBOX Kick route 通过且 BIGBOX Carry transfer 的拒绝被明确记录。
+
 ## 4. Earlier trajectory-only predictor
 
 这是 contact/event redesign 之前保留的 11.9M trajectory-only 模型。输入为过去 10 帧

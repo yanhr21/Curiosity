@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TRAINER = ROOT / "scripts/sugar/demo_following/train_official_tracker_router.py"
 EVALUATOR = ROOT / "scripts/sugar/demo_following/evaluate_demo_conditioned_tracker.py"
 RENDERER = ROOT / "scripts/sugar/demo_following/render_official_tracker_router.py"
+JOINT_RUNNER = ROOT / "scripts/sugar/demo_following/run_joint_generator_tracker_router_eval.sh"
 
 
 def _function_source(path: Path, class_name: str, function_name: str) -> str:
@@ -51,6 +52,19 @@ def test_frozen_evaluator_rejects_falls_and_raw_action_explosion() -> None:
     assert '"shared_checkpoint": str(checkpoint_path)' in source
 
 
+def test_joint_route_switches_official_generator_only_after_common_prefix() -> None:
+    source = EVALUATOR.read_text(encoding="utf-8")
+    prefix = source.index("prefix_action = official_policy(obs)")
+    post_prefix = source.index('post_prefix = {')
+    route = source.index("command.generator = GeneratorWrapper.load")
+    assert prefix < post_prefix < route
+    assert 'routed_generator_skill = SELECTED_SKILL[args.selected_demo_option]' in source
+    assert 'command._fill_generator_obs_buffer(all_env_ids)' in source
+    assert 'command._call_generator(all_env_ids)' in source
+    assert '"selected_demo_routes_complete_generator_tracker_pair"' in source
+    assert '"selected_skill_behavioral_gate"' in source
+
+
 def test_renderer_requires_one_checkpoint_exact_pairs_and_decodable_video() -> None:
     source = RENDERER.read_text(encoding="utf-8")
     assert '"one_shared_checkpoint"' in source
@@ -58,11 +72,15 @@ def test_renderer_requires_one_checkpoint_exact_pairs_and_decodable_video() -> N
     assert '"kick_initial_state_exact_match"' in source
     assert '"carry_kick_route_action_explosion_rejected"' in source
     assert '"all_videos_h264_yuv420p"' in source
+    assert '"carry_domain_full_kick_route_passes"' in source
+    assert '"kick_domain_full_carry_route_rejection_is_recorded"' in source
+    assert '"sugar_official_generator_tracker_router_exact_trace_video_v1"' in source
 
 
 def test_new_pipeline_has_no_human_authorization_gate() -> None:
     combined = "\n".join(
-        path.read_text(encoding="utf-8") for path in (TRAINER, EVALUATOR, RENDERER)
+        path.read_text(encoding="utf-8")
+        for path in (TRAINER, EVALUATOR, RENDERER, JOINT_RUNNER)
     ).lower()
     for forbidden in ("approval flag", "authorization flag", "sentinel file"):
         assert forbidden not in combined

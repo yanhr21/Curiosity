@@ -127,9 +127,15 @@
 - [x] run exact-initial-state condition-only swaps and record the boundary: Carry-to-Kick route
   violates the raw-action envelope after leaving distribution, while Kick-to-Carry remains
   generator-driven rather than becoming Carry;
-- [ ] replace endpoint-only expert routing with a serious shared skill prior/latent and safe
-  state-aware transition mechanism that can reduce Generator/Tracker task coupling without
-  hand-written toy models.
+- [x] audit the released inference chain and prove that the 510-D Tracker observation contains a
+  36-D task-specific Generator command, so a valid skill route must select Generator and Tracker
+  together;
+- [x] run the four exact-state joint routes: SMALLBOX Carry45 is `18/20` Carry, SMALLBOX Kick21 is
+  `19/20` Kick with zero falls, BIGBOX Kick21 is `20/20` Kick, and BIGBOX Carry45 is rejected at
+  `8/20` Carry with raw action `68.437`;
+- [ ] preserve the passing SMALLBOX dual-skill behavior while replacing endpoint-only routing with
+  a faithful official-skill prior/latent and state-aware transition mechanism across object
+  geometry, target pose and initialization; no hand-written toy model.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -143,10 +149,11 @@ same frozen policy's actions, but update 64 still yields bilateral Carry under b
 `3/4` directional shift. The fixed 3000-step official-action diagnostic then creates a strong
 same-checkpoint split: correct remains a stable Carry, while unrelated leaves Carry but falls in
 `15/20` and is not a valid Kick solution. The full-510D shared MLP and three-stage DAgger follow-up
-also fail closed-loop stability. The new official-skill router is the first executable result:
-matched Carry/Kick pass at `18/20` and `20/20` with zero falls, but counterfactuals show action
-explosion and task-generator coupling. The next work is a serious shared skill prior plus safe
-transition policy, not a reward-scale or optimizer-step sweep.
+also fail closed-loop stability. The complete official-skill router is the first executable
+semantic switch: in the identical SMALLBOX scene Carry45 gives `18/20` Carry while Kick21 gives
+`19/20` Kick, both with zero falls. The reverse BIGBOX-to-Carry transfer remains rejected, so the
+next work is a serious shared skill prior plus safe cross-asset transition policy, not a reward-scale
+or optimizer-step sweep.
 
 ## Frozen tactile work
 

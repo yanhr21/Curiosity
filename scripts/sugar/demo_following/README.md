@@ -16,28 +16,36 @@ PYTHON=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
 $PYTHON scripts/sugar/demo_following/train_official_tracker_router.py
 ```
 
-Freeze-evaluate each arm serially with
-`scripts/sugar/demo_following/evaluate_demo_conditioned_tracker.py`. Use seed `171610` for both
-Carry conditions and `171611` for both Kick conditions so each within-domain pair has an exact
-common initial state. The matched endpoints are Carry/correct and Kick/unrelated. Carry/unrelated
-is expected to fail the raw-action envelope and must remain a recorded negative result.
+Freeze-evaluate the four complete official Generator+Tracker routes serially with:
+
+```bash
+OUTPUT_ROOT="$PWD/experiments/demo_following/official_tracker_router_v1/seed161610/frozen_eval_joint_final" \
+  bash scripts/sugar/demo_following/run_joint_generator_tracker_router_eval.sh
+```
+
+The runner uses seed `171610` for both Carry conditions and `171611` for both Kick conditions, so
+each within-domain pair has an exact common initial and post-prefix state. It automatically records
+the expected rejected BIGBOX-to-Carry45 transfer and continues to the final Kick21 control; there
+is no human authorization gate between arms.
 
 Render the four admitted traces with:
 
 ```bash
 OUT="$PWD/experiments/demo_following/official_tracker_router_v1/seed161610"
-EVAL="$OUT/frozen_eval_final"
+EVAL="$OUT/frozen_eval_joint_final"
 $PYTHON scripts/sugar/demo_following/render_official_tracker_router.py \
-  --carry-correct-dir "$EVAL/carry_correct" \
-  --carry-unrelated-dir "$EVAL/carry_unrelated" \
-  --kick-correct-dir "$EVAL/kick_correct" \
-  --kick-unrelated-dir "$EVAL/kick_unrelated" \
-  --output-dir "$OUT/videos_reference_actual_final" --source-env 0
+  --carry-correct-dir "$EVAL/carry_carry45" \
+  --carry-unrelated-dir "$EVAL/carry_kick21" \
+  --kick-correct-dir "$EVAL/kick_carry45" \
+  --kick-unrelated-dir "$EVAL/kick_kick21" \
+  --output-dir "$OUT/videos_joint_reference_actual_final" \
+  --source-env 0 --joint-generator-route
 ```
 
-The retained result is Carry `18/20`, Kick `20/20`, both with zero falls and exact released-expert
-actions. The condition swaps prove routing but also expose the boundary: Carry-to-Kick later leaves
-the raw-action envelope, while Kick-to-Carry remains strongly controlled by the Kick generator.
+The retained result is SMALLBOX Carry45 `18/20` Carry and SMALLBOX Kick21 `19/20` Kick, both with
+zero falls; matched BIGBOX Kick21 is `20/20` Kick with zero falls. The joint route fixes the old
+Tracker-only Carry-to-Kick action explosion (`5.87e11 -> 5.1712`). Reverse BIGBOX-to-Carry45 is
+rejected at `8/20` Carry and raw action `68.437`, which is the remaining cross-asset boundary.
 
 Validate without simulation:
 

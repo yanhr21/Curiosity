@@ -125,15 +125,23 @@ a strong same-checkpoint behavior split; it does not prove semantic demo followi
 
 Do not extend the fixed Carry Refiner residual diagnostic or run another reward-scale sweep. The
 full-510D shared-MLP follow-up and its three-stage DAgger diagnostic are also complete and negative:
-offline MSE does not preserve closed-loop stability. The admitted executable baseline is now one
+offline MSE does not preserve closed-loop stability. The admitted executable baseline is one
 checkpoint with parameter-exact released Carry/Kick Tracker experts and a learned router over the
-frozen 798-D causal selected-demo condition. Matched Carry/Kick pass at `18/20` and `20/20` with
-zero falls; Carry-to-Kick violates the raw-action envelope and Kick-to-Carry remains generator
-driven. Treat this as a two-skill routing result, not arbitrary-demo following. Future action labels
-remain training-only; no toy policy, teacher or model may replace official SUGAR components. The
-next serious method must reduce Generator/Tracker task coupling while preserving executable expert
-stability. Its predeclared stages run continuously without approval flags, sentinels, manual
-checkpoint gates or repeated user confirmation.
+frozen 798-D causal selected-demo condition. Runtime must route the matching released Generator
+together with the Tracker: its 36-D command is part of the 510-D Tracker input. Never restore a
+Tracker-only counterfactual and describe its OOD action as demo following.
+
+The complete-pair frozen result is asymmetric and must be reported exactly. In the identical
+SMALLBOX/Carry scene, Carry45 produces `18/20` Carry and Kick21 produces `19/20` Kick, with zero
+falls in both arms; the joint route reduces the old Carry-to-Kick raw-action maximum from `5.87e11`
+to `5.1712`. Matched BIGBOX Kick21 produces `20/20` Kick with zero falls. BIGBOX-to-Carry45 reaches
+only `8/20` Carry and raw action `68.437`, so it remains rejected. This proves compatible-scene
+selection of two released endpoint skills, not arbitrary-demo following, a continuous skill latent
+or cross-asset transition. Future action labels remain training-only; no toy policy, teacher or
+model may replace official SUGAR components. The next serious method must preserve the passing
+SMALLBOX switch while learning a faithful skill prior and safe state-aware transition across object
+geometry, target pose and initialization. Its stages run continuously without approval flags,
+sentinels, manual checkpoint gates or repeated user confirmation.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

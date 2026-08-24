@@ -50,9 +50,11 @@ has been archived.
   `6/20` with `14/20` falls; do not extend it with more optimizer steps;
 - `official_tracker_router_v1/seed161610/`: current executable baseline. One checkpoint contains
   the parameter-exact Carry/Kick released Tracker experts plus a causal selected-demo router.
-  `frozen_eval_final/` retains the four exact-initial-state arms; matched Carry/Kick pass at
-  `18/20` and `20/20` with zero falls, while Carry-to-Kick is rejected for raw-action explosion.
-  `videos_reference_actual_final/` contains four decoded H.264 reference/actual videos;
+  `frozen_eval_final/` and `videos_reference_actual_final/` retain the Tracker-only coupling
+  diagnostic. The admitted result is `frozen_eval_joint_final/`: in the exact same SMALLBOX scene,
+  Carry45 gives `18/20` Carry and Kick21 gives `19/20` Kick with zero falls; matched BIGBOX Kick21
+  gives `20/20` Kick, while BIGBOX Carry45 is rejected at `8/20`. The four decoded H.264 videos are
+  under `videos_joint_reference_actual_final/`;
 - `teacher_floor_overfit_v1/`: seed161581 update-128 correct/unrelated endpoints, frozen traces,
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick

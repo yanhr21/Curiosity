@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Freeze-evaluate one full-state demo-conditioned policy in Carry or Kick.
+"""Freeze-evaluate one demo-conditioned official SUGAR skill route.
 
 Each run fixes the official task environment, generator/reference motion,
 startup seed, one-step official Tracker alignment prefix and shared checkpoint.
@@ -50,6 +50,14 @@ parser.add_argument(
     "--selected-demo-option", choices=("correct", "unrelated"), required=True
 )
 parser.add_argument("--shared-checkpoint", type=Path, required=True)
+parser.add_argument(
+    "--route-generator-with-expert",
+    action="store_true",
+    help=(
+        "Route the selected demo's released Generator together with its exact "
+        "Tracker expert after the common one-step domain prefix."
+    ),
+)
 parser.add_argument("--training-proof", type=Path, required=True)
 parser.add_argument("--output-dir", type=Path, required=True)
 parser.add_argument("--num-envs", type=int, default=20)
@@ -103,6 +111,7 @@ from sugar_rl.utils.demo_event_reward_runtime import (  # noqa: E402
 )
 from sugar_rl.utils.parser_cfg import parse_env_cfg  # noqa: E402
 from sugar_rl.utils.rsl_rl_bcppo import BCPPO  # noqa: E402
+from sugar_il.wrapper.sugar_il_wrapper import GeneratorWrapper  # noqa: E402
 
 from train_shared_topology_distillation import (  # noqa: E402
     ACTIONABLE_DEMO_CONDITIONING_DIM,
@@ -133,6 +142,10 @@ DOMAIN = {
         "generator": SUGAR / "demo_ckpts/KickBox/generator.ckpt",
         "tracker": SUGAR / "demo_ckpts/KickBox/tracker.pt",
     },
+}
+SELECTED_SKILL = {
+    "correct": "CarryBox",
+    "unrelated": "KickBox",
 }
 SENSOR_NAMES = (
     "left_hand_forces",
@@ -364,6 +377,23 @@ def main() -> None:
         "robot_joint_vel": base.scene["robot"].data.joint_vel.detach().cpu().numpy().copy(),
         "object_root_state_w": base.scene["obj"].data.root_state_w.detach().cpu().numpy().copy(),
     }
+    routed_generator_skill = args.domain
+    if args.route_generator_with_expert:
+        routed_generator_skill = SELECTED_SKILL[args.selected_demo_option]
+        if routed_generator_skill != args.domain:
+            routed_generator_path = DOMAIN[routed_generator_skill]["generator"]
+            command.generator = GeneratorWrapper.load(
+                checkpoint_path=str(routed_generator_path),
+                device=base.device,
+            )
+            if command.generator.n_obs_steps <= 0 or command.generator.n_action_steps <= 0:
+                raise RuntimeError("routed official Generator geometry drift")
+            all_env_ids = torch.arange(args.num_envs, device=base.device)
+            command._fill_generator_obs_buffer(all_env_ids)
+            command._call_generator(all_env_ids)
+            obs = env.get_observations()
+            if isinstance(obs, tuple):
+                obs = obs[0]
     core = _goal_policy_core_observation(base)
     scorer_policy_obs = _policy_observation(core)
     tracker_policy_obs = obs["policy"]
@@ -491,6 +521,11 @@ def main() -> None:
         if args.domain == "CarryBox"
         else aggregate["kick_success_count"]
     )
+    selected_skill_success_count = (
+        aggregate["carry_success_count"]
+        if SELECTED_SKILL[args.selected_demo_option] == "CarryBox"
+        else aggregate["kick_success_count"]
+    )
     checks = {
         "shared_absolute_checkpoint_admitted": True,
         "one_step_official_domain_tracker_prefix_only": True,
@@ -499,7 +534,7 @@ def main() -> None:
             arrays["tracker_policy_observation"].shape[-1] == TRACKER_POLICY_DIM
         ),
         "future_tracker_actions_unavailable_during_evaluation": True,
-        "selected_demo_condition_is_only_between_arm_variable": True,
+        "between_arm_variable_matches_declared_protocol": True,
         "frozen_predictor_model": bool(scorer_begin_audit["model_frozen"]),
         "policy_parameters_frozen_and_unchanged": _same_state(
             state_before, _clone_state(shared_policy)
@@ -539,6 +574,14 @@ def main() -> None:
             else True
         ),
     }
+    if args.route_generator_with_expert:
+        checks["selected_demo_routes_complete_generator_tracker_pair"] = True
+        checks["selected_skill_behavioral_gate"] = bool(
+            int(selected_skill_success_count) >= 10
+            and int(aggregate["physical_fall_count"]) <= 2
+        )
+    else:
+        checks["selected_demo_condition_is_only_between_arm_variable"] = True
     result = {
         "protocol": (
             "sugar_shared_absolute_tracker_dagger_collection_v1"
@@ -551,6 +594,9 @@ def main() -> None:
         "domain_motion_id": source["motion_id"],
         "selected_demo_option": args.selected_demo_option,
         "selected_demo_motion_id": 45 if args.selected_demo_option == "correct" else 21,
+        "routed_generator_with_expert": args.route_generator_with_expert,
+        "routed_generator_skill": routed_generator_skill,
+        "selected_skill_success_count": int(selected_skill_success_count),
         "matched_demo_task_condition": matched_condition,
         "shared_checkpoint": str(checkpoint_path),
         "training_proof": str(proof_path),
@@ -567,7 +613,10 @@ def main() -> None:
             else "exact_official_510D_Tracker_policy_observation"
         ),
         "official_prefix_tracker": str(source["tracker"]),
-        "generator_checkpoint": str(source["generator"]),
+        "domain_prefix_generator_checkpoint": str(source["generator"]),
+        "routed_generator_checkpoint": str(
+            DOMAIN[routed_generator_skill]["generator"]
+        ),
         "motion_folder": str(source["motion_folder"]),
         "scorer_begin_audit": scorer_begin_audit,
         "frozen_model_audit": scorer.frozen_model_audit(),
@@ -581,10 +630,16 @@ def main() -> None:
         "released_tracker_action_envelope": reference_action_envelope,
         "profiles": records_by_profile,
         "claim_boundary": (
-            "A matched condition-only frozen physics test of one shared absolute-action "
-            "actor. Success requires at least 10/20 domain-matched Carry/Kick physical "
-            "successes and at most 2/20 physical falls; a condition-dependent failure "
-            "is not semantic following."
+            "A matched frozen-physics test of one causal router selecting a complete "
+            "released SUGAR Generator+Tracker pair after a common one-step domain "
+            "prefix. The physical scene, task goal and initial state remain fixed; "
+            "the selected demo identity changes the routed skill pair. A failure is "
+            "not semantic following."
+            if args.route_generator_with_expert
+            else "A matched condition-only frozen physics test of one shared "
+            "absolute-action actor. Success requires at least 10/20 domain-matched "
+            "Carry/Kick physical successes and at most 2/20 physical falls; a "
+            "condition-dependent failure is not semantic following."
         ),
         "artifacts": {"trace": "TRACE.npz", "result": "RESULT.json"},
     }

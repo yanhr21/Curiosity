@@ -9,22 +9,30 @@ IsaacLab/PhysX；Newton 只作为 asset 来源，不作为执行后端。
 ### Demo following：可执行双技能路由成立，任意 demo following 尚未成立
 
 最新实验保留 released CarryBox/KickBox 两个 official Tracker actor 的完整参数和
-`510-D -> 512/256/128 -> 29-D` 闭环结构，只训练一个读取冻结 predictor `798-D` causal
-selected-demo condition 的 router。router 的时间外验证在 Carry45/Kick21 上均为 `100%`，
-两个 official expert 的参数变化严格为零。它们与 router 被保存在同一个 checkpoint 中；
-测试时不读取未来轨迹、teacher action、task label 或 GT trajectory error。
+`510-D -> 512/256/128 -> 29-D` 闭环结构，只训练读取冻结 predictor `798-D` causal
+selected-demo condition 的 router。审计确认官方 Carry/Kick 推理环境除 SMALLBOX/BIGBOX
+资产外代码相同，但 Tracker 的 510-D 输入包含各任务独立 Generator 输出的 36-D command；
+因此有效技能单元必须是完整 `Generator + Tracker` pair，不能只换 Tracker。
 
-同一 checkpoint 的 matched frozen physics 结果为：Carry/Carry 条件 `18/20` 成功、平均最大
-抬升 `0.43204 m`、`0/20` 跌倒；Kick/Kick 条件 `20/20` 成功、足—箱接触比例 `0.09892`、
-箱子平面净位移 `1.06092 m`、`0/20` 跌倒。两臂 student action 与对应 released Tracker
-逐元素完全一致。域内 condition-only 配对使用完全相同的机器人、箱子、prefix action 和
-seed。Carry 环境切到 Kick route 后前段出现足部交互，但后段 raw action 达 `5.87e11`，超过
-固定安全 envelope `25` 并在 `9/20` profiles 跌倒，因此明确判失败；Kick 环境切到 Carry
-route 后仍受 Kick generator 主导，足接触从 `0.09892` 降到 `0.02838`、净位移从
-`1.06092 m` 降到 `0.72466 m`。
+最终 matched frozen physics 在每个域内使用 bitwise-identical initial state、post-prefix state、
+prefix action 和 seed。SMALLBOX/Carry 域选择 Carry45 完整技能得到 `18/20` 搬运、平均最大
+抬升 `0.43204 m`、`0/20` 跌倒；只改变 causal demo condition 并联合选择 Kick21 完整技能后，
+得到 `19/20` 踢动、`0/20` 搬运、平面净位移 `0.49079 m`、`0/20` 跌倒。两臂的 36-D
+Generator command 和实际 29-D action 的 mean absolute difference 分别为 `0.27559` 和
+`1.00992`，而不是仅改变一个显示分数。
 
-准确结论是：causal demo condition 可以在一个 checkpoint 内可靠选择两个已经存在的可执行
-official skill；它不是任意视频到新技能的泛化，也没有消除 Generator/Tracker 的任务耦合。
+联合路由直接修复了此前只换 Tracker 的失控：Carry→Kick 的 raw action 最大值从
+`5.87e11` 降到 `5.1712`，physical fall 从 `9/20` 降到 `0/20`。BIGBOX/Kick 域的 matched
+Kick21 为 `20/20` 踢动、`0/20` 跌倒、平面净位移 `1.06092 m`；反向选择 Carry45 只有
+`8/20` 搬运，raw action 最大 `68.437`，因此被自动行为/envelope gate 拒绝。这证明完整控制链
+路由在 SMALLBOX 上已经形成稳定 Carry/Kick 语义切换，同时也明确暴露了 BIGBOX 资产尺寸、
+目标姿态和技能初始分布的反向兼容性边界。
+
+准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
+物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
+latent 或安全跨资产 transition policy。最终四视频位于
+`experiments/demo_following/official_tracker_router_v1/seed161610/`
+`videos_joint_reference_actual_final/`。
 此前单 MLP 的完整 `510-D` offline BC 虽把 MSE 降到 `0.00682`，仍在 Carry 闭环中
 `0/20` 成功、`20/20` 跌倒；三阶段 `beta=0/0.5/0.9` DAgger 最终也只有 `6/20` Carry、
 `14/20` 跌倒。继续增加离线训练步数不是当前路线。
