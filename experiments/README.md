@@ -5,10 +5,10 @@ small summaries needed to reproduce or inspect current conclusions. Failed launc
 comparisons, superseded calibrations, duplicate renders, intermediate checkpoints and runtime logs
 are under root `legacy/`.
 
-Current execution focus is one not-yet-started reference-aware matched policy rerun. The reserved
-output is `demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/`; its absence is
-intentional until policy training starts. This README is the only experiment
-index; the stale package manifest has been archived.
+The completed reference-aware matched policy result is
+`demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/`. The next execution focus
+is one independent-seed replication under the identical contract. This README is the only
+experiment index; the stale package manifest has been archived.
 
 ## 1. `demo_following/`
 
@@ -25,6 +25,11 @@ index; the stale package manifest has been archived.
   online arms start at phase step 197 with zero policy updates; frozen Carry scores correctly in
   `20/20` profiles per block, and the motion-disjoint official Generator/Tracker Kick gate passes
   `8/9` profiles. It is scorer admission, not trained-policy behavior;
+- `matched_phase_event_reward_reference_aware_v2/seed161587/`: completed reference-aware training,
+  update-32/update-64 frozen traces and independent behavior audits. Both checkpoints move in
+  `3/4` declared directions, but both policies remain bilateral Carry and foot contact is near
+  zero. `videos_update0064_trace_exact/` contains the two H.264 demo/actual videos drawn from exact
+  frozen body centers and box poses after the cluster Vulkan renderer failed before valid output;
 - `teacher_floor_overfit_v1/`: seed161581 update-128 correct/unrelated endpoints, frozen traces,
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick

@@ -668,8 +668,8 @@ arm/update blocks 均为 `20/20` profiles 偏好 Carry，margin 为
 `+0.32437/+0.32724/+0.32451/+0.32787`。同一 pipeline 的 CUDA Kick gate 重现 `8/9` 结果并
 返回总 `RC=0`。job258067 的物理 GPU0 曾在 Isaac 启动时发生 `ERROR_DEVICE_LOST`，因此没有
 复用作 Isaac 证据；job258074 的独立物理 GPU7 完成全部门槛。两个 retained allocations 均在
-门槛后保持 GPU hold。当前从新目录运行一组 from-scratch 64-update matched policy
-experiment。预登记入口是：
+门槛后保持 GPU hold。from-scratch 64-update matched policy experiment 已在 job258751 上
+完成。预登记入口是：
 
 ```bash
 # 在 retained srun compute step 内执行；这是训练组件，两臂串行。
@@ -692,6 +692,30 @@ bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
 active evaluator 会拒绝旧 phase-0 checkpoint：除全部 proof checks 外，它还要求两臂记录
 `reset_reference_frame_plus_causal_control_clock` 且 initial step 精确为 `197`，然后才允许冻结
 评估、独立行为审计和双视频渲染。这里的 proof 是科学有效性检查，不是人工授权。
+
+该次正式结果的两臂 proof 均通过 `65/65` checks，冻结评估为 update 32/64 各 20 个 matched
+profiles。独立行为审计在两个 checkpoint 都得到 `3/4` 预登记方向；update 64 的
+correct/unrelated 最大抬升为 `0.69332/0.69666 m`，bilateral contact 为
+`0.83335/0.83447`，lifted transport 为 `0.94514/0.94141`，ground transport 为
+`0.05486/0.05859`，orbit rate 为 `0.37166/0.37547 rad/s`，physical fall 均为 `0/20`。
+两臂仍是 Carry，足—箱接触近似每 episode 一帧，因此结论是单 seed 的部分语义方向变化，
+不是完整 demo following。
+
+H200 NVIDIA Vulkan 相机路径在场景创建期连续触发 `VK_ERROR_DEVICE_LOST`，未写出有效相机帧。
+统计证据来自已经通过的 camera-free frozen traces，不受该渲染失败影响。精确 trace 视频可在
+登录节点 CPU 上生成：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/render_frozen_trace_behavior.py \
+  --correct-trace experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/evaluation_update0064/correct/TRACE.npz \
+  --unrelated-trace experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/evaluation_update0064/unrelated/TRACE.npz \
+  --output-dir experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/videos_update0064_trace_exact
+```
+
+脚本固定读取 update 64 对应的 env 20，验证两个 RESULT 与 matched profile layout，完整显示
+Carry45/Kick21 input demo 和相应 frozen policy first episode，并输出 H.264/yuv420p。视频是 exact
+body-center/object-pose visualization，不是 camera-enabled physics replay；箱子 pose marker 尺寸仅
+用于可读性。
 
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object

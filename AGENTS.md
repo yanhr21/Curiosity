@@ -1,6 +1,6 @@
 # Global Agent Rules
 
-## 1. No human authorization gates; current priority: phase-corrected matched policy
+## 1. No human authorization gates; current priority: phase-corrected replication
 
 - Hard user rule from 2026-08-24: never add, require or wait on an artificial human-approval flag,
   environment variable, sentinel file or repeated confirmation for an experiment already in the
@@ -59,12 +59,20 @@ Tracker-domain transfer result, not a universal scorer claim. Refiner-plus-resid
 has not been tested, and the existing Carry policy pair was trained under the wrong clock. The
 released-artifact audit confirms that the official Kick inference path is the Generator/Tracker
 pair and no frozen Kick Refiner checkpoint is available. The necessary scorer gates are therefore
-complete at their declared reproducible scope. The active causal experiment is one new correct
-versus unrelated 64-update pair from scratch under the corrected phase clock. Run the pair serially;
-after both endpoint proofs pass, automatically run the predeclared update-32/update-64 frozen
-evaluation, behavior audit and dual-video render. Do not wait for human approval between these
-stages. Do not launch more seeds, reward-weight sweeps or SMP integration before this evidence is
-complete.
+complete at their declared reproducible scope.
+
+The first from-scratch reference-aware matched pair is now complete at update 64. Both arms pass
+`65/65` training checks and the frozen evaluator restores identical physics over 20 profiles per
+checkpoint. At both update 32 and 64, the unrelated Kick21-reward arm moves in `3/4` predeclared
+semantic directions, but both arms still execute a bilateral Carry solution and actual foot-box
+contact remains approximately one frame per episode. This proves a behavior shift under the
+selected reward; one training seed does not establish semantic following or replication.
+
+The active causal experiment is therefore exactly one independent-seed replication with the same
+teacher, reference-frame-197 phase, update budget, environment count, reward weights, physics and
+frozen evaluation. Change no other variable and do not integrate SMP. Run its correct/unrelated
+arms serially and automatically chain the update-32/update-64 evaluation and independent behavior
+audit. Do not wait for human approval between documented stages.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
@@ -159,12 +167,12 @@ to root up-z about `0.191`, recovers and carries.
   prior into policy before a semantic gate passes.
 - A valid policy comparison keeps teacher, initialization, update budget, seeds, reward weights,
   physics and frozen evaluation identical. Only the selected reward demo may differ.
-- The seed161587 phase-event comparison satisfies that matched contract at update 32/64, but both
-  arms remain Carry-like. Its correct frozen rollout is scored closer to Kick21 than Carry45. This
-  is a scorer transfer failure, not evidence that the policy followed Kick21.
-- Before another policy run, score the same frozen `10 x 121` prefixes under current and correctly
-  restored causal phase. If phase correction is insufficient, rebuild motion-disjoint supervision
-  from Refiner-plus-residual rollouts and repeat full/zero/permuted plus bidirectional gates.
+- The historical reset-zero seed161587 comparison remains invalid because its correct Carry rollout
+  was scored closer to Kick21. The new reference-aware seed161587 pair is distinct: both arms start
+  the causal clock at restored frame 197 and pass the scorer and physics contracts.
+- The new pair moves in `3/4` declared semantic directions at both update 32 and 64, but both arms
+  remain bilateral Carry and foot-box contact stays near zero. Treat it as a promising single-seed
+  behavior shift, not established semantic following.
 - The behavior audit is independent of the reward predictor. With the same CarryBox45 teacher, the
   KickBox21-reward arm remains Carry-like. Seeds 161581/161583 observe `0/4` predeclared semantic
   directions and seed161585 observes a non-replicated `3/4`; orbit rate moves opposite to Kick21

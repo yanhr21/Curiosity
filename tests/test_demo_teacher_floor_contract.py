@@ -244,6 +244,14 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert '"--fast-exit-after-evidence"' in renderer_source
     assert "if args.fast_exit_after_evidence:" in renderer_source
     assert "os._exit(0)" in renderer_source
+
+    trace_renderer_source = (
+        ROOT / "scripts/sugar/demo_following/render_frozen_trace_behavior.py"
+    ).read_text(encoding="utf-8")
+    assert "Exact recorded body centers + box pose" in trace_renderer_source
+    assert '"policy_updates") != [32, 64]' in trace_renderer_source
+    assert 'args.source_env != 20 or args.policy_update != 64' in trace_renderer_source
+    assert "No camera-enabled physics rerun" in trace_renderer_source
     assert "canonical_environment_index = int(np.argmin(translation_norm))" in (
         evaluator_source
     )

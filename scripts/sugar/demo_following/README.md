@@ -61,6 +61,26 @@ Set `TEACHER_ONLY_GATE=1` on the same command to run the zero-residual prerequis
 complete results and videos are validated and reused; incomplete directories are never silently
 overwritten.
 
+The first reference-aware pair is complete. Its independent audit observes `3/4` predeclared
+directions at both update 32 and update 64, while both policies remain bilateral Carry and do not
+reproduce Kick21 foot contact. This is a single-seed partial behavior shift, not semantic-following
+proof. The next run is one exact independent-seed replication; no reward or budget tuning precedes
+it.
+
+On the current cluster, NVIDIA Vulkan camera rendering repeatedly loses the H200 device during
+scene creation before a valid frame is emitted. This does not invalidate camera-free frozen traces.
+The exact-trace fallback renders recorded robot body centers and box pose without rerunning physics:
+
+```bash
+$PYTHON scripts/sugar/demo_following/render_frozen_trace_behavior.py \
+  --correct-trace experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/evaluation_update0064/correct/TRACE.npz \
+  --unrelated-trace experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/evaluation_update0064/unrelated/TRACE.npz \
+  --output-dir experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/videos_update0064_trace_exact
+```
+
+The output label explicitly says `no physics replay`; the pose-marker box size is illustrative,
+while all body centers, object positions and object orientations are exact trace/reference values.
+
 The admitted teacher prerequisite is `teacher_only_gate_no_tactile_v2`. It uses the original SUGAR
 scene with no TacSL assets and requires a runtime scene proof in addition to exact-zero residual,
 nominal PhysX readback, bilateral contact and a 5 cm lift. The job257815 run passes all 20 profiles;

@@ -88,15 +88,23 @@
 - [x] keep selected-demo SMP out of the phase-corrected matched pair; actual frozen Carry
   trajectories now prefer Carry45 consistently, while official TinyMDM semantic extension remains
   a separate unfinished gate;
-- [ ] run exactly one new from-scratch 64-update matched correct/unrelated pair under the
-  reference-aware phase clock; do not add seeds or steps first.
+- [x] run exactly one new from-scratch 64-update matched correct/unrelated pair under the
+  reference-aware phase clock, freeze-evaluate 20 profiles at update 32/64 and complete the
+  predictor-independent behavior audit;
+- [x] record the single-seed result accurately: `3/4` semantic directions at both checkpoints,
+  stable bilateral Carry in both arms, and no meaningful Kick foot-contact structure;
+- [x] render both input-demo/actual-behavior H.264 videos from exact frozen PhysX traces after the
+  H200 Vulkan camera path failed before producing a valid frame;
+- [ ] run one independent-seed replication with the exact same teacher, phase, 64-update budget,
+  reward weights, physics and evaluation; do not integrate SMP or tune weights first.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
 was trained with a wrong zero-based phase clock after restoring reference frame 197. Corrected
 online and frozen Carry gates now pass, and the official Generator/Tracker Kick test split prefers
-Kick21 on `8/9` profiles. The next work is one from-scratch phase-corrected
-matched pair, not an extension of the invalid old checkpoints.
+Kick21 on `8/9` profiles. The new from-scratch phase-corrected pair now shows partial `3/4`
+behavioral movement at both checkpoints but remains a Carry solution. The next work is one exact
+independent-seed replication, not a reward-weight or training-budget sweep.
 
 ## Frozen tactile work
 

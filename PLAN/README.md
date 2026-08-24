@@ -2,6 +2,26 @@
 
 ## Current priority: demo following
 
+### Reference-aware matched pair: complete, partial single-seed shift
+
+The from-scratch seed/action-seed `161587/161588` pair is complete. Both arms use the same
+CarryBox45 Refiner teacher, frame-197 causal phase, 20 environments, startup-physics readback,
+optimizer, reward weights and 64-update budget; only CarryBox45 versus KickBox21 selected reward
+differs. Both training proofs pass `65/65` checks, and update-32/update-64 frozen evaluation uses 20
+identical physics profiles per arm.
+
+At update 64, correct/unrelated maximum lift is `0.69332/0.69666 m`, bilateral-contact fraction is
+`0.83335/0.83447`, lifted fraction is `0.61142/0.61644`, lifted-transport fraction is
+`0.94514/0.94141`, ground-transport fraction is `0.05486/0.05859`, and orbit rate is
+`0.37166/0.37547 rad/s`. Physical falls are `0/20` in both arms. Three of four predeclared
+directions move toward Kick21 at update 64; update 32 also records `3/4`, with a different missing
+direction. Both arms nevertheless retain bilateral Carry and foot-box contact remains near one
+frame per episode. This is selected-demo-conditioned behavior change, not complete semantic
+following.
+
+The next matched experiment is exactly one independent-seed replication of this contract. Do not
+change the teacher, phase, budget, reward scale, physics or SMP status before that replication.
+
 The first causal selected-demo experiment is complete:
 
 1. CarryBox45 teacher-only, zero-residual evaluation passes bilateral contact and 5 cm lift in all
@@ -134,7 +154,7 @@ while the common teacher preserves a matched Carry baseline.
 Runner probes now fail closed on a separate machine-readable result. A zero process return code is
 insufficient because Isaac shutdown can mask an inner Python failure.
 
-### Matched phase-event policy result: complete, negative
+### Historical reset-zero phase-event result: complete, negative
 
 The historical matched experiment ran both arms serially for exactly 64 updates. Both 65-check
 training proofs pass; update-32/update-64 checkpoints are finite and reload exactly. The evaluator
@@ -167,7 +187,8 @@ A separate Tracker-to-Refiner state shift remains measurable. Official Tracker t
 state `mean|z|/p95/p99 = 0.668/1.923/2.882`; the current Carry rollouts are approximately
 `1.035/3.212/5.420`. Phase correction is nevertheless sufficient for the necessary Carry-domain
 gate. It does not establish independent Kick-domain transfer or policy semantic following, and the
-old policies were trained under the wrong phase clock. The corrected policy pair has not run yet.
+old policies were trained under the wrong phase clock. The corrected policy pair described at the
+top of this file has now run and supersedes this historical result for the active causal question.
 
 The missing official Generator/Tracker Kick direction has now been tested without policy training.
 The exact motion-disjoint predictor test split `9/19/.../89` supplies nine 700-step, 121-D online trajectories;
@@ -178,7 +199,7 @@ prefers Carry45 and is retained as a counterexample. A source-duration-normalize
 only as an evaluation diagnostic and is not a deployed input. This passes the declared
 official Generator/Tracker Kick transfer gate; it does not establish Refiner-plus-residual Kick transfer.
 
-### Next matched diagnostic
+### Completed matched diagnostic and next replication
 
 The corrected scorer gates are complete. On job258074, both 24-step online smokes use initial step
 197 and execute zero optimizer updates; mean ready reward/risk is `+0.04804/0.31539` for Carry45
@@ -190,12 +211,10 @@ and `-0.00338/0.65776` for Kick21. The frozen Carry evaluator passes all four ar
    counterexample;
 3. retain the released-artifact boundary: this workspace provides the official KickBox Generator
    and Tracker but no frozen Kick Refiner checkpoint; do not substitute a toy policy;
-4. run one new correct/unrelated 64-update matched policy pair from scratch; the predeclared serial
-   entrypoint is
-   `scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh`, and it must stop before
-   frozen evaluation;
-5. if the new pair is behaviorally negative at update 64, run the predictor-independent adherence
-   audit before changing reward weights, teacher authority, update budget or seeds;
+4. retain the completed reference-aware seed161587 pair and its `3/4` update-32/update-64 behavior
+   shifts without upgrading them to semantic-following evidence;
+5. run exactly one independent-seed matched replication before changing reward weights, teacher
+   authority or update budget;
 6. keep selected-demo SMP out until official TinyMDM passes an independent semantic-extension gate.
 
 ### Expected behavior, not just reward score

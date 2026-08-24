@@ -130,11 +130,15 @@ PhysX readback、PPO/ICM/SMP、reward weights 和 64 updates；唯一变量是 s
 CarryBox45 或 KickBox21。两臂 proof 均通过 65/65 checks，update 32/64 checkpoint 均有限且
 可精确 reload。冻结评估使用 seed `171587`，每个 checkpoint 20 个相同 physics profiles。
 
-update 64 时，两臂仍是几乎相同的稳定 Carry 行为：correct/unrelated 平均最大抬升为
-`0.69453/0.69419 m`，双手同时接触比例为 `0.83348/0.83252`，lifted-frame 比例为
-`0.61292/0.61214`，lifted transport 为 `0.94127/0.94219`，均为 `0/20` physical fall。
-四个预登记 Kick-like 方向只有 `1/4`，而且差值在 `1e-3` 量级；update 32 也只有 `2/4`。
-因此该实验没有建立 semantic demo following，也没有建立 correct-demo 行为优势。
+update 32 和 update 64 的独立行为审计均观察到 `3/4` 个预登记方向，但两臂仍是稳定的
+Carry 解。update 64 的 correct/unrelated 平均最大抬升为 `0.69332/0.69666 m`，双手同时
+接触比例为 `0.83335/0.83447`，lifted-frame 比例为 `0.61142/0.61644`，lifted transport
+为 `0.94514/0.94141`，ground transport 为 `0.05486/0.05859`，orbit rate 为
+`0.37166/0.37547 rad/s`，均为 `0/20` physical fall。unrelated arm 因此减少了空中运输占比、
+增加了地面运输和绕箱运动，但没有减少 lifted-frame time；实际足—箱接触仍约为每个 episode
+一帧。update 32 则在 lifted time、lifted/ground transport 三个方向移动，但 orbit 未移动。
+这比旧错误时钟实验更强：selected reward 确实把行为推向部分 Kick-like 方向；但它仍未产生
+KickBox21 的脚部接触结构，而且只有一个训练 seed，不能声称完整或可复现的 semantic following。
 
 冻结评估还暴露出比“训练不够久”更关键的问题：在实际 Refiner+residual Carry 轨迹上，correct
 arm 的平均 Carry45/Kick21 predicted mismatch 为 `0.96986/0.89087`，即 predictor 反而认为
@@ -259,6 +263,12 @@ bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
   64 phase_event_reward_only \
   "$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587"
 
+# 无 GPU：Vulkan 相机不可用时，从已通过的冻结 PhysX trace 生成精确行为视频
+$PYTHON_BIN scripts/sugar/demo_following/render_frozen_trace_behavior.py \
+  --correct-trace "$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/evaluation_update0064/correct/TRACE.npz" \
+  --unrelated-trace "$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/evaluation_update0064/unrelated/TRACE.npz" \
+  --output-dir "$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/videos_update0064_trace_exact"
+
 # 无 GPU：从现有 traces 重算独立行为审计
 $PYTHON_BIN scripts/sugar/demo_following/analyze_behavior_adherence.py
 
@@ -300,8 +310,10 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
   experiments/isaaclab_g1_anatomical27_object_demos/reproduce_plain_carrybox
 ```
 
-当前保留视频（前两条是旧 phase 错位实验的负结果，不是 corrected policy endpoint）：
+当前保留视频（标为“旧 phase-0”的两条是时钟错位负结果，不是 corrected policy endpoint）：
 
+- [新 reference-aware correct demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/videos_update0064_trace_exact/01_correct_demo_and_actual_behavior.mp4)；
+- [新 reference-aware unrelated Kick demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/videos_update0064_trace_exact/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [旧 phase-0 correct Carry45 demo 与实际 Carry 行为](experiments/demo_following/matched_phase_event_reward_v1/seed161587/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
 - [旧 phase-0 unrelated Kick21 demo 与实际 Carry 行为](experiments/demo_following/matched_phase_event_reward_v1/seed161587/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [correct CarryBox demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
@@ -338,10 +350,8 @@ scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化
 official Generator/Tracker Kick gate 也以 `8/9` profile preference 通过，但 motion29 是明确
 反例。官方发布物当前只有 KickBox
 `generator.ckpt + tracker.pt`，没有 frozen Kick Refiner checkpoint；因此现有 gate 已覆盖最强
-可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。当前执行队列是从零重跑一组严格
-matched 64-update policy pair；入口固定为
-`run_reference_aware_phase_event_pair_then_hold.sh`：两臂 proof 通过后自动执行预登记的
-update-32/update-64 冻结评估、行为审计和双视频渲染，随后保留 GPU；不会自动增加训练步数
-或 seeds，也没有人工确认 gate。SMP 仍不进入
-selected-demo policy reward，
-直到 official TinyMDM 的独立语义扩展门槛通过。
+可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。第一组从零 reference-aware matched
+pair 已完成；update 32/64 都出现 `3/4` 方向变化，但尚无 Kick 足部接触且只有一个 training
+seed。下一步只做一个独立 seed 的严格复现：teacher、frame-197 phase、20 env、64 updates、
+reward weights、physics 和冻结评估全部不变，不先改权重、延长训练或接入 SMP。预登记阶段
+自动连续执行，不设置人工授权 gate；GPU 在任务切换与回报后继续保留。
