@@ -318,7 +318,7 @@ def test_phase_corrected_pair_reuses_only_complete_arms(tmp_path: Path) -> None:
     assert completed.stdout.index("reusing_complete_arm=correct") < (
         completed.stdout.index("reusing_complete_arm=unrelated")
     )
-    assert "frozen evaluation not started" in completed.stdout
+    assert "endpoint proofs passed" in completed.stdout
 
     old_phase_root = tmp_path / "old_phase"
     write_endpoint(old_phase_root, "correct", "reset_bounded_causal_control_clock")
@@ -447,3 +447,17 @@ def test_teacher_floor_gate_selects_next_branch_without_manual_approval() -> Non
     assert failed["automatic_next_branch"] == (
         "redesign_internal_reward_contact_event_semantics"
     )
+
+
+def test_retained_phase_pair_chains_predeclared_evaluation_without_manual_gate() -> None:
+    wrapper = (
+        ROOT
+        / "scripts/sugar/demo_following/run_reference_aware_phase_event_pair_then_hold.sh"
+    ).read_text(encoding="utf-8")
+    pair_call = wrapper.index("run_reference_aware_phase_event_pair.sh")
+    eval_call = wrapper.index("evaluate_and_render_matched_endpoint.sh")
+    hold_call = wrapper.index("GPU_HOLD_AFTER_REFERENCE_AWARE_MATCHED_PAIR_READY")
+    assert pair_call < eval_call < hold_call
+    assert 'if [[ "$pair_rc" == "0" ]]' in wrapper
+    assert "REFERENCE_AWARE_MATCHED_EVALUATION_RC" in wrapper
+    assert "DEMO_POLICY_TRAINING_" + "AUTHORIZED" not in wrapper

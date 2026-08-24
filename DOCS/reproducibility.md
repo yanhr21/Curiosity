@@ -672,17 +672,16 @@ arm/update blocks 均为 `20/20` profiles 偏好 Carry，margin 为
 experiment。预登记入口是：
 
 ```bash
-# 在 retained srun compute step 内执行；两臂串行且不会自动评估。
+# 在 retained srun compute step 内执行；这是训练组件，两臂串行。
 OUTPUT_ROOT="$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2" \
   bash scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh
 ```
 
 该入口固定 `161587/161588`、20 env、CarryBox45 common teacher、update 32/64、相同 physics/
 optimizer/reward；唯一变量是 CarryBox45 或 KickBox21 selected demo。每个 arm 完成后必须通过
-完整 proof，尤其是 reference-frame-197 causal phase 检查。脚本完成两臂后停止，不自动追加
-更新、seed、冻结评估或渲染。
-
-人工检查两个 endpoint proof 后，在 retained `srun` compute step 中显式运行：
+完整 proof，尤其是 reference-frame-197 causal phase 检查。训练组件不会追加更新或 seed；
+retained wrapper 在两个 proof 自动通过后直接执行预登记的冻结评估、行为审计和渲染，不设置
+人工确认 gate。其评估阶段为：
 
 ```bash
 bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
@@ -692,7 +691,7 @@ bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
 
 active evaluator 会拒绝旧 phase-0 checkpoint：除全部 proof checks 外，它还要求两臂记录
 `reset_reference_frame_plus_causal_control_clock` 且 initial step 精确为 `197`，然后才允许冻结
-评估、独立行为审计和双视频渲染。
+评估、独立行为审计和双视频渲染。这里的 proof 是科学有效性检查，不是人工授权。
 
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object

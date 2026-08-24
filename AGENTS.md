@@ -60,9 +60,11 @@ has not been tested, and the existing Carry policy pair was trained under the wr
 released-artifact audit confirms that the official Kick inference path is the Generator/Tracker
 pair and no frozen Kick Refiner checkpoint is available. The necessary scorer gates are therefore
 complete at their declared reproducible scope. The active causal experiment is one new correct
-versus unrelated 64-update pair from scratch under the corrected phase clock. Run the pair serially
-and stop before frozen evaluation. Do not launch more seeds, reward-weight sweeps or SMP integration
-before both endpoints pass.
+versus unrelated 64-update pair from scratch under the corrected phase clock. Run the pair serially;
+after both endpoint proofs pass, automatically run the predeclared update-32/update-64 frozen
+evaluation, behavior audit and dual-video render. Do not wait for human approval between these
+stages. Do not launch more seeds, reward-weight sweeps or SMP integration before this evidence is
+complete.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

@@ -101,4 +101,4 @@ run_arm correct
 run_arm unrelated
 check_pair
 
-printf 'matched_pair_complete output_root=%s; frozen evaluation not started\n' "$OUTPUT_ROOT"
+printf 'matched_pair_complete output_root=%s; endpoint proofs passed\n' "$OUTPUT_ROOT"

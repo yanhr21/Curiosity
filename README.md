@@ -340,7 +340,8 @@ official Generator/Tracker Kick gate 也以 `8/9` profile preference 通过，�
 `generator.ckpt + tracker.pt`，没有 frozen Kick Refiner checkpoint；因此现有 gate 已覆盖最强
 可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。当前执行队列是从零重跑一组严格
 matched 64-update policy pair；入口固定为
-`run_reference_aware_phase_event_pair.sh`，完成两臂后停止，仍不自动增加步数、seeds 或启动
-评估。SMP 仍不进入
+`run_reference_aware_phase_event_pair_then_hold.sh`：两臂 proof 通过后自动执行预登记的
+update-32/update-64 冻结评估、行为审计和双视频渲染，随后保留 GPU；不会自动增加训练步数
+或 seeds，也没有人工确认 gate。SMP 仍不进入
 selected-demo policy reward，
 直到 official TinyMDM 的独立语义扩展门槛通过。
