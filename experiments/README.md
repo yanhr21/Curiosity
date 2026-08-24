@@ -5,18 +5,26 @@ small summaries needed to reproduce or inspect current conclusions. Failed launc
 comparisons, superseded calibrations, duplicate renders, intermediate checkpoints and runtime logs
 are under root `legacy/`.
 
+Current execution focus is one not-yet-started reference-aware matched policy rerun. The reserved
+output is `demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/`; its absence is
+intentional until policy training is explicitly authorized. This README is the only experiment
+index; the stale package manifest has been archived.
+
 ## 1. `demo_following/`
 
 - `teacher_only_carry45_gate_corrected_v1/`: 20-profile zero-residual prerequisite gate;
-- `matched_reward_identity_same_teacher_v1/`: current 64-update causal comparison, both policy
-  checkpoints, matched frozen traces/results and full videos;
-- `matched_phase_event_reward_v1/seed161587/`: newest strict phase-event comparison. Both arms use
-  the same CarryBox45 teacher/physics and differ only in Carry45 versus Kick21 reward demo; update
-  32/64 checkpoints, 20-profile frozen evaluations, independent behavior audits and two full videos
-  are retained. The behavior result is negative. `scorer_transfer_source_trace_v1/` contains the
-  exact 121-D frozen-policy inputs, and `scorer_transfer_phase_ablation_v1/` proves that restoring
-  reference frame 197 in the causal phase clock reverses the erroneous online Kick preference in
-  all four arm/update blocks;
+- `matched_reward_identity_same_teacher_v1/`: historical three-seed 64-update comparison with
+  checkpoints, matched frozen traces/results and videos. It proves reward use but not semantic
+  demo following; it is not the active policy experiment;
+- `matched_phase_event_reward_v1/seed161587/`: retained negative experiment trained with the wrong
+  reset-zero phase clock after restoring CarryBox frame 197. Its policies and videos are failure
+  evidence and are rejected by the active evaluator. `scorer_transfer_source_trace_v1/` contains
+  the exact 121-D frozen-policy inputs, while `scorer_transfer_phase_ablation_v1/` isolates the
+  phase error and restores Carry preference in all four arm/update blocks;
+- `corrected_phase_runtime_gate_job258074_compute_v3/`: current pre-optimization evidence. Both
+  online arms start at phase step 197 with zero policy updates; frozen Carry scores correctly in
+  `20/20` profiles per block, and the motion-disjoint official Generator/Tracker Kick gate passes
+  `8/9` profiles. It is scorer admission, not trained-policy behavior;
 - `teacher_floor_overfit_v1/`: seed161581 update-128 correct/unrelated endpoints, frozen traces,
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick
@@ -37,8 +45,8 @@ are under root `legacy/`.
   independent semantic-extension gate;
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
-The old 1216-update policy experiment, rejected 510-D/free-window event predictor, invalid evaluator
-attempts and obsolete runtime logs are under root `legacy/`; none is active evidence.
+The old 1216-update policy experiment, rejected 510-D/free-window event predictor, redundant CPU
+gate, empty runtime attempts and obsolete logs are under root `legacy/`; none is active evidence.
 
 ## 2. `online_patch_tactile_mass_adaptation/`
 
