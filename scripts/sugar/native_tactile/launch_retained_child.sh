@@ -24,6 +24,16 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
     echo "launch_retained_child.sh must run inside a retained Slurm allocation" >&2
     exit 2
 fi
+if [[ -z "${SLURM_STEP_ID:-}" ]]; then
+    echo "launch_retained_child.sh must run inside an srun compute step; an salloc prompt may still be on a login node" >&2
+    exit 2
+fi
+case "$(hostname)" in
+    mgmtserver*|login*)
+        echo "launch_retained_child.sh refuses to launch a GPU child on a login host" >&2
+        exit 2
+        ;;
+esac
 if [[ -z "$record" || -z "$status" || -z "$log" || -z "$tag" || $# -eq 0 ]]; then
     echo "required: --record PATH --status PATH --log PATH --tag TAG -- COMMAND..." >&2
     exit 2
@@ -46,6 +56,7 @@ setsid bash -c '
     pgid=$(ps -o pgid= -p "$pid" | tr -d " ")
     {
         printf "slurm_job_id=%s\n" "$SLURM_JOB_ID"
+        printf "slurm_step_id=%s\n" "$SLURM_STEP_ID"
         printf "host=%s\n" "$(hostname)"
         printf "child_pid=%s\n" "$pid"
         printf "child_pgid=%s\n" "$pgid"

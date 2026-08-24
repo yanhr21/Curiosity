@@ -191,7 +191,9 @@ and `-0.00338/0.65776` for Kick21. The frozen Carry evaluator passes all four ar
 3. retain the released-artifact boundary: this workspace provides the official KickBox Generator
    and Tracker but no frozen Kick Refiner checkpoint; do not substitute a toy policy;
 4. request explicit user authorization for one new correct/unrelated 64-update matched policy pair
-   from scratch; do not auto-start it;
+   from scratch; the predeclared serial entrypoint is
+   `scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh`, and it must stop before
+   frozen evaluation; do not auto-start it;
 5. if the new pair is behaviorally negative at update 64, run the predictor-independent adherence
    audit before changing reward weights, teacher authority, update budget or seeds;
 6. keep selected-demo SMP out until official TinyMDM passes an independent semantic-extension gate.

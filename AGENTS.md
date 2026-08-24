@@ -298,8 +298,11 @@ a monotonic friction-response estimate.
   are acceptable when they acquire a GPU faster.
 - Never voluntarily release a granted GPU allocation merely because a child task or agent turn
   finishes. Keep the compute shell alive for review and follow-up.
-- Launch long work through `scripts/sugar/native_tactile/launch_retained_child.sh`, recording the
-  exact child PID/PGID.
+- Enter the granted allocation with an explicit `srun --jobid=...` compute step before launching
+  work. An `salloc` prompt can remain on a login node even though `SLURM_JOB_ID` is set.
+- Launch long work from that compute step through
+  `scripts/sugar/native_tactile/launch_retained_child.sh`, recording the exact Slurm step and child
+  PID/PGID. The launcher must refuse missing `SLURM_STEP_ID` and login-node hosts.
 - To change tasks, terminate only the recorded child process group. Never send generic Ctrl+C to
   the allocation shell and never cancel a retained job unless the user explicitly requests it.
 - Formal training/evaluation remains serial under one pipeline lock. No concurrent writers to one

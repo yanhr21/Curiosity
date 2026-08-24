@@ -51,7 +51,9 @@ friction utilization。Plan-15 使用四帧历史；PS 额外加入 causal slip 
 - `analyze_frozen_mass_reaction_window.py`：保存 trace 上的 event-aligned 提前量分析；
 - `render_frozen_mass_reaction_window.py`：把该分析渲染为事件对齐的信号证据；
 - `render_online_patch_mass_jump.py`：同一 rollout 的 G1/CarryBox 与左右 27-patch 视频；
-- `launch_retained_child.sh`：在 retained Slurm shell 中启动独立 child process group。
+- `launch_retained_child.sh`：在 retained allocation 的 `srun` compute step 中启动独立 child
+  process group，并记录 Slurm step、compute host、PID/PGID；缺少 `SLURM_STEP_ID` 或位于登录
+  节点时拒绝运行。
 
 正式训练入口位于：
 

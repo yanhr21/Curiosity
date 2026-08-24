@@ -250,13 +250,10 @@ $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
 OUTPUT_ROOT="$PWD/experiments/demo_following/reproduce_phase_transfer" \
   bash scripts/sugar/demo_following/run_phase_event_scorer_transfer_audit.sh
 
-# 复现已经完成的 matched 64-update 训练；两臂必须串行
-$PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
-  --design phase_event_reward_only --arm correct \
-  --endpoint-updates 64 --stop-after-segment --policy-training-authorized
-$PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
-  --design phase_event_reward_only --arm unrelated \
-  --endpoint-updates 64 --stop-after-segment --policy-training-authorized
+# 用户明确授权后：从全新目录串行运行 phase-corrected matched pair；脚本完成后停止
+DEMO_POLICY_TRAINING_AUTHORIZED=YES \
+OUTPUT_ROOT="$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2" \
+  bash scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh
 
 # 两臂 endpoint proof 通过后：复现冻结评估 update 32/64、独立行为审计和完整双视频
 bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \
@@ -342,6 +339,8 @@ official Generator/Tracker Kick gate 也以 `8/9` profile preference 通过，�
 反例。官方发布物当前只有 KickBox
 `generator.ckpt + tracker.pt`，没有 frozen Kick Refiner checkpoint；因此现有 gate 已覆盖最强
 可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。下一步是申请用户明确授权，从零
-重跑一组严格 matched 64-update policy pair；仍不自动增加步数或 seeds。SMP 仍不进入
+重跑一组严格 matched 64-update policy pair；入口固定为
+`run_reference_aware_phase_event_pair.sh`，完成两臂后停止，仍不自动增加步数、seeds 或启动
+评估。SMP 仍不进入
 selected-demo policy reward，
 直到 official TinyMDM 的独立语义扩展门槛通过。

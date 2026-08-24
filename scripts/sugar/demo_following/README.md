@@ -37,10 +37,18 @@ tensors alone are not accepted as zero sensor use. On 2026-08-24, a fresh H200 m
 both correct/unrelated 24-step smokes passed. The runner uses the same system NVIDIA ICD as that
 canary. These smokes prove the online reward path and zero optimizer activity, not learned behavior.
 
-After explicit approval, run the two arms serially inside a retained GPU allocation with
-`--policy-training-authorized`. Use `scripts/sugar/native_tactile/launch_retained_child.sh` and a
-fresh `--output-root`. After both endpoints pass, evaluate updates 32/64, run the independent
-behavior audit for each checkpoint, and render update 64 with:
+After explicit approval, run the two arms serially inside a retained `srun` GPU compute step. The
+predeclared wrapper requires a second explicit authorization variable, uses a fresh output root,
+checks each endpoint before starting the next arm, and stops before evaluation:
+
+```bash
+DEMO_POLICY_TRAINING_AUTHORIZED=YES \
+OUTPUT_ROOT="$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2" \
+  bash scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh
+```
+
+After both endpoints pass, evaluate updates 32/64, run the independent behavior audit for each
+checkpoint, and render update 64 with:
 
 ```bash
 bash scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh \

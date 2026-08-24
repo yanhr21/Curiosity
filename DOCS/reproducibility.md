@@ -24,9 +24,18 @@ demo-following、official TinyMDM 语义门槛、IsaacLab 在线整手触觉、�
 这些大资产和所有实验输出被 Git 忽略。一个 fresh clone 必须先恢复官方 SUGAR 数据、
 released checkpoints、MimicKit checkout 和本地实验依赖，不能用自写 toy model 替代。
 
-GPU 工作只能在 retained Slurm compute allocation 中执行。长任务通过
-`scripts/sugar/native_tactile/launch_retained_child.sh` 启动；切换工作时只终止记录的 child
-process group，不取消 allocation shell。
+GPU 工作只能在 retained Slurm compute step 中执行。获得 `salloc` 后必须再用
+`srun --jobid=<job_id> ... bash` 进入计算节点；仅有 `SLURM_JOB_ID` 的 `salloc` prompt 仍可能
+停留在登录节点。长任务从 compute step 通过
+`scripts/sugar/native_tactile/launch_retained_child.sh` 启动；记录中必须同时有 Slurm step、
+compute host 和 child PID/PGID。切换工作时只终止记录的 child process group，不取消
+allocation shell。
+
+```bash
+srun --jobid="$SLURM_JOB_ID" --exclusive --gres=gpu:1 --pty bash
+test -n "$SLURM_STEP_ID"
+hostname  # 必须是计算节点，不得是 mgmtserver/login
+```
 
 基础环境检查：
 
@@ -659,8 +668,20 @@ arm/update blocks 均为 `20/20` profiles 偏好 Carry，margin 为
 `+0.32437/+0.32724/+0.32451/+0.32787`。同一 pipeline 的 CUDA Kick gate 重现 `8/9` 结果并
 返回总 `RC=0`。job258067 的物理 GPU0 曾在 Isaac 启动时发生 `ERROR_DEVICE_LOST`，因此没有
 复用作 Isaac 证据；job258074 的独立物理 GPU7 完成全部门槛。两个 retained allocations 均在
-门槛后保持 GPU hold。下一步只有在用户明确授权后才重跑一组 from-scratch 64-update matched
-policy experiment。
+门槛后保持 GPU hold。下一步只有在用户明确授权后才从新目录重跑一组 from-scratch
+64-update matched policy experiment。预登记入口是：
+
+```bash
+# 仅在用户明确授权后，在 retained srun compute step 内执行；两臂串行且不会自动评估。
+DEMO_POLICY_TRAINING_AUTHORIZED=YES \
+OUTPUT_ROOT="$PWD/experiments/demo_following/matched_phase_event_reward_reference_aware_v2" \
+  bash scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh
+```
+
+该入口固定 `161587/161588`、20 env、CarryBox45 common teacher、update 32/64、相同 physics/
+optimizer/reward；唯一变量是 CarryBox45 或 KickBox21 selected demo。每个 arm 完成后必须通过
+完整 proof，尤其是 reference-frame-197 causal phase 检查。脚本完成两臂后停止，不自动追加
+更新、seed、冻结评估或渲染。
 
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object
