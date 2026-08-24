@@ -168,6 +168,12 @@ parser.add_argument(
     ),
 )
 parser.add_argument(
+    "--probe-result-output",
+    type=Path,
+    default=None,
+    help="machine-readable result for admission/rollout probes",
+)
+parser.add_argument(
     "--protocol-config",
     type=Path,
     default=None,
@@ -964,6 +970,109 @@ def _state_tree_sha256(value) -> str:
 
     update(value)
     return digest.hexdigest()
+
+
+def _actor_surrogate_gradient_comparison(
+    algorithm,
+    total_advantages: torch.Tensor,
+    base_advantages: torch.Tensor,
+) -> dict[str, float | bool]:
+    """Compare PPO actor gradients with and without selected-demo feedback.
+
+    This deliberately calls no optimizer and mutates no parameter.  At the
+    pre-update policy, it evaluates the exact clipped PPO surrogate on the
+    already collected rollout twice: once with the stored total advantages
+    and once with the counterfactual base-reward advantages.
+    """
+
+    if not hasattr(algorithm, "_actor_parameters") or not hasattr(
+        algorithm, "_set_policy_distribution_without_sampling"
+    ):
+        raise TypeError("gradient admission requires the audited SUGAR PPO")
+    actor_parameters = [
+        parameter
+        for parameter in algorithm._actor_parameters()
+        if parameter.requires_grad
+    ]
+    if not actor_parameters:
+        raise RuntimeError("gradient admission found no trainable actor parameters")
+
+    storage = algorithm.storage
+    observations = storage.observations.flatten(0, 1)
+    actions = storage.actions.flatten(0, 1)
+    old_log_prob = storage.actions_log_prob.flatten(0, 1).squeeze(-1)
+
+    def gradient(advantages: torch.Tensor) -> tuple[torch.Tensor, float, float]:
+        algorithm._set_policy_distribution_without_sampling(observations)
+        log_prob = algorithm.policy.get_actions_log_prob(actions)
+        ratio = torch.exp(log_prob - old_log_prob)
+        flat_advantages = advantages.flatten(0, 1).squeeze(-1).detach()
+        unclipped = -flat_advantages * ratio
+        clipped = -flat_advantages * torch.clamp(
+            ratio,
+            1.0 - algorithm.clip_param,
+            1.0 + algorithm.clip_param,
+        )
+        loss = torch.maximum(unclipped, clipped).mean()
+        gradients = torch.autograd.grad(
+            loss,
+            actor_parameters,
+            allow_unused=True,
+            retain_graph=False,
+            create_graph=False,
+        )
+        vector = torch.cat(
+            [
+                (
+                    torch.zeros_like(parameter)
+                    if value is None
+                    else value
+                )
+                .detach()
+                .reshape(-1)
+                .to(device="cpu", dtype=torch.float64)
+                for parameter, value in zip(
+                    actor_parameters, gradients, strict=True
+                )
+            ]
+        )
+        return (
+            vector,
+            float(loss.detach()),
+            float(torch.abs(ratio.detach() - 1.0).max()),
+        )
+
+    total, total_loss, total_ratio_error = gradient(total_advantages)
+    base, base_loss, base_ratio_error = gradient(base_advantages)
+    delta = total - base
+    total_norm = torch.linalg.vector_norm(total)
+    base_norm = torch.linalg.vector_norm(base)
+    delta_norm = torch.linalg.vector_norm(delta)
+    denominator = total_norm * base_norm
+    cosine = (
+        torch.dot(total, base) / denominator
+        if float(denominator) > 0.0
+        else torch.tensor(float("nan"), dtype=torch.float64)
+    )
+    finite = bool(
+        torch.isfinite(total).all()
+        and torch.isfinite(base).all()
+        and torch.isfinite(delta).all()
+        and math.isfinite(total_loss)
+        and math.isfinite(base_loss)
+    )
+    return {
+        "passed": finite and float(delta_norm) > 0.0,
+        "all_finite": finite,
+        "total_actor_gradient_l2": float(total_norm),
+        "base_actor_gradient_l2": float(base_norm),
+        "demo_actor_gradient_delta_l2": float(delta_norm),
+        "total_vs_base_gradient_cosine": float(cosine),
+        "total_surrogate_loss": total_loss,
+        "base_surrogate_loss": base_loss,
+        "total_importance_ratio_max_abs_from_one": total_ratio_error,
+        "base_importance_ratio_max_abs_from_one": base_ratio_error,
+    }
 
 
 def _numeric_leaves(value) -> list[float]:
@@ -3013,6 +3122,12 @@ def main() -> None:
         raise FileNotFoundError(teacher_checkpoint)
     if args.admission_only and args.rollout_smoke_only:
         raise ValueError("select exactly one formal runner probe mode")
+    if (args.admission_only or args.rollout_smoke_only) != bool(
+        args.probe_result_output
+    ):
+        raise ValueError(
+            "probe-result-output is required exactly for a runner probe"
+        )
     if args.admission_only:
         if not (
             phase_event_protocol_contract
@@ -3045,6 +3160,11 @@ def main() -> None:
             "environment_created": False,
             "frozen_model_audit": audit,
         }
+        args.probe_result_output.parent.mkdir(parents=True, exist_ok=True)
+        args.probe_result_output.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         print(json.dumps(payload, indent=2, sort_keys=True), flush=True)
         if not payload["passed"]:
             raise RuntimeError("phase-event admission-only probe failed")
@@ -4004,6 +4124,7 @@ def main() -> None:
             finite_runtime = True
             ready_transition_count = 0
             nonzero_demo_reward_count = 0
+            demo_reward_steps: list[torch.Tensor] = []
             with torch.inference_mode():
                 for step_index in range(smoke_steps):
                     observation_t = observations.clone()
@@ -4055,6 +4176,9 @@ def main() -> None:
                     nonzero_demo_reward_count += int(
                         torch.count_nonzero(signals.demo_reward)
                     )
+                    demo_reward_steps.append(
+                        signals.demo_reward.detach().clone()
+                    )
                     algorithm.process_env_step(
                         observations_tp1,
                         signals.policy_reward,
@@ -4085,6 +4209,43 @@ def main() -> None:
                         }
                     )
                     observations = observations_tp1
+
+            # The live env outputs were created under inference mode.  Clone
+            # the bootstrap observation after leaving that context so the
+            # critic and actor audit can build an ordinary autograd graph.
+            bootstrap_observations = observations.clone()
+            stored_total_rewards = algorithm.storage.rewards.detach().clone()
+            demo_rewards = torch.stack(demo_reward_steps).clone().reshape_as(
+                stored_total_rewards
+            )
+            algorithm.compute_returns(bootstrap_observations)
+            total_returns = algorithm.storage.returns.detach().clone()
+            total_advantages = algorithm.storage.advantages.detach().clone()
+
+            algorithm.storage.rewards.copy_(
+                stored_total_rewards - demo_rewards
+            )
+            algorithm.compute_returns(bootstrap_observations)
+            base_returns = algorithm.storage.returns.detach().clone()
+            base_advantages = algorithm.storage.advantages.detach().clone()
+
+            algorithm.storage.rewards.copy_(stored_total_rewards)
+            algorithm.compute_returns(bootstrap_observations)
+            restored_total_returns = algorithm.storage.returns.detach().clone()
+            restored_total_advantages = (
+                algorithm.storage.advantages.detach().clone()
+            )
+            return_delta_max_abs = float(
+                torch.abs(total_returns - base_returns).max()
+            )
+            advantage_delta_max_abs = float(
+                torch.abs(total_advantages - base_advantages).max()
+            )
+            gradient_comparison = _actor_surrogate_gradient_comparison(
+                algorithm,
+                total_advantages,
+                base_advantages,
+            )
             counters_after = {
                 name: int(getattr(algorithm, name))
                 for name in counter_names
@@ -4111,6 +4272,37 @@ def main() -> None:
                 "online_demo_reward_became_nonzero": (
                     nonzero_demo_reward_count > 0
                 ),
+                "selected_demo_changes_ppo_returns": (
+                    return_delta_max_abs > 0.0
+                ),
+                "selected_demo_changes_normalized_advantages": (
+                    advantage_delta_max_abs > 0.0
+                ),
+                "selected_demo_changes_actor_surrogate_gradient": bool(
+                    gradient_comparison["passed"]
+                ),
+                "total_reward_return_state_restored": bool(
+                    torch.equal(
+                        algorithm.storage.rewards,
+                        stored_total_rewards,
+                    )
+                    and torch.equal(
+                        algorithm.storage.returns,
+                        restored_total_returns,
+                    )
+                    and torch.equal(
+                        algorithm.storage.advantages,
+                        restored_total_advantages,
+                    )
+                    and torch.equal(
+                        total_returns,
+                        restored_total_returns,
+                    )
+                    and torch.equal(
+                        total_advantages,
+                        restored_total_advantages,
+                    )
+                ),
                 "policy_reward_equals_base_plus_demo": (
                     reward_identity_max_abs <= 1.0e-6
                 ),
@@ -4136,7 +4328,7 @@ def main() -> None:
                 ),
             }
             payload = {
-                "protocol": "sugar_phase_event_online_rollout_smoke_v1",
+                "protocol": "sugar_phase_event_online_rollout_gradient_smoke_v2",
                 "passed": all(checks.values()),
                 "selected_option": args.demo_event_selected_option,
                 "environment_created": True,
@@ -4147,6 +4339,13 @@ def main() -> None:
                 "ready_transition_count": ready_transition_count,
                 "nonzero_demo_reward_count": nonzero_demo_reward_count,
                 "reward_identity_max_abs": reward_identity_max_abs,
+                "return_delta_max_abs": return_delta_max_abs,
+                "normalized_advantage_delta_max_abs": (
+                    advantage_delta_max_abs
+                ),
+                "actor_surrogate_gradient_comparison": (
+                    gradient_comparison
+                ),
                 "frozen_model_audit": model_audit,
                 "no_tactile_startup_physics": (
                     no_tactile_startup_physics_proof
@@ -4154,6 +4353,11 @@ def main() -> None:
                 "step_telemetry": step_telemetry,
                 "checks": checks,
             }
+            args.probe_result_output.parent.mkdir(parents=True, exist_ok=True)
+            args.probe_result_output.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
             print(json.dumps(payload, indent=2, sort_keys=True), flush=True)
             if not payload["passed"]:
                 failed = sorted(

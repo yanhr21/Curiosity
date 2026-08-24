@@ -65,6 +65,14 @@ before rollout. The corrected correct/unrelated online smokes on job257815 recor
 startup physics, actions and base rewards while retaining the selected-demo reward difference.
 Never evaluate a phase-event checkpoint whose training proof lacks this physics record.
 
+Both arms also pass a zero-optimizer reward-to-gradient admission on job257815. The same stored
+rollout is evaluated with total reward and with only selected-demo feedback removed; PPO returns,
+normalized advantages and the exact clipped actor-surrogate gradient all change. Correct has actor
+gradient delta L2 `0.07804`; unrelated has `0.04430`. Policy parameters and optimizer counters stay
+unchanged. This proves the reward reaches the learning signal, not that an optimized policy follows
+the demo. Probe success must be read from the separate machine-readable result; never accept process
+return code alone because Isaac shutdown can mask an inner exception.
+
 Routine read-only audits, dataset builds and predictor-only gates may proceed through the documented
 queue. Policy training is the explicit exception and requires user approval.
 

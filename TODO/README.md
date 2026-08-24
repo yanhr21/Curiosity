@@ -53,6 +53,10 @@
   CarryBox45 exact-zero-residual physical prerequisite over 20 profiles and 400 steps;
 - [x] bind standard-SUGAR startup material/mass/inertia/COM readback into every phase-event proof,
   restore it in frozen evaluation and re-pass both online smokes with exact matched physics;
+- [x] prove without optimizer updates that selected-demo feedback changes PPO return, normalized
+  advantage and the clipped actor-surrogate gradient in both correct and unrelated arms;
+- [x] make formal runner probes fail closed on a machine-readable result rather than subprocess
+  return code alone;
 - [ ] obtain explicit authority before new policy training;
 - [ ] run a matched policy comparison and judge
   predictor-independent frozen behavior; keep selected-demo SMP out until its semantic gate passes.

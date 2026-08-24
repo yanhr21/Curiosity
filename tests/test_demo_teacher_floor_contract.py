@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -148,7 +151,21 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert "NoTactileGoalRobotEnvCfg()" in inner_source
     assert '"no_tactile_startup_physics"' in inner_source
     assert '"no_tactile_startup_physics_recorded"' in inner_source
+    assert '"selected_demo_changes_ppo_returns"' in inner_source
+    assert '"selected_demo_changes_normalized_advantages"' in inner_source
+    assert '"selected_demo_changes_actor_surrogate_gradient"' in inner_source
+    assert "_actor_surrogate_gradient_comparison(" in inner_source
+    assert "algorithm.storage.rewards.copy_(stored_total_rewards)" in inner_source
+    assert "args.probe_result_output.write_text(" in inner_source
     assert "scene: CarryBoxRobotSceneCfg" in config_source
+
+    runner_source = (
+        ROOT / "scripts/sugar/demo_following/run_matched_state_predictor.py"
+    ).read_text(encoding="utf-8")
+    assert "require_passing_probe_result(" in runner_source
+    assert '"--probe-result-output", str(temporary_result)' in runner_source
+    assert "sugar_phase_event_online_rollout_gradient_smoke_v2" in runner_source
+    assert 'result.get("policy_updates_executed") != 0' in runner_source
 
     evaluation_launcher = (
         ROOT / "scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh"
@@ -156,6 +173,34 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert "teacher_only_gate_no_tactile_v2" in evaluation_launcher
     assert 'p["checks"]["demo_control_has_no_tactile_scene"]' in evaluation_launcher
     assert 'records[0]["values"] == records[1]["values"]' in evaluation_launcher
+
+
+def test_runner_probe_requires_machine_readable_success(tmp_path: Path) -> None:
+    result = tmp_path / "probe.json"
+    result.write_text(
+        json.dumps(
+            {
+                "protocol": "sugar_phase_event_online_rollout_gradient_smoke_v2",
+                "passed": True,
+                "policy_updates_executed": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = RUNNER.require_passing_probe_result(
+        result,
+        returncode=0,
+        admission_only=False,
+    )
+    assert payload["passed"] is True
+
+    result.write_text("", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="no valid result"):
+        RUNNER.require_passing_probe_result(
+            result,
+            returncode=0,
+            admission_only=False,
+        )
 
 
 def behavior_payload(*, passing: bool) -> dict[str, object]:

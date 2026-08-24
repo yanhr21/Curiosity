@@ -468,16 +468,24 @@ $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
   --endpoint-updates 64 --stop-after-segment --runner-rollout-smoke-only
 ```
 
-输出协议为 `sugar_phase_event_online_rollout_smoke_v1`。它要求 24 步全部完成、10-state
-history 进入 ready、demo reward 非零、`policy_reward=base_reward+demo_reward`、original ICM
-逐元素不变、policy parameter 和 optimizer counter 不变、ICM optimizer 为零，并证明 scene
-中没有 R15/TacSL sensor 或 elastomer body。旧实现虽然把 tactile tensor 置零，仍构建了双
-R15 scene；`NoTactileGoalRobotEnvCfg` 已修正该混杂。
+输出协议为 `sugar_phase_event_online_rollout_gradient_smoke_v2`。它要求 24 步全部完成、
+10-state history 进入 ready、demo reward 非零、`policy_reward=base_reward+demo_reward`、
+original ICM 逐元素不变、policy parameter 和 optimizer counter 不变、ICM optimizer 为零，
+并证明 scene 中没有 R15/TacSL sensor 或 elastomer body。旧实现虽然把 tactile tensor 置零，
+仍构建了双 R15 scene；`NoTactileGoalRobotEnvCfg` 已修正该混杂。
+
+同一 probe 还在不调用 optimizer 的情况下验证 reward-to-gradient 路径：保存 rollout 的 total
+reward，减去每步 selected-demo feedback 得到唯一 counterfactual base reward，分别调用同一个
+PPO GAE/normalized-advantage 计算，再对精确 clipped actor surrogate 求梯度，最后恢复 total
+storage。correct 的 return/advantage/actor-gradient delta 为
+`0.454116/0.253416/0.0780353`；unrelated 为
+`0.234895/0.169226/0.0442988`。这证明 feedback 会改变策略将要接收的学习方向，但没有执行
+parameter update，也不是行为结果。
 
 2026-08-24 的最终 gate 已在 fresh H200 job257815/server54 顺序通过。最小
 `SimulationApp` canary 先以系统 NVIDIA ICD
 `/etc/vulkan/icd.d/nvidia_icd.json` 完成五次 update 并正常关闭；随后 correct、unrelated
-均返回 `sugar_phase_event_online_rollout_smoke_v1/pass`。correct 的 24 步 mean demo reward
+均返回 `sugar_phase_event_online_rollout_gradient_smoke_v2/pass`。correct 的 24 步 mean demo reward
 非零且 policy reward 逐步等于 base reward 加 demo reward；unrelated 通过相同不变量检查。
 两臂均报告 no-TacSL scene、24 步完整执行、history ready、future labels hidden、frozen event
 model、policy/ICM 参数不变以及 optimizer/update counter 为零。
@@ -488,6 +496,10 @@ model、policy/ICM 参数不变以及 optimizer/update counter 为零。
 `0.3604801279/0.5055444967`；correct-minus-unrelated mean reward delta 为 `0.0227871857`。
 这是一项受控的 online selector-sensitivity 检查：差异来自 selected demo，不来自 rollout
 行为或 task reward 差异。它不等于经过训练的策略已经服从 correct demo。
+
+probe 的外层 launcher 还必须读取内层写出的独立 JSON result，并核对 protocol、pass 和零
+policy update。Isaac Sim shutdown 可能掩盖内层 Python 异常并留下零 process return code，
+因此 subprocess return code 单独不构成通过证据。
 
 job257762/server60 与 job257794/server45 曾在 Vulkan `ERROR_DEVICE_LOST` 后留下 Kit 子进程；
 按准确 PGID 清理后，同一 GPU 上的最小 canary 仍失败。不要把这种 allocation-local GPU

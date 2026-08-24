@@ -243,6 +243,31 @@ def proof_passed(path: Path) -> bool:
     return payload.get("passed") is True and all(payload.get("checks", {}).values())
 
 
+def require_passing_probe_result(
+    path: Path,
+    *,
+    returncode: int,
+    admission_only: bool,
+) -> dict[str, object]:
+    try:
+        result = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeError("formal inner-runner produced no valid result") from error
+    expected_protocol = (
+        "sugar_phase_event_policy_admission_only_v1"
+        if admission_only
+        else "sugar_phase_event_online_rollout_gradient_smoke_v2"
+    )
+    if (
+        returncode != 0
+        or result.get("passed") is not True
+        or result.get("protocol") != expected_protocol
+        or result.get("policy_updates_executed") != 0
+    ):
+        raise RuntimeError("formal inner-runner probe failed")
+    return result
+
+
 def segment_paths(
     output_root: Path, arm: str, update: int, seed: int
 ) -> dict[str, Path]:
@@ -677,6 +702,13 @@ def main() -> None:
                 json.dump(payload, stream, indent=2, sort_keys=True)
                 stream.write("\n")
                 temporary_protocol = Path(stream.name)
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".json",
+                prefix=f"phase_event_{args.arm}_{probe_name}_result_",
+                delete=False,
+            ) as stream:
+                temporary_result = Path(stream.name)
             command[command.index("--protocol-config") + 1] = str(
                 temporary_protocol
             )
@@ -685,6 +717,9 @@ def main() -> None:
                 if args.runner_admission_only
                 else "--rollout-smoke-only"
             )
+            command.extend(
+                ["--probe-result-output", str(temporary_result)]
+            )
             try:
                 completed = subprocess.run(
                     command,
@@ -692,12 +727,14 @@ def main() -> None:
                     env=runtime_environment(args, update),
                     check=False,
                 )
+                require_passing_probe_result(
+                    temporary_result,
+                    returncode=completed.returncode,
+                    admission_only=args.runner_admission_only,
+                )
             finally:
                 temporary_protocol.unlink(missing_ok=True)
-            if completed.returncode != 0:
-                raise RuntimeError(
-                    f"formal inner-runner {probe_name} probe failed"
-                )
+                temporary_result.unlink(missing_ok=True)
             return
         paths["directory"].mkdir(parents=True, exist_ok=False)
         paths["protocol"].write_text(

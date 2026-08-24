@@ -105,6 +105,19 @@ experiment 的共同 CarryBox45 teacher 起点本身具备稳定抓取和抬升�
 执行的 correct/unrelated online smoke 证明两臂 startup physics 完全相同，且 action/base
 reward 仍逐步完全一致，只有 selected-demo reward 保持 `0.04013/0.01734` 的差异。
 
+训练前的 reward-to-gradient admission 也已在同一 fresh H200 上通过。它在每条相同的
+24-step rollout 上保留正式 total reward，再仅减去 selected-demo feedback 构造 counterfactual
+base reward，分别运行同一个 PPO GAE/advantage 计算，并对精确 clipped actor surrogate 求梯度；
+全程不调用 optimizer。correct 的 return/normalized-advantage 最大变化为
+`0.45412/0.25342`，actor-gradient delta L2 为 `0.07804`；unrelated 分别为
+`0.23489/0.16923/0.04430`。两臂均保持 `0` policy update 和参数不变。因此 demo feedback
+不只进入日志或 reward tensor，确实改变了 PPO 将要使用的 actor 学习方向；这仍不是训练后
+行为遵循的证据。
+
+同时修复了 probe 的失败语义：Isaac Sim 关闭阶段可能掩盖内层 Python 非零退出状态。外层
+runner 现在必须读取独立 machine-readable result，并核对 protocol、`passed=true` 和
+`policy_updates_executed=0`；缺失或无效结果一律失败，不能再只凭 subprocess return code 放行。
+
 官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
 完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
 任意 Transformer hidden state 冒充 SMP latent，现有证据也不支持 selected-demo SMP

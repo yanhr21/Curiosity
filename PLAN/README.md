@@ -121,6 +121,17 @@ inertia and COM in every formal proof, and frozen evaluation restores that recor
 smokes show exact correct/unrelated physics equality as well as exact action/base-reward equality;
 the only online difference remains the selected-demo feedback.
 
+The pre-optimization reward-to-gradient admission now passes for both arms. On the same collected
+trajectory, the runner recomputes GAE and normalized advantages after removing only selected-demo
+feedback, then differentiates the exact clipped PPO actor surrogate without calling an optimizer.
+Correct changes return/advantage by `0.45412/0.25342` and the actor gradient by L2 `0.07804`;
+unrelated changes them by `0.23489/0.16923/0.04430`. Parameters and optimizer counters remain
+unchanged. The selected-demo signal therefore reaches the policy learning direction; whether
+optimization produces semantic behavior remains the unanswered experiment.
+
+Runner probes now fail closed on a separate machine-readable result. A zero process return code is
+insufficient because Isaac shutdown can mask an inner Python failure.
+
 ### Expected behavior, not just reward score
 
 For the correct Carry demo, the expected interaction is: approach the box, establish bilateral hand

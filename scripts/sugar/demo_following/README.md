@@ -61,6 +61,13 @@ per-environment standard-SUGAR material/mass/inertia/COM readback. Frozen evalua
 record before stepping. Both job257815 online smokes pass the record gate and have exactly matched
 physics, actions and base rewards.
 
+The rollout smoke additionally performs a no-optimizer reward-to-gradient admission. It computes
+PPO returns and normalized advantages with the stored total reward, repeats them after subtracting
+only selected-demo feedback, restores total storage, and compares exact clipped actor-surrogate
+gradients. The admitted correct/unrelated gradient deltas are `0.07804/0.04430`; parameters and all
+optimizer counters remain unchanged. Probe launchers require a machine-readable passing result and
+do not trust process return code alone.
+
 The archived historical design changed both teacher and reward demo and is not an active result.
 Exact assets, commands, expected outputs and claim boundaries are in `DOCS/reproducibility.md`.
 
