@@ -41,4 +41,9 @@ OUTPUT_ROOT="$OUTPUT_ROOT/frozen_carry" \
 PYTHON_BIN="$PYTHON_BIN" \
     bash "$ROOT/scripts/sugar/demo_following/run_corrected_phase_frozen_carry_gate.sh"
 
+"$PYTHON_BIN" -u \
+    "$ROOT/scripts/sugar/demo_following/audit_heldout_kick_tracker_scorer_transfer.py" \
+    --output-dir "$OUTPUT_ROOT/heldout_kick_tracker" \
+    --device cuda:0
+
 echo "CORRECTED_PHASE_RUNTIME_AND_CARRY_GATES_COMPLETE root=$OUTPUT_ROOT"
