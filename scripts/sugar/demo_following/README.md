@@ -67,7 +67,10 @@ reproduce Kick21 foot contact. This is a single-seed partial behavior shift, not
 proof. The independent replication with `161589/161590 -> 171589` is complete. Update 64 repeats
 the exact `3/4` direction pattern with nearly identical lifted/ground transport and orbit deltas;
 update 32 does not replicate. Both policies remain Carry and foot interaction stays near zero.
-The next run is one same-seed 4x feedback-strength overfit diagnostic; no second scale is added.
+The same-seed 4x feedback-strength diagnostic is complete: update 64 degrades `3/4 -> 1/4`, effects
+reverse and unrelated foot contact does not increase despite cumulative feedback reaching `-48.64`.
+Do not add a second scale. The next implementation target is one shared actor/checkpoint that reads
+causal frozen-predictor feedback and selected-demo conditioning before each action.
 
 On the current cluster, NVIDIA Vulkan camera rendering repeatedly loses the H200 device during
 scene creation before a valid frame is emitted. This does not invalidate camera-free frozen traces.

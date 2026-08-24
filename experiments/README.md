@@ -7,7 +7,8 @@ are under root `legacy/`.
 
 The completed reference-aware matched policy results are
 `demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/` and `seed161589/`. The
-next execution focus is one fixed 4x feedback-strength overfit diagnostic. This README is the only
+fixed 4x feedback-strength overfit diagnostic is also complete. The next focus is the shared
+demo-conditioned actor contract. This README is the only
 experiment index; the stale package manifest has been archived.
 
 ## 1. `demo_following/`
@@ -33,6 +34,10 @@ experiment index; the stale package manifest has been archived.
 - `matched_phase_event_reward_reference_aware_v2/seed161589/`: independent replication. Update 64
   repeats the same `3/4` direction pattern with nearly identical transport/orbit deltas; update 32
   does not. Both H.264 videos and complete frozen traces are retained;
+- `matched_phase_event_reward_reference_aware_4x_overfit_v1/seed161589/`: fixed same-seed 4x
+  magnitude diagnostic. Direction count degrades from baseline `3/4` to `1/4`, paired effects
+  reverse and unrelated foot contact does not increase. `STRENGTH_COMPARISON.json` is the compact
+  machine-readable verdict; no further scale is active;
 - `teacher_floor_overfit_v1/`: seed161581 update-128 correct/unrelated endpoints, frozen traces,
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick

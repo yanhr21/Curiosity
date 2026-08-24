@@ -148,6 +148,14 @@ correct/unrelated 最大抬升为 `0.69619/0.70516 m`，双手接触率为 `0.83
 physical fall 都是 `0/20`，足—箱接触仍约一帧。因此当前最准确结论是：64 updates 后可重复
 出现小幅行为方向变化，但没有形成 Kick 接触结构或完整语义遵循。
 
+固定 4x reward-strength overfit 也已完成。它复用第二组 seed，并只把 `eta` 与
+`reward_clip` 乘四；两臂 training proof、冻结评估和视频全部通过。结果没有改善：update 64
+从 baseline `3/4` 降为 `1/4`，unrelated-minus-correct ground transport 从 `+0.00386` 反转为
+`-0.02801`，orbit 从 `+0.00369` 反转为 `-0.03546 rad/s`，足—箱接触优势为 `-0.00535`。
+unrelated 累计 feedback 从 `-11.99` 放大到 `-48.64`，predicted loss 仅改善 `0.00320`，实际
+仍搬箱。结论不是“再加大 reward”，而是标量 mismatch reward 缺少产生新接触拓扑的可执行
+方向；继续 scale sweep 没有科学依据。
+
 冻结评估还暴露出比“训练不够久”更关键的问题：在实际 Refiner+residual Carry 轨迹上，correct
 arm 的平均 Carry45/Kick21 predicted mismatch 为 `0.96986/0.89087`，即 predictor 反而认为
 这个明显的搬箱轨迹更接近 Kick。严格 scorer-only 审计现已保存逐帧 exact `121-D` 输入，并在
@@ -324,6 +332,8 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 - [新 reference-aware unrelated Kick demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/videos_update0064_trace_exact/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [独立复现 correct demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161589/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
 - [独立复现 unrelated Kick demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161589/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
+- [4x correct demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_4x_overfit_v1/seed161589/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
+- [4x unrelated Kick demo 与冻结实际行为](experiments/demo_following/matched_phase_event_reward_reference_aware_4x_overfit_v1/seed161589/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [旧 phase-0 correct Carry45 demo 与实际 Carry 行为](experiments/demo_following/matched_phase_event_reward_v1/seed161587/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
 - [旧 phase-0 unrelated Kick21 demo 与实际 Carry 行为](experiments/demo_following/matched_phase_event_reward_v1/seed161587/videos_update0064/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [correct CarryBox demo 与实际行为](experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581/videos_update0064/01_correct_demo_and_actual_behavior.mp4)；
@@ -361,8 +371,10 @@ official Generator/Tracker Kick gate 也以 `8/9` profile preference 通过，�
 反例。官方发布物当前只有 KickBox
 `generator.ckpt + tracker.pt`，没有 frozen Kick Refiner checkpoint；因此现有 gate 已覆盖最强
 可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。第一组从零 reference-aware matched
-pair 与独立 seed 复现均已完成；update 64 的同一 `3/4` 小幅方向变化可重复，但没有 Kick
-足部接触。下一步只做一个固定的 4x reward-strength overfit diagnostic：沿用第二组 seed，
-teacher、frame-197 phase、20 env、64 updates、predictor、physics 和评估全部不变，只把
-`eta` 与 `reward_clip` 同时乘四，使 demo feedback 从约 25% 提高到约 100% base-reward scale。
-它不是参数 sweep；完成后直接冻结评估，不再自动增加其他 scale。SMP 仍不接入。
+pair、独立 seed 复现和固定 4x 诊断均已完成。1x 在 update 64 的同一 `3/4` 小幅变化可重复，
+4x 却退化为 `1/4`，所以问题不是单纯 reward 太小。当前两个 demo 条件仍分别训练成两个
+checkpoint，冻结 actor 在测试时也不读取 selected-demo identity 或 predictor feedback；reward
+只能在训练期改参数，无法在部署时让同一个 policy 随 demo 切换。下一步是先固化一个共享
+checkpoint 的 serious SUGAR actor 合同：训练时混合 Carry45/Kick21，actor 每步只读取因果的
+冻结 predictor mismatch/risk/uncertainty 与 selected-demo condition，测试时固定 checkpoint
+只交换 demo。未来 GT events 仍禁止进入 actor，SMP 仍不接入。

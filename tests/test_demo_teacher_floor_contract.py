@@ -261,6 +261,11 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
         ROOT / "scripts/sugar/demo_following/run_reference_aware_phase_event_pair.sh"
     ).read_text(encoding="utf-8")
     assert "PHASE_EVENT_RUNTIME_CONFIG" in pair_launcher_source
+    strength_comparison_source = (
+        ROOT / "scripts/sugar/demo_following/compare_feedback_strength_diagnostic.py"
+    ).read_text(encoding="utf-8")
+    assert "four_x_semantic_directions" in strength_comparison_source
+    assert "do not continue a scale sweep" in strength_comparison_source
     assert "canonical_environment_index = int(np.argmin(translation_norm))" in (
         evaluator_source
     )

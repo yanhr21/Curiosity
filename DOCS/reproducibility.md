@@ -715,6 +715,22 @@ lifted-transport delta 为 `-0.00372/-0.00386`，ground-transport delta 为
 `161589/161590` 以隔离 scale，其他训练和评估合同不变；这是单点 overfit diagnostic，不是
 参数 sweep。
 
+4x 两臂与冻结评估随后完整通过。紧凑比较可复现为：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/compare_feedback_strength_diagnostic.py \
+  --baseline-root experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161589 \
+  --diagnostic-root experiments/demo_following/matched_phase_event_reward_reference_aware_4x_overfit_v1/seed161589 \
+  --output experiments/demo_following/reproduce_feedback_strength_comparison.json
+```
+
+记录结果为 baseline/4x direction count `3/4 -> 1/4`；paired ground transport
+`+0.00386 -> -0.02801`，orbit `+0.00369 -> -0.03546 rad/s`，foot-contact effect
+`-0.000011 -> -0.00535`。unrelated cumulative feedback `-11.99 -> -48.64`，但 predicted loss
+只改善 `0.00320` 且行为仍为 Carry。由此拒绝“只需继续放大 reward”；下一方法必须在同一共享
+checkpoint 中把 selected demo 与 causal predictor feedback 变成 actor action 前可见的条件，
+测试时只换 demo、不换 checkpoint。
+
 H200 NVIDIA Vulkan 相机路径在场景创建期连续触发 `VK_ERROR_DEVICE_LOST`，未写出有效相机帧。
 统计证据来自已经通过的 camera-free frozen traces，不受该渲染失败影响。精确 trace 视频可在
 登录节点 CPU 上生成：

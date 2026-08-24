@@ -1,6 +1,6 @@
 # Global Agent Rules
 
-## 1. No human authorization gates; current priority: reward-strength diagnostic
+## 1. No human authorization gates; current priority: actionable demo conditioning
 
 - Hard user rule from 2026-08-24: never add, require or wait on an artificial human-approval flag,
   environment variable, sentinel file or repeated confirmation for an experiment already in the
@@ -77,13 +77,23 @@ arms remain bilateral Carry, foot-box contact stays near one frame per episode a
 are zero. This establishes a reproducible small behavior shift at update 64, not Kick interaction
 or complete semantic following.
 
-The active causal diagnostic is one same-seed from-scratch matched pair with only the frozen dense
-feedback magnitude multiplied by four, from 25% to approximately 100% of the existing base-reward
-scale. Keep `161589/161590`, teacher, frame-197 phase, 20 environments, 64 updates, predictor,
-physics and evaluation fixed. Scale both `eta` and `reward_clip` by four and change nothing else.
-This is a fixed overfit diagnostic, not a sweep or formal result. It tests whether signal magnitude
-alone prevents contact-topology change. Automatically evaluate both arms; do not wait for human
-approval or add further scales.
+The fixed 4x feedback-strength diagnostic is complete. Both arms pass `65/65` training checks and
+matched frozen evaluation, but update-64 semantic directions fall from baseline `3/4` to `1/4`.
+The unrelated-minus-correct ground-transport and orbit effects reverse to `-0.02801` and
+`-0.03546 rad/s`; foot-contact advantage is also negative (`-0.00535`). Unrelated cumulative demo
+feedback grows from `-11.99` to `-48.64`, while predicted loss improves only `0.00320` and behavior
+remains Carry. Signal magnitude alone is not the bottleneck. Do not run another scale or describe
+the 4x result as improvement.
+
+The next active work is a design/code audit for one shared demo-conditioned serious SUGAR actor.
+The current correct and unrelated arms are separate checkpoints, and the deployed actor does not
+observe selected-demo identity or causal predictor feedback; runtime reward cannot change a frozen
+feed-forward policy. The new design must keep the frozen 11.386M predictor and official SUGAR actor,
+provide only causal predictor mismatch/risk/uncertainty and selected-demo conditioning before each
+actor call, train both demo conditions in one checkpoint, and evaluate by swapping the demo while
+holding that checkpoint fixed. Do not implement a toy network, do not use future/GT events, and do
+not launch policy training until this exact observation/action contract and matched test are written
+and verified in dry-run. This is a scientific design prerequisite, not a human approval gate.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

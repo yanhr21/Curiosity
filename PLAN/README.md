@@ -23,9 +23,20 @@ The independent-seed replication `161589/161590 -> 171589` is complete. At updat
 same missing direction and nearly the same three deltas as seed161587: lifted transport
 `-0.00372/-0.00386`, ground transport `+0.00372/+0.00386`, and orbit
 `+0.00381/+0.00369 rad/s`. Update 32 does not replicate (`3/4` versus `1/4`). Both seeds retain
-bilateral Carry and near-zero foot interaction. The next experiment is one fixed 4x feedback-scale
-overfit diagnostic using seed161589; it changes only `eta` and `reward_clip`, not the predictor,
-teacher, phase, budget, physics or SMP status.
+bilateral Carry and near-zero foot interaction.
+
+The fixed 4x feedback-scale overfit diagnostic is also complete. It changes only `eta` and
+`reward_clip`, yet update-64 directions fall from `3/4` to `1/4`; ground-transport and orbit effects
+reverse, and unrelated foot contact does not increase. The unrelated cumulative feedback reaches
+`-48.64` versus baseline `-11.99`, so simple signal magnitude is rejected as the demonstrated
+bottleneck. No further scale is planned.
+
+The next method must make demo feedback actionable at deployment: one shared serious SUGAR actor,
+one checkpoint, both selected-demo conditions during training, and causal frozen-predictor
+mismatch/risk/uncertainty plus demo conditioning available before each actor action. Evaluation
+swaps Carry45/Kick21 while holding the checkpoint, teacher, physics and task fixed. Future labels and
+GT trajectory error remain forbidden actor inputs; official TinyMDM remains out after its semantic
+extension failure.
 
 The first causal selected-demo experiment is complete:
 
