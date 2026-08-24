@@ -82,6 +82,9 @@ def test_teacher_floor_protocol_is_matched_and_nonzero() -> None:
 
 def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     design = RUNNER.DESIGNS["phase_event_reward_only"]
+    assert design["output"].name == (
+        "matched_phase_event_reward_reference_aware_v2"
+    )
     correct = design["arms"]["correct"]
     unrelated = design["arms"]["unrelated"]
     assert correct["teacher"] == unrelated["teacher"]
@@ -327,6 +330,42 @@ def test_phase_corrected_pair_reuses_only_complete_arms(tmp_path: Path) -> None:
     assert "incomplete arm requires inspection; refusing to overwrite: correct" in (
         refused.stderr
     )
+
+
+def test_phase_event_proof_reuse_requires_reference_aware_clock(
+    tmp_path: Path,
+) -> None:
+    proof = tmp_path / "proof.json"
+    payload = {
+        "passed": True,
+        "protocol": "sugar_phase_event_reward_matched_policy_v1",
+        "checks": {"demo_event_phase_and_prefix_are_causal": True},
+        "contact_seed": {"selected_reference_frame": 197},
+        "demo_event_reward": {
+            "final_frozen_audit": {
+                "phase_source": "reset_bounded_causal_control_clock",
+                "initial_episode_steps_supplied": False,
+                "initial_episode_steps_min": 0,
+                "initial_episode_steps_max": 0,
+            }
+        },
+    }
+    proof.write_text(json.dumps(payload), encoding="utf-8")
+    assert RUNNER.proof_passed(proof) is True
+    assert (
+        RUNNER.proof_passed(proof, require_reference_aware_phase=True) is False
+    )
+    audit = payload["demo_event_reward"]["final_frozen_audit"]
+    audit.update(
+        {
+            "phase_source": "reset_reference_frame_plus_causal_control_clock",
+            "initial_episode_steps_supplied": True,
+            "initial_episode_steps_min": 197,
+            "initial_episode_steps_max": 197,
+        }
+    )
+    proof.write_text(json.dumps(payload), encoding="utf-8")
+    assert RUNNER.proof_passed(proof, require_reference_aware_phase=True) is True
 
 
 def test_runner_probe_requires_machine_readable_success(tmp_path: Path) -> None:

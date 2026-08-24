@@ -22,7 +22,7 @@ if [[ -n "$RUN_ROOT_OVERRIDE" ]]; then
     RUN_ROOT=$(realpath -m "$RUN_ROOT_OVERRIDE")
 else
     if [[ "$DESIGN" == "phase_event_reward_only" ]]; then
-        RUN_ROOT="$ROOT/experiments/demo_following/matched_phase_event_reward_v1/seed161587"
+        RUN_ROOT="$ROOT/experiments/demo_following/matched_phase_event_reward_reference_aware_v2/seed161587"
     else
         RUN_ROOT="$ROOT/experiments/demo_following/matched_reward_identity_same_teacher_v1/seed161581"
     fi

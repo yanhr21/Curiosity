@@ -44,7 +44,7 @@ DESIGNS = {
         "protocol": "sugar_phase_event_reward_matched_policy_v1",
         "checkpoint_updates": [32, 64],
         "output": ROOT
-        / "experiments/demo_following/matched_phase_event_reward_v1",
+        / "experiments/demo_following/matched_phase_event_reward_reference_aware_v2",
         "question": (
             "With one fixed CarryBox45 teacher and identical optimization, "
             "does causal phase-aware dense feedback produce behavior that "
@@ -244,11 +244,31 @@ def require_inputs(contract: dict[str, object]) -> None:
         raise RuntimeError("MimicKit must remain at the pinned detached commit")
 
 
-def proof_passed(path: Path) -> bool:
+def proof_passed(
+    path: Path, *, require_reference_aware_phase: bool = False
+) -> bool:
     if not path.is_file():
         return False
     payload = json.loads(path.read_text(encoding="utf-8"))
-    return payload.get("passed") is True and all(payload.get("checks", {}).values())
+    checks = payload.get("checks", {})
+    if payload.get("passed") is not True or not checks or not all(checks.values()):
+        return False
+    if not require_reference_aware_phase:
+        return True
+    audit = payload.get("demo_event_reward", {}).get("final_frozen_audit", {})
+    reference_frame = payload.get("contact_seed", {}).get(
+        "selected_reference_frame"
+    )
+    return (
+        payload.get("protocol") == "sugar_phase_event_reward_matched_policy_v1"
+        and checks.get("demo_event_phase_and_prefix_are_causal") is True
+        and reference_frame is not None
+        and audit.get("phase_source")
+        == "reset_reference_frame_plus_causal_control_clock"
+        and audit.get("initial_episode_steps_supplied") is True
+        and audit.get("initial_episode_steps_min") == reference_frame
+        and audit.get("initial_episode_steps_max") == reference_frame
+    )
 
 
 def require_passing_probe_result(
@@ -668,7 +688,10 @@ def main() -> None:
 
     for update in range(start_update, args.endpoint_updates + 1, 64):
         paths = segment_paths(output_root, args.arm, update, args.seed)
-        if proof_passed(paths["proof"]) and paths["checkpoint"].is_file():
+        if proof_passed(
+            paths["proof"],
+            require_reference_aware_phase=phase_event_design,
+        ) and paths["checkpoint"].is_file():
             previous_checkpoint = paths["checkpoint"]
             previous_update = update
             continue
@@ -779,7 +802,10 @@ def main() -> None:
                 stderr=subprocess.STDOUT,
                 check=False,
             )
-        if completed.returncode != 0 or not proof_passed(paths["proof"]):
+        if completed.returncode != 0 or not proof_passed(
+            paths["proof"],
+            require_reference_aware_phase=phase_event_design,
+        ):
             raise RuntimeError(
                 f"segment {update} failed; inspect {paths['console']} and {paths['proof']}"
             )
