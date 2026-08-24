@@ -80,6 +80,16 @@ def parse_args() -> argparse.Namespace:
         "scorer_transfer_phase_ablation_v1",
     )
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument(
+        "--source-phase-variant",
+        choices=("auto", "reset_zero", "reference_aware"),
+        default="auto",
+        help=(
+            "Clock used by the archived evaluator signals. Auto reads the "
+            "explicit evaluator metadata and treats older metadata-free v2 "
+            "traces as the historical reset-zero runtime."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -152,13 +162,6 @@ def load_trace(root: Path, arm: str) -> tuple[dict[str, Any], dict[str, np.ndarr
         raise RuntimeError(f"{arm}: evaluator trace does not contain the v2 transfer contract")
     if result.get("passed") is not True or not all(result.get("checks", {}).values()):
         raise RuntimeError(f"{arm}: source frozen evaluation did not pass")
-    phase_initialization = result.get("phase_initialization")
-    if phase_initialization is not None and phase_initialization.get("mode") != (
-        "reset-zero-diagnostic"
-    ):
-        raise RuntimeError(
-            f"{arm}: source trace must explicitly reproduce the historical zero-phase runtime"
-        )
     with np.load(trace_path, allow_pickle=False) as archive:
         trace = {name: np.asarray(archive[name]) for name in archive.files}
     required_shapes = {
@@ -178,6 +181,17 @@ def load_trace(root: Path, arm: str) -> tuple[dict[str, Any], dict[str, np.ndarr
     if not np.isfinite(trace["goal_policy_core_observation"]).all():
         raise RuntimeError(f"{arm}: archived 121-D core contains non-finite values")
     return result, trace
+
+
+def infer_source_phase_variant(result: dict[str, Any]) -> str:
+    """Map evaluator metadata to the matching scorer-ablation clock."""
+
+    recorded_mode = (result.get("phase_initialization") or {}).get("mode")
+    if recorded_mode == "reference-aware":
+        return "reference_aware"
+    if recorded_mode in {None, "reset-zero-diagnostic"}:
+        return "reset_zero"
+    raise ValueError(f"unknown evaluator phase initialization: {recorded_mode}")
 
 
 @torch.no_grad()
@@ -237,13 +251,16 @@ def runtime_reproduction(
     trace: dict[str, np.ndarray],
     scores: dict[str, np.ndarray | dict[str, Any]],
     selected_demo: str,
+    phase_variant_index: int,
 ) -> dict[str, Any]:
     comparisons = {
-        "risk": np.asarray(scores["risk"])[0],
-        "reward": np.asarray(scores["reward"])[0],
-        "ready": np.asarray(scores["ready"])[0],
-        "phase": np.asarray(scores["phase"])[0],
-        "weighted_uncertainty": np.asarray(scores["uncertainty"])[0],
+        "risk": np.asarray(scores["risk"])[phase_variant_index],
+        "reward": np.asarray(scores["reward"])[phase_variant_index],
+        "ready": np.asarray(scores["ready"])[phase_variant_index],
+        "phase": np.asarray(scores["phase"])[phase_variant_index],
+        "weighted_uncertainty": np.asarray(scores["uncertainty"])[
+            phase_variant_index
+        ],
     }
     maximum_absolute_error = {}
     exact_equal = {}
@@ -345,11 +362,21 @@ def main() -> None:
     source_results: dict[str, dict[str, Any]] = {}
     traces: dict[str, dict[str, np.ndarray]] = {}
     reference_frames = {}
+    source_phase_variants = {}
     for arm in ARMS:
         source_results[arm], traces[arm] = load_trace(evaluation_root, arm)
         reference_frames[arm] = int(source_results[arm]["reset"]["reference_frame"])
+        source_phase_variants[arm] = infer_source_phase_variant(
+            source_results[arm]
+        )
     if len(set(reference_frames.values())) != 1:
         raise RuntimeError("matched arms use different source reference frames")
+    if args.source_phase_variant != "auto":
+        source_phase_variants = {
+            arm: args.source_phase_variant for arm in ARMS
+        }
+    if len(set(source_phase_variants.values())) != 1:
+        raise RuntimeError("matched source traces use different phase contracts")
 
     score_records: dict[str, dict[str, dict[str, np.ndarray | dict[str, Any]]]] = {}
     reproduction: dict[str, dict[str, Any]] = {}
@@ -368,7 +395,10 @@ def main() -> None:
             )
             score_records[arm][demo] = scores
             reproduction[arm][demo] = runtime_reproduction(
-                traces[arm], scores, demo
+                traces[arm],
+                scores,
+                demo,
+                PHASE_VARIANTS.index(source_phase_variants[arm]),
             )
             for signal in ("risk", "reward", "ready", "phase", "uncertainty"):
                 archive_arrays[f"{arm}_{demo}_{signal}"] = np.asarray(scores[signal])
@@ -433,7 +463,7 @@ def main() -> None:
         ),
         "source_reference_frame_is_matched": len(set(reference_frames.values())) == 1,
         "source_reference_frame_is_nonzero": next(iter(reference_frames.values())) > 0,
-        "all_runtime_current_clock_scores_reproduced": all(
+        "all_source_runtime_scores_reproduced": all(
             reproduction[arm][demo]["passed"] for arm in ARMS for demo in DEMOS
         ),
         "all_predictors_frozen": all(
@@ -464,12 +494,15 @@ def main() -> None:
         "device": str(device),
         "phase_horizon_steps": PHASE_HORIZON_STEPS,
         "phase_variants": {
-            "reset_zero": "episode_steps starts at 0, exactly reproducing deployed runtime",
+            "reset_zero": (
+                "episode_steps starts at 0, reproducing the historical phase bug"
+            ),
             "reference_aware": (
                 "first episode starts at the source reference frame; later resets restart at 0"
             ),
         },
         "reference_frames": reference_frames,
+        "source_phase_variants": source_phase_variants,
         "runtime_reproduction": reproduction,
         "semantic_blocks": semantic_blocks,
         "phase_gate_blocks": phase_gate_blocks,

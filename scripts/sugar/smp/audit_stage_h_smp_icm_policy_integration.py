@@ -1754,6 +1754,7 @@ def _restore_explicit_zero_control_state(
         raise ValueError("explicit-zero motion loader index is out of range")
     command.motion_id.fill_(selected_motion_loader_index)
     command.time_steps.fill_(selected_reference_frame)
+    command.last_reset_timestep.fill_(selected_reference_frame)
     command._use_motion_data.fill_(True)
     command._record_reference_targets(env_ids)
     current_object_position = torch.as_tensor(
@@ -4386,6 +4387,15 @@ def main() -> None:
                 "future_actual_events_hidden": (
                     model_audit["future_actual_events_used"] is False
                 ),
+                "initial_phase_matches_restored_reference_frame": (
+                    model_audit["phase_source"]
+                    == "reset_reference_frame_plus_causal_control_clock"
+                    and model_audit["initial_episode_steps_supplied"] is True
+                    and model_audit["initial_episode_steps_min"]
+                    == int(contact_seed["selected_reference_frame"])
+                    and model_audit["initial_episode_steps_max"]
+                    == int(contact_seed["selected_reference_frame"])
+                ),
             }
             payload = {
                 "protocol": (
@@ -6976,7 +6986,15 @@ def main() -> None:
                     ),
                     "demo_event_phase_and_prefix_are_causal": (
                         demo_final_audit["phase_source"]
-                        == "reset_bounded_causal_control_clock"
+                        == "reset_reference_frame_plus_causal_control_clock"
+                        and demo_final_audit[
+                            "initial_episode_steps_supplied"
+                        ]
+                        is True
+                        and demo_final_audit["initial_episode_steps_min"]
+                        == int(contact_seed["selected_reference_frame"])
+                        and demo_final_audit["initial_episode_steps_max"]
+                        == int(contact_seed["selected_reference_frame"])
                         and demo_final_audit["future_actual_events_used"]
                         is False
                         and demo_final_audit["history_steps"] == 10

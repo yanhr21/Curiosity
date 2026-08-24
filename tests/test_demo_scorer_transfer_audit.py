@@ -75,3 +75,44 @@ def test_first_episode_transition_mask_includes_terminal_transition() -> None:
             ]
         ),
     )
+
+
+def test_source_phase_variant_is_explicit_and_backward_compatible() -> None:
+    assert MODULE.infer_source_phase_variant({}) == "reset_zero"
+    assert MODULE.infer_source_phase_variant(
+        {"phase_initialization": {"mode": "reset-zero-diagnostic"}}
+    ) == "reset_zero"
+    assert MODULE.infer_source_phase_variant(
+        {"phase_initialization": {"mode": "reference-aware"}}
+    ) == "reference_aware"
+
+
+def test_runtime_reproduction_selects_declared_phase_variant() -> None:
+    trace = {
+        "demo_correct_risk": np.asarray([[3.0]], dtype=np.float32),
+        "demo_correct_reward": np.asarray([[4.0]], dtype=np.float32),
+        "demo_correct_ready": np.asarray([[True]]),
+        "demo_correct_phase": np.asarray([[0.3]], dtype=np.float32),
+        "demo_correct_weighted_uncertainty": np.asarray(
+            [[5.0]], dtype=np.float32
+        ),
+    }
+    scores = {
+        "risk": np.asarray([[[30.0]], [[3.0]]], dtype=np.float32),
+        "reward": np.asarray([[[40.0]], [[4.0]]], dtype=np.float32),
+        "ready": np.asarray([[[False]], [[True]]]),
+        "phase": np.asarray([[[0.0]], [[0.3]]], dtype=np.float32),
+        "uncertainty": np.asarray([[[50.0]], [[5.0]]], dtype=np.float32),
+    }
+    assert MODULE.runtime_reproduction(
+        trace,
+        scores,
+        "correct",
+        phase_variant_index=1,
+    )["passed"] is True
+    assert MODULE.runtime_reproduction(
+        trace,
+        scores,
+        "correct",
+        phase_variant_index=0,
+    )["passed"] is False

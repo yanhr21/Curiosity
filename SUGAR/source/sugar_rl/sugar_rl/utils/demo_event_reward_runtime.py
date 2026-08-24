@@ -395,6 +395,8 @@ class FrozenPhaseAwareDemoEventScorer:
         self.episode_steps = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
+        self.initial_episode_steps = torch.zeros_like(self.episode_steps)
+        self.initial_episode_steps_supplied = False
         self.transitions_scored = 0
         self.started = False
 
@@ -419,6 +421,8 @@ class FrozenPhaseAwareDemoEventScorer:
         self.runtime.begin(self._core(observation))
         if initial_episode_steps is None:
             self.episode_steps.zero_()
+            self.initial_episode_steps.zero_()
+            self.initial_episode_steps_supplied = False
         else:
             initial_episode_steps = initial_episode_steps.to(
                 device=self.device,
@@ -436,6 +440,8 @@ class FrozenPhaseAwareDemoEventScorer:
                     "per environment"
                 )
             self.episode_steps.copy_(initial_episode_steps)
+            self.initial_episode_steps.copy_(initial_episode_steps)
+            self.initial_episode_steps_supplied = True
         self.started = True
         return self.frozen_model_audit()
 
@@ -485,6 +491,15 @@ class FrozenPhaseAwareDemoEventScorer:
             "phase_source": (
                 "reset_reference_frame_plus_causal_control_clock"
             ),
+            "initial_episode_steps_supplied": bool(
+                self.initial_episode_steps_supplied
+            ),
+            "initial_episode_steps_min": int(
+                self.initial_episode_steps.min().item()
+            ),
+            "initial_episode_steps_max": int(
+                self.initial_episode_steps.max().item()
+            ),
             "future_actual_events_used": False,
         }
 
@@ -498,6 +513,12 @@ class FrozenPhaseAwareDemoEventScorer:
             "policy_prefix": self.runtime.policy_prefix.detach().clone(),
             "valid_count": self.runtime.valid_count.detach().clone(),
             "episode_steps": self.episode_steps.detach().clone(),
+            "initial_episode_steps": (
+                self.initial_episode_steps.detach().clone()
+            ),
+            "initial_episode_steps_supplied": bool(
+                self.initial_episode_steps_supplied
+            ),
             "transitions_scored": int(self.transitions_scored),
         }
 
@@ -520,6 +541,23 @@ class FrozenPhaseAwareDemoEventScorer:
                 raise ValueError(f"phase-aware scorer checkpoint {name} shape drift")
             destination.copy_(source)
         self.transitions_scored = int(state["transitions_scored"])
+        restored_initial = state.get("initial_episode_steps")
+        if restored_initial is None:
+            self.initial_episode_steps.zero_()
+            self.initial_episode_steps_supplied = False
+        else:
+            restored_initial = restored_initial.to(
+                device=self.device,
+                dtype=self.initial_episode_steps.dtype,
+            )
+            if restored_initial.shape != self.initial_episode_steps.shape:
+                raise ValueError(
+                    "phase-aware scorer checkpoint initial phase shape drift"
+                )
+            self.initial_episode_steps.copy_(restored_initial)
+            self.initial_episode_steps_supplied = bool(
+                state.get("initial_episode_steps_supplied", True)
+            )
         self.runtime.started = True
         self.started = True
 

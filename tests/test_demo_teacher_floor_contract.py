@@ -176,6 +176,8 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
         in runner_source
     )
     assert 'result.get("policy_updates_executed") != 0' in runner_source
+    assert '"--probe-evidence-output"' in runner_source
+    assert "json.dumps(probe_result, indent=2, sort_keys=True)" in runner_source
 
     evaluation_launcher = (
         ROOT / "scripts/sugar/demo_following/evaluate_and_render_matched_endpoint.sh"
@@ -218,6 +220,11 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     assert 'choices=("reference-aware", "reset-zero-diagnostic")' in (
         evaluator_source
     )
+    assert '"initial_phase_matches_restored_reference_frame"' in inner_source
+    assert '"reset_reference_frame_plus_causal_control_clock"' in inner_source
+    assert inner_source.count(
+        "command.last_reset_timestep.fill_(selected_reference_frame)"
+    ) == 2
     assert '"phase_event_exact_policy_core_archived"' in evaluator_source
     assert '"phase_event_runtime_signals_archived"' in evaluator_source
     assert "sugar_phase_event_reward_matched_frozen_eval_32_64_v2" in (

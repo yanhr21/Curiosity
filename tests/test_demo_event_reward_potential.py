@@ -117,6 +117,8 @@ def test_phase_scorer_uses_only_reset_bounded_causal_clock():
     )()
     scorer.runtime = _RecordingRuntime()
     scorer.episode_steps = torch.zeros(2, dtype=torch.long)
+    scorer.initial_episode_steps = torch.zeros(2, dtype=torch.long)
+    scorer.initial_episode_steps_supplied = False
     scorer.transitions_scored = 0
     scorer.started = False
     observation = {"policy": torch.randn(2, 175)}
@@ -143,6 +145,8 @@ def test_phase_scorer_can_start_from_restored_reference_frame():
     )()
     scorer.runtime = _RecordingRuntime()
     scorer.episode_steps = torch.zeros(2, dtype=torch.long)
+    scorer.initial_episode_steps = torch.zeros(2, dtype=torch.long)
+    scorer.initial_episode_steps_supplied = False
     scorer.transitions_scored = 0
     scorer.started = False
     observation = {"policy": torch.randn(2, 175)}
@@ -151,6 +155,10 @@ def test_phase_scorer_can_start_from_restored_reference_frame():
         initial_episode_steps=torch.tensor([197, 0]),
     )
     scorer.process_step(observation, torch.tensor([False, False]))
+    audit = scorer.frozen_model_audit()
+    assert audit["initial_episode_steps_supplied"] is True
+    assert audit["initial_episode_steps_min"] == 0
+    assert audit["initial_episode_steps_max"] == 197
     assert torch.allclose(
         scorer.runtime.phases[-1],
         torch.tensor([199.0 / 650.0, 2.0 / 650.0]),

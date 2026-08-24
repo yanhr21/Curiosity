@@ -194,6 +194,14 @@ def parse_args() -> argparse.Namespace:
             "through the actor and reward path, with no optimizer step"
         ),
     )
+    parser.add_argument(
+        "--probe-evidence-output",
+        type=Path,
+        help=(
+            "persist the passing machine-readable inner-runner probe result; "
+            "valid only with one runner probe mode"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -609,6 +617,15 @@ def main() -> None:
         raise ValueError(
             "runner probes are phase-event, non-training, non-dry execution modes"
         )
+    if args.probe_evidence_output is not None and not runner_probe_mode:
+        raise ValueError(
+            "--probe-evidence-output requires one runner probe mode"
+        )
+    if (
+        args.probe_evidence_output is not None
+        and args.probe_evidence_output.expanduser().exists()
+    ):
+        raise FileExistsError(args.probe_evidence_output)
     if (args.seed, args.action_seed) not in PREDECLARED_SEED_PAIRS or args.num_envs != 20:
         raise ValueError(
             "matched design requires one predeclared sim/action seed pair and 20 environments"
@@ -727,11 +744,21 @@ def main() -> None:
                     env=runtime_environment(args, update),
                     check=False,
                 )
-                require_passing_probe_result(
+                probe_result = require_passing_probe_result(
                     temporary_result,
                     returncode=completed.returncode,
                     admission_only=args.runner_admission_only,
                 )
+                if args.probe_evidence_output is not None:
+                    evidence_output = (
+                        args.probe_evidence_output.expanduser().resolve()
+                    )
+                    evidence_output.parent.mkdir(parents=True, exist_ok=True)
+                    evidence_output.write_text(
+                        json.dumps(probe_result, indent=2, sort_keys=True)
+                        + "\n",
+                        encoding="utf-8",
+                    )
             finally:
                 temporary_protocol.unlink(missing_ok=True)
                 temporary_result.unlink(missing_ok=True)
