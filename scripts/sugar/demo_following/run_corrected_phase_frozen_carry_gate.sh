@@ -10,7 +10,7 @@ OUTPUT_ROOT=${OUTPUT_ROOT:-$SEED_ROOT/corrected_phase_frozen_carry_gate_v1}
 TRACE_ROOT="$OUTPUT_ROOT/source_evaluations"
 AUDIT_ROOT="$OUTPUT_ROOT/scorer_audit"
 EVALUATOR="$ROOT/scripts/sugar/demo_following/evaluate_matched_fixed_teacher.py"
-AUDITOR="$ROOT/scripts/sugar/demo_following/audit_phase_event_scorer_transfer.py"
+ASSESSOR="$ROOT/scripts/sugar/demo_following/assess_corrected_phase_frozen_carry_gate.py"
 
 if [[ -z "${SLURM_JOB_ID:-}" ]]; then
     echo "corrected frozen Carry gate requires a retained Slurm allocation" >&2
@@ -63,10 +63,8 @@ for arm in correct unrelated; do
 done
 
 cd "$ROOT"
-"$PYTHON_BIN" -u "$AUDITOR" \
+"$PYTHON_BIN" -u "$ASSESSOR" \
     --evaluation-root "$TRACE_ROOT" \
-    --output-dir "$AUDIT_ROOT" \
-    --source-phase-variant reference_aware \
-    --device cuda:0
+    --output-dir "$AUDIT_ROOT"
 
 echo "CORRECTED_PHASE_FROZEN_CARRY_GATE_COMPLETE result=$AUDIT_ROOT/RESULT.json"
