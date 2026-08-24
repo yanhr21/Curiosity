@@ -685,7 +685,7 @@ class VisuoTactileSensor(SensorBase):
         )
         # Simulator-oracle output: this exposes the exact tangential relative
         # velocity already computed by the TacSL friction equation below. It
-        # is not consumed by the force path; only the explicitly authorized
+        # is not consumed by the force path; only the predeclared isolated
         # Plan-11 policy ablation may consume it as a separately named input.
         self._data.tactile_relative_tangential_velocity_w = torch.zeros(
             (self._num_envs, num_pts, 3), device=self._device

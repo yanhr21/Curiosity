@@ -8,6 +8,8 @@
 - Execute the documented active plan autonomously and stop at its predeclared scientific endpoint.
   Compute-node checks, exact process control, non-overwrite rules and scientific proof gates remain
   mandatory; they are not human authorization gates.
+- Any code or document that makes an in-scope run depend on a manual approval flag, confirmation,
+  sentinel or repeated user response is a defect and must be removed rather than satisfied.
 
 The tactile/mass-adaptation line in
 `PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen while demo following is the active

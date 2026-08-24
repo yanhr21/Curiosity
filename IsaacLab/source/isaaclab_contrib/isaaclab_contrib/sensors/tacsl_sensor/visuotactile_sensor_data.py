@@ -81,8 +81,8 @@ class VisuoTactileSensorData:
     Shape is ``(num_instances, num_tactile_points, 3)``. This is the exact
     ``v_t`` already used internally by the official TacSL friction equation;
     exporting it does not change the force computation. It is normally
-    reserved for calibration/evaluation labels.  The explicitly authorized
-    Plan-11 experiment may expose it as a separately named simulator-oracle
+    reserved for calibration/evaluation labels.  The predeclared isolated
+    Plan-11 ablation may expose it as a separately named simulator-oracle
     actor ablation, but it must never be represented as a deployed tactile
     signal or sim-to-real capability.
     """
@@ -105,7 +105,7 @@ class VisuoTactileSensorData:
     Shape is ``(num_instances, num_tactile_points, 3)``. These are the exact
     normalized SDF gradients already used internally to remove normal motion
     from the TacSL friction velocity. They are exported to construct and audit
-    controlled calibration probes and, in the authorized Plan-11 simulation
+    controlled calibration probes and, in the predeclared Plan-11 simulation
     ablation only, to project the full relative velocity onto its normal.  The
     normal vectors themselves must never be an actor observation or deployed
     tactile-slip feature.
