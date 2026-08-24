@@ -28,6 +28,19 @@ Kick21 为 `20/20` 踢动、`0/20` 跌倒、平面净位移 `1.06092 m`；反向
 路由在 SMALLBOX 上已经形成稳定 Carry/Kick 语义切换，同时也明确暴露了 BIGBOX 资产尺寸、
 目标姿态和技能初始分布的反向兼容性边界。
 
+三个严格 `2 x 2` 因子实验进一步把该边界定位为几何/初始化分布耦合：SMALLBOX 在
+small/big nominal mass 下均可执行 Carry45，BIGBOX 在两种质量下均失败，所以 `1.5x` 质量
+不是原因；Carry 初始化对 Carry/Kick 最终目标都可搬运，Kick 初始化对两种目标都不可靠，
+所以只换 goal 也不能修复。asset × motion context 的结果是 crossover，而不是“BIGBOX
+永远失败”。完整复现与四格视频命令见 [reproducibility](DOCS/reproducibility.md)。
+
+进一步的安全切换审计否决了两个看似直接的办法。在线 shadow `Generator + Tracker` 已在
+兼容 CarryBox→Kick21 上做到 650 步 command/action/object/robot trace 全部 bitwise equal，
+因此实现本身已对齐官方链路；但动作幅值阈值直到状态已经失稳后才触发，候选/回退动作分别
+爆到 `2.17e5/3.85e5`，没有阻止跌倒。官方 Generator 自带的训练 min/max normalizer 也不能
+提前区分：前 100 帧中，不兼容 Carry-on-BIGBOX 的越界比例均值 `0.00132`，反而低于成功
+Kick-on-SMALLBOX 的 `0.00625`。这两条 threshold 路线不再继续调参。
+
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
 latent 或安全跨资产 transition policy。最终四视频位于

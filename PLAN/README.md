@@ -31,6 +31,29 @@ not extend that MLP by adding optimizer steps. The next method must preserve the
 Carry/Kick result while learning an official-skill prior/latent and state-aware safe transition
 across object geometry, target pose and initialization. No toy latent model is allowed.
 
+Three matched `2 x 2` audits now localize that reverse failure. Asset × motion context is a
+crossover: matched Carry-small and Kick-big contexts pass while the crossed pairs fail. Holding
+Carry context fixed, SMALLBOX passes with either small or `1.5x` big nominal mass, whereas BIGBOX
+fails with either mass; geometry is sufficient and mass is not. Holding physical context fixed,
+Carry initialization passes with either Carry or Kick target pose, whereas Kick initialization
+fails with either target; changing the goal alone is insufficient. The next safe transition must
+therefore react to causal state/geometry compatibility, not select by target or mass label.
+
+Two parameter-free transition gates have now been rejected. A synchronized shadow
+Generator+Tracker was first made exactly equivalent to the direct released pair: on the compatible
+CarryBox-to-Kick21 route, all 650 command, action, object-state and robot-state frames are bitwise
+equal and both produce `20/20` Kick with no fall. On BIGBOX-to-Carry45, however, the current-action
+envelope triggers only after the state has left both experts' stable distributions; the candidate
+reaches `2.17e5`, the fallback reaches `3.85e5`, and the fall is not prevented. The selected
+Generator's own released min/max normalizer also fails as an early OOD separator: in the first 100
+frames the incompatible route has lower outside-range fraction than the compatible route
+(`0.00132` versus `0.00625` mean). Do not tune either threshold.
+
+The next serious matched method is a causal transition-risk predictor trained across official
+multi-context rollouts. Future fall/contact/action-invalidity may be a training label only; the
+deployed predictor may read only recent physical state and current released-expert candidate
+signals. It must be evaluated on held-out context/profile splits before controlling fallback.
+
 ### Reference-aware matched pair: complete, partial single-seed shift
 
 The from-scratch seed/action-seed `161587/161588` pair is complete. Both arms use the same

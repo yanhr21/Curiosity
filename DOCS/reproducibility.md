@@ -963,6 +963,77 @@ $PYTHON_BIN scripts/sugar/demo_following/render_official_tracker_router.py \
 `RENDER_PROOF.json` 要求四条 trace finite/reset-free、两个域内 exact paired states、两个
 matched endpoint 通过、SMALLBOX Kick route 通过且 BIGBOX Carry transfer 的拒绝被明确记录。
 
+#### 3.13.2 Carry45 cross-context failure decomposition
+
+BIGBOX/KickBox 场景中 Carry45 失败并非单一质量问题。三个 `2 x 2` frozen-policy 因子实验
+均使用 20 个环境、650 步和同一 released Carry45 `Generator + Tracker`，每个因子内部的
+初始 robot/object state 与一步 prefix 均为 bitwise equal：
+
+```bash
+OUTPUT_ROOT=experiments/demo_following/official_skill_transition_factorial_v1/seed171620 \
+  SEED=171620 bash scripts/sugar/demo_following/run_carry_skill_asset_motion_factorial.sh
+OUTPUT_ROOT=experiments/demo_following/official_skill_transition_geometry_mass_v1/seed171621 \
+  SEED=171621 bash scripts/sugar/demo_following/run_carry_skill_geometry_mass_factorial.sh
+OUTPUT_ROOT=experiments/demo_following/official_skill_transition_context_goal_v1/seed171622 \
+  SEED=171622 bash scripts/sugar/demo_following/run_carry_skill_context_goal_factorial.sh
+```
+
+结论按因果隔离顺序为：
+
+- asset × motion context 出现 crossover：Carry context + SMALLBOX 和 Kick context + BIGBOX
+  分别通过；两个交叉组合失败，因此不是某个 box 资产无条件失败；
+- geometry × mass 中，SMALLBOX 在 small/big nominal mass 下均通过，而 BIGBOX 在两种质量
+  下均拒绝。`1.5x` nominal mass 本身不是 Carry45 失效原因，BIGBOX geometry 已足以破坏；
+- initialization context × goal 中，Carry context 对 Carry/Kick 目标均通过，Kick context 对
+  两种目标均拒绝。只换最终目标姿态不足以修复，初始化/几何状态分布占主导。
+
+同步 exact-trace 视频：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/render_skill_transition_factorial.py \
+  --factorial context_goal \
+  --input-root experiments/demo_following/official_skill_transition_context_goal_v1/seed171622 \
+  --output-dir experiments/demo_following/official_skill_transition_context_goal_v1/seed171622/videos_exact_trace \
+  --source-env 0
+```
+
+输出的四条 H.264/yuv420p 视频均完整显示 660 帧 Carry45 reference 与 650 帧 frozen PhysX
+actual trace；它们不是 physics replay。该分解证明 released skill 与训练几何/初始化分布强
+耦合，不证明已学会跨资产 transition。
+
+#### 3.13.3 Causal safe-transition negative gates
+
+在线 shadow path 独立维护 released Generator 的 history、diffusion RNG、last command 和
+official replanning clock，同时保留 domain released pair 作为候选 fallback：
+
+```bash
+OUTPUT_ROOT=experiments/demo_following/official_skill_safe_fallback_v4 \
+  bash scripts/sugar/demo_following/run_official_skill_safe_fallback_pair.sh
+```
+
+严格等价单元明确关闭 Tracker observation corruption，避免额外 observation read 改变噪声
+样本。CarryBox→Kick21 的 direct/shadow 两臂具有完全相同的 650-step Generator command、
+Tracker action、object root state 和 robot root state，均为 `20/20` Kick、`0` fall。这证明
+shadow 实现与官方 active path 对齐。
+
+动作 envelope gate 本身不成立。BIGBOX→Carry45 的候选长期保持在阈值内，进入坏状态后才
+超过 25；此时 selected candidate 最大值 `217380.53`，domain fallback 最大值
+`385103.53`，仍有跌倒。该结果说明当前动作不是足够早的 causal compatibility signal，禁止
+继续用阈值 sweep 包装为安全策略。
+
+随后直接读取 selected released Generator 自己的 normalizer，并在动作爆炸前固定前 100 帧
+统计 normalized max 与超训练 min/max 的维度比例：
+
+```bash
+OUTPUT_ROOT=experiments/demo_following/official_generator_compatibility_audit_v1 \
+  bash scripts/sugar/demo_following/run_official_generator_compatibility_audit.sh
+```
+
+成功 Kick-on-SMALLBOX 与失败 Carry-on-BIGBOX 的 outside-range fraction 均可达到
+`0.01852`，均有中位数 `0`；均值分别为 `0.00625/0.00132`。失败臂反而更接近 released
+训练范围，`policy_gate_supported=false`。该 normalizer 是 official 统计而非学到的 skill
+latent，结果也不支持把它当 transition gate。
+
 ## 4. Earlier trajectory-only predictor
 
 这是 contact/event redesign 之前保留的 11.9M trajectory-only 模型。输入为过去 10 帧

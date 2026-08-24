@@ -15,6 +15,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import pickle
 import sys
 
 
@@ -58,6 +59,44 @@ parser.add_argument(
         "Tracker expert after the common one-step domain prefix."
     ),
 )
+parser.add_argument(
+    "--causal-safe-fallback",
+    action="store_true",
+    help=(
+        "Evaluate the selected released Generator+Tracker as an online candidate, "
+        "but execute the domain released Generator+Tracker whenever the selected "
+        "Tracker leaves the released-action envelope."
+    ),
+)
+parser.add_argument(
+    "--scene-object-asset",
+    choices=("domain", "small", "big"),
+    default="domain",
+    help="Factorial audit override for the physical box asset only.",
+)
+parser.add_argument(
+    "--object-nominal-mass-source",
+    choices=("domain", "small", "big"),
+    default="domain",
+    help=(
+        "Factorial audit override for nominal mass/inertia only; geometry remains "
+        "the selected scene asset."
+    ),
+)
+parser.add_argument(
+    "--target-goal-source",
+    choices=("domain", "carry45", "kick21"),
+    default="domain",
+    help=(
+        "Factorial audit override for the online Generator target pose. Explicit "
+        "sources are installed before the common prefix with matched RNG usage."
+    ),
+)
+parser.add_argument(
+    "--disable-observation-corruption",
+    action="store_true",
+    help="Disable Tracker observation noise for exact direct-versus-shadow equivalence tests.",
+)
 parser.add_argument("--training-proof", type=Path, required=True)
 parser.add_argument("--output-dir", type=Path, required=True)
 parser.add_argument("--num-envs", type=int, default=20)
@@ -83,6 +122,8 @@ if not 0.0 <= args.student_action_fraction <= 1.0:
     parser.error("--student-action-fraction must be in [0, 1]")
 if not args.dagger_collection and args.student_action_fraction != 1.0:
     parser.error("formal frozen evaluation requires exact student-only execution")
+if args.causal_safe_fallback and not args.route_generator_with_expert:
+    parser.error("--causal-safe-fallback requires --route-generator-with-expert")
 args.task = f"Sugar-G129dof-{args.domain}-Inference"
 args.enable_cameras = False
 
@@ -101,9 +142,11 @@ from rsl_rl.runners import OnPolicyRunner  # noqa: E402
 import isaaclab_tasks  # noqa: F401,E402
 from isaaclab.envs import DirectMARLEnv, multi_agent_to_single_agent  # noqa: E402
 from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper  # noqa: E402
+from isaaclab.utils.math import quat_from_matrix  # noqa: E402
 
 import sugar_rl.tasks  # noqa: F401,E402
 import sugar_rl.tasks.locomanip.mdp as mdp  # noqa: E402
+from sugar_rl.assets.objects.objects import BIGBOX_CFG, SMALLBOX_CFG  # noqa: E402
 from sugar_rl.tasks.locomanip import goal_carry_mdp as goal_mdp  # noqa: E402
 from sugar_rl.utils.demo_event_reward_runtime import (  # noqa: E402
     FrozenPhaseAwareDemoEventScorer,
@@ -111,7 +154,7 @@ from sugar_rl.utils.demo_event_reward_runtime import (  # noqa: E402
 )
 from sugar_rl.utils.parser_cfg import parse_env_cfg  # noqa: E402
 from sugar_rl.utils.rsl_rl_bcppo import BCPPO  # noqa: E402
-from sugar_il.wrapper.sugar_il_wrapper import GeneratorWrapper  # noqa: E402
+from sugar_il.wrapper.sugar_il_wrapper import GeneratorObs, GeneratorWrapper  # noqa: E402
 
 from train_shared_topology_distillation import (  # noqa: E402
     ACTIONABLE_DEMO_CONDITIONING_DIM,
@@ -157,6 +200,97 @@ CONTACT_THRESHOLD_N = 0.1
 RELEASED_TRACKER_RAW_ACTION_LIMIT = 25.0
 LIFT_THRESHOLD_M = 0.05
 FALL_HEIGHT_LOSS_M = 0.35
+
+
+class _CausalShadowGenerator:
+    """Run one released Generator online without mutating the domain command.
+
+    The shadow owns its observation history, generated-command horizon and last
+    command.  Its inputs are the same current simulator state and target used by
+    the active official Generator.  It never reads a future reference frame.
+    """
+
+    def __init__(self, generator: GeneratorWrapper, command) -> None:
+        self.generator = generator
+        self.num_envs = command.num_envs
+        self.device = command.device
+        self.call_interval = int(command.generator_call_interval)
+        if self.call_interval <= 0:
+            raise RuntimeError("shadow Generator call interval drift")
+        self._cpu_rng_state = torch.get_rng_state().clone()
+        self._cuda_rng_state = (
+            torch.cuda.get_rng_state(self.device).clone()
+            if torch.cuda.is_available()
+            else None
+        )
+        history = (generator.n_obs_steps - 1) * 5 + 1
+        current = command._get_generator_obs()
+        self.observation = {
+            name: getattr(current, name).expand(-1, history, -1).clone()
+            for name in (
+                "obj_pos_b",
+                "obj_ori_b",
+                "joint_pos",
+                "project_gravity",
+                "target_obj_pos_b",
+                "target_obj_ori_b",
+                "last_command",
+            )
+        }
+        self.generated = self._predict()
+        self.last_command = current.last_command.clone()
+
+    def _predict(self) -> torch.Tensor:
+        global_cpu_state = torch.get_rng_state()
+        global_cuda_state = (
+            torch.cuda.get_rng_state(self.device) if self._cuda_rng_state is not None else None
+        )
+        try:
+            torch.set_rng_state(self._cpu_rng_state)
+            if self._cuda_rng_state is not None:
+                torch.cuda.set_rng_state(self._cuda_rng_state, self.device)
+            generated = self.generator.predict(GeneratorObs(**self.observation))
+            self._cpu_rng_state = torch.get_rng_state().clone()
+            if self._cuda_rng_state is not None:
+                self._cuda_rng_state = torch.cuda.get_rng_state(self.device).clone()
+        finally:
+            torch.set_rng_state(global_cpu_state)
+            if global_cuda_state is not None:
+                torch.cuda.set_rng_state(global_cuda_state, self.device)
+        expected_time = (self.generator.n_action_steps - 1) * 5 + 1
+        if generated.shape != (self.num_envs, expected_time, 36):
+            raise RuntimeError("shadow Generator output geometry drift")
+        if not torch.isfinite(generated).all():
+            raise RuntimeError("shadow Generator produced non-finite commands")
+        return generated
+
+    def command_at(self, time_steps: torch.Tensor) -> torch.Tensor:
+        index = (time_steps.to(dtype=torch.long) - 1) % self.call_interval
+        env_index = torch.arange(self.num_envs, device=self.device)
+        command = self.generated[env_index, index]
+        self.last_command = command.unsqueeze(1).clone()
+        return command
+
+    def normalized_compatibility(self) -> tuple[torch.Tensor, torch.Tensor]:
+        raw = self.generator._prepare_obs_dict(GeneratorObs(**self.observation))
+        normalized = self.generator.policy.normalizer.normalize(raw)
+        flat = torch.cat(
+            [value.reshape(self.num_envs, -1) for value in normalized.values()], dim=-1
+        )
+        return torch.amax(torch.abs(flat), dim=-1), torch.mean(
+            (torch.abs(flat) > 1.0).to(flat.dtype), dim=-1
+        )
+
+    def update_after_step(self, command) -> None:
+        current = command._get_generator_obs()
+        current.last_command = self.last_command
+        for name, history in self.observation.items():
+            history[:, :-1] = history[:, 1:].clone()
+            history[:, -1] = getattr(current, name).squeeze(1)
+        refresh = (command.time_steps - 1) % self.call_interval == 0
+        if torch.any(refresh):
+            replacement = self._predict()
+            self.generated[refresh] = replacement[refresh]
 
 
 def _goal_policy_core_observation(base) -> torch.Tensor:
@@ -318,6 +452,11 @@ def main() -> None:
     env_cfg.commands.motion.eval_random_motion = False
     env_cfg.commands.motion.eval_mode = True
     env_cfg.commands.motion.eval_max_time = max(args.steps + 2, 660)
+    if args.disable_observation_corruption:
+        env_cfg.observations.policy.enable_corruption = False
+    if args.scene_object_asset != "domain":
+        object_cfg = SMALLBOX_CFG if args.scene_object_asset == "small" else BIGBOX_CFG
+        env_cfg.scene.obj = object_cfg.replace(prim_path="{ENV_REGEX_NS}/Obj")
     for value in vars(env_cfg.scene).values():
         if hasattr(value, "debug_vis"):
             value.debug_vis = False
@@ -330,6 +469,34 @@ def main() -> None:
     if isinstance(gym_env.unwrapped, DirectMARLEnv):
         gym_env = multi_agent_to_single_agent(gym_env)
     base = gym_env.unwrapped
+    resolved_scene_asset = (
+        args.scene_object_asset
+        if args.scene_object_asset != "domain"
+        else ("small" if args.domain == "CarryBox" else "big")
+    )
+    resolved_mass_source = (
+        args.object_nominal_mass_source
+        if args.object_nominal_mass_source != "domain"
+        else ("small" if args.domain == "CarryBox" else "big")
+    )
+    nominal_mass_kg = {"small": 0.5, "big": 0.75}
+    mass_inertia_ratio = (
+        nominal_mass_kg[resolved_mass_source]
+        / nominal_mass_kg[resolved_scene_asset]
+    )
+    obj_view = base.scene["obj"].root_physx_view
+    original_object_masses = obj_view.get_masses().clone()
+    original_object_inertias = obj_view.get_inertias().clone()
+    if mass_inertia_ratio != 1.0:
+        object_indices = torch.arange(args.num_envs, dtype=torch.int32)
+        obj_view.set_masses(original_object_masses * mass_inertia_ratio, object_indices)
+        obj_view.set_inertias(original_object_inertias * mass_inertia_ratio, object_indices)
+    expected_object_masses = original_object_masses * mass_inertia_ratio
+    expected_object_inertias = original_object_inertias * mass_inertia_ratio
+    if not torch.allclose(obj_view.get_masses(), expected_object_masses):
+        raise RuntimeError("object mass-source override readback mismatch")
+    if not torch.allclose(obj_view.get_inertias(), expected_object_inertias):
+        raise RuntimeError("object inertia-source override readback mismatch")
     env = RslRlVecEnvWrapper(gym_env, clip_actions=agent_cfg.clip_actions)
     official_runner = OnPolicyRunner(
         env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device
@@ -355,6 +522,37 @@ def main() -> None:
         ),
     )
 
+    command = base.command_manager.get_term("motion")
+    resolved_target_goal_source = (
+        args.target_goal_source
+        if args.target_goal_source != "domain"
+        else ("carry45" if args.domain == "CarryBox" else "kick21")
+    )
+    if args.target_goal_source != "domain":
+        target_skill = "CarryBox" if args.target_goal_source == "carry45" else "KickBox"
+        target_folder = Path(DOMAIN[target_skill]["motion_folder"])
+        with (target_folder / "obj_motion_global_50hz.pkl").open("rb") as stream:
+            target_object = pickle.load(stream)  # noqa: S301 - trusted repository asset
+        with np.load(target_folder / "robot_50hz.npz", allow_pickle=False) as robot_archive:
+            target_index = int(robot_archive["joint_pos"].shape[0] - 1)
+        target_position = torch.as_tensor(
+            np.asarray(target_object["obj_trans"])[target_index],
+            dtype=command.obj_target_pos_w.dtype,
+            device=base.device,
+        )
+        target_rotation = torch.as_tensor(
+            np.asarray(target_object["obj_rot"])[target_index],
+            dtype=command.obj_target_quat_w.dtype,
+            device=base.device,
+        )
+        target_quaternion = quat_from_matrix(target_rotation.unsqueeze(0))[0]
+        command.obj_target_pos_w[:] = target_position + base.scene.env_origins
+        command.obj_target_quat_w[:] = target_quaternion
+        command._update_target_visualization()
+        all_env_ids = torch.arange(args.num_envs, device=base.device)
+        command._fill_generator_obs_buffer(all_env_ids)
+        command._call_generator(all_env_ids)
+
     obs = env.get_observations()
     if isinstance(obs, tuple):
         obs = obs[0]
@@ -363,11 +561,14 @@ def main() -> None:
         "robot_joint_pos": base.scene["robot"].data.joint_pos.detach().cpu().numpy().copy(),
         "robot_joint_vel": base.scene["robot"].data.joint_vel.detach().cpu().numpy().copy(),
         "object_root_state_w": base.scene["obj"].data.root_state_w.detach().cpu().numpy().copy(),
+        "object_mass_kg": base.scene["obj"].root_physx_view.get_masses().detach().cpu().numpy().copy(),
+        "object_inertia": base.scene["obj"].root_physx_view.get_inertias().detach().cpu().numpy().copy(),
+        "target_object_position_w": command.obj_target_pos_w.detach().cpu().numpy().copy(),
+        "target_object_quaternion_w": command.obj_target_quat_w.detach().cpu().numpy().copy(),
     }
     with torch.inference_mode():
         prefix_action = official_policy(obs)
         obs, _, prefix_done, _ = env.step(prefix_action)
-    command = base.command_manager.get_term("motion")
     initial_steps = command.time_steps.detach().clone().to(dtype=torch.long)
     if torch.any(prefix_done) or not torch.all(initial_steps == 1):
         raise RuntimeError("one-step official Tracker alignment prefix drift")
@@ -376,24 +577,34 @@ def main() -> None:
         "robot_joint_pos": base.scene["robot"].data.joint_pos.detach().cpu().numpy().copy(),
         "robot_joint_vel": base.scene["robot"].data.joint_vel.detach().cpu().numpy().copy(),
         "object_root_state_w": base.scene["obj"].data.root_state_w.detach().cpu().numpy().copy(),
+        "target_object_position_w": command.obj_target_pos_w.detach().cpu().numpy().copy(),
+        "target_object_quaternion_w": command.obj_target_quat_w.detach().cpu().numpy().copy(),
     }
     routed_generator_skill = args.domain
+    shadow_generator = None
     if args.route_generator_with_expert:
         routed_generator_skill = SELECTED_SKILL[args.selected_demo_option]
         if routed_generator_skill != args.domain:
             routed_generator_path = DOMAIN[routed_generator_skill]["generator"]
-            command.generator = GeneratorWrapper.load(
+            selected_generator = GeneratorWrapper.load(
                 checkpoint_path=str(routed_generator_path),
                 device=base.device,
             )
-            if command.generator.n_obs_steps <= 0 or command.generator.n_action_steps <= 0:
+            if selected_generator.n_obs_steps <= 0 or selected_generator.n_action_steps <= 0:
                 raise RuntimeError("routed official Generator geometry drift")
-            all_env_ids = torch.arange(args.num_envs, device=base.device)
-            command._fill_generator_obs_buffer(all_env_ids)
-            command._call_generator(all_env_ids)
-            obs = env.get_observations()
-            if isinstance(obs, tuple):
-                obs = obs[0]
+            if args.causal_safe_fallback:
+                shadow_generator = _CausalShadowGenerator(selected_generator, command)
+                obs = env.get_observations()
+                if isinstance(obs, tuple):
+                    obs = obs[0]
+            else:
+                command.generator = selected_generator
+                all_env_ids = torch.arange(args.num_envs, device=base.device)
+                command._fill_generator_obs_buffer(all_env_ids)
+                command._call_generator(all_env_ids)
+                obs = env.get_observations()
+                if isinstance(obs, tuple):
+                    obs = obs[0]
     core = _goal_policy_core_observation(base)
     scorer_policy_obs = _policy_observation(core)
     tracker_policy_obs = obs["policy"]
@@ -422,6 +633,10 @@ def main() -> None:
         "tracker_policy_observation": [],
         "demo_conditioning": [],
         "routing_weight": [],
+        "safe_fallback_mask": [],
+        "selected_generator_command": [],
+        "selected_generator_normalized_max_abs": [],
+        "selected_generator_outside_train_range_fraction": [],
     }
     zero_tactile = torch.zeros(args.num_envs, TACTILE_DIM, device=base.device)
     for _ in range(args.steps):
@@ -437,13 +652,38 @@ def main() -> None:
                 if official_tracker_router
                 else torch.zeros(args.num_envs, 2, device=base.device)
             )
-            student_action = shared_policy.act_inference(actor_obs)
             teacher_action = official_policy(obs)
-            action = (
-                args.student_action_fraction * student_action
-                + (1.0 - args.student_action_fraction) * teacher_action
-            )
+            if shadow_generator is not None:
+                normalized_max_abs, outside_train_fraction = (
+                    shadow_generator.normalized_compatibility()
+                )
+                selected_command = shadow_generator.command_at(command.time_steps)
+                selected_tracker_obs = tracker_policy_obs.clone()
+                selected_tracker_obs[:, :36] = selected_command
+                actor_tracker_policy_obs = selected_tracker_obs
+                selected_actor_obs = dict(actor_obs)
+                selected_actor_obs["policy"] = selected_tracker_obs
+                selected_actor_obs["critic"] = selected_tracker_obs
+                student_action = shared_policy.act_inference(selected_actor_obs)
+                safe = torch.amax(torch.abs(student_action), dim=-1) <= RELEASED_TRACKER_RAW_ACTION_LIMIT
+                action = torch.where(safe.unsqueeze(-1), student_action, teacher_action)
+                safe_fallback_mask = ~safe
+            else:
+                normalized_max_abs = torch.zeros(args.num_envs, device=base.device)
+                outside_train_fraction = torch.zeros(args.num_envs, device=base.device)
+                selected_command = tracker_policy_obs[:, :36]
+                actor_tracker_policy_obs = tracker_policy_obs
+                student_action = shared_policy.act_inference(actor_obs)
+                action = (
+                    args.student_action_fraction * student_action
+                    + (1.0 - args.student_action_fraction) * teacher_action
+                )
+                safe_fallback_mask = torch.zeros(
+                    args.num_envs, dtype=torch.bool, device=base.device
+                )
             obs, _, done, _ = env.step(action)
+            if shadow_generator is not None:
+                shadow_generator.update_after_step(command)
         forces = torch.stack(
             [_latest_filtered_force(base.scene.sensors[name]) for name in SENSOR_NAMES],
             dim=1,
@@ -478,13 +718,25 @@ def main() -> None:
             core.detach().cpu().numpy().copy()
         )
         records["tracker_policy_observation"].append(
-            tracker_policy_obs.detach().cpu().numpy().copy()
+            actor_tracker_policy_obs.detach().cpu().numpy().copy()
         )
         records["demo_conditioning"].append(
             condition.detach().cpu().numpy().copy()
         )
         records["routing_weight"].append(
             routing_weight.detach().cpu().numpy().copy()
+        )
+        records["safe_fallback_mask"].append(
+            safe_fallback_mask.detach().cpu().numpy().copy()
+        )
+        records["selected_generator_command"].append(
+            selected_command.detach().cpu().numpy().copy()
+        )
+        records["selected_generator_normalized_max_abs"].append(
+            normalized_max_abs.detach().cpu().numpy().copy()
+        )
+        records["selected_generator_outside_train_range_fraction"].append(
+            outside_train_fraction.detach().cpu().numpy().copy()
         )
         core = _goal_policy_core_observation(base)
         scorer_policy_obs = _policy_observation(core)
@@ -529,7 +781,7 @@ def main() -> None:
     checks = {
         "shared_absolute_checkpoint_admitted": True,
         "one_step_official_domain_tracker_prefix_only": True,
-        "shared_actor_supplies_every_evaluated_action": True,
+        "declared_actor_or_released_fallback_supplies_every_action": True,
         "actor_state_contract_matches_checkpoint": bool(
             arrays["tracker_policy_observation"].shape[-1] == TRACKER_POLICY_DIM
         ),
@@ -549,9 +801,6 @@ def main() -> None:
         "all_actions_finite_and_nonzero": bool(
             np.isfinite(arrays["action"]).all()
             and np.max(np.abs(arrays["action"])) > 0.0
-        ),
-        "raw_student_actions_within_released_tracker_envelope": bool(
-            np.max(np.abs(arrays["student_action"])) <= reference_action_envelope
         ),
         "online_teacher_labels_finite": bool(
             np.isfinite(arrays["teacher_action"]).all()
@@ -575,11 +824,24 @@ def main() -> None:
         ),
     }
     if args.route_generator_with_expert:
-        checks["selected_demo_routes_complete_generator_tracker_pair"] = True
-        checks["selected_skill_behavioral_gate"] = bool(
-            int(selected_skill_success_count) >= 10
-            and int(aggregate["physical_fall_count"]) <= 2
-        )
+        if args.causal_safe_fallback:
+            checks["selected_demo_candidate_uses_complete_generator_tracker_pair"] = True
+            checks["causal_selected_candidate_and_domain_fallback_both_online"] = True
+            checks["executed_actions_within_released_tracker_envelope"] = bool(
+                np.max(np.abs(arrays["executed_action"])) <= reference_action_envelope
+            )
+            checks["safe_fallback_prevents_physical_falls"] = bool(
+                int(aggregate["physical_fall_count"]) == 0
+            )
+        else:
+            checks["selected_demo_routes_complete_generator_tracker_pair"] = True
+            checks["raw_student_actions_within_released_tracker_envelope"] = bool(
+                np.max(np.abs(arrays["student_action"])) <= reference_action_envelope
+            )
+            checks["selected_skill_behavioral_gate"] = bool(
+                int(selected_skill_success_count) >= 10
+                and int(aggregate["physical_fall_count"]) <= 2
+            )
     else:
         checks["selected_demo_condition_is_only_between_arm_variable"] = True
     result = {
@@ -595,8 +857,23 @@ def main() -> None:
         "selected_demo_option": args.selected_demo_option,
         "selected_demo_motion_id": 45 if args.selected_demo_option == "correct" else 21,
         "routed_generator_with_expert": args.route_generator_with_expert,
+        "causal_safe_fallback": args.causal_safe_fallback,
+        "observation_corruption_disabled": args.disable_observation_corruption,
         "routed_generator_skill": routed_generator_skill,
         "selected_skill_success_count": int(selected_skill_success_count),
+        "scene_object_asset": args.scene_object_asset,
+        "resolved_scene_object_asset": resolved_scene_asset,
+        "object_nominal_mass_source": resolved_mass_source,
+        "mass_inertia_override_ratio": mass_inertia_ratio,
+        "target_goal_source": resolved_target_goal_source,
+        "object_mass_kg": {
+            "minimum": float(arrays["initial_object_mass_kg"].min()),
+            "mean": float(arrays["initial_object_mass_kg"].mean()),
+            "maximum": float(arrays["initial_object_mass_kg"].max()),
+        },
+        "object_inertia_readback_all_finite": bool(
+            np.isfinite(arrays["initial_object_inertia"]).all()
+        ),
         "matched_demo_task_condition": matched_condition,
         "shared_checkpoint": str(checkpoint_path),
         "training_proof": str(proof_path),
@@ -627,9 +904,21 @@ def main() -> None:
         "maximum_abs_raw_student_action": float(
             np.max(np.abs(arrays["student_action"]))
         ),
+        "maximum_abs_executed_action": float(np.max(np.abs(arrays["executed_action"]))),
+        "safe_fallback_fraction": float(np.mean(arrays["safe_fallback_mask"])),
+        "profiles_using_safe_fallback": int(
+            np.any(arrays["safe_fallback_mask"], axis=0).sum()
+        ),
         "released_tracker_action_envelope": reference_action_envelope,
         "profiles": records_by_profile,
         "claim_boundary": (
+            "A causal safety composition of two released SUGAR Generator+Tracker "
+            "pairs. The selected pair is evaluated online from current simulator "
+            "state; only its current action envelope may select the domain official "
+            "pair as fallback. This is a safety mechanism, not arbitrary-demo "
+            "imitation or semantic skill success."
+            if args.causal_safe_fallback
+            else
             "A matched frozen-physics test of one causal router selecting a complete "
             "released SUGAR Generator+Tracker pair after a common one-step domain "
             "prefix. The physical scene, task goal and initial state remain fixed; "

@@ -119,19 +119,22 @@ def main() -> None:
     ):
         left = loaded[first][1]
         right = loaded[second][1]
+        paired_keys = (
+            "initial_robot_root_state_w",
+            "initial_robot_joint_pos",
+            "initial_robot_joint_vel",
+            "initial_object_root_state_w",
+            "prefix_action",
+            "post_prefix_robot_root_state_w",
+            "post_prefix_robot_joint_pos",
+            "post_prefix_robot_joint_vel",
+            "post_prefix_object_root_state_w",
+        )
+        if "initial_object_mass_kg" in left and "initial_object_mass_kg" in right:
+            paired_keys = (*paired_keys, "initial_object_mass_kg")
         matched_initial_state[domain] = all(
             np.array_equal(left[key], right[key])
-            for key in (
-                "initial_robot_root_state_w",
-                "initial_robot_joint_pos",
-                "initial_robot_joint_vel",
-                "initial_object_root_state_w",
-                "prefix_action",
-                "post_prefix_robot_root_state_w",
-                "post_prefix_robot_joint_pos",
-                "post_prefix_robot_joint_vel",
-                "post_prefix_object_root_state_w",
-            )
+            for key in paired_keys
         )
     if not all(matched_initial_state.values()):
         raise RuntimeError("within-domain condition swap does not share exact initial state")

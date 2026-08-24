@@ -143,6 +143,16 @@ SMALLBOX switch while learning a faithful skill prior and safe state-aware trans
 geometry, target pose and initialization. Its stages run continuously without approval flags,
 sentinels, manual checkpoint gates or repeated user confirmation.
 
+The cross-context decomposition and two parameter-free safety audits are complete. BIGBOX geometry,
+not its `1.5x` nominal mass or target pose alone, is sufficient to break Carry45. The online shadow
+Generator+Tracker is now bitwise equivalent to the direct pair for all 650 compatible-route frames.
+Nevertheless, current-action magnitude is a late signal: the candidate and fallback reach
+`2.17e5/3.85e5` after the state is already invalid. The released Generator normalizer is not an
+early OOD gate either; failed Carry-on-BIGBOX has lower first-100-frame outside-range fraction than
+successful Kick-on-SMALLBOX (`0.00132/0.00625`). Do not tune these thresholds. The next serious
+method is a causal transition-risk predictor trained across official multi-context rollouts, with
+future failure used only as a training label and held-out contexts reserved for frozen evaluation.
+
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
 unrelated Kick21 model, but creates no environment and executes zero PPO updates. The allocation is
