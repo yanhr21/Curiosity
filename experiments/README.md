@@ -8,9 +8,9 @@ are under root `legacy/`.
 The completed reference-aware matched policy results are
 `demo_following/matched_phase_event_reward_reference_aware_v2/seed161587/` and `seed161589/`. The
 fixed 4x feedback-strength overfit and shared action-direction topology diagnostics are also
-complete. The next focus is a single conditioned actor trained on both official Carry and Kick
-physical rollout distributions. This README is the only
-experiment index; the stale package manifest has been archived.
+complete. The full-510D shared-MLP diagnostic is negative, while the official-Tracker router is the
+current executable baseline. This README is the only experiment index; the stale package manifest
+has been archived.
 
 ## 1. `demo_following/`
 
@@ -45,6 +45,14 @@ experiment index; the stale package manifest has been archived.
   diagnostic and its 20-profile same-checkpoint evaluation. Correct preserves Carry; unrelated
   increases leg/ground interaction but falls in `15/20`, so it is not valid Kick imitation. The
   two complete H.264 videos are under `videos_fixed_carry_teacher_step3000/`;
+- `shared_full_tracker_v2/seed161601/`: serious exact-510D shared-MLP BC and three-stage DAgger
+  negative diagnostic. Offline error becomes small, but the final student-only Carry result is
+  `6/20` with `14/20` falls; do not extend it with more optimizer steps;
+- `official_tracker_router_v1/seed161610/`: current executable baseline. One checkpoint contains
+  the parameter-exact Carry/Kick released Tracker experts plus a causal selected-demo router.
+  `frozen_eval_final/` retains the four exact-initial-state arms; matched Carry/Kick pass at
+  `18/20` and `20/20` with zero falls, while Carry-to-Kick is rejected for raw-action explosion.
+  `videos_reference_actual_final/` contains four decoded H.264 reference/actual videos;
 - `teacher_floor_overfit_v1/`: seed161581 update-128 correct/unrelated endpoints, frozen traces,
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick

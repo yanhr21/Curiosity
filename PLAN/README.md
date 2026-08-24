@@ -2,6 +2,33 @@
 
 ## Current priority: demo following
 
+### Executable official-skill router: complete
+
+The physically valid shared-checkpoint baseline is complete. One checkpoint contains the exact
+released CarryBox and KickBox Tracker actors plus a learned router that reads only the frozen
+798-D causal selected-demo condition. Temporal validation routes Carry45/Kick21 with `100%`
+accuracy and positive margin; both official experts remain parameter-exact.
+
+Matched frozen physics passes: Carry condition in CarryBox gives `18/20` successes, `0/20` falls
+and `0.43204 m` mean maximum lift; Kick condition in KickBox gives `20/20` successes, `0/20` falls,
+`0.09892` foot-contact fraction and `1.06092 m` planar displacement. Student actions equal the
+selected released expert exactly. Within each domain, the condition swap uses bitwise-identical
+initial robot/object state and prefix action.
+
+The counterfactuals define the boundary. CarryBox routed to the Kick expert leaves Carry and makes
+foot interaction, but later emits a raw action of `5.87e11`, violates the fixed `25` envelope and
+falls in `9/20`; it is rejected. KickBox routed to the Carry expert remains stable but still kicks
+because the task-specific generator is unchanged: foot contact drops `0.09892 -> 0.02838` and
+planar displacement drops `1.06092 -> 0.72466 m`. This is a causal two-skill router, not arbitrary
+demo imitation.
+
+The preceding full-510D shared-MLP route is now a retained negative diagnostic. Offline BC reached
+MSE `0.00682` but failed Carry `0/20` with `20/20` falls. Three serious DAgger stages over official
+visited-state labels improved transient behavior but ended at `6/20` Carry and `14/20` falls. Do
+not extend that MLP by adding optimizer steps. The next method must preserve executable skill
+stability while reducing task-generator coupling, for example a shared skill prior/latent and
+state-aware safe transition policy trained on multiple official skills.
+
 ### Reference-aware matched pair: complete, partial single-seed shift
 
 The from-scratch seed/action-seed `161587/161588` pair is complete. Both arms use the same
@@ -58,11 +85,10 @@ All four predeclared behavior directions move toward Kick21, yet the video shows
 orbit response rather than successful KickBox imitation. This proves that explicit action-direction
 supervision can create a same-checkpoint behavior split; it does not establish semantic following.
 
-The next matched experiment must train one shared conditioned actor on physically valid official
-Carry and Kick rollout state distributions/actions, then freeze the checkpoint and swap only the
-demo condition under matched evaluation. The fixed Carry Refiner plus Carry-frame initialization
-cannot be assumed to support a stable Kick topology. No reward-scale sweep, toy teacher or future
-action input to the deployed actor is permitted.
+That next matched experiment has now been completed by the official-skill router above. It proves
+executable selection only at the two released skill endpoints; task-generator coupling and safe
+cross-skill transition remain open. No reward-scale sweep, toy teacher or future-action input to
+the deployed actor is permitted.
 
 The first causal selected-demo experiment is complete:
 

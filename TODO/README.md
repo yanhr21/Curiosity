@@ -118,8 +118,18 @@
   and freeze-evaluate the same checkpoint under condition-only swap on 20 matched profiles;
 - [x] record the diagnostic boundary: correct preserves Carry, unrelated produces a strong
   leg/ground-motion split but falls in `15/20`, so it proves condition use rather than valid Kick;
-- [ ] build the next shared conditioned actor from both official Carry and Kick physical rollout
-  state/action distributions, then test condition-only switching without future-action actor input.
+- [x] test a serious full-510D shared actor on both official Carry and Kick physical rollout
+  distributions; retain the offline-BC and three-stage DAgger failure as evidence that low
+  supervised error does not preserve closed-loop stability;
+- [x] build one checkpoint containing the two parameter-exact released Tracker experts and a
+  causal 798-D selected-demo router, then pass matched Carry `18/20` and Kick `20/20` with zero
+  falls and exact expert actions;
+- [x] run exact-initial-state condition-only swaps and record the boundary: Carry-to-Kick route
+  violates the raw-action envelope after leaving distribution, while Kick-to-Carry remains
+  generator-driven rather than becoming Carry;
+- [ ] replace endpoint-only expert routing with a serious shared skill prior/latent and safe
+  state-aware transition mechanism that can reduce Generator/Tracker task coupling without
+  hand-written toy models.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -132,9 +142,11 @@ allowed. The shared-checkpoint actionable condition is now implemented and causa
 same frozen policy's actions, but update 64 still yields bilateral Carry under both demos despite a
 `3/4` directional shift. The fixed 3000-step official-action diagnostic then creates a strong
 same-checkpoint split: correct remains a stable Carry, while unrelated leaves Carry but falls in
-`15/20` and is not a valid Kick solution. The next work must learn executable conditional actions
-from both official task rollout distributions, not increase reward scale or extend the failed
-Carry-Refiner residual setup.
+`15/20` and is not a valid Kick solution. The full-510D shared MLP and three-stage DAgger follow-up
+also fail closed-loop stability. The new official-skill router is the first executable result:
+matched Carry/Kick pass at `18/20` and `20/20` with zero falls, but counterfactuals show action
+explosion and task-generator coupling. The next work is a serious shared skill prior plus safe
+transition policy, not a reward-scale or optimizer-step sweep.
 
 ## Frozen tactile work
 

@@ -842,6 +842,76 @@ direction 能让同一个 conditioned actor 离开 Carry 解；固定 Carry Refi
 没有获得可执行 Kick 语义。下一实验必须使用 official Carry/Kick 两种物理 rollout 分布训练
 共享 actor，仍禁止 future action 进入部署输入。
 
+### 3.13 Full-Tracker negative diagnostic and executable expert router
+
+首先使用 exact official `510-D` Tracker observation、相同 SUGAR `512/256/128` actor 和
+29-D absolute ActionManager command 训练一个共享 MLP。未来 official action 只作 label，部署
+actor 只读取当前 Tracker state、冻结 `798-D` causal selected-demo condition 和零触觉。
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/train_shared_full_tracker.py \
+  --output-dir experiments/demo_following/shared_full_tracker_v2/seed161601/step_3000 \
+  --steps 3000 --batch-size 512 --learning-rate 1e-4 --seed 161601 --device cuda:0
+```
+
+该模型离线 MSE 为 `1.28964 -> 0.00682`，但 student-only Carry 冻结评估为 `0/20` success、
+`20/20` fall。随后用 `fit_shared_full_tracker_dagger.py` 依次聚合 official Carry Tracker 的
+`beta=0/0.5/0.9` visited states，每阶段 1500 actor-only steps，并保留 25% original
+Carry/Kick counterfactual pairs。最终 student-only 结果仍只有 `6/20` Carry、`14/20` fall；
+该路线是 closed-loop distribution-shift 负结果，不得通过增加 optimizer steps 冒充进展。
+
+可执行基线不再近似两个控制器，而是把 released CarryBox/KickBox Tracker actor 原样放入一个
+checkpoint，只训练读取 frozen causal condition 的 router：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/train_official_tracker_router.py \
+  --output-dir experiments/demo_following/official_tracker_router_v1/seed161610/step_1000 \
+  --steps 1000 --batch-size 512 --learning-rate 1e-3 --seed 161610 --device cuda:0
+```
+
+proof 必须显示两个 expert parameter max delta 为零，Carry45/Kick21 temporal validation
+accuracy 均为 `1.0`，且 minimum correct-logit margin 为正。冻结评估入口为：
+
+```bash
+OUT="$PWD/experiments/demo_following/official_tracker_router_v1/seed161610"
+EVAL="$OUT/frozen_eval_reproduction"
+$PYTHON_BIN scripts/sugar/demo_following/evaluate_demo_conditioned_tracker.py \
+  --domain CarryBox --selected-demo-option correct \
+  --shared-checkpoint experiments/demo_following/official_tracker_router_v1/seed161610/step_1000/policy.pt \
+  --training-proof experiments/demo_following/official_tracker_router_v1/seed161610/step_1000/proof.json \
+  --output-dir "$EVAL/carry_correct" --num-envs 20 --steps 650 --seed 171610 \
+  --headless --device cuda:0 \
+  --kit_args="--/renderer/enabled= --/renderer/multiGpu/enabled=false"
+```
+
+用同一命令串行运行另外三臂：Carry/unrelated 仍用 seed `171610`；Kick/correct 与
+Kick/unrelated 都用 seed `171611`。两个域内 pair 的 initial robot/object state、post-prefix
+state 和 prefix action 必须 bitwise equal。Carry/unrelated 预期因 raw action 超过固定
+released-Tracker envelope `25` 而返回非零；这是保留的科学失败，不能改成 passing arm。
+
+最终结果为：Carry/correct `18/20` success、`0/20` fall、`0.43204 m` mean maximum lift；
+Kick/unrelated `20/20` success、`0/20` fall、`0.09892` foot-contact fraction、`1.06092 m`
+planar displacement。两条 matched arm 的 student action 与对应 official expert 完全相同。
+Carry/unrelated 后段 raw action 达 `5.87e11` 并在 `9/20` profiles 跌倒；Kick/correct 保持
+稳定但 foot contact/planar displacement 仅为 `0.02838/0.72466 m`，证明 Kick generator
+仍主导任务语义。
+
+最终视频包：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/render_official_tracker_router.py \
+  --carry-correct-dir "$EVAL/carry_correct" \
+  --carry-unrelated-dir "$EVAL/carry_unrelated" \
+  --kick-correct-dir "$EVAL/kick_correct" \
+  --kick-unrelated-dir "$EVAL/kick_unrelated" \
+  --output-dir "$OUT/videos_reference_actual_final" --source-env 0
+```
+
+`RENDER_PROOF.json` 必须同时通过 exact-initial-state、one-checkpoint、matched behavior、
+Carry/unrelated rejection 和四个 H.264/yuv420p decode checks。视频左侧为 official reference，
+右侧为 exact frozen PhysX body centers/box pose；这是 exact-trace visualization，不是 physics
+replay。该实验只证明两个已发布技能的 causal routing，不证明任意视频生成新技能。
+
 ## 4. Earlier trajectory-only predictor
 
 这是 contact/event redesign 之前保留的 11.9M trajectory-only 模型。输入为过去 10 帧

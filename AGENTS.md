@@ -124,12 +124,16 @@ behavior, not a successful Kick. This proves that official action-direction supe
 a strong same-checkpoint behavior split; it does not prove semantic demo following.
 
 Do not extend the fixed Carry Refiner residual diagnostic or run another reward-scale sweep. The
-next serious matched implementation must train one shared conditioned actor on physically valid
-official Carry and Kick rollout state/action distributions, then freeze the checkpoint and test a
-condition-only swap. Future action labels remain training-only; no toy policy, teacher or model may
-replace the official SUGAR components. Once the active experiment is documented, its predeclared
-stages run continuously without any approval flag, sentinel, manual checkpoint gate or repeated
-user confirmation.
+full-510D shared-MLP follow-up and its three-stage DAgger diagnostic are also complete and negative:
+offline MSE does not preserve closed-loop stability. The admitted executable baseline is now one
+checkpoint with parameter-exact released Carry/Kick Tracker experts and a learned router over the
+frozen 798-D causal selected-demo condition. Matched Carry/Kick pass at `18/20` and `20/20` with
+zero falls; Carry-to-Kick violates the raw-action envelope and Kick-to-Carry remains generator
+driven. Treat this as a two-skill routing result, not arbitrary-demo following. Future action labels
+remain training-only; no toy policy, teacher or model may replace official SUGAR components. The
+next serious method must reduce Generator/Tracker task coupling while preserving executable expert
+stability. Its predeclared stages run continuously without approval flags, sentinels, manual
+checkpoint gates or repeated user confirmation.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

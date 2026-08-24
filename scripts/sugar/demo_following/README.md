@@ -5,6 +5,40 @@ the selected reward demo: CarryBox45 (`correct`) or KickBox21 (`unrelated`). The
 `phase_event_reward_only` design uses the frozen phase-aware contact/event scorer and stops at
 updates 32 and 64. Active experiments execute without artificial human-authorization gates.
 
+## Current executable baseline: causal official-Tracker router
+
+The current baseline stores the exact released CarryBox and KickBox Tracker actors in one
+checkpoint and trains only a router over the frozen 798-D causal selected-demo condition. It is a
+two-skill selector, not arbitrary-demo imitation. Inside a retained GPU compute step:
+
+```bash
+PYTHON=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
+$PYTHON scripts/sugar/demo_following/train_official_tracker_router.py
+```
+
+Freeze-evaluate each arm serially with
+`scripts/sugar/demo_following/evaluate_demo_conditioned_tracker.py`. Use seed `171610` for both
+Carry conditions and `171611` for both Kick conditions so each within-domain pair has an exact
+common initial state. The matched endpoints are Carry/correct and Kick/unrelated. Carry/unrelated
+is expected to fail the raw-action envelope and must remain a recorded negative result.
+
+Render the four admitted traces with:
+
+```bash
+OUT="$PWD/experiments/demo_following/official_tracker_router_v1/seed161610"
+EVAL="$OUT/frozen_eval_final"
+$PYTHON scripts/sugar/demo_following/render_official_tracker_router.py \
+  --carry-correct-dir "$EVAL/carry_correct" \
+  --carry-unrelated-dir "$EVAL/carry_unrelated" \
+  --kick-correct-dir "$EVAL/kick_correct" \
+  --kick-unrelated-dir "$EVAL/kick_unrelated" \
+  --output-dir "$OUT/videos_reference_actual_final" --source-env 0
+```
+
+The retained result is Carry `18/20`, Kick `20/20`, both with zero falls and exact released-expert
+actions. The condition swaps prove routing but also expose the boundary: Carry-to-Kick later leaves
+the raw-action envelope, while Kick-to-Carry remains strongly controlled by the Kick generator.
+
 Validate without simulation:
 
 ```bash

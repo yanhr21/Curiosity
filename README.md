@@ -6,7 +6,28 @@ IsaacLab/PhysX；Newton 只作为 asset 来源，不作为执行后端。
 
 ## 当前结论
 
-### Demo following：信号被使用，语义遵循尚未成立
+### Demo following：可执行双技能路由成立，任意 demo following 尚未成立
+
+最新实验保留 released CarryBox/KickBox 两个 official Tracker actor 的完整参数和
+`510-D -> 512/256/128 -> 29-D` 闭环结构，只训练一个读取冻结 predictor `798-D` causal
+selected-demo condition 的 router。router 的时间外验证在 Carry45/Kick21 上均为 `100%`，
+两个 official expert 的参数变化严格为零。它们与 router 被保存在同一个 checkpoint 中；
+测试时不读取未来轨迹、teacher action、task label 或 GT trajectory error。
+
+同一 checkpoint 的 matched frozen physics 结果为：Carry/Carry 条件 `18/20` 成功、平均最大
+抬升 `0.43204 m`、`0/20` 跌倒；Kick/Kick 条件 `20/20` 成功、足—箱接触比例 `0.09892`、
+箱子平面净位移 `1.06092 m`、`0/20` 跌倒。两臂 student action 与对应 released Tracker
+逐元素完全一致。域内 condition-only 配对使用完全相同的机器人、箱子、prefix action 和
+seed。Carry 环境切到 Kick route 后前段出现足部交互，但后段 raw action 达 `5.87e11`，超过
+固定安全 envelope `25` 并在 `9/20` profiles 跌倒，因此明确判失败；Kick 环境切到 Carry
+route 后仍受 Kick generator 主导，足接触从 `0.09892` 降到 `0.02838`、净位移从
+`1.06092 m` 降到 `0.72466 m`。
+
+准确结论是：causal demo condition 可以在一个 checkpoint 内可靠选择两个已经存在的可执行
+official skill；它不是任意视频到新技能的泛化，也没有消除 Generator/Tracker 的任务耦合。
+此前单 MLP 的完整 `510-D` offline BC 虽把 MSE 降到 `0.00682`，仍在 Carry 闭环中
+`0/20` 成功、`20/20` 跌倒；三阶段 `beta=0/0.5/0.9` DAgger 最终也只有 `6/20` Carry、
+`14/20` 跌倒。继续增加离线训练步数不是当前路线。
 
 最新的固定 overfit 诊断进一步定位了瓶颈。它保留同一个 serious SUGAR `512/256/128`
 shared actor、冻结 11.386M predictor 和 CarryBox45 Refiner 执行基线，只训练 actor residual：
@@ -266,7 +287,10 @@ normal/shear 混合、摩擦不一致、slip reset 丢失、训练/评测 motion
 7. 建立 predictor/reward-independent、以训练 seed 为重复单位的 Carry/Kick 行为审计，
    分离 task success、reward use 与 semantic obedience；
 8. 对 official single-clip TinyMDM 做 exact-identity 与 independent semantic-extension
-   分离测试，得到“记住 clip 但尚未形成可靠语义空间”的负结果。
+   分离测试，得到“记住 clip 但尚未形成可靠语义空间”的负结果；
+9. 建立 causal demo-conditioned official-skill router：一个 checkpoint 内保留参数完全不变的
+   Carry/Kick released Tracker，并用 matched/counterfactual frozen physics 分离“可执行技能
+   选择”“task generator 耦合”和“跨技能域外失控”。
 
 官方 SUGAR、IsaacLab TacSL 和 MimicKit TinyMDM 本身不是本仓库的原创方法；本仓库的
 贡献是忠实接入、实验协议、在线传感扩展、因果隔离与失效审计。
@@ -279,6 +303,17 @@ normal/shear 混合、摩擦不一致、slip reset 丢失、训练/评测 motion
 ```bash
 cd /public/home/yanhongru/Curiosity
 export PYTHON_BIN=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
+
+# retained GPU：训练一个 checkpoint 内的 causal Carry/Kick official-skill router
+$PYTHON_BIN scripts/sugar/demo_following/train_official_tracker_router.py
+
+# retained GPU：四臂冻结评估入口；同域两臂必须使用相同 seed
+$PYTHON_BIN scripts/sugar/demo_following/evaluate_demo_conditioned_tracker.py \
+  --domain CarryBox --selected-demo-option correct \
+  --shared-checkpoint experiments/demo_following/official_tracker_router_v1/seed161610/step_1000/policy.pt \
+  --training-proof experiments/demo_following/official_tracker_router_v1/seed161610/step_1000/proof.json \
+  --output-dir "$PWD/experiments/demo_following/router_reproduction/carry_correct" \
+  --num-envs 20 --steps 650 --seed 171610 --headless --device cuda:0
 
 # 无仿真：检查 phase-aware matched 配置和下一条训练命令
 $PYTHON_BIN scripts/sugar/demo_following/run_matched_state_predictor.py \
@@ -361,6 +396,10 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 
 当前保留视频（标为“旧 phase-0”的两条是时钟错位负结果，不是 corrected policy endpoint）：
 
+- [official router：Carry45 reference 与 matched Carry](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/01_carry_domain_carry45_condition.mp4)；
+- [official router：Kick21 condition 在 Carry 域的 action-limit failure](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/02_carry_domain_kick21_condition.mp4)；
+- [official router：Carry45 condition 在 Kick 域仍受 generator 主导](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/03_kick_domain_carry45_condition.mp4)；
+- [official router：Kick21 reference 与 matched Kick](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/04_kick_domain_kick21_condition.mp4)；
 - [action-direction 诊断：Carry45 条件与稳定搬运](experiments/demo_following/shared_topology_distillation_v1/seed161593/videos_fixed_carry_teacher_step3000/01_correct_demo_and_actual_behavior.mp4)；
 - [action-direction 诊断：Kick21 条件与失败/摔倒行为](experiments/demo_following/shared_topology_distillation_v1/seed161593/videos_fixed_carry_teacher_step3000/02_unrelated_kickbox_demo_and_actual_behavior.mp4)；
 - [共享 checkpoint：Carry45 输入与实际行为](experiments/demo_following/shared_actionable_demo_conditioning_v1/seed161591/videos_same_checkpoint_update0064/01_correct_demo_and_actual_behavior.mp4)；
@@ -409,11 +448,11 @@ official Generator/Tracker Kick gate 也以 `8/9` profile preference 通过，�
 `generator.ckpt + tracker.pt`，没有 frozen Kick Refiner checkpoint；因此现有 gate 已覆盖最强
 可忠实复现的官方 inference 路径，但不冒充 Refiner 结果。第一组从零 reference-aware matched
 pair、独立 seed 复现和固定 4x 诊断均已完成。1x 在 update 64 的同一 `3/4` 小幅变化可重复，
-4x 却退化为 `1/4`，所以问题不是单纯 reward 太小。共享 checkpoint 的 serious SUGAR actor
-和固定 3000-step action-direction diagnostic 均已完成。前者证明纯 predictor condition 会调制
-同一策略但仍留在 Carry 解；后者证明加入 official Carry/Kick action-direction supervision 后
-可以产生强烈条件分叉，却以 `15/20` unrelated falls 失败，尚未形成稳定 Kick。下一实验应让
-一个共享 actor 在 official CarryBox45 与 KickBox21 物理 rollout/state distribution 上学习各自
-可执行动作，再在相同物理初态下只换 demo condition 做 frozen causal test。不得继续 reward
-scale sweep，不得把 future action label 放进 deployed actor，也不得用 toy teacher/MLP 替代
-official SUGAR Tracker、Refiner 或现有 serious actor。SMP 仍不接入。
+4x 却退化为 `1/4`，所以问题不是单纯 reward 太小。共享 MLP 的 full-510D BC 和三阶段
+DAgger 也未保持闭环稳定。新的 official-skill router 已让一个 checkpoint 在 matched 域中
+分别达到 Carry `18/20`、Kick `20/20` 且零跌倒，但 condition-only counterfactual 证明它仍有
+task-generator 耦合和跨域动作爆炸。下一步应使用 serious shared skill prior/latent 与
+state-aware safe transition policy，在保留 released expert 执行能力的同时逐步解除 Generator/
+Tracker 任务耦合。不得继续 reward-scale/optimizer-step sweep，不得把 future action label 放入
+deployed actor，也不得用 toy teacher/MLP 替代 official SUGAR 组件。SMP 只有在官方实现和
+selected-demo latent deviation 真正接通后才能称为集成。
