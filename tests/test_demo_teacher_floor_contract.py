@@ -206,8 +206,12 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
     )
     assert "--fast-exit-after-evidence" in evaluation_launcher
     assert 'RENDER_KIT_ARGS="--/renderer/multiGpu/enabled=false' in (
-        evaluation_launcher
+        evaluation_launcher.replace(
+            'RENDER_KIT_ARGS="--portable-root /tmp/Curiosity_matched_render_kit_${SLURM_JOB_ID}_${UPDATE} ',
+            'RENDER_KIT_ARGS="',
+        )
     )
+    assert "--portable-root /tmp/Curiosity_matched_render_kit_" in evaluation_launcher
 
     evaluator_source = (
         ROOT / "scripts/sugar/demo_following/evaluate_matched_fixed_teacher.py"
@@ -233,6 +237,13 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
         '"closest_origin_first_teacher_action_matches_source"'
         in evaluator_source
     )
+
+    renderer_source = (
+        ROOT / "scripts/sugar/demo_following/render_demo_and_actual.py"
+    ).read_text(encoding="utf-8")
+    assert '"--fast-exit-after-evidence"' in renderer_source
+    assert "if args.fast_exit_after_evidence:" in renderer_source
+    assert "os._exit(0)" in renderer_source
     assert "canonical_environment_index = int(np.argmin(translation_norm))" in (
         evaluator_source
     )

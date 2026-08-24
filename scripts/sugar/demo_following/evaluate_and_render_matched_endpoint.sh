@@ -49,7 +49,7 @@ if [[ "$DESIGN" == "phase_event_reward_only" ]]; then
     renderer_source_env=20
 fi
 EVAL_KIT_ARGS="--/renderer/enabled= --/app/vulkan=false --/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
-RENDER_KIT_ARGS="--/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
+RENDER_KIT_ARGS="--portable-root /tmp/Curiosity_matched_render_kit_${SLURM_JOB_ID}_${UPDATE} --/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
 
 if [[ -z "${SLURM_JOB_ID:-}" || -z "${SLURM_STEP_ID:-}" ]]; then
     echo "evaluation requires a retained srun compute step" >&2
@@ -216,6 +216,7 @@ fi
         --matched-endpoint \
         --actual-source-env "$renderer_source_env" \
         "${renderer_design_args[@]}" \
+        --fast-exit-after-evidence \
         --headless \
         --enable_cameras \
         --device cuda:0 \

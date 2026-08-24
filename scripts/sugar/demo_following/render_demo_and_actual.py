@@ -54,6 +54,14 @@ parser.add_argument(
         "teacher and differ only in selected demo reward."
     ),
 )
+parser.add_argument(
+    "--fast-exit-after-evidence",
+    action="store_true",
+    help=(
+        "Exit without SimulationApp.close only after all videos and the passing "
+        "render proof have been durably published."
+    ),
+)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 if args.same_teacher_reward_only and not args.matched_pair:
@@ -479,7 +487,12 @@ def main() -> None:
     (output / "RENDER_PROOF.json").write_text(json.dumps(proof, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if not proof["passed"]:
         raise RuntimeError("behavior-only render failed")
-    print(json.dumps(proof, indent=2, sort_keys=True))
+    print(json.dumps(proof, indent=2, sort_keys=True), flush=True)
+    if args.fast_exit_after_evidence:
+        # Kit 5.1 can lose the H200 Vulkan device during shutdown after valid
+        # camera output has already been encoded.  Bypass only after the proof
+        # and every video have passed their checks and reached disk.
+        os._exit(0)
 
 
 if __name__ == "__main__":
