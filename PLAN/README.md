@@ -102,11 +102,14 @@ zero trainable parameters, no environment creation and zero policy updates.
 
 The subsequent online gate corrected an experiment-composition bug: `explicit_zero_control` had
 zeroed policy tensors but still instantiated the dual-R15 TacSL scene. The matched demo experiment
-now uses the original no-TacSL SUGAR G1/CarryBox scene. A 24-step real-environment smoke is available
-and performs no optimizer update. It is not yet admitted because two retained H200 nodes and an
-independent minimal `SimulationApp` canary currently fail with Isaac Sim 5.1
-`ERROR_DEVICE_LOST` before project reward code can run. Minimal canary recovery, then correct smoke,
-then unrelated smoke are mandatory before any authorized policy optimization.
+now uses the original no-TacSL SUGAR G1/CarryBox scene. On fresh H200 job257815/server54, a minimal
+Isaac Sim canary and then both correct/unrelated 24-step real-environment smokes pass. They exercise
+the frozen Refiner, actor, SMP, original ICM, phase-aware reward and storage with zero optimizer
+updates and unchanged parameters. Earlier cross-node `ERROR_DEVICE_LOST` runs are runtime failures,
+not model evidence. Under the identical unoptimized rollout, correct and unrelated have exactly
+matched actions/base reward but different ready-step demo reward (`0.04013` versus `0.01734`),
+confirming online selected-demo sensitivity. The remaining gate is explicit user authority for
+policy optimization.
 
 ### Expected behavior, not just reward score
 

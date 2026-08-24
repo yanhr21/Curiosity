@@ -47,8 +47,8 @@
   original SUGAR G1/CarryBox scene with no tactile sensor construction;
 - [x] add a 24-step formal online-rollout smoke that checks live reward injection and executes zero
   optimizer updates;
-- [ ] recover a minimal Isaac Sim 5.1 H200 canary from the current cross-node
-  `ERROR_DEVICE_LOST`, then pass correct and unrelated online smokes;
+- [x] pass a fresh-allocation Isaac Sim 5.1 H200 canary, then pass correct and unrelated 24-step
+  online smokes with zero optimizer updates;
 - [ ] obtain explicit authority before new policy training;
 - [ ] run a matched policy comparison and judge
   predictor-independent frozen behavior; keep selected-demo SMP out until its semantic gate passes.

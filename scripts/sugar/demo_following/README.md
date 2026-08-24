@@ -33,8 +33,9 @@ $PYTHON scripts/sugar/demo_following/run_matched_state_predictor.py \
 ```
 
 The demo-only arms use the original SUGAR G1/CarryBox scene and construct no TacSL sensor; exact-zero
-tensors alone are not accepted as zero sensor use. Both correct and unrelated smokes must pass after
-the current Isaac Sim `ERROR_DEVICE_LOST` minimal-canary blocker is resolved.
+tensors alone are not accepted as zero sensor use. On 2026-08-24, a fresh H200 minimal canary and
+both correct/unrelated 24-step smokes passed. The runner uses the same system NVIDIA ICD as that
+canary. These smokes prove the online reward path and zero optimizer activity, not learned behavior.
 
 After explicit approval, run the two arms serially inside a retained GPU allocation with
 `--policy-training-authorized`. Use `scripts/sugar/native_tactile/launch_retained_child.sh` and a

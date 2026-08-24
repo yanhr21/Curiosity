@@ -36,12 +36,19 @@ constructed the dual-R15 TacSL scene even though its tensors were zero. Demo-onl
 `NoTactileGoalRobotEnvCfg`, the original SUGAR G1/CarryBox scene with no VisuoTactileSensor assets.
 Do not restore the TacSL scene in a demo-only arm or claim zero sensor reads from zeroed tensors.
 
-The formal 24-step, zero-optimizer rollout smoke is implemented but has not passed. On 2026-08-24,
-server60/job257762 and server45/job257794 both reproduced Isaac Sim 5.1 `ERROR_DEVICE_LOST`; a
-minimal five-update `SimulationApp` on server45 failed before any SUGAR scene was created, including
-with isolated portable Kit state and explicit allocated-GPU UUID mapping. Treat this as a current
-runtime blocker, not a model result. Policy training remains forbidden until a minimal canary and
-both correct/unrelated online smokes pass. Keep granted allocations held while diagnosing.
+The formal 24-step, zero-optimizer rollout smoke now passes for both arms on the fresh H200
+job257815/server54. Each arm executes the original no-TacSL SUGAR scene, frozen Refiner, actor,
+SMP, original ICM, phase-aware event reward and rollout storage for 24 online steps while leaving
+all policy/ICM parameters and optimizer counters unchanged. Correct uses CarryBox45; unrelated uses
+KickBox21. This is online integration evidence, not policy-training or demo-obedience evidence.
+
+The earlier job257762/server60 and job257794/server45 GPUs entered Isaac Sim 5.1
+`ERROR_DEVICE_LOST`; stale Kit descendants were found and killed by their exact recorded PGIDs, but
+minimal `SimulationApp` canaries still failed afterward. A fresh-allocation canary passed with the
+system NVIDIA ICD `/etc/vulkan/icd.d/nvidia_icd.json`, and the matched runner now uses that same ICD.
+After any Vulkan device loss, do not reuse that GPU for Isaac evidence in the same allocation;
+retain the allocation as required and move the Isaac gate to a fresh GPU. Policy training still
+requires explicit user approval.
 
 Routine read-only audits, dataset builds and predictor-only gates may proceed through the documented
 queue. Policy training is the explicit exception and requires user approval.

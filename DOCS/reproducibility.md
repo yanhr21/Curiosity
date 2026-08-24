@@ -474,12 +474,26 @@ history 进入 ready、demo reward 非零、`policy_reward=base_reward+demo_rewa
 中没有 R15/TacSL sensor 或 elastomer body。旧实现虽然把 tactile tensor 置零，仍构建了双
 R15 scene；`NoTactileGoalRobotEnvCfg` 已修正该混杂。
 
-截至 2026-08-24，该 gate 尚未得到通过结果。job257762/server60 与 job257794/server45 均在
-Isaac Sim 5.1 simulation startup 报 `ERROR_DEVICE_LOST`。server45 上独立的五次
-`SimulationApp.update()` canary 也在任何 SUGAR scene 创建前退出，系统 ICD/allocated-GPU
-UUID、独立 portable Kit root 均未消除故障。因此现有日志只能证明 cluster runtime blocker，
-不能证明 online reward 成功或失败。恢复最小 canary 后必须重新顺序执行 correct、unrelated
-smoke；两者通过前不得启动 policy optimization。
+2026-08-24 的最终 gate 已在 fresh H200 job257815/server54 顺序通过。最小
+`SimulationApp` canary 先以系统 NVIDIA ICD
+`/etc/vulkan/icd.d/nvidia_icd.json` 完成五次 update 并正常关闭；随后 correct、unrelated
+均返回 `sugar_phase_event_online_rollout_smoke_v1/pass`。correct 的 24 步 mean demo reward
+非零且 policy reward 逐步等于 base reward 加 demo reward；unrelated 通过相同不变量检查。
+两臂均报告 no-TacSL scene、24 步完整执行、history ready、future labels hidden、frozen event
+model、policy/ICM 参数不变以及 optimizer/update counter 为零。
+
+由于 smoke 不执行优化，两臂的 24 步 action summary 和 base policy reward 逐步完全相同。
+在 history ready 的 16 步中，correct/unrelated 的 mean demo reward 分别为
+`0.0401299449/0.0173427592`，mean calibrated risk 为
+`0.3604801279/0.5055444967`；correct-minus-unrelated mean reward delta 为 `0.0227871857`。
+这是一项受控的 online selector-sensitivity 检查：差异来自 selected demo，不来自 rollout
+行为或 task reward 差异。它不等于经过训练的策略已经服从 correct demo。
+
+job257762/server60 与 job257794/server45 曾在 Vulkan `ERROR_DEVICE_LOST` 后留下 Kit 子进程；
+按准确 PGID 清理后，同一 GPU 上的最小 canary 仍失败。不要把这种 allocation-local GPU
+runtime 损坏解释为模型结果，也不要在同一块已 device-lost 的 GPU 上采集 Isaac 证据。
+runner 现与通过的 canary 一致，显式设置系统 NVIDIA ICD。online gate 已满足，但 policy
+optimization 仍必须取得用户明确授权。
 
 研究依据是：DeepMimic 将 imitation objective 与 task objective 分开；PhysHOI 使用 contact
 graph 防止错误 body-object interaction；InterMimic 同时约束 object deviation、joint-object

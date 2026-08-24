@@ -476,7 +476,6 @@ def runner_command(
         "--kit_args",
         (
             f"--portable-root {portable_kit_root} "
-            "--/renderer/enabled=false "
             "--/renderer/multiGpu/enabled=false "
             "--/renderer/multiGpu/autoEnable=false "
             "--/renderer/multiGpu/maxGpuCount=1"
@@ -524,11 +523,9 @@ def runtime_environment(args: argparse.Namespace, update: int) -> dict[str, str]
             ),
         }
     )
-    # IsaacLab compute/training entrypoints on this cluster use Kit's own
-    # device discovery. The system ICD is reserved for camera-enabled render
-    # entrypoints; forcing it here can make Vulkan and CUDA select different
-    # Slurm-remapped devices at simulation start.
-    env.pop("VK_ICD_FILENAMES", None)
+    # Use the cluster NVIDIA ICD explicitly. A fresh-allocation SimulationApp
+    # canary establishes this exact path before the policy rollout gate runs.
+    env["VK_ICD_FILENAMES"] = "/etc/vulkan/icd.d/nvidia_icd.json"
     python_paths = (
         ROOT / "scripts/sugar/smp",
         ROOT / "IsaacLab/source/isaaclab_contrib",

@@ -128,11 +128,14 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
         "explicit_zero_control"
     )
     assert "--portable-root /tmp/Curiosity_demo_kit_" in kit_args
-    assert "/renderer/enabled=false" in kit_args
+    assert "/renderer/enabled" not in kit_args
     assert "/renderer/multiGpu/enabled=false" in kit_args
     assert "/renderer/multiGpu/autoEnable=false" in kit_args
     assert "/renderer/multiGpu/maxGpuCount=1" in kit_args
-    assert "VK_ICD_FILENAMES" not in RUNNER.runtime_environment(args, 64)
+    assert (
+        RUNNER.runtime_environment(args, 64)["VK_ICD_FILENAMES"]
+        == "/etc/vulkan/icd.d/nvidia_icd.json"
+    )
 
     inner_source = (
         ROOT / "scripts/sugar/smp/audit_stage_h_smp_icm_policy_integration.py"

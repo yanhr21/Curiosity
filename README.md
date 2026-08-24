@@ -82,11 +82,15 @@ correct/unrelated 两臂的同 teacher 协议、update 32/64 checkpoint、冻结
 
 随后 online-rollout 准入发现一个实质性混杂：`explicit_zero_control` 虽把 actor/ICM 的触觉
 tensor 置零，旧配置仍会实例化双 R15 TacSL scene。现已改为原始 SUGAR G1/CarryBox scene，
-完全不创建 TacSL sensor，并新增 24-step、零 optimizer 的正式 online reward smoke。当前
-smoke 尚未通过运行时门槛：server60/job257762 与 server45/job257794 都在最小
-`SimulationApp`（尚未创建 SUGAR scene）阶段复现 Isaac Sim 5.1 `ERROR_DEVICE_LOST`，因此
-不能把它误报为 reward、teacher 或 policy 失败，也不能在 canary 恢复前启动 policy 训练。
-两份 allocation 均继续保持 GPU hold。
+完全不创建 TacSL sensor。2026-08-24 在 fresh H200 job257815/server54 上，最小
+`SimulationApp` canary 通过，correct 与 unrelated 的 24-step、零 optimizer online smoke
+也依次通过：真实执行 actor、冻结 Refiner、SMP、original ICM、phase-aware reward 和 rollout
+storage，同时 policy/ICM 参数及 optimizer counter 全部不变。此前 server60/server45 的
+`ERROR_DEVICE_LOST` 属于已损坏的 GPU runtime 状态，不是 reward、teacher 或 policy 失败。
+两臂未优化时的动作与 base reward 逐步完全相同；history ready 后 16 步的 mean demo
+reward 为 correct `0.04013`、unrelated `0.01734`，对应 mean risk `0.36048/0.50554`。因此
+selector 确实在同一物理 rollout 上读到了不同 demo，而不是由行为差异伪造 reward 差异。
+这仍然只是在线接入证据；尚未启动新的 policy optimization。
 
 官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
 完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
