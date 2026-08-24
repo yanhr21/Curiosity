@@ -137,7 +137,13 @@ def test_phase_event_protocol_holds_teacher_fixed_and_changes_selected_demo():
         "explicit_zero_control"
     )
     assert "--portable-root /tmp/Curiosity_demo_kit_" in kit_args
-    assert "/renderer/enabled" not in kit_args
+    assert "--/renderer/enabled=" in kit_args
+    assert "--/app/vulkan=false" in kit_args
+    assert "--fast-exit-after-evidence" in command
+    assert shared["headless_renderer"] == (
+        "disabled_no_vulkan_for_policy_training"
+    )
+    assert shared["process_shutdown"] == "fast_exit_after_passing_evidence"
     assert "/renderer/multiGpu/enabled=false" in kit_args
     assert "/renderer/multiGpu/autoEnable=false" in kit_args
     assert "/renderer/multiGpu/maxGpuCount=1" in kit_args
@@ -461,3 +467,11 @@ def test_retained_phase_pair_chains_predeclared_evaluation_without_manual_gate()
     assert 'if [[ "$pair_rc" == "0" ]]' in wrapper
     assert "REFERENCE_AWARE_MATCHED_EVALUATION_RC" in wrapper
     assert "DEMO_POLICY_TRAINING_" + "AUTHORIZED" not in wrapper
+
+
+def test_matched_policy_training_disables_unused_vulkan_renderer() -> None:
+    source = (
+        ROOT / "scripts/sugar/demo_following/run_matched_state_predictor.py"
+    ).read_text(encoding="utf-8")
+    assert '"--/renderer/enabled= --/app/vulkan=false "' in source
+    assert '"headless_renderer": "disabled_no_vulkan_for_policy_training"' in source

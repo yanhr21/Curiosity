@@ -350,6 +350,15 @@ parser.add_argument(
         "scored and updated in every arm"
     ),
 )
+parser.add_argument(
+    "--fast-exit-after-evidence",
+    action="store_true",
+    help=(
+        "after a passing probe or final proof/checkpoint has been flushed, "
+        "exit without Isaac Kit shutdown; used on the H200 cluster where "
+        "SimulationApp.close can raise Vulkan device-lost after valid work"
+    ),
+)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 app_launcher = AppLauncher(args)
@@ -358,6 +367,16 @@ simulation_app = app_launcher.app
 import gymnasium as gym  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
+
+
+def _fast_exit_after_passing_evidence() -> None:
+    if not args.fast_exit_after_evidence:
+        return
+    import sys
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
 
 
 def _enforce_strict_torch_determinism() -> None:
@@ -3169,6 +3188,7 @@ def main() -> None:
         print(json.dumps(payload, indent=2, sort_keys=True), flush=True)
         if not payload["passed"]:
             raise RuntimeError("phase-event admission-only probe failed")
+        _fast_exit_after_passing_evidence()
         return
 
     if goal_recovery_contract:
@@ -4452,6 +4472,7 @@ def main() -> None:
                 raise RuntimeError(
                     f"phase-event online rollout smoke failed: {failed}"
                 )
+            _fast_exit_after_passing_evidence()
             return
 
         prior_hash_before = _tensor_state_sha256(
@@ -8414,6 +8435,7 @@ def main() -> None:
                 name for name, passed in checks.items() if not passed
             )
             raise RuntimeError(f"Stage-H diagnostic failed checks: {failed}")
+        _fast_exit_after_passing_evidence()
     except BaseException:
         traceback.print_exc()
         raise

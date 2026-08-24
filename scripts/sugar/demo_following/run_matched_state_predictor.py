@@ -4,9 +4,9 @@
 Both arms use the same correct CarryBox45 teacher and differ only in whether
 the selected reward demo is CarryBox45 or KickBox21. The design retains the
 serious SUGAR PPO, official frozen Refiner, official MimicKit prior, frozen
-serious frozen predictor, matched seeds and reward weights. The active
-phase-aware branch requires an explicit execution flag in addition to a
-non-dry run. Experiment files remain below the ignored ``experiments/`` tree.
+serious frozen predictor, matched seeds and reward weights. Active experiments
+run autonomously to their predeclared scientific endpoint. Experiment files
+remain below the ignored ``experiments/`` tree.
 """
 
 from __future__ import annotations
@@ -368,6 +368,8 @@ def protocol_payload(
             "checkpoint_updates": checkpoint_updates,
             "strict_deterministic_torch": True,
             "cublas_workspace_config": ":4096:8",
+            "headless_renderer": "disabled_no_vulkan_for_policy_training",
+            "process_shutdown": "fast_exit_after_passing_evidence",
             "teacher_wrapper_mode": design.get(
                 "teacher_wrapper_mode", "wrong_reference_fixed_v1"
             ),
@@ -521,9 +523,11 @@ def runner_command(
         "--device",
         args.device,
         "--headless",
+        "--fast-exit-after-evidence",
         "--kit_args",
         (
             f"--portable-root {portable_kit_root} "
+            "--/renderer/enabled= --/app/vulkan=false "
             "--/renderer/multiGpu/enabled=false "
             "--/renderer/multiGpu/autoEnable=false "
             "--/renderer/multiGpu/maxGpuCount=1"
