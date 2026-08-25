@@ -354,6 +354,18 @@ learn a state-dependent transition between the exact Carry and Kick endpoints, u
 online state and both released commands, while keeping future/outcome labels out of the actor and
 retaining the same multi-context exact-pre-update frozen comparison.
 
+The causal-composition implementation is complete as of 2026-08-26. It retains both parameter-
+exact released Tracker experts and adds one official-topology `512/256/128` composer over the
+current 510-D Tracker observation, both causal 36-D Generator commands and the selected-skill
+one-hot. Its zero output is exactly the selected endpoint; the learned scalar can traverse the
+complete `[0,1]` Carry/Kick convex segment before a bounded 29-D residual. Frozen evaluation
+records the selected endpoint, mixture, residual and composed action and requires the latter to be
+bitwise equal to deployed `act_inference`. This is execution-readiness evidence only. The fixed
+seed171644 physical update64 run, frozen learned/pre comparison and videos remain incomplete; do
+not describe causal composition as physically beneficial before those artifacts exist. A positive
+first seed automatically launches the fixed independent seed171645 replication and two-seed
+aggregate, while a negative first seed stops extra scientific spending and retains the GPU.
+
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
 unrelated Kick21 model, but creates no environment and executes zero PPO updates. The allocation is

@@ -515,6 +515,15 @@ actions before a bounded residual. No future success/fall label, offline trace, 
 evaluation metric may enter the actor. Evaluation remains the same unseen-seed, elementwise-matched
 learned-Kick versus exact-pre-update-Kick comparison across `41/49/57`.
 
+Implementation status (2026-08-26): the new actor and complete runner are ready. The actor input is
+`510 + 36 + 36 + 2 = 584-D`; both released experts are frozen; update 0 is exactly the selected
+endpoint; and the gate reaches the complete `[0,1]` Carry/Kick segment before the 29-D bounded
+residual. The evaluator separately records selected endpoint, mixture, residual and final deployed
+action. Static contracts, compute-node checkpoint loading, exact initialization, full-range gate
+reachability and historical residual backward compatibility pass. These checks do not replace the
+pending seed171644 IsaacLab/PhysX experiment. The runner will automatically replicate with
+`171645 -> 181658` only if the first frozen physical result is positive.
+
 ### Expected behavior, not just reward score
 
 For the correct Carry demo, the expected interaction is: approach the box, establish bilateral hand

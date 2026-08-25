@@ -199,9 +199,13 @@
 - [x] replace the single-prefix training context with online physical handoffs `41/49/57` and run
   two independent update64 seeds. Learned/pre-update totals are `97/10` versus `97/11`
   safe/fall, but only seed171642 improves; reject replicated safety benefit.
-- [ ] replace immediate selected-expert-plus-residual execution with a causal state-dependent
-  Carry/Kick transition composition that reads both released commands, preserves the exact frozen
-  endpoints and uses no future/outcome labels; rerun the same multi-context matched comparison.
+- [x] implement the causal state-dependent Carry/Kick composer over current state, both released
+  commands and selected skill. Preserve both exact frozen endpoints, expose the complete `[0,1]`
+  mixture range, keep future/outcome labels out of the actor, and record mixture/residual/final
+  action attribution in frozen evaluation.
+- [ ] run the fixed seed171644 update64 IsaacLab/PhysX multi-context comparison, frozen learned/pre
+  evaluation and videos. If and only if its physical result is positive, automatically run the
+  predeclared `171645 -> 181658` replication and two-seed aggregate; no human authorization gate.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
