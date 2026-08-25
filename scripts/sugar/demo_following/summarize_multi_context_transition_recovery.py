@@ -86,6 +86,7 @@ def _evaluation(
             "minimum_contact_adjacent_planar_path_m": 0.01,
             "minimum_post_first_contact_planar_path_m": 0.03,
             "legacy_any_contact_plus_net_displacement_reported_separately": True,
+            "handoff_to_first_action_interval_included": True,
         }:
             raise RuntimeError(f"invalid strict Kick metric contract: {path}")
         fall_contract = result.get("physical_fall_contract", {})
@@ -94,6 +95,8 @@ def _evaluation(
             "minimum_root_height_loss_m": 0.35,
             "minimum_root_tilt_deg": 60.0,
             "legacy_height_only_fall_reported_separately": True,
+            "root_height_loss_referenced_to_handoff": True,
+            "handoff_tilt_not_charged_to_policy": True,
         }:
             raise RuntimeError(f"invalid strict fall metric contract: {path}")
     return result

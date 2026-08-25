@@ -534,6 +534,9 @@ Safety also uses `root_height_or_tilt_v1`: a profile falls at `>=0.35 m` root-he
 `>=60 deg` root tilt. The prior height-only rule missed tilt-only failures in archived traces but
 did not reverse the negative learned/pre conclusion. Training reward remains unchanged so the
 matched experiment still isolates action composition.
+All motion paths include the handoff-to-first-action interval. Height loss uses handoff root height
+as its reference, while tilt is evaluated only after policy action so an inherited handoff tilt is
+not mislabeled as a student-caused fall.
 
 ### Expected behavior, not just reward score
 

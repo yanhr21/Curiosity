@@ -120,11 +120,20 @@ def _latest_filtered_force(sensor) -> torch.Tensor:
 def _summaries(arrays: dict[str, np.ndarray]) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for profile in range(args.num_envs):
-        obj = arrays["object_root_state_w"][:, profile]
+        obj = np.concatenate(
+            (
+                arrays["initial_object_root_state_w"][profile : profile + 1],
+                arrays["object_root_state_w"][:, profile],
+            ),
+            axis=0,
+        )
         root = arrays["robot_root_state_w"][:, profile]
+        initial_root = arrays["initial_robot_root_state_w"][profile]
         foot = arrays["foot_contact"][:, profile]
         reward = arrays["reward"][:, profile]
-        root_loss = float(root[0, 2] - np.min(root[:, 2]))
+        root_loss = float(
+            initial_root[2] - min(float(initial_root[2]), float(np.min(root[:, 2])))
+        )
         root_quaternion_wxyz = root[:, 3:7]
         root_up_z = 1.0 - 2.0 * (
             np.square(root_quaternion_wxyz[:, 1])
@@ -136,15 +145,18 @@ def _summaries(arrays: dict[str, np.ndarray]) -> list[dict[str, object]]:
         planar_net = float(np.linalg.norm(obj[-1, :2] - obj[0, :2]))
         planar_path = float(np.linalg.norm(np.diff(obj[:, :2], axis=0), axis=-1).sum())
         any_foot = np.any(foot, axis=-1)
+        contact_state = np.concatenate(
+            (np.asarray([False], dtype=bool), any_foot)
+        )
         step_path = np.linalg.norm(np.diff(obj[:, :2], axis=0), axis=-1)
         contact_frames = int(np.count_nonzero(any_foot))
         legacy_kick_success = bool(
             contact_frames > 0 and planar_net >= KICK_NET_DISPLACEMENT_M
         )
         if contact_frames > 0:
-            contact_adjacent = any_foot[:-1] | any_foot[1:]
+            contact_adjacent = contact_state[:-1] | contact_state[1:]
             contact_coupled_path = float(np.sum(step_path[contact_adjacent]))
-            first_contact = int(np.flatnonzero(any_foot)[0])
+            first_contact = int(np.flatnonzero(contact_state)[0])
             post_first_contact_path = float(
                 np.sum(step_path[max(first_contact - 1, 0) :])
             )
@@ -466,12 +478,15 @@ def main() -> None:
                 KICK_POST_CONTACT_PATH_M
             ),
             "legacy_any_contact_plus_net_displacement_reported_separately": True,
+            "handoff_to_first_action_interval_included": True,
         },
         "physical_fall_contract": {
             "name": "root_height_or_tilt_v1",
             "minimum_root_height_loss_m": FALL_HEIGHT_LOSS_M,
             "minimum_root_tilt_deg": FALL_ROOT_TILT_DEG,
             "legacy_height_only_fall_reported_separately": True,
+            "root_height_loss_referenced_to_handoff": True,
+            "handoff_tilt_not_charged_to_policy": True,
         },
         "action_composition": (
             {

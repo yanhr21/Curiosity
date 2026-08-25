@@ -51,10 +51,17 @@ def _evaluation(path: Path, skill_id: int) -> dict[str, object]:
         raise RuntimeError(f"invalid shared transition evaluation: {path}")
     if args.expected_policy_topology == "causal_action_composition":
         contract = result.get("kick_success_contract", {})
-        if contract.get("name") != "foot_contact_coupled_planar_motion_v1":
+        if (
+            contract.get("name") != "foot_contact_coupled_planar_motion_v1"
+            or contract.get("handoff_to_first_action_interval_included") is not True
+        ):
             raise RuntimeError(f"strict Kick metric contract is missing: {path}")
         fall_contract = result.get("physical_fall_contract", {})
-        if fall_contract.get("name") != "root_height_or_tilt_v1":
+        if (
+            fall_contract.get("name") != "root_height_or_tilt_v1"
+            or fall_contract.get("root_height_loss_referenced_to_handoff") is not True
+            or fall_contract.get("handoff_tilt_not_charged_to_policy") is not True
+        ):
             raise RuntimeError(f"strict fall metric contract is missing: {path}")
     return result
 

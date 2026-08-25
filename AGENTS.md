@@ -372,6 +372,9 @@ may not support a causal Kick or safety claim.
 Physical fall uses `root_height_or_tilt_v1`: either at least `0.35 m` root-height loss or at least
 `60 deg` root tilt. Height-only falls remain a legacy count. Do not change the training reward for
 this diagnostic; the learned/pre comparison changes action topology, not reward definition.
+Object motion includes the handoff-to-first-action interval. Root-height loss is referenced to the
+handoff, but pre-existing handoff tilt is not charged to the policy; tilt fall begins after its
+first deployed action.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
