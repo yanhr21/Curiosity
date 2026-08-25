@@ -83,8 +83,15 @@ def _comparison(
             raise RuntimeError(f"prefix{prefix} learned/pre-update drift: {key}")
     learned_trace = np.load(learned_path.parent / "trace.npz")
     pre_trace = np.load(pre_path.parent / "trace.npz")
+    initial_keys = INITIAL_KEYS
+    if policy_topology == "causal_action_composition":
+        initial_keys += (
+            "initial_carry_skill_command",
+            "initial_kick_skill_command",
+            "initial_selected_skill_id",
+        )
     if not all(
-        np.array_equal(learned_trace[key], pre_trace[key]) for key in INITIAL_KEYS
+        np.array_equal(learned_trace[key], pre_trace[key]) for key in initial_keys
     ):
         raise RuntimeError(f"prefix{prefix} initial physics is not identical")
     learned_aggregate = learned["aggregate"]
@@ -167,6 +174,7 @@ def _comparison(
             )
         record["learned_action_composition"] = learned_composition
         record["exact_pre_update_action_composition"] = pre_composition
+        record["initial_full_584d_actor_input_elementwise_identical"] = True
         record["learned_composition_weight_changes_online"] = bool(
             float(
                 learned_composition["mean_abs_deviation_from_selected_endpoint"]
@@ -274,6 +282,7 @@ def main() -> None:
         checks.update(
             {
                 "pre_update_exact_selected_action_composition": True,
+                "initial_full_584d_actor_input_elementwise_identical_all_contexts": True,
                 "minimum_mean_composition_deviation": (
                     MINIMUM_MEAN_COMPOSITION_DEVIATION
                 ),

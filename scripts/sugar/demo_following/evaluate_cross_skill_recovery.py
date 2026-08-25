@@ -248,6 +248,17 @@ def main() -> None:
         "object_root_state_w": base.scene["obj"].data.root_state_w.detach().cpu().numpy().copy(),
         "policy_observation": observations["policy"].detach().cpu().numpy().copy(),
     }
+    if args.policy_topology == "causal_action_composition":
+        initial.update(
+            {
+                name: observations[name].detach().cpu().numpy().copy()
+                for name in (
+                    "carry_skill_command",
+                    "kick_skill_command",
+                    "selected_skill_id",
+                )
+            }
+        )
     records: dict[str, list[np.ndarray]] = {
         "robot_root_state_w": [],
         "robot_body_position_w": [],
@@ -266,6 +277,9 @@ def main() -> None:
     }
     if args.policy_topology == "causal_action_composition":
         for name in (
+            "carry_skill_command",
+            "kick_skill_command",
+            "selected_skill_id",
             "kick_composition_weight",
             "selected_endpoint_action",
             "mixed_endpoint_action",
@@ -285,6 +299,14 @@ def main() -> None:
             if isinstance(
                 transition_policy, FrozenExpertCausalActionComposerActorCritic
             ):
+                for name in (
+                    "carry_skill_command",
+                    "kick_skill_command",
+                    "selected_skill_id",
+                ):
+                    records[name].append(
+                        observations[name].detach().cpu().numpy().copy()
+                    )
                 terms = transition_policy.composition_audit_terms(observations)
                 for source_name, record_name in (
                     ("kick_weight", "kick_composition_weight"),

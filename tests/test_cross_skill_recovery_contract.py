@@ -487,6 +487,8 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     )
     assert "composition_terms_match_deployed_action_both_conditions" in condition_summary
     assert "composition_uses_no_future_or_outcome_labels" in condition_summary
+    assert "initial_physics_and_both_commands_identical" in condition_summary
+    assert "selected_skill_one_hot_is_only_actor_input_condition_swap" in condition_summary
     multi_context_runner = _read(
         ROOT / "scripts/sugar/demo_following/run_multi_context_transition_recovery.sh"
     )
@@ -503,6 +505,9 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert '"composition_terms_match_deployed_action"' in evaluator
     assert '"mean_abs_mixed_minus_selected_endpoint_action"' in evaluator
     assert '"mean_abs_bounded_residual_action"' in evaluator
+    assert '"carry_skill_command",' in evaluator
+    assert '"kick_skill_command",' in evaluator
+    assert '"selected_skill_id",' in evaluator
 
 
 def test_causal_action_composer_is_exact_at_pre_update_and_gate_is_trainable() -> None:

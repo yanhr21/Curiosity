@@ -129,6 +129,28 @@ def main() -> None:
     action_composition = None
     composition_checks: dict[str, object] = {}
     if args.expected_policy_topology == "causal_action_composition":
+        command_keys = (
+            "initial_carry_skill_command",
+            "initial_kick_skill_command",
+        )
+        if not all(
+            np.array_equal(kick_trace[key], carry_trace[key])
+            for key in command_keys
+        ):
+            raise RuntimeError("condition-swap initial causal commands differ")
+        kick_skill = kick_trace["initial_selected_skill_id"]
+        carry_skill = carry_trace["initial_selected_skill_id"]
+        expected_kick = np.broadcast_to(
+            np.asarray([0.0, 1.0], dtype=kick_skill.dtype), kick_skill.shape
+        )
+        expected_carry = np.broadcast_to(
+            np.asarray([1.0, 0.0], dtype=carry_skill.dtype), carry_skill.shape
+        )
+        if not (
+            np.array_equal(kick_skill, expected_kick)
+            and np.array_equal(carry_skill, expected_carry)
+        ):
+            raise RuntimeError("condition-swap selected-skill one-hot drift")
         condition_terms = {
             "selected_kick": kick.get("action_composition"),
             "selected_carry": carry.get("action_composition"),
@@ -148,6 +170,8 @@ def main() -> None:
             raise RuntimeError("condition-swap action-composition audit failed")
         action_composition = condition_terms
         composition_checks = {
+            "initial_physics_and_both_commands_identical": True,
+            "selected_skill_one_hot_is_only_actor_input_condition_swap": True,
             "composition_terms_match_deployed_action_both_conditions": True,
             "composition_uses_no_future_or_outcome_labels": True,
         }
