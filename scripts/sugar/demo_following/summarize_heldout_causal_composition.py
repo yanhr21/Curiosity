@@ -208,6 +208,9 @@ def _comparison(
     mixed_action_deviation = float(
         composition["mean_abs_mixed_minus_selected_endpoint_action"]
     )
+    composed_action_deviation = float(
+        composition["mean_abs_composed_minus_selected_endpoint_action"]
+    )
     return {
         "prefix": prefix,
         "initial_full_584d_input_elementwise_identical": True,
@@ -219,7 +222,7 @@ def _comparison(
         "composition": composition,
         "exact_pre_update_composition": pre_composition,
         "learned_action_composition_used_online": bool(
-            gate_deviation >= MINIMUM_MEAN_COMPOSITION_DEVIATION
+            composed_action_deviation >= MINIMUM_MEAN_COMPOSITION_DEVIATION
         ),
         "endpoint_gap_amplification": (
             mixed_action_deviation / gate_deviation

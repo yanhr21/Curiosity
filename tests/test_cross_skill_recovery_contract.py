@@ -591,5 +591,6 @@ def test_heldout_causal_composition_eval_is_frozen_automatic_and_strict() -> Non
     assert "pre_update_exact_selected_endpoint_all_runs" in summary
     assert "composition_terms_match_deployed_action_all_runs" in summary
     assert "learned_action_composition_used_online_all_seeds" in summary
+    assert "composed_action_deviation >= MINIMUM_MEAN_COMPOSITION_DEVIATION" in summary
     assert "heldout_safety_improvement_replicated_all_seeds" in summary
     assert "future_or_outcome_labels_used" in summary
