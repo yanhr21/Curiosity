@@ -196,9 +196,12 @@
   evaluation seeds. Learned and exact pre-update Kick both total `35/40` safe and `4/40` falls;
   safety improvement is false for both seeds, while same-checkpoint Kick/Carry condition use remains
   replicated at `35/3` safe kicks.
-- [ ] replace the single-prefix/single-seed training-context distribution with a predeclared set of
-  multiple failure-rich physical handoffs, keeping the exact frozen experts, shared actor and causal
-  reward unchanged; test learned Kick against exact pre-update Kick on unseen seeds.
+- [x] replace the single-prefix training context with online physical handoffs `41/49/57` and run
+  two independent update64 seeds. Learned/pre-update totals are `97/10` versus `97/11`
+  safe/fall, but only seed171642 improves; reject replicated safety benefit.
+- [ ] replace immediate selected-expert-plus-residual execution with a causal state-dependent
+  Carry/Kick transition composition that reads both released commands, preserves the exact frozen
+  endpoints and uses no future/outcome labels; rerun the same multi-context matched comparison.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -231,9 +234,11 @@ checkpoint removes that confound and replicates condition-dependent endpoint exe
 seeds. The matched exact pre-update comparison rejects a learned safety benefit: `36/35` safe Kick
 but `2/0` falls. The fixed failure-rich overfit also fails its learnability rule through update256.
 The causal physical recovery objective passes fixed-context learnability only at update64/128.
-Its two-seed balanced formal test is now negative: learned/pre-update both give `35/40` safe Kick
-and `4/40` falls. The active next task is multi-context failure-rich online training, not another
-update extension, reward-scale sweep or extra formal seed.
+Its two-seed balanced formal test is negative: learned/pre-update both give `35/40` safe Kick and
+`4/40` falls. Multi-context failure-rich training is now also complete: learned/pre-update give
+`97/97` safe Kick and `10/11` falls, but the one-fall aggregate difference occurs in only one of
+two seeds. The active next task is state-dependent frozen-expert action composition, not another
+update extension, reward-scale sweep or extra residual seed.
 
 ## Frozen tactile work
 

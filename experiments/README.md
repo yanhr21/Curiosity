@@ -147,6 +147,14 @@ has been archived.
 - `shared_transition_recovery_objective_two_seed_v1/`: formal aggregate. Learned and exact
   pre-update Kick both total `35/40` safe and `4/40` falls, so causal recovery benefit does not
   generalize despite replicated selected Kick/Carry condition separation (`35/3` safe kicks);
+- `multi_context_transition_recovery_seed171642_v1/` and seed171643 sibling: one shared serious
+  controller cycles physical Carry-prefix handoffs `41/49/57` online. Both endpoint audits pass,
+  all learned/pre-update comparisons restore elementwise-identical initial physics, and each
+  directory contains three learned-versus-pre-update world videos. Per-seed safe/fall totals are
+  `47/3 vs 47/4` and `50/7 vs 50/7`;
+- `multi_context_transition_recovery_two_seed_v1/`: strict aggregate over 120 profiles per
+  endpoint. Learned/pre-update are `97/10` versus `97/11` safe/fall, but only one seed improves;
+  `RESULT.json` records `multi_context_kick_safety_improvement_not_replicated`;
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
 The old 1216-update policy experiment, rejected 510-D/free-window event predictor, redundant CPU

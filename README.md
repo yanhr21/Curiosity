@@ -177,8 +177,16 @@ root-height loss 也恶化 `+0.00241 m`，这些连续量变化没有转化成�
 checkpoint 的 Kick/Carry condition 仍产生 `35/3` safe Kick，说明语义选择继续成立；错误
 Carry condition 仍不作为安全基线。结论是 causal recovery reward 只通过了固定上下文
 learnability，没有跨 seed 改善安全恢复。不得继续增加 update、reward scale 或 formal seed；
-下一步必须改变在线训练上下文分布，使同一 serious controller 在多种 failure-rich handoff
-状态上学习，再用未见 seed 冻结评估。
+随后已完成多 failure-rich handoff 训练，不再把它列为待办。
+
+多上下文 follow-up 在每次 episode boundary 在线循环 Carry prefix `41/49/57`，不 teleport、
+不 replay、不给 prefix PPO credit；两颗 seed 都使用 exact frozen experts、32/32 condition 和
+update64。seed171642 learned/pre-update 为 `47/47` safe、`3/4` fall；seed171643 为
+`50/50` safe、`7/7` fall。合计双方都是 `97/120` safe，fall 为 `10/11`，但只有第一颗 seed
+通过，所以安全增益没有复现。平均净位移反而减少 `0.01367 m`，root-height loss 减少
+`0.00529 m`。这关闭了当前 selected-expert-plus-residual topology 的更多 update/scale/seed；
+下一步改为读取当前在线 state 和两套 released command 的 state-dependent exact-action
+transition，而不是继续调同一个 reward。
 
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
@@ -464,6 +472,11 @@ normal/shear 混合、摩擦不一致、slip reset 丢失、训练/评测 motion
 cd /public/home/yanhongru/Curiosity
 export PYTHON_BIN=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
 
+# retained GPU：复现当前 multi-context learned/pre-update 训练、评估和三个 H.264
+TRAIN_SEED_OVERRIDE=171642 EVAL_SEED_OVERRIDE=181652 VIDEO_SEED_OVERRIDE=181653 \
+  bash scripts/sugar/demo_following/run_multi_context_transition_recovery.sh \
+  experiments/demo_following/reproduce_multi_context_seed171642 cuda:0
+
 # retained GPU：训练一个 checkpoint 内的 causal Carry/Kick official-skill router
 $PYTHON_BIN scripts/sugar/demo_following/train_official_tracker_router.py
 
@@ -565,6 +578,12 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 - [冻结官方端点 transition：selected Kick 与 selected Carry](experiments/demo_following/frozen_expert_transition_prefix41_seed171637_v1/videos_seed181643_v2/correct_kick_vs_wrong_carry_seed181643.mp4)；
 - [同一共享 checkpoint：Kick 与 Carry condition](experiments/demo_following/shared_frozen_expert_transition_prefix41_seed171638_v1/videos_seed181645/same_checkpoint_kick_vs_carry_seed181645.mp4)；
 - [同一共享 checkpoint 独立复现：Kick 与 Carry condition](experiments/demo_following/shared_frozen_expert_transition_prefix41_seed171639_v1/videos_seed181647/same_checkpoint_kick_vs_carry_seed181647.mp4)；
+- [多上下文 seed171642：prefix41 learned 与 exact pre-update](experiments/demo_following/multi_context_transition_recovery_seed171642_v1/videos_seed181653/prefix41/learned_vs_pre_update_prefix41.mp4)；
+- [多上下文 seed171642：prefix49 learned 与 exact pre-update](experiments/demo_following/multi_context_transition_recovery_seed171642_v1/videos_seed181653/prefix49/learned_vs_pre_update_prefix49.mp4)；
+- [多上下文 seed171642：prefix57 learned 与 exact pre-update](experiments/demo_following/multi_context_transition_recovery_seed171642_v1/videos_seed181653/prefix57/learned_vs_pre_update_prefix57.mp4)；
+- [独立复现 seed171643：prefix41 learned 与 exact pre-update](experiments/demo_following/multi_context_transition_recovery_seed171643_v1/videos_seed181655/prefix41/learned_vs_pre_update_prefix41.mp4)；
+- [独立复现 seed171643：prefix49 learned 与 exact pre-update](experiments/demo_following/multi_context_transition_recovery_seed171643_v1/videos_seed181655/prefix49/learned_vs_pre_update_prefix49.mp4)；
+- [独立复现 seed171643：prefix57 learned 与 exact pre-update](experiments/demo_following/multi_context_transition_recovery_seed171643_v1/videos_seed181655/prefix57/learned_vs_pre_update_prefix57.mp4)；
 - [Prefix41 无安全 penalty：位移增加但跌倒恶化](experiments/demo_following/cross_skill_recovery_prefix41_v1/videos/matched_baseline_vs_learned_recovery_actual_world.mp4)；
 - [Carry-9→Kick：零更新与 update64 真实世界对照](experiments/demo_following/cross_skill_recovery_v1/bcppo_frozen_eval_seed181629/videos/matched_baseline_vs_update64_actual_world.mp4)；
 - [official router：Carry45 reference 与 matched Carry](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/01_carry_domain_carry45_condition.mp4)；
@@ -620,9 +639,10 @@ motion-disjoint gate；三种 scalar prior reward 都能因果改变行为，但
 不支持安全增益。固定 failure-rich overfit 也已失败：四个 endpoint 都不能在不损失 safe Kick
 的前提下降低跌倒。加入 causal physical recovery objective 后固定诊断在 update64/128 通过，
 但后续 endpoint 退化；随后两颗 balanced formal seed 汇总中，learned 和 pre-update 都是
-`35` safe Kick、`4` fall，跨 seed 安全增益被否定。当前下一项是多 failure-rich handoff
-上下文的在线训练覆盖，不延长训练、不扫描 reward scale，也不得用 hand-written toy
-latent/world model 替代。
+`35` safe Kick、`4` fall。多上下文 `41/49/57` follow-up 也已完成：learned/pre-update 为
+`97/97` safe、`10/11` fall，但改善只发生在一颗 seed，不能称为复现。当前下一项是
+state-dependent exact Carry/Kick action composition，不延长 residual 训练、不扫描 reward
+scale，也不得用 hand-written toy latent/world model 替代。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复

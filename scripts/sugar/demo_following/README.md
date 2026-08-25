@@ -7,14 +7,25 @@ updates 32 and 64. Active experiments execute without artificial human-authoriza
 
 ## Current transition-recovery verdict
 
-The causal recovery objective has completed its balanced formal test on training seeds
-`171640/171641` with disjoint evaluation seeds `181648/181650`. Both 64-update endpoint audits pass.
-Across 40 profiles, learned and exact pre-update Kick are tied at `35` safe kicks and `4` falls;
-the safety-improvement check is false for both seeds. Same-checkpoint selected Kick/Carry remains
-separated at `35/3` safe kicks. This is replicated condition use, not recovery benefit. Do not
-extend this single-prefix objective by updates, reward scale or extra seeds; the next runner must
-diversify predeclared failure-rich online handoff contexts while preserving the released experts
-and matched exact-pre-update comparison.
+The causal recovery objective first failed its balanced single-prefix formal test on seeds
+`171640/171641`: learned and exact pre-update Kick are tied at `35/40` safe and `4/40` falls.
+The completed multi-context follow-up cycles online physical Carry handoffs `41/49/57` and uses
+training/evaluation pairs `171642 -> 181652` and `171643 -> 181654`. Learned versus exact pre-update
+totals are `97/120` safe for both and `10/11` falls. Only seed171642 improves, so the benefit is not
+replicated. Same-checkpoint selected Kick/Carry behavior remains distinct. Do not add residual
+updates, reward scales or a third seed; the next controller must learn a causal state-dependent
+composition of both exact released actions under the same frozen comparison.
+
+Reproduce one fresh multi-context seed inside a retained GPU step with:
+
+```bash
+TRAIN_SEED_OVERRIDE=171642 EVAL_SEED_OVERRIDE=181652 VIDEO_SEED_OVERRIDE=181653 \
+  bash scripts/sugar/demo_following/run_multi_context_transition_recovery.sh \
+  experiments/demo_following/reproduce_multi_context_seed171642 cuda:0
+```
+
+The runner continuously trains, audits, evaluates all three contexts and renders the paired H.264
+videos. It contains no manual authorization stage.
 
 ## Current executable baseline: causal official-Tracker router
 

@@ -380,3 +380,45 @@ def test_transition_recovery_objective_is_causal_and_not_actor_input() -> None:
     assert "run_frozen_expert_transition_failure_overfit.sh" in runner
     assert "read -" not in runner
     assert "approval" not in runner.lower()
+
+
+def test_multi_context_recovery_cycles_online_prefixes_without_actor_leakage() -> None:
+    wrapper = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_cross_skill_recovery_wrapper.py"
+    )
+    assert "carry_prefix_schedule" in wrapper
+    assert "self.prefix_count % len(self.carry_prefix_schedule)" in wrapper
+    assert '"carry_prefix_install_counts"' in wrapper
+    assert '"prefix_schedule_is_episode_boundary_online": True' in wrapper
+    train = _read(SUGAR / "scripts/sugar_rl/train.py")
+    assert "SUGAR_CROSS_SKILL_CARRY_PREFIX_SCHEDULE" in train
+
+    runner = _read(
+        ROOT / "scripts/sugar/demo_following/run_multi_context_transition_recovery.sh"
+    )
+    assert "PREFIXES=(41 49 57)" in runner
+    assert "SUGAR_CROSS_SKILL_CARRY_PREFIX_SCHEDULE=41,49,57" in runner
+    assert "--max_iterations 65" in runner
+    assert "model_pre_update.pt" in runner
+    assert "summarize_multi_context_transition_recovery.py" in runner
+    assert "read -" not in runner
+    assert "approval" not in runner.lower()
+
+    summary = _read(
+        ROOT
+        / "scripts/sugar/demo_following/summarize_multi_context_transition_recovery.py"
+    )
+    assert "all_predeclared_contexts_installed_online" in summary
+    assert "aggregate_kick_safety_improvement" in summary
+    assert "exact_pre_update_kick" in summary
+    assert "future_or_outcome_labels_used" in summary
+
+    aggregate = _read(
+        ROOT
+        / "scripts/sugar/demo_following/aggregate_multi_context_transition_recovery_seeds.py"
+    )
+    assert "multi-context aggregate requires at least two seeds" in aggregate
+    assert "training and evaluation seed sets must be disjoint" in aggregate
+    assert "same_predeclared_context_schedule_all_seeds" in aggregate
+    assert "aggregate_safety_improvement_replicated_all_seeds" in aggregate

@@ -382,6 +382,18 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                     os.environ.get("SUGAR_CONDITIONAL_TINYMDM_SMP_WEIGHT", "0.5")
                 ),
             }
+        carry_prefix_schedule_env = os.environ.get(
+            "SUGAR_CROSS_SKILL_CARRY_PREFIX_SCHEDULE"
+        )
+        carry_prefix_schedule = (
+            [
+                int(value.strip())
+                for value in carry_prefix_schedule_env.split(",")
+                if value.strip()
+            ]
+            if carry_prefix_schedule_env is not None
+            else None
+        )
         env = OnlineCrossSkillRecoveryVecEnvWrapper(
             env,
             clip_actions=agent_cfg.clip_actions,
@@ -389,6 +401,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             carry_prefix_steps=int(
                 os.environ.get("SUGAR_CROSS_SKILL_CARRY_PREFIX_STEPS", "9")
             ),
+            carry_prefix_schedule=carry_prefix_schedule,
             audit_path=os.environ.get("SUGAR_CROSS_SKILL_PREFIX_AUDIT"),
             reward_clip=(
                 float(os.environ["SUGAR_CROSS_SKILL_RECOVERY_REWARD_CLIP"])

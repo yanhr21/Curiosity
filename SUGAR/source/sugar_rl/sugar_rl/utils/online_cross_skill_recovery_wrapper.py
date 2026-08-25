@@ -4,10 +4,11 @@
 """Online released-skill prefix for causal cross-skill recovery training.
 
 The wrapper constructs every recovery start state by actually stepping PhysX:
-one exact KickBox alignment action followed by a fixed number of exact
-CarryBox Generator+Tracker actions.  These prefix steps happen between RSL-RL
-episodes and never enter PPO storage.  The trainable policy therefore receives
-only the current 510-D Tracker observation at the physical handoff state.
+one exact KickBox alignment action followed by a fixed or predeclared scheduled
+number of exact CarryBox Generator+Tracker actions.  These prefix steps happen
+between RSL-RL episodes and never enter PPO storage.  The trainable policy
+therefore receives only the current 510-D Tracker observation at the physical
+handoff state.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from __future__ import annotations
 import json
 import math
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Callable
 
@@ -173,6 +175,7 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         kick_tracker_checkpoint: str | Path,
         carry_generator_checkpoint: str | Path,
         carry_prefix_steps: int = 9,
+        carry_prefix_schedule: Sequence[int] | None = None,
         audit_path: str | Path | None = None,
         prefix_frame_callback: Callable[[str, int], None] | None = None,
         reward_clip: float | None = None,
@@ -187,8 +190,15 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         transition_selected_skill_id: int | None = None,
         transition_recovery_reward: bool = False,
     ) -> None:
-        if carry_prefix_steps <= 0:
-            raise ValueError("carry_prefix_steps must be positive")
+        schedule = (
+            (int(carry_prefix_steps),)
+            if carry_prefix_schedule is None
+            else tuple(int(step) for step in carry_prefix_schedule)
+        )
+        if not schedule or any(step <= 0 for step in schedule):
+            raise ValueError("carry prefix schedule must contain positive steps")
+        if len(set(schedule)) != len(schedule):
+            raise ValueError("carry prefix schedule must not contain duplicates")
         super().__init__(env, clip_actions=clip_actions)
         self.base_env = env.unwrapped
         self.command = self.base_env.command_manager.get_term("motion")
@@ -204,7 +214,9 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             checkpoint_path=str(Path(carry_generator_checkpoint).resolve()),
             device=self.base_env.device,
         )
-        self.carry_prefix_steps = int(carry_prefix_steps)
+        self.carry_prefix_schedule = schedule
+        self.carry_prefix_steps = schedule[0]
+        self.carry_prefix_install_counts = {step: 0 for step in schedule}
         self.audit_path = (
             Path(audit_path).expanduser().resolve() if audit_path is not None else None
         )
@@ -341,6 +353,8 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
     def _install_prefix(self):
         """Advance all synchronized environments to the recovery handoff."""
 
+        schedule_index = self.prefix_count % len(self.carry_prefix_schedule)
+        self.carry_prefix_steps = self.carry_prefix_schedule[schedule_index]
         if self.conditional_tinymdm_reward is not None:
             self.conditional_tinymdm_reward.reset_history()
         observations, policy = self._policy_observation()
@@ -403,6 +417,7 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
                 dtype=self._transition_handoff_object_xy.dtype,
             )
         observations = self._augment_transition_observation(observations)
+        self.carry_prefix_install_counts[self.carry_prefix_steps] += 1
         self.prefix_count += 1
         if self.conditional_tinymdm_reward is not None:
             self.conditional_tinymdm_reward.prepare_reward()
@@ -414,11 +429,21 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             return
         self.audit_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
-            "protocol": "sugar_online_cross_skill_recovery_prefix_v2",
+            "protocol": (
+                "sugar_online_cross_skill_recovery_prefix_v3"
+                if len(self.carry_prefix_schedule) > 1
+                else "sugar_online_cross_skill_recovery_prefix_v2"
+            ),
             "num_envs": int(self.num_envs),
             "prefix_count": int(self.prefix_count),
             "kick_alignment_steps": 1,
             "carry_prefix_steps": int(self.carry_prefix_steps),
+            "carry_prefix_schedule": list(self.carry_prefix_schedule),
+            "carry_prefix_install_counts": [
+                self.carry_prefix_install_counts[step]
+                for step in self.carry_prefix_schedule
+            ],
+            "prefix_schedule_is_episode_boundary_online": True,
             "ppo_prefix_transitions": 0,
             "state_teleport": False,
             "offline_replay": False,

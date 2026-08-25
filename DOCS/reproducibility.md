@@ -1563,6 +1563,44 @@ experiments/demo_following/shared_transition_recovery_objective_prefix41_seed171
 scale 或 formal seed；下一实验必须改变 failure-rich online handoff 的训练覆盖面，并继续使用
 unseen-seed learned-Kick versus exact-pre-update-Kick 冻结判据。
 
+### 5.9 Multi-context online recovery result
+
+该 follow-up 不改专家、actor、BCPPO、reward 或 update budget，只把每次 episode-boundary 的
+真实 PhysX Carry prefix 依次循环为 `41/49/57`。prefix 由 official Carry Generator+Tracker
+在线执行，不 teleport、不 replay、不给 PPO prefix credit，prefix 数字不进入 actor。每颗 seed
+实际安装 10 次 handoff，计数固定为 `4/3/3`。
+
+```bash
+TRAIN_SEED_OVERRIDE=171642 EVAL_SEED_OVERRIDE=181652 VIDEO_SEED_OVERRIDE=181653 \
+  bash scripts/sugar/demo_following/run_multi_context_transition_recovery.sh \
+  experiments/demo_following/multi_context_transition_recovery_seed171642_v1 cuda:0
+
+TRAIN_SEED_OVERRIDE=171643 EVAL_SEED_OVERRIDE=181654 VIDEO_SEED_OVERRIDE=181655 \
+  bash scripts/sugar/demo_following/run_multi_context_transition_recovery.sh \
+  experiments/demo_following/multi_context_transition_recovery_seed171643_v1 cuda:0
+```
+
+聚合命令：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/aggregate_multi_context_transition_recovery_seeds.py \
+  --result experiments/demo_following/multi_context_transition_recovery_seed171642_v1/RESULT.json \
+  --result experiments/demo_following/multi_context_transition_recovery_seed171643_v1/RESULT.json \
+  --output experiments/demo_following/multi_context_transition_recovery_two_seed_v1/RESULT.json
+```
+
+seed171642 learned/pre-update 为 `47/47` safe、`3/4` fall；seed171643 为 `50/50` safe、
+`7/7` fall。合计 learned/pre-update 都是 `97/120` safe，fall 为 `10/11`。严格规则要求每颗
+独立 seed 都改善，因此结论是 `multi_context_kick_safety_improvement_not_replicated`，不能把
+合计少一次跌倒写成稳定增益。跨 seed 平均 learned-minus-pre-update 为净位移
+`-0.013666 m`、foot-contact fraction `-0.004633`、root-height loss `-0.005286 m`。
+
+每颗 seed 的 `videos_seed*/prefix41|49|57/learned_vs_pre_update_prefix*.mp4` 是独立
+camera rollout，只证明各自画面。该结果关闭 selected-expert-plus-residual 的额外 update、
+scale 和第三 seed。下一实验必须改变 action composition：使用当前在线状态和两套 released
+command 学习 exact Carry/Kick action 之间的因果 state-dependent transition，同时保持 future/
+outcome label、prefix ID 和评估量不进入 actor。
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

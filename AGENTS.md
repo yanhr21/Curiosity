@@ -333,10 +333,18 @@ pre-update Kick are both `35/40` safe kicks with `4/40` falls; neither seed pass
 improvement. Mean learned-minus-pre-update displacement/contact are `+0.01782 m/+0.00460`, while
 root-height loss worsens by `+0.00241 m`. The same-checkpoint Kick/Carry split remains strong at
 `35/3` safe kicks, so condition use is retained but recovery benefit is rejected. Do not add
-updates, reward-weight sweeps or more formal seeds to this objective. The next serious diagnostic
-must change the online training-context distribution to cover multiple failure-rich physical
-handoffs while preserving the exact frozen experts, shared actor contract and causal reward
-semantics, then evaluate on unseen seeds.
+updates, reward-weight sweeps or more formal seeds to this single-prefix objective.
+
+The predeclared multi-context follow-up is also complete. One shared controller cycles physical
+Carry-prefix handoffs `41/49/57` online at episode boundaries, with exact frozen experts, balanced
+32/32 conditions and the same update64 budget. Seed `171642 -> 181652` gives learned/pre-update
+`47/47` safe Kick and `3/4` falls; seed `171643 -> 181654` gives `50/50` and `7/7`. Across 120
+profiles per endpoint, safe Kick is tied at `97`, while falls are `10/11`; only the first seed
+passes, so safety improvement is not replicated. Do not add updates, reward scales or a third seed
+to this residual topology. The next serious diagnostic must change the causal action composition:
+learn a state-dependent transition between the exact Carry and Kick endpoints, using current
+online state and both released commands, while keeping future/outcome labels out of the actor and
+retaining the same multi-context exact-pre-update frozen comparison.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

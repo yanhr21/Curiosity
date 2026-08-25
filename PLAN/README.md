@@ -498,12 +498,22 @@ identical initial physics. Learned and exact pre-update Kick each total `35/40` 
 checkpoint still separates selected Kick from selected Carry (`35/3` safe kicks), confirming
 condition use without validating the new reward's cross-seed benefit.
 
-This closes update/scale/extra-seed extension of the single-prefix objective. The next matched
-diagnostic keeps the exact released experts, 548-D shared actor input and causal current-rollout
-reward, but changes the training distribution: one controller must see multiple predeclared
-failure-rich physical handoff contexts rather than overfitting prefix41 under one seed. Its frozen
-test remains an unseen-seed learned-Kick versus exact-pre-update-Kick comparison; continuous reward,
-action difference and condition separation cannot substitute for safe/fall improvement.
+This closes update/scale/extra-seed extension of the single-prefix objective. The matched
+multi-context follow-up then cycles online Carry-prefix handoffs `41/49/57` at episode boundaries
+without teleport, replay or prefix PPO credit. Both seeds use balanced 32/32 selected conditions,
+one shared checkpoint, exact frozen experts and update64. Seed `171642 -> 181652` changes
+learned/pre-update safe/fall from `47/4` to `47/3`; seed `171643 -> 181654` is tied at `50/7`.
+The two-seed total is learned/pre-update `97/10` versus `97/11`, but the improvement passes only
+one seed and is therefore not replicated. Mean learned-minus-pre-update displacement is
+`-0.01367 m`, foot-contact fraction `-0.00463`, and root-height loss `-0.00529 m`.
+
+This closes the feed-forward selected-expert-plus-residual topology under both single- and
+multi-context training. The next matched diagnostic changes action composition, not reward scale:
+a full official-topology causal transition module must receive current online state plus both
+released Carry/Kick commands and learn a state-dependent interpolation between their exact frozen
+actions before a bounded residual. No future success/fall label, offline trace, prefix ID or
+evaluation metric may enter the actor. Evaluation remains the same unseen-seed, elementwise-matched
+learned-Kick versus exact-pre-update-Kick comparison across `41/49/57`.
 
 ### Expected behavior, not just reward score
 
