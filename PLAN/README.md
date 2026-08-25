@@ -548,7 +548,8 @@ causal composer for 64 updates on `33/41/49/57/65`, then evaluate exact learned/
 interleaved unseen `37/45/53/61`. Keep the official experts exact, the 584-D causal input, 32/32
 condition balance with parity swapping, reward, optimizer and v4 success/fall metrics unchanged.
 The first seed is `171646 -> 181662`; an automatic positive-result replication uses
-`171647 -> 181664`.
+`171647 -> 181664`. The executable entrypoint is
+`scripts/sugar/demo_following/run_dense_prefix_causal_composition.sh`.
 
 The new frozen evaluator uses `foot_contact_coupled_planar_motion_v1`, not the historical loose
 any-contact label. Success requires `>=0.05 m` net planar displacement, `>=0.01 m` planar path on

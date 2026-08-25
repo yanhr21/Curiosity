@@ -397,8 +397,11 @@ def test_multi_context_recovery_cycles_online_prefixes_without_actor_leakage() -
     runner = _read(
         ROOT / "scripts/sugar/demo_following/run_multi_context_transition_recovery.sh"
     )
-    assert "PREFIXES=(41 49 57)" in runner
-    assert "SUGAR_CROSS_SKILL_CARRY_PREFIX_SCHEDULE=41,49,57" in runner
+    assert "TRAIN_PREFIXES_CSV_OVERRIDE:-41,49,57" in runner
+    assert "EVAL_PREFIXES_CSV_OVERRIDE:-$TRAIN_PREFIXES_CSV" in runner
+    assert 'SUGAR_CROSS_SKILL_CARRY_PREFIX_SCHEDULE="$TRAIN_PREFIXES_CSV"' in runner
+    assert 'for prefix in "${EVAL_PREFIXES[@]}"' in runner
+    assert "--expected-evaluation-schedule" in runner
     assert "--max_iterations 65" in runner
     assert "model_pre_update.pt" in runner
     assert "summarize_multi_context_transition_recovery.py" in runner
@@ -413,6 +416,9 @@ def test_multi_context_recovery_cycles_online_prefixes_without_actor_leakage() -
     assert "aggregate_kick_safety_improvement" in summary
     assert "exact_pre_update_kick" in summary
     assert "future_or_outcome_labels_used" in summary
+    assert "expected_evaluation_schedule" in summary
+    assert '"evaluation_prefix_schedule": expected_evaluation_schedule' in summary
+    assert "evaluation_prefixes_disjoint_from_training" in summary
 
     aggregate = _read(
         ROOT
@@ -421,7 +427,33 @@ def test_multi_context_recovery_cycles_online_prefixes_without_actor_leakage() -
     assert "multi-context aggregate requires at least two seeds" in aggregate
     assert "training and evaluation seed sets must be disjoint" in aggregate
     assert "same_predeclared_context_schedule_all_seeds" in aggregate
+    assert "same_predeclared_training_schedule_all_seeds" in aggregate
+    assert "same_predeclared_evaluation_schedule_all_seeds" in aggregate
     assert "aggregate_safety_improvement_replicated_all_seeds" in aggregate
+
+    dense_runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/run_dense_prefix_causal_composition.sh"
+    )
+    assert "TRAIN_PREFIXES_CSV_OVERRIDE=33,41,49,57,65" in dense_runner
+    assert "EVAL_PREFIXES_CSV_OVERRIDE=37,45,53,61" in dense_runner
+    assert "REQUIRE_DISJOINT_PREFIX_SCHEDULES=1" in dense_runner
+    assert "TRAIN_SEED_OVERRIDE=171646" in dense_runner
+    assert "EVAL_SEED_OVERRIDE=181662" in dense_runner
+    assert "REPLICATION_TRAIN_SEED_OVERRIDE=171647" in dense_runner
+    assert "REPLICATION_EVAL_SEED_OVERRIDE=181664" in dense_runner
+    assert "run_causal_action_composition_transition_recovery.sh" in dense_runner
+    assert "read -" not in dense_runner
+    assert "approval" not in dense_runner.lower()
+    assert "confirm" not in dense_runner.lower()
+
+    causal_runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "run_causal_action_composition_transition_recovery.sh"
+    )
+    assert "REQUIRE_DISJOINT_PREFIX_SCHEDULES" in causal_runner
+    assert "evaluation_prefixes_disjoint_from_training" in causal_runner
 
 
 def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> None:

@@ -37,13 +37,20 @@ aggregate_rc=0
 if [[ "$first_rc" -eq 0 ]]; then
     first_positive=$("$PYTHON_BIN" - "$OUTPUT_ROOT/RESULT.json" <<'PY'
 import json
+import os
 import sys
 
 result = json.load(open(sys.argv[1], encoding="utf-8"))
 if result.get("policy_topology") != "causal_action_composition":
     raise SystemExit("causal-composition result topology drift")
+checks = result.get("checks", {})
+require_disjoint = os.environ.get("REQUIRE_DISJOINT_PREFIX_SCHEDULES") == "1"
 positive = bool(
-    result.get("checks", {}).get("aggregate_kick_safety_improvement") is True
+    checks.get("aggregate_kick_safety_improvement") is True
+    and (
+        not require_disjoint
+        or checks.get("evaluation_prefixes_disjoint_from_training") is True
+    )
     and result.get("conclusion")
     == "multi_context_training_improves_unseen_seed_kick_safety"
 )

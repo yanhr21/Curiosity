@@ -1707,6 +1707,11 @@ experiments/demo_following/causal_composition_heldout_prefix33_65_v1/
 覆盖：训练 `33/41/49/57/65`，冻结测试交错未见的 `37/45/53/61`。首 seed 固定为
 `171646 -> 181662`，仅在其通过同一物理规则时自动运行 `171647 -> 181664`，全程无人工 gate。
 
+```bash
+bash scripts/sugar/demo_following/run_dense_prefix_causal_composition.sh \
+  experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1 cuda:0
+```
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

@@ -45,6 +45,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint-audit", type=Path, required=True)
     parser.add_argument("--training-seed", type=int, required=True)
     parser.add_argument("--expected-schedule", default="41,49,57")
+    parser.add_argument("--expected-evaluation-schedule")
     parser.add_argument(
         "--expected-policy-topology",
         choices=("selected_expert_residual", "causal_action_composition"),
@@ -218,8 +219,22 @@ def main() -> None:
     expected_schedule = [
         int(value.strip()) for value in args.expected_schedule.split(",") if value.strip()
     ]
+    expected_evaluation_schedule = (
+        expected_schedule
+        if args.expected_evaluation_schedule is None
+        else [
+            int(value.strip())
+            for value in args.expected_evaluation_schedule.split(",")
+            if value.strip()
+        ]
+    )
     supplied = [int(spec[0]) for spec in args.comparison]
-    if supplied != expected_schedule or len(set(supplied)) != len(supplied):
+    if (
+        supplied != expected_evaluation_schedule
+        or len(set(supplied)) != len(supplied)
+        or not expected_schedule
+        or len(set(expected_schedule)) != len(expected_schedule)
+    ):
         raise RuntimeError("comparison prefixes do not match the predeclared schedule")
 
     training_audit = json.loads(args.training_audit.read_text(encoding="utf-8"))
@@ -309,6 +324,9 @@ def main() -> None:
     )
     checks = {
         "all_predeclared_contexts_installed_online": True,
+        "evaluation_prefixes_disjoint_from_training": bool(
+            set(expected_evaluation_schedule).isdisjoint(expected_schedule)
+        ),
         "exact_frozen_experts_preserved": True,
         "causal_reward_not_actor_input": True,
         "all_initial_physics_elementwise_identical": True,
@@ -337,6 +355,7 @@ def main() -> None:
         "policy_topology": args.expected_policy_topology,
         "evaluation_seed": evaluation_seeds.pop(),
         "training_prefix_schedule": expected_schedule,
+        "evaluation_prefix_schedule": expected_evaluation_schedule,
         "training_prefix_install_counts": install_counts,
         "profiles_per_endpoint": sum(int(record["profiles"]) for record in records),
         "contexts": records,
@@ -349,8 +368,8 @@ def main() -> None:
             else "multi_context_training_does_not_improve_unseen_seed_kick_safety"
         ),
         "claim_boundary": (
-            "One multi-context training seed and one unseen evaluation seed across three "
-            "predeclared physical handoffs. A positive diagnostic requires aggregate safe/fall "
+            "One multi-context training seed and one unseen evaluation seed across predeclared "
+            "physical evaluation handoffs. A positive diagnostic requires aggregate safe/fall "
             "improvement over the exact pre-update Kick endpoint; reward and action changes are "
             "insufficient. Kick success requires foot-contact-coupled motion, not an unrelated "
             "one-frame touch; a fall is either 0.35 m root-height loss or 60 degree root tilt. "

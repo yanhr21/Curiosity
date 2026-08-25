@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Train one shared serious controller over three online physical handoffs.
+# Train one shared serious controller over a predeclared online handoff schedule.
 
 set -euo pipefail
 
@@ -12,7 +12,10 @@ EVAL_SEED="${EVAL_SEED_OVERRIDE:-181652}"
 VIDEO_SEED="${VIDEO_SEED_OVERRIDE:-181653}"
 NUM_ENVS="${NUM_ENVS_OVERRIDE:-64}"
 POLICY_TOPOLOGY="${POLICY_TOPOLOGY_OVERRIDE:-selected_expert_residual}"
-PREFIXES=(41 49 57)
+TRAIN_PREFIXES_CSV="${TRAIN_PREFIXES_CSV_OVERRIDE:-41,49,57}"
+EVAL_PREFIXES_CSV="${EVAL_PREFIXES_CSV_OVERRIDE:-$TRAIN_PREFIXES_CSV}"
+mapfile -t TRAIN_PREFIXES < <(printf '%s\n' "$TRAIN_PREFIXES_CSV" | tr ',' '\n')
+mapfile -t EVAL_PREFIXES < <(printf '%s\n' "$EVAL_PREFIXES_CSV" | tr ',' '\n')
 OUTPUT_ROOT="$(realpath -m "$OUTPUT_ROOT")"
 FFMPEG_BIN="${FFMPEG_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/lib/python3.11/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux-x86_64-v7.0.2}"
 
@@ -30,6 +33,25 @@ case "$POLICY_TOPOLOGY" in
         ;;
     *) echo "Unknown policy topology: $POLICY_TOPOLOGY" >&2; exit 2 ;;
 esac
+validate_prefixes() {
+    local label="$1"
+    shift
+    local -A seen=()
+    local value
+    if [[ "$#" -eq 0 ]]; then
+        echo "$label prefix schedule is empty" >&2
+        exit 2
+    fi
+    for value in "$@"; do
+        if [[ ! "$value" =~ ^[1-9][0-9]*$ || -n "${seen[$value]:-}" ]]; then
+            echo "invalid or duplicate $label prefix: $value" >&2
+            exit 2
+        fi
+        seen[$value]=1
+    done
+}
+validate_prefixes training "${TRAIN_PREFIXES[@]}"
+validate_prefixes evaluation "${EVAL_PREFIXES[@]}"
 if [[ -e "$OUTPUT_ROOT" ]]; then
     echo "Refusing to overwrite $OUTPUT_ROOT" >&2
     exit 2
@@ -49,8 +71,8 @@ export SUGAR_CROSS_SKILL_RECOVERY=1
 export SUGAR_CROSS_SKILL_CARRY_TRACKER_CKPT="$ROOT/SUGAR/demo_ckpts/CarryBox/tracker.pt"
 export SUGAR_CROSS_SKILL_KICK_TRACKER_CKPT="$ROOT/SUGAR/demo_ckpts/KickBox/tracker.pt"
 export SUGAR_CROSS_SKILL_CARRY_GENERATOR_CKPT="$ROOT/SUGAR/demo_ckpts/CarryBox/generator.ckpt"
-export SUGAR_CROSS_SKILL_CARRY_PREFIX_STEPS=41
-export SUGAR_CROSS_SKILL_CARRY_PREFIX_SCHEDULE=41,49,57
+export SUGAR_CROSS_SKILL_CARRY_PREFIX_STEPS="${TRAIN_PREFIXES[0]}"
+export SUGAR_CROSS_SKILL_CARRY_PREFIX_SCHEDULE="$TRAIN_PREFIXES_CSV"
 export SUGAR_CROSS_SKILL_RECOVERY_REWARD_CLIP=10.0
 export SUGAR_CROSS_SKILL_RECOVERY_SAFETY_PENALTY=1
 export SUGAR_TRANSITION_SELECTED_SKILL_ID=-1
@@ -71,7 +93,7 @@ test -s "$OUTPUT_ROOT/train/prefix_audit.json"
 "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/audit_frozen_expert_transition_checkpoints.py" \
     --shared-root "$OUTPUT_ROOT" --output "$OUTPUT_ROOT/CHECKPOINT_AUDIT.json"
 
-for prefix in "${PREFIXES[@]}"; do
+for prefix in "${EVAL_PREFIXES[@]}"; do
     for endpoint in learned pre_update; do
         checkpoint="$OUTPUT_ROOT/train/model_64.pt"
         if [[ "$endpoint" == "pre_update" ]]; then
@@ -89,15 +111,15 @@ done
 
 "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/evaluate_cross_skill_recovery.py" \
     --checkpoint "$OUTPUT_ROOT/train/model_64.pt" \
-    --output-dir "$OUTPUT_ROOT/evaluation/prefix41/learned_carry" \
-    --transition-selected-skill-id 0 --carry-prefix-steps 41 \
+    --output-dir "$OUTPUT_ROOT/evaluation/prefix${EVAL_PREFIXES[0]}/learned_carry" \
+    --transition-selected-skill-id 0 --carry-prefix-steps "${EVAL_PREFIXES[0]}" \
     --policy-topology "$POLICY_TOPOLOGY" \
     --num-envs 20 --steps 250 --seed "$EVAL_SEED" --headless --device "$DEVICE" \
     --kit_args="--/renderer/enabled=false --/renderer/multiGpu/enabled=false"
 
 "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/summarize_shared_frozen_expert_transition.py" \
-    --kick "$OUTPUT_ROOT/evaluation/prefix41/learned_kick/RESULT.json" \
-    --carry "$OUTPUT_ROOT/evaluation/prefix41/learned_carry/RESULT.json" \
+    --kick "$OUTPUT_ROOT/evaluation/prefix${EVAL_PREFIXES[0]}/learned_kick/RESULT.json" \
+    --carry "$OUTPUT_ROOT/evaluation/prefix${EVAL_PREFIXES[0]}/learned_carry/RESULT.json" \
     --training-audit "$OUTPUT_ROOT/train/prefix_audit.json" \
     --checkpoint-audit "$OUTPUT_ROOT/CHECKPOINT_AUDIT.json" \
     --training-seed "$TRAIN_SEED" --expected-recovery-reward 1 \
@@ -105,7 +127,7 @@ done
     --output "$OUTPUT_ROOT/CONDITION_RESULT.json"
 
 summary_args=()
-for prefix in "${PREFIXES[@]}"; do
+for prefix in "${EVAL_PREFIXES[@]}"; do
     summary_args+=(
         --comparison "$prefix"
         "$OUTPUT_ROOT/evaluation/prefix${prefix}/learned_kick/RESULT.json"
@@ -116,11 +138,12 @@ done
     "${summary_args[@]}" \
     --training-audit "$OUTPUT_ROOT/train/prefix_audit.json" \
     --checkpoint-audit "$OUTPUT_ROOT/CHECKPOINT_AUDIT.json" \
-    --training-seed "$TRAIN_SEED" --expected-schedule 41,49,57 \
+    --training-seed "$TRAIN_SEED" --expected-schedule "$TRAIN_PREFIXES_CSV" \
+    --expected-evaluation-schedule "$EVAL_PREFIXES_CSV" \
     --expected-policy-topology "$POLICY_TOPOLOGY" \
     --output "$OUTPUT_ROOT/RESULT.json"
 
-for prefix in "${PREFIXES[@]}"; do
+for prefix in "${EVAL_PREFIXES[@]}"; do
     video_dir="$OUTPUT_ROOT/videos_seed${VIDEO_SEED}/prefix${prefix}"
     mkdir -p "$video_dir"
     for endpoint in learned pre_update; do

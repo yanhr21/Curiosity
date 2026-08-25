@@ -42,20 +42,31 @@ def main() -> None:
     records: list[dict[str, object]] = []
     training_seeds: set[int] = set()
     evaluation_seeds: set[int] = set()
-    expected_schedule: list[int] | None = None
+    expected_training_schedule: list[int] | None = None
+    expected_evaluation_schedule: list[int] | None = None
     expected_policy_topology: str | None = None
     for path in args.result:
         result = json.loads(path.read_text(encoding="utf-8"))
         training_seed = int(result["training_seed"])
         evaluation_seed = int(result["evaluation_seed"])
         checks = result.get("checks", {})
-        schedule = [int(value) for value in result["training_prefix_schedule"]]
+        training_schedule = [
+            int(value) for value in result["training_prefix_schedule"]
+        ]
+        evaluation_schedule = [
+            int(value)
+            for value in result.get(
+                "evaluation_prefix_schedule", training_schedule
+            )
+        ]
         context_prefixes = [
             int(context["carry_prefix_steps"])
             for context in result.get("contexts", [])
         ]
-        if expected_schedule is None:
-            expected_schedule = schedule
+        if expected_training_schedule is None:
+            expected_training_schedule = training_schedule
+        if expected_evaluation_schedule is None:
+            expected_evaluation_schedule = evaluation_schedule
         policy_topology = str(
             result.get("policy_topology", "selected_expert_residual")
         )
@@ -64,9 +75,10 @@ def main() -> None:
         if (
             result.get("protocol")
             != "sugar_multi_context_transition_recovery_diagnostic_v1"
-            or schedule != expected_schedule
+            or training_schedule != expected_training_schedule
+            or evaluation_schedule != expected_evaluation_schedule
             or policy_topology != expected_policy_topology
-            or context_prefixes != schedule
+            or context_prefixes != evaluation_schedule
             or training_seed in training_seeds
             or evaluation_seed in evaluation_seeds
             or training_seed == evaluation_seed
@@ -121,7 +133,7 @@ def main() -> None:
                 for context in contexts
             ]
             if (
-                len(contexts) != len(expected_schedule or [])
+                len(contexts) != len(expected_evaluation_schedule or [])
                 or not all(isinstance(item, dict) for item in learned_terms)
                 or not all(isinstance(item, dict) for item in pre_terms)
                 or record.get("checks", {}).get(
@@ -174,7 +186,8 @@ def main() -> None:
         "training_seeds": sorted(training_seeds),
         "evaluation_seeds": sorted(evaluation_seeds),
         "num_training_seeds": len(records),
-        "training_prefix_schedule": expected_schedule,
+        "training_prefix_schedule": expected_training_schedule,
+        "evaluation_prefix_schedule": expected_evaluation_schedule,
         "policy_topology": expected_policy_topology,
         "profiles_per_endpoint": int(
             sum(record["profiles_per_endpoint"] for record in records)
@@ -185,6 +198,13 @@ def main() -> None:
         "action_composition": action_composition,
         "checks": {
             "independent_training_and_evaluation_seeds": True,
+            "evaluation_prefixes_disjoint_from_training": bool(
+                set(expected_evaluation_schedule or []).isdisjoint(
+                    expected_training_schedule or []
+                )
+            ),
+            "same_predeclared_training_schedule_all_seeds": True,
+            "same_predeclared_evaluation_schedule_all_seeds": True,
             "same_predeclared_context_schedule_all_seeds": True,
             "matched_exact_pre_update_comparison_all_seeds": True,
             "aggregate_safety_improvement_replicated_all_seeds": all(improvements),
@@ -196,10 +216,11 @@ def main() -> None:
             else "multi_context_kick_safety_improvement_not_replicated"
         ),
         "claim_boundary": (
-            "Independent training/evaluation seeds test the same three predeclared physical "
-            "Carry-to-Kick handoff contexts against each seed's elementwise-matched exact "
-            "pre-update endpoint. This tests context-robust recovery learning for the released "
-            "Carry/Kick pair, not arbitrary-video or arbitrary-skill generalization."
+            "Independent training/evaluation seeds test the same predeclared physical "
+            "Carry-to-Kick evaluation handoffs against each seed's elementwise-matched exact "
+            "pre-update endpoint. Training and evaluation schedules are recorded separately. "
+            "This tests context-robust recovery learning for the released Carry/Kick pair, not "
+            "arbitrary-video or arbitrary-skill generalization."
         ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

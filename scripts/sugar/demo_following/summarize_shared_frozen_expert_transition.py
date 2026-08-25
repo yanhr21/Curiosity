@@ -215,7 +215,10 @@ def main() -> None:
         "experiment": {
             "one_shared_checkpoint": kick["checkpoint"],
             "balanced_training_selected_skill_counts": [32, 32],
-            "same_online_prefix": "one Kick alignment plus 41 Carry steps",
+            "same_online_prefix": (
+                "one Kick alignment plus "
+                f"{int(kick['prefix']['carry_steps'])} Carry steps"
+            ),
             "same_training_seed": args.training_seed,
             "same_update_budget": 64,
             "scalar_smp_reward": False,

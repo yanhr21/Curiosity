@@ -683,6 +683,11 @@ bash scripts/sugar/demo_following/run_causal_composition_heldout_prefix_eval.sh 
 继续持有 GPU。当前下一实验是 `33/41/49/57/65` 训练、`37/45/53/61` 未见测试的单一 coverage
 改动，不改模型、reward、optimizer 或 update budget。
 
+```bash
+bash scripts/sugar/demo_following/run_dense_prefix_causal_composition.sh \
+  experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1 cuda:0
+```
+
 causal-composition 两 seed 实验的最短入口（必须在 retained GPU compute step 内运行）为：
 
 ```bash
