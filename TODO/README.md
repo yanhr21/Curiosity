@@ -203,9 +203,17 @@
   commands and selected skill. Preserve both exact frozen endpoints, expose the complete `[0,1]`
   mixture range, keep future/outcome labels out of the actor, and record mixture/residual/final
   action attribution in frozen evaluation.
-- [ ] run the fixed seed171644 update64 IsaacLab/PhysX multi-context comparison, frozen learned/pre
-  evaluation and videos. If and only if its physical result is positive, automatically run the
-  predeclared `171645 -> 181658` replication and two-seed aggregate; no human authorization gate.
+- [x] run the fixed seed171644 update64 IsaacLab/PhysX multi-context comparison, frozen learned/pre
+  evaluation and videos, then automatically run `171645 -> 181658` after the first positive result.
+  The two-seed aggregate is learned/pre `94/92` safe and `17/20` falls; both seeds pass, all six
+  paired H.264 videos decode, and no human authorization gate was used.
+- [x] audit the replicated causal-composition mechanism without new policy training. Prefix41 shows
+  `88x/97x` endpoint-gap amplification and gains safe profiles on both seeds; prefix49 contains both
+  a fall-to-safe recovery and one lost success; prefix57 is residual-dominated and loses one safe
+  profile on seed171645.
+- [ ] freeze both learned/pre checkpoint pairs and evaluate held-out physical prefixes `33/65` with
+  the same disjoint seeds and strict metrics. This is evaluation only: no optimizer update, reward
+  change or new policy training.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it

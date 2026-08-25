@@ -515,14 +515,25 @@ actions before a bounded residual. No future success/fall label, offline trace, 
 evaluation metric may enter the actor. Evaluation remains the same unseen-seed, elementwise-matched
 learned-Kick versus exact-pre-update-Kick comparison across `41/49/57`.
 
-Implementation status (2026-08-26): the new actor and complete runner are ready. The actor input is
-`510 + 36 + 36 + 2 = 584-D`; both released experts are frozen; update 0 is exactly the selected
-endpoint; and the gate reaches the complete `[0,1]` Carry/Kick segment before the 29-D bounded
-residual. The evaluator separately records selected endpoint, mixture, residual and final deployed
-action. Static contracts, compute-node checkpoint loading, exact initialization, full-range gate
-reachability and historical residual backward compatibility pass. These checks do not replace the
-pending seed171644 IsaacLab/PhysX experiment. The runner will automatically replicate with
-`171645 -> 181658` only if the first frozen physical result is positive.
+Result status (2026-08-26): the actor input is `510 + 36 + 36 + 2 = 584-D`; both released experts
+remain exact and frozen; update 0 is exactly the selected endpoint; and the gate reaches the full
+`[0,1]` Carry/Kick segment before the bounded 29-D residual. The matched physical experiment and
+its automatic independent replication are complete. Seed `171644 -> 181656` gives learned/pre
+`49/47` safe and `6/8` falls; seed `171645 -> 181658` gives `45/45` safe and `11/12` falls. The
+two-seed result is therefore `94/92` safe and `17/20` falls, with the aggregate safety rule true for
+both seeds. Mean learned-minus-pre root-height loss is `-0.02757 m`; net displacement and foot
+contact fraction are also lower by `0.02575 m` and `0.00503`, so the effect is a safer, more
+conservative transition rather than more aggressive object motion. The claim remains restricted to
+the released Carry/Kick pair and the predeclared `41/49/57` handoffs.
+
+Per-profile mechanism audit localizes the useful changes to harder transitions. At prefix41, mean
+gate deviations of only `0.00352/0.00436` on the two seeds yield `0.310/0.421` mean mixed-action
+changes because the frozen Carry/Kick endpoints are far apart in those states (`88x/97x` gap
+amplification); each seed gains a safe profile there. At prefix49, the second seed similarly turns
+one pre-update fall into a learned safe kick, while another profile loses success. Prefix57 is
+mostly residual-driven and the second seed loses one safe profile. Therefore the next test freezes
+both learned checkpoints and evaluates unseen physical prefix lengths; it does not add updates or
+change reward.
 
 The new frozen evaluator uses `foot_contact_coupled_planar_motion_v1`, not the historical loose
 any-contact label. Success requires `>=0.05 m` net planar displacement, `>=0.01 m` planar path on
@@ -538,7 +549,7 @@ All motion paths include the handoff-to-first-action interval. Height loss uses 
 as its reference, while tilt is evaluated only after policy action so an inherited handoff tilt is
 not mislabeled as a student-caused fall.
 During causal-composer training, the `32/32` Carry/Kick assignment swaps parity at each synchronized
-episode boundary. Thus every environment/profile is exposed to both conditions instead of keeping
+episode boundary. Thus every environment is exposed to both conditions instead of keeping
 condition permanently correlated with environment identity; frozen condition-swap evaluation stays
 fixed as intended.
 

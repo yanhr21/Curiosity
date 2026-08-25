@@ -1601,6 +1601,72 @@ scale 和第三 seed。下一实验必须改变 action composition：使用当�
 command 学习 exact Carry/Kick action 之间的因果 state-dependent transition，同时保持 future/
 outcome label、prefix ID 和评估量不进入 actor。
 
+### 5.10 Causal action-composition replicated result
+
+该实验保留 parameter-exact official Carry/Kick Tracker，在当前 510-D Tracker observation 后
+同时加入 causal Carry command 36-D、causal Kick command 36-D 和 selected-skill one-hot 2-D。
+完整 `584-D` 输入进入 official-size `512/256/128` composer；其输出是一维 Carry/Kick mixture
+调整和 29-D bounded residual。update 0 精确等于 selected released endpoint。训练时每个同步
+episode 仍为 `32/32`，但 env parity 每个 episode 互换；endpoint audit 要求每个 env 两种
+condition 的最小 exposure 都大于零。
+
+在 retained GPU compute step 中运行：
+
+```bash
+bash scripts/sugar/demo_following/run_causal_action_composition_transition_recovery.sh \
+  experiments/demo_following/causal_action_composition_seed171644_v1 cuda:0
+```
+
+固定首 seed 为 `171644 -> 181656`，视频 seed 为 `181657`。首 seed 物理结果为正后，runner
+无需人工批准，自动运行 `171645 -> 181658`、视频 seed `181659`，再执行：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/aggregate_multi_context_transition_recovery_seeds.py \
+  --result experiments/demo_following/causal_action_composition_seed171644_autorun_v1/RESULT.json \
+  --result experiments/demo_following/causal_action_composition_seed171644_autorun_v1_seed171645_replication/RESULT.json \
+  --output experiments/demo_following/causal_action_composition_seed171644_autorun_v1_two_seed_aggregate/RESULT.json
+```
+
+真实保留结果为：
+
+```text
+seed171644: learned/pre = 49/47 safe, 6/8 falls
+seed171645: learned/pre = 45/45 safe, 11/12 falls
+two seeds:  learned/pre = 94/92 safe, 17/20 falls
+```
+
+两颗 seed 的 `aggregate_kick_safety_improvement` 都为 true。跨 seed mean learned-minus-pre 为
+root-height loss `-0.027575 m`、net displacement `-0.025748 m`、foot-contact fraction
+`-0.005033`。所以支持的解释是 state-dependent composition 学到更保守且更安全的 transition；
+不能写成更强 Kick。两个 checkpoint audit 的 official-expert maximum error 均为 `0.0`；三种
+handoff 的 robot/joint/object、510-D observation、两套 command 和 selected one-hot 初值均逐元素
+一致；composed 与 deployed action 最大误差为 `0.0`。Kick success 使用 contact-coupled v1，
+fall 使用 root-height-or-tilt v1。
+
+六条最终可播放证据为：
+
+```text
+experiments/demo_following/causal_action_composition_seed171644_autorun_v1/
+  videos_seed181657/prefix41/learned_vs_pre_update_prefix41.mp4
+  videos_seed181657/prefix49/learned_vs_pre_update_prefix49.mp4
+  videos_seed181657/prefix57/learned_vs_pre_update_prefix57.mp4
+experiments/demo_following/causal_action_composition_seed171644_autorun_v1_seed171645_replication/
+  videos_seed181659/prefix41/learned_vs_pre_update_prefix41.mp4
+  videos_seed181659/prefix49/learned_vs_pre_update_prefix49.mp4
+  videos_seed181659/prefix57/learned_vs_pre_update_prefix57.mp4
+```
+
+六条 paired H.264 均已用 ffmpeg 完整解码。camera-free 120 profiles/endpoint 是统计证据，视频
+只证明各自 camera rollout。结论边界仅为 released Carry/Kick pair 在预声明 `41/49/57`
+handoff 上的 replicated recovery improvement，不包括 arbitrary video、任意技能或 sim-to-real。
+
+逐 profile 机制审计进一步发现：prefix41 两颗 seed 的 mean gate deviation 为
+`0.003521/0.004363`，但 mean mixed-action deviation 为 `0.309566/0.421170`，对应 frozen
+endpoint gap amplification `87.91x/96.54x`，并各新增 safe profile。prefix49 的第二 seed
+也有 `94.91x` amplification，把一个 pre-update fall 转为 learned safe kick，但同时另一个
+profile 丢失 safe。prefix57 的 mixture 变化接近零、主要依赖 residual，第二 seed 丢失一个
+safe profile。因此下一步是 frozen learned/pre 对未训练 prefix `33/65` 的评估，不是增加训练。
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

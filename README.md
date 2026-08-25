@@ -185,8 +185,23 @@ update64。seed171642 learned/pre-update 为 `47/47` safe、`3/4` fall；seed171
 `50/50` safe、`7/7` fall。合计双方都是 `97/120` safe，fall 为 `10/11`，但只有第一颗 seed
 通过，所以安全增益没有复现。平均净位移反而减少 `0.01367 m`，root-height loss 减少
 `0.00529 m`。这关闭了当前 selected-expert-plus-residual topology 的更多 update/scale/seed；
-下一步改为读取当前在线 state 和两套 released command 的 state-dependent exact-action
-transition，而不是继续调同一个 reward。
+后续实验已改为读取当前在线 state 和两套 released command 的 state-dependent exact-action
+composition，而不是继续调同一个 reward。
+
+该 causal action-composition 现已在两个独立训练/评估 seed 上完成。它以 `584-D` 当前因果输入
+驱动完整 `512/256/128` composer，在参数完全冻结的 Carry/Kick expert action 之间插值，再加
+bounded 29-D residual；训练每个 episode 为 `32/32`，并交换 env parity，避免 condition 与 env
+身份固定绑定。seed171644 learned/pre 为 `49/47` safe、`6/8` fall；seed171645 为 `45/45`
+safe、`11/12` fall。合计 `94/92` safe、`17/20` fall，两个 seed 都独立通过预注册安全规则。
+mean root-height loss 降 `0.02757 m`，但净位移也降 `0.02575 m`，因此这是可复现的保守恢复
+改进，不是更强 Kick。结论仅覆盖 released Carry/Kick pair 的 `41/49/57` handoff，不等价于
+任意视频跟随或未见技能组合。
+
+逐 profile 审计显示改善主要来自困难 handoff 的 endpoint composition：prefix41 两颗 seed 的
+gate 平均只偏离 `0.00352/0.00436`，但因 Carry/Kick action gap 被放大成 `0.310/0.421` 的平均
+mixed-action 变化，并各新增一个 safe profile。prefix57 主要由 residual 改动，第二 seed 反而
+丢失一个 safe profile。所以下一步先冻结 checkpoint 测未训练 prefix，不继续加 update 或扫
+reward scale。
 
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
@@ -640,11 +655,14 @@ motion-disjoint gate；三种 scalar prior reward 都能因果改变行为，但
 的前提下降低跌倒。加入 causal physical recovery objective 后固定诊断在 update64/128 通过，
 但后续 endpoint 退化；随后两颗 balanced formal seed 汇总中，learned 和 pre-update 都是
 `35` safe Kick、`4` fall。多上下文 `41/49/57` follow-up 也已完成：learned/pre-update 为
-`97/97` safe、`10/11` fall，但改善只发生在一颗 seed，不能称为复现。当前下一项是
-state-dependent exact Carry/Kick action composition，不延长 residual 训练、不扫描 reward
-scale，也不得用 hand-written toy latent/world model 替代。
+`97/97` safe、`10/11` fall，但改善只发生在一颗 seed，不能称为复现。随后完成的
+state-dependent exact Carry/Kick action composition 改变了这一结论：两颗独立 seed 的
+learned/pre-update 合计为 `94/92` safe、`17/20` fall，且两颗 seed 都通过预注册聚合规则。
+平均 root-height loss 降低 `0.02757 m`，但净位移与 foot-contact fraction 也分别下降
+`0.02575 m` 和 `0.00503`；因此贡献是更保守的 released-skill transition 获得可复现安全增益，
+不是更强的 Kick，更不是 arbitrary-video generalization。
 
-当前 causal-composition 固定诊断的最短入口（必须在 retained GPU compute step 内运行）为：
+causal-composition 两 seed 实验的最短入口（必须在 retained GPU compute step 内运行）为：
 
 ```bash
 bash scripts/sugar/demo_following/run_causal_action_composition_transition_recovery.sh \
@@ -654,12 +672,20 @@ bash scripts/sugar/demo_following/run_causal_action_composition_transition_recov
 门控在 update 0 精确等于 selected official endpoint，但训练后可到达完整 `[0,1]` Carry/Kick
 凸组合；它不是只允许半程变化的受限插值。
 
-该入口连续完成 update64、checkpoint audit、`41/49/57` frozen learned/pre-update 对比和六个
-H.264 world videos；在真实 `RESULT.json`、trace 和视频生成前，只能称为实现已验证，不能称为
-物理恢复增益。流水线写出 `PIPELINE_STATUS.env` 后自动进入 GPU holder，任务切换只终止 retained
+该入口先完成 seed171644 的 update64、checkpoint audit、`41/49/57` frozen learned/pre-update
+对比和六个 H.264 world videos；真实结果为正后，已自动串行运行 `171645 -> 181658` 的独立复现
+并生成两 seed aggregate，没有人工批准端点。结果入口为：
+
+```text
+experiments/demo_following/causal_action_composition_seed171644_autorun_v1/RESULT.json
+experiments/demo_following/causal_action_composition_seed171644_autorun_v1_seed171645_replication/RESULT.json
+experiments/demo_following/causal_action_composition_seed171644_autorun_v1_two_seed_aggregate/RESULT.json
+```
+
+两颗 seed 的 paired world videos 分别位于各自 `videos_seed181657/` 和
+`videos_seed181659/` 下的 `prefix41|49|57/learned_vs_pre_update_prefix*.mp4`；六个最终文件均已
+完整解码。流水线写出 `PIPELINE_STATUS.env` 后自动进入 GPU holder，任务切换只终止 retained
 launcher 记录的 child PGID，不释放 allocation。
-第一颗 seed171644 若物理结果为负则直接记录并进入 holder；若为正，runner 会自动串行运行
-`171645 -> 181658` 的独立复现和两 seed 汇总，不设置人工批准端点。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复
