@@ -142,4 +142,6 @@ for prefix in "${PREFIXES[@]}"; do
         -i "$video_dir/learned_kick.mp4" -i "$video_dir/pre_update_kick.mp4" \
         -filter_complex hstack=inputs=2 -c:v libx264 -crf 18 -pix_fmt yuv420p \
         -movflags +faststart "$video_dir/learned_vs_pre_update_prefix${prefix}.mp4"
+    "$FFMPEG_BIN" -hide_banner -loglevel error \
+        -i "$video_dir/learned_vs_pre_update_prefix${prefix}.mp4" -f null -
 done

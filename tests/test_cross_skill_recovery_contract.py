@@ -459,6 +459,10 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert "POLICY_TOPOLOGY_OVERRIDE=causal_action_composition" in runner
     assert "read -" not in runner
     assert "approval" not in runner.lower()
+    multi_context_runner = _read(
+        ROOT / "scripts/sugar/demo_following/run_multi_context_transition_recovery.sh"
+    )
+    assert 'learned_vs_pre_update_prefix${prefix}.mp4" -f null -' in multi_context_runner
     for script in (
         "evaluate_cross_skill_recovery.py",
         "render_cross_skill_recovery_world.py",

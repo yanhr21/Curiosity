@@ -355,11 +355,11 @@ def main() -> None:
                     _overlay(
                         frame,
                         phase=(
-                            "learned Kick transition"
+                            "selected Kick transition window"
                             if args.transition_selected_skill_id == 1
-                            else "learned Carry transition"
+                            else "selected Carry control window"
                             if args.transition_selected_skill_id == 0
-                            else "learned Kick recovery"
+                            else "recovery window"
                         ),
                         step=step,
                         displacement_m=float(
