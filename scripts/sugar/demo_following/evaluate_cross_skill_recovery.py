@@ -104,6 +104,7 @@ from sugar_rl.utils.frozen_expert_transition_actor_critic import (  # noqa: E402
 
 CONTACT_THRESHOLD_N = 0.1
 FALL_HEIGHT_LOSS_M = 0.35
+FALL_ROOT_TILT_DEG = 60.0
 KICK_NET_DISPLACEMENT_M = 0.05
 KICK_CONTACT_COUPLED_PATH_M = 0.01
 KICK_POST_CONTACT_PATH_M = 0.03
@@ -124,6 +125,14 @@ def _summaries(arrays: dict[str, np.ndarray]) -> list[dict[str, object]]:
         foot = arrays["foot_contact"][:, profile]
         reward = arrays["reward"][:, profile]
         root_loss = float(root[0, 2] - np.min(root[:, 2]))
+        root_quaternion_wxyz = root[:, 3:7]
+        root_up_z = 1.0 - 2.0 * (
+            np.square(root_quaternion_wxyz[:, 1])
+            + np.square(root_quaternion_wxyz[:, 2])
+        )
+        maximum_root_tilt_deg = float(
+            np.degrees(np.arccos(np.clip(np.min(root_up_z), -1.0, 1.0)))
+        )
         planar_net = float(np.linalg.norm(obj[-1, :2] - obj[0, :2]))
         planar_path = float(np.linalg.norm(np.diff(obj[:, :2], axis=0), axis=-1).sum())
         any_foot = np.any(foot, axis=-1)
@@ -147,7 +156,9 @@ def _summaries(arrays: dict[str, np.ndarray]) -> list[dict[str, object]]:
             and contact_coupled_path >= KICK_CONTACT_COUPLED_PATH_M
             and post_first_contact_path >= KICK_POST_CONTACT_PATH_M
         )
-        physical_fall = bool(root_loss >= FALL_HEIGHT_LOSS_M)
+        legacy_height_fall = bool(root_loss >= FALL_HEIGHT_LOSS_M)
+        root_tilt_fall = bool(maximum_root_tilt_deg >= FALL_ROOT_TILT_DEG)
+        physical_fall = bool(legacy_height_fall or root_tilt_fall)
         rows.append(
             {
                 "profile": profile,
@@ -159,6 +170,9 @@ def _summaries(arrays: dict[str, np.ndarray]) -> list[dict[str, object]]:
                 "contact_coupled_planar_path_m": contact_coupled_path,
                 "post_first_contact_planar_path_m": post_first_contact_path,
                 "maximum_robot_root_height_loss_m": root_loss,
+                "maximum_robot_root_tilt_deg": maximum_root_tilt_deg,
+                "legacy_height_only_fall": legacy_height_fall,
+                "root_tilt_fall": root_tilt_fall,
                 "physical_robot_fall": physical_fall,
                 "legacy_kick_success": legacy_kick_success,
                 "kick_success": kick_success,
@@ -178,6 +192,7 @@ def _aggregate(rows: list[dict[str, object]]) -> dict[str, object]:
         "contact_coupled_planar_path_m",
         "post_first_contact_planar_path_m",
         "maximum_robot_root_height_loss_m",
+        "maximum_robot_root_tilt_deg",
     )
     result = {
         f"mean_{name}": float(np.mean([float(row[name]) for row in rows]))
@@ -192,6 +207,12 @@ def _aggregate(rows: list[dict[str, object]]) -> dict[str, object]:
     )
     result["physical_fall_count"] = int(
         sum(bool(row["physical_robot_fall"]) for row in rows)
+    )
+    result["legacy_height_only_fall_count"] = int(
+        sum(bool(row["legacy_height_only_fall"]) for row in rows)
+    )
+    result["root_tilt_fall_count"] = int(
+        sum(bool(row["root_tilt_fall"]) for row in rows)
     )
     return result
 
@@ -445,6 +466,12 @@ def main() -> None:
                 KICK_POST_CONTACT_PATH_M
             ),
             "legacy_any_contact_plus_net_displacement_reported_separately": True,
+        },
+        "physical_fall_contract": {
+            "name": "root_height_or_tilt_v1",
+            "minimum_root_height_loss_m": FALL_HEIGHT_LOSS_M,
+            "minimum_root_tilt_deg": FALL_ROOT_TILT_DEG,
+            "legacy_height_only_fall_reported_separately": True,
         },
         "action_composition": (
             {

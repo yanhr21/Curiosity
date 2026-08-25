@@ -508,6 +508,13 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert "foot_contact_coupled_planar_motion_v1" in evaluator
     assert "KICK_CONTACT_COUPLED_PATH_M = 0.01" in evaluator
     assert "KICK_POST_CONTACT_PATH_M = 0.03" in evaluator
+    assert "FALL_ROOT_TILT_DEG = 60.0" in evaluator
+    assert "root_height_or_tilt_v1" in evaluator
+    renderer = _read(
+        ROOT / "scripts/sugar/demo_following/render_cross_skill_recovery_world.py"
+    )
+    assert "strict fall" in renderer
+    assert "root_tilt_deg >= 60.0" in renderer
     assert '"carry_skill_command",' in evaluator
     assert '"kick_skill_command",' in evaluator
     assert '"selected_skill_id",' in evaluator

@@ -168,6 +168,9 @@ def _overlay(
     foot_contact: bool,
     kick_weight: float | None = None,
     residual_mean_abs: float | None = None,
+    root_height_loss_m: float | None = None,
+    root_tilt_deg: float | None = None,
+    strict_fall: bool | None = None,
 ) -> np.ndarray:
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
     lines = [
@@ -179,6 +182,11 @@ def _overlay(
         lines.append(
             f"composition: Carry {1.0-kick_weight:.3f} | Kick {kick_weight:.3f}"
             f" | mean |residual| {residual_mean_abs:.3f}"
+        )
+    if root_height_loss_m is not None:
+        lines.append(
+            f"safety max: root loss {root_height_loss_m:.3f} m | tilt {root_tilt_deg:.1f} deg"
+            f" | strict fall {strict_fall}"
         )
     cv2.rectangle(
         bgr, (0, 0), (960, 8 + 32 * len(lines)), (255, 255, 255), -1
@@ -252,6 +260,9 @@ def main() -> None:
                 foot_contact=False,
                 kick_weight=None,
                 residual_mean_abs=None,
+                root_height_loss_m=None,
+                root_tilt_deg=None,
+                strict_fall=None,
             )
         )
 
@@ -267,6 +278,11 @@ def main() -> None:
         transition_selected_skill_id=args.transition_selected_skill_id,
     )
     observations = wrapped.get_observations()
+    recovery_initial_root_height = float(
+        base.scene["robot"].data.root_pos_w[args.profile_index, 2].item()
+    )
+    maximum_root_height_loss_m = 0.0
+    maximum_root_tilt_deg = 0.0
     if args.transition_selected_skill_id is None:
         actor = _load_released_tracker_actor(checkpoint, wrapped.device)
         transition_policy = None
@@ -366,6 +382,35 @@ def main() -> None:
                 )
                 if initial_object_xy is None:
                     initial_object_xy = obj_xy.copy()
+                root_state = base.scene["robot"].data.root_state_w[
+                    args.profile_index
+                ]
+                maximum_root_height_loss_m = max(
+                    maximum_root_height_loss_m,
+                    0.0,
+                    recovery_initial_root_height - float(root_state[2].item()),
+                )
+                root_quaternion = root_state[3:7]
+                root_up_z = float(
+                    1.0
+                    - 2.0
+                    * (
+                        root_quaternion[1].square()
+                        + root_quaternion[2].square()
+                    ).item()
+                )
+                maximum_root_tilt_deg = max(
+                    maximum_root_tilt_deg,
+                    float(
+                        np.degrees(
+                            np.arccos(np.clip(root_up_z, -1.0, 1.0))
+                        )
+                    ),
+                )
+                strict_fall = bool(
+                    maximum_root_height_loss_m >= 0.35
+                    or maximum_root_tilt_deg >= 60.0
+                )
                 writer.append(
                     _overlay(
                         frame,
@@ -383,6 +428,9 @@ def main() -> None:
                         foot_contact=foot_contact,
                         kick_weight=kick_weight,
                         residual_mean_abs=residual_mean_abs,
+                        root_height_loss_m=maximum_root_height_loss_m,
+                        root_tilt_deg=maximum_root_tilt_deg,
+                        strict_fall=strict_fall,
                     )
                 )
     finally:

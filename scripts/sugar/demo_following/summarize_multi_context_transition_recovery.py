@@ -88,6 +88,14 @@ def _evaluation(
             "legacy_any_contact_plus_net_displacement_reported_separately": True,
         }:
             raise RuntimeError(f"invalid strict Kick metric contract: {path}")
+        fall_contract = result.get("physical_fall_contract", {})
+        if fall_contract != {
+            "name": "root_height_or_tilt_v1",
+            "minimum_root_height_loss_m": 0.35,
+            "minimum_root_tilt_deg": 60.0,
+            "legacy_height_only_fall_reported_separately": True,
+        }:
+            raise RuntimeError(f"invalid strict fall metric contract: {path}")
     return result
 
 
@@ -302,6 +310,7 @@ def main() -> None:
                 "pre_update_exact_selected_action_composition": True,
                 "initial_full_584d_actor_input_elementwise_identical_all_contexts": True,
                 "strict_contact_coupled_kick_metric_all_contexts": True,
+                "strict_height_or_tilt_fall_metric_all_contexts": True,
                 "minimum_mean_composition_deviation": (
                     MINIMUM_MEAN_COMPOSITION_DEVIATION
                 ),
@@ -330,7 +339,8 @@ def main() -> None:
             "predeclared physical handoffs. A positive diagnostic requires aggregate safe/fall "
             "improvement over the exact pre-update Kick endpoint; reward and action changes are "
             "insufficient. Kick success requires foot-contact-coupled motion, not an unrelated "
-            "one-frame touch. A positive result still requires independent-seed replication."
+            "one-frame touch; a fall is either 0.35 m root-height loss or 60 degree root tilt. "
+            "A positive result still requires independent-seed replication."
         ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

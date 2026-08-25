@@ -53,6 +53,9 @@ def _evaluation(path: Path, skill_id: int) -> dict[str, object]:
         contract = result.get("kick_success_contract", {})
         if contract.get("name") != "foot_contact_coupled_planar_motion_v1":
             raise RuntimeError(f"strict Kick metric contract is missing: {path}")
+        fall_contract = result.get("physical_fall_contract", {})
+        if fall_contract.get("name") != "root_height_or_tilt_v1":
+            raise RuntimeError(f"strict fall metric contract is missing: {path}")
     return result
 
 
@@ -187,6 +190,7 @@ def main() -> None:
             "composition_terms_match_deployed_action_both_conditions": True,
             "composition_uses_no_future_or_outcome_labels": True,
             "strict_contact_coupled_kick_metric_both_conditions": True,
+            "strict_height_or_tilt_fall_metric_both_conditions": True,
         }
     result = {
         "protocol": "sugar_shared_frozen_expert_transition_condition_swap_v2",

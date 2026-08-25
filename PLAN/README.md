@@ -530,6 +530,10 @@ intervals adjacent to foot contact and `>=0.03 m` planar path after first foot c
 traces retain the legacy count separately. Recomputing the two admitted residual seeds before
 freezing this contract changed none of their success counts; successful profiles had much larger
 coupled motion, so these thresholds were not selected to favor the new policy.
+Safety also uses `root_height_or_tilt_v1`: a profile falls at `>=0.35 m` root-height loss or
+`>=60 deg` root tilt. The prior height-only rule missed tilt-only failures in archived traces but
+did not reverse the negative learned/pre conclusion. Training reward remains unchanged so the
+matched experiment still isolates action composition.
 
 ### Expected behavior, not just reward score
 

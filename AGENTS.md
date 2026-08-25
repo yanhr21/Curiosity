@@ -369,6 +369,9 @@ For this new topology, Kick success uses frozen-evaluation contract v4: at least
 net displacement, `0.01 m` contact-adjacent planar path and `0.03 m` path after first foot contact.
 The old any-foot-contact plus final-displacement count is reported as `legacy_kick_success` only and
 may not support a causal Kick or safety claim.
+Physical fall uses `root_height_or_tilt_v1`: either at least `0.35 m` root-height loss or at least
+`60 deg` root tilt. Height-only falls remain a legacy count. Do not change the training reward for
+this diagnostic; the learned/pre comparison changes action topology, not reward definition.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

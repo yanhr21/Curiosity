@@ -43,6 +43,8 @@ New causal-composition evaluations use the strict v4 Kick metric: 5 cm planar ne
 1 cm of motion on intervals adjacent to foot contact, and at least 3 cm of path after first foot
 contact. The historical any-contact-plus-net-displacement value remains visible only as a legacy
 count; it cannot by itself make the first-seed decision positive.
+Physical safety is likewise strict: either 35 cm root-height loss or 60-degree root tilt is a fall.
+The evaluator reports height-only and tilt components separately.
 
 Reproduce one fresh multi-context seed inside a retained GPU step with:
 
