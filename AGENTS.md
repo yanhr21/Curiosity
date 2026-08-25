@@ -382,8 +382,24 @@ Carry/Kick pair only, not arbitrary-video or arbitrary-skill generalization. Do 
 result with update or reward-scale sweeps. Mechanism audit shows that failure-rich prefix41 has
 `88x/97x` endpoint-gap amplification: mean gate deviations `0.00352/0.00436` produce mean mixed
 action changes `0.310/0.421`. Prefix57 is residual-dominated and loses one safe profile on the
-second seed. The next execution is frozen learned/pre evaluation on held-out prefixes, not new
-policy training.
+second seed.
+
+The frozen held-out-prefix evaluation is also complete. Prefixes `33/65` were disjoint from the
+training schedule `41/49/57`; both checkpoint pairs used their original disjoint evaluation seeds,
+20 profiles per prefix and exact learned/pre initial 584-D inputs. Across 80 profiles per endpoint,
+learned and exact pre-update are tied at `68` safe kicks and `1` fall. Seed171644 is tied at
+`33/40` safe and `1/40` fall; seed171645 is tied at `35/40` safe and zero falls. Mean learned-minus-
+pre net displacement/contact/root-height loss are `-0.02110 m/-0.00400/+0.000635 m`. The learned
+mixture-action deviation shrinks to `1.59e-5--2.27e-4`, while the bounded residual remains
+`0.00904--0.01035`; profile gains and losses cancel. Therefore the replicated benefit on trained
+handoffs does not generalize to adjacent unseen handoffs. Do not describe the composer as
+handoff-general or add update/reward sweeps.
+
+The next bounded experiment changes only physical-state coverage: train the same exact-expert,
+update64 causal composer on prefixes `33/41/49/57/65`, then evaluate only interleaved unseen
+prefixes `37/45/53/61` against exact pre-update. Keep architecture, reward, optimizer, condition
+balance and strict metrics unchanged. Automatically replicate only when the first seed passes the
+same physical safety rule; no human gate is permitted.
 For this new topology, Kick success uses frozen-evaluation contract v4: at least `0.05 m` planar
 net displacement, `0.01 m` contact-adjacent planar path and `0.03 m` path after first foot contact.
 The old any-foot-contact plus final-displacement count is reported as `legacy_kick_success` only and

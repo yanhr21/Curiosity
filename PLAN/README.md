@@ -531,9 +531,24 @@ gate deviations of only `0.00352/0.00436` on the two seeds yield `0.310/0.421` m
 changes because the frozen Carry/Kick endpoints are far apart in those states (`88x/97x` gap
 amplification); each seed gains a safe profile there. At prefix49, the second seed similarly turns
 one pre-update fall into a learned safe kick, while another profile loses success. Prefix57 is
-mostly residual-driven and the second seed loses one safe profile. Therefore the next test freezes
-both learned checkpoints and evaluates unseen physical prefix lengths; it does not add updates or
-change reward.
+mostly residual-driven and the second seed loses one safe profile. The subsequent test froze both
+learned checkpoints and evaluated unseen physical prefix lengths without adding updates or changing
+reward.
+
+That frozen held-out-prefix audit is now complete. Prefixes `33/65` were absent from the training
+schedule, and each checkpoint pair retained its original disjoint evaluation seed. Across 80
+profiles per endpoint, learned and exact pre-update tie exactly at `68` safe kicks and `1` fall;
+both seeds tie independently. The learned endpoint-mixture action change falls to
+`1.59e-5--2.27e-4`, while a `0.00904--0.01035` bounded residual remains active and only swaps
+individual successes and failures. This rejects handoff-length generalization for the current
+three-prefix training distribution.
+
+The next matched experiment is a coverage test, not a scale or architecture sweep. Train the same
+causal composer for 64 updates on `33/41/49/57/65`, then evaluate exact learned/pre pairs only on
+interleaved unseen `37/45/53/61`. Keep the official experts exact, the 584-D causal input, 32/32
+condition balance with parity swapping, reward, optimizer and v4 success/fall metrics unchanged.
+The first seed is `171646 -> 181662`; an automatic positive-result replication uses
+`171647 -> 181664`.
 
 The new frozen evaluator uses `foot_contact_coupled_planar_motion_v1`, not the historical loose
 any-contact label. Success requires `>=0.05 m` net planar displacement, `>=0.01 m` planar path on

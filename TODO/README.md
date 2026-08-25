@@ -211,9 +211,14 @@
   `88x/97x` endpoint-gap amplification and gains safe profiles on both seeds; prefix49 contains both
   a fall-to-safe recovery and one lost success; prefix57 is residual-dominated and loses one safe
   profile on seed171645.
-- [ ] freeze both learned/pre checkpoint pairs and evaluate held-out physical prefixes `33/65` with
-  the same disjoint seeds and strict metrics. This is evaluation only: no optimizer update, reward
-  change or new policy training.
+- [x] freeze both learned/pre checkpoint pairs and evaluate held-out physical prefixes `33/65` with
+  the same disjoint seeds and strict metrics. Across 80 profiles per endpoint, learned/pre are tied
+  at `68` safe kicks and `1` fall; both seeds tie independently, so trained-context safety benefit
+  does not generalize to these adjacent unseen handoffs.
+- [ ] run one dense-coverage causal-composer seed with training prefixes `33/41/49/57/65` and
+  frozen learned/pre evaluation only on interleaved unseen `37/45/53/61`. Preserve update64,
+  architecture, reward, optimizer, balanced conditions and strict metrics; automatically replicate
+  as `171647 -> 181664` only if `171646 -> 181662` passes the same physical safety rule.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it

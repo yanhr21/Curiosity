@@ -200,8 +200,17 @@ mean root-height loss 降 `0.02757 m`，但净位移也降 `0.02575 m`，因此�
 逐 profile 审计显示改善主要来自困难 handoff 的 endpoint composition：prefix41 两颗 seed 的
 gate 平均只偏离 `0.00352/0.00436`，但因 Carry/Kick action gap 被放大成 `0.310/0.421` 的平均
 mixed-action 变化，并各新增一个 safe profile。prefix57 主要由 residual 改动，第二 seed 反而
-丢失一个 safe profile。所以下一步先冻结 checkpoint 测未训练 prefix，不继续加 update 或扫
+丢失一个 safe profile。随后冻结 checkpoint 测未训练 prefix，没有继续增加 update 或扫
 reward scale。
+
+该冻结 held-out 检验现已完成。训练只见 `41/49/57`，测试使用相邻但未见的 `33/65`；两颗
+checkpoint 与各自 disjoint evaluation seed 一一对应，learned/pre 的完整 584-D 初始输入逐元素
+一致。80 profiles/endpoint 上双方完全同为 `68` safe Kick、`1` fall；seed171644 双方都是
+`33/40` safe、`1/40` fall，seed171645 双方都是 `35/40` safe、零 fall。learned 相对 pre 的
+平均净位移降低 `0.02110 m`、接触占比降低 `0.00400`，root-height loss 反而增加
+`0.000635 m`。训练 handoff 上的安全增益因此没有迁移到未见 handoff，不能称为 handoff
+generalization。下一项只扩大在线物理状态覆盖：保持模型、reward、update64 和 strict metric
+不变，以 `33/41/49/57/65` 训练，并仅在交错未见的 `37/45/53/61` 上做 matched frozen test。
 
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
@@ -661,6 +670,18 @@ learned/pre-update 合计为 `94/92` safe、`17/20` fall，且两颗 seed 都通
 平均 root-height loss 降低 `0.02757 m`，但净位移与 foot-contact fraction 也分别下降
 `0.02575 m` 和 `0.00503`；因此贡献是更保守的 released-skill transition 获得可复现安全增益，
 不是更强的 Kick，更不是 arbitrary-video generalization。
+
+冻结 held-out `33/65` 结果随后把结论收紧：learned/pre 在 80 profiles/endpoint 上完全同为
+`68` safe、`1` fall，两颗 seed 都没有净改善；训练 handoff 的收益没有迁移。最短复现入口为：
+
+```bash
+bash scripts/sugar/demo_following/run_causal_composition_heldout_prefix_eval.sh \
+  experiments/demo_following/causal_composition_heldout_prefix33_65_v1 cuda:0
+```
+
+该入口不训练，固定运行八个 camera-free rollout、严格汇总和四个 learned/pre 并排视频，随后
+继续持有 GPU。当前下一实验是 `33/41/49/57/65` 训练、`37/45/53/61` 未见测试的单一 coverage
+改动，不改模型、reward、optimizer 或 update budget。
 
 causal-composition 两 seed 实验的最短入口（必须在 retained GPU compute step 内运行）为：
 

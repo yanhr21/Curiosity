@@ -1665,7 +1665,47 @@ handoff 上的 replicated recovery improvement，不包括 arbitrary video、任
 endpoint gap amplification `87.91x/96.54x`，并各新增 safe profile。prefix49 的第二 seed
 也有 `94.91x` amplification，把一个 pre-update fall 转为 learned safe kick，但同时另一个
 profile 丢失 safe。prefix57 的 mixture 变化接近零、主要依赖 residual，第二 seed 丢失一个
-safe profile。因此下一步是 frozen learned/pre 对未训练 prefix `33/65` 的评估，不是增加训练。
+safe profile。随后执行 frozen learned/pre 对未训练 prefix `33/65` 的评估，没有增加训练。
+
+### 5.11 Held-out handoff audit
+
+冻结两个已训练 checkpoint pair，不运行训练或 optimizer update：
+
+```bash
+bash scripts/sugar/demo_following/run_causal_composition_heldout_prefix_eval.sh \
+  experiments/demo_following/causal_composition_heldout_prefix33_65_v1 cuda:0
+```
+
+训练 prefix 为 `41/49/57`，本次只测试未见的 `33/65`。seed171644 继续使用 eval seed181656，
+seed171645 继续使用 eval seed181658；每个 prefix、每个 endpoint 各 20 profiles。八个
+camera-free rollout 全部通过 v4 strict Kick/fall contract、exact expert audit、完整 584-D 初始
+输入逐元素一致和 deployed/composed action 精确一致检查。
+
+```text
+seed171644: learned/pre = 33/33 safe, 1/1 falls
+seed171645: learned/pre = 35/35 safe, 0/0 falls
+two seeds:  learned/pre = 68/68 safe, 1/1 falls
+```
+
+四个 context 的 learned-minus-pre 平均为：net displacement `-0.021103 m`、planar path
+`-0.021751 m`、foot-contact fraction `-0.004000`、root-height loss `+0.000635 m`。learned 的
+mixture-action deviation 只有 `1.59e-5--2.27e-4`，明显小于训练 prefix41 的 `0.310/0.421`；
+bounded residual 仍为 `0.00904--0.01035`。profile 变化相互抵消，结论固定为
+`heldout_prefix_safety_improvement_not_replicated`，不能宣称 handoff generalization。
+
+四条左右并排视频均为 H.264/yuv420p、`1920x540`、20 fps，并已独立完整解码：
+
+```text
+experiments/demo_following/causal_composition_heldout_prefix33_65_v1/
+  seed171644/videos_seed181660/prefix33/learned_vs_pre_update_prefix33.mp4
+  seed171644/videos_seed181660/prefix65/learned_vs_pre_update_prefix65.mp4
+  seed171645/videos_seed181661/prefix33/learned_vs_pre_update_prefix33.mp4
+  seed171645/videos_seed181661/prefix65/learned_vs_pre_update_prefix65.mp4
+```
+
+下一实验保持同一模型、reward、optimizer、64-update budget 和 strict metric，只改变训练状态
+覆盖：训练 `33/41/49/57/65`，冻结测试交错未见的 `37/45/53/61`。首 seed 固定为
+`171646 -> 181662`，仅在其通过同一物理规则时自动运行 `171647 -> 181664`，全程无人工 gate。
 
 ## 6. IsaacLab 在线整手触觉
 
