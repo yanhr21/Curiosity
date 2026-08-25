@@ -3,10 +3,11 @@
 
 """Causal transition policy over exact released SUGAR Tracker experts.
 
-The two released Tracker actors remain parameter-exact and frozen.  The only
-trainable actor component is a full SUGAR-topology residual that reads the
-current Tracker observation, the causal command produced by the selected
-released Generator, and the selected-skill one-hot vector.
+The two released Tracker actors remain parameter-exact and frozen.  The older
+residual topology reads the selected command, while the current causal action
+composer reads the current Tracker observation, both causal released-Generator
+commands and the selected-skill one-hot.  Only the full SUGAR-topology
+residual/composer module is trainable.
 """
 
 from __future__ import annotations

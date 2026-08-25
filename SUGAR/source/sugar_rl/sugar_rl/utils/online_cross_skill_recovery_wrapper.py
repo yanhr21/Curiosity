@@ -6,9 +6,10 @@
 The wrapper constructs every recovery start state by actually stepping PhysX:
 one exact KickBox alignment action followed by a fixed or predeclared scheduled
 number of exact CarryBox Generator+Tracker actions.  These prefix steps happen
-between RSL-RL episodes and never enter PPO storage.  The trainable policy
-therefore receives only the current 510-D Tracker observation at the physical
-handoff state.
+between RSL-RL episodes and never enter PPO storage.  At the physical handoff,
+the causal action composer receives the current 510-D Tracker observation,
+current 36-D Carry command, current 36-D Kick command and selected-skill
+two-way one-hot; no future or outcome label enters that 584-D actor input.
 """
 
 from __future__ import annotations
