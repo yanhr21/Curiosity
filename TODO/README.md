@@ -187,8 +187,12 @@
 - [x] add the exact matched learning baseline: compare `model_64` Kick with `model_pre_update` Kick
   on the same evaluation seed and initial physics. Learned/pre-update totals are `36/35` safe Kick
   and `2/0` falls, so safety improvement is false in both seeds.
-- [ ] run one fixed failure-rich serious overfit diagnostic to determine whether the transition
-  residual/reward can reduce official-endpoint falls before any new formal multi-seed budget.
+- [x] run the fixed failure-rich serious overfit diagnostic. Pre/update64/128/192/256 safe/fall
+  counts are `14/6`, `13/7`, `14/6`, `13/6`, `13/5`; reject learnability because no endpoint
+  reduces falls without losing safe Kick.
+- [ ] add one causal current-rollout recovery objective (object displacement progress, physical
+  foot contact and upright/fall evidence as reward labels only) and rerun the same fixed overfit;
+  preserve exact frozen experts, actor observation and topology.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -219,8 +223,9 @@ is therefore closed for this setup. The first separate-arm frozen-expert control
 semantic split but has no safety advantage and retains a checkpoint confound. The shared conditioned
 checkpoint removes that confound and replicates condition-dependent endpoint execution across two
 seeds. The matched exact pre-update comparison rejects a learned safety benefit: `36/35` safe Kick
-but `2/0` falls. The active next task is one fixed failure-rich serious overfit diagnostic, not
-another reward-scale, threshold or scalar-objective sweep.
+but `2/0` falls. The fixed failure-rich overfit also fails its learnability rule through update256.
+The active next task changes only the causal physical recovery objective while preserving the
+controller contract, not another update extension, formal seed or scalar-prior sweep.
 
 ## Frozen tactile work
 

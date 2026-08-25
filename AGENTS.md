@@ -305,6 +305,17 @@ transition/recovery benefit and not arbitrary-video following. Do not report the
 Carry difference as a physical advantage. The next diagnostic must test learnability on a fixed
 failure-rich transition context before spending another matched multi-seed training budget.
 
+That fixed failure-rich learnability diagnostic is complete on seed181630/prefix41. The exact
+pre-update Kick endpoint reproduces `14/20` safe kicks and `6/20` falls. With the same training and
+frozen-evaluation seed, update `64/128/192/256` gives safe/fall counts `13/7`, `14/6`, `13/6` and
+`13/5`. Update256 removes one fall only by losing one safe Kick and reducing mean displacement from
+`0.30260` to `0.24671 m`; no endpoint passes the predeclared rule of fewer falls with no safe-Kick
+loss. This is a diagnostic negative result, not generalization evidence. Do not extend the same
+objective or launch formal seeds. The next fixed diagnostic must change the causal recovery task
+objective itself while preserving the exact frozen experts, actor observation and controller
+topology; it may use current rollout physics/contact as reward labels but not actor inputs, future
+frames or a toy model.
+
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
 unrelated Kick21 model, but creates no environment and executes zero PPO updates. The allocation is

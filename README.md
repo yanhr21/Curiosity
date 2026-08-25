@@ -153,6 +153,14 @@ SMP reward。冻结 seed `181644/181646` 恢复的 robot、joint、box 和 510-D
 只证明共享策略能读取条件并执行两个冻结官方技能，不能声称 learned transition 改善了恢复或
 安全，也不等于任意视频泛化。
 
+随后完成了固定 failure-rich learnability 诊断。seed181630/prefix41 的 exact pre-update Kick
+为 `14/20` safe、`6/20` fall；同 seed 训练和冻结评估的 update `64/128/192/256` 依次为
+`13/7`、`14/6`、`13/6`、`13/5`。update256 少一次跌倒却也少一个 safe Kick，平均位移从
+`0.30260 m` 降至 `0.24671 m`，所以四个 endpoint 全部不通过“降低 fall 且不损失 safe Kick”
+判据。这证明当前任务/蒸馏目标即使在训练上下文本身也没有学出安全 transition；不能继续靠
+更多 update 或 formal seed。下一诊断必须改变 causal recovery task objective，同时保持官方
+专家、actor 输入和 topology 不变。
+
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
 latent 或安全跨资产 transition policy。最终四视频位于
@@ -590,9 +598,10 @@ motion-disjoint gate；三种 scalar prior reward 都能因果改变行为，但
 物理优势。第一项拓扑级 separate-arm 诊断已形成 `17 vs 0` safe Kick 的强行为分叉，但未
 改善安全且有 checkpoint 混杂。共享 checkpoint follow-up 已在两 seed 复现强条件分叉，
 但 exact matched learning comparison 为 learned/pre-update `36/35` safe Kick、`2/0` fall，
-不支持安全增益。当前下一项是一个固定 failure-rich serious overfit 诊断，先判断 transition
-residual/reward 是否具备降低官方端点跌倒的可学习性；不得扫描同一 reward 权重，也不得用
-hand-written toy latent/world model 替代。
+不支持安全增益。固定 failure-rich overfit 也已失败：四个 endpoint 都不能在不损失 safe Kick
+的前提下降低跌倒。当前下一项是只改变 causal recovery task objective 的固定诊断，不再延长
+同一目标、追加 formal seeds 或扫描 scalar-prior reward；不得用 hand-written toy latent/world
+model 替代。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复

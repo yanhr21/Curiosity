@@ -1477,6 +1477,28 @@ experiments/demo_following/shared_frozen_expert_transition_prefix41_seed171639_v
 transition residual 改变了动作，但没有改善 matched Kick safety。下一步先做固定 failure-rich
 overfit 诊断，而不是继续 formal multi-seed 或 scalar-reward sweep。
 
+### 5.6 Failure-rich fixed-context learnability diagnostic
+
+该诊断故意复用训练/冻结 seed181630，只回答当前 transition residual 与目标在已知失败上下文中
+是否可学，不用于泛化声明：
+
+```bash
+bash scripts/sugar/demo_following/run_frozen_expert_transition_failure_overfit.sh \
+  experiments/demo_following/frozen_expert_transition_failure_overfit_seed181630_v1 \
+  cuda:0
+```
+
+脚本固定 prefix41、20 environments、selected Kick、exact frozen experts 和 update
+`64/128/192/256`。每个 learned checkpoint 都与相同 seed 的 `model_pre_update.pt` 做逐元素相同
+初始物理比较。`RESULT.json` 的判据是 physical fall 严格减少且 safe Kick 不减少。
+
+精确结果为：pre-update `14 safe/6 fall`；update64 `13/7`；update128 `14/6`；update192
+`13/6`；update256 `13/5`。update256 的平均净位移也从 `0.302597 m` 降至 `0.246715 m`。
+因此 `strict_learnability_pass=false`，结论为
+`failure_rich_transition_not_learned_by_update256`。不得延长同一目标或启动 formal seeds；下一
+固定诊断只改变 causal physical recovery objective，当前 rollout 的 displacement progress、
+foot contact 和 upright/fall 可作为 reward label，但不得进入 actor observation。
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

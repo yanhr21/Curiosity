@@ -132,6 +132,10 @@ has been archived.
 - `shared_frozen_expert_transition_learning_two_seed_v1/`: correct learning-effect aggregate:
   learned/pre-update selected Kick totals are `36/35` safe kicks and `2/0` falls. The verdict is
   `matched_kick_safety_improvement_not_replicated`;
+- `frozen_expert_transition_failure_overfit_seed181630_v1/`: fixed-context learnability negative.
+  Exact pre-update and update64/128/192/256 safe/fall counts are `14/6`, `13/7`, `14/6`, `13/6`,
+  `13/5`. `RESULT.json` records `failure_rich_transition_not_learned_by_update256`; no endpoint is
+  admitted and the directory is diagnostic-only;
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
 The old 1216-update policy experiment, rejected 510-D/free-window event predictor, redundant CPU

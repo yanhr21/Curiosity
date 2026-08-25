@@ -472,6 +472,15 @@ Neither seed passes the safety-improvement rule. The next experiment is one fixe
 serious overfit diagnostic; no further formal seed budget is justified until it demonstrates that
 the residual/reward can reduce endpoint failures.
 
+The fixed diagnostic is now complete and negative. Seed181630 intentionally serves as both the
+failure-rich training context and frozen evaluation seed. Exact pre-update is `14/20` safe Kick and
+`6/20` falls. Update `64/128/192/256` gives `13/7`, `14/6`, `13/6`, and `13/5`. The last endpoint
+trades one fewer fall for one fewer safe Kick and `-0.05588 m` displacement, so it does not pass
+learnability. The current imitation-plus-terminal-safety objective is closed. The next fixed
+diagnostic must preserve the controller and frozen experts but replace the transition objective
+with causal current-rollout recovery progress/contact/upright evidence. These signals are reward
+labels only and cannot enter actor observations.
+
 ### Expected behavior, not just reward score
 
 For the correct Carry demo, the expected interaction is: approach the box, establish bilateral hand
