@@ -1499,6 +1499,28 @@ bash scripts/sugar/demo_following/run_frozen_expert_transition_failure_overfit.s
 固定诊断只改变 causal physical recovery objective，当前 rollout 的 displacement progress、
 foot contact 和 upright/fall 可作为 reward label，但不得进入 actor observation。
 
+### 5.7 Causal physical recovery objective
+
+保持 5.6 的 checkpoint、actor input、冻结专家、seed 和 endpoint 不变，仅启用当前 rollout
+reward：
+
+```bash
+bash scripts/sugar/demo_following/run_transition_recovery_objective_overfit.sh \
+  experiments/demo_following/transition_recovery_objective_overfit_seed181630_v1 \
+  cuda:0
+```
+
+reward 为归一化平面位移增量（0.02 m scale）加 `0.2` foot-contact bonus，减去从 0.15 m
+root-height loss 开始、到 0.35 m 饱和的 upright risk。全部由当前 PhysX state/ContactSensor
+产生，只进入 reward。audit 必须为 `reward_calls>0`、`maximum_abs_reward>0`、
+`future_or_outcome_labels_used=false`、`actor_observation_augmented=false`。
+
+精确 frozen 结果：pre `14 safe/6 fall`；update64 `14/5`；update128 `14/5`；update192
+`13/6`；update256 `14/6`。update64/128 的 mean root-height loss 为 `0.166661/0.167735 m`，
+低于 pre 的 `0.196861 m`。选择规则取最早通过的 update64。该结果只证明 fixed-context
+learnability；正式复现使用 `run_shared_transition_recovery_objective.sh`，恢复 32/32 balanced
+conditions、64 updates 和 disjoint frozen seed。
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

@@ -277,6 +277,7 @@ def test_shared_transition_checkpoint_balances_conditions_without_scalar_reward(
         ROOT / "scripts/sugar/demo_following/run_shared_frozen_expert_transition.sh"
     )
     assert "SUGAR_TRANSITION_SELECTED_SKILL_ID=-1" in source
+    assert "SUGAR_TRANSITION_RECOVERY_REWARD_OVERRIDE" in source
     assert "unset SUGAR_CONDITIONAL_TINYMDM_REWARD" in source
     assert source.count("$OUTPUT_ROOT/train/model_64.pt") >= 3
     assert "kick:1 carry:0" in source
@@ -288,6 +289,15 @@ def test_shared_transition_checkpoint_balances_conditions_without_scalar_reward(
     assert "same_checkpoint_kick_vs_carry" in source
     assert "read -" not in source
     assert "approval" not in source.lower()
+
+    formal = _read(
+        ROOT
+        / "scripts/sugar/demo_following/run_shared_transition_recovery_objective.sh"
+    )
+    assert "SUGAR_TRANSITION_RECOVERY_REWARD_OVERRIDE=1" in formal
+    assert "run_shared_frozen_expert_transition.sh" in formal
+    assert "read -" not in formal
+    assert "approval" not in formal.lower()
 
 
 def test_shared_transition_separates_condition_use_from_learning_benefit() -> None:
@@ -340,3 +350,33 @@ def test_failure_rich_transition_overfit_is_fixed_and_automatic() -> None:
     assert "learned[\"physical_fall_count\"] < pre[\"physical_fall_count\"]" in summary
     assert "learned[\"safe_kick_success_count\"] >= pre[\"safe_kick_success_count\"]" in summary
     assert '"diagnostic_only": True' in summary
+
+
+def test_transition_recovery_objective_is_causal_and_not_actor_input() -> None:
+    source = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_cross_skill_recovery_wrapper.py"
+    )
+    assert "transition_recovery_reward_enabled" in source
+    assert "object_xy - self._transition_handoff_object_xy" in source
+    assert 'self.base_env.scene.sensors["left_foot_forces"]' in source
+    assert 'self.base_env.scene.sensors["right_foot_forces"]' in source
+    assert "root_loss - 0.15" in source
+    assert '"future_or_outcome_labels_used": False' in source
+    assert '"actor_observation_augmented": False' in source
+    assert "rewards = rewards + recovery_reward" in source
+    observation_method = source[
+        source.index("def _augment_transition_observation") : source.index(
+            "def get_observations"
+        )
+    ]
+    assert "recovery" not in observation_method
+
+    runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/run_transition_recovery_objective_overfit.sh"
+    )
+    assert "SUGAR_TRANSITION_RECOVERY_REWARD_OVERRIDE=1" in runner
+    assert "run_frozen_expert_transition_failure_overfit.sh" in runner
+    assert "read -" not in runner
+    assert "approval" not in runner.lower()

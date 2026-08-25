@@ -481,6 +481,14 @@ diagnostic must preserve the controller and frozen experts but replace the trans
 with causal current-rollout recovery progress/contact/upright evidence. These signals are reward
 labels only and cannot enter actor observations.
 
+That objective-only diagnostic now passes at the early endpoints. Pre/update64/update128 safe/fall
+counts are `14/6`, `14/5`, `14/5`; mean root-height loss drops from `0.19686 m` to
+`0.16666/0.16774 m`. Update192/256 regress to `13/6` and `14/6`. The selected endpoint is therefore
+the earliest passing update64, not the best post-hoc metric. The next formal experiment restores
+balanced 32/32 Carry/Kick conditioning, trains exactly 64 updates and uses disjoint one-to-one
+evaluation seeds. A positive formal result still requires learned Kick to beat exact pre-update
+Kick in safe/fall outcome without degrading the Carry endpoint.
+
 ### Expected behavior, not just reward score
 
 For the correct Carry demo, the expected interaction is: approach the box, establish bilateral hand

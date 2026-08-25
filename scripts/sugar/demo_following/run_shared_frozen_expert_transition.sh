@@ -39,6 +39,7 @@ export SUGAR_CROSS_SKILL_CARRY_PREFIX_STEPS=41
 export SUGAR_CROSS_SKILL_RECOVERY_REWARD_CLIP=10.0
 export SUGAR_CROSS_SKILL_RECOVERY_SAFETY_PENALTY=1
 export SUGAR_TRANSITION_SELECTED_SKILL_ID=-1
+export SUGAR_TRANSITION_RECOVERY_REWARD="${SUGAR_TRANSITION_RECOVERY_REWARD_OVERRIDE:-0}"
 export SUGAR_CROSS_SKILL_PREFIX_AUDIT="$OUTPUT_ROOT/train/prefix_audit.json"
 unset SUGAR_CONDITIONAL_TINYMDM_REWARD
 
@@ -79,7 +80,9 @@ test -s "$OUTPUT_ROOT/evaluation/kick_pre_update/RESULT.json"
     --carry "$OUTPUT_ROOT/evaluation/carry/RESULT.json" \
     --training-audit "$OUTPUT_ROOT/train/prefix_audit.json" \
     --checkpoint-audit "$OUTPUT_ROOT/CHECKPOINT_AUDIT.json" \
-    --training-seed "$TRAIN_SEED" --output "$OUTPUT_ROOT/RESULT.json"
+    --training-seed "$TRAIN_SEED" \
+    --expected-recovery-reward "$SUGAR_TRANSITION_RECOVERY_REWARD" \
+    --output "$OUTPUT_ROOT/RESULT.json"
 
 "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/summarize_shared_transition_learning.py" \
     --learned "$OUTPUT_ROOT/evaluation/kick/RESULT.json" \

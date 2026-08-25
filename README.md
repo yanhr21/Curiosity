@@ -161,6 +161,13 @@ SMP reward。冻结 seed `181644/181646` 恢复的 robot、joint、box 和 510-D
 更多 update 或 formal seed。下一诊断必须改变 causal recovery task objective，同时保持官方
 专家、actor 输入和 topology 不变。
 
+该 causal objective 诊断现已通过。它只在训练 reward 中加入当前 rollout 的物体位移增量、
+真实 foot–box contact 和 root-height risk；audit 为 online calls>0、最大绝对 reward `1.2`、
+future/outcome label=false、actor observation augmented=false。相同 seed181630 下，update64/
+128 都从 pre-update `14 safe/6 fall` 改为 `14/5`，mean root-height loss 从 `0.19686 m` 降至
+`0.16666/0.16774 m`；192/256 又退化为 `13/6`、`14/6`。因此选最早通过的 update64，下一步
+做 32/32 shared condition、disjoint eval seed 的 formal matched 验证，不延长训练。
+
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
 latent 或安全跨资产 transition policy。最终四视频位于
@@ -599,9 +606,9 @@ motion-disjoint gate；三种 scalar prior reward 都能因果改变行为，但
 改善安全且有 checkpoint 混杂。共享 checkpoint follow-up 已在两 seed 复现强条件分叉，
 但 exact matched learning comparison 为 learned/pre-update `36/35` safe Kick、`2/0` fall，
 不支持安全增益。固定 failure-rich overfit 也已失败：四个 endpoint 都不能在不损失 safe Kick
-的前提下降低跌倒。当前下一项是只改变 causal recovery task objective 的固定诊断，不再延长
-同一目标、追加 formal seeds 或扫描 scalar-prior reward；不得用 hand-written toy latent/world
-model 替代。
+的前提下降低跌倒。加入 causal physical recovery objective 后固定诊断在 update64/128 通过，
+但后续 endpoint 退化；当前下一项是 update64 的 balanced shared-condition formal matched
+验证，不延长训练或扫描 scalar-prior reward；不得用 hand-written toy latent/world model 替代。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复

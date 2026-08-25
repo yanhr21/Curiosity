@@ -16,6 +16,9 @@ parser.add_argument("--carry", type=Path, required=True)
 parser.add_argument("--training-audit", type=Path, required=True)
 parser.add_argument("--checkpoint-audit", type=Path, required=True)
 parser.add_argument("--training-seed", type=int, required=True)
+parser.add_argument(
+    "--expected-recovery-reward", type=int, choices=(0, 1), default=0
+)
 parser.add_argument("--output", type=Path, required=True)
 args = parser.parse_args()
 
@@ -47,6 +50,21 @@ def main() -> None:
         or set(checkpoint_audit.get("arms", {})) != {"shared"}
     ):
         raise RuntimeError("shared transition training/checkpoint audit failed")
+    reward_audit = training_audit.get("transition_recovery_reward", {})
+    expected_reward = bool(args.expected_recovery_reward)
+    if (
+        reward_audit.get("enabled") is not expected_reward
+        or reward_audit.get("future_or_outcome_labels_used") is not False
+        or reward_audit.get("actor_observation_augmented") is not False
+        or (
+            expected_reward
+            and (
+                int(reward_audit.get("reward_calls", 0)) <= 0
+                or float(reward_audit.get("maximum_abs_reward", 0.0)) <= 0.0
+            )
+        )
+    ):
+        raise RuntimeError("shared transition recovery reward audit failed")
     for key in ("checkpoint", "seed", "num_envs", "steps", "prefix"):
         if kick[key] != carry[key]:
             raise RuntimeError(f"shared-checkpoint condition-swap drift: {key}")
@@ -105,6 +123,7 @@ def main() -> None:
             "same_training_seed": args.training_seed,
             "same_update_budget": 64,
             "scalar_smp_reward": False,
+            "causal_recovery_reward": expected_reward,
         },
         "kick_condition": kick_aggregate,
         "carry_condition": carry_aggregate,
@@ -120,6 +139,7 @@ def main() -> None:
             "balanced_condition_training": True,
             "exact_frozen_experts_preserved": True,
             "no_scalar_smp_reward": True,
+            "causal_recovery_reward_matches_protocol": True,
             "kick_condition_is_safer_than_inert_carry_condition": (
                 kick_safer_than_inert_carry
             ),

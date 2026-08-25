@@ -11,6 +11,10 @@ from pathlib import Path
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--learning-result", type=Path, action="append", required=True)
 parser.add_argument("--checkpoint-audit", type=Path, required=True)
+parser.add_argument("--prefix-audit", type=Path, required=True)
+parser.add_argument(
+    "--expected-recovery-reward", type=int, choices=(0, 1), required=True
+)
 parser.add_argument("--output", type=Path, required=True)
 args = parser.parse_args()
 
@@ -36,6 +40,22 @@ def main() -> None:
     audit = json.loads(args.checkpoint_audit.read_text(encoding="utf-8"))
     if audit.get("overall_pass") is not True or audit.get("post_iteration") != 256:
         raise RuntimeError("failure-rich checkpoint audit failed")
+    prefix_audit = json.loads(args.prefix_audit.read_text(encoding="utf-8"))
+    reward_audit = prefix_audit.get("transition_recovery_reward", {})
+    expected_reward = bool(args.expected_recovery_reward)
+    if (
+        reward_audit.get("enabled") is not expected_reward
+        or reward_audit.get("future_or_outcome_labels_used") is not False
+        or reward_audit.get("actor_observation_augmented") is not False
+        or (
+            expected_reward
+            and (
+                int(reward_audit.get("reward_calls", 0)) <= 0
+                or float(reward_audit.get("maximum_abs_reward", 0.0)) <= 0.0
+            )
+        )
+    ):
+        raise RuntimeError("transition recovery reward audit failed")
 
     pre = records[0]["exact_pre_update_kick"]
     if any(record["exact_pre_update_kick"] != pre for record in records[1:]):
@@ -60,8 +80,9 @@ def main() -> None:
         )
     passing = [row for row in rows if row["strict_learnability_pass"]]
     result = {
-        "protocol": "sugar_frozen_expert_transition_failure_overfit_v1",
+        "protocol": "sugar_frozen_expert_transition_failure_overfit_v2",
         "diagnostic_only": True,
+        "transition_recovery_reward_enabled": expected_reward,
         "training_and_evaluation_seed": 181630,
         "carry_prefix_steps": 41,
         "selected_skill": "Kick",
@@ -75,9 +96,17 @@ def main() -> None:
         },
         "selected_endpoint": passing[0] if passing else None,
         "conclusion": (
-            "failure_rich_transition_is_learnable"
+            (
+                "causal_recovery_objective_is_learnable"
+                if expected_reward
+                else "failure_rich_transition_is_learnable"
+            )
             if passing
-            else "failure_rich_transition_not_learned_by_update256"
+            else (
+                "causal_recovery_objective_not_learned_by_update256"
+                if expected_reward
+                else "failure_rich_transition_not_learned_by_update256"
+            )
         ),
         "claim_boundary": (
             "Training and frozen evaluation intentionally reuse seed181630. This is a "

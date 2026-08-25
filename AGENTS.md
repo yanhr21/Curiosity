@@ -316,6 +316,17 @@ objective itself while preserving the exact frozen experts, actor observation an
 topology; it may use current rollout physics/contact as reward labels but not actor inputs, future
 frames or a toy model.
 
+The causal physical-recovery-objective overfit is complete and passes the fixed learnability gate.
+It adds only current-rollout planar displacement progress, real foot-to-box contact and upright
+root-height risk to training reward; the audit records positive online calls, maximum absolute
+reward `1.2`, no future/outcome labels and no actor-observation augmentation. On the same
+seed181630 baseline, update64/update128 both give `14/20` safe kicks and `5/20` falls versus
+pre-update `14/20` and `6/20`; mean root-height loss improves from `0.19686 m` to
+`0.16666/0.16774 m`. Update192/256 regress to `13/6` and `14/6`, so update64 is the predeclared
+earliest passing endpoint and training must not extend past it. This is fixed-context learnability,
+not generalization. The active formal test uses balanced 32/32 shared conditions, 64 updates and
+disjoint one-to-one evaluation seeds, comparing learned Kick with exact pre-update Kick.
+
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
 unrelated Kick21 model, but creates no environment and executes zero PPO updates. The allocation is

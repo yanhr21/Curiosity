@@ -400,6 +400,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 if "SUGAR_TRANSITION_SELECTED_SKILL_ID" in os.environ
                 else None
             ),
+            transition_recovery_reward=(
+                os.environ.get("SUGAR_TRANSITION_RECOVERY_REWARD") == "1"
+            ),
             **conditional_kwargs,
         )
     elif os.environ.get("SUGAR_RGB_TELEMETRY_OUTPUT"):

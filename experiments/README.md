@@ -136,6 +136,10 @@ has been archived.
   Exact pre-update and update64/128/192/256 safe/fall counts are `14/6`, `13/7`, `14/6`, `13/6`,
   `13/5`. `RESULT.json` records `failure_rich_transition_not_learned_by_update256`; no endpoint is
   admitted and the directory is diagnostic-only;
+- `transition_recovery_objective_overfit_seed181630_v1/`: objective-only fixed-context positive.
+  Pre/update64/128/192/256 safe/fall counts are `14/6`, `14/5`, `14/5`, `13/6`, `14/6`.
+  `RESULT.json` selects the earliest passing update64 and records
+  `causal_recovery_objective_is_learnable`; this is not generalization evidence;
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
 The old 1216-update policy experiment, rejected 510-D/free-window event predictor, redundant CPU

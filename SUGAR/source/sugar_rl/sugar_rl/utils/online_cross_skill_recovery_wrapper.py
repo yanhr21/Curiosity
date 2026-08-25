@@ -185,6 +185,7 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         conditional_tinymdm_task_reward_weight: float = 0.5,
         conditional_tinymdm_smp_reward_weight: float = 0.5,
         transition_selected_skill_id: int | None = None,
+        transition_recovery_reward: bool = False,
     ) -> None:
         if carry_prefix_steps <= 0:
             raise ValueError("carry_prefix_steps must be positive")
@@ -261,6 +262,17 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
                 "transition selected skill must be balanced=-1, Carry=0 or Kick=1"
             )
         self.transition_selected_skill_id = transition_selected_skill_id
+        self.transition_recovery_reward_enabled = bool(transition_recovery_reward)
+        if (
+            self.transition_recovery_reward_enabled
+            and self.conditional_tinymdm_reward is not None
+        ):
+            raise ValueError(
+                "transition recovery reward and conditional TinyMDM reward are "
+                "mutually exclusive diagnostics"
+            )
+        if self.transition_recovery_reward_enabled and transition_selected_skill_id is None:
+            raise ValueError("transition recovery reward requires a selected skill")
         self.transition_selected_skill_ids = None
         if transition_selected_skill_id is not None:
             if transition_selected_skill_id == -1:
@@ -275,6 +287,11 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
                     dtype=torch.long,
                 )
         self.carry_shadow: _CausalShadowGenerator | None = None
+        self._transition_handoff_object_xy: torch.Tensor | None = None
+        self._transition_handoff_root_height: torch.Tensor | None = None
+        self._transition_previous_displacement: torch.Tensor | None = None
+        self.transition_recovery_reward_calls = 0
+        self.transition_recovery_reward_max_abs = 0.0
         self.prefix_count = 0
         self.max_alignment_action_abs = 0.0
         self.max_carry_action_abs = 0.0
@@ -373,6 +390,18 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             float(torch.amax(torch.abs(handoff_policy)).item()),
         )
         self.carry_shadow = shadow
+        if self.transition_recovery_reward_enabled:
+            self._transition_handoff_object_xy = (
+                self.base_env.scene["obj"].data.root_pos_w[:, :2].clone()
+            )
+            self._transition_handoff_root_height = (
+                self.base_env.scene["robot"].data.root_pos_w[:, 2].clone()
+            )
+            self._transition_previous_displacement = torch.zeros(
+                self.num_envs,
+                device=self.base_env.device,
+                dtype=self._transition_handoff_object_xy.dtype,
+            )
         observations = self._augment_transition_observation(observations)
         self.prefix_count += 1
         if self.conditional_tinymdm_reward is not None:
@@ -424,14 +453,104 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             "transition_observation_is_causal": (
                 self.transition_selected_skill_id is not None
             ),
+            "transition_recovery_reward": {
+                "enabled": self.transition_recovery_reward_enabled,
+                "reward_calls": self.transition_recovery_reward_calls,
+                "maximum_abs_reward": self.transition_recovery_reward_max_abs,
+                "planar_progress_scale_m": 0.02,
+                "foot_contact_threshold_n": 0.1,
+                "foot_contact_bonus": 0.2,
+                "upright_risk_start_m": 0.15,
+                "upright_risk_full_m": 0.35,
+                "future_or_outcome_labels_used": False,
+                "actor_observation_augmented": False,
+            },
         }
         temporary = self.audit_path.with_suffix(self.audit_path.suffix + ".tmp")
         temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         os.replace(temporary, self.audit_path)
 
+    @staticmethod
+    def _latest_filtered_force(sensor) -> torch.Tensor:
+        force = sensor.data.force_matrix_w_history
+        if force is None or force.ndim != 5 or force.shape[2:4] != (1, 1):
+            raise RuntimeError("filtered foot-to-object ContactSensor geometry drift")
+        return force[:, -1, 0, 0, :]
+
+    def _transition_recovery_reward(self, dones: torch.Tensor) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        """Causal current-rollout reward; none of these labels enter the actor."""
+
+        if (
+            self._transition_handoff_object_xy is None
+            or self._transition_handoff_root_height is None
+            or self._transition_previous_displacement is None
+            or self.transition_selected_skill_ids is None
+        ):
+            raise RuntimeError("transition recovery reward state is missing")
+        zero = torch.zeros(self.num_envs, device=self.base_env.device)
+        if torch.any(dones):
+            return zero, {
+                "progress": zero,
+                "foot_contact": zero,
+                "upright_risk": zero,
+            }
+
+        object_xy = self.base_env.scene["obj"].data.root_pos_w[:, :2]
+        displacement = torch.linalg.vector_norm(
+            object_xy - self._transition_handoff_object_xy, dim=-1
+        )
+        progress = torch.clamp(
+            (displacement - self._transition_previous_displacement) / 0.02,
+            -1.0,
+            1.0,
+        )
+        self._transition_previous_displacement = displacement.clone()
+
+        left_force = self._latest_filtered_force(
+            self.base_env.scene.sensors["left_foot_forces"]
+        )
+        right_force = self._latest_filtered_force(
+            self.base_env.scene.sensors["right_foot_forces"]
+        )
+        foot_contact = (
+            (torch.linalg.vector_norm(left_force, dim=-1) > 0.1)
+            | (torch.linalg.vector_norm(right_force, dim=-1) > 0.1)
+        ).to(dtype=progress.dtype)
+
+        root_height = self.base_env.scene["robot"].data.root_pos_w[:, 2]
+        root_loss = self._transition_handoff_root_height - root_height
+        upright_risk = torch.clamp((root_loss - 0.15) / 0.20, 0.0, 1.0)
+        kick_mask = (self.transition_selected_skill_ids == 1).to(progress.dtype)
+        reward = kick_mask * (progress + 0.2 * foot_contact - upright_risk)
+        if not torch.isfinite(reward).all():
+            raise RuntimeError("transition recovery reward became non-finite")
+        self.transition_recovery_reward_calls += 1
+        self.transition_recovery_reward_max_abs = max(
+            self.transition_recovery_reward_max_abs,
+            float(torch.amax(torch.abs(reward)).item()),
+        )
+        return reward, {
+            "progress": progress,
+            "foot_contact": foot_contact,
+            "upright_risk": upright_risk,
+        }
+
     @torch.inference_mode()
     def step(self, actions: torch.Tensor):
         observations, rewards, dones, extras = super().step(actions)
+        if self.transition_recovery_reward_enabled:
+            recovery_reward, components = self._transition_recovery_reward(dones)
+            rewards = rewards + recovery_reward
+            extras["transition_recovery_reward_mean"] = recovery_reward.mean()
+            extras["transition_recovery_progress_mean"] = components["progress"].mean()
+            extras["transition_recovery_foot_contact_mean"] = components[
+                "foot_contact"
+            ].mean()
+            extras["transition_recovery_upright_risk_mean"] = components[
+                "upright_risk"
+            ].mean()
+            if self.transition_recovery_reward_calls % 50 == 0:
+                self._write_audit()
         if self.transition_selected_skill_id is not None and not torch.any(dones):
             if self.carry_shadow is None:
                 raise RuntimeError("transition causal Generator state is missing")
