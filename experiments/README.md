@@ -105,6 +105,14 @@ has been archived.
   camera-seed video and proves only that rollout;
 - `conditional_smp_progress_three_seed_v1/`: machine-readable three-seed aggregate and strict claim
   boundary;
+- `conditional_smp_contrastive_progress_recovery_prefix41_seed171635_v1/` and the seed171636
+  sibling: two matched causal contrastive-progress pairs. Aggregated correct/wrong totals are
+  `33/32` safe kicks and `3/3` falls over 40 profiles per arm. Both seeds increase net displacement,
+  planar path and foot contact under the Kick condition, but only the first has a per-seed physical
+  advantage. Each directory contains one independent camera-seed comparison video;
+- `conditional_smp_contrastive_progress_two_seed_v1/`: machine-readable two-seed contrastive
+  aggregate and the strict `condition_effect_replicated_without_seed_robust_physical_advantage`
+  verdict;
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
 The old 1216-update policy experiment, rejected 510-D/free-window event predictor, redundant CPU

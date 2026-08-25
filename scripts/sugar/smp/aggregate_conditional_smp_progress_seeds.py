@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate matched conditional-TinyMDM progress pairs across training seeds."""
+"""Aggregate matched conditional-TinyMDM reward pairs across training seeds."""
 
 from __future__ import annotations
 
@@ -10,6 +10,11 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--pair", type=Path, action="append", required=True)
+parser.add_argument(
+    "--reward-mode",
+    choices=("progress", "contrastive_progress"),
+    default="progress",
+)
 parser.add_argument("--output", type=Path, required=True)
 args = parser.parse_args()
 
@@ -41,13 +46,13 @@ def main() -> None:
         if (
             result.get("protocol")
             != "sugar_conditional_smp_recovery_correct_wrong_matched_pair_v1"
-            or experiment.get("reward_mode") != "progress"
+            or experiment.get("reward_mode") != args.reward_mode
             or checks.get("matched_frozen_evaluation") is not True
             or checks.get("only_semantic_class_differs") is not True
             or seed < 0
             or seed in seen_seeds
         ):
-            raise RuntimeError(f"invalid or duplicate matched progress pair: {path}")
+            raise RuntimeError(f"invalid or duplicate matched reward pair: {path}")
         seen_seeds.add(seed)
         pairs.append(result)
 
@@ -99,7 +104,12 @@ def main() -> None:
         for pair in pairs
     ]
     result = {
-        "protocol": "sugar_conditional_smp_progress_three_seed_aggregate_v1",
+        "protocol": (
+            "sugar_conditional_smp_progress_three_seed_aggregate_v1"
+            if args.reward_mode == "progress"
+            else "sugar_conditional_smp_contrastive_progress_seed_aggregate_v1"
+        ),
+        "reward_mode": args.reward_mode,
         "training_seeds": sorted(seen_seeds),
         "num_training_seeds": len(pairs),
         "profiles_per_arm": 20 * len(pairs),
@@ -131,8 +141,9 @@ def main() -> None:
             else "condition_effect_replicated_without_seed_robust_physical_advantage"
         ),
         "claim_boundary": (
-            "Three matched fixed-prefix training seeds. Aggregate profile counts do not "
-            "replace training-seed replication, and no general demo-following claim follows."
+            f"{len(pairs)} matched fixed-prefix training seeds. Aggregate profile counts "
+            "do not replace training-seed replication, and no general demo-following "
+            "claim follows."
         ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

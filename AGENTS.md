@@ -255,8 +255,24 @@ height loss. Foot contact decreases and net displacement increases in all three 
 seed171632 passes the per-seed physical-advantage rule; fall, root-height and task-reward signs are
 not stable. Therefore this establishes repeatable condition-dependent behavior, not seed-robust
 physical benefit or general demo following. Do not tune its weight or extend its update budget.
-The next fixed diagnostic must use a causal contrastive transition margin between selected and
-alternative classes so generic motion progress cannot masquerade as selected-demo progress.
+The fixed causal contrastive transition-margin diagnostic is also complete for training seeds
+`171635/171636`, paired with frozen seeds `181638/181640`. It rewards the increase in
+`loss(alternative) - loss(selected)` across adjacent causal windows, using the same private
+diffusion noise for all four loss calls. Across 40 profiles per arm, correct Kick versus wrong
+Carry gives `33 vs 32` safe kicks and equal `3 vs 3` falls. Mean correct-minus-wrong deltas are
+`+0.04993 m` net displacement, `+0.02130` foot-contact fraction and `+0.07693 m` planar path.
+Both seeds produce more displacement/path/contact under the Kick condition, but only seed171635
+passes the per-seed physical-advantage rule; root-height and task-reward directions reverse.
+Therefore contrastive progress establishes a replicated, more active Kick-conditioned interaction,
+not seed-robust success/safety or general demo following. Do not tune its reward weight or extend
+its update budget.
+
+Absolute occupancy, selected-class progress and contrastive progress have now exhausted the fixed
+scalar-reward diagnostics for this recovery setup. The active implementation direction must change
+controller topology while preserving serious released components: freeze exact official
+Generator+Tracker endpoint experts, learn a causal state/demo-conditioned transition controller,
+and evaluate endpoint preservation plus transition safety under matched physics. Do not launch
+another scalar-reward transform or substitute a toy controller.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

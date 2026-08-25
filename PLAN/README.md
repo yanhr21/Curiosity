@@ -413,10 +413,27 @@ and task-reward directions are inconsistent. Only seed171632 passes the per-seed
 rule. The admitted conclusion is repeatable condition-dependent behavior without seed-robust
 physical benefit; do not call this general demo following or repeat a weight/update sweep.
 
-The next fixed objective is a causal contrastive transition margin: change in
-`loss(alternative) - loss(selected)` across adjacent windows with matched diffusion noise. It keeps
-the same official checkpoint and online feature contract while removing generic motion progress
-that helps both semantic classes.
+### Contrastive progress: stronger activity shift, still no robust success advantage
+
+The fixed contrastive objective rewards the increase in
+`loss(alternative) - loss(selected)` across adjacent causal windows. Previous/current selected and
+alternative losses share the exact same private diffusion noise, and future outcomes remain absent
+from the actor and reward callable. Training seeds `171635/171636` use the same prefix41 physics,
+released Kick teacher, 64-update budget and reward weights; frozen seeds are `181638/181640`.
+
+Across 40 profiles per arm, correct Kick versus wrong Carry totals `33 vs 32` safe kicks and equal
+`3 vs 3` falls. Mean correct-minus-wrong changes are `+0.04993 m` net displacement, `+0.02130`
+foot-contact fraction, `+0.07693 m` planar path, `+0.00149 m` root-height loss and `+0.00631` task
+reward. Both training seeds increase displacement, path and contact under the Kick condition, but
+only seed171635 passes the per-seed physical-advantage rule; root-height and task-reward signs are
+not stable. This is replicated condition-dependent activity, not seed-robust success/safety and
+not general demo following.
+
+Absolute occupancy, selected-class progress and contrastive progress are now closed as fixed scalar
+reward diagnostics. The next active method changes controller topology: preserve the exact released
+Carry/Kick Generator+Tracker endpoints and learn a causal state/demo-conditioned transition
+controller between them. Endpoint preservation and transition safety must be evaluated separately
+under matched physics; another reward-weight, threshold or update sweep is not allowed.
 
 ### Expected behavior, not just reward score
 

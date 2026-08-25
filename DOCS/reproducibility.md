@@ -1334,6 +1334,63 @@ $PYTHON_BIN scripts/sugar/smp/aggregate_conditional_smp_progress_seeds.py \
 净位移，但逐 seed 的 fall、root-height 和 task-reward 方向不稳定。不要把 60 个 profile 当作
 60 个独立训练 seed，也不要声称已经完成 general demo following。
 
+### 5.3 Causal contrastive progress 两 seed 复现
+
+contrastive mode 对相邻的 previous/current causal windows 同时计算 selected 与 alternative
+class loss，并奖励 margin `loss(alternative) - loss(selected)` 的增加。四次 loss 使用同一份
+私有 diffusion RNG state；它不读取未来 outcome，也不改变 policy RNG。先运行零优化器
+smoke：
+
+```bash
+$PYTHON_BIN scripts/sugar/smp/smoke_online_conditional_tinymdm_reward.py \
+  --output experiments/demo_following/conditional_smp_contrastive_progress_online_smoke_v1/RESULT.json \
+  --num-envs 4 --class-id 1 --reward-mode contrastive_progress \
+  --carry-prefix-steps 41 --headless --device cuda:0
+```
+
+随后在 retained GPU compute node 串行运行两个 matched training seeds；每个 pair 内只改变
+selected/alternative class 的次序：
+
+```bash
+REWARD_MODE_OVERRIDE=contrastive_progress \
+TRAIN_SEED_OVERRIDE=171635 EVAL_SEED_OVERRIDE=181638 \
+  bash scripts/sugar/smp/run_conditional_smp_recovery_matched_pair.sh \
+  experiments/demo_following/conditional_smp_contrastive_progress_recovery_prefix41_seed171635_v1 \
+  cuda:0
+
+REWARD_MODE_OVERRIDE=contrastive_progress \
+TRAIN_SEED_OVERRIDE=171636 EVAL_SEED_OVERRIDE=181640 \
+  bash scripts/sugar/smp/run_conditional_smp_recovery_matched_pair.sh \
+  experiments/demo_following/conditional_smp_contrastive_progress_recovery_prefix41_seed171636_v1 \
+  cuda:0
+```
+
+相机证据使用独立 seeds `181639/181641`。两 seed 汇总命令：
+
+```bash
+$PYTHON_BIN scripts/sugar/smp/aggregate_conditional_smp_progress_seeds.py \
+  --reward-mode contrastive_progress \
+  --pair experiments/demo_following/conditional_smp_contrastive_progress_recovery_prefix41_seed171635_v1/PAIR_RESULT.json \
+  --pair experiments/demo_following/conditional_smp_contrastive_progress_recovery_prefix41_seed171636_v1/PAIR_RESULT.json \
+  --output experiments/demo_following/conditional_smp_contrastive_progress_two_seed_v1/RESULT.json
+```
+
+期望严格结果为 correct/wrong `33/32` safe kick、`3/3` falls；平均 correct-minus-wrong
+净位移、足碰箱占比与平面路径分别为 `+0.04993 m/+0.02130/+0.07693 m`，结论字段为
+`condition_effect_replicated_without_seed_robust_physical_advantage`。两个视频分别位于：
+
+```text
+experiments/demo_following/conditional_smp_contrastive_progress_recovery_prefix41_seed171635_v1/
+  videos_single_seed181639/correct_kick_vs_wrong_carry_seed181639.mp4
+experiments/demo_following/conditional_smp_contrastive_progress_recovery_prefix41_seed171636_v1/
+  videos_single_seed181641/correct_kick_vs_wrong_carry_seed181641.mp4
+```
+
+两 seed 都显示 Kick condition 增加位移、路径和足部接触，但第二 seed 不增加 safe success，
+所以不能声称 robust physical benefit。至此 absolute occupancy、selected-class progress 与
+contrastive progress 三种固定 scalar prior reward 均已完成；下一实验必须改变 controller
+topology，而不是继续扫 reward 或 updates。
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

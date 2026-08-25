@@ -167,9 +167,15 @@
   the same official conditional prior and complete three matched training/evaluation seeds;
 - [x] record the strict verdict: `52 vs 50` safe kicks and equal `5 vs 5` falls over 60 profiles,
   with repeatable displacement/contact shifts but no seed-robust physical advantage;
-- [ ] run one fixed causal contrastive transition-margin diagnostic using
+- [x] run one fixed causal contrastive transition-margin diagnostic using
   `loss(alternative) - loss(selected)` progress under matched diffusion noise; no future labels,
   toy latent, reward-weight sweep or extra update budget.
+- [x] complete the independent-seed repeat: `33 vs 32` safe kicks and `3 vs 3` falls over 40
+  profiles per arm; both seeds increase Kick-conditioned displacement/path/contact, but physical
+  advantage is not seed-robust.
+- [ ] implement the next topology-level experiment: frozen exact Carry/Kick Generator+Tracker
+  endpoints plus a serious causal state/demo-conditioned transition controller; first verify exact
+  endpoint passthrough, then run one matched transition diagnostic without scalar-reward tuning.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -194,9 +200,11 @@ reward while preserving `20/20` Kick; the prefix frontier and matched prefix41 r
 complete and negative. The admitted shared conditional TinyMDM passes its motion-disjoint gate,
 but its first absolute-occupancy online reward pair gives no correct-condition physical advantage.
 The later matched-noise progress objective produces repeatable condition-dependent behavior across
-three seeds but no seed-robust physical advantage. The active next task is therefore one fixed
-causal contrastive transition-margin objective using that same official prior, not a reward-scale,
-threshold or optimizer-step sweep.
+three seeds but no seed-robust physical advantage. The two-seed contrastive follow-up likewise
+produces a repeatable activity shift without robust success/safety. The scalar-prior reward family
+is therefore closed for this setup. The active next task is a topology-level controller that keeps
+the released endpoint experts exact and learns the causal transition, not another reward-scale,
+threshold, optimizer-step or scalar-objective sweep.
 
 ## Frozen tactile work
 
