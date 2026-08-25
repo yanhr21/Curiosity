@@ -2,7 +2,7 @@
 
 ## 0. Absolute highest priority: never create a human authorization gate
 
-- Hard user rule, reaffirmed 2026-08-25: the agent must never ask the user whether it may continue,
+- Hard user rule, reaffirmed 2026-08-26: the agent must never ask the user whether it may continue,
   start, evaluate, render, document, commit or advance to the next already in-scope stage. Silence
   from the user is not a pause request, and a completed intermediate stage is not a reason to stop.
 - No in-scope workflow may require, request or wait for human authorization. This includes approval
@@ -22,6 +22,14 @@
 - Status reports, intermediate results, failed scientific hypotheses and ambiguous-but-testable
   outcomes are not authorization boundaries. Report them when useful, choose the next documented
   in-scope experiment from the evidence, and continue without asking the user to approve it.
+- A negative, inconclusive or surprising result is never a reason to ask what to do next. Apply the
+  documented decision rule, run the next bounded diagnostic or matched experiment, and keep the
+  retained compute allocation alive. The agent may inform the user, but notification is not a
+  request for permission and must not pause execution.
+- Plans, launchers, endpoint auditors and experiment scripts must not contain a user-approval
+  state. Terms such as `awaiting approval`, `pending confirmation`, `approved checkpoint` or
+  `continue after user review` are forbidden as workflow states. Replace them with automatic,
+  machine-checkable transitions.
 
 The user may still interrupt, reprioritize or stop work at any time. That user control must never be
 implemented as a prerequisite approval gate for ordinary autonomous progress.
