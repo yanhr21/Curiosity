@@ -505,6 +505,9 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert '"composition_terms_match_deployed_action"' in evaluator
     assert '"mean_abs_mixed_minus_selected_endpoint_action"' in evaluator
     assert '"mean_abs_bounded_residual_action"' in evaluator
+    assert "foot_contact_coupled_planar_motion_v1" in evaluator
+    assert "KICK_CONTACT_COUPLED_PATH_M = 0.01" in evaluator
+    assert "KICK_POST_CONTACT_PATH_M = 0.03" in evaluator
     assert '"carry_skill_command",' in evaluator
     assert '"kick_skill_command",' in evaluator
     assert '"selected_skill_id",' in evaluator

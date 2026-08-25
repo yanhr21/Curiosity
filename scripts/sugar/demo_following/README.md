@@ -39,6 +39,11 @@ automatically launches the fixed independent replication `171645 -> 181658` with
 `181659`, then writes a two-seed aggregate before entering the holder. This decision is read from
 the physical frozen-evaluation result and has no manual authorization state.
 
+New causal-composition evaluations use the strict v4 Kick metric: 5 cm planar net motion, at least
+1 cm of motion on intervals adjacent to foot contact, and at least 3 cm of path after first foot
+contact. The historical any-contact-plus-net-displacement value remains visible only as a legacy
+count; it cannot by itself make the first-seed decision positive.
+
 Reproduce one fresh multi-context seed inside a retained GPU step with:
 
 ```bash

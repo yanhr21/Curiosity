@@ -524,6 +524,13 @@ reachability and historical residual backward compatibility pass. These checks d
 pending seed171644 IsaacLab/PhysX experiment. The runner will automatically replicate with
 `171645 -> 181658` only if the first frozen physical result is positive.
 
+The new frozen evaluator uses `foot_contact_coupled_planar_motion_v1`, not the historical loose
+any-contact label. Success requires `>=0.05 m` net planar displacement, `>=0.01 m` planar path on
+intervals adjacent to foot contact and `>=0.03 m` planar path after first foot contact. Historical
+traces retain the legacy count separately. Recomputing the two admitted residual seeds before
+freezing this contract changed none of their success counts; successful profiles had much larger
+coupled motion, so these thresholds were not selected to favor the new policy.
+
 ### Expected behavior, not just reward score
 
 For the correct Carry demo, the expected interaction is: approach the box, establish bilateral hand

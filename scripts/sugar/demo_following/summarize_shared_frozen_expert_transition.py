@@ -33,14 +33,26 @@ def _evaluation(path: Path, skill_id: int) -> dict[str, object]:
     recorded_topology = result.get(
         "policy_topology", "selected_expert_residual"
     )
+    valid_protocols = (
+        {"sugar_cross_skill_recovery_frozen_eval_v4"}
+        if args.expected_policy_topology == "causal_action_composition"
+        else {
+            "sugar_cross_skill_recovery_frozen_eval_v3",
+            "sugar_cross_skill_recovery_frozen_eval_v4",
+        }
+    )
     if (
-        result.get("protocol") != "sugar_cross_skill_recovery_frozen_eval_v3"
+        result.get("protocol") not in valid_protocols
         or result.get("structurally_valid") is not True
         or result.get("checkpoint_iteration") != 64
         or result.get("transition_selected_skill_id") != skill_id
         or recorded_topology != args.expected_policy_topology
     ):
         raise RuntimeError(f"invalid shared transition evaluation: {path}")
+    if args.expected_policy_topology == "causal_action_composition":
+        contract = result.get("kick_success_contract", {})
+        if contract.get("name") != "foot_contact_coupled_planar_motion_v1":
+            raise RuntimeError(f"strict Kick metric contract is missing: {path}")
     return result
 
 
@@ -174,6 +186,7 @@ def main() -> None:
             "selected_skill_one_hot_is_only_actor_input_condition_swap": True,
             "composition_terms_match_deployed_action_both_conditions": True,
             "composition_uses_no_future_or_outcome_labels": True,
+            "strict_contact_coupled_kick_metric_both_conditions": True,
         }
     result = {
         "protocol": "sugar_shared_frozen_expert_transition_condition_swap_v2",

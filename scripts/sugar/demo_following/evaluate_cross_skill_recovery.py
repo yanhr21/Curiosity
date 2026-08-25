@@ -104,6 +104,9 @@ from sugar_rl.utils.frozen_expert_transition_actor_critic import (  # noqa: E402
 
 CONTACT_THRESHOLD_N = 0.1
 FALL_HEIGHT_LOSS_M = 0.35
+KICK_NET_DISPLACEMENT_M = 0.05
+KICK_CONTACT_COUPLED_PATH_M = 0.01
+KICK_POST_CONTACT_PATH_M = 0.03
 
 
 def _latest_filtered_force(sensor) -> torch.Tensor:
@@ -124,7 +127,26 @@ def _summaries(arrays: dict[str, np.ndarray]) -> list[dict[str, object]]:
         planar_net = float(np.linalg.norm(obj[-1, :2] - obj[0, :2]))
         planar_path = float(np.linalg.norm(np.diff(obj[:, :2], axis=0), axis=-1).sum())
         any_foot = np.any(foot, axis=-1)
-        kick_success = bool(np.any(any_foot) and planar_net >= 0.05)
+        step_path = np.linalg.norm(np.diff(obj[:, :2], axis=0), axis=-1)
+        contact_frames = int(np.count_nonzero(any_foot))
+        legacy_kick_success = bool(
+            contact_frames > 0 and planar_net >= KICK_NET_DISPLACEMENT_M
+        )
+        if contact_frames > 0:
+            contact_adjacent = any_foot[:-1] | any_foot[1:]
+            contact_coupled_path = float(np.sum(step_path[contact_adjacent]))
+            first_contact = int(np.flatnonzero(any_foot)[0])
+            post_first_contact_path = float(
+                np.sum(step_path[max(first_contact - 1, 0) :])
+            )
+        else:
+            contact_coupled_path = 0.0
+            post_first_contact_path = 0.0
+        kick_success = bool(
+            legacy_kick_success
+            and contact_coupled_path >= KICK_CONTACT_COUPLED_PATH_M
+            and post_first_contact_path >= KICK_POST_CONTACT_PATH_M
+        )
         physical_fall = bool(root_loss >= FALL_HEIGHT_LOSS_M)
         rows.append(
             {
@@ -133,8 +155,12 @@ def _summaries(arrays: dict[str, np.ndarray]) -> list[dict[str, object]]:
                 "planar_object_net_displacement_m": planar_net,
                 "planar_object_path_m": planar_path,
                 "any_foot_box_contact_fraction": float(np.mean(any_foot)),
+                "foot_box_contact_frame_count": contact_frames,
+                "contact_coupled_planar_path_m": contact_coupled_path,
+                "post_first_contact_planar_path_m": post_first_contact_path,
                 "maximum_robot_root_height_loss_m": root_loss,
                 "physical_robot_fall": physical_fall,
+                "legacy_kick_success": legacy_kick_success,
                 "kick_success": kick_success,
                 "safe_kick_success": bool(kick_success and not physical_fall),
             }
@@ -148,6 +174,9 @@ def _aggregate(rows: list[dict[str, object]]) -> dict[str, object]:
         "planar_object_net_displacement_m",
         "planar_object_path_m",
         "any_foot_box_contact_fraction",
+        "foot_box_contact_frame_count",
+        "contact_coupled_planar_path_m",
+        "post_first_contact_planar_path_m",
         "maximum_robot_root_height_loss_m",
     )
     result = {
@@ -155,6 +184,9 @@ def _aggregate(rows: list[dict[str, object]]) -> dict[str, object]:
         for name in numeric
     }
     result["kick_success_count"] = int(sum(bool(row["kick_success"]) for row in rows))
+    result["legacy_kick_success_count"] = int(
+        sum(bool(row["legacy_kick_success"]) for row in rows)
+    )
     result["safe_kick_success_count"] = int(
         sum(bool(row["safe_kick_success"]) for row in rows)
     )
@@ -375,7 +407,7 @@ def main() -> None:
     no_reset = not bool(np.any(arrays["done"]))
     rows = _summaries(arrays)
     result = {
-        "protocol": "sugar_cross_skill_recovery_frozen_eval_v3",
+        "protocol": "sugar_cross_skill_recovery_frozen_eval_v4",
         "checkpoint": str(checkpoint),
         "checkpoint_iteration": checkpoint_payload.get("iter"),
         "transition_selected_skill_id": args.transition_selected_skill_id,
@@ -403,6 +435,17 @@ def main() -> None:
             ),
         },
         "profiles": rows,
+        "kick_success_contract": {
+            "name": "foot_contact_coupled_planar_motion_v1",
+            "minimum_planar_net_displacement_m": KICK_NET_DISPLACEMENT_M,
+            "minimum_contact_adjacent_planar_path_m": (
+                KICK_CONTACT_COUPLED_PATH_M
+            ),
+            "minimum_post_first_contact_planar_path_m": (
+                KICK_POST_CONTACT_PATH_M
+            ),
+            "legacy_any_contact_plus_net_displacement_reported_separately": True,
+        },
         "action_composition": (
             {
                 "minimum_kick_weight": float(

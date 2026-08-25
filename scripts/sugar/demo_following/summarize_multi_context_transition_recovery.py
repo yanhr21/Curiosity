@@ -61,8 +61,16 @@ def _evaluation(
     recorded_topology = result.get(
         "policy_topology", "selected_expert_residual"
     )
+    valid_protocols = (
+        {"sugar_cross_skill_recovery_frozen_eval_v4"}
+        if policy_topology == "causal_action_composition"
+        else {
+            "sugar_cross_skill_recovery_frozen_eval_v3",
+            "sugar_cross_skill_recovery_frozen_eval_v4",
+        }
+    )
     if (
-        result.get("protocol") != "sugar_cross_skill_recovery_frozen_eval_v3"
+        result.get("protocol") not in valid_protocols
         or result.get("structurally_valid") is not True
         or result.get("checkpoint_iteration") != iteration
         or result.get("transition_selected_skill_id") != 1
@@ -70,6 +78,16 @@ def _evaluation(
         or result.get("prefix", {}).get("carry_steps") != prefix
     ):
         raise RuntimeError(f"invalid prefix{prefix} Kick evaluation: {path}")
+    if policy_topology == "causal_action_composition":
+        contract = result.get("kick_success_contract", {})
+        if contract != {
+            "name": "foot_contact_coupled_planar_motion_v1",
+            "minimum_planar_net_displacement_m": 0.05,
+            "minimum_contact_adjacent_planar_path_m": 0.01,
+            "minimum_post_first_contact_planar_path_m": 0.03,
+            "legacy_any_contact_plus_net_displacement_reported_separately": True,
+        }:
+            raise RuntimeError(f"invalid strict Kick metric contract: {path}")
     return result
 
 
@@ -283,6 +301,7 @@ def main() -> None:
             {
                 "pre_update_exact_selected_action_composition": True,
                 "initial_full_584d_actor_input_elementwise_identical_all_contexts": True,
+                "strict_contact_coupled_kick_metric_all_contexts": True,
                 "minimum_mean_composition_deviation": (
                     MINIMUM_MEAN_COMPOSITION_DEVIATION
                 ),
@@ -310,7 +329,8 @@ def main() -> None:
             "One multi-context training seed and one unseen evaluation seed across three "
             "predeclared physical handoffs. A positive diagnostic requires aggregate safe/fall "
             "improvement over the exact pre-update Kick endpoint; reward and action changes are "
-            "insufficient. A positive result still requires independent-seed replication."
+            "insufficient. Kick success requires foot-contact-coupled motion, not an unrelated "
+            "one-frame touch. A positive result still requires independent-seed replication."
         ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

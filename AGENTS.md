@@ -365,6 +365,10 @@ seed171644 physical update64 run, frozen learned/pre comparison and videos remai
 not describe causal composition as physically beneficial before those artifacts exist. A positive
 first seed automatically launches the fixed independent seed171645 replication and two-seed
 aggregate, while a negative first seed stops extra scientific spending and retains the GPU.
+For this new topology, Kick success uses frozen-evaluation contract v4: at least `0.05 m` planar
+net displacement, `0.01 m` contact-adjacent planar path and `0.03 m` path after first foot contact.
+The old any-foot-contact plus final-displacement count is reported as `legacy_kick_success` only and
+may not support a causal Kick or safety claim.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
