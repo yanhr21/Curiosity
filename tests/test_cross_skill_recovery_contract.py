@@ -204,3 +204,139 @@ def test_conditional_smp_render_labels_camera_rollout_as_its_own_seed() -> None:
     assert "Correct: Kick contrastive progress" in source
     assert "Wrong: Carry contrastive progress" in source
     assert "correct_kick_vs_wrong_carry_seed" in source
+
+
+def test_transition_controller_freezes_released_endpoints_and_uses_causal_command() -> None:
+    actor_source = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/frozen_expert_transition_actor_critic.py"
+    )
+    assert "OFFICIAL_HIDDEN_DIMS = (512, 256, 128)" in actor_source
+    assert "actor.eval().requires_grad_(False)" in actor_source
+    assert "selected_observation[:, :GENERATED_COMMAND_DIM] = command" in actor_source
+    assert "self.actor.endpoint_action(actor_input)" in actor_source
+    assert "nn.init.zeros_(final.weight)" in actor_source
+    assert "nn.init.zeros_(final.bias)" in actor_source
+    assert "distillation_teacher" in actor_source
+
+    wrapper_source = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_cross_skill_recovery_wrapper.py"
+    )
+    assert "transition_selected_skill_id" in wrapper_source
+    assert 'observations["selected_skill_command"]' in wrapper_source
+    assert 'observations["selected_skill_id"]' in wrapper_source
+    assert "self.carry_shadow.update_after_step(self.command)" in wrapper_source
+
+
+def test_transition_bcppo_uses_one_unambiguous_exact_teacher() -> None:
+    source = _read(SUGAR / "source/sugar_rl/sugar_rl/utils/rsl_rl_bcppo.py")
+    assert 'self.policy, "distillation_teacher", None' in source
+    assert "either a checkpoint teacher or the policy's exact" in source
+    assert "self.policy_distillation_teacher(obs_batch)" in source
+    assert "BCPPO requires either teacher_ckpt or a policy distillation_teacher" in source
+
+    config = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/tasks/locomanip/agents/"
+        "rsl_rl_cross_skill_recovery_cfg.py"
+    )
+    assert 'class_name: str = "FrozenExpertTransitionActorCritic"' in config
+    assert '"policy": ["policy", "selected_skill_command", "selected_skill_id"]' in config
+    assert "self.algorithm.teacher_ckpt = None" in config
+
+
+def test_transition_pair_is_fixed_serial_and_has_no_human_gate() -> None:
+    source = _read(
+        ROOT / "scripts/sugar/demo_following/run_frozen_expert_transition_pair.sh"
+    )
+    assert "correct_kick:1 wrong_carry:0" in source
+    assert "Sugar-G129dof-KickBox-FrozenExpert-Transition" in source
+    assert "--max_iterations 65" in source
+    assert "SUGAR_CROSS_SKILL_CARRY_PREFIX_STEPS=41" in source
+    assert "unset SUGAR_CONDITIONAL_TINYMDM_REWARD" in source
+    assert "--transition-selected-skill-id" in source
+    assert "model_pre_update.pt" in source
+    assert "model_64.pt" in source
+    assert "summarize_frozen_expert_transition_pair.py" in source
+    assert "read -" not in source
+    assert "approval" not in source.lower()
+
+
+def test_shared_transition_checkpoint_balances_conditions_without_scalar_reward() -> None:
+    wrapper = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_cross_skill_recovery_wrapper.py"
+    )
+    assert "transition_selected_skill_id == -1" in wrapper
+    assert "torch.arange(self.num_envs" in wrapper
+    assert "% 2" in wrapper
+    assert "transition_selected_skill_counts" in wrapper
+
+    source = _read(
+        ROOT / "scripts/sugar/demo_following/run_shared_frozen_expert_transition.sh"
+    )
+    assert "SUGAR_TRANSITION_SELECTED_SKILL_ID=-1" in source
+    assert "unset SUGAR_CONDITIONAL_TINYMDM_REWARD" in source
+    assert source.count("$OUTPUT_ROOT/train/model_64.pt") >= 3
+    assert "kick:1 carry:0" in source
+    assert "--max_iterations 65" in source
+    assert "summarize_shared_frozen_expert_transition.py" in source
+    assert "model_pre_update.pt" in source
+    assert "evaluation/kick_pre_update" in source
+    assert "summarize_shared_transition_learning.py" in source
+    assert "same_checkpoint_kick_vs_carry" in source
+    assert "read -" not in source
+    assert "approval" not in source.lower()
+
+
+def test_shared_transition_separates_condition_use_from_learning_benefit() -> None:
+    condition_summary = _read(
+        ROOT
+        / "scripts/sugar/demo_following/summarize_shared_frozen_expert_transition.py"
+    )
+    assert "condition_swap_v2" in condition_summary
+    assert "Carry is an intentionally wrong/inert semantic control" in condition_summary
+    assert "pre-update Kick endpoint" in condition_summary
+    assert "kick_condition_has_physical_advantage" not in condition_summary
+
+    learning_summary = _read(
+        ROOT / "scripts/sugar/demo_following/summarize_shared_transition_learning.py"
+    )
+    assert "expected_iteration: int" in learning_summary
+    assert "_load(args.learned, args.learned_iteration)" in learning_summary
+    assert "_load(args.pre_update, -1)" in learning_summary
+    assert "initial physics is not elementwise identical" in learning_summary
+    assert '"learned_kick_safety_improvement"' in learning_summary
+
+
+def test_frozen_evaluator_is_cwd_independent() -> None:
+    source = _read(
+        ROOT / "scripts/sugar/demo_following/evaluate_cross_skill_recovery.py"
+    )
+    assert "os.chdir(SUGAR)" in source
+    assert source.index("preflight_output.exists()") < source.index(
+        "app_launcher = AppLauncher(args)"
+    )
+
+
+def test_failure_rich_transition_overfit_is_fixed_and_automatic() -> None:
+    source = _read(
+        ROOT
+        / "scripts/sugar/demo_following/run_frozen_expert_transition_failure_overfit.sh"
+    )
+    assert "SUGAR_TRANSITION_SELECTED_SKILL_ID=1" in source
+    assert "--num_envs 20 --max_iterations 257 --seed 181630" in source
+    assert "for iteration in 64 128 192 256" in source
+    assert "--seed 181630" in source
+    assert "model_pre_update" in source
+    assert "summarize_transition_failure_overfit.py" in source
+    assert "read -" not in source
+    assert "approval" not in source.lower()
+
+    summary = _read(
+        ROOT / "scripts/sugar/demo_following/summarize_transition_failure_overfit.py"
+    )
+    assert "learned[\"physical_fall_count\"] < pre[\"physical_fall_count\"]" in summary
+    assert "learned[\"safe_kick_success_count\"] >= pre[\"safe_kick_success_count\"]" in summary
+    assert '"diagnostic_only": True' in summary

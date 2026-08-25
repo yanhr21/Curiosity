@@ -113,6 +113,25 @@ has been archived.
 - `conditional_smp_contrastive_progress_two_seed_v1/`: machine-readable two-seed contrastive
   aggregate and the strict `condition_effect_replicated_without_seed_robust_physical_advantage`
   verdict;
+- `frozen_expert_transition_prefix41_seed171637_v1/`: first topology-level matched diagnostic.
+  Exact frozen selected endpoints plus separately trained serious transition residuals give
+  selected Kick/Carry `17/0` safe kicks and `2/1` falls. `CHECKPOINT_AUDIT.json` proves exact expert
+  preservation; `videos_seed181643_v2/` is the readable frozen comparison. This is not yet a
+  same-checkpoint or safety result;
+- `shared_frozen_expert_transition_prefix41_seed171638_v1/`: one shared checkpoint trained with
+  exact 32/32 Carry/Kick conditions. Matched condition swap gives `19/0` safe kicks and `0/0` falls;
+  initial physics is elementwise identical, exact experts remain unchanged and
+  `videos_seed181645/` contains the H.264 comparison. `LEARNING_RESULT.json` compares learned Kick
+  with the exact pre-update Kick endpoint and finds no safety improvement (`19/19`, `0/0` falls);
+- `shared_frozen_expert_transition_prefix41_seed171639_v1/`: unchanged independent training seed.
+  Condition swap gives selected Kick/Carry `17/0` safe kicks and `2/0` falls. The exact matched
+  pre-update Kick baseline is `16/20` safe with `0/20` falls, so one additional safe Kick costs two
+  falls and is not a safety improvement. `videos_seed181647/` contains its H.264 comparison;
+- `shared_frozen_expert_transition_two_seed_v1/`: replicated condition-use aggregate: selected
+  Kick/Carry totals are `36/0` safe kicks and `2/0` falls over 40 profiles per condition;
+- `shared_frozen_expert_transition_learning_two_seed_v1/`: correct learning-effect aggregate:
+  learned/pre-update selected Kick totals are `36/35` safe kicks and `2/0` falls. The verdict is
+  `matched_kick_safety_improvement_not_replicated`;
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
 The old 1216-update policy experiment, rejected 510-D/free-window event predictor, redundant CPU

@@ -435,6 +435,43 @@ Carry/Kick Generator+Tracker endpoints and learn a causal state/demo-conditioned
 controller between them. Endpoint preservation and transition safety must be evaluated separately
 under matched physics; another reward-weight, threshold or update sweep is not allowed.
 
+### Frozen endpoint topology: shared conditioning passes, learned safety benefit fails
+
+The first topology diagnostic embeds exact frozen Carry/Kick Tracker actors and replaces the first
+36 Tracker dimensions with the selected released Generator command produced online. A trainable
+bounded transition residual retains the serious SUGAR `512/256/128` topology and receives only the
+current 510-D observation, selected 36-D command and two-way selected-skill ID. Its output layer is
+exact-zero at initialization, so the pre-update action equals the selected released endpoint.
+
+Training seed171637 runs separate selected-Kick and selected-Carry arms for 64 updates after the
+same prefix41 handoff, with repository BCPPO and no scalar SMP reward. The checkpoint audit proves
+both embedded experts remain bit-exact (`0.0` maximum parameter error); learned residual deltas are
+`0.00433/0.00459`. Frozen seed181642 gives selected Kick `17/20` safe kicks and `2/20` falls versus
+selected Carry `0/20` kicks and `1/20` fall. Correct-minus-wrong net displacement is `+0.15837 m`,
+planar path `+0.13838 m` and foot contact `+0.05560`.
+
+This is the strongest executable semantic transition split after prefix41 and supports changing
+controller topology instead of reward shape. It does not pass the safety claim because the Kick
+arm has one more fall, and the conditions were trained as two checkpoints. The next matched method
+must use one shared checkpoint with balanced selected-skill IDs during training, then freeze that
+single checkpoint and swap only the causal condition at evaluation.
+
+The shared implementation is complete for training seeds `171638/171639`. Each run fixes 64
+environments to 32 Carry and 32 Kick conditions, keeps both exact endpoint modules frozen and uses
+no scalar SMP reward. Frozen seeds `181644/181646` load one `model_64.pt` twice per run. Robot root,
+joint state, box state and 510-D handoff observation are elementwise identical before each condition
+swap. Across 40 profiles per condition, Kick versus Carry produces `36 vs 0` safe kicks and
+`2 vs 0` falls. This is replicated same-checkpoint condition use.
+
+The condition swap does not measure learning benefit because Carry is the intentionally wrong,
+inert endpoint. The correct matched baseline loads `model_pre_update.pt`, selects Kick in both
+arms and changes only whether the transition residual received 64 updates. Across both seeds,
+learned versus exact pre-update gives `36 vs 35` safe kicks and `2 vs 0` falls. Mean learned-minus-
+pre-update displacement is only `+0.00162 m`, while mean root-height loss worsens by `+0.02984 m`.
+Neither seed passes the safety-improvement rule. The next experiment is one fixed failure-rich
+serious overfit diagnostic; no further formal seed budget is justified until it demonstrates that
+the residual/reward can reduce endpoint failures.
+
 ### Expected behavior, not just reward score
 
 For the correct Carry demo, the expected interaction is: approach the box, establish bilateral hand

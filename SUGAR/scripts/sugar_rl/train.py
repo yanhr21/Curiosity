@@ -155,10 +155,18 @@ import rsl_rl.algorithms
 import builtins
 from sugar_rl.utils.rsl_rl_bcppo import BCPPO
 from sugar_rl.utils.tactile_actor_critic import TactileActorCritic
+from sugar_rl.utils.frozen_expert_transition_actor_critic import (
+    FrozenExpertTransitionActorCritic,
+)
 setattr(builtins, "BCPPO", BCPPO)
 setattr(rsl_rl.algorithms, "BCPPO", BCPPO)
 # OnPolicyRunner resolves the configured policy class in its own module.
 setattr(on_policy_runner_module, "TactileActorCritic", TactileActorCritic)
+setattr(
+    on_policy_runner_module,
+    "FrozenExpertTransitionActorCritic",
+    FrozenExpertTransitionActorCritic,
+)
 
 import isaaclab_tasks  # noqa: F401
 from isaaclab.envs import (
@@ -387,6 +395,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 if "SUGAR_CROSS_SKILL_RECOVERY_REWARD_CLIP" in os.environ
                 else None
             ),
+            transition_selected_skill_id=(
+                int(os.environ["SUGAR_TRANSITION_SELECTED_SKILL_ID"])
+                if "SUGAR_TRANSITION_SELECTED_SKILL_ID" in os.environ
+                else None
+            ),
             **conditional_kwargs,
         )
     elif os.environ.get("SUGAR_RGB_TELEMETRY_OUTPUT"):
@@ -402,6 +415,26 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # create runner from rsl-rl
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
+    if isinstance(runner.alg.policy, FrozenExpertTransitionActorCritic):
+        if any(checkpoint_modes):
+            raise RuntimeError(
+                "frozen-expert transition training initializes from its embedded "
+                "released endpoints and cannot use an additional checkpoint mode"
+            )
+        os.makedirs(log_dir, exist_ok=True)
+        torch.save(
+            {
+                "model_state_dict": runner.alg.policy.state_dict(),
+                "optimizer_state_dict": runner.alg.optimizer.state_dict(),
+                "iter": -1,
+                "infos": {
+                    "protocol": "frozen_expert_transition_pre_update_v1",
+                    "official_endpoint_parameters_frozen": True,
+                    "transition_residual_zero_initialized": True,
+                },
+            },
+            os.path.join(log_dir, "model_pre_update.pt"),
+        )
     # write git state to logs
     if os.environ.get("SUGAR_DISABLE_RSL_RL_GIT_SNAPSHOT", "0") != "1":
         runner.add_git_repo_to_log(__file__)

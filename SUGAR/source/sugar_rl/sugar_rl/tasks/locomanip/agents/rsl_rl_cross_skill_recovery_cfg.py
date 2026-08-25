@@ -1,4 +1,6 @@
-"""Official-topology PPO configuration for the Carry9-to-Kick recovery overfit."""
+"""Official-topology PPO configurations for Carry-to-Kick recovery."""
+
+import os
 
 from isaaclab.utils import configclass
 
@@ -58,3 +60,43 @@ class CrossSkillRecoveryRunnerCfg(BCPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
         self.policy.init_noise_std = 0.05
+
+
+@configclass
+class FrozenExpertTransitionActorCriticCfg(RslRlPpoActorCriticCfg):
+    class_name: str = "FrozenExpertTransitionActorCritic"
+    carry_tracker_checkpoint: str = os.environ.get(
+        "SUGAR_CROSS_SKILL_CARRY_TRACKER_CKPT", ""
+    )
+    kick_tracker_checkpoint: str = os.environ.get(
+        "SUGAR_CROSS_SKILL_KICK_TRACKER_CKPT", ""
+    )
+    transition_residual_limit: float = 1.0
+
+
+@configclass
+class CrossSkillTransitionRunnerCfg(CrossSkillRecoveryRunnerCfg):
+    """Frozen released endpoints plus a serious SUGAR transition residual."""
+
+    experiment_name = "sugar_frozen_expert_transition_controller"
+    policy = FrozenExpertTransitionActorCriticCfg(
+        init_noise_std=0.05,
+        actor_hidden_dims=[512, 256, 128],
+        critic_hidden_dims=[512, 256, 128],
+        activation="elu",
+    )
+    obs_groups = {
+        "policy": ["policy", "selected_skill_command", "selected_skill_id"],
+        "critic": ["critic", "selected_skill_command", "selected_skill_id"],
+        "teacher": ["teacher"],
+    }
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not self.policy.carry_tracker_checkpoint:
+            raise RuntimeError("transition controller requires official Carry Tracker")
+        if not self.policy.kick_tracker_checkpoint:
+            raise RuntimeError("transition controller requires official Kick Tracker")
+        # The custom actor exposes its exact selected frozen endpoint directly
+        # to repository BCPPO; a second checkpoint teacher would be ambiguous.
+        self.algorithm.teacher_ckpt = None

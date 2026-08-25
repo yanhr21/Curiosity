@@ -274,6 +274,37 @@ Generator+Tracker endpoint experts, learn a causal state/demo-conditioned transi
 and evaluate endpoint preservation plus transition safety under matched physics. Do not launch
 another scalar-reward transform or substitute a toy controller.
 
+The first frozen-expert topology diagnostic is complete for training seed171637 and frozen
+seed181642. Each arm embeds both released Tracker actors exactly, consumes the selected released
+Generator command online, and trains only a `510+36+2 -> 512/256/128 -> 29` bounded residual for 64
+updates after the same prefix41 handoff. Checkpoint audit gives exactly zero expert-parameter error
+before and after training; residual parameter deltas are `0.00433/0.00459`. Correct selected-Kick
+versus wrong selected-Carry gives `17 vs 0` safe kicks, `2 vs 1` falls, `+0.15837 m` net displacement
+and `+0.05560` foot-contact fraction. This is a large executable semantic split and supports the
+topology change, but correct has one extra fall and the two arms are separately trained
+checkpoints. It is not yet a safe transition improvement or same-checkpoint demo following.
+
+The next experiment must remove that checkpoint confound: one shared transition policy, balanced
+Carry/Kick selected-skill IDs within the same training run, exact frozen endpoint modules, matched
+per-condition frozen evaluation and no scalar SMP reward. Do not repeat the separate-arm result
+across seeds before the shared-checkpoint contract is implemented.
+
+The shared-checkpoint contract is complete for training seeds `171638/171639`, paired one-to-one
+with frozen seeds `181644/181646`. Each 64-environment run assigns exactly 32 Carry and 32 Kick
+conditions, uses one checkpoint and no scalar SMP reward. Frozen condition swaps restore
+elementwise-identical robot, joint, box and 510-D handoff observations. Across 40 profiles per
+condition, selected Kick versus inert selected Carry gives `36 vs 0` safe kicks and `2 vs 0` falls;
+both seeds show a strong executable semantic split. Exact embedded expert error remains zero.
+
+This condition swap is not the safety baseline: the Carry condition is deliberately wrong and
+inactive. The matched learning comparison evaluates selected Kick at `model_64.pt` against selected
+Kick at the exact `model_pre_update.pt` on the same seed and physics. Across the two seeds, learned
+versus pre-update gives `36 vs 35` safe kicks but `2 vs 0` falls. Per-seed safety improvement is
+false in both runs. Therefore the admitted conclusion is replicated two-skill condition use, not
+transition/recovery benefit and not arbitrary-video following. Do not report the old Kick-versus-
+Carry difference as a physical advantage. The next diagnostic must test learnability on a fixed
+failure-rich transition context before spending another matched multi-seed training budget.
+
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
 unrelated Kick21 model, but creates no environment and executes zero PPO updates. The allocation is

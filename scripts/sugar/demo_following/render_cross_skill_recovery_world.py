@@ -37,6 +37,9 @@ parser.add_argument("--label", required=True)
 parser.add_argument("--steps", type=int, default=250)
 parser.add_argument("--seed", type=int, default=181629)
 parser.add_argument("--carry-prefix-steps", type=int, default=9)
+parser.add_argument(
+    "--transition-selected-skill-id", type=int, choices=(0, 1), default=None
+)
 parser.add_argument("--profile-index", type=int, default=0)
 parser.add_argument("--num-profiles", type=int)
 AppLauncher.add_app_launcher_args(parser)
@@ -68,6 +71,9 @@ from sugar_rl.tasks.locomanip.robots.g129dof.train_tracker.kick_box_carry9_recov
 from sugar_rl.utils.online_cross_skill_recovery_wrapper import (  # noqa: E402
     OnlineCrossSkillRecoveryVecEnvWrapper,
     _load_released_tracker_actor,
+)
+from sugar_rl.utils.frozen_expert_transition_actor_critic import (  # noqa: E402
+    FrozenExpertTransitionActorCritic,
 )
 
 
@@ -233,13 +239,50 @@ def main() -> None:
         carry_prefix_steps=args.carry_prefix_steps,
         audit_path=output.with_suffix(".prefix_audit.json"),
         prefix_frame_callback=append_prefix,
+        transition_selected_skill_id=args.transition_selected_skill_id,
     )
-    actor = _load_released_tracker_actor(checkpoint, wrapped.device)
     observations = wrapped.get_observations()
+    if args.transition_selected_skill_id is None:
+        actor = _load_released_tracker_actor(checkpoint, wrapped.device)
+        transition_policy = None
+    else:
+        payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+        transition_policy = FrozenExpertTransitionActorCritic(
+            observations,
+            {
+                "policy": [
+                    "policy",
+                    "selected_skill_command",
+                    "selected_skill_id",
+                ],
+                "critic": [
+                    "critic",
+                    "selected_skill_command",
+                    "selected_skill_id",
+                ],
+                "teacher": ["teacher"],
+            },
+            29,
+            carry_tracker_checkpoint=str(
+                SUGAR / "demo_ckpts/CarryBox/tracker.pt"
+            ),
+            kick_tracker_checkpoint=str(SUGAR / "demo_ckpts/KickBox/tracker.pt"),
+            actor_hidden_dims=[512, 256, 128],
+            critic_hidden_dims=[512, 256, 128],
+            activation="elu",
+            init_noise_std=0.05,
+        ).to(wrapped.device)
+        transition_policy.load_state_dict(payload["model_state_dict"], strict=True)
+        transition_policy.eval().requires_grad_(False)
+        actor = None
     try:
         with torch.inference_mode():
             for step in range(args.steps):
-                action = actor(observations["policy"])
+                action = (
+                    actor(observations["policy"])
+                    if transition_policy is None
+                    else transition_policy.act_inference(observations)
+                )
                 observations, _, done, _ = wrapped.step(action)
                 if torch.any(done):
                     raise RuntimeError("video recovery window reset unexpectedly")
@@ -270,7 +313,13 @@ def main() -> None:
                 writer.append(
                     _overlay(
                         frame,
-                        phase="learned Kick recovery",
+                        phase=(
+                            "learned Kick transition"
+                            if args.transition_selected_skill_id == 1
+                            else "learned Carry transition"
+                            if args.transition_selected_skill_id == 0
+                            else "learned Kick recovery"
+                        ),
                         step=step,
                         displacement_m=float(
                             np.linalg.norm(obj_xy - initial_object_xy)

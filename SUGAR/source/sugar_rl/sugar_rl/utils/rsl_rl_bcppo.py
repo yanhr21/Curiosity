@@ -104,7 +104,20 @@ class BCPPO(PPO):
         self.distill_loss_fn = nn.MSELoss()
         self.update_step = 0
 
+        self.policy_distillation_teacher = getattr(
+            self.policy, "distillation_teacher", None
+        )
+        if self.policy_distillation_teacher is not None and not callable(
+            self.policy_distillation_teacher
+        ):
+            raise TypeError("policy distillation_teacher must be callable")
+
         if teacher_ckpt is not None:
+            if self.policy_distillation_teacher is not None:
+                raise ValueError(
+                    "configure either a checkpoint teacher or the policy's exact "
+                    "selected-expert teacher, not both"
+                )
             print(f"[Distill] 正在从 {teacher_ckpt} 加载 Teacher 模型...")
             checkpoint = torch.load(teacher_ckpt, map_location=self.device)
             state_dict = checkpoint['model_state_dict']
@@ -141,10 +154,17 @@ class BCPPO(PPO):
             
             self.teacher_std = checkpoint['model_state_dict']['std'].detach().to(self.device)
             print("[Distill] Teacher loaded successfully and parameters frozen.")
-        else:
+        elif self.policy_distillation_teacher is not None:
             self.teacher_model = None
-            print("[Warning] No teacher_ckpt provided")
-            assert False
+            self.teacher_std = None
+            print(
+                "[Distill] Using the policy's exact frozen selected-expert teacher.",
+                flush=True,
+            )
+        else:
+            raise ValueError(
+                "BCPPO requires either teacher_ckpt or a policy distillation_teacher"
+            )
 
         self.behavior_anchor_policy = None
         self.behavior_anchor_std = None
@@ -476,18 +496,39 @@ class BCPPO(PPO):
                 * active_weight
             ).sum() / active_denom
 
-            if self.teacher_model is not None:
+            if (
+                self.teacher_model is not None
+                or self.policy_distillation_teacher is not None
+            ):
                 with torch.no_grad():
-                    teacher_obs_list = []
-                    for obs_group in self.policy.obs_groups["teacher"]:
-                        teacher_obs_list.append(obs_batch[obs_group])
-                        if torch.isnan(obs_batch[obs_group]).any():
-                            assert False
-                    teacher_obs_batch = torch.cat(teacher_obs_list, dim=-1)
-                    # print("teacher obs batch shape:", teacher_obs_batch.shape)
-
-                    teacher_action_mean = self.teacher_model(teacher_obs_batch)
-                    teacher_action_std = self.teacher_std
+                    if self.policy_distillation_teacher is not None:
+                        teacher_action_mean, teacher_action_std = (
+                            self.policy_distillation_teacher(obs_batch)
+                        )
+                    else:
+                        teacher_obs_list = []
+                        for obs_group in self.policy.obs_groups["teacher"]:
+                            teacher_obs_list.append(obs_batch[obs_group])
+                            if torch.isnan(obs_batch[obs_group]).any():
+                                raise RuntimeError("teacher observation is NaN")
+                        teacher_obs_batch = torch.cat(teacher_obs_list, dim=-1)
+                        teacher_action_mean = self.teacher_model(teacher_obs_batch)
+                        teacher_action_std = self.teacher_std
+                    if (
+                        teacher_action_mean.shape != mu_batch.shape
+                        or not torch.isfinite(teacher_action_mean).all()
+                    ):
+                        raise RuntimeError(
+                            "distillation teacher action geometry or finiteness drift"
+                        )
+                    if (
+                        teacher_action_std.shape not in (mu_batch.shape, mu_batch.shape[1:])
+                        or not torch.isfinite(teacher_action_std).all()
+                        or torch.any(teacher_action_std <= 0.0)
+                    ):
+                        raise RuntimeError(
+                            "distillation teacher std geometry or finiteness drift"
+                        )
                 
                 if self.teacher_mean_only:
                     # Recovery fine-tuning needs the released deterministic

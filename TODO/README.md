@@ -173,9 +173,22 @@
 - [x] complete the independent-seed repeat: `33 vs 32` safe kicks and `3 vs 3` falls over 40
   profiles per arm; both seeds increase Kick-conditioned displacement/path/contact, but physical
   advantage is not seed-robust.
-- [ ] implement the next topology-level experiment: frozen exact Carry/Kick Generator+Tracker
+- [x] implement the next topology-level experiment: frozen exact Carry/Kick Generator+Tracker
   endpoints plus a serious causal state/demo-conditioned transition controller; first verify exact
   endpoint passthrough, then run one matched transition diagnostic without scalar-reward tuning.
+- [x] complete the first separate-arm topology diagnostic: `17 vs 0` safe kicks and `2 vs 1` falls;
+  retain the strong semantic split but reject a safety or same-checkpoint claim.
+- [x] train one shared frozen-expert transition checkpoint with balanced Carry/Kick selected-skill
+  IDs, then evaluate the identical checkpoint under condition swap and matched frozen physics.
+- [x] pass the first shared-checkpoint condition-use test: Kick/Carry `19/0` safe kicks, `0/0`
+  falls and elementwise-identical physical handoff; do not use wrong Carry as the safety baseline.
+- [x] run the independent shared-checkpoint seed with unchanged 32/32 balance and 64-update budget;
+  aggregate `36/0` safe Kick under Kick/Carry conditions with `2/0` falls.
+- [x] add the exact matched learning baseline: compare `model_64` Kick with `model_pre_update` Kick
+  on the same evaluation seed and initial physics. Learned/pre-update totals are `36/35` safe Kick
+  and `2/0` falls, so safety improvement is false in both seeds.
+- [ ] run one fixed failure-rich serious overfit diagnostic to determine whether the transition
+  residual/reward can reduce official-endpoint falls before any new formal multi-seed budget.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -202,9 +215,12 @@ but its first absolute-occupancy online reward pair gives no correct-condition p
 The later matched-noise progress objective produces repeatable condition-dependent behavior across
 three seeds but no seed-robust physical advantage. The two-seed contrastive follow-up likewise
 produces a repeatable activity shift without robust success/safety. The scalar-prior reward family
-is therefore closed for this setup. The active next task is a topology-level controller that keeps
-the released endpoint experts exact and learns the causal transition, not another reward-scale,
-threshold, optimizer-step or scalar-objective sweep.
+is therefore closed for this setup. The first separate-arm frozen-expert controller creates a large
+semantic split but has no safety advantage and retains a checkpoint confound. The shared conditioned
+checkpoint removes that confound and replicates condition-dependent endpoint execution across two
+seeds. The matched exact pre-update comparison rejects a learned safety benefit: `36/35` safe Kick
+but `2/0` falls. The active next task is one fixed failure-rich serious overfit diagnostic, not
+another reward-scale, threshold or scalar-objective sweep.
 
 ## Frozen tactile work
 

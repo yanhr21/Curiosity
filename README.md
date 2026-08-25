@@ -131,6 +131,28 @@ Carry/Kick `Generator + Tracker` 端点专家，训练读取当前因果状态�
 的连续 transition controller，并分别检查端点行为是否保持、过渡是否安全。这仍然使用官方
 SUGAR 结构和 official MimicKit prior，不使用简化占位模型。
 
+第一项 topology 诊断现已完成。两个 arm 都在同一个 prefix41 物理 handoff 上嵌入参数完全
+冻结的 official Carry/Kick Tracker，在线读取所选 official Generator command，只训练
+`510+36+2 -> 512/256/128 -> 29` transition residual。checkpoint audit 中训练前后官方专家
+参数误差均为 `0.0`，residual 参数变化为 `0.00433/0.00459`。冻结 seed181642 下，选择 Kick
+端点得到 `17/20` safe Kick、`2/20` fall；选择 Carry 端点得到 `0/20` Kick、`1/20` fall，
+净位移差 `+0.15837 m`、足碰箱占比差 `+0.05560`。这证明 topology-level condition 能形成
+远强于 scalar reward 的可执行语义分叉，但 Kick arm 多一次跌倒，而且当前两臂是分别训练的
+checkpoint；因此还不是安全过渡或 same-checkpoint demo following。下一步改为一个共享
+checkpoint 在同一次训练中平衡读取 Carry/Kick condition。
+
+共享 checkpoint 实验已完成两个独立训练 seed `171638/171639`，各自 64 个环境严格平分为
+32 个 Kick condition 和 32 个 Carry condition；每次只产生一个 `model_64.pt`，没有 scalar
+SMP reward。冻结 seed `181644/181646` 恢复的 robot、joint、box 和 510-D handoff observation
+在同 seed 比较中逐元素完全一致。合计 40 profiles 下，选择 Kick/Carry condition 得到
+`36/0` safe Kick 和 `2/0` fall，两个 seed 都形成强语义分叉。
+
+但错误 Carry condition 不是安全基线。严格的训练增益比较在相同 Kick condition、相同 seed
+和相同初始物理下对比 `model_64.pt` 与 exact `model_pre_update.pt`：learned/pre-update 合计
+`36/35` safe Kick，却有 `2/0` fall；两个 seed 的 safety-improvement 判定均为 false。因此当前
+只证明共享策略能读取条件并执行两个冻结官方技能，不能声称 learned transition 改善了恢复或
+安全，也不等于任意视频泛化。
+
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
 latent 或安全跨资产 transition policy。最终四视频位于
@@ -513,6 +535,9 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 - [Official conditional TinyMDM progress：独立 seed171634 冻结行为](experiments/demo_following/conditional_smp_progress_recovery_prefix41_seed171634_v1/videos_single_seed181637/correct_kick_vs_wrong_carry_seed181637.mp4)；
 - [Official conditional TinyMDM contrastive progress：seed171635 冻结行为](experiments/demo_following/conditional_smp_contrastive_progress_recovery_prefix41_seed171635_v1/videos_single_seed181639/correct_kick_vs_wrong_carry_seed181639.mp4)；
 - [Official conditional TinyMDM contrastive progress：seed171636 独立复现](experiments/demo_following/conditional_smp_contrastive_progress_recovery_prefix41_seed171636_v1/videos_single_seed181641/correct_kick_vs_wrong_carry_seed181641.mp4)；
+- [冻结官方端点 transition：selected Kick 与 selected Carry](experiments/demo_following/frozen_expert_transition_prefix41_seed171637_v1/videos_seed181643_v2/correct_kick_vs_wrong_carry_seed181643.mp4)；
+- [同一共享 checkpoint：Kick 与 Carry condition](experiments/demo_following/shared_frozen_expert_transition_prefix41_seed171638_v1/videos_seed181645/same_checkpoint_kick_vs_carry_seed181645.mp4)；
+- [同一共享 checkpoint 独立复现：Kick 与 Carry condition](experiments/demo_following/shared_frozen_expert_transition_prefix41_seed171639_v1/videos_seed181647/same_checkpoint_kick_vs_carry_seed181647.mp4)；
 - [Prefix41 无安全 penalty：位移增加但跌倒恶化](experiments/demo_following/cross_skill_recovery_prefix41_v1/videos/matched_baseline_vs_learned_recovery_actual_world.mp4)；
 - [Carry-9→Kick：零更新与 update64 真实世界对照](experiments/demo_following/cross_skill_recovery_v1/bcppo_frozen_eval_seed181629/videos/matched_baseline_vs_update64_actual_world.mp4)；
 - [official router：Carry45 reference 与 matched Carry](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/01_carry_domain_carry45_condition.mp4)；
@@ -562,9 +587,12 @@ Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 冻结 Carry-prefix 扫描、prefix41 recovery、absolute occupancy、三 seed matched-noise
 progress 和两 seed contrastive progress 都已完成。shared task-wide prior 通过
 motion-disjoint gate；三种 scalar prior reward 都能因果改变行为，但都没有 seed-robust
-物理优势。当前下一项改为拓扑级实验：冻结官方 Carry/Kick `Generator + Tracker` 端点，训练
-读取当前因果状态与 demo condition 的连续 transition controller。不得继续增加 optimizer
-steps、扫描同一 reward 权重，也不得用 hand-written toy latent/world model 替代。
+物理优势。第一项拓扑级 separate-arm 诊断已形成 `17 vs 0` safe Kick 的强行为分叉，但未
+改善安全且有 checkpoint 混杂。共享 checkpoint follow-up 已在两 seed 复现强条件分叉，
+但 exact matched learning comparison 为 learned/pre-update `36/35` safe Kick、`2/0` fall，
+不支持安全增益。当前下一项是一个固定 failure-rich serious overfit 诊断，先判断 transition
+residual/reward 是否具备降低官方端点跌倒的可学习性；不得扫描同一 reward 权重，也不得用
+hand-written toy latent/world model 替代。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复

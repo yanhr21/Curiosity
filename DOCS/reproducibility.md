@@ -1391,6 +1391,92 @@ experiments/demo_following/conditional_smp_contrastive_progress_recovery_prefix4
 contrastive progress 三种固定 scalar prior reward 均已完成；下一实验必须改变 controller
 topology，而不是继续扫 reward 或 updates。
 
+### 5.4 Frozen official endpoints + transition residual
+
+该 topology 诊断不再使用 scalar SMP reward。每个 actor checkpoint 内嵌参数完全冻结的
+official Carry/Kick Tracker；wrapper 在线推进 selected official Generator command。唯一可训练
+actor 模块是 `510+36+2 -> 512/256/128 -> 29` bounded transition residual，输出层在 update 0
+严格为零。完整训练、冻结评估、汇总与视频命令：
+
+```bash
+bash scripts/sugar/demo_following/run_frozen_expert_transition_pair.sh \
+  experiments/demo_following/frozen_expert_transition_prefix41_seed171637_v1 \
+  cuda:0
+```
+
+checkpoint 独立审计可重复运行：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/audit_frozen_expert_transition_checkpoints.py \
+  --pair-root experiments/demo_following/frozen_expert_transition_prefix41_seed171637_v1 \
+  --output experiments/demo_following/frozen_expert_transition_prefix41_seed171637_v1/CHECKPOINT_AUDIT.json
+```
+
+期望 `overall_pass=true`，两个 arm 的 official expert 最大参数误差均为 `0.0`，residual 最大
+参数变化为 `0.00432745/0.00458797`。冻结 seed181642 的 selected Kick/Carry 分别为
+`17/0` safe kicks 和 `2/1` falls；correct-minus-wrong 净位移、平面路径和足碰箱占比分别为
+`+0.15837 m/+0.13838 m/+0.05560`。H.264 证据为：
+
+```text
+experiments/demo_following/frozen_expert_transition_prefix41_seed171637_v1/
+  videos_seed181643_v2/correct_kick_vs_wrong_carry_seed181643.mp4
+```
+
+该结果证明完整 selected endpoint topology 能产生强语义分叉；它没有安全优势，而且两个
+condition 是分别训练的 checkpoint。下一实验必须用一个共享 checkpoint 在同一次训练中平衡
+Carry/Kick selected-skill ID，再在冻结评估时只切换 condition。
+
+### 5.5 Shared checkpoint balanced-condition transition
+
+共享版本在一个 64-environment training run 中固定 32 个 Carry 和 32 个 Kick selected-skill
+ID。已完成训练 seed `171638/171639`，一一对应冻结 seed `181644/181646`；其他 prefix、BCPPO、
+64-update budget 和物理均不变：
+
+```bash
+bash scripts/sugar/demo_following/run_shared_frozen_expert_transition.sh \
+  experiments/demo_following/shared_frozen_expert_transition_prefix41_seed171638_v1 \
+  cuda:0
+```
+
+训练保存 exact-zero residual 的 `train/model_pre_update.pt` 和更新后的 `train/model_64.pt`。
+condition-use 评估两次加载 `model_64.pt`，只通过 `--transition-selected-skill-id 1/0` 切换
+condition。`RESULT.json` 必须同时满足：
+
+- `same_checkpoint_condition_swap=true`；
+- `balanced_condition_training=true`；
+- `initial_physics_elementwise_identical=true`；
+- `exact_frozen_experts_preserved=true`；
+- protocol 为 `sugar_shared_frozen_expert_transition_condition_swap_v2`。
+
+seed171638 的精确结果为 Kick/Carry `19/0` safe kicks、`0/0` falls；净位移、平面路径、足碰箱和
+root-height loss 的 Kick-minus-Carry 分别为 `+0.21709 m/+0.19032 m/+0.08460/-0.02850 m`。
+第一步 action mean/max difference 为 `0.37675/4.28691`，全 trace mean action difference
+为 `0.96296`。官方专家训练前后最大参数误差为 `0.0`，shared residual 最大参数变化为
+`0.00482060`。视频为：
+
+```text
+experiments/demo_following/shared_frozen_expert_transition_prefix41_seed171638_v1/
+  videos_seed181645/same_checkpoint_kick_vs_carry_seed181645.mp4
+```
+
+第二个 seed 的视频为：
+
+```text
+experiments/demo_following/shared_frozen_expert_transition_prefix41_seed171639_v1/
+  videos_seed181647/same_checkpoint_kick_vs_carry_seed181647.mp4
+```
+
+两 seed 合计的 condition-use 结果位于
+`shared_frozen_expert_transition_two_seed_v1/RESULT.json`：Kick/Carry 为 `36/0` safe kicks、
+`2/0` falls。它证明 replicated two-skill conditioning，不是安全增益。
+
+同一个正式脚本还自动用相同 Kick condition、相同 seed 和相同物理评估
+`model_pre_update.pt`，并生成 `LEARNING_RESULT.json`。两 seed aggregate 位于
+`shared_frozen_expert_transition_learning_two_seed_v1/RESULT.json`：learned/pre-update 为
+`36/35` safe kicks、`2/0` falls；两个 seed 的 safety-improvement 均为 false。准确结论是
+transition residual 改变了动作，但没有改善 matched Kick safety。下一步先做固定 failure-rich
+overfit 诊断，而不是继续 formal multi-seed 或 scalar-reward sweep。
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

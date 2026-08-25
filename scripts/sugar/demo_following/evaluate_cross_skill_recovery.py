@@ -16,6 +16,7 @@ SUGAR = ROOT / "SUGAR"
 for path in (SUGAR / "scripts/sugar_rl",):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
+os.chdir(SUGAR)
 
 os.environ.setdefault(
     "ISAACLAB_GROUND_PLANE_USD",
@@ -40,6 +41,9 @@ parser.add_argument("--num-envs", type=int, default=20)
 parser.add_argument("--steps", type=int, default=250)
 parser.add_argument("--seed", type=int, default=181629)
 parser.add_argument("--carry-prefix-steps", type=int, default=9)
+parser.add_argument(
+    "--transition-selected-skill-id", type=int, choices=(0, 1), default=None
+)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 if args.num_envs != 20 or args.steps != 250:
@@ -48,6 +52,20 @@ if args.carry_prefix_steps <= 0:
     parser.error("carry prefix must be positive")
 args.task = "Sugar-G129dof-KickBox-Carry9-Recovery"
 args.enable_cameras = False
+
+# Reject path/provenance errors before AppLauncher starts Kit.  Isaac Sim can
+# swallow a Python exception during shutdown, so this check must not live in
+# main() after graphics/physics initialization.
+preflight_output = args.output_dir.expanduser().resolve()
+preflight_checkpoint = args.checkpoint.expanduser().resolve()
+preflight_experiments = (ROOT / "experiments").resolve()
+if (
+    preflight_experiments not in preflight_output.parents
+    or not preflight_checkpoint.exists()
+):
+    parser.error("output must be under experiments and checkpoint must exist")
+if preflight_output.exists():
+    parser.error(f"output already exists: {preflight_output}")
 
 app_launcher = AppLauncher(args)
 simulation_app = app_launcher.app
@@ -64,6 +82,9 @@ from sugar_rl.tasks.locomanip.robots.g129dof.train_tracker.kick_box_carry9_recov
 from sugar_rl.utils.online_cross_skill_recovery_wrapper import (  # noqa: E402
     OnlineCrossSkillRecoveryVecEnvWrapper,
     _load_released_tracker_actor,
+)
+from sugar_rl.utils.frozen_expert_transition_actor_critic import (  # noqa: E402
+    FrozenExpertTransitionActorCritic,
 )
 
 
@@ -130,13 +151,8 @@ def _aggregate(rows: list[dict[str, object]]) -> dict[str, object]:
 
 
 def main() -> None:
-    output = args.output_dir.expanduser().resolve()
-    checkpoint = args.checkpoint.expanduser().resolve()
-    experiments = (ROOT / "experiments").resolve()
-    if experiments not in output.parents or not checkpoint.exists():
-        raise ValueError("output must be under experiments and checkpoint must exist")
-    if output.exists():
-        raise FileExistsError(output)
+    output = preflight_output
+    checkpoint = preflight_checkpoint
     output.mkdir(parents=True)
 
     torch.manual_seed(args.seed)
@@ -164,10 +180,44 @@ def main() -> None:
         carry_generator_checkpoint=SUGAR / "demo_ckpts/CarryBox/generator.ckpt",
         carry_prefix_steps=args.carry_prefix_steps,
         audit_path=output / "prefix_audit.json",
+        transition_selected_skill_id=args.transition_selected_skill_id,
     )
-    actor = _load_released_tracker_actor(checkpoint, wrapped.device)
     checkpoint_payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
     observations = wrapped.get_observations()
+    if args.transition_selected_skill_id is None:
+        actor = _load_released_tracker_actor(checkpoint, wrapped.device)
+        transition_policy = None
+    else:
+        transition_policy = FrozenExpertTransitionActorCritic(
+            observations,
+            {
+                "policy": [
+                    "policy",
+                    "selected_skill_command",
+                    "selected_skill_id",
+                ],
+                "critic": [
+                    "critic",
+                    "selected_skill_command",
+                    "selected_skill_id",
+                ],
+                "teacher": ["teacher"],
+            },
+            29,
+            carry_tracker_checkpoint=str(
+                SUGAR / "demo_ckpts/CarryBox/tracker.pt"
+            ),
+            kick_tracker_checkpoint=str(SUGAR / "demo_ckpts/KickBox/tracker.pt"),
+            actor_hidden_dims=[512, 256, 128],
+            critic_hidden_dims=[512, 256, 128],
+            activation="elu",
+            init_noise_std=0.05,
+        ).to(wrapped.device)
+        transition_policy.load_state_dict(
+            checkpoint_payload["model_state_dict"], strict=True
+        )
+        transition_policy.eval().requires_grad_(False)
+        actor = None
     base = wrapped.base_env
 
     initial = {
@@ -197,7 +247,11 @@ def main() -> None:
     with torch.inference_mode():
         for _ in range(args.steps):
             policy_observation = observations["policy"]
-            action = actor(policy_observation)
+            action = (
+                actor(policy_observation)
+                if transition_policy is None
+                else transition_policy.act_inference(observations)
+            )
             observations, reward, done, _ = wrapped.step(action)
             forces = torch.stack(
                 (
@@ -258,6 +312,7 @@ def main() -> None:
         "protocol": "sugar_cross_skill_recovery_frozen_eval_v3",
         "checkpoint": str(checkpoint),
         "checkpoint_iteration": checkpoint_payload.get("iter"),
+        "transition_selected_skill_id": args.transition_selected_skill_id,
         "seed": args.seed,
         "num_envs": args.num_envs,
         "steps": args.steps,
@@ -284,7 +339,7 @@ def main() -> None:
         "checks": {
             "all_trace_values_finite": bool(all_finite),
             "no_reset_during_frozen_window": bool(no_reset),
-            "checkpoint_actor_geometry_is_official_510_512_256_128_29": True,
+            "checkpoint_actor_contract_valid": True,
             "online_prefix_has_no_teleport_or_replay": True,
             "feature_complete_for_official_tinymdm": all(
                 name in arrays

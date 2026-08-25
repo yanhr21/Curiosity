@@ -184,6 +184,7 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         conditional_tinymdm_reward_mode: str = "occupancy",
         conditional_tinymdm_task_reward_weight: float = 0.5,
         conditional_tinymdm_smp_reward_weight: float = 0.5,
+        transition_selected_skill_id: int | None = None,
     ) -> None:
         if carry_prefix_steps <= 0:
             raise ValueError("carry_prefix_steps must be positive")
@@ -255,11 +256,58 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
                 reward_seed=int(conditional_tinymdm_reward_seed),
                 reward_mode=conditional_tinymdm_reward_mode,
             )
+        if transition_selected_skill_id not in (None, -1, 0, 1):
+            raise ValueError(
+                "transition selected skill must be balanced=-1, Carry=0 or Kick=1"
+            )
+        self.transition_selected_skill_id = transition_selected_skill_id
+        self.transition_selected_skill_ids = None
+        if transition_selected_skill_id is not None:
+            if transition_selected_skill_id == -1:
+                self.transition_selected_skill_ids = (
+                    torch.arange(self.num_envs, device=self.base_env.device) % 2
+                ).to(dtype=torch.long)
+            else:
+                self.transition_selected_skill_ids = torch.full(
+                    (self.num_envs,),
+                    transition_selected_skill_id,
+                    device=self.base_env.device,
+                    dtype=torch.long,
+                )
+        self.carry_shadow: _CausalShadowGenerator | None = None
         self.prefix_count = 0
         self.max_alignment_action_abs = 0.0
         self.max_carry_action_abs = 0.0
         self.max_handoff_observation_abs = 0.0
         self._install_prefix()
+
+    def _augment_transition_observation(self, observations):
+        if self.transition_selected_skill_id is None:
+            return observations
+        if self.carry_shadow is None:
+            raise RuntimeError("transition observation requested before causal Generator")
+        policy = observations["policy"]
+        if self.transition_selected_skill_ids is None:
+            raise RuntimeError("transition selected-skill tensor is missing")
+        carry_command = self.carry_shadow.command_at(self.command.time_steps)
+        kick_command = policy[:, :GENERATED_COMMAND_DIM].clone()
+        selected_command = torch.where(
+            self.transition_selected_skill_ids[:, None] == 0,
+            carry_command,
+            kick_command,
+        )
+        selected_skill = torch.zeros(
+            (self.num_envs, 2), device=self.base_env.device, dtype=policy.dtype
+        )
+        selected_skill.scatter_(
+            1, self.transition_selected_skill_ids[:, None], 1.0
+        )
+        observations["selected_skill_command"] = selected_command
+        observations["selected_skill_id"] = selected_skill
+        return observations
+
+    def get_observations(self):
+        return self._augment_transition_observation(super().get_observations())
 
     def _policy_observation(self):
         observations = super().get_observations()
@@ -324,6 +372,8 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             self.max_handoff_observation_abs,
             float(torch.amax(torch.abs(handoff_policy)).item()),
         )
+        self.carry_shadow = shadow
+        observations = self._augment_transition_observation(observations)
         self.prefix_count += 1
         if self.conditional_tinymdm_reward is not None:
             self.conditional_tinymdm_reward.prepare_reward()
@@ -354,9 +404,25 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             ),
             "conditional_tinymdm_task_reward_weight": (
                 self.conditional_tinymdm_task_reward_weight
+                if self.conditional_tinymdm_reward is not None
+                else None
             ),
             "conditional_tinymdm_smp_reward_weight": (
                 self.conditional_tinymdm_smp_reward_weight
+                if self.conditional_tinymdm_reward is not None
+                else None
+            ),
+            "transition_selected_skill_id": self.transition_selected_skill_id,
+            "transition_selected_skill_counts": (
+                [
+                    int((self.transition_selected_skill_ids == skill).sum().item())
+                    for skill in (0, 1)
+                ]
+                if self.transition_selected_skill_ids is not None
+                else None
+            ),
+            "transition_observation_is_causal": (
+                self.transition_selected_skill_id is not None
             ),
         }
         temporary = self.audit_path.with_suffix(self.audit_path.suffix + ".tmp")
@@ -366,6 +432,11 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
     @torch.inference_mode()
     def step(self, actions: torch.Tensor):
         observations, rewards, dones, extras = super().step(actions)
+        if self.transition_selected_skill_id is not None and not torch.any(dones):
+            if self.carry_shadow is None:
+                raise RuntimeError("transition causal Generator state is missing")
+            self.carry_shadow.update_after_step(self.command)
+            observations = self._augment_transition_observation(observations)
         if self.conditional_tinymdm_reward is not None:
             if torch.any(dones):
                 conditional_reward = torch.zeros_like(rewards)
