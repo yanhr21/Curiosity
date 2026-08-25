@@ -201,4 +201,6 @@ def test_conditional_smp_render_labels_camera_rollout_as_its_own_seed() -> None:
     assert "EVAL_SEED" in source
     assert "Correct ${REWARD_MODE} reward: Kick condition" in source
     assert "Wrong ${REWARD_MODE} reward: Carry condition" in source
+    assert "Correct: Kick contrastive progress" in source
+    assert "Wrong: Carry contrastive progress" in source
     assert "correct_kick_vs_wrong_carry_seed" in source

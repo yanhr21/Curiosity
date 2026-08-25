@@ -23,9 +23,16 @@ fi
 mkdir -p "$VIDEO_ROOT"
 
 for arm in correct_kick wrong_carry; do
-    label="Correct ${REWARD_MODE} reward: Kick condition"
-    if [[ "$arm" == wrong_carry ]]; then
-        label="Wrong ${REWARD_MODE} reward: Carry condition"
+    if [[ "$REWARD_MODE" == "contrastive_progress" ]]; then
+        label="Correct: Kick contrastive progress"
+        if [[ "$arm" == wrong_carry ]]; then
+            label="Wrong: Carry contrastive progress"
+        fi
+    else
+        label="Correct ${REWARD_MODE} reward: Kick condition"
+        if [[ "$arm" == wrong_carry ]]; then
+            label="Wrong ${REWARD_MODE} reward: Carry condition"
+        fi
     fi
     "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/render_cross_skill_recovery_world.py" \
         --checkpoint "$EXPERIMENT_ROOT/$arm/train/model_64.pt" \
