@@ -1,0 +1,95 @@
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SUGAR = ROOT / "SUGAR"
+
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def test_recovery_task_uses_online_official_skill_prefix() -> None:
+    source = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_cross_skill_recovery_wrapper.py"
+    )
+    assert "_load_released_tracker_actor" in source
+    assert "GeneratorWrapper.load" in source
+    assert "alignment_action = self.kick_actor(policy)" in source
+    assert "carry_action = self.carry_actor(carry_observation)" in source
+    assert "state_teleport\": False" in source
+    assert "offline_replay\": False" in source
+    assert "ppo_prefix_transitions\": 0" in source
+    assert "prefix_frame_callback" in source
+
+
+def test_recovery_task_keeps_official_tracker_geometry() -> None:
+    source = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_cross_skill_recovery_wrapper.py"
+    )
+    assert "TRACKER_OBSERVATION_DIM = 510" in source
+    assert "TRACKER_ACTION_DIM = 29" in source
+    assert "hidden_dims != [512, 256, 128]" in source
+
+
+def test_recovery_config_has_timeout_and_released_tracker_teacher_contract() -> None:
+    source = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/tasks/locomanip/robots/g129dof/"
+        "train_tracker/kick_box_carry9_recovery_v2_env_cfg.py"
+    )
+    assert "class TeacherCfg(TrackerCfg)" in source
+    assert "self.enable_corruption = False" in source
+    assert source.count("self.enable_corruption = False") >= 2
+    assert "time_out = DoneTerm(func=mdp.time_out, time_out=True)" in source
+    assert "self.episode_length_s = 6.0" in source
+
+
+def test_warm_start_is_strict_and_does_not_resume_iteration() -> None:
+    source = _read(SUGAR / "scripts/sugar_rl/train.py")
+    assert "actor_critic_warm_start_checkpoint_path" in source
+    assert "runner.alg.policy.load_state_dict(source_state, strict=True)" in source
+    assert '"iteration_resumed": False' in source
+    assert "SUGAR_ACTOR_CRITIC_WARM_START_EXPLORATION_STD" in source
+    assert "source_exploration_std" in source
+    assert "active_exploration_std" in source
+
+
+def test_runner_does_not_randomize_synchronized_episode_clocks() -> None:
+    source = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/tasks/locomanip/agents/"
+        "rsl_rl_cross_skill_recovery_cfg.py"
+    )
+    assert "init_at_random_ep_len = False" in source
+    train_source = _read(SUGAR / "scripts/sugar_rl/train.py")
+    assert 'getattr(agent_cfg, "init_at_random_ep_len", True)' in train_source
+    assert "teacher_mean_only=True" in source
+    assert "stage3_distill_weight_floor=0.25" in source
+    assert "desired_kl=None" in source
+
+
+def test_synchronized_timeout_reinstalls_prefix_from_public_reset() -> None:
+    source = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_cross_skill_recovery_wrapper.py"
+    )
+    assert "super().reset()" in source
+    assert "episode-boundary reset did not restore clock zero" in source
+    assert "observations = self._install_prefix()" in source
+
+
+def test_reproduction_pipeline_is_continuous_and_has_no_manual_gate() -> None:
+    source = _read(
+        ROOT / "scripts/sugar/demo_following/run_cross_skill_recovery_pipeline.sh"
+    )
+    assert "--max_iterations 65" in source
+    assert "--teacher_ckpt" in source
+    assert "model_pre_update.pt" in source
+    assert "model_64.pt" in source
+    assert "evaluate_cross_skill_recovery.py" in source
+    assert "render_cross_skill_recovery_world.py" in source
+    assert "read -" not in source
+    assert "approval" not in source.lower()

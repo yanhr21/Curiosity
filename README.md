@@ -63,6 +63,22 @@ Kick expert 放入不稳定状态分布。当前 transition-risk 只能称为离
 差于 prevalence baseline `0.2331`。因此不启动另一个 hard-switch rollout；下一阶段训练连续的
 causal transition/recovery controller，不再调在线失败阈值。
 
+第一项连续 recovery 诊断现已完成。每个 episode 都在 IsaacLab/PhysX 中先执行 1 帧 official
+Kick 对齐，再执行 9 帧 official Carry `Generator + Tracker`，这些前缀帧不进入 PPO；随后从
+released Kick Tracker 的 actor/critic 权重出发，用仓库 BCPPO、固定 `1e-5` 学习率和 frozen
+Kick action-mean anchor 训练到 update 64。冻结 seed181629 的 baseline/update64 初始 robot、
+joint、box 和 510-D observation 逐元素一致。两者都是 `20/20` Kick、`0/20` 跌倒；训练后平均
+箱体平面净位移从 `0.17136` 增至 `0.18634 m`，足—箱接触比例从 `0.0632` 增至 `0.0674`，
+每帧 reward 从 `0.072629` 增至 `0.073203`。因此这是稳定的小幅局部增益，但 Carry-9 本身已
+被 official Kick 完全解决，不能声称困难跨技能恢复已经完成。完整对照视频位于
+`experiments/demo_following/cross_skill_recovery_v1/bcppo_frozen_eval_seed181629/videos/`
+`matched_baseline_vs_update64_actual_world.mp4`。
+
+尝试延长到 128 updates 时，update 67 后出现 timeout-only 大并行环境的稀有 outlier 并污染
+critic；该延长无效，不作为结果，也不从坏 checkpoint 续训。下一步先冻结 official Kick，
+无训练扫描 Carry 前缀长度，找到“状态仍有限但 Kick 已不再成功”的难度前沿，再在一个固定
+前沿条件上训练匹配 recovery，而不是继续给已经 20/20 的 Carry-9 条件加训练步数。
+
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
 latent 或安全跨资产 transition policy。最终四视频位于
@@ -439,6 +455,7 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 
 当前保留视频（标为“旧 phase-0”的两条是时钟错位负结果，不是 corrected policy endpoint）：
 
+- [Carry-9→Kick：零更新与 update64 真实世界对照](experiments/demo_following/cross_skill_recovery_v1/bcppo_frozen_eval_seed181629/videos/matched_baseline_vs_update64_actual_world.mp4)；
 - [official router：Carry45 reference 与 matched Carry](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/01_carry_domain_carry45_condition.mp4)；
 - [official router：Kick21 condition 在 Carry 域的 action-limit failure](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/02_carry_domain_kick21_condition.mp4)；
 - [official router：Carry45 condition 在 Kick 域仍受 generator 主导](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/03_kick_domain_carry45_condition.mp4)；
@@ -482,6 +499,11 @@ legacy/                           失败、混杂、重复和过期内容，不�
 Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 
 ## 下一步
+
+当前直接执行项是冻结 released Kick policy，不训练地扫描预先固定的 Carry prefix lengths，
+找到 action/state 全部有限但 Kick 成功率已经下降的难度前沿。随后只在该固定条件上运行一组
+baseline/update64 matched recovery；若得到真实成功率、恢复或安全停止增益，再扩展到不同
+geometry、target pose 和独立 seed。Carry-9 已经 `20/20`，不再增加 optimizer steps。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复

@@ -17,6 +17,10 @@ class BCPPOCfg(RslRlPpoAlgorithmCfg):
     behavior_anchor_coef = 0.0
     behavior_anchor_start_step = 0
     stage3_tactile_only_actor = False
+    bc_only_steps = 500
+    critic_warmup_steps = 1000
+    full_ppo_warmup_steps = 2000
+    teacher_mean_only = False
 @configclass
 class BCPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24

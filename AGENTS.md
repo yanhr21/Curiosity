@@ -179,6 +179,23 @@ prevalence baseline `0.2331`; its validation-only threshold is `0.84`. Do not la
 switch or weaken this predeclared calibration check. The next serious method must learn a causal
 transition/recovery controller while preserving both parameter-exact released endpoint skills.
 
+The first fixed Carry-to-Kick recovery diagnostic is complete at update 64. Each episode executes
+one official Kick alignment step and nine live official Carry Generator+Tracker steps in PhysX;
+none of those prefix transitions enters PPO. The student starts tensor-exact from the released
+Kick Tracker, uses its 510-D actor and 890-D privileged critic, and is trained with repository
+BCPPO plus a frozen released-Kick action-mean anchor. Fixed diagnostic observations have no
+corruption, exploration std is `0.05`, and learning rate is fixed at `1e-5`.
+
+Matched seed181629 evaluation restores bitwise-identical initial robot, joint, object and policy
+observation tensors for baseline and update 64. Both are already `20/20` Kick with zero falls;
+training changes mean planar object displacement `0.17136 -> 0.18634 m`, foot-contact fraction
+`0.0632 -> 0.0674`, and per-frame reward `0.072629 -> 0.073203`. This is a small local improvement,
+not a solved difficult transition. An attempted extension beyond the saved update-64 checkpoint
+developed rare timeout-only parallel outliers at update 67 and is invalid. Do not quote it as an
+endpoint or resume it. The next experiment must first sweep frozen official-Kick behavior over
+predeclared Carry prefix lengths to locate a finite but unsuccessful transition frontier; train
+one matched recovery controller there rather than adding updates to the saturated Carry-9 task.
+
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
 unrelated Kick21 model, but creates no environment and executes zero PPO updates. The allocation is

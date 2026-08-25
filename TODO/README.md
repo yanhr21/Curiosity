@@ -146,9 +146,14 @@
 - [x] audit a validation-calibrated decision at the earliest exact anchor 9 and reject the online
   hard-switch continuation: ranking passes, but test Brier `0.2773` loses to prevalence `0.2331`
   under the validation-only threshold `0.84`;
-- [ ] preserve the passing SMALLBOX dual-skill behavior while replacing hard endpoint switching
-  with a learned causal transition/recovery controller across object geometry, target pose and
-  initialization; no hand-written toy model.
+- [x] complete the first serious Carry-9 -> Kick recovery diagnostic with online physical prefix,
+  released-Kick warm start/teacher, repository BCPPO and matched frozen video; retain the small
+  update-64 displacement/contact/reward gain without upgrading saturated `20/20 -> 20/20` success
+  to a difficult-transition claim;
+- [ ] sweep frozen official Kick over predeclared Carry prefix lengths, select one finite but
+  unsuccessful frontier condition, and run one matched update-64 recovery experiment there;
+- [ ] after that frontier passes, test the same controller across object geometry, target pose and
+  independent seeds; no hand-written toy model.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -165,10 +170,13 @@ same-checkpoint split: correct remains a stable Carry, while unrelated leaves Ca
 also fail closed-loop stability. The complete official-skill router is the first executable
 semantic switch: in the identical SMALLBOX scene Carry45 gives `18/20` Carry while Kick21 gives
 `19/20` Kick, both with zero falls. The reverse BIGBOX-to-Carry transfer remains rejected. The
-causal transition-risk Transformer passes its disjoint offline gate, but a frame-49 hard switch
+causal transition-risk Transformer passes its disjoint offline check, but a frame-49 hard switch
 still falls and becomes non-finite in a profile already classified risky. The earliest anchor-9
-audit retains useful ranking but fails its predeclared calibration check, so the next work is a
-learned transition/recovery controller; it is not a reward-scale, threshold or optimizer-step sweep.
+audit retains useful ranking but fails its predeclared calibration check. The first learned
+Carry-9 -> Kick recovery controller is now complete and slightly improves displacement, contact and
+reward while preserving `20/20` Kick; because that condition is saturated, the active next task is
+the frozen no-training prefix-length frontier followed by one matched recovery run. It is not a
+reward-scale, threshold or optimizer-step sweep.
 
 ## Frozen tactile work
 

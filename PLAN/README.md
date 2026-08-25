@@ -74,6 +74,29 @@ anchor-9 hard switch or weaken the gate. Replace hard endpoint switching with a 
 transition/recovery controller trained from official endpoint rollouts; preserve both exact
 released skills and do not substitute a toy latent or hand-written world model.
 
+### Fixed Carry-9 to Kick recovery: complete, locally positive but saturated
+
+The first continuous recovery diagnostic executes one released Kick alignment step followed by
+nine live released Carry Generator+Tracker steps before each student episode. The prefix is online
+PhysX and contributes zero PPO transitions. The student is tensor-exact initialized from the
+released Kick Tracker and retains the official `510 -> 512/256/128 -> 29` actor, 890-D privileged
+critic and repository BCPPO. A frozen released-Kick action-mean anchor, fixed `1e-5` learning rate,
+`0.05` exploration std and no observation corruption keep the fixed diagnostic matched to frozen
+evaluation.
+
+At update 64, the matched 20-profile frozen pair is structurally valid and starts from bitwise-
+identical robot/object/joint/observation tensors. Baseline and trained are both `20/20` Kick with
+zero falls. Training changes mean planar displacement `0.17136 -> 0.18634 m`, foot-contact fraction
+`0.0632 -> 0.0674`, and per-frame reward `0.072629 -> 0.073203`. This proves a small local recovery
+improvement while preserving the released skill, but there is no success-rate headroom. The
+attempted 128-update extension is invalid after rare timeout-only parallel outliers contaminate the
+critic at update 67; only the finite update-64 checkpoint is retained.
+
+Next, run a no-training prefix-length frontier with the frozen released Kick pair. Choose one
+predeclared length where all inputs/actions remain finite but Kick success is below the admitted
+criterion, then run the same baseline/update-64 matched recovery comparison. Only after that fixed
+frontier succeeds should geometry and seed generalization be added.
+
 ### Reference-aware matched pair: complete, partial single-seed shift
 
 The from-scratch seed/action-seed `161587/161588` pair is complete. Both arms use the same

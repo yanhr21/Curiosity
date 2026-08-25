@@ -21,6 +21,10 @@ class BCPPO(PPO):
         behavior_anchor_coef=0.0,
         behavior_anchor_start_step=0,
         stage3_tactile_only_actor=False,
+        bc_only_steps=500,
+        critic_warmup_steps=1000,
+        full_ppo_warmup_steps=2000,
+        teacher_mean_only=False,
         **kwargs,
     ):
         super().__init__(policy, **kwargs)
@@ -33,6 +37,7 @@ class BCPPO(PPO):
         self.behavior_anchor_coef = float(behavior_anchor_coef)
         self.behavior_anchor_start_step = int(behavior_anchor_start_step)
         self.stage3_tactile_only_actor = bool(stage3_tactile_only_actor)
+        self.teacher_mean_only = bool(teacher_mean_only)
         self._actor_optimization_parameters = tuple(
             parameter
             for name, parameter in self.policy.named_parameters()
@@ -78,9 +83,17 @@ class BCPPO(PPO):
             raise ValueError("behavior_anchor_start_step must be non-negative")
         
         self.distill_loss_coef = 1.0
-        self.bc_only_steps = 500
-        self.critic_warmup_steps = 1000
-        self.full_ppo_warmup_steps = 2000
+        self.bc_only_steps = int(bc_only_steps)
+        self.critic_warmup_steps = int(critic_warmup_steps)
+        self.full_ppo_warmup_steps = int(full_ppo_warmup_steps)
+        if not (
+            0 <= self.bc_only_steps <= self.critic_warmup_steps
+            < self.full_ppo_warmup_steps
+        ):
+            raise ValueError(
+                "BCPPO stage boundaries must satisfy "
+                "0 <= bc_only <= critic_warmup < full_ppo_warmup"
+            )
 
         self.distill_loss_fn = nn.MSELoss()
         self.update_step = 0
@@ -470,15 +483,28 @@ class BCPPO(PPO):
                     teacher_action_mean = self.teacher_model(teacher_obs_batch)
                     teacher_action_std = self.teacher_std
                 
-                # # compute BC Loss (KL Divergence)
-                # KL(T||S) = log(std_s/std_t) + (std_t^2 + (mu_t-mu_s)^2)/(2*std_s^2) - 0.5
-                log_std_s = torch.log(sigma_batch + 1e-8)
-                log_std_t = torch.log(teacher_action_std + 1e-8)
-                distill_loss_per_sample = (
-                    log_std_s - log_std_t + 
-                    (teacher_action_std.pow(2) + (teacher_action_mean - mu_batch).pow(2)) / (2.0 * (sigma_batch.pow(2)+1e-7)) - 
-                    0.5
-                ).sum(dim=-1)
+                if self.teacher_mean_only:
+                    # Recovery fine-tuning needs the released deterministic
+                    # action as a behavior anchor while retaining its own low
+                    # exploration noise.  Matching the teacher's historical
+                    # stochastic std would reintroduce the OOD failures that
+                    # the anchor is intended to prevent.
+                    distill_loss_per_sample = (
+                        teacher_action_mean - mu_batch
+                    ).square().mean(dim=-1)
+                else:
+                    # Official SUGAR KL(T||S) behavior.
+                    log_std_s = torch.log(sigma_batch + 1e-8)
+                    log_std_t = torch.log(teacher_action_std + 1e-8)
+                    distill_loss_per_sample = (
+                        log_std_s - log_std_t
+                        + (
+                            teacher_action_std.pow(2)
+                            + (teacher_action_mean - mu_batch).pow(2)
+                        )
+                        / (2.0 * (sigma_batch.pow(2) + 1e-7))
+                        - 0.5
+                    ).sum(dim=-1)
                 distill_loss = self._reduce_distill_loss(
                     distill_loss_per_sample, obs_batch
                 )

@@ -86,6 +86,15 @@ parser.add_argument(
         "resuming its optimizer or iteration counter."
     ),
 )
+parser.add_argument(
+    "--actor_critic_warm_start_checkpoint_path",
+    type=str,
+    default=None,
+    help=(
+        "Exact compatible official ActorCritic checkpoint used only for model "
+        "initialization; optimizer moments and iteration are not resumed."
+    ),
+)
 
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
@@ -176,8 +185,13 @@ torch.backends.cudnn.benchmark = False
 @hydra_task_config(args_cli.task, "rsl_rl_cfg_entry_point")
 def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: RslRlOnPolicyRunnerCfg):
     """Train with RSL-RL agent."""
-    if args_cli.resume_checkpoint_path is not None and args_cli.warm_start_checkpoint_path is not None:
-        raise ValueError("Choose either --resume_checkpoint_path or --warm_start_checkpoint_path, not both")
+    checkpoint_modes = (
+        args_cli.resume_checkpoint_path,
+        args_cli.warm_start_checkpoint_path,
+        args_cli.actor_critic_warm_start_checkpoint_path,
+    )
+    if sum(value is not None for value in checkpoint_modes) > 1:
+        raise ValueError("Choose exactly one checkpoint resume/warm-start mode")
     # override configurations with non-hydra CLI arguments
     agent_cfg = cli_args.update_rsl_rl_cfg(agent_cfg, args_cli)
     if args_cli.resume_checkpoint_path is not None:
@@ -297,6 +311,36 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             clip_actions=agent_cfg.clip_actions,
             teacher_checkpoint=teacher_checkpoint,
         )
+    elif os.environ.get("SUGAR_CROSS_SKILL_RECOVERY") == "1":
+        from sugar_rl.utils.online_cross_skill_recovery_wrapper import (
+            OnlineCrossSkillRecoveryVecEnvWrapper,
+        )
+
+        required = {
+            "carry_tracker_checkpoint": os.environ.get(
+                "SUGAR_CROSS_SKILL_CARRY_TRACKER_CKPT"
+            ),
+            "kick_tracker_checkpoint": os.environ.get(
+                "SUGAR_CROSS_SKILL_KICK_TRACKER_CKPT"
+            ),
+            "carry_generator_checkpoint": os.environ.get(
+                "SUGAR_CROSS_SKILL_CARRY_GENERATOR_CKPT"
+            ),
+        }
+        missing = [name for name, value in required.items() if value is None]
+        if missing:
+            raise RuntimeError(
+                f"cross-skill recovery wrapper is missing: {missing}"
+            )
+        env = OnlineCrossSkillRecoveryVecEnvWrapper(
+            env,
+            clip_actions=agent_cfg.clip_actions,
+            **required,
+            carry_prefix_steps=int(
+                os.environ.get("SUGAR_CROSS_SKILL_CARRY_PREFIX_STEPS", "9")
+            ),
+            audit_path=os.environ.get("SUGAR_CROSS_SKILL_PREFIX_AUDIT"),
+        )
     elif os.environ.get("SUGAR_RGB_TELEMETRY_OUTPUT"):
         from sugar_rl.utils.rgb_training_telemetry import (
             RGBTrainingTelemetryVecEnvWrapper,
@@ -312,6 +356,73 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
     # write git state to logs
     runner.add_git_repo_to_log(__file__)
+    if args_cli.actor_critic_warm_start_checkpoint_path is not None:
+        warm_start_path = os.path.abspath(
+            args_cli.actor_critic_warm_start_checkpoint_path
+        )
+        if not os.path.isfile(warm_start_path):
+            raise FileNotFoundError(
+                f"ActorCritic warm-start checkpoint does not exist: {warm_start_path}"
+            )
+        checkpoint = torch.load(
+            warm_start_path, map_location=agent_cfg.device, weights_only=False
+        )
+        source_state = checkpoint["model_state_dict"]
+        runner.alg.policy.load_state_dict(source_state, strict=True)
+        loaded_state = runner.alg.policy.state_dict()
+        unequal = [
+            name
+            for name, value in source_state.items()
+            if name not in loaded_state or not torch.equal(value, loaded_state[name])
+        ]
+        if unequal or set(source_state) != set(loaded_state):
+            raise RuntimeError(
+                "exact ActorCritic warm-start equality failed: "
+                f"unequal={unequal[:5]}"
+            )
+        source_exploration_std = float(runner.alg.policy.std.detach().mean().item())
+        requested_exploration_std = os.environ.get(
+            "SUGAR_ACTOR_CRITIC_WARM_START_EXPLORATION_STD"
+        )
+        if requested_exploration_std is not None:
+            requested_exploration_std = float(requested_exploration_std)
+            if not math.isfinite(requested_exploration_std) or requested_exploration_std <= 0.0:
+                raise ValueError(
+                    "SUGAR_ACTOR_CRITIC_WARM_START_EXPLORATION_STD must be finite and positive"
+                )
+            with torch.no_grad():
+                runner.alg.policy.std.fill_(requested_exploration_std)
+        active_exploration_std = float(runner.alg.policy.std.detach().mean().item())
+        report = {
+            "protocol": "exact_official_actor_critic_warm_start_v1",
+            "source_checkpoint": warm_start_path,
+            "source_iteration": checkpoint.get("iter"),
+            "strict_state_dict": True,
+            "all_checkpoint_tensors_equal_before_exploration_override": True,
+            "optimizer_loaded": False,
+            "iteration_resumed": False,
+            "active_learning_rate": float(runner.alg.learning_rate),
+            "source_exploration_std": source_exploration_std,
+            "active_exploration_std": active_exploration_std,
+            "exploration_std_override": requested_exploration_std is not None,
+        }
+        os.makedirs(log_dir, exist_ok=True)
+        with open(
+            os.path.join(log_dir, "actor_critic_warm_start.json"),
+            "w",
+            encoding="utf-8",
+        ) as file:
+            json.dump(report, file, indent=2, sort_keys=True)
+        torch.save(
+            {
+                "model_state_dict": loaded_state,
+                "optimizer_state_dict": runner.alg.optimizer.state_dict(),
+                "iter": -1,
+                "infos": report,
+            },
+            os.path.join(log_dir, "model_pre_update.pt"),
+        )
+        print(f"[INFO]: Exact ActorCritic warm start: {report}")
     if args_cli.warm_start_checkpoint_path is not None:
         warm_start_path = os.path.abspath(args_cli.warm_start_checkpoint_path)
         if not os.path.isfile(warm_start_path):
@@ -645,8 +756,15 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             f"total={total_iteration_budget}, remaining={learning_iterations}",
             flush=True,
         )
+    configured_random_episode_start = bool(
+        getattr(agent_cfg, "init_at_random_ep_len", True)
+    )
     init_at_random_ep_len = (
-        os.environ.get("SUGAR_INIT_AT_RANDOM_EP_LEN", "1") != "0"
+        os.environ.get(
+            "SUGAR_INIT_AT_RANDOM_EP_LEN",
+            "1" if configured_random_episode_start else "0",
+        )
+        != "0"
     )
     runner.learn(
         num_learning_iterations=learning_iterations,

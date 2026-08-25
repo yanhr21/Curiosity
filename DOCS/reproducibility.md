@@ -1108,6 +1108,51 @@ anchor9 threshold `0.84` 只由 validation 选择。held-out AUROC/balanced accu
 predeclared calibration gate 失败，不启动 online anchor9 hard switch。下一阶段进入 learned
 causal transition/recovery controller，而不是继续 hard switch、调阈值或写 toy world model。
 
+#### 3.13.5 Fixed Carry-9 to Kick recovery
+
+该诊断不是 hard switch：每个 episode 在 PPO 之外先真实执行 1 帧 released Kick Tracker 对齐，
+再执行 9 帧 released Carry Generator+Tracker，随后 student 从该同步物理状态连续控制。student
+严格加载 released Kick Tracker 的 `510-D -> 512/256/128 -> 29-D` actor 和 890-D critic；
+repository BCPPO 使用同一 released Kick Tracker 的 clean 510-D action mean 作冻结 anchor。
+固定 overfit 关闭 observation corruption，探索标准差为 `0.05`，学习率固定 `1e-5`，update 0
+的 teacher 权重为 1，之后保持 0.25。prefix 不进入 PPO storage，也没有 offline replay 或
+episode 中途 teleport。
+
+在 retained GPU compute step 内，单一入口连续完成训练、零更新/update64 冻结评估和真实
+Isaac camera 视频；它没有人工授权或 checkpoint admission prompt：
+
+```bash
+bash scripts/sugar/demo_following/run_cross_skill_recovery_pipeline.sh \
+  experiments/demo_following/reproduce_cross_skill_recovery
+```
+
+RSL-RL 使用零索引，65 个 iterations 的终点是 `model_64.pt`。正式 seed 为
+`171629 -> 181629`，冻结评估为 20 profiles x 250 control frames。已有证据位于：
+
+```text
+experiments/demo_following/cross_skill_recovery_v1/
+├── bcppo_update64_seed171629/model_pre_update.pt
+├── bcppo_update64_seed171629/model_64.pt
+└── bcppo_frozen_eval_seed181629/
+    ├── baseline/{RESULT.json,trace.npz}
+    ├── trained_update64/{RESULT.json,trace.npz}
+    ├── PAIR_RESULT.json
+    └── videos/matched_baseline_vs_update64_actual_world.mp4
+```
+
+原始运行曾尝试延长至 128；update 67 后发生 critic 发散，没有有效 128 endpoint，不能
+使用。当前目录只保留发散前的 update64 checkpoint，它的全部 tensor 有限；相对零更新，
+actor/critic 参数变化 L2 为 `0.21628/1.00358`。冻结两臂的 initial robot root、joint
+position/velocity、object root 和 510-D observation 逐元素相同。baseline/update64 均为
+`20/20` Kick、`0/20` fall；平均净位移为 `0.17136/0.18634 m`，足—箱接触比例为
+`0.0632/0.0674`，每帧 reward 为 `0.072629/0.073203`。视频为可解码 H.264/yuv420p，260 帧、
+20 fps、1920x540，左侧 baseline、右侧 update64，并在同一时钟显示前缀/恢复阶段、箱体
+位移和足—箱接触。
+
+这只支持 fixed local improvement。因为零更新已经 `20/20`，下一实验不是增加 optimizer
+steps，而是冻结 official Kick 后扫描预登记 Carry prefix lengths，选择一个状态/action 仍有限
+但 Kick success 已下降的前沿条件，再做同样的 matched recovery。
+
 ## 4. Earlier trajectory-only predictor
 
 这是 contact/event redesign 之前保留的 11.9M trajectory-only 模型。输入为过去 10 帧

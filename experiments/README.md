@@ -55,6 +55,11 @@ has been archived.
   Carry45 gives `18/20` Carry and Kick21 gives `19/20` Kick with zero falls; matched BIGBOX Kick21
   gives `20/20` Kick, while BIGBOX Carry45 is rejected at `8/20`. The four decoded H.264 videos are
   under `videos_joint_reference_actual_final/`;
+- `cross_skill_recovery_v1/`: fixed online Carry-9 -> Kick recovery diagnostic. Only the finite
+  `bcppo_update64_seed171629/` checkpoint pair and matched `bcppo_frozen_eval_seed181629/` traces,
+  results and decoded actual-world videos are retained. Both baseline and update64 are `20/20`
+  Kick with zero falls; update64 makes a small displacement/contact/reward improvement. Failed
+  startup, pure-PPO and post-update64 extension directories are under root `legacy/`;
 - `teacher_floor_overfit_v1/`: seed161581 update-128 correct/unrelated endpoints, frozen traces,
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick
