@@ -32,7 +32,11 @@ prefixes `41/49/57`, a selected-Carry control, and six world videos. It sets the
 NVIDIA Vulkan ICD for both evaluation and rendering. The physical result remains open until the
 generated `RESULT.json`, frozen traces and videos pass; interface tests alone are not evidence of
 recovery benefit. After recording `PIPELINE_STATUS.env`, the command keeps the retained GPU above
-the cluster utilization floor; switch tasks only through the recorded launcher child PGID.
+the cluster utilization floor; switch tasks only through the recorded launcher child PGID. A
+negative first seed stops scientific spending and enters the holder. A positive first seed
+automatically launches the fixed independent replication `171645 -> 181658` with video seed
+`181659`, then writes a two-seed aggregate before entering the holder. This decision is read from
+the physical frozen-evaluation result and has no manual authorization state.
 
 Reproduce one fresh multi-context seed inside a retained GPU step with:
 

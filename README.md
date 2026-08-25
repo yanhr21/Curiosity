@@ -655,6 +655,8 @@ bash scripts/sugar/demo_following/run_causal_action_composition_transition_recov
 H.264 world videos；在真实 `RESULT.json`、trace 和视频生成前，只能称为实现已验证，不能称为
 物理恢复增益。流水线写出 `PIPELINE_STATUS.env` 后自动进入 GPU holder，任务切换只终止 retained
 launcher 记录的 child PGID，不释放 allocation。
+第一颗 seed171644 若物理结果为负则直接记录并进入 holder；若为正，runner 会自动串行运行
+`171645 -> 181658` 的独立复现和两 seed 汇总，不设置人工批准端点。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复

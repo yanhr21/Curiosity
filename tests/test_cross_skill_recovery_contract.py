@@ -461,6 +461,11 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert "approval" not in runner.lower()
     assert "GPU_HOLD_AFTER_CAUSAL_ACTION_COMPOSITION_READY" in runner
     assert "PIPELINE_STATUS.env" in runner
+    assert "REPLICATION_TRAIN_SEED_OVERRIDE:-171645" in runner
+    assert "REPLICATION_EVAL_SEED_OVERRIDE:-181658" in runner
+    assert "REPLICATION_VIDEO_SEED_OVERRIDE:-181659" in runner
+    assert "aggregate_multi_context_transition_recovery_seeds.py" in runner
+    assert "replication_launched" in runner
     multi_context_runner = _read(
         ROOT / "scripts/sugar/demo_following/run_multi_context_transition_recovery.sh"
     )
