@@ -459,6 +459,8 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert "POLICY_TOPOLOGY_OVERRIDE=causal_action_composition" in runner
     assert "read -" not in runner
     assert "approval" not in runner.lower()
+    assert "GPU_HOLD_AFTER_CAUSAL_ACTION_COMPOSITION_READY" in runner
+    assert "PIPELINE_STATUS.env" in runner
     multi_context_runner = _read(
         ROOT / "scripts/sugar/demo_following/run_multi_context_transition_recovery.sh"
     )

@@ -31,7 +31,8 @@ This command performs update64 training, checkpoint audit, frozen learned/pre-up
 prefixes `41/49/57`, a selected-Carry control, and six world videos. It sets the cluster system
 NVIDIA Vulkan ICD for both evaluation and rendering. The physical result remains open until the
 generated `RESULT.json`, frozen traces and videos pass; interface tests alone are not evidence of
-recovery benefit.
+recovery benefit. After recording `PIPELINE_STATUS.env`, the command keeps the retained GPU above
+the cluster utilization floor; switch tasks only through the recorded launcher child PGID.
 
 Reproduce one fresh multi-context seed inside a retained GPU step with:
 

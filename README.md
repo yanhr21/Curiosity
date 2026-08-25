@@ -653,7 +653,8 @@ bash scripts/sugar/demo_following/run_causal_action_composition_transition_recov
 
 该入口连续完成 update64、checkpoint audit、`41/49/57` frozen learned/pre-update 对比和六个
 H.264 world videos；在真实 `RESULT.json`、trace 和视频生成前，只能称为实现已验证，不能称为
-物理恢复增益。
+物理恢复增益。流水线写出 `PIPELINE_STATUS.env` 后自动进入 GPU holder，任务切换只终止 retained
+launcher 记录的 child PGID，不释放 allocation。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复
