@@ -479,6 +479,13 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert "COMPOSITION_MEAN_FIELDS" in aggregate
     assert "learned_action_composition_used_online_all_seeds" in aggregate
     assert "composition_terms_match_deployed_action_all_seeds" in aggregate
+    condition_summary = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "summarize_shared_frozen_expert_transition.py"
+    )
+    assert "composition_terms_match_deployed_action_both_conditions" in condition_summary
+    assert "composition_uses_no_future_or_outcome_labels" in condition_summary
     multi_context_runner = _read(
         ROOT / "scripts/sugar/demo_following/run_multi_context_transition_recovery.sh"
     )

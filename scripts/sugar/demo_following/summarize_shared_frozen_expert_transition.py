@@ -126,6 +126,31 @@ def main() -> None:
             and delta["safe_kick_success_count"] >= 0
         )
     )
+    action_composition = None
+    composition_checks: dict[str, object] = {}
+    if args.expected_policy_topology == "causal_action_composition":
+        condition_terms = {
+            "selected_kick": kick.get("action_composition"),
+            "selected_carry": carry.get("action_composition"),
+        }
+        if any(not isinstance(item, dict) for item in condition_terms.values()):
+            raise RuntimeError("condition-swap action-composition evidence is missing")
+        if any(
+            item.get("future_or_outcome_labels_used") is not False
+            or float(
+                item.get(
+                    "maximum_abs_deployed_minus_composed_action", float("nan")
+                )
+            )
+            != 0.0
+            for item in condition_terms.values()
+        ):
+            raise RuntimeError("condition-swap action-composition audit failed")
+        action_composition = condition_terms
+        composition_checks = {
+            "composition_terms_match_deployed_action_both_conditions": True,
+            "composition_uses_no_future_or_outcome_labels": True,
+        }
     result = {
         "protocol": "sugar_shared_frozen_expert_transition_condition_swap_v2",
         "experiment": {
@@ -146,6 +171,7 @@ def main() -> None:
             "first_step_max_abs": float(first_action_difference.max()),
             "full_trace_mean_abs": float(full_action_difference.mean()),
         },
+        "action_composition": action_composition,
         "checks": {
             "same_checkpoint_condition_swap": True,
             "initial_physics_elementwise_identical": identical_initial_state,
@@ -156,6 +182,7 @@ def main() -> None:
             "kick_condition_is_safer_than_inert_carry_condition": (
                 kick_safer_than_inert_carry
             ),
+            **composition_checks,
         },
         "conclusion": "same_checkpoint_selected_skill_condition_changes_behavior",
         "claim_boundary": (
