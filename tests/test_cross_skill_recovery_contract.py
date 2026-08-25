@@ -146,6 +146,9 @@ def test_conditional_tinymdm_reward_is_official_causal_and_online() -> None:
     assert "self.base_env.scene[\"obj\"].data" in source
     assert "WINDOW_SIZE, FEATURE_DIM" in source
     assert "ESM_SDS_loss" in source
+    assert 'reward_mode not in ("occupancy", "progress")' in source
+    assert "previous_normalized - current_normalized" in source
+    assert "progress_uses_matched_diffusion_noise" in source
     assert '"future_or_outcome_labels_used": False' in source
     for forbidden in ("physical_fall", "safe_kick", "future_frame", "trace.npz"):
         assert forbidden not in source
@@ -168,6 +171,7 @@ def test_online_conditional_reward_preserves_task_reward_and_is_optional() -> No
     )
     assert "self.conditional_tinymdm_reward = None" in source
     assert "observe_current_state()" in source
+    assert "prepare_reward()" in source
     assert "self.conditional_tinymdm_task_reward_weight * rewards" in source
     assert "self.conditional_tinymdm_smp_reward_weight * conditional_reward" in source
     assert "conditional TinyMDM reward configuration is incomplete" in source
@@ -182,6 +186,8 @@ def test_conditional_smp_matched_pair_is_serial_and_has_no_human_gate() -> None:
     assert "SUGAR_CONDITIONAL_TINYMDM_TASK_WEIGHT=0.5" in source
     assert "SUGAR_CONDITIONAL_TINYMDM_SMP_WEIGHT=0.5" in source
     assert "SUGAR_CROSS_SKILL_RECOVERY_SAFETY_PENALTY=1" in source
+    assert "RESUME_MATCHED_PAIR" in source
+    assert "Reusing complete matched endpoint" in source
     assert "read -" not in source
     assert "approval" not in source.lower()
 
@@ -189,6 +195,6 @@ def test_conditional_smp_matched_pair_is_serial_and_has_no_human_gate() -> None:
 def test_conditional_smp_render_labels_camera_rollout_as_its_own_seed() -> None:
     source = _read(ROOT / "scripts/sugar/smp/render_conditional_smp_recovery_pair.sh")
     assert "EVAL_SEED" in source
-    assert "Correct reward: Kick condition" in source
-    assert "Wrong reward: Carry condition" in source
+    assert "Correct ${REWARD_MODE} reward: Kick condition" in source
+    assert "Wrong ${REWARD_MODE} reward: Carry condition" in source
     assert "correct_kick_vs_wrong_carry_seed" in source

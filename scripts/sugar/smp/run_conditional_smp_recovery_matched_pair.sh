@@ -11,11 +11,12 @@ TRAIN_SEED=171632
 EVAL_SEED=181632
 NUM_ENVS="${NUM_ENVS_OVERRIDE:-64}"
 OUTPUT_ROOT="$(realpath -m "$OUTPUT_ROOT")"
+RESUME_MATCHED_PAIR="${RESUME_MATCHED_PAIR:-0}"
 
 case "$(hostname)" in
     mgmtserver*|login*) echo "Run inside a retained GPU compute step." >&2; exit 2 ;;
 esac
-if [[ -e "$OUTPUT_ROOT" ]]; then
+if [[ -e "$OUTPUT_ROOT" && "$RESUME_MATCHED_PAIR" != "1" ]]; then
     echo "Refusing to overwrite $OUTPUT_ROOT" >&2
     exit 2
 fi
@@ -27,6 +28,7 @@ export PYTHONPATH="$ROOT/IsaacLab/source/isaaclab:$ROOT/IsaacLab/source/isaaclab
 export ISAACLAB_GROUND_PLANE_USD="$ROOT/SUGAR/descriptions/terrain/sugar_ground_plane.usda"
 export ISAACLAB_USE_LOCAL_FRAME_MARKER=1
 export SUGAR_DISABLE_TRAIN_DEBUG_VIS=1
+export SUGAR_DISABLE_RSL_RL_GIT_SNAPSHOT=1
 export DISPLAY=""
 export SUGAR_CROSS_SKILL_RECOVERY=1
 export SUGAR_CROSS_SKILL_CARRY_TRACKER_CKPT="$ROOT/SUGAR/demo_ckpts/CarryBox/tracker.pt"
@@ -41,6 +43,7 @@ export SUGAR_CONDITIONAL_TINYMDM_CONFIG="$ROOT/experiments/demo_following/condit
 export SUGAR_CONDITIONAL_TINYMDM_CHECKPOINT="$ROOT/experiments/demo_following/conditional_taskwide_smp_v1/prior/model.pt"
 export SUGAR_CONDITIONAL_TINYMDM_CALIBRATION="$ROOT/experiments/demo_following/conditional_taskwide_smp_v1/reward_calibration/RESULT.json"
 export SUGAR_CONDITIONAL_TINYMDM_REWARD_SEED=190001
+export SUGAR_CONDITIONAL_TINYMDM_REWARD_MODE="${REWARD_MODE_OVERRIDE:-occupancy}"
 export SUGAR_CONDITIONAL_TINYMDM_TASK_WEIGHT=0.5
 export SUGAR_CONDITIONAL_TINYMDM_SMP_WEIGHT=0.5
 
@@ -49,6 +52,17 @@ for arm_spec in correct_kick:1 wrong_carry:0; do
     arm="${arm_spec%%:*}"
     class_id="${arm_spec##*:}"
     arm_root="$OUTPUT_ROOT/$arm"
+    if [[ "$RESUME_MATCHED_PAIR" == "1" \
+        && -s "$arm_root/train/model_pre_update.pt" \
+        && -s "$arm_root/train/model_64.pt" \
+        && -s "$arm_root/train/prefix_audit.json" ]]; then
+        echo "Reusing complete matched endpoint: $arm_root/train/model_64.pt"
+        continue
+    fi
+    if [[ -e "$arm_root" ]]; then
+        echo "Refusing ambiguous partial arm during resume: $arm_root" >&2
+        exit 2
+    fi
     export SUGAR_CONDITIONAL_TINYMDM_CLASS_ID="$class_id"
     export SUGAR_CROSS_SKILL_PREFIX_AUDIT="$arm_root/train/prefix_audit.json"
     "$PYTHON_BIN" -u scripts/sugar_rl/train.py \
@@ -65,13 +79,23 @@ for arm_spec in correct_kick:1 wrong_carry:0; do
 done
 
 for arm in correct_kick wrong_carry; do
+    evaluation_root="$OUTPUT_ROOT/$arm/evaluation"
+    if [[ "$RESUME_MATCHED_PAIR" == "1" \
+        && -s "$evaluation_root/RESULT.json" ]]; then
+        echo "Reusing complete frozen evaluation: $evaluation_root/RESULT.json"
+        continue
+    fi
+    if [[ -e "$evaluation_root" ]]; then
+        echo "Refusing ambiguous partial evaluation during resume: $evaluation_root" >&2
+        exit 2
+    fi
     "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/evaluate_cross_skill_recovery.py" \
         --checkpoint "$OUTPUT_ROOT/$arm/train/model_64.pt" \
-        --output-dir "$OUTPUT_ROOT/$arm/evaluation" \
+        --output-dir "$evaluation_root" \
         --carry-prefix-steps 41 --num-envs 20 --steps 250 --seed "$EVAL_SEED" \
         --headless --device "$DEVICE" \
         --kit_args="--/renderer/enabled= --/renderer/multiGpu/enabled=false"
-    test -s "$OUTPUT_ROOT/$arm/evaluation/RESULT.json"
+    test -s "$evaluation_root/RESULT.json"
 done
 
 "$PYTHON_BIN" "$ROOT/scripts/sugar/smp/summarize_conditional_smp_recovery_pair.py" \

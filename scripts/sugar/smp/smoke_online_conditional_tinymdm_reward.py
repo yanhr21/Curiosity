@@ -35,6 +35,7 @@ parser.add_argument("--num-envs", type=int, default=4)
 parser.add_argument("--seed", type=int, default=191632)
 parser.add_argument("--reward-seed", type=int, default=190001)
 parser.add_argument("--class-id", type=int, choices=(0, 1), default=1)
+parser.add_argument("--reward-mode", choices=("occupancy", "progress"), default="occupancy")
 parser.add_argument("--carry-prefix-steps", type=int, default=41)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
@@ -129,6 +130,7 @@ def main() -> None:
         conditional_tinymdm_calibration=PRIOR_ROOT / "reward_calibration/RESULT.json",
         conditional_tinymdm_class_id=args.class_id,
         conditional_tinymdm_reward_seed=args.reward_seed,
+        conditional_tinymdm_reward_mode=args.reward_mode,
     )
     scorer = wrapped.conditional_tinymdm_reward
     if scorer is None:
@@ -168,6 +170,7 @@ def main() -> None:
         "protocol": "sugar_online_conditional_tinymdm_zero_optimizer_smoke_v1",
         "passed": all(checks.values()),
         "class_id": args.class_id,
+        "reward_mode": args.reward_mode,
         "num_envs": args.num_envs,
         "carry_prefix_steps": args.carry_prefix_steps,
         "feature_max_abs_error": feature_max_abs_error,

@@ -364,6 +364,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 "conditional_tinymdm_reward_seed": int(
                     os.environ.get("SUGAR_CONDITIONAL_TINYMDM_REWARD_SEED", "190001")
                 ),
+                "conditional_tinymdm_reward_mode": os.environ.get(
+                    "SUGAR_CONDITIONAL_TINYMDM_REWARD_MODE", "occupancy"
+                ),
                 "conditional_tinymdm_task_reward_weight": float(
                     os.environ.get("SUGAR_CONDITIONAL_TINYMDM_TASK_WEIGHT", "0.5")
                 ),
@@ -400,7 +403,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # create runner from rsl-rl
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
     # write git state to logs
-    runner.add_git_repo_to_log(__file__)
+    if os.environ.get("SUGAR_DISABLE_RSL_RL_GIT_SNAPSHOT", "0") != "1":
+        runner.add_git_repo_to_log(__file__)
     if args_cli.actor_critic_warm_start_checkpoint_path is not None:
         warm_start_path = os.path.abspath(
             args_cli.actor_critic_warm_start_checkpoint_path

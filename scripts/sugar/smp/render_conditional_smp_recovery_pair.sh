@@ -11,6 +11,7 @@ PYTHON_BIN="${PYTHON_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bi
 FFMPEG_BIN="${FFMPEG_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/lib/python3.11/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux-x86_64-v7.0.2}"
 EXPERIMENT_ROOT="$(realpath -m "$EXPERIMENT_ROOT")"
 VIDEO_ROOT="$EXPERIMENT_ROOT/videos_single_seed${EVAL_SEED}"
+REWARD_MODE="$(jq -r '.experiment.reward_mode // "occupancy"' "$EXPERIMENT_ROOT/PAIR_RESULT.json")"
 
 case "$(hostname)" in
     mgmtserver*|login*) echo "Run inside a retained GPU compute step." >&2; exit 2 ;;
@@ -22,9 +23,9 @@ fi
 mkdir -p "$VIDEO_ROOT"
 
 for arm in correct_kick wrong_carry; do
-    label="Correct reward: Kick condition"
+    label="Correct ${REWARD_MODE} reward: Kick condition"
     if [[ "$arm" == wrong_carry ]]; then
-        label="Wrong reward: Carry condition"
+        label="Wrong ${REWARD_MODE} reward: Carry condition"
     fi
     "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/render_cross_skill_recovery_world.py" \
         --checkpoint "$EXPERIMENT_ROOT/$arm/train/model_64.pt" \

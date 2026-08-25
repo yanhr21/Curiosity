@@ -47,13 +47,17 @@ class OnlineConditionalTinyMDMReward:
         calibration_path: str | Path,
         class_id: int,
         reward_seed: int,
+        reward_mode: str = "occupancy",
     ) -> None:
         if class_id not in (0, 1):
             raise ValueError("conditional TinyMDM class must be Carry=0 or Kick=1")
+        if reward_mode not in ("occupancy", "progress"):
+            raise ValueError("conditional TinyMDM reward mode must be occupancy or progress")
         self.base_env = base_env
         self.device = torch.device(base_env.device)
         self.num_envs = int(base_env.num_envs)
         self.class_id = int(class_id)
+        self.reward_mode = reward_mode
         config_path = Path(config_path).expanduser().resolve()
         checkpoint_path = Path(checkpoint_path).expanduser().resolve()
         calibration_path = Path(calibration_path).expanduser().resolve()
@@ -90,6 +94,7 @@ class OnlineConditionalTinyMDMReward:
         default_scale = float(calibration["official_sds_loss_scale"])
         default_median_reward = float(calibration["calibration_reward"]["median"])
         normalized_median = -math.log(default_median_reward) / default_scale
+        self.calibration_normalized_median = normalized_median
         self.loss_scale = math.log(2.0) / normalized_median
         self.class_labels = torch.full(
             (self.num_envs,), self.class_id, dtype=torch.long, device=self.device
@@ -120,6 +125,7 @@ class OnlineConditionalTinyMDMReward:
         self.reward_sum = 0.0
         self.reward_min = float("inf")
         self.reward_max = float("-inf")
+        self.previous_features: torch.Tensor | None = None
         self.reset_history()
 
     def _current_state(self) -> dict[str, torch.Tensor]:
@@ -143,6 +149,7 @@ class OnlineConditionalTinyMDMReward:
             for name, value in current.items()
         }
         self.observation_count = 0
+        self.previous_features = None
 
     @torch.no_grad()
     def observe_current_state(self) -> None:
@@ -222,28 +229,72 @@ class OnlineConditionalTinyMDMReward:
         return features
 
     @torch.no_grad()
-    def reward(self) -> tuple[torch.Tensor, torch.Tensor]:
+    def prepare_reward(self) -> None:
+        """Bind the causal handoff window used by progress reward."""
+
         if self.observation_count < WINDOW_SIZE:
-            raise RuntimeError("conditional SMP reward requested before causal history warmup")
-        features = self._features()
+            raise RuntimeError("conditional SMP reward prepared before causal history warmup")
+        self.previous_features = self._features().clone()
+
+    @torch.no_grad()
+    def _losses_from_rng(
+        self,
+        features: torch.Tensor,
+        cpu_state: torch.Tensor,
+        cuda_state: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         normalized = self.model.normalize(features).reshape(self.num_envs, -1)
         global_cpu_state = torch.get_rng_state()
         global_cuda_state = torch.cuda.get_rng_state(self.device)
         try:
-            torch.set_rng_state(self._cpu_rng_state)
-            torch.cuda.set_rng_state(self._cuda_rng_state, self.device)
+            torch.set_rng_state(cpu_state)
+            torch.cuda.set_rng_state(cuda_state, self.device)
             losses = self.model.ESM_SDS_loss(
                 normalized,
                 t_lst=list(self.diffusion_steps),
                 class_labels=self.class_labels,
             )
-            self._cpu_rng_state = torch.get_rng_state().clone()
-            self._cuda_rng_state = torch.cuda.get_rng_state(self.device).clone()
+            next_cpu_state = torch.get_rng_state().clone()
+            next_cuda_state = torch.cuda.get_rng_state(self.device).clone()
         finally:
             torch.set_rng_state(global_cpu_state)
             torch.cuda.set_rng_state(global_cuda_state, self.device)
-        normalized_loss = torch.mean(losses / self.diff_mean_abs[None], dim=-1)
-        reward = torch.exp(-normalized_loss * self.loss_scale)
+        return losses, next_cpu_state, next_cuda_state
+
+    def _normalized_loss(self, losses: torch.Tensor) -> torch.Tensor:
+        return torch.mean(losses / self.diff_mean_abs[None], dim=-1)
+
+    @torch.no_grad()
+    def reward(self) -> tuple[torch.Tensor, torch.Tensor]:
+        if self.observation_count < WINDOW_SIZE:
+            raise RuntimeError("conditional SMP reward requested before causal history warmup")
+        features = self._features()
+        if self.reward_mode == "occupancy":
+            losses, next_cpu, next_cuda = self._losses_from_rng(
+                features, self._cpu_rng_state, self._cuda_rng_state
+            )
+            normalized_loss = self._normalized_loss(losses)
+            reward = torch.exp(-normalized_loss * self.loss_scale)
+        else:
+            if self.previous_features is None:
+                raise RuntimeError("conditional SMP progress reward was not prepared")
+            previous_losses, _, _ = self._losses_from_rng(
+                self.previous_features, self._cpu_rng_state, self._cuda_rng_state
+            )
+            losses, next_cpu, next_cuda = self._losses_from_rng(
+                features, self._cpu_rng_state, self._cuda_rng_state
+            )
+            previous_normalized = self._normalized_loss(previous_losses)
+            current_normalized = self._normalized_loss(losses)
+            reward = torch.clamp(
+                (previous_normalized - current_normalized)
+                / self.calibration_normalized_median,
+                -1.0,
+                1.0,
+            )
+            self.previous_features = features.clone()
+        self._cpu_rng_state = next_cpu
+        self._cuda_rng_state = next_cuda
         if not torch.isfinite(reward).all():
             raise RuntimeError("online conditional SMP reward became non-finite")
         self.reward_calls += 1
@@ -256,9 +307,12 @@ class OnlineConditionalTinyMDMReward:
         return {
             "protocol": "sugar_online_conditional_tinymdm_reward_v1",
             "class_id": self.class_id,
+            "reward_mode": self.reward_mode,
             "feature_geometry": [WINDOW_SIZE, FEATURE_DIM],
             "diffusion_steps": list(self.diffusion_steps),
             "loss_scale": self.loss_scale,
+            "progress_normalizer_training_median": self.calibration_normalized_median,
+            "progress_uses_matched_diffusion_noise": self.reward_mode == "progress",
             "reward_calls": self.reward_calls,
             "reward_mean": (
                 self.reward_sum / self.reward_calls if self.reward_calls else None

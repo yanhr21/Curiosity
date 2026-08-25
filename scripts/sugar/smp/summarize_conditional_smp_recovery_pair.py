@@ -49,6 +49,12 @@ def main() -> None:
     wrong = load_evaluation(args.wrong)
     correct_audit = load_audit(args.correct_audit, 1)
     wrong_audit = load_audit(args.wrong_audit, 0)
+    correct_reward_audit = correct_audit["conditional_tinymdm_reward"]
+    wrong_reward_audit = wrong_audit["conditional_tinymdm_reward"]
+    correct_reward_mode = correct_reward_audit.get("reward_mode", "occupancy")
+    wrong_reward_mode = wrong_reward_audit.get("reward_mode", "occupancy")
+    if correct_reward_mode != wrong_reward_mode:
+        raise RuntimeError("matched training drift: conditional TinyMDM reward mode")
     for key in ("seed", "num_envs", "steps", "prefix"):
         if correct[key] != wrong[key]:
             raise RuntimeError(f"matched evaluation drift: {key}")
@@ -89,13 +95,14 @@ def main() -> None:
             "same_training_seed": 171632,
             "same_update_budget": 64,
             "same_task_and_smp_weights": [0.5, 0.5],
+            "reward_mode": correct_reward_mode,
         },
         "correct": correct_aggregate,
         "wrong": wrong_aggregate,
         "correct_minus_wrong": delta,
         "online_reward_audit": {
-            "correct": correct_audit["conditional_tinymdm_reward"],
-            "wrong": wrong_audit["conditional_tinymdm_reward"],
+            "correct": correct_reward_audit,
+            "wrong": wrong_reward_audit,
         },
         "checks": {
             "matched_frozen_evaluation": True,

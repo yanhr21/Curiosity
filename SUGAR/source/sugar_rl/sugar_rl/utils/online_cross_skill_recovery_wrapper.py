@@ -181,6 +181,7 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         conditional_tinymdm_calibration: str | Path | None = None,
         conditional_tinymdm_class_id: int | None = None,
         conditional_tinymdm_reward_seed: int = 190001,
+        conditional_tinymdm_reward_mode: str = "occupancy",
         conditional_tinymdm_task_reward_weight: float = 0.5,
         conditional_tinymdm_smp_reward_weight: float = 0.5,
     ) -> None:
@@ -252,6 +253,7 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
                 calibration_path=conditional_tinymdm_calibration,
                 class_id=int(conditional_tinymdm_class_id),
                 reward_seed=int(conditional_tinymdm_reward_seed),
+                reward_mode=conditional_tinymdm_reward_mode,
             )
         self.prefix_count = 0
         self.max_alignment_action_abs = 0.0
@@ -323,6 +325,8 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             float(torch.amax(torch.abs(handoff_policy)).item()),
         )
         self.prefix_count += 1
+        if self.conditional_tinymdm_reward is not None:
+            self.conditional_tinymdm_reward.prepare_reward()
         self._write_audit()
         return observations
 
