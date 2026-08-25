@@ -1153,6 +1153,41 @@ position/velocity、object root 和 510-D observation 逐元素相同。baseline
 steps，而是冻结 official Kick 后扫描预登记 Carry prefix lengths，选择一个状态/action 仍有限
 但 Kick success 已下降的前沿条件，再做同样的 matched recovery。
 
+#### 3.13.6 Frozen prefix frontier and prefix-41 recovery
+
+在 retained GPU compute step 内复现无训练 frontier：
+
+```bash
+bash scripts/sugar/demo_following/run_cross_skill_prefix_frontier.sh \
+  /public/home/yanhongru/Curiosity/experiments/demo_following/reproduce_prefix_frontier
+```
+
+它对 frozen released Kick 依次运行 `9/17/25/33/41/49/57/65/73/81/89/97` 个 Carry steps，
+每点 20 profiles x 250 frames。严格的 finite-upright `<10/20` safe-success frontier 不存在。
+自动报告的 secondary recovery boundary 是 prefix41：它在 minimum root height 至少 `0.65 m`
+的有限 handoff 中 fall 最多，结果为 `14/20` safe Kick、`6/20` fall、minimum root
+`0.6680 m`。`FRONTIER_RESULT.json` 分开保存 strict 与 secondary decision，不把后者冒充前者。
+
+两组 prefix41 matched runs 使用相同 `171631 -> 181631` seeds 和 64 environments：
+
+```bash
+SAFETY_PENALTY_OVERRIDE=0 CARRY_PREFIX_STEPS=41 NUM_ENVS_OVERRIDE=64 \
+TRAIN_SEED_OVERRIDE=171631 EVAL_SEED_OVERRIDE=181631 \
+bash scripts/sugar/demo_following/run_cross_skill_recovery_pipeline.sh \
+  /public/home/yanhongru/Curiosity/experiments/demo_following/reproduce_prefix41_unconstrained
+
+CARRY_PREFIX_STEPS=41 NUM_ENVS_OVERRIDE=64 \
+TRAIN_SEED_OVERRIDE=171631 EVAL_SEED_OVERRIDE=181631 \
+bash scripts/sugar/demo_following/run_cross_skill_recovery_pipeline.sh \
+  /public/home/yanhongru/Curiosity/experiments/demo_following/reproduce_prefix41_safe
+```
+
+训练使用 synchronized physical-invalid termination、reward clip 10 和 minimum action std
+`0.005`；frozen evaluation/rendering 关闭训练期 termination 并执行完整 250 帧。unconstrained
+update64 的 safe success/falls 为 `17/20,2 -> 17/20,3`；penalty arm 为
+`17/20,2 -> 17/20,2`。两者都为负结果，因为 reward、contact 或 displacement 改善不能替代
+physical recovery。
+
 ## 4. Earlier trajectory-only predictor
 
 这是 contact/event redesign 之前保留的 11.9M trajectory-only 模型。输入为过去 10 帧

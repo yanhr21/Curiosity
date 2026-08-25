@@ -277,7 +277,7 @@ def test_corrected_rerun_is_serial_and_fresh():
     collector = source("scripts/sugar/native_tactile/preflight_online_patch_mass_jump.py")
     assert "SUGAR/data/CarryBox/data_045" in gate
     assert "for branch in Z P PS" in gate
-    assert "formal training is not auto-started" in gate
+    assert "run_plan15_corrected_formal_seed.sh" not in gate
     assert 'binary["precision"] < 0.8' in gate
     assert 'binary["recall"] < 0.8' in gate
     assert "Patch-PS-Overfit-BCPPO" in overfit

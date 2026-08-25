@@ -52,6 +52,7 @@ class CrossSkillRecoveryRunnerCfg(BCPPORunnerCfg):
         critic_warmup_steps=0,
         full_ppo_warmup_steps=1,
         teacher_mean_only=True,
+        minimum_action_std=0.005,
     )
 
     def __post_init__(self):

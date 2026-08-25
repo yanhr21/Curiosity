@@ -60,6 +60,14 @@ has been archived.
   results and decoded actual-world videos are retained. Both baseline and update64 are `20/20`
   Kick with zero falls; update64 makes a small displacement/contact/reward improvement. Failed
   startup, pure-PPO and post-update64 extension directories are under root `legacy/`;
+- `cross_skill_prefix_frontier_v1/seed181630/`: frozen no-training 12-length Carry-prefix sweep.
+  `FRONTIER_RESULT.json` records that the strict upright majority-failure frontier is absent and
+  selects prefix41 only as the maximum upright failure boundary;
+- `cross_skill_recovery_prefix41_v1/`: prefix41 recovery without a termination penalty. It raises
+  displacement but worsens falls from `2/20` to `3/20`; retained as the matched negative control;
+- `cross_skill_recovery_prefix41_safe_v1/`: the same matched run with a physical-invalid penalty.
+  It prevents the fall regression but leaves safe success and falls unchanged at `17/20` and
+  `2/20`. The synchronized baseline/update64 H.264 video is under `videos/`;
 - `teacher_floor_overfit_v1/`: seed161581 update-128 correct/unrelated endpoints, frozen traces,
   failure videos and the automatic negative behavior gate for common teacher floor `0.25`;
 - `contact_event_reward_redesign_v1/reference_corpus_audit/`: 199-motion official Carry/Kick

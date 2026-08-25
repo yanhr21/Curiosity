@@ -196,6 +196,30 @@ endpoint or resume it. The next experiment must first sweep frozen official-Kick
 predeclared Carry prefix lengths to locate a finite but unsuccessful transition frontier; train
 one matched recovery controller there rather than adding updates to the saturated Carry-9 task.
 
+The frozen Carry-prefix frontier and difficult recovery follow-up are now complete. The no-training
+seed181630 sweep evaluates prefix lengths `9/17/25/33/41/49/57/65/73/81/89/97` with 20 profiles x
+250 frames. A strict finite, upright, majority-failure point does not exist: safe-Kick counts are
+`18/20/17/19/14/11/14/16/16/17/16/16`. Prefix 41 is the maximum upright failure boundary: its
+minimum handoff root height is `0.6680 m`, every state/action is finite, and the frozen official
+Kick has `14/20` safe success with `6/20` falls. Prefix 49 has more falls but violates the fixed
+`0.65 m` upright handoff condition. Do not relabel prefix 41 as the absent strict frontier.
+
+Two seed171631 -> 181631 prefix-41 recovery runs are complete. Both retain the exact released Kick
+actor/critic warm start, 64 training environments, repository BCPPO, frozen released-Kick
+action-mean anchor, online physical prefix and 64-update endpoint. Training uses a synchronized
+physical-invalid termination, reward clipping at 10 and a positive minimum action std; these
+prevent the critic/std divergence seen in invalid 1024-env and unbounded 64-env attempts. Frozen
+evaluation disables those training-only terminations and runs the full 250 frames.
+
+The unconstrained objective increases displacement `0.1885 -> 0.3013 m` and reward
+`-1.6766 -> -1.2137`, but safe Kick remains `17/20` and falls worsen `2 -> 3`. Adding the standard
+`physical_invalid` termination penalty preserves `2/20` falls and changes displacement to
+`0.2015 m`, contact fraction `0.0726 -> 0.0966` and reward to `-1.2327`, but safe Kick still remains
+`17/20`. Neither arm provides physical recovery improvement. Do not add updates, tune this penalty
+or claim recovery from reward/displacement. The next method must change the controller: use a
+serious shared skill prior/state-aware transition objective that preserves released endpoint skills;
+do not substitute a toy latent model.
+
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
 unrelated Kick21 model, but creates no environment and executes zero PPO updates. The allocation is

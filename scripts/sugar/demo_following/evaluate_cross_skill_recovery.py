@@ -38,10 +38,13 @@ parser.add_argument("--output-dir", type=Path, required=True)
 parser.add_argument("--num-envs", type=int, default=20)
 parser.add_argument("--steps", type=int, default=250)
 parser.add_argument("--seed", type=int, default=181629)
+parser.add_argument("--carry-prefix-steps", type=int, default=9)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 if args.num_envs != 20 or args.steps != 250:
     parser.error("frozen recovery evaluation is fixed to 20 envs x 250 steps")
+if args.carry_prefix_steps <= 0:
+    parser.error("carry prefix must be positive")
 args.task = "Sugar-G129dof-KickBox-Carry9-Recovery"
 args.enable_cameras = False
 
@@ -85,6 +88,8 @@ def _summaries(arrays: dict[str, np.ndarray]) -> list[dict[str, object]]:
         planar_net = float(np.linalg.norm(obj[-1, :2] - obj[0, :2]))
         planar_path = float(np.linalg.norm(np.diff(obj[:, :2], axis=0), axis=-1).sum())
         any_foot = np.any(foot, axis=-1)
+        kick_success = bool(np.any(any_foot) and planar_net >= 0.05)
+        physical_fall = bool(root_loss >= FALL_HEIGHT_LOSS_M)
         rows.append(
             {
                 "profile": profile,
@@ -93,8 +98,9 @@ def _summaries(arrays: dict[str, np.ndarray]) -> list[dict[str, object]]:
                 "planar_object_path_m": planar_path,
                 "any_foot_box_contact_fraction": float(np.mean(any_foot)),
                 "maximum_robot_root_height_loss_m": root_loss,
-                "physical_robot_fall": bool(root_loss >= FALL_HEIGHT_LOSS_M),
-                "kick_success": bool(np.any(any_foot) and planar_net >= 0.05),
+                "physical_robot_fall": physical_fall,
+                "kick_success": kick_success,
+                "safe_kick_success": bool(kick_success and not physical_fall),
             }
         )
     return rows
@@ -113,6 +119,9 @@ def _aggregate(rows: list[dict[str, object]]) -> dict[str, object]:
         for name in numeric
     }
     result["kick_success_count"] = int(sum(bool(row["kick_success"]) for row in rows))
+    result["safe_kick_success_count"] = int(
+        sum(bool(row["safe_kick_success"]) for row in rows)
+    )
     result["physical_fall_count"] = int(
         sum(bool(row["physical_robot_fall"]) for row in rows)
     )
@@ -136,7 +145,15 @@ def main() -> None:
     cfg.scene.num_envs = args.num_envs
     cfg.seed = args.seed
     cfg.sim.device = args.device
+    cfg.episode_length_s = max(
+        cfg.episode_length_s,
+        (1 + args.carry_prefix_steps + args.steps + 25)
+        * cfg.sim.dt
+        * cfg.decimation,
+    )
     cfg.observations.policy.enable_corruption = False
+    cfg.terminations.physical_invalid = None
+    cfg.rewards.physical_invalid_penalty = None
     env = gym.make(args.task, cfg=cfg)
     wrapped = OnlineCrossSkillRecoveryVecEnvWrapper(
         env,
@@ -144,7 +161,7 @@ def main() -> None:
         carry_tracker_checkpoint=SUGAR / "demo_ckpts/CarryBox/tracker.pt",
         kick_tracker_checkpoint=SUGAR / "demo_ckpts/KickBox/tracker.pt",
         carry_generator_checkpoint=SUGAR / "demo_ckpts/CarryBox/generator.ckpt",
-        carry_prefix_steps=9,
+        carry_prefix_steps=args.carry_prefix_steps,
         audit_path=output / "prefix_audit.json",
     )
     actor = _load_released_tracker_actor(checkpoint, wrapped.device)
@@ -214,7 +231,7 @@ def main() -> None:
     no_reset = not bool(np.any(arrays["done"]))
     rows = _summaries(arrays)
     result = {
-        "protocol": "sugar_carry9_to_kick_recovery_frozen_eval_v1",
+        "protocol": "sugar_cross_skill_recovery_frozen_eval_v2",
         "checkpoint": str(checkpoint),
         "checkpoint_iteration": checkpoint_payload.get("iter"),
         "seed": args.seed,
@@ -222,12 +239,23 @@ def main() -> None:
         "steps": args.steps,
         "prefix": {
             "kick_alignment_steps": 1,
-            "carry_steps": 9,
+            "carry_steps": args.carry_prefix_steps,
             "ppo_or_evaluation_credit_for_prefix": 0,
             "state_teleport": False,
             "offline_replay": False,
         },
         "aggregate": _aggregate(rows),
+        "handoff": {
+            "minimum_robot_root_height_m": float(
+                np.min(initial["robot_root_state_w"][:, 2])
+            ),
+            "maximum_abs_policy_observation": float(
+                np.max(np.abs(initial["policy_observation"]))
+            ),
+            "all_initial_values_finite": bool(
+                all(np.isfinite(value).all() for value in initial.values())
+            ),
+        },
         "profiles": rows,
         "checks": {
             "all_trace_values_finite": bool(all_finite),

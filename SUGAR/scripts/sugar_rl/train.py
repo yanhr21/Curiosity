@@ -340,6 +340,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 os.environ.get("SUGAR_CROSS_SKILL_CARRY_PREFIX_STEPS", "9")
             ),
             audit_path=os.environ.get("SUGAR_CROSS_SKILL_PREFIX_AUDIT"),
+            reward_clip=(
+                float(os.environ["SUGAR_CROSS_SKILL_RECOVERY_REWARD_CLIP"])
+                if "SUGAR_CROSS_SKILL_RECOVERY_REWARD_CLIP" in os.environ
+                else None
+            ),
         )
     elif os.environ.get("SUGAR_RGB_TELEMETRY_OUTPUT"):
         from sugar_rl.utils.rgb_training_telemetry import (

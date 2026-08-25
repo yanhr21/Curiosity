@@ -44,6 +44,11 @@ def test_recovery_config_has_timeout_and_released_tracker_teacher_contract() -> 
     assert "self.enable_corruption = False" in source
     assert source.count("self.enable_corruption = False") >= 2
     assert "time_out = DoneTerm(func=mdp.time_out, time_out=True)" in source
+    assert "physical_invalid = DoneTerm(" in source
+    assert "synchronized_physical_invalid" in source
+    assert "physical_invalid_penalty = RewTerm(" in source
+    assert "weight=-10.0" in source
+    assert "SUGAR_CROSS_SKILL_RECOVERY_SAFETY_PENALTY" in source
     assert "self.episode_length_s = 6.0" in source
 
 
@@ -69,6 +74,7 @@ def test_runner_does_not_randomize_synchronized_episode_clocks() -> None:
     assert "teacher_mean_only=True" in source
     assert "stage3_distill_weight_floor=0.25" in source
     assert "desired_kl=None" in source
+    assert "minimum_action_std=0.005" in source
 
 
 def test_synchronized_timeout_reinstalls_prefix_from_public_reset() -> None:
@@ -89,7 +95,41 @@ def test_reproduction_pipeline_is_continuous_and_has_no_manual_gate() -> None:
     assert "--teacher_ckpt" in source
     assert "model_pre_update.pt" in source
     assert "model_64.pt" in source
+    assert 'OUTPUT_ROOT="$(realpath -m "$OUTPUT_ROOT")"' in source
+    assert 'test -s "$OUTPUT_ROOT/train/model_64.pt"' in source
+    assert 'NUM_ENVS="${NUM_ENVS_OVERRIDE:-1024}"' in source
+    assert "SUGAR_CROSS_SKILL_RECOVERY_REWARD_CLIP=10.0" in source
     assert "evaluate_cross_skill_recovery.py" in source
     assert "render_cross_skill_recovery_world.py" in source
     assert "read -" not in source
     assert "approval" not in source.lower()
+
+
+def test_prefix_frontier_is_predeclared_and_uses_frozen_policy() -> None:
+    source = _read(
+        ROOT / "scripts/sugar/demo_following/run_cross_skill_prefix_frontier.sh"
+    )
+    assert "PREFIX_STEPS=(9 17 25 33 41 49 57 65 73 81 89 97)" in source
+    assert "model_pre_update.pt" in source
+    assert "--carry-prefix-steps" in source
+    assert "train.py" not in source
+    assert 'OUTPUT_ROOT="$(realpath -m "$OUTPUT_ROOT")"' in source
+    assert 'test -s "$result_dir/RESULT.json"' in source
+    summary = _read(
+        ROOT
+        / "scripts/sugar/demo_following/summarize_cross_skill_prefix_frontier.py"
+    )
+    assert "ADMITTED_SAFE_KICK_SUCCESSES = 10" in summary
+    assert "MINIMUM_UPRIGHT_ROOT_HEIGHT_M = 0.65" in summary
+    assert '"frontier_found": selected is not None' in summary
+    assert '"selected_recovery_boundary": recovery_boundary' in summary
+    assert "largest physical-fall count" in summary
+
+
+def test_recovery_claim_requires_a_physical_outcome_improvement() -> None:
+    source = _read(
+        ROOT / "scripts/sugar/demo_following/summarize_cross_skill_recovery_pair.py"
+    )
+    assert '"physical_recovery_improves"' in source
+    assert 'delta["physical_fall_count"] < 0' in source
+    assert 'delta.get("safe_kick_success_count"' in source

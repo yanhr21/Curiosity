@@ -174,6 +174,7 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         carry_prefix_steps: int = 9,
         audit_path: str | Path | None = None,
         prefix_frame_callback: Callable[[str, int], None] | None = None,
+        reward_clip: float | None = None,
     ) -> None:
         if carry_prefix_steps <= 0:
             raise ValueError("carry_prefix_steps must be positive")
@@ -197,6 +198,9 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             Path(audit_path).expanduser().resolve() if audit_path is not None else None
         )
         self.prefix_frame_callback = prefix_frame_callback
+        self.reward_clip = float(reward_clip) if reward_clip is not None else None
+        if self.reward_clip is not None and self.reward_clip <= 0.0:
+            raise ValueError("reward clip must be positive")
         self.prefix_count = 0
         self.max_alignment_action_abs = 0.0
         self.max_carry_action_abs = 0.0
@@ -269,7 +273,7 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             return
         self.audit_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
-            "protocol": "sugar_online_carry9_to_kick_recovery_prefix_v1",
+            "protocol": "sugar_online_cross_skill_recovery_prefix_v2",
             "num_envs": int(self.num_envs),
             "prefix_count": int(self.prefix_count),
             "kick_alignment_steps": 1,
@@ -289,6 +293,8 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
     @torch.inference_mode()
     def step(self, actions: torch.Tensor):
         observations, rewards, dones, extras = super().step(actions)
+        if self.reward_clip is not None:
+            rewards = torch.clamp(rewards, -self.reward_clip, self.reward_clip)
         if torch.any(dones):
             if not torch.all(dones):
                 raise RuntimeError(

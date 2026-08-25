@@ -79,6 +79,19 @@ critic；该延长无效，不作为结果，也不从坏 checkpoint 续训。�
 无训练扫描 Carry 前缀长度，找到“状态仍有限但 Kick 已不再成功”的难度前沿，再在一个固定
 前沿条件上训练匹配 recovery，而不是继续给已经 20/20 的 Carry-9 条件加训练步数。
 
+该困难前沿实验现已完成。冻结 official Kick 在 Carry prefix
+`9/17/25/33/41/49/57/65/73/81/89/97` 上的 safe-success 为
+`18/20/17/19/14/11/14/16/16/17/16/16`；不存在“handoff 仍直立且少于 10/20 成功”的严格点。
+prefix41 是最大直立失败边界：最低 root height `0.6680 m`，所有 state/action 有限，
+`14/20` safe Kick、`6/20` fall。prefix49 虽然更差，但最低 root 已低于预设 `0.65 m`。
+
+在 prefix41 上完成了两组 `171631 -> 181631`、update64 matched recovery。无安全 penalty 的
+训练把位移 `0.1885 -> 0.3013 m`、reward `-1.6766 -> -1.2137`，但 safe Kick 仍为 `17/20`，
+fall 从 `2/20` 恶化到 `3/20`。加入 standard physical-invalid termination penalty 后，fall
+保持 `2/20`，contact fraction `0.0726 -> 0.0966`、位移到 `0.2015 m`，但 safe Kick 仍为
+`17/20`。因此两者都没有真实恢复增益；后续不再增加 update 或调 penalty/reward scale，必须
+转向 serious shared skill prior 和 state-aware transition objective。
+
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
 latent 或安全跨资产 transition policy。最终四视频位于
@@ -455,6 +468,8 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 
 当前保留视频（标为“旧 phase-0”的两条是时钟错位负结果，不是 corrected policy endpoint）：
 
+- [Prefix41 安全约束：baseline 与 update64 真实世界对照](experiments/demo_following/cross_skill_recovery_prefix41_safe_v1/videos/matched_baseline_vs_learned_recovery_actual_world.mp4)；
+- [Prefix41 无安全 penalty：位移增加但跌倒恶化](experiments/demo_following/cross_skill_recovery_prefix41_v1/videos/matched_baseline_vs_learned_recovery_actual_world.mp4)；
 - [Carry-9→Kick：零更新与 update64 真实世界对照](experiments/demo_following/cross_skill_recovery_v1/bcppo_frozen_eval_seed181629/videos/matched_baseline_vs_update64_actual_world.mp4)；
 - [official router：Carry45 reference 与 matched Carry](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/01_carry_domain_carry45_condition.mp4)；
 - [official router：Kick21 condition 在 Carry 域的 action-limit failure](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/02_carry_domain_kick21_condition.mp4)；
@@ -500,10 +515,10 @@ Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 
 ## 下一步
 
-当前直接执行项是冻结 released Kick policy，不训练地扫描预先固定的 Carry prefix lengths，
-找到 action/state 全部有限但 Kick 成功率已经下降的难度前沿。随后只在该固定条件上运行一组
-baseline/update64 matched recovery；若得到真实成功率、恢复或安全停止增益，再扩展到不同
-geometry、target pose 和独立 seed。Carry-9 已经 `20/20`，不再增加 optimizer steps。
+冻结 Carry-prefix 扫描以及 prefix41 的两组 matched recovery 已完成，并否决现有 endpoint
+BCPPO fine-tuning 路线。当前下一项是保留 released Carry/Kick endpoint 能力，学习 serious
+shared skill prior 与 state-aware transition objective。不得继续增加 optimizer steps、调同一
+penalty/reward scale，也不得用 hand-written toy latent/world model 代替官方实现。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复

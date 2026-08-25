@@ -21,6 +21,7 @@ class BCPPOCfg(RslRlPpoAlgorithmCfg):
     critic_warmup_steps = 1000
     full_ppo_warmup_steps = 2000
     teacher_mean_only = False
+    minimum_action_std = None
 @configclass
 class BCPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24

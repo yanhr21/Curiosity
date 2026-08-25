@@ -3,21 +3,26 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
+
+import torch
 
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
+from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.utils import configclass
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 import sugar_rl.tasks.locomanip.mdp as mdp
+import isaaclab.envs.mdp as isaac_mdp
 
 from .kick_box_tracker_env_cfg import (
     ActionsCfg,
     EventCfg as KickEventCfg,
-    RewardsCfg,
+    RewardsCfg as KickRewardsCfg,
     RobotEnvCfg as KickRobotEnvCfg,
     RobotSceneCfg,
 )
@@ -26,6 +31,29 @@ from .base_tracker_env_cfg import BaseObservationsCfg
 
 
 _SUGAR_ROOT = Path(__file__).resolve().parents[8]
+
+
+def synchronized_physical_invalid(
+    env,
+    asset_cfg: SceneEntityCfg,
+    minimum_root_height_m: float,
+    maximum_root_linear_speed_mps: float,
+    maximum_root_angular_speed_rps: float,
+    maximum_joint_speed_rps: float,
+) -> torch.Tensor:
+    """End the synchronized recovery batch before one outlier poisons PPO."""
+
+    asset = env.scene[asset_cfg.name]
+    root = asset.data.root_state_w
+    invalid = (
+        ~torch.isfinite(root).all(dim=-1)
+        | ~torch.isfinite(asset.data.joint_vel).all(dim=-1)
+        | (root[:, 2] < minimum_root_height_m)
+        | (torch.linalg.vector_norm(root[:, 7:10], dim=-1) > maximum_root_linear_speed_mps)
+        | (torch.linalg.vector_norm(root[:, 10:13], dim=-1) > maximum_root_angular_speed_rps)
+        | (torch.amax(torch.abs(asset.data.joint_vel), dim=-1) > maximum_joint_speed_rps)
+    )
+    return torch.ones_like(invalid) & torch.any(invalid)
 
 
 @configclass
@@ -147,6 +175,25 @@ class EventCfg(KickEventCfg):
 @configclass
 class TerminationsCfg:
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
+    physical_invalid = DoneTerm(
+        func=synchronized_physical_invalid,
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "minimum_root_height_m": 0.45,
+            "maximum_root_linear_speed_mps": 20.0,
+            "maximum_root_angular_speed_rps": 30.0,
+            "maximum_joint_speed_rps": 100.0,
+        },
+    )
+
+
+@configclass
+class RewardsCfg(KickRewardsCfg):
+    physical_invalid_penalty = RewTerm(
+        func=isaac_mdp.is_terminated_term,
+        weight=-10.0,
+        params={"term_keys": "physical_invalid"},
+    )
 
 
 @configclass
@@ -161,6 +208,8 @@ class RobotEnvCfg(KickRobotEnvCfg):
 
     def __post_init__(self):
         super().__post_init__()
+        if os.environ.get("SUGAR_CROSS_SKILL_RECOVERY_SAFETY_PENALTY", "1") == "0":
+            self.rewards.physical_invalid_penalty = None
         self.episode_length_s = 6.0
         self.is_finite_horizon = False
         self.sim.physics_material = self.scene.terrain.physics_material

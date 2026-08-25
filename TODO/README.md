@@ -150,10 +150,13 @@
   released-Kick warm start/teacher, repository BCPPO and matched frozen video; retain the small
   update-64 displacement/contact/reward gain without upgrading saturated `20/20 -> 20/20` success
   to a difficult-transition claim;
-- [ ] sweep frozen official Kick over predeclared Carry prefix lengths, select one finite but
-  unsuccessful frontier condition, and run one matched update-64 recovery experiment there;
-- [ ] after that frontier passes, test the same controller across object geometry, target pose and
-  independent seeds; no hand-written toy model.
+- [x] sweep frozen official Kick over the predeclared Carry prefix grid; record that no strict
+  upright majority-failure point exists and retain prefix41 separately as the maximum upright
+  failure boundary (`14/20` safe Kick, `6/20` falls);
+- [x] run unconstrained and physical-invalid-penalty update-64 recovery at prefix41; reject both
+  because neither increases safe success nor reduces falls;
+- [ ] replace endpoint BCPPO fine-tuning with a serious shared skill prior and state-aware
+  transition objective, then test geometry, target pose and independent seeds; no toy model.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it

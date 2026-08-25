@@ -97,6 +97,20 @@ predeclared length where all inputs/actions remain finite but Kick success is be
 criterion, then run the same baseline/update-64 matched recovery comparison. Only after that fixed
 frontier succeeds should geometry and seed generalization be added.
 
+### Prefix frontier and prefix-41 recovery: complete, physically negative
+
+The frozen seed181630 sweep covers `9/17/25/33/41/49/57/65/73/81/89/97`. No point satisfies both
+an upright handoff and fewer than 10/20 safe Kick outcomes. Prefix 41 is retained separately as the
+maximum upright failure boundary: minimum handoff root height is `0.6680 m`, all traces are finite,
+safe Kick is `14/20`, and falls are `6/20`. Prefix 49 is not admitted because its minimum handoff
+root height is `0.6476 m`.
+
+At prefix 41, the unconstrained update-64 policy increases displacement but changes falls
+`2 -> 3`; the physical-invalid-penalty arm holds falls at `2 -> 2` but leaves safe success at
+`17/20 -> 17/20`. Both are negative under the physical-outcome contract. Stop BCPPO/reward-scale
+iteration on this topology. The next implementation must preserve both released endpoint skills
+while adding a serious shared skill prior and state-aware transition objective.
+
 ### Reference-aware matched pair: complete, partial single-seed shift
 
 The from-scratch seed/action-seed `161587/161588` pair is complete. Both arms use the same

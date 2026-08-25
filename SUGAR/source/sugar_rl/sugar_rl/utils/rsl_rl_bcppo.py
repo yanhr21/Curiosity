@@ -25,6 +25,7 @@ class BCPPO(PPO):
         critic_warmup_steps=1000,
         full_ppo_warmup_steps=2000,
         teacher_mean_only=False,
+        minimum_action_std=None,
         **kwargs,
     ):
         super().__init__(policy, **kwargs)
@@ -38,6 +39,11 @@ class BCPPO(PPO):
         self.behavior_anchor_start_step = int(behavior_anchor_start_step)
         self.stage3_tactile_only_actor = bool(stage3_tactile_only_actor)
         self.teacher_mean_only = bool(teacher_mean_only)
+        self.minimum_action_std = (
+            float(minimum_action_std) if minimum_action_std is not None else None
+        )
+        if self.minimum_action_std is not None and self.minimum_action_std <= 0.0:
+            raise ValueError("minimum_action_std must be positive")
         self._actor_optimization_parameters = tuple(
             parameter
             for name, parameter in self.policy.named_parameters()
@@ -654,6 +660,9 @@ class BCPPO(PPO):
             # -- For PPO
             nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
             self.optimizer.step()
+            if self.minimum_action_std is not None:
+                with torch.no_grad():
+                    self.policy.std.clamp_(min=self.minimum_action_std)
             # -- For RND
             if self.rnd_optimizer:
                 self.rnd_optimizer.step()

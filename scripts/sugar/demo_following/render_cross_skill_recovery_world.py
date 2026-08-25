@@ -36,8 +36,11 @@ parser.add_argument("--output", type=Path, required=True)
 parser.add_argument("--label", required=True)
 parser.add_argument("--steps", type=int, default=250)
 parser.add_argument("--seed", type=int, default=181629)
+parser.add_argument("--carry-prefix-steps", type=int, default=9)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
+if args.carry_prefix_steps <= 0:
+    parser.error("carry prefix must be positive")
 args.enable_cameras = True
 
 app_launcher = AppLauncher(args)
@@ -171,7 +174,15 @@ def main() -> None:
     cfg.scene.num_envs = 1
     cfg.seed = args.seed
     cfg.sim.device = args.device
+    cfg.episode_length_s = max(
+        cfg.episode_length_s,
+        (1 + args.carry_prefix_steps + args.steps + 25)
+        * cfg.sim.dt
+        * cfg.decimation,
+    )
     cfg.observations.policy.enable_corruption = False
+    cfg.terminations.physical_invalid = None
+    cfg.rewards.physical_invalid_penalty = None
     cfg.scene.world_camera = _camera_cfg()
     cfg.sim.render_interval = cfg.decimation
     env = gym.make(
@@ -206,7 +217,7 @@ def main() -> None:
         carry_tracker_checkpoint=SUGAR / "demo_ckpts/CarryBox/tracker.pt",
         kick_tracker_checkpoint=SUGAR / "demo_ckpts/KickBox/tracker.pt",
         carry_generator_checkpoint=SUGAR / "demo_ckpts/CarryBox/generator.ckpt",
-        carry_prefix_steps=9,
+        carry_prefix_steps=args.carry_prefix_steps,
         audit_path=output.with_suffix(".prefix_audit.json"),
         prefix_frame_callback=append_prefix,
     )
