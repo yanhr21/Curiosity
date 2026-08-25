@@ -192,8 +192,13 @@
   reduces falls without losing safe Kick.
 - [x] add the causal current-rollout recovery objective and rerun the fixed overfit. Update64/128
   improve `14 safe/6 fall -> 14/5`; update192/256 regress, so select earliest passing update64.
-- [ ] run the formal balanced 32/32 shared-condition update64 experiment with disjoint one-to-one
-  evaluation seeds; compare learned Kick against exact pre-update Kick and retain Carry behavior.
+- [x] run two formal balanced 32/32 shared-condition update64 experiments with disjoint one-to-one
+  evaluation seeds. Learned and exact pre-update Kick both total `35/40` safe and `4/40` falls;
+  safety improvement is false for both seeds, while same-checkpoint Kick/Carry condition use remains
+  replicated at `35/3` safe kicks.
+- [ ] replace the single-prefix/single-seed training-context distribution with a predeclared set of
+  multiple failure-rich physical handoffs, keeping the exact frozen experts, shared actor and causal
+  reward unchanged; test learned Kick against exact pre-update Kick on unseen seeds.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -226,8 +231,9 @@ checkpoint removes that confound and replicates condition-dependent endpoint exe
 seeds. The matched exact pre-update comparison rejects a learned safety benefit: `36/35` safe Kick
 but `2/0` falls. The fixed failure-rich overfit also fails its learnability rule through update256.
 The causal physical recovery objective passes fixed-context learnability only at update64/128.
-The active next task is the update64 balanced shared-condition formal matched test, not another
-update extension or scalar-prior sweep.
+Its two-seed balanced formal test is now negative: learned/pre-update both give `35/40` safe Kick
+and `4/40` falls. The active next task is multi-context failure-rich online training, not another
+update extension, reward-scale sweep or extra formal seed.
 
 ## Frozen tactile work
 

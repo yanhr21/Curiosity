@@ -484,10 +484,26 @@ labels only and cannot enter actor observations.
 That objective-only diagnostic now passes at the early endpoints. Pre/update64/update128 safe/fall
 counts are `14/6`, `14/5`, `14/5`; mean root-height loss drops from `0.19686 m` to
 `0.16666/0.16774 m`. Update192/256 regress to `13/6` and `14/6`. The selected endpoint is therefore
-the earliest passing update64, not the best post-hoc metric. The next formal experiment restores
+the earliest passing update64, not the best post-hoc metric. The subsequent formal experiment restores
 balanced 32/32 Carry/Kick conditioning, trains exactly 64 updates and uses disjoint one-to-one
 evaluation seeds. A positive formal result still requires learned Kick to beat exact pre-update
 Kick in safe/fall outcome without degrading the Carry endpoint.
+
+That formal experiment is complete for two independent pairs, `171640 -> 181648` and
+`171641 -> 181650`. Both endpoint audits pass, and each frozen comparison restores elementwise-
+identical initial physics. Learned and exact pre-update Kick each total `35/40` safe successes and
+`4/40` falls; per-seed safety improvement is false twice. The learned policy averages
+`+0.01782 m` net displacement and `+0.00460` foot-contact fraction over pre-update, but also
+`+0.00241 m` root-height loss. These are activity changes, not a recovery improvement. The shared
+checkpoint still separates selected Kick from selected Carry (`35/3` safe kicks), confirming
+condition use without validating the new reward's cross-seed benefit.
+
+This closes update/scale/extra-seed extension of the single-prefix objective. The next matched
+diagnostic keeps the exact released experts, 548-D shared actor input and causal current-rollout
+reward, but changes the training distribution: one controller must see multiple predeclared
+failure-rich physical handoff contexts rather than overfitting prefix41 under one seed. Its frozen
+test remains an unseen-seed learned-Kick versus exact-pre-update-Kick comparison; continuous reward,
+action difference and condition separation cannot substitute for safe/fall improvement.
 
 ### Expected behavior, not just reward score
 

@@ -324,8 +324,19 @@ seed181630 baseline, update64/update128 both give `14/20` safe kicks and `5/20` 
 pre-update `14/20` and `6/20`; mean root-height loss improves from `0.19686 m` to
 `0.16666/0.16774 m`. Update192/256 regress to `13/6` and `14/6`, so update64 is the predeclared
 earliest passing endpoint and training must not extend past it. This is fixed-context learnability,
-not generalization. The active formal test uses balanced 32/32 shared conditions, 64 updates and
+not generalization. The subsequent formal test uses balanced 32/32 shared conditions, 64 updates and
 disjoint one-to-one evaluation seeds, comparing learned Kick with exact pre-update Kick.
+
+The balanced formal test is now complete for `171640 -> 181648` and `171641 -> 181650`. Each run
+uses one 32/32 shared checkpoint and stops at update64. Across 40 profiles, learned and exact
+pre-update Kick are both `35/40` safe kicks with `4/40` falls; neither seed passes safety
+improvement. Mean learned-minus-pre-update displacement/contact are `+0.01782 m/+0.00460`, while
+root-height loss worsens by `+0.00241 m`. The same-checkpoint Kick/Carry split remains strong at
+`35/3` safe kicks, so condition use is retained but recovery benefit is rejected. Do not add
+updates, reward-weight sweeps or more formal seeds to this objective. The next serious diagnostic
+must change the online training-context distribution to cover multiple failure-rich physical
+handoffs while preserving the exact frozen experts, shared actor contract and causal reward
+semantics, then evaluate on unseen seeds.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

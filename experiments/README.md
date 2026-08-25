@@ -140,6 +140,13 @@ has been archived.
   Pre/update64/128/192/256 safe/fall counts are `14/6`, `14/5`, `14/5`, `13/6`, `14/6`.
   `RESULT.json` selects the earliest passing update64 and records
   `causal_recovery_objective_is_learnable`; this is not generalization evidence;
+- `shared_transition_recovery_objective_prefix41_seed171640_v1/` and seed171641 sibling: balanced
+  32/32 formal shared-condition runs at update64 with disjoint evaluation seeds 181648/181650.
+  Each keeps learned-Kick, Carry-condition and exact-pre-update-Kick frozen results plus decoded
+  world videos. Learned/pre-update are tied at `18/18 safe, 2/2 fall` and `17/17, 2/2`;
+- `shared_transition_recovery_objective_two_seed_v1/`: formal aggregate. Learned and exact
+  pre-update Kick both total `35/40` safe and `4/40` falls, so causal recovery benefit does not
+  generalize despite replicated selected Kick/Carry condition separation (`35/3` safe kicks);
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
 The old 1216-update policy experiment, rejected 510-D/free-window event predictor, redundant CPU

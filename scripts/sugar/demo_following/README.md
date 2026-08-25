@@ -5,6 +5,17 @@ the selected reward demo: CarryBox45 (`correct`) or KickBox21 (`unrelated`). The
 `phase_event_reward_only` design uses the frozen phase-aware contact/event scorer and stops at
 updates 32 and 64. Active experiments execute without artificial human-authorization gates.
 
+## Current transition-recovery verdict
+
+The causal recovery objective has completed its balanced formal test on training seeds
+`171640/171641` with disjoint evaluation seeds `181648/181650`. Both 64-update endpoint audits pass.
+Across 40 profiles, learned and exact pre-update Kick are tied at `35` safe kicks and `4` falls;
+the safety-improvement check is false for both seeds. Same-checkpoint selected Kick/Carry remains
+separated at `35/3` safe kicks. This is replicated condition use, not recovery benefit. Do not
+extend this single-prefix objective by updates, reward scale or extra seeds; the next runner must
+diversify predeclared failure-rich online handoff contexts while preserving the released experts
+and matched exact-pre-update comparison.
+
 ## Current executable baseline: causal official-Tracker router
 
 The current baseline stores the exact released CarryBox and KickBox Tracker actors in one

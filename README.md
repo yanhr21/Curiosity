@@ -168,6 +168,18 @@ future/outcome label=false、actor observation augmented=false。相同 seed1816
 `0.16666/0.16774 m`；192/256 又退化为 `13/6`、`14/6`。因此选最早通过的 update64，下一步
 做 32/32 shared condition、disjoint eval seed 的 formal matched 验证，不延长训练。
 
+该 formal matched 验证现已完成两个独立训练/评估 seed `171640 -> 181648` 与
+`171641 -> 181650`。每个训练都严格使用 32 Carry + 32 Kick condition、64 updates、一个共享
+checkpoint 和同 seed 的 exact pre-update Kick 基线。合计 40 profiles 下，learned 与
+pre-update 都是 `35/40` safe Kick、`4/40` fall；两个 seed 的 safety-improvement 判定都为
+false。learned-minus-pre-update 的平均净位移为 `+0.01782 m`、足碰箱占比为 `+0.00460`，但
+root-height loss 也恶化 `+0.00241 m`，这些连续量变化没有转化成物理成功率增益。相同
+checkpoint 的 Kick/Carry condition 仍产生 `35/3` safe Kick，说明语义选择继续成立；错误
+Carry condition 仍不作为安全基线。结论是 causal recovery reward 只通过了固定上下文
+learnability，没有跨 seed 改善安全恢复。不得继续增加 update、reward scale 或 formal seed；
+下一步必须改变在线训练上下文分布，使同一 serious controller 在多种 failure-rich handoff
+状态上学习，再用未见 seed 冻结评估。
+
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
 latent 或安全跨资产 transition policy。最终四视频位于
@@ -607,8 +619,10 @@ motion-disjoint gate；三种 scalar prior reward 都能因果改变行为，但
 但 exact matched learning comparison 为 learned/pre-update `36/35` safe Kick、`2/0` fall，
 不支持安全增益。固定 failure-rich overfit 也已失败：四个 endpoint 都不能在不损失 safe Kick
 的前提下降低跌倒。加入 causal physical recovery objective 后固定诊断在 update64/128 通过，
-但后续 endpoint 退化；当前下一项是 update64 的 balanced shared-condition formal matched
-验证，不延长训练或扫描 scalar-prior reward；不得用 hand-written toy latent/world model 替代。
+但后续 endpoint 退化；随后两颗 balanced formal seed 汇总中，learned 和 pre-update 都是
+`35` safe Kick、`4` fall，跨 seed 安全增益被否定。当前下一项是多 failure-rich handoff
+上下文的在线训练覆盖，不延长训练、不扫描 reward scale，也不得用 hand-written toy
+latent/world model 替代。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复

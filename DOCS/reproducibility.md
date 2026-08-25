@@ -1521,6 +1521,48 @@ root-height loss 开始、到 0.35 m 饱和的 upright risk。全部由当前 Ph
 learnability；正式复现使用 `run_shared_transition_recovery_objective.sh`，恢复 32/32 balanced
 conditions、64 updates 和 disjoint frozen seed。
 
+### 5.8 Two-seed formal causal-recovery result
+
+正式运行保持每颗 seed 一个 fresh output root；脚本会依次训练、审计、冻结评估 learned
+Kick/Carry/exact-pre-update Kick、生成 summary 和 H.264，然后进入 retained CUDA hold：
+
+```bash
+TRAIN_SEED_OVERRIDE=171640 EVAL_SEED_OVERRIDE=181648 VIDEO_SEED_OVERRIDE=181649 \
+  bash scripts/sugar/demo_following/run_shared_transition_recovery_objective.sh \
+  experiments/demo_following/shared_transition_recovery_objective_prefix41_seed171640_v1 cuda:0
+
+TRAIN_SEED_OVERRIDE=171641 EVAL_SEED_OVERRIDE=181650 VIDEO_SEED_OVERRIDE=181651 \
+  bash scripts/sugar/demo_following/run_shared_transition_recovery_objective.sh \
+  experiments/demo_following/shared_transition_recovery_objective_prefix41_seed171641_v1 cuda:0
+```
+
+聚合命令：
+
+```bash
+$PYTHON scripts/sugar/demo_following/aggregate_shared_transition_learning_seeds.py \
+  --result experiments/demo_following/shared_transition_recovery_objective_prefix41_seed171640_v1/LEARNING_RESULT.json \
+  --result experiments/demo_following/shared_transition_recovery_objective_prefix41_seed171641_v1/LEARNING_RESULT.json \
+  --output experiments/demo_following/shared_transition_recovery_objective_two_seed_v1/LEARNING_RESULT.json
+```
+
+两个 seed 的 learned/pre-update 分别为 `18/18 safe, 2/2 fall` 和
+`17/17 safe, 2/2 fall`。聚合后双方都是 `35/40 safe, 4/40 fall`；平均
+learned-minus-pre-update 为 displacement `+0.017818 m`、foot-contact fraction `+0.004600`、
+root-height loss `+0.002410 m`。因此固定 overfit 的 fall 改善没有转移到 disjoint seed。
+condition-swap 聚合仍为 selected Kick/Carry `35/3` safe Kick，证明 shared policy 读取条件，
+但该对比不是训练安全基线。每颗 seed 的并排视频分别为：
+
+```text
+experiments/demo_following/shared_transition_recovery_objective_prefix41_seed171640_v1/
+  videos_seed181649/same_checkpoint_kick_vs_carry_seed181649.mp4
+experiments/demo_following/shared_transition_recovery_objective_prefix41_seed171641_v1/
+  videos_seed181651/same_checkpoint_kick_vs_carry_seed181651.mp4
+```
+
+不得由 reward、位移、动作差异或 condition split 推导安全增益。该 objective 不再追加 update、
+scale 或 formal seed；下一实验必须改变 failure-rich online handoff 的训练覆盖面，并继续使用
+unseen-seed learned-Kick versus exact-pre-update-Kick 冻结判据。
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内
