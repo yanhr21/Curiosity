@@ -433,7 +433,8 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert "DUAL_COMMAND_INPUT_DIM" in actor
     assert "carry_observation[:, :GENERATED_COMMAND_DIM] = carry_command" in actor
     assert "kick_observation[:, :GENERATED_COMMAND_DIM] = kick_command" in actor
-    assert "skill[:, 1:2] - 0.5 * torch.tanh" in actor
+    assert "skill[:, 1:2] - torch.tanh" in actor
+    assert "complete Carry/Kick convex segment" in actor
     assert "nn.init.zeros_(final.weight)" in actor
     assert "def composition_terms(" in actor
     assert '"selected_endpoint_action": selected_endpoint' in actor
@@ -510,13 +511,15 @@ def test_causal_action_composer_is_exact_at_pre_update_and_gate_is_trainable() -
     def kick_weight(selected_kick: float, gate_logit: float) -> float:
         return min(
             1.0,
-            max(0.0, selected_kick - 0.5 * math.tanh(gate_logit)),
+            max(0.0, selected_kick - math.tanh(gate_logit)),
         )
 
     assert kick_weight(0.0, 0.0) == 0.0
     assert kick_weight(1.0, 0.0) == 1.0
     assert kick_weight(0.0, -0.1) > 0.0
     assert kick_weight(1.0, 0.1) < 1.0
+    assert kick_weight(0.0, -100.0) == 1.0
+    assert kick_weight(1.0, 100.0) == 0.0
 
     summary = _read(
         ROOT

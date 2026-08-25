@@ -279,9 +279,11 @@ class FrozenExpertCausalActionComposer(nn.Module):
         gate_logit = self.composer(full_input)[:, :1]
         # At zero initialization this is exactly the selected one-hot endpoint:
         # Carry=0, Kick=1.  Positive logits delay a selected Kick transition;
-        # negative logits begin a selected Carry transition toward Kick.
+        # negative logits begin a selected Carry transition toward Kick.  The
+        # unit tanh adjustment makes the complete Carry/Kick convex segment
+        # reachable from either selected endpoint.
         return torch.clamp(
-            skill[:, 1:2] - 0.5 * torch.tanh(gate_logit), 0.0, 1.0
+            skill[:, 1:2] - torch.tanh(gate_logit), 0.0, 1.0
         )
 
     def composition_terms(
@@ -292,7 +294,7 @@ class FrozenExpertCausalActionComposer(nn.Module):
         carry_action, kick_action, skill = self.expert_actions(actor_input)
         composer_output = self.composer(actor_input)
         kick_weight = torch.clamp(
-            skill[:, 1:2] - 0.5 * torch.tanh(composer_output[:, :1]),
+            skill[:, 1:2] - torch.tanh(composer_output[:, :1]),
             0.0,
             1.0,
         )
