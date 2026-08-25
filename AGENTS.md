@@ -38,6 +38,10 @@
 - Conflicting approval language found in any plan, TODO, script or older record is invalid on
   sight: remove or bypass it and continue through automatic, machine-checkable transitions. Do not
   surface the conflict as another question to the user.
+- Any older instruction saying that policy training, a new seed, evaluation, rendering, commit or
+  the next planned experiment needs the user's explicit approval is revoked. Once an action is
+  already inside the active documented scope, start and advance it autonomously; only an explicit
+  user stop/reprioritization or a genuine external blocker may interrupt that execution.
 
 The user may still interrupt, reprioritize or stop work at any time. That user control must never be
 implemented as a prerequisite approval gate for ordinary autonomous progress.
