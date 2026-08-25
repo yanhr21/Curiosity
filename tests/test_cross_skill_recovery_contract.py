@@ -133,3 +133,62 @@ def test_recovery_claim_requires_a_physical_outcome_improvement() -> None:
     assert '"physical_recovery_improves"' in source
     assert 'delta["physical_fall_count"] < 0' in source
     assert 'delta.get("safe_kick_success_count"' in source
+
+
+def test_conditional_tinymdm_reward_is_official_causal_and_online() -> None:
+    source = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_conditional_tinymdm_reward.py"
+    )
+    assert "from learning.tinymdm.tinymdm_model import TinyMDMModel" in source
+    assert "from envs.amp_env import compute_disc_obs" in source
+    assert "self.base_env.scene[\"robot\"].data" in source
+    assert "self.base_env.scene[\"obj\"].data" in source
+    assert "WINDOW_SIZE, FEATURE_DIM" in source
+    assert "ESM_SDS_loss" in source
+    assert '"future_or_outcome_labels_used": False' in source
+    for forbidden in ("physical_fall", "safe_kick", "future_frame", "trace.npz"):
+        assert forbidden not in source
+
+
+def test_train_entrypoint_requires_complete_conditional_reward_configuration() -> None:
+    source = _read(SUGAR / "scripts/sugar_rl/train.py")
+    assert 'SUGAR_CONDITIONAL_TINYMDM_REWARD") == "1"' in source
+    assert "SUGAR_CONDITIONAL_TINYMDM_CONFIG" in source
+    assert "SUGAR_CONDITIONAL_TINYMDM_CHECKPOINT" in source
+    assert "SUGAR_CONDITIONAL_TINYMDM_CALIBRATION" in source
+    assert "SUGAR_CONDITIONAL_TINYMDM_CLASS_ID" in source
+    assert "conditional TinyMDM reward is missing" in source
+
+
+def test_online_conditional_reward_preserves_task_reward_and_is_optional() -> None:
+    source = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_cross_skill_recovery_wrapper.py"
+    )
+    assert "self.conditional_tinymdm_reward = None" in source
+    assert "observe_current_state()" in source
+    assert "self.conditional_tinymdm_task_reward_weight * rewards" in source
+    assert "self.conditional_tinymdm_smp_reward_weight * conditional_reward" in source
+    assert "conditional TinyMDM reward configuration is incomplete" in source
+
+
+def test_conditional_smp_matched_pair_is_serial_and_has_no_human_gate() -> None:
+    source = _read(ROOT / "scripts/sugar/smp/run_conditional_smp_recovery_matched_pair.sh")
+    assert "correct_kick:1 wrong_carry:0" in source
+    assert "TRAIN_SEED=171632" in source
+    assert "EVAL_SEED=181632" in source
+    assert "--max_iterations 65" in source
+    assert "SUGAR_CONDITIONAL_TINYMDM_TASK_WEIGHT=0.5" in source
+    assert "SUGAR_CONDITIONAL_TINYMDM_SMP_WEIGHT=0.5" in source
+    assert "SUGAR_CROSS_SKILL_RECOVERY_SAFETY_PENALTY=1" in source
+    assert "read -" not in source
+    assert "approval" not in source.lower()
+
+
+def test_conditional_smp_render_labels_camera_rollout_as_its_own_seed() -> None:
+    source = _read(ROOT / "scripts/sugar/smp/render_conditional_smp_recovery_pair.sh")
+    assert "EVAL_SEED" in source
+    assert "Correct reward: Kick condition" in source
+    assert "Wrong reward: Carry condition" in source
+    assert "correct_kick_vs_wrong_carry_seed" in source

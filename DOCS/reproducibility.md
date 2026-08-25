@@ -1234,6 +1234,61 @@ semantic extension 失败，`policy_integration_supported=false`。该结果是�
 执行失败；保留完整 priors、dataset 和 cross-score 于
 `experiments/demo_following/selected_demo_smp_v1/`。
 
+### 5.1 Task-wide shared conditional TinyMDM and online recovery diagnostic
+
+旧 single-clip 结果不再是当前 prior。当前数据按 motion ID 做 train/validation/test 分离，使用
+official MimicKit `compute_disc_obs + 15-D box` 的 `10 x 216` 表示。先建立 task-wide 数据并
+保留独立 prior 的跨尺度失败审计，再训练一个共享 conditional checkpoint：
+
+```bash
+# retained GPU compute node
+bash scripts/sugar/smp/run_taskwide_tinymdm_pipeline.sh cuda:0 \
+  experiments/demo_following/taskwide_smp_v1
+
+$PYTHON_BIN scripts/sugar/smp/run_conditional_taskwide_tinymdm.py \
+  --dataset-root experiments/demo_following/taskwide_smp_v1/dataset \
+  --output-root experiments/demo_following/conditional_taskwide_smp_v1 \
+  --device cuda:0
+
+$PYTHON_BIN scripts/sugar/smp/calibrate_conditional_smp_reward.py \
+  --dataset-root experiments/demo_following/taskwide_smp_v1/dataset \
+  --output-root experiments/demo_following/conditional_taskwide_smp_v1 \
+  --device cuda:0
+
+$PYTHON_BIN scripts/sugar/smp/audit_conditional_smp_reward_transform.py \
+  --output-root experiments/demo_following/conditional_taskwide_smp_v1 \
+  --device cuda:0
+```
+
+共享 official `CondTinyStableMotionDiTModel` 必须为 2,836,864 参数、50,000 iterations、一个
+normalizer；`motion_disjoint_score/RESULT.json` 应为 `19/19` motions 正确，Carry/Kick
+window-level matched-condition preference 为约 `96.998%/92.678%`。训练数据校准把 matching
+class reward median 固定为 0.5；recovery outcome 不参与 scale 选择。
+
+在线接入先执行零优化器 gate，再运行 matched 两臂。correct 使用 Kick class 1，wrong 使用
+Carry class 0；task 仍是 Carry-prefix41 后恢复 Kick，teacher、seed、physics、64-update budget、
+safety penalty、`0.5 task + 0.5 prior` 全部相同：
+
+```bash
+$PYTHON_BIN scripts/sugar/smp/smoke_online_conditional_tinymdm_reward.py \
+  --output experiments/demo_following/conditional_smp_online_smoke_v1/RESULT.json \
+  --num-envs 4 --class-id 1 --carry-prefix-steps 41 \
+  --headless --device cuda:0
+
+bash scripts/sugar/smp/run_conditional_smp_recovery_matched_pair.sh \
+  experiments/demo_following/conditional_smp_recovery_prefix41_v1 cuda:0
+
+bash scripts/sugar/smp/render_conditional_smp_recovery_pair.sh \
+  experiments/demo_following/conditional_smp_recovery_prefix41_v1 181633 cuda:0
+```
+
+smoke 的 offline/online feature 最大误差为 `2.38e-7`，CPU/CUDA policy RNG 保持且没有
+future/outcome label。冻结 seed181632 的 correct/wrong 均为 `16/20` safe Kick、`3/20`
+falls；wrong 的 foot-contact fraction 和 planar displacement 为 `0.0762/0.17009 m`，高于
+correct 的 `0.0540/0.14705 m`。因此只允许结论“condition 改变行为”；absolute occupancy
+reward 没有 correct-condition 物理优势，不能称为 SMP demo following。camera-free seed181632
+统计是权威结果；camera-enabled seed181633 视频只证明自己的 rollout，不冒充逐帧 replay。
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

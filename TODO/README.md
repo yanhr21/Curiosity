@@ -155,8 +155,17 @@
   failure boundary (`14/20` safe Kick, `6/20` falls);
 - [x] run unconstrained and physical-invalid-penalty update-64 recovery at prefix41; reject both
   because neither increases safe success nor reduces falls;
-- [ ] replace endpoint BCPPO fine-tuning with a serious shared skill prior and state-aware
-  transition objective, then test geometry, target pose and independent seeds; no toy model.
+- [x] train official task-wide Carry/Kick TinyMDM priors on motion-ID-disjoint splits and reject
+  cross-checkpoint raw-energy comparison despite `19/19` motion-level classification;
+- [x] train one shared official conditional TinyMDM for 50,000 iterations and pass the `19/19`
+  held-out motion gate with one checkpoint and normalizer;
+- [x] connect that prior causally to online prefix41 SUGAR recovery, pass the zero-optimizer
+  feature/RNG smoke, and run the matched correct-Kick versus wrong-Carry update-64 pair;
+- [x] record the negative physical verdict: both arms are `16/20` safe Kick with `3/20` falls and
+  wrong Carry has more contact/displacement, so absolute prior occupancy reward is not admitted;
+- [ ] replace absolute occupancy reward with a matched-noise causal state-progress/transition
+  objective using the same official conditional prior, then test independent seeds and geometry;
+  no future labels, toy latent or weight/update sweep.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -177,9 +186,11 @@ causal transition-risk Transformer passes its disjoint offline check, but a fram
 still falls and becomes non-finite in a profile already classified risky. The earliest anchor-9
 audit retains useful ranking but fails its predeclared calibration check. The first learned
 Carry-9 -> Kick recovery controller is now complete and slightly improves displacement, contact and
-reward while preserving `20/20` Kick; because that condition is saturated, the active next task is
-the frozen no-training prefix-length frontier followed by one matched recovery run. It is not a
-reward-scale, threshold or optimizer-step sweep.
+reward while preserving `20/20` Kick; the prefix frontier and matched prefix41 recovery are now
+complete and negative. The admitted shared conditional TinyMDM passes its motion-disjoint gate,
+but its first absolute-occupancy online reward pair gives no correct-condition physical advantage.
+The active next task is therefore a matched-noise causal state-progress/transition objective using
+that same official prior, not a reward-scale, threshold or optimizer-step sweep.
 
 ## Frozen tactile work
 

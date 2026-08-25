@@ -86,6 +86,18 @@ has been archived.
 - `smp_prior/`: generic official MimicKit TinyMDM prior used identically by both arms;
 - `selected_demo_smp_v1/`: official CarryBox45/KickBox21 single-clip priors and the failed
   independent semantic-extension gate;
+- `taskwide_smp_v1/`: motion-ID-disjoint official `10 x 216` Carry/Kick dataset, two task-wide
+  TinyMDM priors and the retained warning that independent checkpoint energies are not directly
+  comparable despite `19/19` motion-level classification;
+- `conditional_taskwide_smp_v1/`: admitted shared official conditional TinyMDM, one normalizer,
+  50,000-iteration checkpoint, `19/19` held-out motion gate, training-only reward calibration and
+  causal recovery scoring;
+- `conditional_smp_online_smoke_v1/`: zero-optimizer online prefix41 feature/RNG/reward gate;
+  offline/online feature error is `2.38e-7` and all causal checks pass;
+- `conditional_smp_recovery_prefix41_v1/`: matched correct-Kick versus wrong-Carry online reward
+  pair at update64. Both frozen arms are `16/20` safe Kick with `3/20` falls; wrong Carry has more
+  contact/displacement, so this is condition-use evidence and an absolute-reward negative result.
+  `videos_single_seed181633/` contains a matched camera-enabled rollout; it proves that seed only;
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
 The old 1216-update policy experiment, rejected 510-D/free-window event predictor, redundant CPU

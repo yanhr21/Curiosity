@@ -37,10 +37,16 @@ parser.add_argument("--label", required=True)
 parser.add_argument("--steps", type=int, default=250)
 parser.add_argument("--seed", type=int, default=181629)
 parser.add_argument("--carry-prefix-steps", type=int, default=9)
+parser.add_argument("--profile-index", type=int, default=0)
+parser.add_argument("--num-profiles", type=int)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 if args.carry_prefix_steps <= 0:
     parser.error("carry prefix must be positive")
+if args.profile_index < 0:
+    parser.error("profile index must be nonnegative")
+if args.num_profiles is not None and args.num_profiles <= args.profile_index:
+    parser.error("num profiles must include the selected profile index")
 args.enable_cameras = True
 
 app_launcher = AppLauncher(args)
@@ -144,7 +150,7 @@ def _overlay(
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
     cv2.rectangle(bgr, (0, 0), (960, 104), (255, 255, 255), -1)
     lines = (
-        f"{args.label} | actual IsaacLab/PhysX world",
+        f"{args.label} | actual IsaacLab/PhysX world | profile {args.profile_index}",
         f"phase: {phase} | step: {step}",
         f"box planar displacement: {displacement_m:.3f} m | foot-box contact: {foot_contact}",
     )
@@ -171,7 +177,7 @@ def main() -> None:
     np.random.seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
     cfg = RobotEnvCfg()
-    cfg.scene.num_envs = 1
+    cfg.scene.num_envs = args.num_profiles or (args.profile_index + 1)
     cfg.seed = args.seed
     cfg.sim.device = args.device
     cfg.episode_length_s = max(
@@ -196,9 +202,16 @@ def main() -> None:
 
     def append_prefix(phase: str, step: int) -> None:
         nonlocal initial_object_xy
-        rgb = base.scene["world_camera"].data.output["rgb"][0, ..., :3]
+        rgb = base.scene["world_camera"].data.output["rgb"][
+            args.profile_index, ..., :3
+        ]
         frame = rgb.detach().cpu().numpy()
-        obj_xy = base.scene["obj"].data.root_pos_w[0, :2].detach().cpu().numpy()
+        obj_xy = (
+            base.scene["obj"].data.root_pos_w[args.profile_index, :2]
+            .detach()
+            .cpu()
+            .numpy()
+        )
         if initial_object_xy is None:
             initial_object_xy = obj_xy.copy()
         writer.append(
@@ -233,12 +246,25 @@ def main() -> None:
                 left = base.scene.sensors["left_foot_forces"].data.force_matrix_w_history
                 right = base.scene.sensors["right_foot_forces"].data.force_matrix_w_history
                 foot_contact = bool(
-                    torch.linalg.vector_norm(left[:, -1, 0, 0], dim=-1).item() > 0.1
-                    or torch.linalg.vector_norm(right[:, -1, 0, 0], dim=-1).item() > 0.1
+                    torch.linalg.vector_norm(
+                        left[args.profile_index, -1, 0, 0], dim=-1
+                    ).item()
+                    > 0.1
+                    or torch.linalg.vector_norm(
+                        right[args.profile_index, -1, 0, 0], dim=-1
+                    ).item()
+                    > 0.1
                 )
-                rgb = base.scene["world_camera"].data.output["rgb"][0, ..., :3]
+                rgb = base.scene["world_camera"].data.output["rgb"][
+                    args.profile_index, ..., :3
+                ]
                 frame = rgb.detach().cpu().numpy()
-                obj_xy = base.scene["obj"].data.root_pos_w[0, :2].detach().cpu().numpy()
+                obj_xy = (
+                    base.scene["obj"].data.root_pos_w[args.profile_index, :2]
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
                 if initial_object_xy is None:
                     initial_object_xy = obj_xy.copy()
                 writer.append(

@@ -365,7 +365,38 @@ and `-0.00338/0.65776` for Kick21. The frozen Carry evaluator passes all four ar
    shifts without upgrading them to semantic-following evidence;
 5. run exactly one independent-seed matched replication before changing reward weights, teacher
    authority or update budget;
-6. keep selected-demo SMP out until official TinyMDM passes an independent semantic-extension gate.
+6. retain this phase-predictor result as historical; the later task-wide conditional TinyMDM gate
+   and online diagnostic below supersede the old single-clip SMP restriction.
+
+### Official conditional TinyMDM: prior admitted, absolute reward rejected
+
+The official MimicKit audit now uses all available Carry/Kick motions with motion IDs disjoint
+across train/validation/test. The exact representation is the released `compute_disc_obs` contract
+plus the 15-D box state, `10 x 216` at 50 Hz. Independent Carry/Kick TinyMDM checkpoints correctly
+classify all `19/19` test motions at motion level, but are rejected for online comparison because
+their separately learned normalizers and energy scales are not shared.
+
+The admitted model is one official `CondTinyStableMotionDiTModel`: 2,836,864 parameters, two class
+labels, one normalizer and 50,000 training iterations. It classifies `19/19` motion-disjoint test
+motions; correct-condition window preference is `96.998%` on Carry and `92.678%` on Kick. On actual
+prefix41 recovery traces, its Kick energy also ranks every observed pre-fall event above same-clock
+safe profiles. A training-data-only transform anchors median matching-class reward to 0.5.
+
+The first policy diagnostic keeps the released Kick teacher and actor initialization, executes one
+Kick alignment plus 41 live Carry steps before PPO, and trains correct Kick-class versus wrong
+Carry-class arms with the same seed171632, 64 updates, safety penalty and `0.5/0.5` task/prior
+weights. The online smoke proves exact offline/online feature agreement (`2.38e-7` maximum error),
+finite rewards, private scorer RNG and no future labels. Frozen seed181632 gives the same `16/20`
+safe Kick and `3/20` falls in both arms. Wrong Carry produces more foot contact (`0.0762` versus
+`0.0540`) and displacement (`0.17009` versus `0.14705 m`). This establishes causal condition use
+without correct-condition physical benefit.
+
+Do not repeat the absolute occupancy reward with another weight or update count. It is near-zero on
+states far from the Kick manifold, while the wrong Carry condition supplies dense reward for
+remaining stable in the transitional Carry-like state. The next fixed diagnostic uses the same
+admitted official checkpoint and a matched-noise causal progress/transition objective. It must
+reward improvement between consecutive causal windows, preserve the released endpoint teacher,
+and exclude future outcomes from deployment.
 
 ### Expected behavior, not just reward score
 
@@ -392,9 +423,9 @@ required-contact duration; and [CHORD](https://nvidia-isaac.github.io/video_to_d
 that object-centric contact wrench should measure how contact moves the object. Therefore policy
 loss, predicted reward or task success alone is not a demo-following verdict.
 
-The official selected-demo TinyMDM gate is also complete. Exact selected-clip identity passes, but
-the independent CarryBox96/KickBox22 semantic extension fails. Policy integration is not
-scientifically supported by this result, and an arbitrary Transformer hidden state must not be
+The old selected-clip TinyMDM gate remains a useful memorization counterexample, but it is
+superseded by the motion-disjoint shared conditional model above. The shared prior is admitted;
+its first absolute online reward is not. An arbitrary Transformer hidden state must still never be
 called an official SMP latent.
 
 Training, frozen evaluation, evidence paths and exact commands are consolidated in

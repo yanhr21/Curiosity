@@ -19,6 +19,9 @@
 - Any code or document that makes progress depend on a manual approval, confirmation, sentinel or
   repeated user response is a defect and must be removed. This rule supersedes conflicting wording
   elsewhere in the repository.
+- Status reports, intermediate results, failed scientific hypotheses and ambiguous-but-testable
+  outcomes are not authorization boundaries. Report them when useful, choose the next documented
+  in-scope experiment from the evidence, and continue without asking the user to approve it.
 
 The user may still interrupt, reprioritize or stop work at any time. That user control must never be
 implemented as a prerequisite approval gate for ordinary autonomous progress.
@@ -219,6 +222,28 @@ The unconstrained objective increases displacement `0.1885 -> 0.3013 m` and rewa
 or claim recovery from reward/displacement. The next method must change the controller: use a
 serious shared skill prior/state-aware transition objective that preserves released endpoint skills;
 do not substitute a toy latent model.
+
+The official MimicKit prior audit has now advanced beyond the rejected single-clip experiment.
+Motion-ID-disjoint task-wide Carry/Kick data use the exact official `10 x 216`
+`compute_disc_obs + 15-D box` representation. Two independently trained TinyMDM priors classify
+`19/19` held-out motions at motion level, but their independent energy scales are not safe to
+compare online. One shared official `CondTinyStableMotionDiTModel` (2.837M parameters, 50,000
+iterations, shared normalizer) passes `19/19` held-out motions, with window-level matched-condition
+preference `96.998%` for Carry and `92.678%` for Kick. This is the admitted prior; do not restore
+the independent-prior comparison or substitute a local model.
+
+The first causal online conditional-prior diagnostic is also complete. Its zero-optimizer prefix41
+smoke matches the offline official 216-D adapter within `2.38e-7`, preserves policy CPU/CUDA RNG,
+uses no future/outcome labels and produces finite online rewards. Matched seed171632 training uses
+the same released Kick teacher, 41-step physical Carry prefix, 64 updates, safety penalty and
+`0.5 task + 0.5 prior`; only the shared-prior class changes: correct Kick=1 versus wrong Carry=0.
+Frozen seed181632 gives exactly `16/20` safe Kick and `3/20` falls in both arms. Wrong Carry has
+more foot contact (`0.0762` versus `0.0540`) and planar displacement (`0.17009` versus
+`0.14705 m`). Therefore condition use is measurable, but the absolute occupancy reward provides
+no correct-condition physical advantage. Do not repeat this weight/update setting or claim SMP
+following. The next serious diagnostic must turn the same admitted prior into a causal
+state-progress/transition objective with matched-noise scoring; it may not use future labels or a
+toy latent.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

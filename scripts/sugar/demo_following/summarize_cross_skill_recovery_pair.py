@@ -24,6 +24,7 @@ def main() -> None:
             not in {
                 "sugar_carry9_to_kick_recovery_frozen_eval_v1",
                 "sugar_cross_skill_recovery_frozen_eval_v2",
+                "sugar_cross_skill_recovery_frozen_eval_v3",
             }
             or result.get("structurally_valid") is not True
         ):

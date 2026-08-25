@@ -13,6 +13,7 @@ only the current 510-D Tracker observation at the physical handoff state.
 from __future__ import annotations
 
 import json
+import math
 import os
 from pathlib import Path
 from typing import Callable
@@ -175,6 +176,13 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         audit_path: str | Path | None = None,
         prefix_frame_callback: Callable[[str, int], None] | None = None,
         reward_clip: float | None = None,
+        conditional_tinymdm_config: str | Path | None = None,
+        conditional_tinymdm_checkpoint: str | Path | None = None,
+        conditional_tinymdm_calibration: str | Path | None = None,
+        conditional_tinymdm_class_id: int | None = None,
+        conditional_tinymdm_reward_seed: int = 190001,
+        conditional_tinymdm_task_reward_weight: float = 0.5,
+        conditional_tinymdm_smp_reward_weight: float = 0.5,
     ) -> None:
         if carry_prefix_steps <= 0:
             raise ValueError("carry_prefix_steps must be positive")
@@ -201,6 +209,50 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         self.reward_clip = float(reward_clip) if reward_clip is not None else None
         if self.reward_clip is not None and self.reward_clip <= 0.0:
             raise ValueError("reward clip must be positive")
+        conditional_values = (
+            conditional_tinymdm_config,
+            conditional_tinymdm_checkpoint,
+            conditional_tinymdm_calibration,
+            conditional_tinymdm_class_id,
+        )
+        if any(value is not None for value in conditional_values) and not all(
+            value is not None for value in conditional_values
+        ):
+            raise ValueError("conditional TinyMDM reward configuration is incomplete")
+        self.conditional_tinymdm_reward = None
+        self.conditional_tinymdm_task_reward_weight = float(
+            conditional_tinymdm_task_reward_weight
+        )
+        self.conditional_tinymdm_smp_reward_weight = float(
+            conditional_tinymdm_smp_reward_weight
+        )
+        if (
+            not math.isfinite(self.conditional_tinymdm_task_reward_weight)
+            or not math.isfinite(self.conditional_tinymdm_smp_reward_weight)
+            or self.conditional_tinymdm_task_reward_weight < 0.0
+            or self.conditional_tinymdm_smp_reward_weight < 0.0
+            or (
+                self.conditional_tinymdm_task_reward_weight
+                + self.conditional_tinymdm_smp_reward_weight
+            )
+            <= 0.0
+        ):
+            raise ValueError(
+                "conditional TinyMDM reward weights must be finite and nonnegative"
+            )
+        if all(value is not None for value in conditional_values):
+            from sugar_rl.utils.online_conditional_tinymdm_reward import (
+                OnlineConditionalTinyMDMReward,
+            )
+
+            self.conditional_tinymdm_reward = OnlineConditionalTinyMDMReward(
+                self.base_env,
+                config_path=conditional_tinymdm_config,
+                checkpoint_path=conditional_tinymdm_checkpoint,
+                calibration_path=conditional_tinymdm_calibration,
+                class_id=int(conditional_tinymdm_class_id),
+                reward_seed=int(conditional_tinymdm_reward_seed),
+            )
         self.prefix_count = 0
         self.max_alignment_action_abs = 0.0
         self.max_carry_action_abs = 0.0
@@ -222,9 +274,13 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
     def _install_prefix(self):
         """Advance all synchronized environments to the recovery handoff."""
 
+        if self.conditional_tinymdm_reward is not None:
+            self.conditional_tinymdm_reward.reset_history()
         observations, policy = self._policy_observation()
         alignment_action = self.kick_actor(policy)
         observations, _, dones, _ = super().step(alignment_action)
+        if self.conditional_tinymdm_reward is not None:
+            self.conditional_tinymdm_reward.observe_current_state()
         if torch.any(dones) or not torch.all(self.command.time_steps == 1):
             raise RuntimeError("one-step KickBox alignment prefix drift")
         self.max_alignment_action_abs = max(
@@ -244,6 +300,8 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             if not torch.isfinite(carry_action).all():
                 raise RuntimeError("released CarryBox Tracker action became non-finite")
             observations, _, dones, _ = super().step(carry_action)
+            if self.conditional_tinymdm_reward is not None:
+                self.conditional_tinymdm_reward.observe_current_state()
             if torch.any(dones):
                 raise RuntimeError("recovery prefix terminated before handoff")
             shadow.update_after_step(self.command)
@@ -285,6 +343,17 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             "max_carry_action_abs": self.max_carry_action_abs,
             "max_handoff_observation_abs": self.max_handoff_observation_abs,
             "all_finite": True,
+            "conditional_tinymdm_reward": (
+                self.conditional_tinymdm_reward.audit()
+                if self.conditional_tinymdm_reward is not None
+                else None
+            ),
+            "conditional_tinymdm_task_reward_weight": (
+                self.conditional_tinymdm_task_reward_weight
+            ),
+            "conditional_tinymdm_smp_reward_weight": (
+                self.conditional_tinymdm_smp_reward_weight
+            ),
         }
         temporary = self.audit_path.with_suffix(self.audit_path.suffix + ".tmp")
         temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -293,6 +362,20 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
     @torch.inference_mode()
     def step(self, actions: torch.Tensor):
         observations, rewards, dones, extras = super().step(actions)
+        if self.conditional_tinymdm_reward is not None:
+            if torch.any(dones):
+                conditional_reward = torch.zeros_like(rewards)
+            else:
+                self.conditional_tinymdm_reward.observe_current_state()
+                conditional_reward, sds_loss = self.conditional_tinymdm_reward.reward()
+                extras["conditional_tinymdm_reward_mean"] = conditional_reward.mean()
+                extras["conditional_tinymdm_sds_loss_mean"] = sds_loss.mean()
+            rewards = (
+                self.conditional_tinymdm_task_reward_weight * rewards
+                + self.conditional_tinymdm_smp_reward_weight * conditional_reward
+            )
+            if self.conditional_tinymdm_reward.reward_calls % 50 == 0:
+                self._write_audit()
         if self.reward_clip is not None:
             rewards = torch.clamp(rewards, -self.reward_clip, self.reward_clip)
         if torch.any(dones):

@@ -332,6 +332,45 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             raise RuntimeError(
                 f"cross-skill recovery wrapper is missing: {missing}"
             )
+        conditional_kwargs = {}
+        if os.environ.get("SUGAR_CONDITIONAL_TINYMDM_REWARD") == "1":
+            conditional_required = {
+                "conditional_tinymdm_config": os.environ.get(
+                    "SUGAR_CONDITIONAL_TINYMDM_CONFIG"
+                ),
+                "conditional_tinymdm_checkpoint": os.environ.get(
+                    "SUGAR_CONDITIONAL_TINYMDM_CHECKPOINT"
+                ),
+                "conditional_tinymdm_calibration": os.environ.get(
+                    "SUGAR_CONDITIONAL_TINYMDM_CALIBRATION"
+                ),
+                "conditional_tinymdm_class_id": os.environ.get(
+                    "SUGAR_CONDITIONAL_TINYMDM_CLASS_ID"
+                ),
+            }
+            conditional_missing = [
+                name for name, value in conditional_required.items() if value is None
+            ]
+            if conditional_missing:
+                raise RuntimeError(
+                    "conditional TinyMDM reward is missing: "
+                    f"{conditional_missing}"
+                )
+            conditional_kwargs = {
+                **conditional_required,
+                "conditional_tinymdm_class_id": int(
+                    conditional_required["conditional_tinymdm_class_id"]
+                ),
+                "conditional_tinymdm_reward_seed": int(
+                    os.environ.get("SUGAR_CONDITIONAL_TINYMDM_REWARD_SEED", "190001")
+                ),
+                "conditional_tinymdm_task_reward_weight": float(
+                    os.environ.get("SUGAR_CONDITIONAL_TINYMDM_TASK_WEIGHT", "0.5")
+                ),
+                "conditional_tinymdm_smp_reward_weight": float(
+                    os.environ.get("SUGAR_CONDITIONAL_TINYMDM_SMP_WEIGHT", "0.5")
+                ),
+            }
         env = OnlineCrossSkillRecoveryVecEnvWrapper(
             env,
             clip_actions=agent_cfg.clip_actions,
@@ -345,6 +384,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 if "SUGAR_CROSS_SKILL_RECOVERY_REWARD_CLIP" in os.environ
                 else None
             ),
+            **conditional_kwargs,
         )
     elif os.environ.get("SUGAR_RGB_TELEMETRY_OUTPUT"):
         from sugar_rl.utils.rgb_training_telemetry import (

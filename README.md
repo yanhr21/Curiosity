@@ -92,6 +92,23 @@ fall 从 `2/20` 恶化到 `3/20`。加入 standard physical-invalid termination 
 `17/20`。因此两者都没有真实恢复增益；后续不再增加 update 或调 penalty/reward scale，必须
 转向 serious shared skill prior 和 state-aware transition objective。
 
+官方 MimicKit 路线随后完成了 task-wide、motion-ID-disjoint 升级。两个独立 TinyMDM 虽能在
+motion level 区分 `19/19` held-out Carry/Kick motions，但跨 checkpoint energy 不可直接比较。
+一个共享 official `CondTinyStableMotionDiTModel`（2.837M 参数、50,000 iterations、共享
+normalizer）在 `19/19` held-out motions 上分类正确，Carry/Kick 的 window-level 正确条件偏好率
+为 `96.998%/92.678%`。这是当前唯一 admitted official motion prior，不是手写替代模型。
+
+该 prior 已首次进入真实 SUGAR/PhysX recovery rollout。零优化器 prefix41 smoke 中，在线
+`10 x 216` feature 与离线 official adapter 的最大误差为 `2.38e-7`，policy CPU/CUDA RNG 保持
+逐位一致，reward/loss 全部有限且不读取 future/outcome label。随后 matched seed171632 仅改变
+condition：correct=Kick class 1，wrong=Carry class 0；两臂共享 released Kick teacher、41-step
+online Carry prefix、64 updates、safety penalty 和 `0.5 task + 0.5 SMP`。冻结 seed181632 的结果
+均为 `16/20` safe Kick、`3/20` falls。wrong Carry 反而有更高 foot-contact fraction
+`0.0762 vs 0.0540` 和更大平面位移 `0.17009 vs 0.14705 m`。因此当前结论是“official condition
+进入优化并改变行为，但 absolute prior occupancy reward 没有正确语义的物理优势”，不能称为
+SMP demo following。下一步必须改成同一 official prior 上的 causal state-progress/transition
+objective，而不是继续扫权重或 updates。
+
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
 latent 或安全跨资产 transition policy。最终四视频位于
@@ -315,10 +332,10 @@ ready-step mean reward/risk 为 correct `+0.04804/0.31539`、unrelated
 真实 evaluator 中落地；它仍不等于旧 policy 自动获得 semantic following，因为旧 policy 是
 在错误 phase 下训练的。
 
-官方 MimicKit TinyMDM 目前只是 generic motion prior。两个 official single-clip prior 能
-完美识别各自训练 clip，但 CarryBox96/KickBox22 的独立同任务扩展没有通过。因此没有把
-任意 Transformer hidden state 冒充 SMP latent，现有证据也不支持 selected-demo SMP
-policy integration。
+旧 official single-clip TinyMDM 只能记住训练 clip，语义扩展失败，已经被 task-wide
+motion-disjoint shared conditional prior 取代。shared prior 的 held-out 语义门槛通过，在线
+接入和条件因果差异也通过；但第一组 absolute-occupancy reward 没有 correct-condition 物理
+优势，所以“prior 可用”与“reward 设计有效”必须分开报告。
 
 ### 在线整手触觉：实现保留，收益结论冻结
 
@@ -469,6 +486,7 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 当前保留视频（标为“旧 phase-0”的两条是时钟错位负结果，不是 corrected policy endpoint）：
 
 - [Prefix41 安全约束：baseline 与 update64 真实世界对照](experiments/demo_following/cross_skill_recovery_prefix41_safe_v1/videos/matched_baseline_vs_learned_recovery_actual_world.mp4)；
+- [Official conditional TinyMDM：correct Kick 与 wrong Carry 的同 seed 冻结行为](experiments/demo_following/conditional_smp_recovery_prefix41_v1/videos_single_seed181633/correct_kick_vs_wrong_carry_seed181633.mp4)；
 - [Prefix41 无安全 penalty：位移增加但跌倒恶化](experiments/demo_following/cross_skill_recovery_prefix41_v1/videos/matched_baseline_vs_learned_recovery_actual_world.mp4)；
 - [Carry-9→Kick：零更新与 update64 真实世界对照](experiments/demo_following/cross_skill_recovery_v1/bcppo_frozen_eval_seed181629/videos/matched_baseline_vs_update64_actual_world.mp4)；
 - [official router：Carry45 reference 与 matched Carry](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/01_carry_domain_carry45_condition.mp4)；
@@ -515,10 +533,11 @@ Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 
 ## 下一步
 
-冻结 Carry-prefix 扫描以及 prefix41 的两组 matched recovery 已完成，并否决现有 endpoint
-BCPPO fine-tuning 路线。当前下一项是保留 released Carry/Kick endpoint 能力，学习 serious
-shared skill prior 与 state-aware transition objective。不得继续增加 optimizer steps、调同一
-penalty/reward scale，也不得用 hand-written toy latent/world model 代替官方实现。
+冻结 Carry-prefix 扫描、prefix41 recovery 和第一组 official conditional TinyMDM online
+reward 都已完成。shared task-wide prior 本身通过 motion-disjoint gate，但 absolute occupancy
+reward 的 correct/wrong matched pair 没有正确条件优势。当前下一项是在同一个 admitted
+official prior 上构造 matched-noise causal state-progress/transition objective；不得继续增加
+optimizer steps、扫描同一 reward 权重，也不得用 hand-written toy latent/world model 替代。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复

@@ -503,7 +503,11 @@ def load_prior(path: Path, device: torch.device) -> Any:
     result = json.loads((path / "result.json").read_text(encoding="utf-8"))
     if (
         result.get("protocol")
-        != "sugar_selected_demo_official_single_clip_tinymdm_v1"
+        not in {
+            "sugar_selected_demo_official_single_clip_tinymdm_v1",
+            "sugar_taskwide_official_tinymdm_v1",
+            "sugar_conditional_taskwide_official_tinymdm_v1",
+        }
         or result.get("passed") is not True
         or result.get("completed_iterations") != 50_000
     ):

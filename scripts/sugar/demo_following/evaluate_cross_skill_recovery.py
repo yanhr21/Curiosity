@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import traceback
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -179,6 +180,11 @@ def main() -> None:
     records: dict[str, list[np.ndarray]] = {
         "robot_root_state_w": [],
         "robot_body_position_w": [],
+        "robot_body_quaternion_w": [],
+        "robot_body_linear_velocity_w": [],
+        "robot_body_angular_velocity_w": [],
+        "robot_joint_position": [],
+        "robot_joint_velocity": [],
         "object_root_state_w": [],
         "foot_contact_force_w": [],
         "foot_contact": [],
@@ -206,6 +212,21 @@ def main() -> None:
             records["robot_body_position_w"].append(
                 base.scene["robot"].data.body_pos_w.detach().cpu().numpy().copy()
             )
+            records["robot_body_quaternion_w"].append(
+                base.scene["robot"].data.body_quat_w.detach().cpu().numpy().copy()
+            )
+            records["robot_body_linear_velocity_w"].append(
+                base.scene["robot"].data.body_lin_vel_w.detach().cpu().numpy().copy()
+            )
+            records["robot_body_angular_velocity_w"].append(
+                base.scene["robot"].data.body_ang_vel_w.detach().cpu().numpy().copy()
+            )
+            records["robot_joint_position"].append(
+                base.scene["robot"].data.joint_pos.detach().cpu().numpy().copy()
+            )
+            records["robot_joint_velocity"].append(
+                base.scene["robot"].data.joint_vel.detach().cpu().numpy().copy()
+            )
             records["object_root_state_w"].append(
                 base.scene["obj"].data.root_state_w.detach().cpu().numpy().copy()
             )
@@ -224,6 +245,9 @@ def main() -> None:
     arrays = {name: np.stack(values) for name, values in records.items()}
     arrays.update({f"initial_{name}": value for name, value in initial.items()})
     arrays["robot_body_names"] = body_names
+    arrays["robot_joint_names"] = np.asarray(
+        base.scene["robot"].joint_names, dtype="U64"
+    )
     finite_names = tuple(
         name for name, value in arrays.items() if np.issubdtype(value.dtype, np.number)
     )
@@ -231,7 +255,7 @@ def main() -> None:
     no_reset = not bool(np.any(arrays["done"]))
     rows = _summaries(arrays)
     result = {
-        "protocol": "sugar_cross_skill_recovery_frozen_eval_v2",
+        "protocol": "sugar_cross_skill_recovery_frozen_eval_v3",
         "checkpoint": str(checkpoint),
         "checkpoint_iteration": checkpoint_payload.get("iter"),
         "seed": args.seed,
@@ -262,6 +286,20 @@ def main() -> None:
             "no_reset_during_frozen_window": bool(no_reset),
             "checkpoint_actor_geometry_is_official_510_512_256_128_29": True,
             "online_prefix_has_no_teleport_or_replay": True,
+            "feature_complete_for_official_tinymdm": all(
+                name in arrays
+                for name in (
+                    "robot_body_position_w",
+                    "robot_body_quaternion_w",
+                    "robot_body_linear_velocity_w",
+                    "robot_body_angular_velocity_w",
+                    "robot_joint_position",
+                    "robot_joint_velocity",
+                    "object_root_state_w",
+                    "robot_body_names",
+                    "robot_joint_names",
+                )
+            ),
         },
     }
     result["structurally_valid"] = all(result["checks"].values())
@@ -278,5 +316,8 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
+    except BaseException:  # preserve the Python cause before Kit shutdown
+        traceback.print_exc()
+        raise
     finally:
         simulation_app.close()
