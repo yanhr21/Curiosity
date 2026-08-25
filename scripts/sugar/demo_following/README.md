@@ -19,7 +19,8 @@ composition of both exact released actions under the same frozen comparison.
 The causal-composition implementation is a full `512/256/128` SUGAR-topology module over the
 current `510-D` Tracker observation, current Carry/Kick `36-D` commands and selected-skill one-hot.
 Its zero-initialized 30-D output gives the exact selected released endpoint at update 0, then learns
-one bounded Carry/Kick mixture weight plus a 29-D residual. Both official Tracker experts remain
+one bounded Carry/Kick mixture weight over the complete `[0,1]` convex segment plus a 29-D residual.
+Both official Tracker experts remain
 parameter-frozen, and no future outcome enters the actor. Run the fixed seed171644 diagnostic with:
 
 ```bash

@@ -651,6 +651,9 @@ bash scripts/sugar/demo_following/run_causal_action_composition_transition_recov
   experiments/demo_following/causal_action_composition_seed171644_v1 cuda:0
 ```
 
+门控在 update 0 精确等于 selected official endpoint，但训练后可到达完整 `[0,1]` Carry/Kick
+凸组合；它不是只允许半程变化的受限插值。
+
 该入口连续完成 update64、checkpoint audit、`41/49/57` frozen learned/pre-update 对比和六个
 H.264 world videos；在真实 `RESULT.json`、trace 和视频生成前，只能称为实现已验证，不能称为
 物理恢复增益。流水线写出 `PIPELINE_STATUS.env` 后自动进入 GPU holder，任务切换只终止 retained
