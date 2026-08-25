@@ -167,6 +167,7 @@ def _overlay(
     displacement_m: float,
     foot_contact: bool,
     kick_weight: float | None = None,
+    residual_mean_abs: float | None = None,
 ) -> np.ndarray:
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
     lines = [
@@ -176,7 +177,8 @@ def _overlay(
     ]
     if kick_weight is not None:
         lines.append(
-            f"causal action composition: Carry {1.0-kick_weight:.3f} | Kick {kick_weight:.3f}"
+            f"composition: Carry {1.0-kick_weight:.3f} | Kick {kick_weight:.3f}"
+            f" | mean |residual| {residual_mean_abs:.3f}"
         )
     cv2.rectangle(
         bgr, (0, 0), (960, 8 + 32 * len(lines)), (255, 255, 255), -1
@@ -249,6 +251,7 @@ def main() -> None:
                 displacement_m=float(np.linalg.norm(obj_xy - initial_object_xy)),
                 foot_contact=False,
                 kick_weight=None,
+                residual_mean_abs=None,
             )
         )
 
@@ -307,18 +310,30 @@ def main() -> None:
     try:
         with torch.inference_mode():
             for step in range(args.steps):
-                kick_weight = (
-                    float(
-                        transition_policy.composition_kick_weight(observations)[
+                if isinstance(
+                    transition_policy,
+                    FrozenExpertCausalActionComposerActorCritic,
+                ):
+                    composition_terms = (
+                        transition_policy.composition_audit_terms(observations)
+                    )
+                    kick_weight = float(
+                        composition_terms["kick_weight"][
                             args.profile_index, 0
                         ].item()
                     )
-                    if isinstance(
-                        transition_policy,
-                        FrozenExpertCausalActionComposerActorCritic,
+                    residual_mean_abs = float(
+                        torch.mean(
+                            torch.abs(
+                                composition_terms["bounded_residual_action"][
+                                    args.profile_index
+                                ]
+                            )
+                        ).item()
                     )
-                    else None
-                )
+                else:
+                    kick_weight = None
+                    residual_mean_abs = None
                 action = (
                     actor(observations["policy"])
                     if transition_policy is None
@@ -367,6 +382,7 @@ def main() -> None:
                         ),
                         foot_contact=foot_contact,
                         kick_weight=kick_weight,
+                        residual_mean_abs=residual_mean_abs,
                     )
                 )
     finally:

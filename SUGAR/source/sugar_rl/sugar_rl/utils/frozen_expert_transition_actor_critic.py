@@ -284,7 +284,11 @@ class FrozenExpertCausalActionComposer(nn.Module):
             skill[:, 1:2] - 0.5 * torch.tanh(gate_logit), 0.0, 1.0
         )
 
-    def forward(self, actor_input: torch.Tensor) -> torch.Tensor:
+    def composition_terms(
+        self, actor_input: torch.Tensor
+    ) -> dict[str, torch.Tensor]:
+        """Return deployed action terms for frozen causal attribution."""
+
         carry_action, kick_action, skill = self.expert_actions(actor_input)
         composer_output = self.composer(actor_input)
         kick_weight = torch.clamp(
@@ -293,11 +297,23 @@ class FrozenExpertCausalActionComposer(nn.Module):
             1.0,
         )
         residual = self.residual_limit * torch.tanh(composer_output[:, 1:])
-        return (
-            carry_action * (1.0 - kick_weight)
-            + kick_action * kick_weight
-            + residual
+        selected_endpoint = (
+            carry_action * skill[:, :1] + kick_action * skill[:, 1:2]
         )
+        mixed_endpoint = (
+            carry_action * (1.0 - kick_weight) + kick_action * kick_weight
+        )
+        composed_action = mixed_endpoint + residual
+        return {
+            "kick_weight": kick_weight,
+            "selected_endpoint_action": selected_endpoint,
+            "mixed_endpoint_action": mixed_endpoint,
+            "bounded_residual_action": residual,
+            "composed_action": composed_action,
+        }
+
+    def forward(self, actor_input: torch.Tensor) -> torch.Tensor:
+        return self.composition_terms(actor_input)["composed_action"]
 
 
 class FrozenExpertCausalActionComposerActorCritic(ActorCritic):
@@ -353,3 +369,8 @@ class FrozenExpertCausalActionComposerActorCritic(ActorCritic):
         """Expose the deployed causal mixture weight for frozen audit only."""
 
         return self.actor.kick_weight(self._actor_input(obs))
+
+    def composition_audit_terms(self, obs) -> dict[str, torch.Tensor]:
+        """Expose exact deployed terms to camera-free frozen evaluation only."""
+
+        return self.actor.composition_terms(self._actor_input(obs))

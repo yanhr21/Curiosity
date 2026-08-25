@@ -127,6 +127,40 @@ def _comparison(
                 )
             )
             != 0.0
+            or float(
+                pre_composition.get(
+                    "mean_abs_mixed_minus_selected_endpoint_action",
+                    float("nan"),
+                )
+            )
+            != 0.0
+            or float(
+                pre_composition.get(
+                    "mean_abs_bounded_residual_action", float("nan")
+                )
+            )
+            != 0.0
+            or float(
+                pre_composition.get(
+                    "mean_abs_composed_minus_selected_endpoint_action",
+                    float("nan"),
+                )
+            )
+            != 0.0
+            or float(
+                learned_composition.get(
+                    "maximum_abs_deployed_minus_composed_action",
+                    float("nan"),
+                )
+            )
+            != 0.0
+            or float(
+                pre_composition.get(
+                    "maximum_abs_deployed_minus_composed_action",
+                    float("nan"),
+                )
+            )
+            != 0.0
         ):
             raise RuntimeError(
                 f"prefix{prefix} causal action-composition audit failed"

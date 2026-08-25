@@ -265,7 +265,14 @@ def main() -> None:
         "done": [],
     }
     if args.policy_topology == "causal_action_composition":
-        records["kick_composition_weight"] = []
+        for name in (
+            "kick_composition_weight",
+            "selected_endpoint_action",
+            "mixed_endpoint_action",
+            "bounded_residual_action",
+            "composed_action",
+        ):
+            records[name] = []
     body_names = np.asarray(base.scene["robot"].body_names, dtype="U64")
     with torch.inference_mode():
         for _ in range(args.steps):
@@ -278,13 +285,17 @@ def main() -> None:
             if isinstance(
                 transition_policy, FrozenExpertCausalActionComposerActorCritic
             ):
-                records["kick_composition_weight"].append(
-                    transition_policy.composition_kick_weight(observations)
-                    .detach()
-                    .cpu()
-                    .numpy()
-                    .copy()
-                )
+                terms = transition_policy.composition_audit_terms(observations)
+                for source_name, record_name in (
+                    ("kick_weight", "kick_composition_weight"),
+                    ("selected_endpoint_action", "selected_endpoint_action"),
+                    ("mixed_endpoint_action", "mixed_endpoint_action"),
+                    ("bounded_residual_action", "bounded_residual_action"),
+                    ("composed_action", "composed_action"),
+                ):
+                    records[record_name].append(
+                        terms[source_name].detach().cpu().numpy().copy()
+                    )
             observations, reward, done, _ = wrapped.step(action)
             forces = torch.stack(
                 (
@@ -389,6 +400,28 @@ def main() -> None:
                         )
                     )
                 ),
+                "mean_abs_mixed_minus_selected_endpoint_action": float(
+                    np.mean(
+                        np.abs(
+                            arrays["mixed_endpoint_action"]
+                            - arrays["selected_endpoint_action"]
+                        )
+                    )
+                ),
+                "mean_abs_bounded_residual_action": float(
+                    np.mean(np.abs(arrays["bounded_residual_action"]))
+                ),
+                "mean_abs_composed_minus_selected_endpoint_action": float(
+                    np.mean(
+                        np.abs(
+                            arrays["composed_action"]
+                            - arrays["selected_endpoint_action"]
+                        )
+                    )
+                ),
+                "maximum_abs_deployed_minus_composed_action": float(
+                    np.max(np.abs(arrays["action"] - arrays["composed_action"]))
+                ),
                 "future_or_outcome_labels_used": False,
             }
             if args.policy_topology == "causal_action_composition"
@@ -405,6 +438,10 @@ def main() -> None:
                     np.min(arrays["kick_composition_weight"]) >= 0.0
                     and np.max(arrays["kick_composition_weight"]) <= 1.0
                 )
+            ),
+            "composition_terms_match_deployed_action": bool(
+                args.policy_topology != "causal_action_composition"
+                or np.array_equal(arrays["action"], arrays["composed_action"])
             ),
             "feature_complete_for_official_tinymdm": all(
                 name in arrays

@@ -435,6 +435,11 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert "kick_observation[:, :GENERATED_COMMAND_DIM] = kick_command" in actor
     assert "skill[:, 1:2] - 0.5 * torch.tanh" in actor
     assert "nn.init.zeros_(final.weight)" in actor
+    assert "def composition_terms(" in actor
+    assert '"selected_endpoint_action": selected_endpoint' in actor
+    assert '"mixed_endpoint_action": mixed_endpoint' in actor
+    assert '"bounded_residual_action": residual' in actor
+    assert '"composed_action": composed_action' in actor
     for forbidden in ("physical_fall", "safe_kick", "trace.npz"):
         assert forbidden not in actor
 
@@ -476,6 +481,12 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     ):
         source = _read(ROOT / "scripts/sugar/demo_following" / script)
         assert '"VK_ICD_FILENAMES", "/etc/vulkan/icd.d/nvidia_icd.json"' in source
+    evaluator = _read(
+        ROOT / "scripts/sugar/demo_following/evaluate_cross_skill_recovery.py"
+    )
+    assert '"composition_terms_match_deployed_action"' in evaluator
+    assert '"mean_abs_mixed_minus_selected_endpoint_action"' in evaluator
+    assert '"mean_abs_bounded_residual_action"' in evaluator
 
 
 def test_causal_action_composer_is_exact_at_pre_update_and_gate_is_trainable() -> None:
