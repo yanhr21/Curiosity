@@ -422,3 +422,70 @@ def test_multi_context_recovery_cycles_online_prefixes_without_actor_leakage() -
     assert "training and evaluation seed sets must be disjoint" in aggregate
     assert "same_predeclared_context_schedule_all_seeds" in aggregate
     assert "aggregate_safety_improvement_replicated_all_seeds" in aggregate
+
+
+def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> None:
+    actor = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/frozen_expert_transition_actor_critic.py"
+    )
+    assert "class FrozenExpertCausalActionComposer" in actor
+    assert "DUAL_COMMAND_INPUT_DIM" in actor
+    assert "carry_observation[:, :GENERATED_COMMAND_DIM] = carry_command" in actor
+    assert "kick_observation[:, :GENERATED_COMMAND_DIM] = kick_command" in actor
+    assert "skill[:, 1:2] - 0.5 * torch.tanh" in actor
+    assert "nn.init.zeros_(final.weight)" in actor
+    for forbidden in ("physical_fall", "safe_kick", "trace.npz"):
+        assert forbidden not in actor
+
+    wrapper = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_cross_skill_recovery_wrapper.py"
+    )
+    assert 'observations["carry_skill_command"] = carry_command' in wrapper
+    assert 'observations["kick_skill_command"] = kick_command' in wrapper
+
+    task_registry = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/tasks/locomanip/robots/g129dof/"
+        "train_tracker/__init__.py"
+    )
+    assert "Sugar-G129dof-KickBox-CausalActionComposition" in task_registry
+    runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "run_causal_action_composition_transition_recovery.sh"
+    )
+    assert "POLICY_TOPOLOGY_OVERRIDE=causal_action_composition" in runner
+    assert "read -" not in runner
+    assert "approval" not in runner.lower()
+    for script in (
+        "evaluate_cross_skill_recovery.py",
+        "render_cross_skill_recovery_world.py",
+    ):
+        source = _read(ROOT / "scripts/sugar/demo_following" / script)
+        assert '"VK_ICD_FILENAMES", "/etc/vulkan/icd.d/nvidia_icd.json"' in source
+
+
+def test_causal_action_composer_is_exact_at_pre_update_and_gate_is_trainable() -> None:
+    import math
+
+    def kick_weight(selected_kick: float, gate_logit: float) -> float:
+        return min(
+            1.0,
+            max(0.0, selected_kick - 0.5 * math.tanh(gate_logit)),
+        )
+
+    assert kick_weight(0.0, 0.0) == 0.0
+    assert kick_weight(1.0, 0.0) == 1.0
+    assert kick_weight(0.0, -0.1) > 0.0
+    assert kick_weight(1.0, 0.1) < 1.0
+
+    summary = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "summarize_multi_context_transition_recovery.py"
+    )
+    assert "MINIMUM_MEAN_COMPOSITION_DEVIATION = 1.0e-4" in summary
+    assert 'if args.expected_policy_topology == "causal_action_composition"' in summary
+    assert '"policy_topology", "selected_expert_residual"' in summary

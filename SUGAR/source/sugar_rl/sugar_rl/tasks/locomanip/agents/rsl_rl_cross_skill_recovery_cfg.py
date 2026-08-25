@@ -100,3 +100,46 @@ class CrossSkillTransitionRunnerCfg(CrossSkillRecoveryRunnerCfg):
         # The custom actor exposes its exact selected frozen endpoint directly
         # to repository BCPPO; a second checkpoint teacher would be ambiguous.
         self.algorithm.teacher_ckpt = None
+
+
+@configclass
+class FrozenExpertCausalActionComposerActorCriticCfg(
+    FrozenExpertTransitionActorCriticCfg
+):
+    class_name: str = "FrozenExpertCausalActionComposerActorCritic"
+
+
+@configclass
+class CrossSkillCausalActionComposerRunnerCfg(CrossSkillRecoveryRunnerCfg):
+    """Exact frozen endpoints with learned state-dependent action composition."""
+
+    experiment_name = "sugar_frozen_expert_causal_action_composer"
+    policy = FrozenExpertCausalActionComposerActorCriticCfg(
+        init_noise_std=0.05,
+        actor_hidden_dims=[512, 256, 128],
+        critic_hidden_dims=[512, 256, 128],
+        activation="elu",
+    )
+    obs_groups = {
+        "policy": [
+            "policy",
+            "carry_skill_command",
+            "kick_skill_command",
+            "selected_skill_id",
+        ],
+        "critic": [
+            "critic",
+            "carry_skill_command",
+            "kick_skill_command",
+            "selected_skill_id",
+        ],
+        "teacher": ["teacher"],
+    }
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not self.policy.carry_tracker_checkpoint:
+            raise RuntimeError("action composer requires official Carry Tracker")
+        if not self.policy.kick_tracker_checkpoint:
+            raise RuntimeError("action composer requires official Kick Tracker")
+        self.algorithm.teacher_ckpt = None

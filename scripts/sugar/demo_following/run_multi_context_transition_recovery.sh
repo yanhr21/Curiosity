@@ -11,12 +11,24 @@ TRAIN_SEED="${TRAIN_SEED_OVERRIDE:-171642}"
 EVAL_SEED="${EVAL_SEED_OVERRIDE:-181652}"
 VIDEO_SEED="${VIDEO_SEED_OVERRIDE:-181653}"
 NUM_ENVS="${NUM_ENVS_OVERRIDE:-64}"
+POLICY_TOPOLOGY="${POLICY_TOPOLOGY_OVERRIDE:-selected_expert_residual}"
 PREFIXES=(41 49 57)
 OUTPUT_ROOT="$(realpath -m "$OUTPUT_ROOT")"
 FFMPEG_BIN="${FFMPEG_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/lib/python3.11/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux-x86_64-v7.0.2}"
 
 case "$(hostname)" in
     mgmtserver*|login*) echo "Run inside a retained GPU compute step." >&2; exit 2 ;;
+esac
+case "$POLICY_TOPOLOGY" in
+    selected_expert_residual)
+        TASK="Sugar-G129dof-KickBox-FrozenExpert-Transition"
+        TOPOLOGY_LABEL="Multi-context residual"
+        ;;
+    causal_action_composition)
+        TASK="Sugar-G129dof-KickBox-CausalActionComposition"
+        TOPOLOGY_LABEL="Causal action composition"
+        ;;
+    *) echo "Unknown policy topology: $POLICY_TOPOLOGY" >&2; exit 2 ;;
 esac
 if [[ -e "$OUTPUT_ROOT" ]]; then
     echo "Refusing to overwrite $OUTPUT_ROOT" >&2
@@ -29,6 +41,7 @@ export PYTHONPYCACHEPREFIX="/tmp/Curiosity_multi_context_${SLURM_JOB_ID:-local}"
 export PYTHONPATH="$ROOT/IsaacLab/source/isaaclab:$ROOT/IsaacLab/source/isaaclab_tasks:$ROOT/IsaacLab/source/isaaclab_rl:$ROOT/IsaacLab/source/isaaclab_mimic:$ROOT/SUGAR/source/sugar_rl:$ROOT/SUGAR/source/sugar_il:${PYTHONPATH:-}"
 export ISAACLAB_GROUND_PLANE_USD="$ROOT/SUGAR/descriptions/terrain/sugar_ground_plane.usda"
 export ISAACLAB_USE_LOCAL_FRAME_MARKER=1
+export VK_ICD_FILENAMES="/etc/vulkan/icd.d/nvidia_icd.json"
 export SUGAR_DISABLE_TRAIN_DEBUG_VIS=1
 export SUGAR_DISABLE_RSL_RL_GIT_SNAPSHOT=1
 export DISPLAY=""
@@ -47,7 +60,7 @@ unset SUGAR_CONDITIONAL_TINYMDM_REWARD
 
 cd "$ROOT/SUGAR"
 "$PYTHON_BIN" -u scripts/sugar_rl/train.py \
-    --task Sugar-G129dof-KickBox-FrozenExpert-Transition \
+    --task "$TASK" \
     --num_envs "$NUM_ENVS" --max_iterations 65 --seed "$TRAIN_SEED" \
     --log_dir "$OUTPUT_ROOT/train" --headless --device "$DEVICE" \
     --kit_args="--/renderer/enabled=false --/renderer/multiGpu/enabled=false"
@@ -68,6 +81,7 @@ for prefix in "${PREFIXES[@]}"; do
             --checkpoint "$checkpoint" \
             --output-dir "$OUTPUT_ROOT/evaluation/prefix${prefix}/${endpoint}_kick" \
             --transition-selected-skill-id 1 --carry-prefix-steps "$prefix" \
+            --policy-topology "$POLICY_TOPOLOGY" \
             --num-envs 20 --steps 250 --seed "$EVAL_SEED" --headless --device "$DEVICE" \
             --kit_args="--/renderer/enabled=false --/renderer/multiGpu/enabled=false"
     done
@@ -77,6 +91,7 @@ done
     --checkpoint "$OUTPUT_ROOT/train/model_64.pt" \
     --output-dir "$OUTPUT_ROOT/evaluation/prefix41/learned_carry" \
     --transition-selected-skill-id 0 --carry-prefix-steps 41 \
+    --policy-topology "$POLICY_TOPOLOGY" \
     --num-envs 20 --steps 250 --seed "$EVAL_SEED" --headless --device "$DEVICE" \
     --kit_args="--/renderer/enabled=false --/renderer/multiGpu/enabled=false"
 
@@ -86,6 +101,7 @@ done
     --training-audit "$OUTPUT_ROOT/train/prefix_audit.json" \
     --checkpoint-audit "$OUTPUT_ROOT/CHECKPOINT_AUDIT.json" \
     --training-seed "$TRAIN_SEED" --expected-recovery-reward 1 \
+    --expected-policy-topology "$POLICY_TOPOLOGY" \
     --output "$OUTPUT_ROOT/CONDITION_RESULT.json"
 
 summary_args=()
@@ -101,6 +117,7 @@ done
     --training-audit "$OUTPUT_ROOT/train/prefix_audit.json" \
     --checkpoint-audit "$OUTPUT_ROOT/CHECKPOINT_AUDIT.json" \
     --training-seed "$TRAIN_SEED" --expected-schedule 41,49,57 \
+    --expected-policy-topology "$POLICY_TOPOLOGY" \
     --output "$OUTPUT_ROOT/RESULT.json"
 
 for prefix in "${PREFIXES[@]}"; do
@@ -108,7 +125,7 @@ for prefix in "${PREFIXES[@]}"; do
     mkdir -p "$video_dir"
     for endpoint in learned pre_update; do
         checkpoint="$OUTPUT_ROOT/train/model_64.pt"
-        label="Multi-context learned Kick: prefix ${prefix}"
+        label="${TOPOLOGY_LABEL} learned Kick: prefix ${prefix}"
         if [[ "$endpoint" == "pre_update" ]]; then
             checkpoint="$OUTPUT_ROOT/train/model_pre_update.pt"
             label="Exact pre-update Kick: prefix ${prefix}"
@@ -117,6 +134,7 @@ for prefix in "${PREFIXES[@]}"; do
             --checkpoint "$checkpoint" --output "$video_dir/${endpoint}_kick.mp4" \
             --label "$label" --steps 250 --seed "$VIDEO_SEED" \
             --carry-prefix-steps "$prefix" --transition-selected-skill-id 1 \
+            --policy-topology "$POLICY_TOPOLOGY" \
             --headless --device "$DEVICE" \
             --kit_args="--/renderer/multiGpu/enabled=false"
     done

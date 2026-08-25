@@ -644,6 +644,17 @@ motion-disjoint gate；三种 scalar prior reward 都能因果改变行为，但
 state-dependent exact Carry/Kick action composition，不延长 residual 训练、不扫描 reward
 scale，也不得用 hand-written toy latent/world model 替代。
 
+当前 causal-composition 固定诊断的最短入口（必须在 retained GPU compute step 内运行）为：
+
+```bash
+bash scripts/sugar/demo_following/run_causal_action_composition_transition_recovery.sh \
+  experiments/demo_following/causal_action_composition_seed171644_v1 cuda:0
+```
+
+该入口连续完成 update64、checkpoint audit、`41/49/57` frozen learned/pre-update 对比和六个
+H.264 world videos；在真实 `RESULT.json`、trace 和视频生成前，只能称为实现已验证，不能称为
+物理恢复增益。
+
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复
 正式 runtime 接口。修正后的 online smoke 与 frozen Carry gate 已正式通过；motion-disjoint

@@ -16,6 +16,23 @@ replicated. Same-checkpoint selected Kick/Carry behavior remains distinct. Do no
 updates, reward scales or a third seed; the next controller must learn a causal state-dependent
 composition of both exact released actions under the same frozen comparison.
 
+The causal-composition implementation is a full `512/256/128` SUGAR-topology module over the
+current `510-D` Tracker observation, current Carry/Kick `36-D` commands and selected-skill one-hot.
+Its zero-initialized 30-D output gives the exact selected released endpoint at update 0, then learns
+one bounded Carry/Kick mixture weight plus a 29-D residual. Both official Tracker experts remain
+parameter-frozen, and no future outcome enters the actor. Run the fixed seed171644 diagnostic with:
+
+```bash
+bash scripts/sugar/demo_following/run_causal_action_composition_transition_recovery.sh \
+  experiments/demo_following/causal_action_composition_seed171644_v1 cuda:0
+```
+
+This command performs update64 training, checkpoint audit, frozen learned/pre-update evaluation at
+prefixes `41/49/57`, a selected-Carry control, and six world videos. It sets the cluster system
+NVIDIA Vulkan ICD for both evaluation and rendering. The physical result remains open until the
+generated `RESULT.json`, frozen traces and videos pass; interface tests alone are not evidence of
+recovery benefit.
+
 Reproduce one fresh multi-context seed inside a retained GPU step with:
 
 ```bash

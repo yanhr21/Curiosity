@@ -37,6 +37,7 @@ def main() -> None:
     training_seeds: set[int] = set()
     evaluation_seeds: set[int] = set()
     expected_schedule: list[int] | None = None
+    expected_policy_topology: str | None = None
     for path in args.result:
         result = json.loads(path.read_text(encoding="utf-8"))
         training_seed = int(result["training_seed"])
@@ -49,10 +50,16 @@ def main() -> None:
         ]
         if expected_schedule is None:
             expected_schedule = schedule
+        policy_topology = str(
+            result.get("policy_topology", "selected_expert_residual")
+        )
+        if expected_policy_topology is None:
+            expected_policy_topology = policy_topology
         if (
             result.get("protocol")
             != "sugar_multi_context_transition_recovery_diagnostic_v1"
             or schedule != expected_schedule
+            or policy_topology != expected_policy_topology
             or context_prefixes != schedule
             or training_seed in training_seeds
             or evaluation_seed in evaluation_seeds
@@ -99,6 +106,7 @@ def main() -> None:
         "evaluation_seeds": sorted(evaluation_seeds),
         "num_training_seeds": len(records),
         "training_prefix_schedule": expected_schedule,
+        "policy_topology": expected_policy_topology,
         "profiles_per_endpoint": int(
             sum(record["profiles_per_endpoint"] for record in records)
         ),

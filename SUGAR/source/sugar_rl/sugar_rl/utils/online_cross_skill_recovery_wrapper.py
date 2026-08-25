@@ -331,6 +331,8 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         selected_skill.scatter_(
             1, self.transition_selected_skill_ids[:, None], 1.0
         )
+        observations["carry_skill_command"] = carry_command
+        observations["kick_skill_command"] = kick_command
         observations["selected_skill_command"] = selected_command
         observations["selected_skill_id"] = selected_skill
         return observations

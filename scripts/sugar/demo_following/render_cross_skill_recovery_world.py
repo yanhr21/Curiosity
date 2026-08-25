@@ -19,6 +19,9 @@ os.environ.setdefault(
 )
 os.environ.setdefault("ISAACLAB_USE_LOCAL_FRAME_MARKER", "1")
 os.environ.setdefault("SUGAR_DISABLE_TRAIN_DEBUG_VIS", "1")
+os.environ.setdefault(
+    "VK_ICD_FILENAMES", "/etc/vulkan/icd.d/nvidia_icd.json"
+)
 os.environ.setdefault("DISPLAY", "")
 job_id = os.environ.get("SLURM_JOB_ID", "local")
 os.environ.setdefault("ISAACLAB_TMP_ROOT", f"/tmp/Curiosity_recovery_video_{job_id}")
@@ -40,6 +43,11 @@ parser.add_argument("--carry-prefix-steps", type=int, default=9)
 parser.add_argument(
     "--transition-selected-skill-id", type=int, choices=(0, 1), default=None
 )
+parser.add_argument(
+    "--policy-topology",
+    choices=("selected_expert_residual", "causal_action_composition"),
+    default="selected_expert_residual",
+)
 parser.add_argument("--profile-index", type=int, default=0)
 parser.add_argument("--num-profiles", type=int)
 AppLauncher.add_app_launcher_args(parser)
@@ -50,6 +58,11 @@ if args.profile_index < 0:
     parser.error("profile index must be nonnegative")
 if args.num_profiles is not None and args.num_profiles <= args.profile_index:
     parser.error("num profiles must include the selected profile index")
+if (
+    args.policy_topology == "causal_action_composition"
+    and args.transition_selected_skill_id is None
+):
+    parser.error("causal action composition requires a selected skill")
 args.enable_cameras = True
 
 app_launcher = AppLauncher(args)
@@ -73,6 +86,7 @@ from sugar_rl.utils.online_cross_skill_recovery_wrapper import (  # noqa: E402
     _load_released_tracker_actor,
 )
 from sugar_rl.utils.frozen_expert_transition_actor_critic import (  # noqa: E402
+    FrozenExpertCausalActionComposerActorCritic,
     FrozenExpertTransitionActorCritic,
 )
 
@@ -152,13 +166,20 @@ def _overlay(
     step: int,
     displacement_m: float,
     foot_contact: bool,
+    kick_weight: float | None = None,
 ) -> np.ndarray:
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-    cv2.rectangle(bgr, (0, 0), (960, 104), (255, 255, 255), -1)
-    lines = (
+    lines = [
         f"{args.label} | actual IsaacLab/PhysX world | profile {args.profile_index}",
         f"phase: {phase} | step: {step}",
         f"box planar displacement: {displacement_m:.3f} m | foot-box contact: {foot_contact}",
+    ]
+    if kick_weight is not None:
+        lines.append(
+            f"causal action composition: Carry {1.0-kick_weight:.3f} | Kick {kick_weight:.3f}"
+        )
+    cv2.rectangle(
+        bgr, (0, 0), (960, 8 + 32 * len(lines)), (255, 255, 255), -1
     )
     for row, line in enumerate(lines):
         cv2.putText(
@@ -227,6 +248,7 @@ def main() -> None:
                 step=step,
                 displacement_m=float(np.linalg.norm(obj_xy - initial_object_xy)),
                 foot_contact=False,
+                kick_weight=None,
             )
         )
 
@@ -247,19 +269,26 @@ def main() -> None:
         transition_policy = None
     else:
         payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
-        transition_policy = FrozenExpertTransitionActorCritic(
+        if args.policy_topology == "causal_action_composition":
+            policy_class = FrozenExpertCausalActionComposerActorCritic
+            policy_observation_groups = [
+                "policy",
+                "carry_skill_command",
+                "kick_skill_command",
+                "selected_skill_id",
+            ]
+        else:
+            policy_class = FrozenExpertTransitionActorCritic
+            policy_observation_groups = [
+                "policy",
+                "selected_skill_command",
+                "selected_skill_id",
+            ]
+        transition_policy = policy_class(
             observations,
             {
-                "policy": [
-                    "policy",
-                    "selected_skill_command",
-                    "selected_skill_id",
-                ],
-                "critic": [
-                    "critic",
-                    "selected_skill_command",
-                    "selected_skill_id",
-                ],
+                "policy": policy_observation_groups,
+                "critic": ["critic", *policy_observation_groups[1:]],
                 "teacher": ["teacher"],
             },
             29,
@@ -278,6 +307,18 @@ def main() -> None:
     try:
         with torch.inference_mode():
             for step in range(args.steps):
+                kick_weight = (
+                    float(
+                        transition_policy.composition_kick_weight(observations)[
+                            args.profile_index, 0
+                        ].item()
+                    )
+                    if isinstance(
+                        transition_policy,
+                        FrozenExpertCausalActionComposerActorCritic,
+                    )
+                    else None
+                )
                 action = (
                     actor(observations["policy"])
                     if transition_policy is None
@@ -325,6 +366,7 @@ def main() -> None:
                             np.linalg.norm(obj_xy - initial_object_xy)
                         ),
                         foot_contact=foot_contact,
+                        kick_weight=kick_weight,
                     )
                 )
     finally:

@@ -19,17 +19,26 @@ parser.add_argument("--training-seed", type=int, required=True)
 parser.add_argument(
     "--expected-recovery-reward", type=int, choices=(0, 1), default=0
 )
+parser.add_argument(
+    "--expected-policy-topology",
+    choices=("selected_expert_residual", "causal_action_composition"),
+    default="selected_expert_residual",
+)
 parser.add_argument("--output", type=Path, required=True)
 args = parser.parse_args()
 
 
 def _evaluation(path: Path, skill_id: int) -> dict[str, object]:
     result = json.loads(path.read_text(encoding="utf-8"))
+    recorded_topology = result.get(
+        "policy_topology", "selected_expert_residual"
+    )
     if (
         result.get("protocol") != "sugar_cross_skill_recovery_frozen_eval_v3"
         or result.get("structurally_valid") is not True
         or result.get("checkpoint_iteration") != 64
         or result.get("transition_selected_skill_id") != skill_id
+        or recorded_topology != args.expected_policy_topology
     ):
         raise RuntimeError(f"invalid shared transition evaluation: {path}")
     return result
@@ -48,6 +57,9 @@ def main() -> None:
         or training_audit.get("conditional_tinymdm_reward") is not None
         or checkpoint_audit.get("overall_pass") is not True
         or set(checkpoint_audit.get("arms", {})) != {"shared"}
+        or checkpoint_audit["arms"]["shared"].get(
+            "policy_topology", "selected_expert_residual"
+        ) != args.expected_policy_topology
     ):
         raise RuntimeError("shared transition training/checkpoint audit failed")
     reward_audit = training_audit.get("transition_recovery_reward", {})
@@ -124,6 +136,7 @@ def main() -> None:
             "same_update_budget": 64,
             "scalar_smp_reward": False,
             "causal_recovery_reward": expected_reward,
+            "policy_topology": args.expected_policy_topology,
         },
         "kick_condition": kick_aggregate,
         "carry_condition": carry_aggregate,

@@ -83,6 +83,24 @@ gym.register(
     },
 )
 
+gym.register(
+    id="Sugar-G129dof-KickBox-CausalActionComposition",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.kick_box_carry9_recovery_v2_env_cfg:RobotEnvCfg"
+        ),
+        "play_env_cfg_entry_point": (
+            f"{__name__}.kick_box_carry9_recovery_v2_env_cfg:RobotPlayEnvCfg"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            "sugar_rl.tasks.locomanip.agents.rsl_rl_cross_skill_recovery_cfg:"
+            "CrossSkillCausalActionComposerRunnerCfg"
+        ),
+    },
+)
+
 
 # pick bottle
 gym.register(

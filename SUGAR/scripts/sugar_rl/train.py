@@ -156,6 +156,7 @@ import builtins
 from sugar_rl.utils.rsl_rl_bcppo import BCPPO
 from sugar_rl.utils.tactile_actor_critic import TactileActorCritic
 from sugar_rl.utils.frozen_expert_transition_actor_critic import (
+    FrozenExpertCausalActionComposerActorCritic,
     FrozenExpertTransitionActorCritic,
 )
 setattr(builtins, "BCPPO", BCPPO)
@@ -166,6 +167,11 @@ setattr(
     on_policy_runner_module,
     "FrozenExpertTransitionActorCritic",
     FrozenExpertTransitionActorCritic,
+)
+setattr(
+    on_policy_runner_module,
+    "FrozenExpertCausalActionComposerActorCritic",
+    FrozenExpertCausalActionComposerActorCritic,
 )
 
 import isaaclab_tasks  # noqa: F401
@@ -431,7 +437,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # create runner from rsl-rl
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
-    if isinstance(runner.alg.policy, FrozenExpertTransitionActorCritic):
+    transition_policy_types = (
+        FrozenExpertTransitionActorCritic,
+        FrozenExpertCausalActionComposerActorCritic,
+    )
+    if isinstance(runner.alg.policy, transition_policy_types):
         if any(checkpoint_modes):
             raise RuntimeError(
                 "frozen-expert transition training initializes from its embedded "
@@ -446,7 +456,15 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 "infos": {
                     "protocol": "frozen_expert_transition_pre_update_v1",
                     "official_endpoint_parameters_frozen": True,
-                    "transition_residual_zero_initialized": True,
+                    "transition_trainable_output_zero_initialized": True,
+                    "policy_topology": (
+                        "causal_action_composition"
+                        if isinstance(
+                            runner.alg.policy,
+                            FrozenExpertCausalActionComposerActorCritic,
+                        )
+                        else "selected_expert_residual"
+                    ),
                 },
             },
             os.path.join(log_dir, "model_pre_update.pt"),

@@ -68,16 +68,24 @@ def main() -> None:
                     float(torch.abs(pre[key] - value).max()),
                     float(torch.abs(post[key] - value).max()),
                 )
-        residual_keys = [
-            name for name in pre if name.startswith("actor.residual.")
-        ]
-        residual_delta = max(
+        if any(name.startswith("actor.composer.") for name in pre):
+            policy_topology = "causal_action_composition"
+            trainable_prefix = "actor.composer."
+        elif any(name.startswith("actor.residual.") for name in pre):
+            policy_topology = "selected_expert_residual"
+            trainable_prefix = "actor.residual."
+        else:
+            raise RuntimeError(f"unknown transition topology in {checkpoint_root}")
+        trainable_keys = [name for name in pre if name.startswith(trainable_prefix)]
+        trainable_delta = max(
             float(torch.abs(post[name] - pre[name]).max())
-            for name in residual_keys
+            for name in trainable_keys
         )
+        output_weight = f"{trainable_prefix}6.weight"
+        output_bias = f"{trainable_prefix}6.bias"
         output_zero = bool(
-            torch.count_nonzero(pre["actor.residual.6.weight"]) == 0
-            and torch.count_nonzero(pre["actor.residual.6.bias"]) == 0
+            torch.count_nonzero(pre[output_weight]) == 0
+            and torch.count_nonzero(pre[output_bias]) == 0
         )
         finite = all(
             bool(torch.isfinite(value).all())
@@ -86,18 +94,19 @@ def main() -> None:
         )
         arms[arm] = {
             "official_expert_max_abs_error_pre_or_post": official_error,
-            "pre_update_residual_output_layer_exact_zero": output_zero,
-            "transition_residual_max_parameter_delta": residual_delta,
+            "policy_topology": policy_topology,
+            "pre_update_trainable_output_layer_exact_zero": output_zero,
+            "transition_trainable_max_parameter_delta": trainable_delta,
             "all_checkpoint_tensors_finite": finite,
             "pass": bool(
                 official_error == 0.0
                 and output_zero
-                and residual_delta > 0.0
+                and trainable_delta > 0.0
                 and finite
             ),
         }
     result = {
-        "protocol": "sugar_frozen_expert_transition_checkpoint_audit_v1",
+        "protocol": "sugar_frozen_expert_transition_checkpoint_audit_v2",
         "pair_root": str(pair_root),
         "post_iteration": args.post_iteration,
         "arms": arms,

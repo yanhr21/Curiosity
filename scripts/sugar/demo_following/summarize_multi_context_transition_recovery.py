@@ -29,6 +29,7 @@ INITIAL_KEYS = (
     "initial_object_root_state_w",
     "initial_policy_observation",
 )
+MINIMUM_MEAN_COMPOSITION_DEVIATION = 1.0e-4
 
 
 def _parse_args() -> argparse.Namespace:
@@ -44,26 +45,39 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint-audit", type=Path, required=True)
     parser.add_argument("--training-seed", type=int, required=True)
     parser.add_argument("--expected-schedule", default="41,49,57")
+    parser.add_argument(
+        "--expected-policy-topology",
+        choices=("selected_expert_residual", "causal_action_composition"),
+        default="selected_expert_residual",
+    )
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
 
 
-def _evaluation(path: Path, iteration: int, prefix: int) -> dict[str, object]:
+def _evaluation(
+    path: Path, iteration: int, prefix: int, policy_topology: str
+) -> dict[str, object]:
     result = json.loads(path.read_text(encoding="utf-8"))
+    recorded_topology = result.get(
+        "policy_topology", "selected_expert_residual"
+    )
     if (
         result.get("protocol") != "sugar_cross_skill_recovery_frozen_eval_v3"
         or result.get("structurally_valid") is not True
         or result.get("checkpoint_iteration") != iteration
         or result.get("transition_selected_skill_id") != 1
+        or recorded_topology != policy_topology
         or result.get("prefix", {}).get("carry_steps") != prefix
     ):
         raise RuntimeError(f"invalid prefix{prefix} Kick evaluation: {path}")
     return result
 
 
-def _comparison(prefix: int, learned_path: Path, pre_path: Path) -> dict[str, object]:
-    learned = _evaluation(learned_path, 64, prefix)
-    pre = _evaluation(pre_path, -1, prefix)
+def _comparison(
+    prefix: int, learned_path: Path, pre_path: Path, policy_topology: str
+) -> dict[str, object]:
+    learned = _evaluation(learned_path, 64, prefix, policy_topology)
+    pre = _evaluation(pre_path, -1, prefix, policy_topology)
     for key in ("seed", "num_envs", "steps", "prefix"):
         if learned[key] != pre[key]:
             raise RuntimeError(f"prefix{prefix} learned/pre-update drift: {key}")
@@ -89,7 +103,7 @@ def _comparison(prefix: int, learned_path: Path, pre_path: Path) -> dict[str, ob
             and delta["safe_kick_success_count"] >= 0
         )
     )
-    return {
+    record = {
         "carry_prefix_steps": prefix,
         "evaluation_seed": learned["seed"],
         "profiles": learned["num_envs"],
@@ -99,6 +113,33 @@ def _comparison(prefix: int, learned_path: Path, pre_path: Path) -> dict[str, ob
         "initial_physics_elementwise_identical": True,
         "safety_improvement": safety_improvement,
     }
+    if policy_topology == "causal_action_composition":
+        learned_composition = learned.get("action_composition")
+        pre_composition = pre.get("action_composition")
+        if (
+            not isinstance(learned_composition, dict)
+            or not isinstance(pre_composition, dict)
+            or learned_composition.get("future_or_outcome_labels_used") is not False
+            or pre_composition.get("future_or_outcome_labels_used") is not False
+            or float(
+                pre_composition.get(
+                    "mean_abs_deviation_from_selected_endpoint", float("nan")
+                )
+            )
+            != 0.0
+        ):
+            raise RuntimeError(
+                f"prefix{prefix} causal action-composition audit failed"
+            )
+        record["learned_action_composition"] = learned_composition
+        record["exact_pre_update_action_composition"] = pre_composition
+        record["learned_composition_weight_changes_online"] = bool(
+            float(
+                learned_composition["mean_abs_deviation_from_selected_endpoint"]
+            )
+            >= MINIMUM_MEAN_COMPOSITION_DEVIATION
+        )
+    return record
 
 
 def main() -> None:
@@ -142,7 +183,9 @@ def main() -> None:
         raise RuntimeError("multi-context reward/checkpoint audit failed")
 
     records = [
-        _comparison(int(prefix), Path(learned), Path(pre))
+        _comparison(
+            int(prefix), Path(learned), Path(pre), args.expected_policy_topology
+        )
         for prefix, learned, pre in args.comparison
     ]
     evaluation_seeds = {int(record["evaluation_seed"]) for record in records}
@@ -162,7 +205,7 @@ def main() -> None:
     }
     learned = totals["learned_kick"]
     pre = totals["exact_pre_update_kick"]
-    aggregate_safety_improvement = bool(
+    physical_aggregate_safety_improvement = bool(
         (
             learned["safe_kick_success_count"] > pre["safe_kick_success_count"]
             and learned["physical_fall_count"] <= pre["physical_fall_count"]
@@ -172,9 +215,41 @@ def main() -> None:
             and learned["safe_kick_success_count"] >= pre["safe_kick_success_count"]
         )
     )
+    composition_used = bool(
+        args.expected_policy_topology != "causal_action_composition"
+        or any(
+            record.get("learned_composition_weight_changes_online") is True
+            for record in records
+        )
+    )
+    aggregate_safety_improvement = bool(
+        physical_aggregate_safety_improvement and composition_used
+    )
+    checks = {
+        "all_predeclared_contexts_installed_online": True,
+        "exact_frozen_experts_preserved": True,
+        "causal_reward_not_actor_input": True,
+        "all_initial_physics_elementwise_identical": True,
+        "unseen_seed_evaluation": True,
+        "physical_aggregate_kick_safety_improvement": (
+            physical_aggregate_safety_improvement
+        ),
+        "aggregate_kick_safety_improvement": aggregate_safety_improvement,
+    }
+    if args.expected_policy_topology == "causal_action_composition":
+        checks.update(
+            {
+                "pre_update_exact_selected_action_composition": True,
+                "minimum_mean_composition_deviation": (
+                    MINIMUM_MEAN_COMPOSITION_DEVIATION
+                ),
+                "learned_action_composition_used_online": composition_used,
+            }
+        )
     result = {
         "protocol": "sugar_multi_context_transition_recovery_diagnostic_v1",
         "training_seed": args.training_seed,
+        "policy_topology": args.expected_policy_topology,
         "evaluation_seed": evaluation_seeds.pop(),
         "training_prefix_schedule": expected_schedule,
         "training_prefix_install_counts": install_counts,
@@ -182,14 +257,7 @@ def main() -> None:
         "contexts": records,
         "count_totals": totals,
         "mean_learned_minus_pre_update": mean_delta,
-        "checks": {
-            "all_predeclared_contexts_installed_online": True,
-            "exact_frozen_experts_preserved": True,
-            "causal_reward_not_actor_input": True,
-            "all_initial_physics_elementwise_identical": True,
-            "unseen_seed_evaluation": True,
-            "aggregate_kick_safety_improvement": aggregate_safety_improvement,
-        },
+        "checks": checks,
         "conclusion": (
             "multi_context_training_improves_unseen_seed_kick_safety"
             if aggregate_safety_improvement

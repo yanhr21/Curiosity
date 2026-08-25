@@ -24,6 +24,9 @@ os.environ.setdefault(
 )
 os.environ.setdefault("ISAACLAB_USE_LOCAL_FRAME_MARKER", "1")
 os.environ.setdefault("SUGAR_DISABLE_TRAIN_DEBUG_VIS", "1")
+os.environ.setdefault(
+    "VK_ICD_FILENAMES", "/etc/vulkan/icd.d/nvidia_icd.json"
+)
 os.environ.setdefault("DISPLAY", "")
 job_id = os.environ.get("SLURM_JOB_ID", "local")
 os.environ.setdefault("ISAACLAB_TMP_ROOT", f"/tmp/Curiosity_recovery_eval_{job_id}")
@@ -44,12 +47,22 @@ parser.add_argument("--carry-prefix-steps", type=int, default=9)
 parser.add_argument(
     "--transition-selected-skill-id", type=int, choices=(0, 1), default=None
 )
+parser.add_argument(
+    "--policy-topology",
+    choices=("selected_expert_residual", "causal_action_composition"),
+    default="selected_expert_residual",
+)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 if args.num_envs != 20 or args.steps != 250:
     parser.error("frozen recovery evaluation is fixed to 20 envs x 250 steps")
 if args.carry_prefix_steps <= 0:
     parser.error("carry prefix must be positive")
+if (
+    args.policy_topology == "causal_action_composition"
+    and args.transition_selected_skill_id is None
+):
+    parser.error("causal action composition requires a selected skill")
 args.task = "Sugar-G129dof-KickBox-Carry9-Recovery"
 args.enable_cameras = False
 
@@ -84,6 +97,7 @@ from sugar_rl.utils.online_cross_skill_recovery_wrapper import (  # noqa: E402
     _load_released_tracker_actor,
 )
 from sugar_rl.utils.frozen_expert_transition_actor_critic import (  # noqa: E402
+    FrozenExpertCausalActionComposerActorCritic,
     FrozenExpertTransitionActorCritic,
 )
 
@@ -188,19 +202,26 @@ def main() -> None:
         actor = _load_released_tracker_actor(checkpoint, wrapped.device)
         transition_policy = None
     else:
-        transition_policy = FrozenExpertTransitionActorCritic(
+        if args.policy_topology == "causal_action_composition":
+            policy_class = FrozenExpertCausalActionComposerActorCritic
+            policy_observation_groups = [
+                "policy",
+                "carry_skill_command",
+                "kick_skill_command",
+                "selected_skill_id",
+            ]
+        else:
+            policy_class = FrozenExpertTransitionActorCritic
+            policy_observation_groups = [
+                "policy",
+                "selected_skill_command",
+                "selected_skill_id",
+            ]
+        transition_policy = policy_class(
             observations,
             {
-                "policy": [
-                    "policy",
-                    "selected_skill_command",
-                    "selected_skill_id",
-                ],
-                "critic": [
-                    "critic",
-                    "selected_skill_command",
-                    "selected_skill_id",
-                ],
+                "policy": policy_observation_groups,
+                "critic": ["critic", *policy_observation_groups[1:]],
                 "teacher": ["teacher"],
             },
             29,
@@ -243,6 +264,8 @@ def main() -> None:
         "reward": [],
         "done": [],
     }
+    if args.policy_topology == "causal_action_composition":
+        records["kick_composition_weight"] = []
     body_names = np.asarray(base.scene["robot"].body_names, dtype="U64")
     with torch.inference_mode():
         for _ in range(args.steps):
@@ -252,6 +275,16 @@ def main() -> None:
                 if transition_policy is None
                 else transition_policy.act_inference(observations)
             )
+            if isinstance(
+                transition_policy, FrozenExpertCausalActionComposerActorCritic
+            ):
+                records["kick_composition_weight"].append(
+                    transition_policy.composition_kick_weight(observations)
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .copy()
+                )
             observations, reward, done, _ = wrapped.step(action)
             forces = torch.stack(
                 (
@@ -313,6 +346,7 @@ def main() -> None:
         "checkpoint": str(checkpoint),
         "checkpoint_iteration": checkpoint_payload.get("iter"),
         "transition_selected_skill_id": args.transition_selected_skill_id,
+        "policy_topology": args.policy_topology,
         "seed": args.seed,
         "num_envs": args.num_envs,
         "steps": args.steps,
@@ -336,11 +370,42 @@ def main() -> None:
             ),
         },
         "profiles": rows,
+        "action_composition": (
+            {
+                "minimum_kick_weight": float(
+                    np.min(arrays["kick_composition_weight"])
+                ),
+                "maximum_kick_weight": float(
+                    np.max(arrays["kick_composition_weight"])
+                ),
+                "mean_kick_weight": float(
+                    np.mean(arrays["kick_composition_weight"])
+                ),
+                "mean_abs_deviation_from_selected_endpoint": float(
+                    np.mean(
+                        np.abs(
+                            arrays["kick_composition_weight"]
+                            - float(args.transition_selected_skill_id)
+                        )
+                    )
+                ),
+                "future_or_outcome_labels_used": False,
+            }
+            if args.policy_topology == "causal_action_composition"
+            else None
+        ),
         "checks": {
             "all_trace_values_finite": bool(all_finite),
             "no_reset_during_frozen_window": bool(no_reset),
             "checkpoint_actor_contract_valid": True,
             "online_prefix_has_no_teleport_or_replay": True,
+            "composition_weight_in_unit_interval": bool(
+                args.policy_topology != "causal_action_composition"
+                or (
+                    np.min(arrays["kick_composition_weight"]) >= 0.0
+                    and np.max(arrays["kick_composition_weight"]) <= 1.0
+                )
+            ),
             "feature_complete_for_official_tinymdm": all(
                 name in arrays
                 for name in (
