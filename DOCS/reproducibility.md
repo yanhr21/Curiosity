@@ -1289,6 +1289,51 @@ correct 的 `0.0540/0.14705 m`。因此只允许结论“condition 改变行为�
 reward 没有 correct-condition 物理优势，不能称为 SMP demo following。camera-free seed181632
 统计是权威结果；camera-enabled seed181633 视频只证明自己的 rollout，不冒充逐帧 replay。
 
+### 5.2 Matched-noise causal progress 三 seed 复现
+
+progress mode 用同一份私有 diffusion RNG state 分别计算相邻 causal window 的 selected-class
+loss，奖励归一化 loss 的下降。它不读取 future/outcome label，也不改变 policy RNG。先执行
+零优化器 smoke：
+
+```bash
+$PYTHON_BIN scripts/sugar/smp/smoke_online_conditional_tinymdm_reward.py \
+  --output experiments/demo_following/conditional_smp_progress_online_smoke_v1/RESULT.json \
+  --num-envs 4 --class-id 1 --reward-mode progress --carry-prefix-steps 41 \
+  --headless --device cuda:0
+```
+
+然后在 retained GPU compute node 串行运行三个 matched seed；每个 seed 内 correct/wrong 只改
+class ID：
+
+```bash
+REWARD_MODE_OVERRIDE=progress \
+  bash scripts/sugar/smp/run_conditional_smp_recovery_matched_pair.sh \
+  experiments/demo_following/conditional_smp_progress_recovery_prefix41_v1 cuda:0
+
+REWARD_MODE_OVERRIDE=progress TRAIN_SEED_OVERRIDE=171633 EVAL_SEED_OVERRIDE=181634 \
+  bash scripts/sugar/smp/run_conditional_smp_recovery_matched_pair.sh \
+  experiments/demo_following/conditional_smp_progress_recovery_prefix41_seed171633_v1 cuda:0
+
+REWARD_MODE_OVERRIDE=progress TRAIN_SEED_OVERRIDE=171634 EVAL_SEED_OVERRIDE=181636 \
+  bash scripts/sugar/smp/run_conditional_smp_recovery_matched_pair.sh \
+  experiments/demo_following/conditional_smp_progress_recovery_prefix41_seed171634_v1 cuda:0
+```
+
+相机证据分别使用独立 seeds `181633/181635/181637`。三 seed 汇总命令：
+
+```bash
+$PYTHON_BIN scripts/sugar/smp/aggregate_conditional_smp_progress_seeds.py \
+  --pair experiments/demo_following/conditional_smp_progress_recovery_prefix41_v1/PAIR_RESULT.json \
+  --pair experiments/demo_following/conditional_smp_progress_recovery_prefix41_seed171633_v1/PAIR_RESULT.json \
+  --pair experiments/demo_following/conditional_smp_progress_recovery_prefix41_seed171634_v1/PAIR_RESULT.json \
+  --output experiments/demo_following/conditional_smp_progress_three_seed_v1/RESULT.json
+```
+
+期望严格结果为 correct/wrong `52/50` safe kick、`5/5` falls，结论字段为
+`condition_effect_replicated_without_seed_robust_physical_advantage`。三 seed 都减少足碰箱并增加
+净位移，但逐 seed 的 fall、root-height 和 task-reward 方向不稳定。不要把 60 个 profile 当作
+60 个独立训练 seed，也不要声称已经完成 general demo following。
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

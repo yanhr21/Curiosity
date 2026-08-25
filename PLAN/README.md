@@ -398,6 +398,26 @@ admitted official checkpoint and a matched-noise causal progress/transition obje
 reward improvement between consecutive causal windows, preserve the released endpoint teacher,
 and exclude future outcomes from deployment.
 
+### Matched-noise progress: repeatable condition effect, no robust physical advantage
+
+The fixed progress reward scores consecutive causal windows with the same private diffusion noise
+and uses the selected-class normalized-loss decrease. It passed the zero-optimizer online gate and
+was then run without weight, teacher or update changes for training seeds `171632/171633/171634`
+and disjoint frozen seeds `181632/181634/181636`.
+
+Across 60 profiles per arm, correct Kick versus wrong Carry totals `52 vs 50` safe kicks and equal
+`5 vs 5` falls. The mean correct-minus-wrong deltas are `+0.01492 m` net displacement,
+`-0.00847` foot-contact fraction, `-0.02102 m` planar path and `+0.00096 m` maximum root-height
+loss. Net displacement improves and foot contact decreases in every seed, while fall, root-height
+and task-reward directions are inconsistent. Only seed171632 passes the per-seed physical-advantage
+rule. The admitted conclusion is repeatable condition-dependent behavior without seed-robust
+physical benefit; do not call this general demo following or repeat a weight/update sweep.
+
+The next fixed objective is a causal contrastive transition margin: change in
+`loss(alternative) - loss(selected)` across adjacent windows with matched diffusion noise. It keeps
+the same official checkpoint and online feature contract while removing generic motion progress
+that helps both semantic classes.
+
 ### Expected behavior, not just reward score
 
 For the correct Carry demo, the expected interaction is: approach the box, establish bilateral hand

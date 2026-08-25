@@ -51,8 +51,11 @@ class OnlineConditionalTinyMDMReward:
     ) -> None:
         if class_id not in (0, 1):
             raise ValueError("conditional TinyMDM class must be Carry=0 or Kick=1")
-        if reward_mode not in ("occupancy", "progress"):
-            raise ValueError("conditional TinyMDM reward mode must be occupancy or progress")
+        if reward_mode not in ("occupancy", "progress", "contrastive_progress"):
+            raise ValueError(
+                "conditional TinyMDM reward mode must be occupancy, progress, "
+                "or contrastive_progress"
+            )
         self.base_env = base_env
         self.device = torch.device(base_env.device)
         self.num_envs = int(base_env.num_envs)
@@ -98,6 +101,9 @@ class OnlineConditionalTinyMDMReward:
         self.loss_scale = math.log(2.0) / normalized_median
         self.class_labels = torch.full(
             (self.num_envs,), self.class_id, dtype=torch.long, device=self.device
+        )
+        self.alternative_class_labels = torch.full(
+            (self.num_envs,), 1 - self.class_id, dtype=torch.long, device=self.device
         )
         robot = self.base_env.scene["robot"]
         self.body_ids = torch.as_tensor(
@@ -242,6 +248,7 @@ class OnlineConditionalTinyMDMReward:
         features: torch.Tensor,
         cpu_state: torch.Tensor,
         cuda_state: torch.Tensor,
+        class_labels: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         normalized = self.model.normalize(features).reshape(self.num_envs, -1)
         global_cpu_state = torch.get_rng_state()
@@ -252,7 +259,7 @@ class OnlineConditionalTinyMDMReward:
             losses = self.model.ESM_SDS_loss(
                 normalized,
                 t_lst=list(self.diffusion_steps),
-                class_labels=self.class_labels,
+                class_labels=(self.class_labels if class_labels is None else class_labels),
             )
             next_cpu_state = torch.get_rng_state().clone()
             next_cuda_state = torch.cuda.get_rng_state(self.device).clone()
@@ -275,7 +282,7 @@ class OnlineConditionalTinyMDMReward:
             )
             normalized_loss = self._normalized_loss(losses)
             reward = torch.exp(-normalized_loss * self.loss_scale)
-        else:
+        elif self.reward_mode == "progress":
             if self.previous_features is None:
                 raise RuntimeError("conditional SMP progress reward was not prepared")
             previous_losses, _, _ = self._losses_from_rng(
@@ -288,6 +295,46 @@ class OnlineConditionalTinyMDMReward:
             current_normalized = self._normalized_loss(losses)
             reward = torch.clamp(
                 (previous_normalized - current_normalized)
+                / self.calibration_normalized_median,
+                -1.0,
+                1.0,
+            )
+            self.previous_features = features.clone()
+        else:
+            if self.previous_features is None:
+                raise RuntimeError("conditional SMP progress reward was not prepared")
+            previous_selected_losses, _, _ = self._losses_from_rng(
+                self.previous_features,
+                self._cpu_rng_state,
+                self._cuda_rng_state,
+                self.class_labels,
+            )
+            previous_alternative_losses, _, _ = self._losses_from_rng(
+                self.previous_features,
+                self._cpu_rng_state,
+                self._cuda_rng_state,
+                self.alternative_class_labels,
+            )
+            losses, next_cpu, next_cuda = self._losses_from_rng(
+                features,
+                self._cpu_rng_state,
+                self._cuda_rng_state,
+                self.class_labels,
+            )
+            current_alternative_losses, _, _ = self._losses_from_rng(
+                features,
+                self._cpu_rng_state,
+                self._cuda_rng_state,
+                self.alternative_class_labels,
+            )
+            previous_margin = self._normalized_loss(previous_alternative_losses) - self._normalized_loss(
+                previous_selected_losses
+            )
+            current_margin = self._normalized_loss(current_alternative_losses) - self._normalized_loss(
+                losses
+            )
+            reward = torch.clamp(
+                (current_margin - previous_margin)
                 / self.calibration_normalized_median,
                 -1.0,
                 1.0,
@@ -312,7 +359,10 @@ class OnlineConditionalTinyMDMReward:
             "diffusion_steps": list(self.diffusion_steps),
             "loss_scale": self.loss_scale,
             "progress_normalizer_training_median": self.calibration_normalized_median,
-            "progress_uses_matched_diffusion_noise": self.reward_mode == "progress",
+            "progress_uses_matched_diffusion_noise": self.reward_mode
+            in ("progress", "contrastive_progress"),
+            "contrastive_uses_selected_vs_alternative_margin": self.reward_mode
+            == "contrastive_progress",
             "reward_calls": self.reward_calls,
             "reward_mean": (
                 self.reward_sum / self.reward_calls if self.reward_calls else None

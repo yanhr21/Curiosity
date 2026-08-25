@@ -7,8 +7,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python}"
 OUTPUT_ROOT="${1:-$ROOT/experiments/demo_following/conditional_smp_recovery_prefix41_v1}"
 DEVICE="${2:-cuda:0}"
-TRAIN_SEED=171632
-EVAL_SEED=181632
+TRAIN_SEED="${TRAIN_SEED_OVERRIDE:-171632}"
+EVAL_SEED="${EVAL_SEED_OVERRIDE:-181632}"
 NUM_ENVS="${NUM_ENVS_OVERRIDE:-64}"
 OUTPUT_ROOT="$(realpath -m "$OUTPUT_ROOT")"
 RESUME_MATCHED_PAIR="${RESUME_MATCHED_PAIR:-0}"
@@ -72,7 +72,7 @@ for arm_spec in correct_kick:1 wrong_carry:0; do
         --actor_critic_warm_start_checkpoint_path "$ROOT/SUGAR/demo_ckpts/KickBox/tracker.pt" \
         --teacher_ckpt "$ROOT/SUGAR/demo_ckpts/KickBox/tracker.pt" \
         --headless --device "$DEVICE" \
-        --kit_args="--/renderer/enabled= --/renderer/multiGpu/enabled=false"
+        --kit_args="--/renderer/enabled=false --/renderer/multiGpu/enabled=false"
     test -s "$arm_root/train/model_pre_update.pt"
     test -s "$arm_root/train/model_64.pt"
     test -s "$arm_root/train/prefix_audit.json"
@@ -94,7 +94,7 @@ for arm in correct_kick wrong_carry; do
         --output-dir "$evaluation_root" \
         --carry-prefix-steps 41 --num-envs 20 --steps 250 --seed "$EVAL_SEED" \
         --headless --device "$DEVICE" \
-        --kit_args="--/renderer/enabled= --/renderer/multiGpu/enabled=false"
+        --kit_args="--/renderer/enabled=false --/renderer/multiGpu/enabled=false"
     test -s "$evaluation_root/RESULT.json"
 done
 
@@ -103,5 +103,6 @@ done
     --wrong "$OUTPUT_ROOT/wrong_carry/evaluation/RESULT.json" \
     --correct-audit "$OUTPUT_ROOT/correct_kick/train/prefix_audit.json" \
     --wrong-audit "$OUTPUT_ROOT/wrong_carry/train/prefix_audit.json" \
+    --training-seed "$TRAIN_SEED" \
     --output "$OUTPUT_ROOT/PAIR_RESULT.json"
 test -s "$OUTPUT_ROOT/PAIR_RESULT.json"

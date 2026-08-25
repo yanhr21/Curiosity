@@ -245,6 +245,19 @@ following. The next serious diagnostic must turn the same admitted prior into a 
 state-progress/transition objective with matched-noise scoring; it may not use future labels or a
 toy latent.
 
+That matched-noise progress diagnostic is now complete for training seeds
+`171632/171633/171634`, paired with frozen seeds `181632/181634/181636`. At every actor step it
+scores the previous and current causal `10 x 216` windows with identical private diffusion noise
+and rewards the decrease in selected-class normalized loss. Across 60 profiles per arm, correct
+Kick versus wrong Carry gives `52 vs 50` safe kicks and `5 vs 5` falls. Mean correct-minus-wrong
+deltas are `+0.01492 m` net displacement, `-0.00847` foot-contact fraction and `+0.00096 m` root
+height loss. Foot contact decreases and net displacement increases in all three seeds, but only
+seed171632 passes the per-seed physical-advantage rule; fall, root-height and task-reward signs are
+not stable. Therefore this establishes repeatable condition-dependent behavior, not seed-robust
+physical benefit or general demo following. Do not tune its weight or extend its update budget.
+The next fixed diagnostic must use a causal contrastive transition margin between selected and
+alternative classes so generic motion progress cannot masquerade as selected-demo progress.
+
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or
 unrelated Kick21 model, but creates no environment and executes zero PPO updates. The allocation is

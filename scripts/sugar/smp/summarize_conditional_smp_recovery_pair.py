@@ -13,6 +13,7 @@ parser.add_argument("--correct", type=Path, required=True)
 parser.add_argument("--wrong", type=Path, required=True)
 parser.add_argument("--correct-audit", type=Path, required=True)
 parser.add_argument("--wrong-audit", type=Path, required=True)
+parser.add_argument("--training-seed", type=int, required=True)
 parser.add_argument("--output", type=Path, required=True)
 args = parser.parse_args()
 
@@ -92,7 +93,7 @@ def main() -> None:
             "wrong": "Carry condition (class 0), conflicting with the post-prefix Kick task",
             "same_teacher": "released KickBox Tracker",
             "same_initialization": "one Kick alignment plus 41 online Carry steps",
-            "same_training_seed": 171632,
+            "same_training_seed": args.training_seed,
             "same_update_budget": 64,
             "same_task_and_smp_weights": [0.5, 0.5],
             "reward_mode": correct_reward_mode,

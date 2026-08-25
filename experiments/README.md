@@ -98,6 +98,13 @@ has been archived.
   pair at update64. Both frozen arms are `16/20` safe Kick with `3/20` falls; wrong Carry has more
   contact/displacement, so this is condition-use evidence and an absolute-reward negative result.
   `videos_single_seed181633/` contains a matched camera-enabled rollout; it proves that seed only;
+- `conditional_smp_progress_recovery_prefix41_v1/` and the seed171633/171634 siblings: three
+  matched-noise causal progress pairs. Aggregated correct/wrong totals are `52/50` safe kicks and
+  `5/5` falls over 60 profiles per arm; all three seeds reduce foot contact and increase net
+  displacement, but physical advantage is not seed-robust. Each directory contains its own
+  camera-seed video and proves only that rollout;
+- `conditional_smp_progress_three_seed_v1/`: machine-readable three-seed aggregate and strict claim
+  boundary;
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
 The old 1216-update policy experiment, rejected 510-D/free-window event predictor, redundant CPU

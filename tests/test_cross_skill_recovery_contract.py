@@ -146,8 +146,10 @@ def test_conditional_tinymdm_reward_is_official_causal_and_online() -> None:
     assert "self.base_env.scene[\"obj\"].data" in source
     assert "WINDOW_SIZE, FEATURE_DIM" in source
     assert "ESM_SDS_loss" in source
-    assert 'reward_mode not in ("occupancy", "progress")' in source
+    assert '"contrastive_progress"' in source
     assert "previous_normalized - current_normalized" in source
+    assert "current_margin - previous_margin" in source
+    assert "alternative_class_labels" in source
     assert "progress_uses_matched_diffusion_noise" in source
     assert '"future_or_outcome_labels_used": False' in source
     for forbidden in ("physical_fall", "safe_kick", "future_frame", "trace.npz"):
@@ -180,12 +182,14 @@ def test_online_conditional_reward_preserves_task_reward_and_is_optional() -> No
 def test_conditional_smp_matched_pair_is_serial_and_has_no_human_gate() -> None:
     source = _read(ROOT / "scripts/sugar/smp/run_conditional_smp_recovery_matched_pair.sh")
     assert "correct_kick:1 wrong_carry:0" in source
-    assert "TRAIN_SEED=171632" in source
-    assert "EVAL_SEED=181632" in source
+    assert "TRAIN_SEED_OVERRIDE:-171632" in source
+    assert "EVAL_SEED_OVERRIDE:-181632" in source
+    assert '--training-seed "$TRAIN_SEED"' in source
     assert "--max_iterations 65" in source
     assert "SUGAR_CONDITIONAL_TINYMDM_TASK_WEIGHT=0.5" in source
     assert "SUGAR_CONDITIONAL_TINYMDM_SMP_WEIGHT=0.5" in source
     assert "SUGAR_CROSS_SKILL_RECOVERY_SAFETY_PENALTY=1" in source
+    assert "--/renderer/enabled=false" in source
     assert "RESUME_MATCHED_PAIR" in source
     assert "Reusing complete matched endpoint" in source
     assert "read -" not in source

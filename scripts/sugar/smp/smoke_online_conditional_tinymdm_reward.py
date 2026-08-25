@@ -35,7 +35,11 @@ parser.add_argument("--num-envs", type=int, default=4)
 parser.add_argument("--seed", type=int, default=191632)
 parser.add_argument("--reward-seed", type=int, default=190001)
 parser.add_argument("--class-id", type=int, choices=(0, 1), default=1)
-parser.add_argument("--reward-mode", choices=("occupancy", "progress"), default="occupancy")
+parser.add_argument(
+    "--reward-mode",
+    choices=("occupancy", "progress", "contrastive_progress"),
+    default="occupancy",
+)
 parser.add_argument("--carry-prefix-steps", type=int, default=41)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()

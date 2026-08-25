@@ -163,9 +163,13 @@
   feature/RNG smoke, and run the matched correct-Kick versus wrong-Carry update-64 pair;
 - [x] record the negative physical verdict: both arms are `16/20` safe Kick with `3/20` falls and
   wrong Carry has more contact/displacement, so absolute prior occupancy reward is not admitted;
-- [ ] replace absolute occupancy reward with a matched-noise causal state-progress/transition
-  objective using the same official conditional prior, then test independent seeds and geometry;
-  no future labels, toy latent or weight/update sweep.
+- [x] replace absolute occupancy reward with a matched-noise causal state-progress objective using
+  the same official conditional prior and complete three matched training/evaluation seeds;
+- [x] record the strict verdict: `52 vs 50` safe kicks and equal `5 vs 5` falls over 60 profiles,
+  with repeatable displacement/contact shifts but no seed-robust physical advantage;
+- [ ] run one fixed causal contrastive transition-margin diagnostic using
+  `loss(alternative) - loss(selected)` progress under matched diffusion noise; no future labels,
+  toy latent, reward-weight sweep or extra update budget.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -189,8 +193,10 @@ Carry-9 -> Kick recovery controller is now complete and slightly improves displa
 reward while preserving `20/20` Kick; the prefix frontier and matched prefix41 recovery are now
 complete and negative. The admitted shared conditional TinyMDM passes its motion-disjoint gate,
 but its first absolute-occupancy online reward pair gives no correct-condition physical advantage.
-The active next task is therefore a matched-noise causal state-progress/transition objective using
-that same official prior, not a reward-scale, threshold or optimizer-step sweep.
+The later matched-noise progress objective produces repeatable condition-dependent behavior across
+three seeds but no seed-robust physical advantage. The active next task is therefore one fixed
+causal contrastive transition-margin objective using that same official prior, not a reward-scale,
+threshold or optimizer-step sweep.
 
 ## Frozen tactile work
 

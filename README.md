@@ -109,6 +109,15 @@ online Carry prefix、64 updates、safety penalty 和 `0.5 task + 0.5 SMP`。冻
 SMP demo following。下一步必须改成同一 official prior 上的 causal state-progress/transition
 objective，而不是继续扫权重或 updates。
 
+matched-noise progress 版本现已完成三个独立训练 seed。它用完全相同的私有 diffusion noise
+比较相邻 causal `10 x 216` windows，只奖励 selected class loss 的下降，不读取 future/outcome
+label。`171632/171633/171634` 对应的 60 个冻结 profiles 中，correct Kick 与 wrong Carry 为
+`52 vs 50` safe kick、`5 vs 5` fall；平均净位移差 `+0.01492 m`、足碰箱占比差 `-0.00847`，且
+这两个方向在三个 seed 中一致。但只有第一个 seed 通过逐 seed 物理优势规则，root-height 与
+task-reward 的方向会反转。因此当前贡献是“条件导致可重复行为偏移”，不是 seed-robust 安全
+增益，更不能称为 general demo following。下一项固定实验改为 selected-vs-alternative 的
+causal contrastive transition margin，避免 generic motion progress 冒充语义进展。
+
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
 latent 或安全跨资产 transition policy。最终四视频位于
@@ -487,6 +496,8 @@ bash scripts/sugar/native_tactile/run_plain_carrybox_whole_hand_visualization.sh
 
 - [Prefix41 安全约束：baseline 与 update64 真实世界对照](experiments/demo_following/cross_skill_recovery_prefix41_safe_v1/videos/matched_baseline_vs_learned_recovery_actual_world.mp4)；
 - [Official conditional TinyMDM：correct Kick 与 wrong Carry 的同 seed 冻结行为](experiments/demo_following/conditional_smp_recovery_prefix41_v1/videos_single_seed181633/correct_kick_vs_wrong_carry_seed181633.mp4)；
+- [Official conditional TinyMDM progress：独立 seed171633 冻结行为](experiments/demo_following/conditional_smp_progress_recovery_prefix41_seed171633_v1/videos_single_seed181635/correct_kick_vs_wrong_carry_seed181635.mp4)；
+- [Official conditional TinyMDM progress：独立 seed171634 冻结行为](experiments/demo_following/conditional_smp_progress_recovery_prefix41_seed171634_v1/videos_single_seed181637/correct_kick_vs_wrong_carry_seed181637.mp4)；
 - [Prefix41 无安全 penalty：位移增加但跌倒恶化](experiments/demo_following/cross_skill_recovery_prefix41_v1/videos/matched_baseline_vs_learned_recovery_actual_world.mp4)；
 - [Carry-9→Kick：零更新与 update64 真实世界对照](experiments/demo_following/cross_skill_recovery_v1/bcppo_frozen_eval_seed181629/videos/matched_baseline_vs_update64_actual_world.mp4)；
 - [official router：Carry45 reference 与 matched Carry](experiments/demo_following/official_tracker_router_v1/seed161610/videos_reference_actual_final/01_carry_domain_carry45_condition.mp4)；
@@ -533,11 +544,12 @@ Git。当前实验目录索引见 [experiments README](experiments/README.md)。
 
 ## 下一步
 
-冻结 Carry-prefix 扫描、prefix41 recovery 和第一组 official conditional TinyMDM online
-reward 都已完成。shared task-wide prior 本身通过 motion-disjoint gate，但 absolute occupancy
-reward 的 correct/wrong matched pair 没有正确条件优势。当前下一项是在同一个 admitted
-official prior 上构造 matched-noise causal state-progress/transition objective；不得继续增加
-optimizer steps、扫描同一 reward 权重，也不得用 hand-written toy latent/world model 替代。
+冻结 Carry-prefix 扫描、prefix41 recovery、absolute occupancy reward 和三 seed matched-noise
+progress reward 都已完成。shared task-wide prior 通过 motion-disjoint gate；progress reward
+在三个 seed 都改变行为，但没有 seed-robust 物理优势。当前下一项是在同一个 admitted
+official prior 上构造 selected-vs-alternative causal contrastive transition margin；不得继续
+增加 optimizer steps、扫描同一 reward 权重，也不得用 hand-written toy latent/world model
+替代。
 
 旧 matched 64-update comparison 已完成，结果为稳定 Carry、无 semantic separation；exact-prefix
 scorer ablation 已证明在线语义倒置由 nonzero-reference phase 初始化错误直接造成，并已修复
