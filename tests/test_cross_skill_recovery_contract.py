@@ -471,6 +471,14 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert "REPLICATION_VIDEO_SEED_OVERRIDE:-181659" in runner
     assert "aggregate_multi_context_transition_recovery_seeds.py" in runner
     assert "replication_launched" in runner
+    aggregate = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "aggregate_multi_context_transition_recovery_seeds.py"
+    )
+    assert "COMPOSITION_MEAN_FIELDS" in aggregate
+    assert "learned_action_composition_used_online_all_seeds" in aggregate
+    assert "composition_terms_match_deployed_action_all_seeds" in aggregate
     multi_context_runner = _read(
         ROOT / "scripts/sugar/demo_following/run_multi_context_transition_recovery.sh"
     )
