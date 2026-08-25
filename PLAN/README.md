@@ -49,10 +49,30 @@ Generator's own released min/max normalizer also fails as an early OOD separator
 frames the incompatible route has lower outside-range fraction than the compatible route
 (`0.00132` versus `0.00625` mean). Do not tune either threshold.
 
-The next serious matched method is a causal transition-risk predictor trained across official
-multi-context rollouts. Future fall/contact/action-invalidity may be a training label only; the
-deployed predictor may read only recent physical state and current released-expert candidate
-signals. It must be evaluated on held-out context/profile splits before controlling fallback.
+The causal transition-risk predictor has now been implemented and tested. It is a serious
+11.012M-parameter, 6-layer, 384-D Transformer over the exact past `10 x 539` deployable prefix:
+510-D official Tracker observation plus the current 29-D released Carry candidate action. Dataset
+profiles are disjoint between train/validation, and test uses disjoint seed/context traces. Future
+fall/contact/action-invalidity defines the profile label only and never enters inference. A fixed
+eight-profile overfit passes `5/5` at 500 steps. The frozen formal checkpoint selects threshold
+`0.715` using validation first-50 frames only; held-out test AUROC is `0.7430`, balanced accuracy
+`0.6536`, probability gap `0.2655`, and Brier `0.2258` versus prevalence baseline `0.2331`.
+
+That offline pass does not transfer to safe endpoint switching. In the matched BIGBOX online test,
+the first 50 frames and candidate actions are exact between direct and fallback arms. Nine causal
+samples latch `10/20` profiles to the official Kick pair at frame 49. The composed arm then records
+one physical fall, leaves the action envelope and reaches its first non-finite Tracker transition
+at frame 447. The failing environment has risk `0.8885 > 0.715` and was already using fallback;
+therefore this is not a classifier false negative. Executing Carry for 50 frames and abruptly
+switching to Kick can place even the official fallback outside its stable distribution.
+
+The earliest available anchor-9 audit is also complete. Its threshold `0.84` is selected only on
+validation anchor 9. Held-out AUROC `0.7239`, balanced accuracy `0.6553` and probability gap
+`0.3564` show that frames 0--9 contain ranking signal, but test Brier `0.2773` is worse than the
+prevalence baseline `0.2331`; the predeclared calibration gate fails. Do not launch an online
+anchor-9 hard switch or weaken the gate. Replace hard endpoint switching with a learned causal
+transition/recovery controller trained from official endpoint rollouts; preserve both exact
+released skills and do not substitute a toy latent or hand-written world model.
 
 ### Reference-aware matched pair: complete, partial single-seed shift
 

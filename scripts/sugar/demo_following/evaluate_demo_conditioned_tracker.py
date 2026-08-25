@@ -69,6 +69,19 @@ parser.add_argument(
     ),
 )
 parser.add_argument(
+    "--causal-transition-risk-fallback",
+    action="store_true",
+    help=(
+        "Use a frozen causal Carry45 transition-risk Transformer over the first "
+        "50 current-state frames, then latch risky profiles to the domain released pair."
+    ),
+)
+parser.add_argument(
+    "--transition-risk-proof",
+    type=Path,
+    help="Passed frozen transition-risk evaluation supplying checkpoint and threshold.",
+)
+parser.add_argument(
     "--scene-object-asset",
     choices=("domain", "small", "big"),
     default="domain",
@@ -124,6 +137,12 @@ if not args.dagger_collection and args.student_action_fraction != 1.0:
     parser.error("formal frozen evaluation requires exact student-only execution")
 if args.causal_safe_fallback and not args.route_generator_with_expert:
     parser.error("--causal-safe-fallback requires --route-generator-with-expert")
+if args.causal_transition_risk_fallback and not args.route_generator_with_expert:
+    parser.error("--causal-transition-risk-fallback requires --route-generator-with-expert")
+if args.causal_transition_risk_fallback and args.causal_safe_fallback:
+    parser.error("transition-risk and action-envelope fallback are mutually exclusive")
+if args.causal_transition_risk_fallback and args.transition_risk_proof is None:
+    parser.error("--causal-transition-risk-fallback requires --transition-risk-proof")
 args.task = f"Sugar-G129dof-{args.domain}-Inference"
 args.enable_cameras = False
 
@@ -167,6 +186,9 @@ from train_shared_full_tracker import (  # noqa: E402
     construct_full_policy,
 )
 from train_official_tracker_router import construct_router_policy  # noqa: E402
+from train_official_transition_risk_transformer import (  # noqa: E402
+    CausalTransitionRiskTransformer,
+)
 
 
 setattr(builtins, "BCPPO", BCPPO)
@@ -200,6 +222,9 @@ CONTACT_THRESHOLD_N = 0.1
 RELEASED_TRACKER_RAW_ACTION_LIMIT = 25.0
 LIFT_THRESHOLD_M = 0.05
 FALL_HEIGHT_LOSS_M = 0.35
+TRANSITION_RISK_HISTORY_STEPS = 10
+TRANSITION_RISK_DECISION_FRAME = 49
+TRANSITION_RISK_SAMPLE_STRIDE = 5
 
 
 class _CausalShadowGenerator:
@@ -338,9 +363,10 @@ def _same_state(
 
 def _profile_summaries(arrays: dict[str, np.ndarray]) -> list[dict[str, object]]:
     records: list[dict[str, object]] = []
+    available_frames = int(arrays["done"].shape[0])
     for env_index in range(args.num_envs):
         done_hits = np.flatnonzero(arrays["done"][:, env_index])
-        stop = int(done_hits[0]) + 1 if done_hits.size else args.steps
+        stop = int(done_hits[0]) + 1 if done_hits.size else available_frames
         obj = arrays["object_root_state_w"][:stop, env_index]
         root = arrays["robot_root_state_w"][:stop, env_index]
         contact = arrays["contact"][:stop, env_index]
@@ -434,6 +460,11 @@ def main() -> None:
         checkpoint.get("protocol")
         == "sugar_demo_conditioned_official_tracker_router_checkpoint_v1"
     )
+    if args.causal_transition_risk_fallback and not official_tracker_router:
+        raise RuntimeError(
+            "transition-risk composition requires the checkpoint containing the "
+            "two exact released Tracker experts"
+        )
     output.mkdir(parents=True, exist_ok=False)
 
     torch.manual_seed(args.seed)
@@ -512,15 +543,50 @@ def main() -> None:
     shared_policy.eval()
     shared_policy.requires_grad_(False)
     state_before = _clone_state(shared_policy)
-    scorer = FrozenPhaseAwareDemoEventScorer(
-        num_envs=args.num_envs,
-        device=base.device,
-        cfg=FrozenPhaseAwareDemoEventScorerCfg(
-            runtime_config_path=str(RUNTIME_CONFIG),
-            selected_option=args.selected_demo_option,
-            phase_horizon_steps=650,
-        ),
-    )
+    transition_risk_model = None
+    transition_risk_threshold = 0.0
+    transition_risk_state_before = None
+    if args.causal_transition_risk_fallback:
+        transition_proof_path = args.transition_risk_proof.expanduser()
+        if not transition_proof_path.is_absolute():
+            transition_proof_path = ROOT / transition_proof_path
+        transition_proof_path = transition_proof_path.resolve()
+        transition_proof = json.loads(transition_proof_path.read_text(encoding="utf-8"))
+        if (
+            transition_proof.get("protocol")
+            != "sugar_causal_transition_risk_frozen_evaluation_v1"
+            or transition_proof.get("passed") is not True
+        ):
+            raise RuntimeError("transition-risk frozen proof is not admitted")
+        transition_checkpoint_path = Path(transition_proof["checkpoint"]).resolve()
+        transition_checkpoint = torch.load(
+            transition_checkpoint_path, map_location=base.device, weights_only=True
+        )
+        transition_state = transition_checkpoint["model_state_dict"]
+        transition_risk_model = CausalTransitionRiskTransformer(
+            transition_state["state_mean"].detach().cpu(),
+            transition_state["state_std"].detach().cpu(),
+        ).to(base.device)
+        transition_risk_model.load_state_dict(transition_state, strict=True)
+        transition_risk_model.eval()
+        transition_risk_model.requires_grad_(False)
+        transition_risk_state_before = _clone_state(transition_risk_model)
+        transition_risk_threshold = float(
+            transition_proof["validation_first50_selected_threshold"]
+        )
+        if not 0.0 < transition_risk_threshold < 1.0:
+            raise RuntimeError("transition-risk threshold drift")
+    scorer = None
+    if not args.causal_transition_risk_fallback:
+        scorer = FrozenPhaseAwareDemoEventScorer(
+            num_envs=args.num_envs,
+            device=base.device,
+            cfg=FrozenPhaseAwareDemoEventScorerCfg(
+                runtime_config_path=str(RUNTIME_CONFIG),
+                selected_option=args.selected_demo_option,
+                phase_horizon_steps=650,
+            ),
+        )
 
     command = base.command_manager.get_term("motion")
     resolved_target_goal_source = (
@@ -592,7 +658,7 @@ def main() -> None:
             )
             if selected_generator.n_obs_steps <= 0 or selected_generator.n_action_steps <= 0:
                 raise RuntimeError("routed official Generator geometry drift")
-            if args.causal_safe_fallback:
+            if args.causal_safe_fallback or args.causal_transition_risk_fallback:
                 shadow_generator = _CausalShadowGenerator(selected_generator, command)
                 obs = env.get_observations()
                 if isinstance(obs, tuple):
@@ -605,15 +671,30 @@ def main() -> None:
                 obs = env.get_observations()
                 if isinstance(obs, tuple):
                     obs = obs[0]
-    core = _goal_policy_core_observation(base)
-    scorer_policy_obs = _policy_observation(core)
     tracker_policy_obs = obs["policy"]
     if tracker_policy_obs.shape != (args.num_envs, TRACKER_POLICY_DIM):
         raise RuntimeError("official Tracker policy observation geometry drift")
-    scorer_begin_audit = scorer.begin(
-        {"policy": scorer_policy_obs}, initial_episode_steps=initial_steps
-    )
-    condition = scorer.actionable_conditioning()
+    if args.causal_transition_risk_fallback:
+        core = None
+        condition = torch.zeros(
+            args.num_envs, ACTIONABLE_DEMO_CONDITIONING_DIM, device=base.device
+        )
+        scorer_begin_audit = {
+            "constructed": False,
+            "model_frozen": True,
+            "future_actual_events_used": False,
+            "reason": (
+                "The transition-risk arm fixes the exact released candidate expert "
+                "from the declared experiment and does not use the legacy scorer."
+            ),
+        }
+    else:
+        core = _goal_policy_core_observation(base)
+        scorer_policy_obs = _policy_observation(core)
+        scorer_begin_audit = scorer.begin(
+            {"policy": scorer_policy_obs}, initial_episode_steps=initial_steps
+        )
+        condition = scorer.actionable_conditioning()
     if condition.shape != (args.num_envs, ACTIONABLE_DEMO_CONDITIONING_DIM):
         raise RuntimeError("selected-demo conditioning geometry drift")
 
@@ -637,9 +718,18 @@ def main() -> None:
         "selected_generator_command": [],
         "selected_generator_normalized_max_abs": [],
         "selected_generator_outside_train_range_fraction": [],
+        "transition_risk_probability": [],
+        "transition_risk_latched_fallback": [],
     }
     zero_tactile = torch.zeros(args.num_envs, TACTILE_DIM, device=base.device)
-    for _ in range(args.steps):
+    transition_history = None
+    transition_probability_sum = torch.zeros(args.num_envs, device=base.device)
+    transition_probability_count = torch.zeros(args.num_envs, device=base.device)
+    transition_latched_fallback = torch.zeros(
+        args.num_envs, dtype=torch.bool, device=base.device
+    )
+    invalid_transition: dict[str, object] | None = None
+    for rollout_step in range(args.steps):
         actor_obs = {
             "policy": tracker_policy_obs,
             "critic": tracker_policy_obs,
@@ -647,11 +737,29 @@ def main() -> None:
             "tactile_history": zero_tactile,
         }
         with torch.inference_mode():
-            routing_weight = (
-                shared_policy.routing_weights(condition)
-                if official_tracker_router
-                else torch.zeros(args.num_envs, 2, device=base.device)
+            selected_expert_index = (
+                0 if args.selected_demo_option == "correct" else 1
             )
+            if args.causal_transition_risk_fallback:
+                # This experiment predeclares one candidate skill pair.  The frozen
+                # transition-risk model decides only whether to execute that pair or
+                # the domain pair; the older demo-event scorer is not part of this
+                # decision and must not become an accidental OOD failure surface.
+                routing_weight = torch.nn.functional.one_hot(
+                    torch.full(
+                        (args.num_envs,),
+                        selected_expert_index,
+                        dtype=torch.long,
+                        device=base.device,
+                    ),
+                    num_classes=2,
+                ).to(tracker_policy_obs.dtype)
+            else:
+                routing_weight = (
+                    shared_policy.routing_weights(condition)
+                    if official_tracker_router
+                    else torch.zeros(args.num_envs, 2, device=base.device)
+                )
             teacher_action = official_policy(obs)
             if shadow_generator is not None:
                 normalized_max_abs, outside_train_fraction = (
@@ -664,10 +772,77 @@ def main() -> None:
                 selected_actor_obs = dict(actor_obs)
                 selected_actor_obs["policy"] = selected_tracker_obs
                 selected_actor_obs["critic"] = selected_tracker_obs
-                student_action = shared_policy.act_inference(selected_actor_obs)
-                safe = torch.amax(torch.abs(student_action), dim=-1) <= RELEASED_TRACKER_RAW_ACTION_LIMIT
-                action = torch.where(safe.unsqueeze(-1), student_action, teacher_action)
-                safe_fallback_mask = ~safe
+                student_action = (
+                    shared_policy.experts[selected_expert_index](selected_tracker_obs)
+                    if args.causal_transition_risk_fallback
+                    else shared_policy.act_inference(selected_actor_obs)
+                )
+                if args.causal_transition_risk_fallback:
+                    if (
+                        not torch.isfinite(selected_tracker_obs).all()
+                        or not torch.isfinite(student_action).all()
+                    ):
+                        raise RuntimeError(
+                            "transition-risk candidate input/action became non-finite"
+                        )
+                    if rollout_step <= TRANSITION_RISK_DECISION_FRAME:
+                        feature = torch.cat((selected_tracker_obs, student_action), dim=-1)
+                        if transition_history is None:
+                            transition_history = feature.unsqueeze(1).expand(
+                                -1, TRANSITION_RISK_HISTORY_STEPS, -1
+                            ).clone()
+                        else:
+                            transition_history[:, :-1] = transition_history[:, 1:].clone()
+                            transition_history[:, -1] = feature
+                        transition_output = transition_risk_model(transition_history)
+                        transition_probability = torch.sigmoid(
+                            transition_output["risk_logit"]
+                        )
+                        if not torch.isfinite(transition_probability).all():
+                            raise RuntimeError(
+                                "transition-risk probability became non-finite during "
+                                f"the admitted early window at frame {rollout_step}"
+                            )
+                        sample_probability = bool(
+                            TRANSITION_RISK_HISTORY_STEPS - 1 <= rollout_step
+                            and (rollout_step - (TRANSITION_RISK_HISTORY_STEPS - 1))
+                            % TRANSITION_RISK_SAMPLE_STRIDE
+                            == 0
+                        )
+                        if sample_probability:
+                            transition_probability_sum += transition_probability
+                            transition_probability_count += 1.0
+                        if rollout_step == TRANSITION_RISK_DECISION_FRAME:
+                            if not torch.all(transition_probability_count == 9):
+                                raise RuntimeError("transition-risk sampling clock drift")
+                            transition_latched_fallback |= (
+                                transition_probability_sum
+                                / transition_probability_count
+                                >= transition_risk_threshold
+                            )
+                    else:
+                        # The decision is irreversible.  Retain its causal evidence
+                        # for visualization without evaluating an unused hypothetical
+                        # candidate on the fallback-generated state distribution.
+                        transition_probability = (
+                            transition_probability_sum / transition_probability_count
+                        )
+                    action = torch.where(
+                        transition_latched_fallback.unsqueeze(-1),
+                        teacher_action,
+                        student_action,
+                    )
+                    safe_fallback_mask = transition_latched_fallback
+                else:
+                    transition_probability = torch.zeros(
+                        args.num_envs, device=base.device
+                    )
+                    safe = (
+                        torch.amax(torch.abs(student_action), dim=-1)
+                        <= RELEASED_TRACKER_RAW_ACTION_LIMIT
+                    )
+                    action = torch.where(safe.unsqueeze(-1), student_action, teacher_action)
+                    safe_fallback_mask = ~safe
             else:
                 normalized_max_abs = torch.zeros(args.num_envs, device=base.device)
                 outside_train_fraction = torch.zeros(args.num_envs, device=base.device)
@@ -681,7 +856,35 @@ def main() -> None:
                 safe_fallback_mask = torch.zeros(
                     args.num_envs, dtype=torch.bool, device=base.device
                 )
+                transition_probability = torch.zeros(
+                    args.num_envs, device=base.device
+                )
             obs, _, done, _ = env.step(action)
+            next_tracker_policy_obs = obs["policy"]
+            if (
+                next_tracker_policy_obs.shape != (args.num_envs, TRACKER_POLICY_DIM)
+                or not torch.isfinite(next_tracker_policy_obs).all()
+            ):
+                invalid_rows = torch.any(
+                    ~torch.isfinite(next_tracker_policy_obs), dim=-1
+                )
+                invalid_transition = {
+                    "frame": rollout_step,
+                    "env_indices": torch.nonzero(
+                        invalid_rows, as_tuple=False
+                    ).squeeze(-1).detach().cpu().numpy(),
+                    "candidate_selected": (
+                        ~transition_latched_fallback
+                    ).detach().cpu().numpy(),
+                    "latched_fallback": transition_latched_fallback.detach().cpu().numpy(),
+                    "risk_probability": transition_probability.detach().cpu().numpy(),
+                    "executed_action": action.detach().cpu().numpy(),
+                    "candidate_action": student_action.detach().cpu().numpy(),
+                    "fallback_action": teacher_action.detach().cpu().numpy(),
+                    "tracker_observation_before": tracker_policy_obs.detach().cpu().numpy(),
+                    "tracker_observation_after": next_tracker_policy_obs.detach().cpu().numpy(),
+                }
+                break
             if shadow_generator is not None:
                 shadow_generator.update_after_step(command)
         forces = torch.stack(
@@ -714,9 +917,10 @@ def main() -> None:
         records["motion_frame"].append(
             command.time_steps.detach().cpu().numpy().copy()
         )
-        records["goal_policy_core_observation"].append(
-            core.detach().cpu().numpy().copy()
-        )
+        if core is not None:
+            records["goal_policy_core_observation"].append(
+                core.detach().cpu().numpy().copy()
+            )
         records["tracker_policy_observation"].append(
             actor_tracker_policy_obs.detach().cpu().numpy().copy()
         )
@@ -738,14 +942,25 @@ def main() -> None:
         records["selected_generator_outside_train_range_fraction"].append(
             outside_train_fraction.detach().cpu().numpy().copy()
         )
-        core = _goal_policy_core_observation(base)
-        scorer_policy_obs = _policy_observation(core)
-        tracker_policy_obs = obs["policy"]
-        condition = scorer.process_step(
-            {"policy": scorer_policy_obs}, done
-        ).actionable_conditioning
+        records["transition_risk_probability"].append(
+            transition_probability.detach().cpu().numpy().copy()
+        )
+        records["transition_risk_latched_fallback"].append(
+            transition_latched_fallback.detach().cpu().numpy().copy()
+        )
+        tracker_policy_obs = next_tracker_policy_obs
+        if not args.causal_transition_risk_fallback:
+            core = _goal_policy_core_observation(base)
+            scorer_policy_obs = _policy_observation(core)
+            condition = scorer.process_step(
+                {"policy": scorer_policy_obs}, done
+            ).actionable_conditioning
 
-    arrays = {name: np.stack(values) for name, values in records.items()}
+    arrays = {
+        name: np.stack(values)
+        for name, values in records.items()
+        if values
+    }
     arrays.update(
         {
             f"initial_{name}": value for name, value in initial.items()
@@ -761,6 +976,7 @@ def main() -> None:
     arrays["contact_role_names"] = np.asarray(
         ("left_hand", "right_hand", "left_foot", "right_foot"), dtype="U16"
     )
+    completed_frames = int(arrays["action"].shape[0])
     records_by_profile = _profile_summaries(arrays)
     aggregate = _aggregate(records_by_profile)
     reference_action_envelope = RELEASED_TRACKER_RAW_ACTION_LIMIT
@@ -797,6 +1013,8 @@ def main() -> None:
             for value in arrays.values()
             if isinstance(value, np.ndarray) and value.dtype.kind in "f"
         ),
+        "completed_all_650_control_frames": completed_frames == args.steps,
+        "official_tracker_observation_remained_finite": invalid_transition is None,
         "no_environment_reset": aggregate["reset_or_done_count"] == 0,
         "all_actions_finite_and_nonzero": bool(
             np.isfinite(arrays["action"]).all()
@@ -824,7 +1042,29 @@ def main() -> None:
         ),
     }
     if args.route_generator_with_expert:
-        if args.causal_safe_fallback:
+        if args.causal_transition_risk_fallback:
+            checks["selected_demo_candidate_uses_complete_generator_tracker_pair"] = True
+            checks["candidate_tracker_is_exact_predeclared_released_expert"] = bool(
+                official_tracker_router
+            )
+            checks["legacy_demo_event_scorer_absent_from_fallback_decision"] = True
+            checks["causal_selected_candidate_and_domain_fallback_both_online"] = True
+            checks["transition_risk_model_frozen_and_unchanged"] = _same_state(
+                transition_risk_state_before, _clone_state(transition_risk_model)
+            )
+            checks["transition_risk_decision_uses_exactly_nine_early_samples"] = bool(
+                np.all(transition_probability_count.detach().cpu().numpy() == 9)
+            )
+            checks["transition_risk_fallback_precedes_known_earliest_failure"] = (
+                TRANSITION_RISK_DECISION_FRAME < 103
+            )
+            checks["executed_actions_within_released_tracker_envelope"] = bool(
+                np.max(np.abs(arrays["executed_action"])) <= reference_action_envelope
+            )
+            checks["transition_risk_fallback_prevents_physical_falls"] = bool(
+                int(aggregate["physical_fall_count"]) == 0
+            )
+        elif args.causal_safe_fallback:
             checks["selected_demo_candidate_uses_complete_generator_tracker_pair"] = True
             checks["causal_selected_candidate_and_domain_fallback_both_online"] = True
             checks["executed_actions_within_released_tracker_envelope"] = bool(
@@ -858,6 +1098,7 @@ def main() -> None:
         "selected_demo_motion_id": 45 if args.selected_demo_option == "correct" else 21,
         "routed_generator_with_expert": args.route_generator_with_expert,
         "causal_safe_fallback": args.causal_safe_fallback,
+        "causal_transition_risk_fallback": args.causal_transition_risk_fallback,
         "observation_corruption_disabled": args.disable_observation_corruption,
         "routed_generator_skill": routed_generator_skill,
         "selected_skill_success_count": int(selected_skill_success_count),
@@ -880,11 +1121,45 @@ def main() -> None:
         "seed": args.seed,
         "num_envs": args.num_envs,
         "steps_after_prefix": args.steps,
+        "executed_valid_frames": completed_frames,
+        "first_invalid_transition": (
+            None
+            if invalid_transition is None
+            else {
+                "frame": int(invalid_transition["frame"]),
+                "env_indices": invalid_transition["env_indices"].tolist(),
+                "candidate_selected_env_indices": np.flatnonzero(
+                    invalid_transition["candidate_selected"]
+                ).tolist(),
+                "latched_fallback_env_indices": np.flatnonzero(
+                    invalid_transition["latched_fallback"]
+                ).tolist(),
+                "risk_probability_by_env": invalid_transition[
+                    "risk_probability"
+                ].tolist(),
+                "executed_action_all_finite": bool(
+                    np.isfinite(invalid_transition["executed_action"]).all()
+                ),
+                "candidate_action_all_finite": bool(
+                    np.isfinite(invalid_transition["candidate_action"]).all()
+                ),
+                "fallback_action_all_finite": bool(
+                    np.isfinite(invalid_transition["fallback_action"]).all()
+                ),
+                "maximum_abs_finite_candidate_action": float(
+                    np.max(np.abs(invalid_transition["candidate_action"]))
+                ),
+            }
+        ),
         "prefix_steps": 1,
         "dagger_collection": args.dagger_collection,
         "student_action_fraction": args.student_action_fraction,
         "actor_state_observation_contract": (
-            "exact_official_510D_Tracker_policy_observation_plus_"
+            "exact_official_510D_Tracker_observation_plus_current_29D_candidate_"
+            "action_to_frozen_transition_risk_model; candidate_is_the_predeclared_"
+            "exact_released_Tracker_expert"
+            if args.causal_transition_risk_fallback
+            else "exact_official_510D_Tracker_policy_observation_plus_"
             "causal_selected_demo_expert_router"
             if official_tracker_router
             else "exact_official_510D_Tracker_policy_observation"
@@ -896,7 +1171,14 @@ def main() -> None:
         ),
         "motion_folder": str(source["motion_folder"]),
         "scorer_begin_audit": scorer_begin_audit,
-        "frozen_model_audit": scorer.frozen_model_audit(),
+        "frozen_model_audit": (
+            scorer.frozen_model_audit()
+            if scorer is not None
+            else {
+                "constructed": False,
+                "reason": "legacy demo-event scorer is outside the transition-risk method",
+            }
+        ),
         "aggregate": aggregate,
         "teacher_student_action_mae": float(
             np.mean(np.abs(arrays["teacher_action"] - arrays["student_action"]))
@@ -910,8 +1192,20 @@ def main() -> None:
             np.any(arrays["safe_fallback_mask"], axis=0).sum()
         ),
         "released_tracker_action_envelope": reference_action_envelope,
+        "transition_risk_threshold": transition_risk_threshold,
+        "transition_risk_latched_profile_count": int(
+            np.sum(arrays["transition_risk_latched_fallback"][-1])
+        ),
         "profiles": records_by_profile,
         "claim_boundary": (
+            "A frozen causal Carry45 transition-risk composition of two released "
+            "SUGAR Generator+Tracker pairs. It observes only the first 50 frames "
+            "of current Tracker state and candidate action, then irreversibly latches "
+            "predicted-risk profiles to the domain pair. The candidate expert is fixed "
+            "by the declared arm, not by the legacy demo-event scorer. Future outcomes "
+            "are absent."
+            if args.causal_transition_risk_fallback
+            else
             "A causal safety composition of two released SUGAR Generator+Tracker "
             "pairs. The selected pair is evaluated online from current simulator "
             "state; only its current action envelope may select the domain official "
@@ -930,9 +1224,25 @@ def main() -> None:
             "Carry/Kick physical successes and at most 2/20 physical falls; a "
             "condition-dependent failure is not semantic following."
         ),
-        "artifacts": {"trace": "TRACE.npz", "result": "RESULT.json"},
+        "artifacts": {
+            "trace": "TRACE.npz",
+            "result": "RESULT.json",
+            "invalid_transition": (
+                "INVALID_TRANSITION.npz" if invalid_transition is not None else None
+            ),
+        },
     }
     np.savez_compressed(output / "TRACE.npz", **arrays)
+    if invalid_transition is not None:
+        np.savez_compressed(
+            output / "INVALID_TRANSITION.npz",
+            **{
+                name: np.asarray(value)
+                for name, value in invalid_transition.items()
+                if name != "frame"
+            },
+            frame=np.asarray(invalid_transition["frame"], dtype=np.int64),
+        )
     (output / "RESULT.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

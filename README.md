@@ -41,6 +41,28 @@ small/big nominal mass 下均可执行 Carry45，BIGBOX 在两种质量下均失
 提前区分：前 100 帧中，不兼容 Carry-on-BIGBOX 的越界比例均值 `0.00132`，反而低于成功
 Kick-on-SMALLBOX 的 `0.00625`。这两条 threshold 路线不再继续调参。
 
+随后完成了 serious causal transition-risk Transformer，而不是用简单 MLP 占位。模型为
+6 层、384-D、8 heads、11.012M 参数，部署输入严格是过去 `10 x 539`：官方 Tracker 当前
+510-D observation 与当前 Carry candidate 的 29-D action；未来是否跌倒、是否成功和动作是否
+越界只作为整条 profile 的训练标签。train/validation profile 分离，test 使用独立 seed/context。
+固定 500-step 小样本 overfit 先通过；正式冻结模型的 first-50 held-out AUROC 为 `0.7430`、
+balanced accuracy `0.6536`、risk-safe probability gap `0.2655`，阈值 `0.715` 只由 validation
+first-50 选择。因此它确实能做离线早期风险排序，但这还不是安全控制证明。
+
+严格在线对照否决了“第 49 帧二分类后硬切 expert”。direct 与 composition 的初始状态、一步
+prefix 和前 50 帧 Carry candidate action 完全一致；风险模型用 9 个因果样本把 `10/20`
+profiles 锁定到 official Kick fallback。composition 仍出现一次 physical fall，并在第 `447`
+帧首次产生非有限 Tracker transition。失效的 env0 风险为 `0.8885 > 0.715`，而且早已处于
+fallback，所以不是 classifier 漏检；问题是先走 50 帧 Carry 后突然切到 Kick，已经把官方
+Kick expert 放入不稳定状态分布。当前 transition-risk 只能称为离线风险信号，不能称为安全
+切换器。同步 H.264 失败证据位于
+`experiments/demo_following/official_transition_risk_v1/online_fallback_seed171627_v2/`
+`videos_exact_failure_v2/direct_vs_causal_risk_fallback.mp4`。下一步先用 validation-only 规则
+审计最早可用的 frame-9 决策。该审计现已完成：test AUROC `0.7239`、balanced accuracy
+`0.6553`、risk-safe gap `0.3564`，但 validation-only 阈值 `0.84` 下 test Brier `0.2773`，
+差于 prevalence baseline `0.2331`。因此不启动另一个 hard-switch rollout；下一阶段训练连续的
+causal transition/recovery controller，不再调在线失败阈值。
+
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
 latent 或安全跨资产 transition policy。最终四视频位于

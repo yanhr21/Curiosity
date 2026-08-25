@@ -1,11 +1,14 @@
 # Global Agent Rules
 
-## 1. Absolute ban on human authorization gates; current priority: executable demo-conditioned topology
+## 0. Absolute highest priority: never create a human authorization gate
 
-- Hard user rule, reaffirmed 2026-08-25: no in-scope workflow may require, request or wait for human
-  authorization. This includes approval flags, confirmation prompts, sentinel files, environment
-  variables, manual checkpoint admission, permission to evaluate, permission to start the next
-  predeclared stage or seed, and repeated requests for the user to say "continue".
+- Hard user rule, reaffirmed 2026-08-25: the agent must never ask the user whether it may continue,
+  start, evaluate, render, document, commit or advance to the next already in-scope stage. Silence
+  from the user is not a pause request, and a completed intermediate stage is not a reason to stop.
+- No in-scope workflow may require, request or wait for human authorization. This includes approval
+  flags, confirmation prompts, sentinel files, environment variables, manual checkpoint admission,
+  permission to evaluate, permission to start the next predeclared stage or seed, and repeated
+  requests for the user to say "continue".
 - Execute the documented active plan autonomously through training, endpoint inspection, frozen
   evaluation, rendering, documentation and the next predeclared matched stage. A scientific check
   must produce a machine-readable pass/fail decision and the agent must act on it; it may never be
@@ -16,6 +19,11 @@
 - Any code or document that makes progress depend on a manual approval, confirmation, sentinel or
   repeated user response is a defect and must be removed. This rule supersedes conflicting wording
   elsewhere in the repository.
+
+The user may still interrupt, reprioritize or stop work at any time. That user control must never be
+implemented as a prerequisite approval gate for ordinary autonomous progress.
+
+## 1. Current priority: executable demo-conditioned topology
 
 The tactile/mass-adaptation line in
 `PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen while demo following is the active
@@ -149,9 +157,27 @@ Generator+Tracker is now bitwise equivalent to the direct pair for all 650 compa
 Nevertheless, current-action magnitude is a late signal: the candidate and fallback reach
 `2.17e5/3.85e5` after the state is already invalid. The released Generator normalizer is not an
 early OOD gate either; failed Carry-on-BIGBOX has lower first-100-frame outside-range fraction than
-successful Kick-on-SMALLBOX (`0.00132/0.00625`). Do not tune these thresholds. The next serious
-method is a causal transition-risk predictor trained across official multi-context rollouts, with
-future failure used only as a training label and held-out contexts reserved for frozen evaluation.
+successful Kick-on-SMALLBOX (`0.00132/0.00625`). Do not tune these thresholds.
+
+The serious causal transition-risk audit is now complete and negative online. Its 11.012M,
+6-layer, 384-D Transformer reads only an exact past `10 x 539` prefix: current official 510-D
+Tracker observation plus the current 29-D released Carry candidate action. Future failure is a
+profile training label only. The fixed checkpoint passes the profile/seed-disjoint first-50-frame
+test (`AUROC=0.7430`, balanced accuracy `0.6536`, risk-safe probability gap `0.2655`) with threshold
+`0.715` selected only on validation. This establishes offline ranking, not safe control.
+
+In the matched BIGBOX online composition, the predictor latches `10/20` profiles to the official
+Kick fallback at frame 49. The first invalid transition is frame 447 in environment 0, whose frozen
+risk is correctly high (`0.8885`) and which was already latched to fallback. The fallback action
+then becomes non-finite from a finite preceding Tracker observation; the last finite candidate is
+already `3.55e37`, and the rollout has one physical fall. Therefore the failure is not a missed
+binary classification: an abrupt endpoint switch after 50 Carry frames is itself not a safe
+transition. Do not tune the frozen threshold or describe the risk predictor as an online safety
+solution. The validation-calibrated earliest frame-9 audit is also complete and rejected: held-out
+AUROC/balanced accuracy/gap are `0.7239/0.6553/0.3564`, but Brier is `0.2773`, worse than the
+prevalence baseline `0.2331`; its validation-only threshold is `0.84`. Do not launch another hard
+switch or weaken this predeclared calibration check. The next serious method must learn a causal
+transition/recovery controller while preserving both parameter-exact released endpoint skills.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

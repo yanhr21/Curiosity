@@ -133,9 +133,22 @@
 - [x] run the four exact-state joint routes: SMALLBOX Carry45 is `18/20` Carry, SMALLBOX Kick21 is
   `19/20` Kick with zero falls, BIGBOX Kick21 is `20/20` Kick, and BIGBOX Carry45 is rejected at
   `8/20` Carry with raw action `68.437`;
-- [ ] preserve the passing SMALLBOX dual-skill behavior while replacing endpoint-only routing with
-  a faithful official-skill prior/latent and state-aware transition mechanism across object
-  geometry, target pose and initialization; no hand-written toy model.
+- [x] build the profile-disjoint official transition-risk dataset with exact past `10 x 539`
+  prefixes, train the 11.012M causal Transformer after a fixed serious overfit, and select the
+  frozen threshold only on validation first-50 frames;
+- [x] pass the held-out offline first-50 gate (`AUROC=0.7430`, balanced accuracy `0.6536`,
+  probability gap `0.2655`) without future outcomes in the deployed model;
+- [x] run the exact matched online BIGBOX composition and reject the frame-49 hard switch: `10/20`
+  profiles latch to fallback, but the first invalid transition occurs at frame 447 in a correctly
+  high-risk (`0.8885`) fallback profile, with one physical fall and action-envelope failure;
+- [x] render the exact direct-versus-fallback failure trace with synchronized risk, threshold,
+  route, root drift and explicit invalid-frame annotation;
+- [x] audit a validation-calibrated decision at the earliest exact anchor 9 and reject the online
+  hard-switch continuation: ranking passes, but test Brier `0.2773` loses to prevalence `0.2331`
+  under the validation-only threshold `0.84`;
+- [ ] preserve the passing SMALLBOX dual-skill behavior while replacing hard endpoint switching
+  with a learned causal transition/recovery controller across object geometry, target pose and
+  initialization; no hand-written toy model.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -151,9 +164,11 @@ same-checkpoint split: correct remains a stable Carry, while unrelated leaves Ca
 `15/20` and is not a valid Kick solution. The full-510D shared MLP and three-stage DAgger follow-up
 also fail closed-loop stability. The complete official-skill router is the first executable
 semantic switch: in the identical SMALLBOX scene Carry45 gives `18/20` Carry while Kick21 gives
-`19/20` Kick, both with zero falls. The reverse BIGBOX-to-Carry transfer remains rejected, so the
-next work is a serious shared skill prior plus safe cross-asset transition policy, not a reward-scale
-or optimizer-step sweep.
+`19/20` Kick, both with zero falls. The reverse BIGBOX-to-Carry transfer remains rejected. The
+causal transition-risk Transformer passes its disjoint offline gate, but a frame-49 hard switch
+still falls and becomes non-finite in a profile already classified risky. The earliest anchor-9
+audit retains useful ranking but fails its predeclared calibration check, so the next work is a
+learned transition/recovery controller; it is not a reward-scale, threshold or optimizer-step sweep.
 
 ## Frozen tactile work
 

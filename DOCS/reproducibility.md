@@ -1034,6 +1034,80 @@ OUTPUT_ROOT=experiments/demo_following/official_generator_compatibility_audit_v1
 训练范围，`policy_gate_supported=false`。该 normalizer 是 official 统计而非学到的 skill
 latent，结果也不支持把它当 transition gate。
 
+#### 3.13.4 Causal transition-risk Transformer and online rejection
+
+数据构建只读取已经冻结的 official multi-context traces。每条部署样本是过去连续 10 帧的
+`510-D Tracker observation + 29-D current Carry candidate action`，即 `10 x 539`。profile 的
+未来完整结局只生成 binary risk 和四个 auxiliary training labels，绝不拼入输入。训练使用
+seed171620/171621 的 env0--13，validation 使用同 cell 的 env14--19，test 使用独立
+seed171622/context 与 retained safe-fallback traces；共有 train/validation/test
+`112/48/100` profiles，其中 risky 为 `36/16/37`。
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/build_official_transition_risk_dataset.py \
+  --output-dir experiments/demo_following/official_transition_risk_v1/dataset
+
+bash scripts/sugar/demo_following/run_official_transition_risk_training.sh
+```
+
+模型 `CausalTransitionRiskTransformer` 为 6 层、384-D、8 heads、FFN 1536 的 11.012M
+Transformer。runner 先执行固定 8-profile、500-step serious overfit；正式模型不能在 overfit
+失败时启动。冻结评估只在 validation first-50 的九个 anchors 上选阈值，再原样应用 test：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/evaluate_official_transition_risk_checkpoint.py \
+  --dataset-root experiments/demo_following/official_transition_risk_v1/dataset \
+  --checkpoint experiments/demo_following/official_transition_risk_v1/formal_seed171626/best.pt \
+  --output-dir experiments/demo_following/official_transition_risk_v1/frozen_eval_seed171626 \
+  --device cuda:0
+```
+
+冻结阈值为 `0.715`；held-out first-50 AUROC/balanced accuracy/risk-safe probability gap 为
+`0.74303/0.65358/0.26553`，Brier 为 `0.22579`，低于 prevalence baseline `0.2331`。这只证明
+离线 early-prefix ranking/calibration。
+
+在线实验固定 KickBox/BIGBOX 物理域和 Carry45 candidate。direct 与 composition 的 initial、
+post-prefix、prefix action 完全相同，前 50 帧 candidate action 也 bitwise equal。composition
+只在 anchors `9,14,...,49` 调用冻结模型，frame49 对九个概率取均值后不可逆锁定；之后不再
+调用风险模型。旧 121-D demo-event scorer 不构造，也不参与 candidate 或 fallback 选择。
+
+```bash
+OUTPUT_ROOT=experiments/demo_following/official_transition_risk_v1/online_fallback_seed171627 \
+  bash scripts/sugar/demo_following/run_online_transition_risk_fallback.sh
+```
+
+结果为负：`10/20` profiles 锁定到 official Kick fallback，但 composition 在 447 个有限帧后
+产生首个非有限 Tracker transition，已有 `1/20` physical fall，执行动作越过官方 25 envelope。
+失效 profile env0 的冻结风险为 `0.88852`，它属于 latched fallback；invalid transition 前
+Tracker observation 有限、Carry candidate 仍有限但已达 `3.55e37`，Kick fallback action
+直接变成非有限。因此失败不是 risk false negative，而是 frame49 硬切 endpoint expert 不具备
+state-transition stability。
+
+失败视频不会做 physics replay；它把两条 exact PhysX body-center/object-pose traces 放在同一
+时钟，显示 risk、threshold、当前 route、root drift 和 invalid frame：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/render_online_transition_risk_fallback.py \
+  --input-root experiments/demo_following/official_transition_risk_v1/online_fallback_seed171627_v2 \
+  --output-dir experiments/demo_following/official_transition_risk_v1/online_fallback_seed171627_v2/videos_exact_failure_v2
+```
+
+`direct_vs_causal_risk_fallback.mp4` 为 H.264/yuv420p，显示全部 447 个有效帧，并明确标注
+frame447 invalid transition。validation-calibrated anchor-9 latency audit 随后运行：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/audit_official_transition_risk_anchor9.py \
+  --dataset-root experiments/demo_following/official_transition_risk_v1/dataset \
+  --checkpoint experiments/demo_following/official_transition_risk_v1/formal_seed171626/best.pt \
+  --output-dir experiments/demo_following/official_transition_risk_v1/anchor9_eval_seed171626 \
+  --device cuda:0
+```
+
+anchor9 threshold `0.84` 只由 validation 选择。held-out AUROC/balanced accuracy/gap 为
+`0.72394/0.65530/0.35642`，但 Brier `0.27732` 差于 prevalence baseline `0.2331`，因此
+predeclared calibration gate 失败，不启动 online anchor9 hard switch。下一阶段进入 learned
+causal transition/recovery controller，而不是继续 hard switch、调阈值或写 toy world model。
+
 ## 4. Earlier trajectory-only predictor
 
 这是 contact/event redesign 之前保留的 11.9M trajectory-only 模型。输入为过去 10 帧
