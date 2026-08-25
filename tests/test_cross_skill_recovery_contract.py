@@ -489,6 +489,7 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert "composition_uses_no_future_or_outcome_labels" in condition_summary
     assert "initial_physics_and_both_commands_identical" in condition_summary
     assert "selected_skill_one_hot_is_only_actor_input_condition_swap" in condition_summary
+    assert "causal-composition condition exposure audit failed" in condition_summary
     multi_context_runner = _read(
         ROOT / "scripts/sugar/demo_following/run_multi_context_transition_recovery.sh"
     )
@@ -512,6 +513,14 @@ def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> N
     assert "root_height_or_tilt_v1" in evaluator
     assert "handoff_to_first_action_interval_included" in evaluator
     assert "handoff_tilt_not_charged_to_policy" in evaluator
+    assert "env_parity_swapped_each_episode" in wrapper
+    assert "transition_selected_skill_exposure_min_per_env" in wrapper
+    multi_context_summary = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "summarize_multi_context_transition_recovery.py"
+    )
+    assert "causal-composition condition exposure audit failed" in multi_context_summary
     renderer = _read(
         ROOT / "scripts/sugar/demo_following/render_cross_skill_recovery_world.py"
     )

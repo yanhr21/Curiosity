@@ -375,6 +375,9 @@ this diagnostic; the learned/pre comparison changes action topology, not reward 
 Object motion includes the handoff-to-first-action interval. Root-height loss is referenced to the
 handoff, but pre-existing handoff tilt is not charged to the policy; tilt fall begins after its
 first deployed action.
+Balanced causal-composer training swaps Carry/Kick parity at every synchronized episode boundary:
+every episode remains `32/32`, while every physical env/profile must receive both conditions before
+the endpoint is admitted. Fixed-condition frozen evaluation is unchanged.
 
 Both arms subsequently passed the formal inner-runner admission on retained H200 job257762. The
 probe starts Isaac Sim/Vulkan, validates the full protocol and loads the frozen correct Carry45 or

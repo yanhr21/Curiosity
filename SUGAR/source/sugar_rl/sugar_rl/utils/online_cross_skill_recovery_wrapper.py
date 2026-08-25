@@ -287,6 +287,7 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         if self.transition_recovery_reward_enabled and transition_selected_skill_id is None:
             raise ValueError("transition recovery reward requires a selected skill")
         self.transition_selected_skill_ids = None
+        self.transition_selected_skill_exposure = None
         if transition_selected_skill_id is not None:
             if transition_selected_skill_id == -1:
                 self.transition_selected_skill_ids = (
@@ -299,6 +300,11 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
                     device=self.base_env.device,
                     dtype=torch.long,
                 )
+            self.transition_selected_skill_exposure = torch.zeros(
+                (self.num_envs, 2),
+                device=self.base_env.device,
+                dtype=torch.long,
+            )
         self.carry_shadow: _CausalShadowGenerator | None = None
         self._transition_handoff_object_xy: torch.Tensor | None = None
         self._transition_handoff_root_height: torch.Tensor | None = None
@@ -352,10 +358,28 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             raise RuntimeError("Tracker policy observation is non-finite")
         return observations, policy
 
+    def _assign_transition_conditions_for_prefix(self) -> None:
+        """Keep each episode balanced while swapping every env's condition."""
+
+        if self.transition_selected_skill_ids is None:
+            return
+        if self.transition_selected_skill_id == -1:
+            parity = torch.arange(self.num_envs, device=self.base_env.device)
+            self.transition_selected_skill_ids.copy_(
+                (parity + self.prefix_count) % 2
+            )
+        if self.transition_selected_skill_exposure is None:
+            raise RuntimeError("transition condition exposure tensor is missing")
+        for skill in (0, 1):
+            self.transition_selected_skill_exposure[:, skill] += (
+                self.transition_selected_skill_ids == skill
+            ).to(dtype=torch.long)
+
     @torch.inference_mode()
     def _install_prefix(self):
         """Advance all synchronized environments to the recovery handoff."""
 
+        self._assign_transition_conditions_for_prefix()
         schedule_index = self.prefix_count % len(self.carry_prefix_schedule)
         self.carry_prefix_steps = self.carry_prefix_schedule[schedule_index]
         if self.conditional_tinymdm_reward is not None:
@@ -476,6 +500,37 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
                     for skill in (0, 1)
                 ]
                 if self.transition_selected_skill_ids is not None
+                else None
+            ),
+            "transition_selected_skill_assignment": (
+                "env_parity_swapped_each_episode"
+                if self.transition_selected_skill_id == -1
+                else "fixed_condition"
+                if self.transition_selected_skill_id in (0, 1)
+                else None
+            ),
+            "transition_selected_skill_exposure_min_per_env": (
+                [
+                    int(
+                        self.transition_selected_skill_exposure[:, skill]
+                        .min()
+                        .item()
+                    )
+                    for skill in (0, 1)
+                ]
+                if self.transition_selected_skill_exposure is not None
+                else None
+            ),
+            "transition_selected_skill_exposure_max_per_env": (
+                [
+                    int(
+                        self.transition_selected_skill_exposure[:, skill]
+                        .max()
+                        .item()
+                    )
+                    for skill in (0, 1)
+                ]
+                if self.transition_selected_skill_exposure is not None
                 else None
             ),
             "transition_observation_is_causal": (

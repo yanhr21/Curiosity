@@ -242,6 +242,17 @@ def main() -> None:
         or training_audit.get("transition_selected_skill_counts") != [32, 32]
     ):
         raise RuntimeError("multi-context online training audit failed")
+    if args.expected_policy_topology == "causal_action_composition" and (
+        training_audit.get("transition_selected_skill_assignment")
+        != "env_parity_swapped_each_episode"
+        or min(
+            training_audit.get(
+                "transition_selected_skill_exposure_min_per_env", [0, 0]
+            )
+        )
+        <= 0
+    ):
+        raise RuntimeError("causal-composition condition exposure audit failed")
     reward_audit = training_audit.get("transition_recovery_reward", {})
     if (
         reward_audit.get("enabled") is not True

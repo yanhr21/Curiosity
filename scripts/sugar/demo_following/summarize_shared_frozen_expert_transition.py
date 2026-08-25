@@ -84,6 +84,17 @@ def main() -> None:
         ) != args.expected_policy_topology
     ):
         raise RuntimeError("shared transition training/checkpoint audit failed")
+    if args.expected_policy_topology == "causal_action_composition" and (
+        training_audit.get("transition_selected_skill_assignment")
+        != "env_parity_swapped_each_episode"
+        or min(
+            training_audit.get(
+                "transition_selected_skill_exposure_min_per_env", [0, 0]
+            )
+        )
+        <= 0
+    ):
+        raise RuntimeError("causal-composition condition exposure audit failed")
     reward_audit = training_audit.get("transition_recovery_reward", {})
     expected_reward = bool(args.expected_recovery_reward)
     if (

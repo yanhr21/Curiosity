@@ -537,6 +537,10 @@ matched experiment still isolates action composition.
 All motion paths include the handoff-to-first-action interval. Height loss uses handoff root height
 as its reference, while tilt is evaluated only after policy action so an inherited handoff tilt is
 not mislabeled as a student-caused fall.
+During causal-composer training, the `32/32` Carry/Kick assignment swaps parity at each synchronized
+episode boundary. Thus every environment/profile is exposed to both conditions instead of keeping
+condition permanently correlated with environment identity; frozen condition-swap evaluation stays
+fixed as intended.
 
 ### Expected behavior, not just reward score
 
