@@ -30,6 +30,14 @@
   state. Terms such as `awaiting approval`, `pending confirmation`, `approved checkpoint` or
   `continue after user review` are forbidden as workflow states. Replace them with automatic,
   machine-checkable transitions.
+- Agent messages must not disguise an authorization gate as a status question. Never end an
+  in-scope intermediate result with questions such as “是否继续”, “可以开始下一步吗”, “要不要我
+  评估/渲染/训练” or “请确认后继续”. A status report is notification only; immediately execute
+  the next predeclared in-scope action unless the user has explicitly ordered a stop or changed the
+  task.
+- Conflicting approval language found in any plan, TODO, script or older record is invalid on
+  sight: remove or bypass it and continue through automatic, machine-checkable transitions. Do not
+  surface the conflict as another question to the user.
 
 The user may still interrupt, reprioritize or stop work at any time. That user control must never be
 implemented as a prerequisite approval gate for ordinary autonomous progress.

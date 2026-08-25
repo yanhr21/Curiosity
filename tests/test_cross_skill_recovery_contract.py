@@ -555,3 +555,41 @@ def test_causal_action_composer_is_exact_at_pre_update_and_gate_is_trainable() -
     assert "MINIMUM_MEAN_COMPOSITION_DEVIATION = 1.0e-4" in summary
     assert 'if args.expected_policy_topology == "causal_action_composition"' in summary
     assert '"policy_topology", "selected_expert_residual"' in summary
+
+
+def test_heldout_causal_composition_eval_is_frozen_automatic_and_strict() -> None:
+    runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "run_causal_composition_heldout_prefix_eval.sh"
+    )
+    summary = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "summarize_heldout_causal_composition.py"
+    )
+
+    assert "PREFIXES=(33 65)" in runner
+    assert "--training-prefixes 41,49,57" in runner
+    assert "--num-envs 20 --steps 250" in runner
+    assert "policy_training_or_optimizer_updates=0" in runner
+    assert "GPU_HOLD_AFTER_CAUSAL_HELDOUT_READY" in runner
+    assert "train.py" not in runner
+    assert "--max_iterations" not in runner
+    assert "read -p" not in runner
+    assert "approval" not in runner.lower()
+    assert "confirm" not in runner.lower()
+    assert runner.index("summarize_heldout_causal_composition.py") < runner.index(
+        'video_dir="$seed_root/videos_seed${video_seed}/prefix${prefix}"'
+    )
+
+    assert "heldout_prefixes != [33, 65]" in summary
+    assert "set(heldout_prefixes) & set(training_prefixes)" in summary
+    assert "held-out evaluation requires exactly two seed pairs" in summary
+    assert "initial_full_584d_input_elementwise_identical" in summary
+    assert "np.array_equal(learned_trace[key], pre_trace[key])" in summary
+    assert "pre_update_exact_selected_endpoint_all_runs" in summary
+    assert "composition_terms_match_deployed_action_all_runs" in summary
+    assert "learned_action_composition_used_online_all_seeds" in summary
+    assert "heldout_safety_improvement_replicated_all_seeds" in summary
+    assert "future_or_outcome_labels_used" in summary
