@@ -608,6 +608,30 @@ improvement gates and passes only the task-class gate. No causal visual target, 
 policy is admitted from this result. Do not tune this loss/budget or replace it with a homemade
 visual model; presentation composites remain evidence only and are never training data.
 
+The next representation method changed the pretraining objective rather than tuning failed TCC.
+Released RoboCLIP commit `2d3f779` uses the official S3D HowTo100M video-language encoder and a
+sparse raw-dot-product similarity to one demonstration video. Frozen inference on the same 199
+clean SUGAR videos is complete. Official-dot Carry45/Kick21 reference accuracy is `0.85/0.89474`
+on validation/test and cosine is `0.90/0.94737`, so the model recognizes task semantics. When each
+reference is replaced by the same 32 frames in reverse order, official-dot ordered win rate drops
+to `0.35/0.31579`; cosine is `0.60/0.47368`. It therefore fails the fixed motion-order gate and
+stops before real-rollout transfer, predictor or policy training. No S3D fine-tuning, text prompt,
+custom visual encoder or threshold search follows this negative endpoint.
+
+The subsequent XSkill audit changes the representation topology from a whole-video score to a
+sequence of local skill prototypes. Released commit `b748071` provides no checkpoint, so the exact
+released CNN, 8-layer temporal Transformer, 128-prototype SwAV/Sinkhorn objective and TCN loss are
+trained through epoch79 on two disjoint unlabeled halves of the SUGAR robot-only train corpus.
+Frozen test temporal MAE is worse than the matched initialization (`0.35887/0.33583`), tau changes
+only `0.00698 -> 0.02901`, task-reference accuracy is `0.45/0.68421` on validation/test and
+ordered-reference accuracy is `0.95/0.73684`. Five of six fixed criteria fail, so SAT/policy
+integration is skipped. The result uses 91 prototypes and is evidence of partial order response,
+not a selected-demo skill plan. It also is not a faithful cross-embodiment test: current SUGAR RGB
+contains only G1. The next bounded data-method experiment follows XSkill's released simulation
+contract by rendering the same source trajectories as a second sphere embodiment in IsaacLab and
+retesting shared-prototype admission; no robot-only retrain or hyperparameter/reference sweep is
+allowed.
+
 The resulting causal temporal transition controller is now complete. It retains the released
 Carry/Kick endpoints, adds a six-layer, 384-D, eight-head Transformer over the past `10 x 584`
 deployed transition record, and initializes its 30-D gate/residual output exactly to zero. Thus

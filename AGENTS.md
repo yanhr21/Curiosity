@@ -82,6 +82,30 @@ predeclared gate passes only reference accuracy and fails both temporal criteria
 predictor or policy from this representation, tune its budget/loss, substitute a homemade visual
 encoder, or reuse composite presentation videos as training data.
 
+The released RoboCLIP video-reward audit is also complete and negative for motion following.
+RoboCLIP commit `2d3f779` and its exact S3D HowTo100M submodule commit `b8cd0bb` load strictly as a
+31,211,336-parameter model and reuse the immutable 199-motion clean SUGAR RGB corpus. Official raw
+dot-product Carry45/Kick21 reference accuracy is `0.85/0.89474` on validation/test; diagnostic
+cosine reaches `0.90/0.94737`. However, replacing each reference with the identical 32 frames in
+reverse order gives ordered-reference win rates only `0.35/0.31579` under the official dot product
+and `0.60/0.47368` under cosine. The representation recognizes task appearance/semantics but does
+not reliably read motion order. Do not train a predictor or policy from it, fine-tune S3D, tune the
+threshold, add a text prompt, or reinterpret task classification as selected-demo following.
+
+The released XSkill same-embodiment prototype audit is complete and negative. Official commit
+`b748071` publishes training code but no checkpoint; the SUGAR adapter therefore trains the exact
+released 3-layer CNN, 8-layer/4-head temporal Transformer, 128 prototypes, SwAV/Sinkhorn and
+time-contrastive losses through epoch 79 on two disjoint unlabeled halves of the clean robot-only
+train split. The model uses `91/128` prototypes and reads some ordering, but on frozen test its raw
+temporal MAE worsens from the matched initialization `0.33583 -> 0.35887`, Kendall tau improves
+only `0.00698 -> 0.02901`, validation/test task-reference accuracy is `0.45/0.68421`, and
+ordered-vs-reversed accuracy is `0.95/0.73684`. It fails five of six fixed criteria. Do not train
+SAT or a policy from this representation, tune prototype count/loss/epoch/reference choice, or
+describe robot-only adaptation as cross-embodiment XSkill. The one scientifically distinct XSkill
+follow-up is the released simulation contract: generate a clean second sphere embodiment from the
+same trajectories inside IsaacLab, then rerun shared-prototype representation admission before any
+SAT or policy stage. Do not substitute composite presentation video or a local visual encoder.
+
 The predeclared three-seed demo-following repeat and the seed161581 teacher-floor learnability
 diagnostic are complete. The latter annealed the common CarryBox45 teacher from `1.0` to `0.25` but
 collapsed both arms: no bilateral hold, no 5 cm lift, no foot-to-box contact and `0/4` Kick-like

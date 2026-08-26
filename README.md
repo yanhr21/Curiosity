@@ -815,6 +815,25 @@ MotionGPT 官方 HumanML3D VQ-VAE、官方 checkpoint 和精确配套 Mean/Std �
 只有任务类别判据通过，机器结果为 `passed=false`；没有启动 predictor 或 policy，也不允许
 从该失败标签继续调预算/损失。训练视频不得替换为带文字、曲线或拼版的汇报视频。
 
+官方 RoboCLIP 冻结视频 reward 审计也已完成。严格加载 released commit `2d3f779` 的
+31,211,336 参数 S3D HowTo100M，并复用完全相同的 199-motion clean corpus。官方 raw-dot
+Carry45/Kick21 reference accuracy 在 validation/test 为 `0.85/0.89474`，cosine 为
+`0.90/0.94737`，说明它能识别 Carry/Kick 任务语义；但把 reference 换成完全相同 32 帧的
+逆序版本后，原顺序胜率只有 `0.35/0.31579`，cosine 也只有 `0.60/0.47368`。因此该 reward
+主要读取任务外观/语义，不能可靠读取运动顺序；机器判据为 `passed=false`，没有进入 predictor
+或 policy，也不允许通过 S3D fine-tune、文字 prompt 或阈值搜索改变该结论。
+
+官方 XSkill 的局部技能原型审计也已完成。代码固定到 released commit `b748071`；官方没有
+发布 checkpoint，因此保持其三层 CNN、8 层 4-head temporal Transformer、128 prototypes、
+SwAV/Sinkhorn 和 time-contrastive loss，从零训练到官方配置使用的 epoch79。当前 clean SUGAR
+RGB 只有 IsaacLab G1 一种 embodiment，所以训练数据只是 train split 的两个互斥无标签子流；
+该结果明确不是 cross-embodiment 复现。模型实际使用 `91/128` 个 prototype，但 frozen test 的
+raw temporal MAE 从同初始化基线 `0.33583` 恶化到 `0.35887`，tau 仅从 `0.00698` 到
+`0.02901`，valid/test task-reference accuracy 为 `0.45/0.68421`，ordered-vs-reversed accuracy
+为 `0.95/0.73684`。六项固定判据只通过一项，因此没有进入 SAT 或 policy。下一项不再重复
+robot-only 训练或调 K/loss/epoch，而是按 XSkill 官方 simulation 数据合同，在 IsaacLab 将同一
+轨迹干净渲染为第二种 sphere embodiment，再重新检验共享 prototype。
+
 在 retained Slurm GPU compute 内的最短复现入口为：
 
 ```bash

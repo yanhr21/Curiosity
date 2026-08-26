@@ -6,6 +6,27 @@ and learns only a causal state/demo-conditioned transition between them. The ear
 current execution queue. Active experiments advance through machine-checkable outcomes without a
 human-authorization state.
 
+The latest representation-only entrypoint is:
+
+```bash
+bash scripts/sugar/demo_following/run_official_xskill_audit_then_hold.sh \
+  experiments/demo_following/official_xskill_sugar_v1
+```
+
+It pins released XSkill commit `b748071`, trains the exact released skill-discovery architecture and
+loss through epoch79 on two disjoint robot-only SUGAR source streams, runs the fixed
+motion-disjoint temporal/task/order gate, renders four separate H.264 prototype videos and retains
+the granted GPU. It never trains SAT or a policy. The result is negative: trained/initial test MAE
+is `0.35887/0.33583`, tau is `0.02901/0.00698`, validation/test task accuracy is `0.45/0.68421`
+and order accuracy is `0.95/0.73684`. The result and videos are under
+`experiments/demo_following/official_xskill_sugar_v1/`. This is a same-embodiment compatibility
+test; the next distinct audit adds the clean IsaacLab sphere embodiment required by XSkill's
+released simulation contract.
+
+The preceding frozen RoboCLIP entrypoint remains reproducible with
+`run_official_roboclip_audit_then_hold.sh`; its official-dot task accuracy is `0.85/0.89474`, while
+ordered-vs-reversed accuracy is only `0.35/0.31579`, so it also stops before policy training.
+
 ## Current transition-recovery verdict
 
 The causal recovery objective first failed its balanced single-prefix formal test on seeds

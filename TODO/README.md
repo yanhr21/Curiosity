@@ -270,6 +270,17 @@
   each) and run released XIRL/TCC for 4000 iterations on motion-disjoint source IDs. Frozen test
   trained/raw MAE is `0.31675/0.29221`, tau is `0.01282/0.10697`, and task reference accuracy ties
   at `0.94737`; the gate fails 2/3 criteria and automatically stops before predictor/policy training.
+- [x] load released RoboCLIP commit `2d3f779` and its exact S3D HowTo100M weights, then run the
+  frozen motion-disjoint Carry45/Kick21 video-reward gate on the same clean corpus. Dot/cosine task
+  reference accuracy passes, but ordered-vs-reversed dot accuracy is only `0.35/0.31579`; reject
+  policy integration because the reward is task-semantic rather than reliable motion following.
+- [x] pin released XSkill commit `b748071`, preserve its official 8-layer temporal encoder,
+  128-prototype SwAV/Sinkhorn and TCN losses, and run epoch79 on disjoint robot-only SUGAR streams.
+  It uses 91 prototypes but fails 5/6 gates: test MAE worsens to `0.35887`, tau reaches only
+  `0.02901`, task accuracy is `0.45/0.68421` and order accuracy is `0.95/0.73684` on valid/test.
+- [ ] render the same clean SUGAR trajectories as a second sphere embodiment inside IsaacLab,
+  matching XSkill's released simulation data contract; rerun shared-prototype admission before SAT
+  or policy, without composite videos, a local encoder or an XSkill hyperparameter sweep.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
