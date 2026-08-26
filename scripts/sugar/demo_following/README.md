@@ -99,6 +99,44 @@ TRAIN_SEED_OVERRIDE=171642 EVAL_SEED_OVERRIDE=181652 VIDEO_SEED_OVERRIDE=181653 
 The runner continuously trains, audits, evaluates all three contexts and renders the paired H.264
 videos. It contains no manual authorization stage.
 
+## Official CHORD one-variable causal test
+
+The completed CHORD test keeps the serious causal temporal composer, both released Tracker experts,
+the online Carry prefix schedule, seeds and frozen evaluation fixed. The ON arm adds only NVIDIA's
+pinned official contact-wrench reward kernels. Its command is the reconstructed KickBox21
+foot-to-box geometry; its current contact points and force directions come from the live PhysX
+rollout. Neither the old binary contact label nor CHORD values enter the actor observation.
+
+Inside the retained H200 step, run the full automatic smoke, OFF, ON, frozen evaluation and video
+pipeline with:
+
+```bash
+bash scripts/sugar/demo_following/smoke_official_chord_runtime.sh \
+  experiments/demo_following/official_chord_runtime_smoke_seed171648_v2 cuda:0
+bash scripts/sugar/demo_following/run_official_chord_causal_matched_pair.sh \
+  experiments/demo_following/official_chord_causal_matched_seed171648_v1 cuda:0
+```
+
+Training prefixes are `33/41/49/57/65`; disjoint frozen-evaluation prefixes are
+`37/45/53/61`; training/evaluation/video seeds are `171648/181666/181667`; both arms stop at
+update 64. The fixed CHORD term mirrors the released weights:
+`10 * contact_wrench_support - 10 * unintended_contact - missed_contact`. The final claim is based
+on frozen physical safe-kick/fall outcomes, not reward magnitude or action difference. Four final
+H.264 comparisons place CHORD OFF and ON world rollouts side by side. The runner proceeds through
+all stages automatically and retains the GPU after completion.
+
+The matched frozen result is negative for physical benefit: OFF/ON safe Kick is `77/80` versus
+`76/80`, with `3/80` falls in both arms. ON nevertheless improves mean CWS by `0.00775` and reduces
+missed-contact by `0.01137`, so it changes contact representation without improving safety.
+
+If the numerical pair was completed without cameras, render only the two learned policies (not the
+internal pre-update diagnostics) with:
+
+```bash
+bash scripts/sugar/demo_following/render_official_chord_causal_matched_pair.sh \
+  experiments/demo_following/official_chord_causal_matched_seed171648_v1 cuda:0
+```
+
 ## Current executable baseline: causal official-Tracker router
 
 The current baseline stores the exact released CarryBox and KickBox Tracker actors in one

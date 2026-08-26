@@ -1935,6 +1935,40 @@ experiments/demo_following/sugar_demo_chord_geometry_v2/
   visualizations/kick21/kickbox_exact_demo_chord_contact_geometry.mp4
 ```
 
+#### 5.13.2 Matched official-CHORD training result
+
+The causal policy comparison changes one variable only: whether the reconstructed Kick21 contact
+geometry enters training through the pinned official CHORD kernels. Both arms use seed171648,
+training prefixes `33/41/49/57/65`, 64 updates, the same official Tracker endpoints, teacher,
+initialization and physics. Frozen seed181666 evaluation uses disjoint prefixes `37/45/53/61` and
+20 profiles per prefix, or 80 profiles per arm. Run inside a retained GPU compute step:
+
+```bash
+bash scripts/sugar/demo_following/smoke_official_chord_runtime.sh \
+  experiments/demo_following/official_chord_runtime_smoke_seed171648_v2 cuda:0
+bash scripts/sugar/demo_following/run_official_chord_causal_matched_pair.sh \
+  experiments/demo_following/official_chord_causal_matched_seed171648_v1 cuda:0
+```
+
+The ON audit records 1557 online reward calls and 3104 active-reference environment calls, with
+live PhysX contact points/forces and no actor-observation augmentation, binary label, future frame
+or outcome label. Exact pre-update aggregates are identical. Frozen CHORD representation scores
+improve: mean CWS is `0.01023 -> 0.01798`, and missed-contact is `0.98300 -> 0.97163`. Physical
+safe/fall outcomes do not: OFF is `77/80` safe and `3/80` fall; ON is `76/80` safe and `3/80` fall.
+The representation gain is real, but it is not a demo-following safety gain.
+
+Render only the two learned endpoints and make four synchronized side-by-side H.264 videos with:
+
+```bash
+bash scripts/sugar/demo_following/render_official_chord_causal_matched_pair.sh \
+  experiments/demo_following/official_chord_causal_matched_seed171648_v1 cuda:0
+```
+
+Authoritative local-only evidence is under
+`experiments/demo_following/official_chord_causal_matched_seed171648_v1/`: `RESULT.json`,
+`CHORD_GEOMETRY_RESULT.json`, the two endpoint checkpoint audits and
+`videos_off_vs_on/chord_off_vs_on_prefix{37,45,53,61}.mp4`.
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

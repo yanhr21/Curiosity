@@ -38,6 +38,15 @@ Carry45 恢复出 `304/660` 个任一手接触帧、`257` 个双手接触帧；�
 扩成 275 帧，而是保留官方几何结果并明确把旧 Kick binary label 降为不可靠 proxy。
 两条完整 660-frame H.264 视频与可复现入口见下文 CHORD 部分。
 
+在此基础上，官方 CHORD OFF/ON 单变量训练与冻结测试已经完成。两臂使用相同
+seed171648、Carry prefix `33/41/49/57/65`、64 updates、teacher、初始化和物理；冻结
+seed181666 测试使用未见过的 prefix `37/45/53/61`，每臂共 80 profiles。ON 分支在线调用
+1557 次官方 reward，确实读取 live PhysX contact point/force，且不把 CHORD、binary contact、
+未来帧或结果标签放进 actor observation。ON 相对 OFF 的 mean CWS 提高 `0.00775`，
+missed-contact 降低 `0.01137`，说明 reward 改变了接触表示；但 safe Kick 从 `77/80` 变为
+`76/80`，fall 均为 `3/80`。因此该实验不支持 CHORD 带来物理安全增益，也不再做 reward
+scale/update sweep；四个 OFF/ON 同步视频和完整复现命令见下文。
+
 最新实验保留 released CarryBox/KickBox 两个 official Tracker actor 的完整参数和
 `510-D -> 512/256/128 -> 29-D` 闭环结构，只训练读取冻结 predictor `798-D` causal
 selected-demo condition 的 router。审计确认官方 Carry/Kick 推理环境除 SMALLBOX/BIGBOX
@@ -781,7 +790,8 @@ DAgger 也未保持闭环稳定。新的 official-skill router 已让一个 chec
 分别达到 Carry `18/20`、Kick `20/20` 且零跌倒，但 condition-only counterfactual 证明它仍有
 task-generator 耦合和跨域动作爆炸。当前官方 CHORD 诊断进一步表明：现有 temporal
 composer 没有学到 Kick 专家的接触扳手结构。Carry45/Kick21 的位置、法向与单物体 part ID
-现已由 pinned 官方几何路径恢复；下一项工作已进入同 seed、同 prefix、同预算的
-CHORD-on/off 因果对照。该 target 是 retargeted G1/asset 的运动学网格恢复，不得称为真实人手
+现已由 pinned 官方几何路径恢复；同 seed、同 prefix、同预算的 CHORD-on/off 因果对照也已
+完成。CHORD ON 改善接触表示但没有改善 frozen safe/fall 结果，因此该路线在当前 topology
+和预算下关闭。该 target 是 retargeted G1/asset 的运动学网格恢复，不得称为真实人手
 测量接触或完整 human-video CHORD。不得继续 reward-scale/optimizer-step sweep，不得把 future label
 放入 deployed actor，也不得用 toy teacher/MLP/latent 替代官方 SUGAR、MimicKit 或 CHORD。

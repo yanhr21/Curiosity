@@ -241,6 +241,18 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         env_cfg.sim.use_fabric = False
         print("[INFO] Disabling Fabric; using USD I/O operations for this compatibility run")
 
+    if os.environ.get("SUGAR_OFFICIAL_CHORD_REWARD") == "1":
+        if os.environ.get("SUGAR_CROSS_SKILL_RECOVERY") != "1":
+            raise RuntimeError("official CHORD reward requires cross-skill recovery")
+        for sensor_name in ("left_foot_forces", "right_foot_forces"):
+            sensor_cfg = getattr(env_cfg.scene, sensor_name, None)
+            if sensor_cfg is None:
+                raise RuntimeError(
+                    f"official CHORD reward requires scene sensor {sensor_name}"
+                )
+            sensor_cfg.track_contact_points = True
+            sensor_cfg.max_contact_data_count_per_prim = 8
+
     # multi-gpu training configuration
     if args_cli.distributed:
         env_cfg.sim.device = f"cuda:{app_launcher.local_rank}"
@@ -427,6 +439,21 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             ),
             transition_recovery_reward=(
                 os.environ.get("SUGAR_TRANSITION_RECOVERY_REWARD") == "1"
+            ),
+            official_chord_root=(
+                os.environ.get("SUGAR_OFFICIAL_CHORD_ROOT")
+                if os.environ.get("SUGAR_OFFICIAL_CHORD_REWARD") == "1"
+                else None
+            ),
+            official_chord_reference_geometry=(
+                os.environ.get("SUGAR_OFFICIAL_CHORD_REFERENCE_GEOMETRY")
+                if os.environ.get("SUGAR_OFFICIAL_CHORD_REWARD") == "1"
+                else None
+            ),
+            official_chord_object_usd=(
+                os.environ.get("SUGAR_OFFICIAL_CHORD_OBJECT_USD")
+                if os.environ.get("SUGAR_OFFICIAL_CHORD_REWARD") == "1"
+                else None
             ),
             **conditional_kwargs,
         )

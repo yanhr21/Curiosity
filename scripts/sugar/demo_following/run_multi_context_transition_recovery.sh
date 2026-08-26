@@ -75,7 +75,15 @@ fi
 
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPYCACHEPREFIX="/tmp/Curiosity_multi_context_${SLURM_JOB_ID:-local}"
-export PYTHONPATH="$ROOT/IsaacLab/source/isaaclab:$ROOT/IsaacLab/source/isaaclab_tasks:$ROOT/IsaacLab/source/isaaclab_rl:$ROOT/IsaacLab/source/isaaclab_mimic:$ROOT/SUGAR/source/sugar_rl:$ROOT/SUGAR/source/sugar_il:${PYTHONPATH:-}"
+SUGAR_SOURCE_PREFIX=""
+if [[ -n "${SUGAR_LOCAL_SOURCE_STAGING:-}" ]]; then
+    test -d "$SUGAR_LOCAL_SOURCE_STAGING/sugar_rl/sugar_rl" \
+        || { echo "invalid local sugar_rl staging: $SUGAR_LOCAL_SOURCE_STAGING" >&2; exit 2; }
+    test -d "$SUGAR_LOCAL_SOURCE_STAGING/sugar_il/sugar_il" \
+        || { echo "invalid local sugar_il staging: $SUGAR_LOCAL_SOURCE_STAGING" >&2; exit 2; }
+    SUGAR_SOURCE_PREFIX="$SUGAR_LOCAL_SOURCE_STAGING/sugar_rl:$SUGAR_LOCAL_SOURCE_STAGING/sugar_il:"
+fi
+export PYTHONPATH="${SUGAR_SOURCE_PREFIX}$ROOT/IsaacLab/source/isaaclab:$ROOT/IsaacLab/source/isaaclab_tasks:$ROOT/IsaacLab/source/isaaclab_rl:$ROOT/IsaacLab/source/isaaclab_mimic:$ROOT/SUGAR/source/sugar_rl:$ROOT/SUGAR/source/sugar_il:${PYTHONPATH:-}"
 export ISAACLAB_GROUND_PLANE_USD="$ROOT/SUGAR/descriptions/terrain/sugar_ground_plane.usda"
 export ISAACLAB_USE_LOCAL_FRAME_MARKER=1
 export VK_ICD_FILENAMES="/etc/vulkan/icd.d/nvidia_icd.json"
@@ -178,6 +186,7 @@ done
     --expected-policy-topology "$POLICY_TOPOLOGY" \
     --output "$OUTPUT_ROOT/RESULT.json"
 
+if [[ "${SUGAR_SKIP_CROSS_SKILL_VIDEOS:-0}" != "1" ]]; then
 for prefix in "${EVAL_PREFIXES[@]}"; do
     video_dir="$OUTPUT_ROOT/videos_seed${VIDEO_SEED}/prefix${prefix}"
     mkdir -p "$video_dir"
@@ -208,3 +217,4 @@ for prefix in "${EVAL_PREFIXES[@]}"; do
     "$FFMPEG_BIN" -hide_banner -loglevel error \
         -i "$video_dir/learned_vs_pre_update_prefix${prefix}.mp4" -f null -
 done
+fi

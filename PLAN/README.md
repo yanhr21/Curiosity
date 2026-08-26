@@ -620,7 +620,7 @@ episode boundary. Thus every environment is exposed to both conditions instead o
 condition permanently correlated with environment identity; frozen condition-swap evaluation stays
 fixed as intended.
 
-### Official CHORD audit and the next admissible experiment
+### Official CHORD audit and matched causal result
 
 The official CHORD implementation is now pinned at NVIDIA `video_to_data` commit `5654c50e` and
 has been executed without replacing its 512-direction contact-wrench support representation. The
@@ -650,17 +650,18 @@ label has 275 positives but only eight overlap and includes positive frames at r
 separation. Therefore the geometry is retained and the old Kick label is rejected as a location
 target; it may not be expanded into invented contacts. Full exact-pose videos show this discrepancy.
 
-The next causal experiment is fixed:
+The matched causal experiment is complete. CHORD OFF and ON share seed171648, teacher replacement,
+initialization, `33/41/49/57/65` training prefixes, 64 updates and the disjoint seed181666 frozen
+evaluation at prefixes `37/45/53/61`. The ON branch made 1557 online reward calls over live PhysX
+contact points/forces; binary contact, future/outcome labels and CHORD features never entered the
+actor observation. The exact pre-update aggregates are identical.
 
-1. use the admitted reconstructed position/normal/single-object part-ID traces; preserve the explicit
-   kinematic-reconstruction provenance and do not call them measured human contact;
-2. run a matched CHORD-off/on comparison with the same teacher replacement,
-   initialization, prefix schedule, update budget, seeds and frozen physical evaluation;
-3. require behavior/contact-wrench improvement, not lower reward loss alone.
-
-No reward-weight sweep or homemade contact target is admissible. The robot-expert diagnostic remains
-the frozen evaluator baseline; the next pair changes only whether the admitted CHORD target enters
-the training objective.
+CHORD ON raises mean CWS from `0.01023` to `0.01798` and lowers missed-contact from `0.98300` to
+`0.97163`, so the policy does respond to the official contact-wrench objective. This representation
+gain does not become physical benefit: OFF/ON safe Kick is `77/80` versus `76/80`, and both have
+`3/80` falls. The result is therefore negative for demo-following safety. No reward-weight,
+optimizer-step or model-size sweep follows this endpoint, and no homemade contact target is
+admissible.
 
 ### Expected behavior, not just reward score
 

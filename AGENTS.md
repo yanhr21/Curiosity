@@ -52,6 +52,12 @@ The tactile/mass-adaptation line in
 `PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen while demo following is the active
 queue. Do not interleave new tactile training, evaluation or scale tuning with that queue.
 
+The official-CHORD one-variable causal experiment is complete. CHORD OFF/ON used the same
+seed171648, teacher, initialization, 64-update budget and disjoint 80-profile frozen evaluation.
+ON improved mean CWS by `0.00775` and missed-contact by `0.01137`, but physical safe/fall changed
+from `77/80, 3/80` to `76/80, 3/80`. This is a real contact-representation response and a negative
+physical result. Do not run a reward-scale, update-budget or model-size sweep of this topology.
+
 The predeclared three-seed demo-following repeat and the seed161581 teacher-floor learnability
 diagnostic are complete. The latter annealed the common CarryBox45 teacher from `1.0` to `0.25` but
 collapsed both arms: no bilateral hold, no 5 cm lift, no foot-to-box contact and `0/4` Kick-like

@@ -828,3 +828,62 @@ def test_sugar_demo_chord_render_is_complete_video_evidence() -> None:
     assert "GPU_HOLD_AFTER_SUGAR_DEMO_CHORD_RENDER_READY" in runner
     assert "read -p" not in runner
     assert "approval" not in runner.lower()
+
+
+def test_official_chord_runtime_is_online_causal_and_one_variable_matched() -> None:
+    reward = _read(
+        SUGAR / "source/sugar_rl/sugar_rl/utils/official_chord_runtime_reward.py"
+    )
+    wrapper = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_cross_skill_recovery_wrapper.py"
+    )
+    train = _read(SUGAR / "scripts/sugar_rl/train.py")
+    runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/run_official_chord_causal_matched_pair.sh"
+    )
+    summary = _read(
+        ROOT
+        / "scripts/sugar/demo_following/summarize_official_chord_matched_pair.py"
+    )
+    renderer = _read(
+        ROOT
+        / "scripts/sugar/demo_following/render_official_chord_causal_matched_pair.sh"
+    )
+
+    assert 'OFFICIAL_CHORD_COMMIT = "5654c50e' in reward
+    assert "wrench_preprocess_jit" in reward
+    assert "wrench_support_one_body_jit" in reward
+    assert "contact_wrench_support_reward_jit" in reward
+    assert "unintended_contact_penalty_jit" in reward
+    assert "missed_contact_penalty_jit" in reward
+    assert 'self.env.scene.sensors["left_foot_forces"]' in reward
+    assert 'self.env.scene.sensors["right_foot_forces"]' in reward
+    assert '"binary_contact_label_used": False' in reward
+    assert '"future_or_outcome_labels_used": False' in reward
+    assert '"actor_observation_augmented": False' in reward
+    assert "cmd_body.any(dim=1).squeeze(-1)" in reward
+    assert "official_chord_reward.reward(" in wrapper
+    assert "self.command.time_steps" in wrapper
+    assert "sensor_cfg.track_contact_points = True" in train
+    assert "sensor_cfg.max_contact_data_count_per_prim = 8" in train
+    assert "TRAIN_SEED_OVERRIDE=171648" in runner
+    assert "EVAL_SEED_OVERRIDE=181666" in runner
+    assert "TRAIN_PREFIXES_CSV_OVERRIDE=33,41,49,57,65" in runner
+    assert "EVAL_PREFIXES_CSV_OVERRIDE=37,45,53,61" in runner
+    assert runner.index("unset SUGAR_OFFICIAL_CHORD_REWARD") < runner.index(
+        "export SUGAR_OFFICIAL_CHORD_REWARD=1"
+    )
+    assert "GPU_HOLD_AFTER_OFFICIAL_CHORD_MATCHED_PAIR_READY" in runner
+    assert "read -p" not in runner
+    assert "approval" not in runner.lower()
+    assert '"one_variable_difference"' in summary
+    assert '"pre_update_aggregate_identical"' in summary
+    assert '"positive_physical_result"' in summary
+    assert "for arm in off on" in renderer
+    assert "learned_kick.mp4" in renderer
+    assert "chord_off_vs_on_prefix" in renderer
+    assert "pre_update_kick.mp4" not in renderer
+    assert "GPU_HOLD_AFTER_OFFICIAL_CHORD_PAIR_RENDER_READY" in renderer
+    assert "read -p" not in renderer

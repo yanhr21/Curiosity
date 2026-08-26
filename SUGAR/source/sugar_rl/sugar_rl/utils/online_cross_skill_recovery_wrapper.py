@@ -195,6 +195,9 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         conditional_tinymdm_smp_reward_weight: float = 0.5,
         transition_selected_skill_id: int | None = None,
         transition_recovery_reward: bool = False,
+        official_chord_root: str | Path | None = None,
+        official_chord_reference_geometry: str | Path | None = None,
+        official_chord_object_usd: str | Path | None = None,
     ) -> None:
         schedule = (
             (int(carry_prefix_steps),)
@@ -291,6 +294,29 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             )
         if self.transition_recovery_reward_enabled and transition_selected_skill_id is None:
             raise ValueError("transition recovery reward requires a selected skill")
+        chord_values = (
+            official_chord_root,
+            official_chord_reference_geometry,
+            official_chord_object_usd,
+        )
+        if any(value is not None for value in chord_values) and not all(
+            value is not None for value in chord_values
+        ):
+            raise ValueError("official CHORD runtime reward configuration is incomplete")
+        self.official_chord_reward = None
+        if all(value is not None for value in chord_values):
+            if transition_selected_skill_id is None:
+                raise ValueError("official CHORD reward requires a selected skill")
+            from sugar_rl.utils.official_chord_runtime_reward import (
+                OfficialChordKickReward,
+            )
+
+            self.official_chord_reward = OfficialChordKickReward(
+                self.base_env,
+                official_chord_root=official_chord_root,
+                reference_geometry=official_chord_reference_geometry,
+                object_usd=official_chord_object_usd,
+            )
         self.transition_selected_skill_ids = None
         self.transition_selected_skill_exposure = None
         self.transition_history: torch.Tensor | None = None
@@ -593,6 +619,11 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
                 "future_or_outcome_labels_used": False,
                 "actor_observation_augmented": False,
             },
+            "official_chord_runtime_reward": (
+                self.official_chord_reward.audit()
+                if self.official_chord_reward is not None
+                else {"enabled": False}
+            ),
         }
         temporary = self.audit_path.with_suffix(self.audit_path.suffix + ".tmp")
         temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -678,6 +709,26 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
                 "upright_risk"
             ].mean()
             if self.transition_recovery_reward_calls % 50 == 0:
+                self._write_audit()
+        if self.official_chord_reward is not None:
+            if self.transition_selected_skill_ids is None:
+                raise RuntimeError("official CHORD selected-skill tensor is missing")
+            chord_reward, chord_components = self.official_chord_reward.reward(
+                self.command.time_steps,
+                self.transition_selected_skill_ids == 1,
+                dones,
+            )
+            rewards = rewards + chord_reward
+            extras["official_chord_reward_mean"] = chord_reward.mean()
+            extras["official_chord_cws_mean"] = chord_components["cws"].mean()
+            extras["official_chord_unintended_mean"] = chord_components[
+                "unintended"
+            ].mean()
+            extras["official_chord_missed_mean"] = chord_components["missed"].mean()
+            if (
+                self.official_chord_reward.calls == 1
+                or self.official_chord_reward.calls % 50 == 0
+            ):
                 self._write_audit()
         if self.transition_selected_skill_id is not None and not torch.any(dones):
             if self.carry_shadow is None:

@@ -12,6 +12,7 @@ with `Sugar` in their name.
 
 
 import importlib
+import os
 import pathlib
 import pkgutil
 import sys
@@ -57,7 +58,13 @@ def _walk_packages(
 
 
 def import_packages():
-    sys.path.insert(0, f"{pathlib.Path(__file__).parent.parent}/source/sugar_rl/sugar_rl/tasks/")
+    local_staging = os.environ.get("SUGAR_LOCAL_SOURCE_STAGING")
+    task_source = (
+        pathlib.Path(local_staging) / "sugar_rl/sugar_rl/tasks"
+        if local_staging
+        else pathlib.Path(__file__).parent.parent / "source/sugar_rl/sugar_rl/tasks"
+    )
+    sys.path.insert(0, str(task_source))
     for package in ["locomanip.robots"]:
         package = importlib.import_module(package)
         for _ in _walk_packages(package.__path__, package.__name__ + "."):

@@ -256,10 +256,10 @@
   preserve that mismatch instead of inventing contacts.
 - [x] render complete 660-frame H.264 Carry45 and Kick21 geometry evidence with G1/box pose,
   left/right contact points, minimum distances and independent binary timelines on one clock.
-- [ ] after that dataset passes clock/geometry checks, run one matched CHORD-off/on policy experiment
-  with identical teacher replacement, initialization, prefix schedule, update budget, seeds and
-  frozen physical evaluation. Advance automatically from data admission through evaluation and
-  video; there is no human-authorization state.
+- [x] run the matched CHORD-off/on policy experiment with identical teacher replacement,
+  initialization, prefix schedule, update budget, seeds and frozen physical evaluation. CHORD ON
+  improves mean CWS by `0.00775` and missed-contact by `0.01137`, but gives `76/80` safe and `3/80`
+  falls versus OFF `77/80` and `3/80`; close this setting without a scale/update sweep.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -294,10 +294,11 @@ but `2/0` falls. The fixed failure-rich overfit also fails its learnability rule
 The causal physical recovery objective passes fixed-context learnability only at update64/128.
 Its two-seed balanced formal test is negative: learned/pre-update both give `35/40` safe Kick and
 `4/40` falls. Multi-context, feed-forward composition and causal temporal composition are also
-complete; the final temporal grid is learned/pre `169/170` safe with equal `7/7` falls. The official
-CHORD representation diagnostic is complete and negative, while raw SUGAR demos lack the reference
-contact geometry required for faithful human-demo CHORD. The active task is official contact-data
-recovery followed by one matched CHORD-off/on test, not another update/reward/model sweep.
+complete; the final temporal grid is learned/pre `169/170` safe with equal `7/7` falls. The
+official CHORD representation diagnostic, retargeted contact-data recovery and matched
+CHORD-off/on causal test are complete. CHORD improves its own frozen representation metrics but not
+safe/fall outcomes. This endpoint closes the current contact-reward topology; it is not a reason to
+start another update/reward/model sweep.
 
 ## Frozen tactile work
 
