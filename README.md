@@ -830,9 +830,34 @@ RGB 只有 IsaacLab G1 一种 embodiment，所以训练数据只是 train split 
 该结果明确不是 cross-embodiment 复现。模型实际使用 `91/128` 个 prototype，但 frozen test 的
 raw temporal MAE 从同初始化基线 `0.33583` 恶化到 `0.35887`，tau 仅从 `0.00698` 到
 `0.02901`，valid/test task-reference accuracy 为 `0.45/0.68421`，ordered-vs-reversed accuracy
-为 `0.95/0.73684`。六项固定判据只通过一项，因此没有进入 SAT 或 policy。下一项不再重复
-robot-only 训练或调 K/loss/epoch，而是按 XSkill 官方 simulation 数据合同，在 IsaacLab 将同一
-轨迹干净渲染为第二种 sphere embodiment，再重新检验共享 prototype。
+为 `0.95/0.73684`。六项固定判据只通过一项，因此没有进入 SAT 或 policy。
+
+XSkill 官方 simulation 数据合同的跨 embodiment 复核也已完成。IsaacLab 对完全相同的
+100 条 Carry 和 99 条 Kick 轨迹再次渲染：原始 G1 隐藏，只保留左右手、左右脚四个
+`0.05 m` sphere；Carry/Kick 使用同一可见 body set。G1/sphere 的 source ID、split 和 64 帧
+时钟逐项一致，released `ConcatDataset` 的 160 个 train index 也逐项配对。训练仍是官方
+CNN、8-layer Transformer、128 prototypes、SwAV/Sinkhorn 和 time-contrastive
+`training_step`，固定到 epoch79。
+
+结果只呈现单向局部进步：G1→sphere test MAE/tau 从 `0.14605/0.56872` 改善到
+`0.13396/0.72037`；sphere→G1 则从 `0.15029/0.61411` 变为 `0.17110/0.66093`。前向
+valid/test task accuracy 为 `0.45/0.73684`、order accuracy 为 `0.50/0.57895`；反向分别为
+`0.25/0.42105` 和 `0.35/0.68421`。训练后两种 embodiment 都只使用 `1/128` prototype，
+固定 gate 仅通过 `2/12` 项。因此这是非对称时序响应，不是可执行 skill sequence；SAT 和
+policy 自动跳过，不再调 epoch、loss、prototype、reference 或 sphere layout。
+
+可复现入口为：
+
+```bash
+bash scripts/sugar/demo_following/run_xskill_sphere_canaries_then_hold.sh \
+  experiments/demo_following/official_xskill_cross_embodiment_v1/sphere_canary
+
+bash scripts/sugar/demo_following/run_xskill_sphere_full_corpus_then_hold.sh \
+  experiments/demo_following/official_xskill_cross_embodiment_v1/sphere_corpus
+
+bash scripts/sugar/demo_following/run_official_xskill_cross_embodiment_audit_then_hold.sh \
+  experiments/demo_following/official_xskill_cross_embodiment_v1/representation
+```
 
 在 retained Slurm GPU compute 内的最短复现入口为：
 

@@ -626,11 +626,25 @@ Frozen test temporal MAE is worse than the matched initialization (`0.35887/0.33
 only `0.00698 -> 0.02901`, task-reference accuracy is `0.45/0.68421` on validation/test and
 ordered-reference accuracy is `0.95/0.73684`. Five of six fixed criteria fail, so SAT/policy
 integration is skipped. The result uses 91 prototypes and is evidence of partial order response,
-not a selected-demo skill plan. It also is not a faithful cross-embodiment test: current SUGAR RGB
-contains only G1. The next bounded data-method experiment follows XSkill's released simulation
-contract by rendering the same source trajectories as a second sphere embodiment in IsaacLab and
-retesting shared-prototype admission; no robot-only retrain or hyperparameter/reference sweep is
-allowed.
+not a selected-demo skill plan.
+
+The fixed cross-embodiment follow-up now completes the released XSkill simulation-data contract.
+The same 199 source motions are rendered a second time inside IsaacLab with G1 hidden and a fixed
+task-independent set of four `0.05 m` spheres at both hands and both feet. All source IDs, splits
+and 64-frame clocks are elementwise matched, and the released `ConcatDataset` verifies all 160
+training indices before epoch0. Training still calls the exact released two-stream
+`training_step` through epoch79.
+
+The cross result is asymmetric and fails admission. G1-to-sphere temporal MAE/tau improve from
+`0.14605/0.56872` to `0.13396/0.72037`, but sphere-to-G1 changes from
+`0.15029/0.61411` to `0.17110/0.66093`. G1-to-sphere validation/test task accuracy is
+`0.45/0.73684` and ordered-reference accuracy is `0.50/0.57895`; sphere-to-G1 gives
+`0.25/0.42105` and `0.35/0.68421`. Both trained test embeddings use only one of 128 prototypes.
+Only the two G1-to-sphere temporal criteria pass, so the aggregate is `2/12` and SAT/policy remains
+skipped. No additional epoch, prototype/loss/reference sweep or sphere-layout change is allowed.
+XSkill is closed for this corpus. The next bounded work is an official-code/weights audit for a
+serious sequence-conditioned skill prior or policy that exposes a documented selected-demo
+interface; no local visual encoder or toy world model is admissible.
 
 The resulting causal temporal transition controller is now complete. It retains the released
 Carry/Kick endpoints, adds a six-layer, 384-D, eight-head Transformer over the past `10 x 584`

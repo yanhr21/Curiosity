@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render clean exact-pose SUGAR reference videos for official XIRL/TCC.
+"""Render clean exact-pose SUGAR reference videos for official XIRL/TCC or XSkill.
 
 The output is an image-folder corpus in the exact layout consumed by the
 released Google Research XIRL ``VideoDataset``::
@@ -11,6 +11,13 @@ joint/root and object trajectories.  They contain no text, plots, borders or
 policy results.  Rendering is kinematic reference playback, not a physics
 rollout.  Exactly 64 normalized-time frames are emitted per source motion so
 that frame index is a shared causal progress clock for the TCC gate.
+
+The default ``g1`` embodiment preserves the immutable XIRL corpus contract.
+The optional ``sphere`` embodiment follows the released XSkill simulation
+intervention: hide the original agent and retain only fixed-radius spheres at
+its task-independent end effectors.  Franka XSkill uses two 0.05 m gripper
+spheres; the G1 compatibility rendering uses the same radius at both hands and
+both feet so the visible embodiment is fixed across CarryBox and KickBox.
 """
 
 from __future__ import annotations
@@ -59,6 +66,7 @@ parser.add_argument("--output-root", type=Path, required=True)
 parser.add_argument("--frames-per-motion", type=int, default=64)
 parser.add_argument("--camera-width", type=int, default=320)
 parser.add_argument("--camera-height", type=int, default=320)
+parser.add_argument("--embodiment", choices=("g1", "sphere"), default="g1")
 parser.add_argument("--write-preview-mp4", action="store_true")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
@@ -72,8 +80,10 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 import isaaclab.sim as sim_utils  # noqa: E402
 import isaaclab.utils.math as math_utils  # noqa: E402
+import isaacsim.core.utils.prims as prim_utils  # noqa: E402
 import sugar_rl.tasks  # noqa: E402,F401
 from isaaclab.scene import InteractiveScene  # noqa: E402
+from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg  # noqa: E402
 from isaaclab.sim import SimulationContext  # noqa: E402
 from isaaclab.sensors import TiledCameraCfg  # noqa: E402
 from sugar_rl.tasks.locomanip.robots.g129dof.train_tracker.carry_box_tracker_env_cfg import (  # noqa: E402
@@ -88,6 +98,13 @@ print("XIRL_RENDER_STAGE task_imports_ready", flush=True)
 SOURCE_HZ = 50
 OUTPUT_FRAME_COUNT = 64
 RTX_RENDER_SIZE = 640
+XSKILL_SPHERE_RADIUS_M = 0.05
+XSKILL_SPHERE_BODY_NAMES = (
+    "left_rubber_hand",
+    "right_rubber_hand",
+    "left_ankle_roll_link",
+    "right_ankle_roll_link",
+)
 TASK_SPEC = {
     "CarryBox": (CarryPlayEnvCfg, 100),
     "KickBox": (KickPlayEnvCfg, 99),
@@ -212,6 +229,23 @@ def camera_cfg() -> TiledCameraCfg:
     )
 
 
+def sphere_agent_cfg() -> VisualizationMarkersCfg:
+    """Return the task-independent released-XSkill-style sphere agent."""
+
+    return VisualizationMarkersCfg(
+        prim_path="/Visuals/XSkillSphereAgent",
+        markers={
+            "end_effector": sim_utils.SphereCfg(
+                radius=XSKILL_SPHERE_RADIUS_M,
+                visual_material=sim_utils.PreviewSurfaceCfg(
+                    diffuse_color=(0.95, 0.99, 0.92),
+                    roughness=0.5,
+                ),
+            )
+        },
+    )
+
+
 def decode_preview(path: Path) -> bool:
     process = subprocess.run(
         [
@@ -266,6 +300,27 @@ def main() -> None:
         scene = InteractiveScene(cfg.scene)
         sim.reset()
         scene.reset()
+        sphere_agent = None
+        sphere_body_ids: list[int] = []
+        sphere_body_names: list[str] = []
+        if args.embodiment == "sphere":
+            sphere_body_ids, sphere_body_names = scene["robot"].find_bodies(
+                XSKILL_SPHERE_BODY_NAMES,
+                preserve_order=True,
+            )
+            if tuple(sphere_body_names) != XSKILL_SPHERE_BODY_NAMES:
+                raise RuntimeError(
+                    "sphere embodiment end-effector mismatch: "
+                    f"expected={XSKILL_SPHERE_BODY_NAMES}, actual={sphere_body_names}"
+                )
+            robot_prims = sim_utils.find_matching_prims(scene["robot"].cfg.prim_path)
+            if len(robot_prims) != len(motions):
+                raise RuntimeError(
+                    f"expected {len(motions)} robot prims, found {len(robot_prims)}"
+                )
+            for robot_prim in robot_prims:
+                prim_utils.set_prim_visibility(robot_prim, False)
+            sphere_agent = VisualizationMarkers(sphere_agent_cfg())
         print(f"XIRL_RENDER_STAGE scene_ready task={args.task}", flush=True)
         origin = scene.env_origins
         device = origin.device
@@ -305,6 +360,16 @@ def main() -> None:
             scene["obj"].write_root_state_to_sim(object_root, env_ids=env_ids)
             scene.write_data_to_sim()
             sim.forward()
+            if sphere_agent is not None:
+                # Pull the exact kinematic body transforms before RTX renders.
+                # The marker array is global, so flatten env-major positions.
+                scene["robot"].update(0.0)
+                sphere_positions = scene["robot"].data.body_pos_w[
+                    :, sphere_body_ids, :
+                ].reshape(-1, 3)
+                if not torch.isfinite(sphere_positions).all():
+                    raise RuntimeError("non-finite XSkill sphere-agent position")
+                sphere_agent.visualize(translations=sphere_positions)
             sim.render()
             scene.update(dt=0.0)
             camera = scene["world_camera"]
@@ -356,12 +421,17 @@ def main() -> None:
     ]
     frame_counts = [len(list(directory.glob("*.png"))) for directory in frame_dirs]
     result = {
-        "protocol": "sugar_clean_xirl_reference_render_v1",
+        "protocol": (
+            "sugar_clean_xirl_reference_render_v1"
+            if args.embodiment == "g1"
+            else "sugar_clean_xskill_sphere_reference_render_v1"
+        ),
         "passed": bool(
             all(count == OUTPUT_FRAME_COUNT for count in frame_counts)
             and (not args.write_preview_mp4 or all(decode_preview(path) for path in videos))
         ),
         "task": args.task,
+        "embodiment": args.embodiment,
         "motion_ids": list(motion_ids),
         "split_by_motion_id": {
             str(motion_id): split_for_motion(motion_id) for motion_id in motion_ids
@@ -372,11 +442,26 @@ def main() -> None:
         "source": "exact SUGAR 50Hz root/joint/object trajectory",
         "render": "IsaacLab RTX TiledCamera exact-pose playback; no physics replay",
         "clean_frame_contract": "RGB only; no text, plot, border, metric or policy output",
+        "sphere_agent_contract": (
+            {
+                "original_g1_visibility": False,
+                "body_names": list(XSKILL_SPHERE_BODY_NAMES),
+                "radius_m": XSKILL_SPHERE_RADIUS_M,
+                "task_independent_visible_body_set": True,
+                "released_xskill_analogy": (
+                    "Franka meshes transparent; two 0.05 m gripper spheres"
+                ),
+            }
+            if args.embodiment == "sphere"
+            else None
+        ),
         "frame_counts": frame_counts,
         "preview_videos": [str(path) for path in videos] if writers else [],
     }
+    embodiment_prefix = "" if args.embodiment == "g1" else "SPHERE_"
     result_path = output / (
-        f"RENDER_RESULT_{args.task}_{motion_ids[0]:03d}_{motion_ids[-1]:03d}.json"
+        f"RENDER_RESULT_{embodiment_prefix}{args.task}_"
+        f"{motion_ids[0]:03d}_{motion_ids[-1]:03d}.json"
     )
     result_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     if not result["passed"]:

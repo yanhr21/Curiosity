@@ -278,9 +278,15 @@
   128-prototype SwAV/Sinkhorn and TCN losses, and run epoch79 on disjoint robot-only SUGAR streams.
   It uses 91 prototypes but fails 5/6 gates: test MAE worsens to `0.35887`, tau reaches only
   `0.02901`, task accuracy is `0.45/0.68421` and order accuracy is `0.95/0.73684` on valid/test.
-- [ ] render the same clean SUGAR trajectories as a second sphere embodiment inside IsaacLab,
-  matching XSkill's released simulation data contract; rerun shared-prototype admission before SAT
-  or policy, without composite videos, a local encoder or an XSkill hyperparameter sweep.
+- [x] render the same clean SUGAR trajectories as a second sphere embodiment inside IsaacLab and
+  rerun released XSkill shared-prototype admission. The 199 G1/sphere motions and 160 train indices
+  pair exactly. G1-to-sphere MAE/tau improve, but reverse timing and all task/order gates fail;
+  trained G1 and sphere each use `1/128` prototype and only `2/12` criteria pass. Skip SAT/policy
+  and close XSkill without an epoch, loss, prototype, reference or sphere-layout sweep.
+- [ ] audit released code and weights for the next serious sequence-conditioned skill prior/policy.
+  Admit only a method with a documented selected-demo sequence interface and causal deployable
+  output; reject task-class-only embeddings, homemade encoders, toy world models and methods whose
+  official artifacts cannot support the claimed interface before starting another training run.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it

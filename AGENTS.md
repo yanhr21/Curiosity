@@ -101,10 +101,28 @@ temporal MAE worsens from the matched initialization `0.33583 -> 0.35887`, Kenda
 only `0.00698 -> 0.02901`, validation/test task-reference accuracy is `0.45/0.68421`, and
 ordered-vs-reversed accuracy is `0.95/0.73684`. It fails five of six fixed criteria. Do not train
 SAT or a policy from this representation, tune prototype count/loss/epoch/reference choice, or
-describe robot-only adaptation as cross-embodiment XSkill. The one scientifically distinct XSkill
-follow-up is the released simulation contract: generate a clean second sphere embodiment from the
-same trajectories inside IsaacLab, then rerun shared-prototype representation admission before any
-SAT or policy stage. Do not substitute composite presentation video or a local visual encoder.
+describe robot-only adaptation as cross-embodiment XSkill.
+
+The one scientifically distinct XSkill cross-embodiment follow-up is also complete and negative.
+IsaacLab renders the same 100 Carry and 99 Kick source motions as a fixed four-end-effector sphere
+agent: the original G1 is hidden and only two hands plus two feet remain as `0.05 m` spheres, with
+the identical visible body set for both tasks. Every G1/sphere source ID and all 64 frames match;
+the released XSkill `ConcatDataset` also pairs all 160 train indices elementwise. The exact released
+CNN, 8-layer Transformer, 128 prototypes and SwAV/Sinkhorn plus time-contrastive training run to
+epoch79 without a local model or loss change.
+
+The trained model collapses to `1/128` used prototype in both embodiments. G1-to-sphere test
+temporal MAE improves `0.14605 -> 0.13396` and tau improves `0.56872 -> 0.72037`, so that one
+direction passes both temporal criteria. The reverse sphere-to-G1 MAE worsens
+`0.15029 -> 0.17110` and tau reaches only `0.66093` from `0.61411`. More importantly, G1-to-sphere
+validation/test task accuracy is `0.45/0.73684` and order accuracy is `0.50/0.57895`; the reverse
+values are `0.25/0.42105` and `0.35/0.68421`. The fixed gate passes only `2/12` criteria. This is
+partial asymmetric cross-embodiment timing evidence, not a usable skill-prototype sequence. Do not
+train SAT/policy, add epochs, tune XSkill hyperparameters or alter the sphere body set. This closes
+XSkill on the current SUGAR RGB corpus. The next method must change to a serious released
+sequence-conditioned skill prior/policy with a documented selected-demo interface; first audit
+official candidates and released weights/code, and never substitute a homemade encoder or toy
+world model.
 
 The predeclared three-seed demo-following repeat and the seed161581 teacher-floor learnability
 diagnostic are complete. The latter annealed the common CarryBox45 teacher from `1.0` to `0.25` but
