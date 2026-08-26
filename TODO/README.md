@@ -249,9 +249,13 @@
 - [x] render one synchronized H.264 exact-trace video containing the fixed Kick21 expert,
   exact-pre and learned policies, live foot-box contact points/force vectors, all 20 paired CWS
   deltas and the time-aligned CWS curves. Keep the explicit no-camera/no-physics-replay label.
-- [ ] obtain or regenerate Carry45/Kick21 demonstration contact positions, normals and object part
-  IDs through the released CHORD preprocessing path. Reject any source that only expands the SUGAR
-  binary contact label into invented geometry.
+- [x] regenerate Carry45/Kick21 demonstration contact positions, normals and single-object part IDs
+  through pinned CHORD `approximate_contact_with_id`, exact SUGAR G1/object poses and official
+  collision assets. Carry45 reaches `96.71%/98.99%` precision/recall against the independent label.
+  Kick21 geometry is sparse and physically localized, while its old binary proxy is inconsistent;
+  preserve that mismatch instead of inventing contacts.
+- [x] render complete 660-frame H.264 Carry45 and Kick21 geometry evidence with G1/box pose,
+  left/right contact points, minimum distances and independent binary timelines on one clock.
 - [ ] after that dataset passes clock/geometry checks, run one matched CHORD-off/on policy experiment
   with identical teacher replacement, initialization, prefix schedule, update budget, seeds and
   frozen physical evaluation. Advance automatically from data admission through evaluation and

@@ -784,3 +784,47 @@ def test_dense_composer_ablation_is_frozen_causal_and_visualized() -> None:
     assert "read -p" not in runner
     assert "approval" not in runner.lower()
     assert "confirm" not in runner.lower()
+
+
+def test_sugar_demo_chord_geometry_uses_released_geometry_not_binary_proxy() -> None:
+    source = _read(
+        ROOT
+        / "scripts/sugar/demo_following/reconstruct_sugar_demo_chord_geometry.py"
+    )
+    runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "run_sugar_demo_chord_geometry_reconstruction.sh"
+    )
+    assert 'OFFICIAL_CHORD_COMMIT = "5654c50e' in source
+    assert "OFFICIAL_THRESHOLD_M = 0.01" in source
+    assert "contact_utils.approximate_contact_with_id(" in source
+    assert '"CarryBox": ROOT / "SUGAR/descriptions/objects/small_box' in source
+    assert '"KickBox": ROOT / "SUGAR/descriptions/objects/big_box' in source
+    assert "object_contact_part_id=np.where(contact_active, 1, 0)" in source
+    assert "labels = np.asarray(np.load(label_path), dtype=bool)" in source
+    assert '"binary_label_was_not_an_input_to_geometry": True' in source
+    assert "run_motion CarryBox" in runner and "run_motion KickBox" in runner
+    assert "read -p" not in runner
+    assert "approval" not in runner.lower()
+
+
+def test_sugar_demo_chord_render_is_complete_video_evidence() -> None:
+    source = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "render_sugar_demo_chord_geometry_offline.py"
+    )
+    runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/run_sugar_demo_chord_geometry_render.sh"
+    )
+    assert 'pixelformat="yuv420p"' in source
+    assert 'codec="libx264"' in source
+    assert '"full_demonstration_displayed"' in source
+    assert '"exact recorded body centres and object pose; no physics replay"' in source
+    assert "contact_active" in source and "minimum_distance_m" in source
+    assert "render_sugar_demo_chord_geometry_offline.py" in runner
+    assert "GPU_HOLD_AFTER_SUGAR_DEMO_CHORD_RENDER_READY" in runner
+    assert "read -p" not in runner
+    assert "approval" not in runner.lower()

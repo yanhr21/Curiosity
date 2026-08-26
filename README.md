@@ -24,6 +24,20 @@ released Kick21 专家 profile 0 的在线接触几何作为一条连贯机器�
 `0.91118/0.93762`，两者同为 `19/20` safe、`1/20` fall。现有 temporal composer 没有改善
 CHORD 接触能力；这是一项表示诊断，不是 human-video CHORD policy 结果。
 
+随后已完成示范接触几何恢复，而不是继续用 binary proxy。官方公开的 G1 snack-box parquet
+虽然保留 CHORD schema，但 `hand_contact_link_names` 和所有 contact position/normal/part-ID
+数组实际为空；不能直接使用。本仓库改为读取 SUGAR 的逐帧 35-body G1 pose、object pose、
+官方 SMALLBOX/BIGBOX USD 和 G1 URDF collision surface，再直接调用上述 pinned CHORD
+`approximate_contact_with_id` 与官方 `0.01 m` threshold。binary label 仅在几何全部生成后作独立
+时序核验，从未进入接触点、法向或 part ID 的计算。
+
+Carry45 恢复出 `304/660` 个任一手接触帧、`257` 个双手接触帧；对原始 object-filtered
+双手 label 的 precision/recall 为 `96.71%/98.99%`，说明整段搬箱几何与原存档一致。Kick21
+恢复出 19 个脚—箱接触帧，视频中接触点落在脚—箱交界；但历史 foot-object binary label
+有 275 个正帧，只重叠 8 帧，甚至存在脚距箱子约 `60 mm` 仍标 1 的帧。结论不是把 19 帧
+扩成 275 帧，而是保留官方几何结果并明确把旧 Kick binary label 降为不可靠 proxy。
+两条完整 660-frame H.264 视频与可复现入口见下文 CHORD 部分。
+
 最新实验保留 released CarryBox/KickBox 两个 official Tracker actor 的完整参数和
 `510-D -> 512/256/128 -> 29-D` 闭环结构，只训练读取冻结 predictor `798-D` causal
 selected-demo condition 的 router。审计确认官方 Carry/Kick 推理环境除 SMALLBOX/BIGBOX
@@ -766,8 +780,8 @@ pair、独立 seed 复现和固定 4x 诊断均已完成。1x 在 update 64 的�
 DAgger 也未保持闭环稳定。新的 official-skill router 已让一个 checkpoint 在 matched 域中
 分别达到 Carry `18/20`、Kick `20/20` 且零跌倒，但 condition-only counterfactual 证明它仍有
 task-generator 耦合和跨域动作爆炸。当前官方 CHORD 诊断进一步表明：现有 temporal
-composer 没有学到 Kick 专家的接触扳手结构。下一项有效工作不是继续调旧 controller，而是
-先取得或用官方流水线重新生成带接触点、法向和 part ID 的示范数据，再做同 seed、同 prefix、
-同预算的 CHORD-on/off 因果对照。没有这种 reference geometry 时只能报告机器人专家表示诊断，
-不能声称 human-demo CHORD。不得继续 reward-scale/optimizer-step sweep，不得把 future label
+composer 没有学到 Kick 专家的接触扳手结构。Carry45/Kick21 的位置、法向与单物体 part ID
+现已由 pinned 官方几何路径恢复；下一项工作已进入同 seed、同 prefix、同预算的
+CHORD-on/off 因果对照。该 target 是 retargeted G1/asset 的运动学网格恢复，不得称为真实人手
+测量接触或完整 human-video CHORD。不得继续 reward-scale/optimizer-step sweep，不得把 future label
 放入 deployed actor，也不得用 toy teacher/MLP/latent 替代官方 SUGAR、MimicKit 或 CHORD。

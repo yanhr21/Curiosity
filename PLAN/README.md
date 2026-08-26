@@ -635,20 +635,32 @@ The result is negative. Exact-pre/learned mean CWS is `0.06574/0.04949`; missed-
 worsens in 5 and is unchanged in 11. The temporal composer therefore does not improve the released
 expert's object-centric contact capability even though it changes object displacement.
 
-This is not a human-demo CHORD reward experiment. The current SUGAR motion archive has only body
-and object kinematics plus one binary contact label; it has no per-contact positions, normals or
-object part identifiers. The next admissible causal experiment is therefore fixed:
+This is not a human-demo CHORD reward experiment. The original SUGAR motion archive has only body
+and object kinematics plus one binary contact label. The pinned CHORD preprocessing audit is now
+complete: the public G1 snack-box parquet exposes the schema but its contact-name/position/normal/
+part-ID arrays are empty, so it is not silently treated as populated ground truth. Instead, exact
+SUGAR G1 link poses and SMALLBOX/BIGBOX poses are combined with the corresponding collision assets,
+then passed through released `approximate_contact_with_id` at the official 1 cm threshold. The
+binary label is read only after geometry has been generated.
 
-1. obtain or regenerate demonstration contact geometry with the released CHORD preprocessing path;
-2. reject the dataset if contact positions, normals, part IDs and motion clock cannot be aligned to
-   Carry45/Kick21 without synthetic inference from the binary label;
-3. once admitted, run a matched CHORD-off/on comparison with the same teacher replacement,
+Carry45 produces 304 any-hand and 257 bilateral contact frames, with `96.71%` precision and
+`98.99%` recall against the archived object-filtered bilateral label. Kick21 produces 19 sparse
+foot-box contact frames whose points visibly lie on the foot-box interface. Its archived binary
+label has 275 positives but only eight overlap and includes positive frames at roughly 60 mm
+separation. Therefore the geometry is retained and the old Kick label is rejected as a location
+target; it may not be expanded into invented contacts. Full exact-pose videos show this discrepancy.
+
+The next causal experiment is fixed:
+
+1. use the admitted reconstructed position/normal/single-object part-ID traces; preserve the explicit
+   kinematic-reconstruction provenance and do not call them measured human contact;
+2. run a matched CHORD-off/on comparison with the same teacher replacement,
    initialization, prefix schedule, update budget, seeds and frozen physical evaluation;
-4. require behavior/contact-wrench improvement, not lower reward loss alone.
+3. require behavior/contact-wrench improvement, not lower reward loss alone.
 
-Until step 2 passes, no new policy update, reward-weight sweep or homemade contact target is an
-admissible CHORD result. The robot-expert diagnostic remains useful for evaluator and geometry
-integration only.
+No reward-weight sweep or homemade contact target is admissible. The robot-expert diagnostic remains
+the frozen evaluator baseline; the next pair changes only whether the admitted CHORD target enters
+the training objective.
 
 ### Expected behavior, not just reward score
 

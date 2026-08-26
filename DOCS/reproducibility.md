@@ -1898,6 +1898,43 @@ per-contact position、normal 或 object part ID。因此上述参考明确是 r
 不是 human-demo target，也不是 CHORD policy-training 结果。正式 CHORD-on/off 训练必须先用
 官方流程取得相同语义的 demonstration contact geometry；禁止从 binary label 伪造法向/接触点。
 
+#### 5.13.1 Retargeted G1 demonstration contact geometry
+
+官方公开的 G1 snack-box parquet 已直接检查：motion schema 与 `hand_contact_active` 存在，但
+`hand_contact_link_names=[]`，全部 link/object contact position、normal 和 part-ID tensor 都是
+`(2, 0)` 空数组。因此它不能直接补齐 SUGAR reference contact。本仓库采用官方 loader 同一
+几何语义：每个 object surface point 寻找最近的 robot-role surface point，并使用 released
+`approximate_contact_with_id(..., threshold=0.01)`。输入只包括 SUGAR 逐帧 35-body pose、object
+pose、SMALLBOX/BIGBOX USD、rubber-hand mesh 或 ankle-roll URDF collision spheres。binary label
+在全部几何写出后才参与统计。
+
+```bash
+bash scripts/sugar/demo_following/run_sugar_demo_chord_geometry_reconstruction.sh \
+  experiments/demo_following/sugar_demo_chord_geometry_v2 cuda:0
+bash scripts/sugar/demo_following/run_sugar_demo_chord_geometry_render.sh \
+  experiments/demo_following/sugar_demo_chord_geometry_v2 cuda:0
+```
+
+`contact_geometry.npz` 保存 `contact_active/count`、minimum/mean distance、robot/object contact
+position/normal、显式 `object_contact_part_id`、原始 G1/object pose 和只用于核验的 binary label。
+Carry45 有 304 个任一手、257 个双手接触帧；独立 precision/recall/IoU 为
+`0.9671/0.9899/0.9577`。Kick21 有 19 个脚—箱接触帧，位置在视频中落在实际交界；旧 binary
+label 有 275 个正帧、只重叠 8 帧，precision/recall 为 `0.4211/0.0291`。例如 frame225 的
+binary 为 1，但最近脚—箱距离约 60 mm。该结果把 Kick binary 明确降为不可靠 proxy，而不是
+用它扩充接触几何。
+
+视频为 20 fps、265 frames，完整显示全部 660 个 50 Hz source frames并通过 H.264/yuv420p
+解码。它们是 exact recorded body-centre/object-pose geometric visualization，不是 physics
+replay，也不提供 force。权威目录：
+
+```text
+experiments/demo_following/sugar_demo_chord_geometry_v2/
+  carry45/{RESULT.json,contact_geometry.npz}
+  kick21/{RESULT.json,contact_geometry.npz}
+  visualizations/carry45/carrybox_exact_demo_chord_contact_geometry.mp4
+  visualizations/kick21/kickbox_exact_demo_chord_contact_geometry.mp4
+```
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

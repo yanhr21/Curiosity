@@ -327,3 +327,25 @@ $PYTHON scripts/sugar/demo_following/render_chord_contact_geometry.py \
 Exact-pre/learned CWS is `0.06574/0.04949`; the physical result ties at `19/20` safe and one fall.
 This is a robot-expert representation diagnostic. Raw SUGAR demos lack contact positions, normals
 and part IDs, so the result must not be called a human-demo CHORD reward or training result.
+
+Recover demonstration contact geometry from the exact retargeted G1/object trajectories with:
+
+```bash
+bash scripts/sugar/demo_following/run_sugar_demo_chord_geometry_reconstruction.sh \
+  experiments/demo_following/sugar_demo_chord_geometry_v2 cuda:0
+```
+
+The script uses the released CHORD `approximate_contact_with_id` body at commit `5654c50e`, its
+official 1 cm threshold, official SMALLBOX/BIGBOX USD assets and G1 collision surfaces. It writes
+contact position, normal and explicit single-object part ID for each left/right role. The archived
+binary label is validation-only and is never an input. Render both complete references with:
+
+```bash
+bash scripts/sugar/demo_following/run_sugar_demo_chord_geometry_render.sh \
+  experiments/demo_following/sugar_demo_chord_geometry_v2 cuda:0
+```
+
+The H.264 files use exact recorded 35-body centres and exact object pose; they are geometric
+evidence, not a physics replay. Carry45 agrees with the independent binary timing at
+`96.71%/98.99%` precision/recall. Kick21 exposes an archived-label defect rather than hiding it:
+only 8 of 275 binary-positive frames overlap the 19 physically localized mesh contacts.
