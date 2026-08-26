@@ -2042,7 +2042,27 @@ PYTHON_BIN="$PYTHON_BIN" \
 跳变前 10 帧双手接触和完整 post-jump window。6x 的 height loss 依次为
 `0.5589/0.5429/0.02636/0.06596 m`，只有 `mu=1.5` 通过 5 cm hold；10x 全部掉落。
 
-## 9. 回归测试与静态核验
+## 9. 官方 TMR 与 MotionGPT VQ-VAE 表征审计
+
+这两项只运行 frozen representation，不训练 policy。官方 checkout 和 checkpoint 放在 ignored
+`experiments/runtime_assets/` 后，在 retained compute 中依次运行：
+
+```bash
+bash scripts/sugar/demo_following/run_official_tmr_motion_latent_gate.sh \
+  experiments/demo_following/official_tmr_semantic_gate_v1 cuda:0
+bash scripts/sugar/demo_reward/run_official_tmr_mismatch_dataset_then_hold.sh \
+  experiments/demo_following/official_tmr_internal_reward_v1/motion_disjoint_predictor_dataset_suffix_v2 \
+  cuda:0
+bash scripts/sugar/demo_following/run_official_motiongpt_vqvae_instance_gate.sh \
+  experiments/demo_following/official_motiongpt_vqvae_instance_gate_v2 cuda:0
+```
+
+TMR 的 task-class gate 通过，但 selected-demo target manifest 失败。MotionGPT VQ-VAE 使用官方
+`t2m.pth` 和 evaluator archive 中精确配套的 `mean.npy/std.npy`；其 reconstruction gate 通过，
+selected-demo instance gate 失败。任何失败 gate 都直接停止对应 predictor/policy 分支，不等待
+人工授权，也不允许用 class prototype 或 toy latent 改写问题。
+
+## 10. 回归测试与静态核验
 
 不启动仿真即可运行：
 
@@ -2067,7 +2087,7 @@ jq '.runs' \
   experiments/online_patch_tactile_mass_adaptation/friction_feasibility_after_ps/aggregate_summary.json
 ```
 
-## 10. 证据边界
+## 11. 证据边界
 
 - training loss、gradient、predicted reward、nonzero action difference 和单条有利视频只能证明
   signal use，不能证明任务收益；

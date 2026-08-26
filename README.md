@@ -795,3 +795,14 @@ composer 没有学到 Kick 专家的接触扳手结构。Carry45/Kick21 的位�
 和预算下关闭。该 target 是 retargeted G1/asset 的运动学网格恢复，不得称为真实人手
 测量接触或完整 human-video CHORD。不得继续 reward-scale/optimizer-step sweep，不得把 future label
 放入 deployed actor，也不得用 toy teacher/MLP/latent 替代官方 SUGAR、MimicKit 或 CHORD。
+
+官方 pretrained motion latent 审计也已完成。TMR released 256-D encoder 在 held-out source 和
+真实 PhysX router rollout 上都达到 `100%` Carry/Kick 类别判别，说明它能表达整段动作语义；但
+把它用于“实际未来是否接近指定 demo”时，phase-local 与 future-suffix 两种严格因果标签都未在
+motion-disjoint validation/test 上保持 correct demo 更近，因此没有训练 predictor。随后使用
+MotionGPT 官方 HumanML3D VQ-VAE、官方 checkpoint 和精确配套 Mean/Std 复核：重建误差是归一化
+零基线的 `0.712x`，但 own-demo 相对 cross-task-demo 的逐窗口胜率仅为
+`58.5%/43.3%/61.4%`，Carry45 仍被误排。结论是：TMR 可作 task-class semantic prior，VQ-VAE
+可作 motion reconstruction/tokenization；两者都不能直接当作 selected-demo trajectory loss，
+也没有进入 policy。下一项固定方法是官方 XIRL/TCC 视频时序表征准入，输入必须是标准化的
+SUGAR 世界相机视频，不得拿带文字、曲线或拼版的汇报视频训练。

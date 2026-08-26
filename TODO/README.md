@@ -260,6 +260,15 @@
   initialization, prefix schedule, update budget, seeds and frozen physical evaluation. CHORD ON
   improves mean CWS by `0.00775` and missed-contact by `0.01137`, but gives `76/80` safe and `3/80`
   falls versus OFF `77/80` and `3/80`; close this setting without a scale/update sweep.
+- [x] pin the released TMR HumanML3D encoder, pass the task-class semantic gate on held-out source
+  and real PhysX router motions, then reject both phase-local and future-suffix selected-demo
+  targets because correct-demo distance is not consistently smallest on disjoint validation/test.
+- [x] pin and strictly load the released MotionGPT HumanML3D VQ-VAE with the exact official
+  evaluator Mean/Std; pass reconstruction but reject selected-demo instance distance at paired
+  win rates `0.585/0.433/0.614` and retain Carry45 as a named counterexample.
+- [ ] build a clean standardized SUGAR world-camera corpus and run the released XIRL/TCC temporal
+  retrieval gate on motion-disjoint videos; automatically stop before predictor/policy training if
+  held-out selected-demo progress fails.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it

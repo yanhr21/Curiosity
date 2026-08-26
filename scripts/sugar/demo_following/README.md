@@ -387,3 +387,36 @@ The H.264 files use exact recorded 35-body centres and exact object pose; they a
 evidence, not a physics replay. Carry45 agrees with the independent binary timing at
 `96.71%/98.99%` precision/recall. Kick21 exposes an archived-label defect rather than hiding it:
 only 8 of 275 binary-positive frames overlap the 19 physically localized mesh contacts.
+
+### Released motion-latent gates
+
+Run the released TMR task-semantic audit inside retained compute with:
+
+```bash
+bash scripts/sugar/demo_following/run_official_tmr_motion_latent_gate.sh \
+  experiments/demo_following/official_tmr_semantic_gate_v1 cuda:0
+```
+
+This maps the exact 35 G1 body centres into the explicit 22-joint HumanML3D topology, calls the
+official `joints_to_guofeats` path and frozen 256-D encoder, and never fits a classifier. It passes
+Carry/Kick class prototypes on held-out source and real PhysX router motions. The corresponding
+causal selected-demo target is rebuilt with:
+
+```bash
+bash scripts/sugar/demo_reward/run_official_tmr_mismatch_dataset_then_hold.sh \
+  experiments/demo_following/official_tmr_internal_reward_v1/motion_disjoint_predictor_dataset_suffix_v2 \
+  cuda:0
+```
+
+Its machine-readable manifest fails; no predictor training follows. To reproduce the independent
+reconstruction-latent check, place the official MotionGPT `t2m.pth` and exact official evaluator
+`mean.npy/std.npy` under the paths checked by the launcher, then run:
+
+```bash
+bash scripts/sugar/demo_following/run_official_motiongpt_vqvae_instance_gate.sh \
+  experiments/demo_following/official_motiongpt_vqvae_instance_gate_v2 cuda:0
+```
+
+The VQ-VAE reconstructs better than zero but does not reliably rank the specified source demo.
+Both gates are representation evidence only; neither latent is exposed to the actor and neither
+starts policy optimization.

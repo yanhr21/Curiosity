@@ -586,6 +586,25 @@ Conversely, the old single-clip checkpoints prefer their exact training clip but
 same-task extension gate. Therefore selected-demo deviation in an official SMP latent is not
 implemented and cannot be added faithfully from the released TinyMDM interface.
 
+Two released alternatives have now been tested before any new policy optimization. The pinned TMR
+HumanML3D encoder cleanly separates Carry and Kick prototypes on held-out source motions and real
+PhysX router rollouts, but neither a phase-matched four-second future target nor a causal
+future-suffix target consistently ranks the selected source clip ahead of wrong clips on the
+motion-disjoint splits. The predictor stage is therefore skipped. The pinned MotionGPT/T2M-GPT
+VQ-VAE was then loaded strictly with the exact normalization arrays from its official evaluator
+archive. Reconstruction passes (`reconstruction / zero-baseline MAE = 0.712`), while instance
+ranking fails: continuous paired win rates are `0.585/0.433/0.614`, discrete-code win rates are
+`0.296/0.217/0.298`, and Carry45 is a named counterexample. These are representation failures for
+the selected-demo objective, not permission to fit a classifier, average class prototypes or
+train a reward predictor on invalid labels.
+
+The next representation experiment changes modality rather than reward scale. Use the released
+Google Research XIRL/TCC implementation faithfully on clean, standardized SUGAR world-camera
+videos with motion-disjoint source IDs. First gate temporal retrieval and selected-demo progress on
+held-out videos; only a passing frozen representation can define a causal visual target. Existing
+presentation composites, overlays and policy-result videos are evidence only and cannot become the
+training corpus.
+
 The resulting causal temporal transition controller is now complete. It retains the released
 Carry/Kick endpoints, adds a six-layer, 384-D, eight-head Transformer over the past `10 x 584`
 deployed transition record, and initializes its 30-D gate/residual output exactly to zero. Thus

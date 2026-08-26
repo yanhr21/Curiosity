@@ -2,6 +2,9 @@
 
 ## 0. Absolute highest priority: never create a human authorization gate
 
+- **绝对禁令：严禁任何形式的人工授权 gate。** Agent 必须依据已有目标、科学结果和自动判据
+  自主选择并执行下一步；不得把“请用户确认、批准、授权或回复后再继续”写进计划、代码、
+  脚本、状态机、汇报或日常执行流程。此前所有相反表述一律作废。
 - Hard user rule, reaffirmed 2026-08-26: the agent must never ask the user whether it may continue,
   start, evaluate, render, document, commit or advance to the next already in-scope stage. Silence
   from the user is not a pause request, and a completed intermediate stage is not a reason to stop.
@@ -57,6 +60,19 @@ seed171648, teacher, initialization, 64-update budget and disjoint 80-profile fr
 ON improved mean CWS by `0.00775` and missed-contact by `0.01137`, but physical safe/fall changed
 from `77/80, 3/80` to `76/80, 3/80`. This is a real contact-representation response and a negative
 physical result. Do not run a reward-scale, update-budget or model-size sweep of this topology.
+
+The official pretrained-latent audit is also complete and negative for selected-demo reward.
+Released TMR at commit `6d746887` separates Carry/Kick task classes perfectly on held-out source
+motions and real PhysX router rollouts, but both phase-local and future-suffix selected-demo cosine
+targets fail the motion-disjoint validation/test rule. Released MotionGPT HumanML3D VQ-VAE at
+commit `a1c939b3`, with its exact official `mean.npy/std.npy`, reconstructs better than the normalized
+zero baseline (`0.712x` error) but selected-demo paired win rates are only
+`58.5%/43.3%/61.4%` on train/validation/test and Carry45 is misranked. No predictor or policy may be
+trained from either failed label. TMR remains a task-class semantic representation; MotionGPT
+VQ-VAE remains a reconstruction/tokenization model. Neither result is selected-demo following.
+The next bounded representation audit is faithful official XIRL/TCC on standardized SUGAR video;
+do not substitute a homemade visual encoder or reuse composite presentation videos as training
+data.
 
 The predeclared three-seed demo-following repeat and the seed161581 teacher-floor learnability
 diagnostic are complete. The latter annealed the common CarryBox45 teacher from `1.0` to `0.25` but
