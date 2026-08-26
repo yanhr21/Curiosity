@@ -347,10 +347,22 @@ against upstream Newton must stay empty.
       student actions from the first frame; the Refiner was never the acting prefix policy.
       It was stopped at iteration 12, is invalid for the handoff contract and must never be
       resumed or reported as Tracker progress.
-- [ ] After a Newton-adapted Refiner passes the frozen lift gate, implement the physical
-      acting-teacher prefix and automatic handoff (minimum 5 cm lift stable for 10 frames),
-      mask prefix transitions out of PPO, and start the faithful Tracker BCPPO run from
-      scratch.
+- [x] **Implement the fail-closed acting-teacher handoff adapter.** The same strict
+      `890 -> 512/256/128 -> 29` checkpoint is loaded independently as the deterministic
+      Newton acting policy and BCPPO distillation teacher, then checked bitwise equal.
+      Refiner actions execute until the box remains at least 5 cm above its reset height for
+      ten consecutive frames; there is no fallback timer. A training-only 1-D mask is zero
+      on every teacher-controlled transition and never enters the exact 510-D actor input.
+      It masks PPO/value/entropy credit while retaining official full-trajectory Refiner
+      distillation, so the student can imitate the prefix without pretending it acted there.
+      The VecEnv now reuses the policy observation returned by the physics step instead of
+      pushing each frame into the causal history twice. Formal launch additionally requires
+      a passing fixed-gate JSON whose checkpoint SHA matches the acting checkpoint; the
+      failed source and fresh-64 results are rejected by test.
+- [ ] After a Newton-adapted Refiner passes the frozen lift gate, run the physical
+      acting-teacher prefix smoke and start the faithful Tracker BCPPO run from
+      scratch. The implementation is present, but runtime admission remains conditional on
+      the fresh-256 frozen result; no failed checkpoint may exercise BCPPO.
 - [ ] Port the mass-jump event (the one part of Plan 15 the audit found sound: written at
       the action boundary, inertia scaled by exactly `target/default`, both values read
       back).

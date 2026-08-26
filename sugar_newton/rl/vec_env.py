@@ -22,6 +22,8 @@ failed", which lets the algorithm bootstrap the value target instead of cutting 
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
 from tensordict import TensorDict
 
@@ -55,8 +57,12 @@ class CarryBoxVecEnv:
         self.episode_length_buf = torch.zeros(env.num_envs, dtype=torch.long,
                                               device=env.device)
 
-    def _obs(self) -> TensorDict:
-        policy = self.env.observe()
+    def _obs(self, policy: torch.Tensor | None = None) -> TensorDict:
+        # CarryBoxEnv.step() already advances the 510-D causal history exactly once
+        # and returns that observation.  Recalling observe() here would duplicate the
+        # same physical frame in every history channel.
+        if policy is None:
+            policy = self.env.observe()
         priv = obs_890.build(self.env, teacher=False)
         # Teacher and critic share a term list but read aligned raw and Refiner-rollout
         # motion sources respectively, matching the official SUGAR tracker contract.
@@ -75,7 +81,7 @@ class CarryBoxVecEnv:
         return self._obs(), {}
 
     def step(self, actions: torch.Tensor):
-        _, reward, done, extras = self.env.step(actions)
+        policy, reward, done, extras = self.env.step(actions)
         self.episode_length_buf += 1
         self.episode_length_buf[done] = 0
         info = {
@@ -86,7 +92,7 @@ class CarryBoxVecEnv:
         }
         info["episode"]["diverged_total"] = torch.tensor(
             float(self.env.num_diverged), device=self.device)
-        return self._obs(), reward, done, info
+        return self._obs(policy), reward, done, info
 
 
 def make(num_envs: int, **kwargs) -> CarryBoxVecEnv:
@@ -94,6 +100,233 @@ def make(num_envs: int, **kwargs) -> CarryBoxVecEnv:
 
 
 OBS_DIMS = {"policy": OBS_DIM, "critic": obs_890.OBS_DIM_890, "teacher": obs_890.OBS_DIM_890}
+
+
+class ActingTeacherHandoffVecEnv(CarryBoxVecEnv):
+    """Execute the admitted Refiner until a physical no-reset handoff.
+
+    The runner still samples a Tracker action every step because that is how
+    ``OnPolicyRunner`` fills its rollout storage.  While the box has not remained at
+    least five centimetres above its reset height for ten consecutive frames, this
+    adapter executes the deterministic Refiner mean instead.  The extra
+    ``training_handoff_mask`` observation is zero on those teacher-controlled
+    transitions and one only when the sampled Tracker action is the action actually
+    applied to Newton.  SUGAR's BCPPO consumes that key solely as its PPO/value mask;
+    official teacher distillation still uses the full trajectory, and the key is never
+    concatenated into the 510-D deployed actor observation.
+
+    This class intentionally has no fallback timer.  A trajectory on which the
+    admitted teacher cannot reach the physical gate remains teacher-controlled and
+    contributes no Tracker PPO transition rather than fabricating a handoff.
+    """
+
+    MINIMUM_LIFT_M = 0.05
+    STABLE_LIFT_FRAMES = 10
+
+    def __init__(
+        self,
+        env: CarryBoxEnv,
+        *,
+        teacher_checkpoint: str | Path,
+        reward_clip: float = 10.0,
+        sync_divergence_reset: bool = True,
+    ):
+        super().__init__(env)
+        checkpoint = Path(teacher_checkpoint).expanduser().resolve()
+        if not checkpoint.is_file():
+            raise FileNotFoundError(checkpoint)
+        if reward_clip <= 0.0:
+            raise ValueError("reward_clip must be positive")
+
+        # rsl_rl has already been pinned to SUGAR's compatible release by the
+        # launcher before this adapter is constructed.  Reuse the exact strict loader
+        # used by the frozen physical gate, so acting and evaluation cannot silently
+        # disagree about architecture or checkpoint semantics.
+        from sugar_newton.validation.refiner_open_loop import (
+            load_official_teacher,
+            sha256,
+        )
+
+        self.acting_teacher, hidden_dims = load_official_teacher(
+            checkpoint, torch.device(env.device)
+        )
+        if hidden_dims != [512, 256, 128]:
+            raise ValueError(
+                f"acting Refiner hidden geometry drifted: {hidden_dims}"
+            )
+        self.teacher_checkpoint = checkpoint
+        self.teacher_checkpoint_sha256 = sha256(checkpoint)
+        self.reward_clip = float(reward_clip)
+        self.sync_divergence_reset = bool(sync_divergence_reset)
+
+        self.teacher_control = torch.ones(
+            self.num_envs, dtype=torch.bool, device=self.device
+        )
+        self.stable_lift_count = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self.handoff_step = torch.full(
+            (self.num_envs,), -1, dtype=torch.long, device=self.device
+        )
+        self.initial_box_z = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
+        self.cumulative_handoffs = torch.zeros_like(self.stable_lift_count)
+        self.cumulative_teacher_control_steps = torch.zeros_like(
+            self.stable_lift_count
+        )
+        self.cumulative_policy_control_steps = torch.zeros_like(
+            self.stable_lift_count
+        )
+        self.last_policy_action: torch.Tensor | None = None
+        self.last_teacher_action: torch.Tensor | None = None
+        self.last_executed_action: torch.Tensor | None = None
+        self.last_teacher_control_mask: torch.Tensor | None = None
+        self._reset_handoff(torch.arange(self.num_envs, device=self.device))
+        self.cfg.update(
+            acting_teacher_checkpoint=str(checkpoint),
+            acting_teacher_checkpoint_sha256=self.teacher_checkpoint_sha256,
+            handoff_minimum_lift_m=self.MINIMUM_LIFT_M,
+            handoff_stable_lift_frames=self.STABLE_LIFT_FRAMES,
+            training_mask_obs_group="training_handoff_mask",
+            reward_clip=self.reward_clip,
+            sync_divergence_reset=self.sync_divergence_reset,
+        )
+
+    def _current_box_z(self) -> torch.Tensor:
+        return self.env._body_q()[:, self.env.box_body, 2]
+
+    def _reset_handoff(self, env_ids: torch.Tensor) -> None:
+        if env_ids.numel() == 0:
+            return
+        self.teacher_control[env_ids] = True
+        self.stable_lift_count[env_ids] = 0
+        self.handoff_step[env_ids] = -1
+        self.initial_box_z[env_ids] = self._current_box_z()[env_ids]
+
+    def _obs(self, policy: torch.Tensor | None = None) -> TensorDict:
+        observations = super()._obs(policy)
+        observations.set(
+            "training_handoff_mask",
+            (~self.teacher_control).to(torch.float32).unsqueeze(-1),
+        )
+        return observations
+
+    def reset(self) -> tuple[TensorDict, dict]:
+        self.env.reset()
+        self.episode_length_buf.zero_()
+        self._reset_handoff(torch.arange(self.num_envs, device=self.device))
+        return self._obs(), {}
+
+    @torch.inference_mode()
+    def step(self, actions: torch.Tensor):
+        if actions.shape != (self.num_envs, self.num_actions):
+            raise ValueError(
+                f"Tracker action shape is {tuple(actions.shape)}, expected "
+                f"{(self.num_envs, self.num_actions)}"
+            )
+        teacher_observation = obs_890.build(self.env, teacher=True)
+        teacher_action = self.acting_teacher(teacher_observation)
+        if not torch.isfinite(teacher_action).all():
+            raise RuntimeError("acting Refiner emitted a non-finite action")
+
+        teacher_control_before_step = self.teacher_control.clone()
+        executed_action = torch.where(
+            teacher_control_before_step[:, None], teacher_action, actions
+        )
+        self.last_policy_action = actions.detach().clone()
+        self.last_teacher_action = teacher_action.detach().clone()
+        self.last_executed_action = executed_action.detach().clone()
+        self.last_teacher_control_mask = teacher_control_before_step
+        self.cumulative_teacher_control_steps += teacher_control_before_step.long()
+        self.cumulative_policy_control_steps += (~teacher_control_before_step).long()
+
+        policy, reward, done, extras = self.env.step(executed_action)
+        divergence = extras.get("termination_terms", {}).get(
+            "diverged", torch.zeros_like(done)
+        )
+
+        if self.sync_divergence_reset and bool(divergence.any()):
+            # Match the validated Refiner training safety contract: never mix a
+            # post-divergence reset world with still-live worlds inside one PPO
+            # horizon.  The frozen evaluator remains per-profile and does not use this
+            # synchronized training-only reset.
+            self.env.reset()
+            policy = self.env.observe()
+            done = torch.ones_like(done)
+            extras["timeout"] = torch.zeros_like(done)
+
+        active_teacher = teacher_control_before_step & ~done
+        lifted = (
+            self._current_box_z() - self.initial_box_z
+            >= self.MINIMUM_LIFT_M
+        )
+        self.stable_lift_count = torch.where(
+            active_teacher & lifted,
+            self.stable_lift_count + 1,
+            torch.where(
+                active_teacher,
+                torch.zeros_like(self.stable_lift_count),
+                self.stable_lift_count,
+            ),
+        )
+        newly_handed_off = active_teacher & (
+            self.stable_lift_count >= self.STABLE_LIFT_FRAMES
+        )
+        if bool(newly_handed_off.any()):
+            self.teacher_control[newly_handed_off] = False
+            self.handoff_step[newly_handed_off] = self.episode_length_buf[
+                newly_handed_off
+            ] + 1
+            self.cumulative_handoffs[newly_handed_off] += 1
+
+        reset_ids = done.nonzero(as_tuple=False).flatten()
+        if reset_ids.numel():
+            # CarryBoxEnv has already auto-reset these worlds.  Start the replacement
+            # episode under teacher control and measure lift from its new box height.
+            self._reset_handoff(reset_ids)
+
+        reward = torch.clamp(
+            torch.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0),
+            -self.reward_clip,
+            self.reward_clip,
+        )
+        self.episode_length_buf += 1
+        self.episode_length_buf[done] = 0
+        info = {
+            "time_outs": extras.get("timeout", torch.zeros_like(done)),
+            "episode": {
+                f"rew_{key}": torch.nan_to_num(
+                    value, nan=0.0, posinf=0.0, neginf=0.0
+                ).mean()
+                for key, value in extras.get("reward_terms", {}).items()
+            },
+        }
+        info["episode"].update(
+            diverged_total=torch.tensor(
+                float(self.env.num_diverged), device=self.device
+            ),
+            teacher_control_fraction=teacher_control_before_step.float().mean(),
+            handoff_active_fraction=(~self.teacher_control).float().mean(),
+            cumulative_handoffs=self.cumulative_handoffs.float().sum(),
+        )
+        return self._obs(policy), reward, done, info
+
+
+def make_acting_teacher_handoff(
+    num_envs: int,
+    *,
+    teacher_checkpoint: str | Path,
+    reward_clip: float = 10.0,
+    sync_divergence_reset: bool = True,
+    **kwargs,
+) -> ActingTeacherHandoffVecEnv:
+    return ActingTeacherHandoffVecEnv(
+        CarryBoxEnv(num_envs=num_envs, **kwargs),
+        teacher_checkpoint=teacher_checkpoint,
+        reward_clip=reward_clip,
+        sync_divergence_reset=sync_divergence_reset,
+    )
 
 
 class RefinerVecEnv:

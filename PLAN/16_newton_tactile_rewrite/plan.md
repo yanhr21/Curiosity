@@ -230,6 +230,16 @@ The 64-update frozen gate is stable but not admitted: `1/20` profiles lift at le
 checkpoint. It is not a sweep: if that fixed endpoint still misses the original `16/20` lift
 and strict-completion gates, the objective is rejected and is not extended again.
 
+The downstream Tracker path now fails closed on that decision. Its Newton VecEnv loads the
+same checkpoint as a strict deterministic acting Refiner and as BCPPO's frozen distillation
+teacher, verifies parameter equality, executes the Refiner until a no-reset 5 cm / 10-frame
+physical handoff, and exposes a training-only post-handoff mask that never enters the 510-D
+actor. The mask removes prefix PPO/value/entropy credit but deliberately retains SUGAR's
+official full-trajectory teacher distillation. The runner rejects a missing, failed,
+differently hashed or malformed frozen-gate
+result and has no resume route. This implementation does not admit a launch by itself: the
+fresh-256 endpoint must first pass the unchanged gate.
+
 **Phase 4 — env and learning.** A vec-env implementing the `rsl_rl` VecEnv protocol
 (torch↔warp interop following `newton/_src/solvers/kamino/examples/rl/`), with BCPPO
 unmodified. Reward built correctly from the start:

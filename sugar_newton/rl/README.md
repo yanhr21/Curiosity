@@ -10,14 +10,13 @@ their effort limit 37% of the carry against Isaac's 1.9%.
     export PYTHONPATH=/public/home/yanhongru/envs/newton_warp_114:$PWD/third_party/newton:$PWD
     export SUGAR_RSL_RL_ROOT=/public/home/yanhongru/envs/sugar_py311_isaacsim510/lib/python3.11/site-packages/rsl_rl
 
-    # execution smoke (raw motions; never formal evidence)
-    $NEWTON_PY -m sugar_newton.rl.train_bcppo --num-envs 1 --max-iterations 1 \
-        --motion-root SUGAR/data/CarryBox --clips data_000 --logger tensorboard
-
-    # formal command shape (official processed Refiner rollout as student data)
+    # Formal command shape.  Both paths must name the same Newton-adapted
+    # Refiner; RESULT.json must admit its exact SHA before this process starts.
     $NEWTON_PY -m sugar_newton.rl.train_bcppo --num-envs 8 --max-iterations 30001 \
         --motion-root experiments/sugar_reproduction/outputs/newton_refiner_dataset_20260827/rollout_datasets/refiner/rl_dataset \
         --teacher-motion-root SUGAR/data/CarryBox \
+        --teacher-ckpt experiments/.../newton_refiner/model_255.pt \
+        --teacher-gate-result experiments/.../formal20/RESULT.json \
         --wandb-project sugar_newton --run-name carrybox_bcppo
 
 Run inside the Newton container; `renders/render_carrybox_policy.sh` in the `third_party/newton`
@@ -32,12 +31,19 @@ from `BCPPORunnerCfg`. `BCPPO` is registered by the same mechanism SUGAR uses
 runner resolves the algorithm with `eval(alg_cfg["class_name"])`.
 
 The only local code in the training loop is `vec_env.py`, which presents the Newton
-environment as an `rsl_rl.env.VecEnv` with the three observation groups the config asks
-for:
+environment as an `rsl_rl.env.VecEnv`.  The acting-handoff adapter executes the same
+parameter-exact Refiner used for distillation until a no-reset physical handoff.  It
+exposes the three official observation groups plus a training-only mask:
 
     policy   510-D   validated against Isaac's recorded actions to RMSE 0.088
     critic   890-D   obs_890.py
     teacher  890-D   obs_890.py -- what the frozen refiner is asked to imitate
+    training_handoff_mask  1-D  loss mask only; never an actor input
+
+The mask removes teacher-controlled transitions from PPO surrogate, value and entropy
+credit. It does not remove the official full-trajectory Refiner distillation term: the
+student may learn the teacher action on the prefix, while only the Refiner has physical
+control there.
 
 BCPPO's curriculum, for reference:
 
@@ -46,9 +52,11 @@ BCPPO's curriculum, for reference:
     stage 3   step >= 2000 ramp   loss = alpha * surrogate + value
                                          - alpha * entropy + distill * max(1-alpha, floor)
 
-The teacher checkpoint is required, not optional: `BCPPO.__init__` asserts on a missing
-one, and stages 1-2 have no loss without it. Default path is the recovered
-`refiner_model10000.pt` (see TODO 16).
+The teacher checkpoint is required, not optional.  In addition, `--teacher-gate-result`
+must be the fixed 20-profile gate for the exact checkpoint SHA and must contain all five
+passing checks.  The recovered source `refiner_model10000.pt` and the fresh-64 Newton
+adaptation both fail that gate, so neither can launch Tracker training.  There is no
+execution-only bypass and no resume path.
 
 The motion inputs follow the official `SUGAR/train.sh` contract. `--motion-root` is the
 Refiner rollout `rl_dataset` seen by the Tracker student and critic;
@@ -73,12 +81,10 @@ trajectory and remain an explicit coverage limitation. Processed clips contain t
 keeps separate indices for those layouts and rejects every other body count, non-finite
 array or student/teacher length difference above two frames.
 
-The formal seed-0 run started from scratch on Slurm H200 job `262332` with eight worlds and
-all 912 admitted clips. Iteration 0 completed 192 transitions with mean reward `32.08`,
-distillation weight `1.0`, zero divergences and all four contact terms present. Logs and
-checkpoints are under
-`experiments/sugar_reproduction/outputs/newton_bcppo_h200_20260827/logs/carrybox_bcppo_seed0`.
-This is a training/runtime result, not yet a physical transfer result.
+The first attempted seed-0 formal run is rejected.  It completed only 12 iterations, but
+Newton executed the student action from frame zero: the Refiner was a distillation target
+and never the acting prefix policy.  Its logs and checkpoints are retained only as failure
+evidence and must not be resumed or reported as Tracker progress.
 
 An earlier version of this directory carried a hand-written PPO (`ppo.py`, `train.py`).
 It has been deleted. It was stage 3 with the distillation dropped, which is not the
@@ -93,9 +99,9 @@ basename. Credentials follow the convention used elsewhere in this workspace --
 `train_bcppo.py` checks for one before building the environment, so a run cannot get
 several minutes in with logging silently off. Pass `--logger tensorboard` to opt out.
 
-## STATUS: BCPPO trains on Newton and logs to wandb
+## STATUS: faithful acting-teacher BCPPO path implemented; launch remains gated
 
-First working run, 8 worlds, 3 iterations, `data_000`
+An older execution smoke, 8 worlds, 3 iterations, `data_000`
 (https://wandb.ai/nvr-amri/sugar_newton/runs/acs79r73)::
 
     iter 0   reward  9.48   ep_len 10.75   noise std 0.51   diverged 0
@@ -104,8 +110,9 @@ First working run, 8 worlds, 3 iterations, `data_000`
 
 Per-term at iteration 0: anchor_pos 0.869, anchor_ori 0.795, body_pos 0.920,
 obj_pos 0.853, obj_ori 0.946, obj_ang_vel 0.934, joint_pos 0.100.
-Three iterations is far too short to read a trend from; what it establishes is that the
-port runs, stays stable and logs.
+Three iterations established only that the distillation-only adapter could execute and
+log.  It did not execute the teacher prefix and is not evidence for the current handoff
+path.
 
 ### The BC curriculum is the stability mechanism
 
@@ -129,7 +136,7 @@ real motion generates up to **6524 contacts per world**, and MJWarp silently dro
 everything above the limit (489 `exceeded MJWarp limit` messages in one short benchmark,
 144 `nefc overflow`). So the physics was wrong wherever contact matters most -- exactly
 during the grip -- and every number measured before this was measured on it. Now 8192 /
-2048 per world, with headroom over the measured peaks. Overflow count: 0.
+8192 per world, with headroom over the measured peaks. Overflow count: 0.
 
 ### Speed, measured against correct physics
 

@@ -3,9 +3,10 @@
 
 Nothing about the algorithm is reimplemented. This imports ``BCPPO`` from SUGAR and runs it
 inside ``rsl_rl``'s ``OnPolicyRunner``, with the hyperparameters read out of SUGAR's
-``BCPPORunnerCfg``. The only local code in the loop is
-:class:`~sugar_newton.rl.vec_env.CarryBoxVecEnv`, which presents the Newton environment in
-the shape rsl_rl expects.
+``BCPPORunnerCfg``. The local adapter
+:class:`~sugar_newton.rl.vec_env.ActingTeacherHandoffVecEnv` presents Newton in the
+shape rsl_rl expects, executes the admitted Refiner during the pickup prefix, and masks
+that prefix out of optimization.
 
 ``BCPPO`` is a three-stage curriculum around the frozen refiner as teacher::
 
@@ -22,7 +23,8 @@ Usage::
     python -m sugar_newton.rl.train_bcppo \
         --motion-root experiments/sugar_reproduction/outputs/newton_refiner_dataset_20260827/rollout_datasets/refiner/rl_dataset \
         --num-envs 8 --max-iterations 30001 \
-        --teacher-ckpt experiments/.../ckpts/refiner_model10000.pt \
+        --teacher-ckpt experiments/.../newton_refiner/model_255.pt \
+        --teacher-gate-result experiments/.../formal20/RESULT.json \
         --rsl-rl-root /path/to/SUGAR-compatible/site-packages/rsl_rl \
         --wandb-project sugar_newton --run-name carrybox_bcppo_$(date +%m%d_%H%M)
 
@@ -38,6 +40,7 @@ from __future__ import annotations
 import argparse
 import builtins
 import importlib.util
+import json
 import os
 import sys
 from pathlib import Path
@@ -129,7 +132,13 @@ def runner_cfg(args) -> dict:
             "class_name": "BCPPO",
             "teacher_ckpt": args.teacher_ckpt,
             "stage3_distill_weight_floor": 0.0,
-            "training_mask_obs_group": None,
+            # The mask is not an actor input.  It is stored beside the 510-D policy
+            # observation and removes the physical Refiner-controlled pickup prefix
+            # from PPO/value credit.  Official full-trajectory teacher distillation
+            # remains active: the prefix is valid BC data even though the student did
+            # not physically execute its sampled action there.
+            "training_mask_obs_group": "training_handoff_mask",
+            "distill_mask_start_step": args.max_iterations + 1,
             "value_loss_coef": 1.0,
             "use_clipped_value_loss": True,
             "clip_param": 0.2,
@@ -163,6 +172,70 @@ def ensure_wandb_credentials() -> None:
         pass
     raise SystemExit("wandb: set WANDB_API_KEY or add api.wandb.ai to ~/.netrc "
                      "(or pass --logger tensorboard)")
+
+
+def require_admitted_teacher(gate_result: str | Path, checkpoint: str | Path) -> dict:
+    """Fail closed unless the exact acting checkpoint passed the frozen gate."""
+    gate_path = Path(gate_result).expanduser().resolve()
+    checkpoint_path = Path(checkpoint).expanduser().resolve()
+    if not gate_path.is_file():
+        raise SystemExit(f"teacher gate result not found: {gate_path}")
+    try:
+        result = json.loads(gate_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"invalid teacher gate result {gate_path}: {exc}") from exc
+
+    from sugar_newton.validation.refiner_open_loop import sha256
+
+    expected_sha = sha256(checkpoint_path)
+    checks = result.get("checks", {})
+    required = {
+        "all_profiles_finished": True,
+        "checkpoint_actor_is_exact_890_to_29_official_mlp": True,
+        "no_active_profile_diverged": True,
+        "physical_lift_fraction_passes": True,
+        "strict_completion_fraction_passes": True,
+    }
+    failures = {
+        key: checks.get(key)
+        for key, expected in required.items()
+        if checks.get(key) is not expected
+    }
+    if result.get("protocol") != "sugar_newton_official_refiner_open_loop_gate_v1":
+        failures["protocol"] = result.get("protocol")
+    if result.get("passed") is not True:
+        failures["passed"] = result.get("passed")
+    if result.get("checkpoint_sha256") != expected_sha:
+        failures["checkpoint_sha256"] = {
+            "gate": result.get("checkpoint_sha256"),
+            "acting_checkpoint": expected_sha,
+        }
+    try:
+        lifted_count = int(result["lifted_profile_count"])
+        strict_count = int(result["strict_complete_profile_count"])
+        required_count = int(result["required_profile_count"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise SystemExit(
+            f"teacher gate result has invalid count fields: {gate_path}"
+        ) from exc
+    if lifted_count < required_count:
+        failures["lifted_profile_count"] = lifted_count
+    if strict_count < required_count:
+        failures["strict_complete_profile_count"] = strict_count
+    if failures:
+        raise SystemExit(
+            "acting Refiner is not admitted for Newton Tracker training: "
+            + json.dumps(failures, sort_keys=True)
+        )
+    return {
+        "path": str(gate_path),
+        "protocol": result["protocol"],
+        "checkpoint_sha256": expected_sha,
+        "num_profiles": int(result["num_profiles"]),
+        "required_profile_count": required_count,
+        "lifted_profile_count": lifted_count,
+        "strict_complete_profile_count": strict_count,
+    }
 
 
 def attach_video(runner, args, clip: str) -> None:
@@ -228,13 +301,17 @@ def main() -> None:
     ap.add_argument("--substeps", type=int, default=4)
     ap.add_argument("--mu", type=float, default=1.0)
     ap.add_argument("--teacher-ckpt", default=str(DEFAULT_TEACHER))
-    ap.add_argument("--resume", default="", help="checkpoint to resume from")
+    ap.add_argument(
+        "--teacher-gate-result",
+        required=True,
+        help="frozen 20-profile RESULT.json admitting this exact acting checkpoint",
+    )
     ap.add_argument("--run-name", default="carrybox_bcppo")
     ap.add_argument("--log-root", default="logs/newton_bcppo")
     ap.add_argument("--logger", default="wandb", choices=("wandb", "tensorboard"))
     ap.add_argument("--wandb-project", default="sugar_newton")
-    ap.add_argument("--video-interval", type=int, default=100,
-                    help="render an evaluation rollout to wandb every N iterations; 0 disables")
+    ap.add_argument("--video-interval", type=int, default=0,
+                    help="reserved for a future matched handoff evaluator; must remain zero")
     ap.add_argument("--video-frames", type=int, default=400)
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--seed", type=int, default=0)
@@ -248,6 +325,9 @@ def main() -> None:
     if not Path(args.teacher_ckpt).is_file():
         raise SystemExit(f"teacher checkpoint not found: {args.teacher_ckpt}\n"
                          "BCPPO's stages 1-2 have no loss without it.")
+    teacher_gate = require_admitted_teacher(
+        args.teacher_gate_result, args.teacher_ckpt
+    )
     for label, root in (("student motion", args.motion_root),
                         ("teacher motion", args.teacher_motion_root)):
         root_path = Path(root)
@@ -270,34 +350,165 @@ def main() -> None:
         )
     if args.logger == "wandb":
         ensure_wandb_credentials()
+    if args.video_interval != 0:
+        raise SystemExit(
+            "the old video recorder starts the Tracker before a physical handoff; "
+            "--video-interval must remain 0 until a matched handoff recorder exists"
+        )
 
     activate_rsl_rl(args.rsl_rl_root)
     sugar_bcppo()
     from rsl_rl.runners import OnPolicyRunner
 
-    from sugar_newton.rl.vec_env import OBS_DIMS, make
+    from sugar_newton.rl.vec_env import OBS_DIMS, make_acting_teacher_handoff
 
     wp.init()
     torch.manual_seed(args.seed)
 
-    env = make(args.num_envs, clip_names=args.clips, episode_length=args.episode_length,
-               motion_root=args.motion_root, teacher_motion_root=args.teacher_motion_root,
-               substeps=args.substeps, mu=args.mu, device=args.device, seed=args.seed)
+    env = make_acting_teacher_handoff(
+        args.num_envs,
+        teacher_checkpoint=args.teacher_ckpt,
+        clip_names=args.clips,
+        episode_length=args.episode_length,
+        motion_root=args.motion_root,
+        teacher_motion_root=args.teacher_motion_root,
+        substeps=args.substeps,
+        mu=args.mu,
+        device=args.device,
+        seed=args.seed,
+    )
     print(f"[env] {args.num_envs} worlds, {len(env.env.clip_names)} clips, "
-          f"obs {OBS_DIMS}, act {env.num_actions}")
+          f"obs {OBS_DIMS} + training_handoff_mask:1, act {env.num_actions}")
 
     log_dir = Path(args.log_root) / args.run_name
     log_dir.mkdir(parents=True, exist_ok=True)
+    initialization_audit = {
+        "protocol": "sugar_newton_bcppo_acting_teacher_handoff_init_v1",
+        "fresh_student_optimizer_and_iteration": True,
+        "resume_checkpoint": None,
+        "teacher_gate": teacher_gate,
+        "acting_and_distillation_teacher_checkpoint": str(
+            Path(args.teacher_ckpt).expanduser().resolve()
+        ),
+        "acting_teacher_hidden_dims": [512, 256, 128],
+        "policy_observation_dim": OBS_DIMS["policy"],
+        "critic_observation_dim": OBS_DIMS["critic"],
+        "teacher_observation_dim": OBS_DIMS["teacher"],
+        "training_mask_actor_input": False,
+        "training_mask_obs_group": "training_handoff_mask",
+        "full_trajectory_teacher_distillation_retained": True,
+        "minimum_lift_m": env.MINIMUM_LIFT_M,
+        "stable_lift_frames": env.STABLE_LIFT_FRAMES,
+        "teacher_controls_prefix": True,
+        "teacher_prefix_ppo_credit": False,
+    }
+    (log_dir / "INITIALIZATION_AUDIT.json").write_text(
+        json.dumps(initialization_audit, indent=2, sort_keys=True) + "\n"
+    )
     runner = OnPolicyRunner(env, runner_cfg(args), log_dir=str(log_dir), device=args.device)
     print(f"[alg] {type(runner.alg).__name__}  teacher={args.teacher_ckpt}")
-    if args.resume:
-        runner.load(args.resume)
-        print(f"[alg] resumed from {args.resume}")
+    acting_state = env.acting_teacher.state_dict()
+    distillation_state = runner.alg.teacher_model.state_dict()
+    if acting_state.keys() != distillation_state.keys():
+        raise RuntimeError("acting and distillation Refiner state geometry differs")
+    teacher_pair_max_abs_delta = max(
+        float((acting_state[key] - distillation_state[key]).abs().max())
+        for key in acting_state
+    )
+    if teacher_pair_max_abs_delta != 0.0:
+        raise RuntimeError(
+            "acting and distillation Refiner parameters are not bitwise equal: "
+            f"max delta {teacher_pair_max_abs_delta}"
+        )
+    initialization_audit["acting_vs_distillation_teacher_max_abs_delta"] = (
+        teacher_pair_max_abs_delta
+    )
+    (log_dir / "INITIALIZATION_AUDIT.json").write_text(
+        json.dumps(initialization_audit, indent=2, sort_keys=True) + "\n"
+    )
+    acting_teacher_initial = {
+        name: parameter.detach().cpu().clone()
+        for name, parameter in env.acting_teacher.named_parameters()
+    }
+    distillation_teacher_initial = {
+        name: parameter.detach().cpu().clone()
+        for name, parameter in runner.alg.teacher_model.named_parameters()
+    }
 
-    if args.video_interval > 0:
-        attach_video(runner, args, env.env.clip_names[0])
+    # The Newton environment already samples an exact random reference start frame.
+    # Randomizing only rsl_rl's logging buffer would desynchronize episode length from
+    # the physics and corrupt handoff-step diagnostics.
+    runner.learn(
+        num_learning_iterations=args.max_iterations,
+        init_at_random_ep_len=False,
+    )
 
-    runner.learn(num_learning_iterations=args.max_iterations, init_at_random_ep_len=True)
+    acting_teacher_max_delta = max(
+        float(
+            (parameter.detach().cpu() - acting_teacher_initial[name])
+            .abs()
+            .max()
+        )
+        for name, parameter in env.acting_teacher.named_parameters()
+    )
+    distillation_teacher_max_delta = max(
+        float(
+            (parameter.detach().cpu() - distillation_teacher_initial[name])
+            .abs()
+            .max()
+        )
+        for name, parameter in runner.alg.teacher_model.named_parameters()
+    )
+    for parameter in env.acting_teacher.parameters():
+        if parameter.requires_grad:
+            raise RuntimeError("acting Refiner parameter unexpectedly requires grad")
+        if not torch.isfinite(parameter).all():
+            raise RuntimeError("acting Refiner parameter became non-finite")
+    policy_parameters_finite = all(
+        bool(torch.isfinite(parameter).all())
+        for parameter in runner.alg.policy.parameters()
+    )
+    total_transitions = int(
+        args.num_envs * runner.cfg["num_steps_per_env"] * args.max_iterations
+    )
+    divergence_rate = float(env.env.num_diverged / max(total_transitions, 1))
+    result = {
+        "protocol": "sugar_newton_bcppo_acting_teacher_handoff_result_v1",
+        "teacher_checkpoint_sha256": env.teacher_checkpoint_sha256,
+        "acting_teacher_parameter_max_abs_delta": acting_teacher_max_delta,
+        "distillation_teacher_parameter_max_abs_delta": (
+            distillation_teacher_max_delta
+        ),
+        "acting_teacher_parameters_frozen": acting_teacher_max_delta == 0.0,
+        "distillation_teacher_parameters_frozen": (
+            distillation_teacher_max_delta == 0.0
+        ),
+        "cumulative_teacher_control_steps": int(
+            env.cumulative_teacher_control_steps.sum().item()
+        ),
+        "cumulative_policy_control_steps": int(
+            env.cumulative_policy_control_steps.sum().item()
+        ),
+        "cumulative_handoffs": int(env.cumulative_handoffs.sum().item()),
+        "divergence_total": int(env.env.num_diverged),
+        "divergence_rate": divergence_rate,
+        "total_transitions": total_transitions,
+        "policy_parameters_finite": policy_parameters_finite,
+        "training_mask_obs_group": "training_handoff_mask",
+        "full_trajectory_teacher_distillation_retained": True,
+        "teacher_prefix_ppo_credit": False,
+        "passed": bool(
+            env.cumulative_handoffs.sum().item() > 0
+            and env.cumulative_policy_control_steps.sum().item() > 0
+            and acting_teacher_max_delta == 0.0
+            and distillation_teacher_max_delta == 0.0
+            and policy_parameters_finite
+            and divergence_rate <= 0.005
+        ),
+    }
+    (log_dir / "TRAINING_RESULT.json").write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n"
+    )
 
 
 if __name__ == "__main__":
