@@ -25,6 +25,7 @@ Usage::
         --num-envs 8 --max-iterations 30001 \
         --teacher-ckpt experiments/.../newton_refiner/model_255.pt \
         --teacher-gate-result experiments/.../formal20/RESULT.json \
+        --student-warm-start SUGAR/demo_ckpts/CarryBox/tracker.pt \
         --rsl-rl-root /path/to/SUGAR-compatible/site-packages/rsl_rl \
         --wandb-project sugar_newton --run-name carrybox_bcppo_$(date +%m%d_%H%M)
 
@@ -53,6 +54,7 @@ SUGAR_SRC = HERE.parents[1] / "SUGAR" / "source" / "sugar_rl"
 DEFAULT_TEACHER = (HERE.parents[1] / "experiments/sugar_reproduction/outputs/final"
                    / "official_sugar/baseline/ckpts/refiner_model10000.pt")
 DEFAULT_TEACHER_MOTIONS = HERE.parents[1] / "SUGAR/data/CarryBox"
+DEFAULT_TRACKER = HERE.parents[1] / "SUGAR/demo_ckpts/CarryBox/tracker.pt"
 
 
 def activate_rsl_rl(package_root: str) -> None:
@@ -238,6 +240,72 @@ def require_admitted_teacher(gate_result: str | Path, checkpoint: str | Path) ->
     }
 
 
+def load_official_tracker_warm_start(runner, checkpoint: str | Path) -> dict:
+    """Load only official Tracker parameters; keep Newton optimizer/iteration fresh."""
+    checkpoint_path = Path(checkpoint).expanduser().resolve()
+    if not checkpoint_path.is_file():
+        raise SystemExit(f"official Tracker warm start not found: {checkpoint_path}")
+    payload = torch.load(
+        checkpoint_path, map_location=runner.device, weights_only=False
+    )
+    state = payload.get("model_state_dict")
+    if not isinstance(state, dict):
+        raise SystemExit("official Tracker checkpoint has no model_state_dict")
+    expected_shapes = {
+        "actor.0.weight": (512, 510),
+        "actor.2.weight": (256, 512),
+        "actor.4.weight": (128, 256),
+        "actor.6.weight": (29, 128),
+        "critic.0.weight": (512, 890),
+        "critic.2.weight": (256, 512),
+        "critic.4.weight": (128, 256),
+        "critic.6.weight": (1, 128),
+        "std": (29,),
+    }
+    geometry_failures = {
+        key: tuple(state[key].shape) if key in state else None
+        for key, shape in expected_shapes.items()
+        if key not in state or tuple(state[key].shape) != shape
+    }
+    if geometry_failures:
+        raise SystemExit(
+            "official Tracker checkpoint geometry mismatch: "
+            + json.dumps(geometry_failures, sort_keys=True)
+        )
+    runner.alg.policy.load_state_dict(state, strict=True)
+    loaded_state = runner.alg.policy.state_dict()
+    max_abs_delta = max(
+        float((loaded_state[key] - state[key]).abs().max()) for key in state
+    )
+    if max_abs_delta != 0.0:
+        raise RuntimeError(
+            f"official Tracker warm start was not exact: max delta {max_abs_delta}"
+        )
+    # Adam is constructed before the parameter load but must have no moments until the
+    # first Newton update.  Never load the released optimizer or iteration fields.
+    if runner.alg.optimizer.state:
+        raise RuntimeError("Newton Tracker optimizer is not fresh before update zero")
+    if runner.current_learning_iteration != 0 or runner.alg.update_step != 0:
+        raise RuntimeError("Newton Tracker iteration state is not fresh")
+
+    from sugar_newton.validation.refiner_open_loop import sha256
+
+    return {
+        "path": str(checkpoint_path),
+        "sha256": sha256(checkpoint_path),
+        "checkpoint_iter_ignored": (
+            int(payload["iter"]) if payload.get("iter") is not None else None
+        ),
+        "checkpoint_optimizer_ignored": "optimizer_state_dict" in payload,
+        "parameter_max_abs_delta_after_load": max_abs_delta,
+        "actor_geometry": [510, 512, 256, 128, 29],
+        "critic_geometry": [890, 512, 256, 128, 1],
+        "optimizer_state_entries_before_newton_training": 0,
+        "newton_learning_iteration": 0,
+        "newton_bcppo_update_step": 0,
+    }
+
+
 def attach_video(runner, args, clip: str) -> None:
     """Render an evaluation rollout every ``--video-interval`` iterations.
 
@@ -305,6 +373,11 @@ def main() -> None:
         "--teacher-gate-result",
         required=True,
         help="frozen 20-profile RESULT.json admitting this exact acting checkpoint",
+    )
+    ap.add_argument(
+        "--student-warm-start",
+        default=str(DEFAULT_TRACKER),
+        help="exact official CarryBox Tracker actor/critic/std; optimizer and iter are ignored",
     )
     ap.add_argument("--run-name", default="carrybox_bcppo")
     ap.add_argument("--log-root", default="logs/newton_bcppo")
@@ -407,6 +480,10 @@ def main() -> None:
     )
     runner = OnPolicyRunner(env, runner_cfg(args), log_dir=str(log_dir), device=args.device)
     print(f"[alg] {type(runner.alg).__name__}  teacher={args.teacher_ckpt}")
+    tracker_warm_start = load_official_tracker_warm_start(
+        runner, args.student_warm_start
+    )
+    initialization_audit["official_tracker_warm_start"] = tracker_warm_start
     acting_state = env.acting_teacher.state_dict()
     distillation_state = runner.alg.teacher_model.state_dict()
     if acting_state.keys() != distillation_state.keys():

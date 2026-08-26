@@ -355,6 +355,10 @@ against upstream Newton must stay empty.
       on every teacher-controlled transition and never enters the exact 510-D actor input.
       It masks PPO/value/entropy credit while retaining official full-trajectory Refiner
       distillation, so the student can imitate the prefix without pretending it acted there.
+      The student loads the released CarryBox Tracker actor, critic and std exactly, while
+      explicitly discarding its optimizer and iteration; Newton BCPPO therefore starts from
+      the serious released skill with fresh update state rather than a random placeholder or
+      a resumed rejected run.
       The VecEnv now reuses the policy observation returned by the physics step instead of
       pushing each frame into the causal history twice. Formal launch additionally requires
       a passing fixed-gate JSON whose checkpoint SHA matches the acting checkpoint; the

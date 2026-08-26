@@ -237,7 +237,9 @@ physical handoff, and exposes a training-only post-handoff mask that never enter
 actor. The mask removes prefix PPO/value/entropy credit but deliberately retains SUGAR's
 official full-trajectory teacher distillation. The runner rejects a missing, failed,
 differently hashed or malformed frozen-gate
-result and has no resume route. This implementation does not admit a launch by itself: the
+result and has no resume route. The student actor/critic/std load exactly from the released
+CarryBox Tracker while its checkpoint optimizer and iteration are ignored, preserving the
+declared warm start with fresh Newton BCPPO state. This implementation does not admit a launch by itself: the
 fresh-256 endpoint must first pass the unchanged gate.
 
 **Phase 4 — env and learning.** A vec-env implementing the `rsl_rl` VecEnv protocol

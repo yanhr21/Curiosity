@@ -17,6 +17,7 @@ their effort limit 37% of the carry against Isaac's 1.9%.
         --teacher-motion-root SUGAR/data/CarryBox \
         --teacher-ckpt experiments/.../newton_refiner/model_255.pt \
         --teacher-gate-result experiments/.../formal20/RESULT.json \
+        --student-warm-start SUGAR/demo_ckpts/CarryBox/tracker.pt \
         --wandb-project sugar_newton --run-name carrybox_bcppo
 
 Run inside the Newton container; `renders/render_carrybox_policy.sh` in the `third_party/newton`
@@ -57,6 +58,11 @@ must be the fixed 20-profile gate for the exact checkpoint SHA and must contain 
 passing checks.  The recovered source `refiner_model10000.pt` and the fresh-64 Newton
 adaptation both fail that gate, so neither can launch Tracker training.  There is no
 execution-only bypass and no resume path.
+
+The student is parameter-exact warm-started from the released CarryBox `tracker.pt`:
+actor `510 -> 512/256/128 -> 29`, critic `890 -> 512/256/128 -> 1`, and released std.
+Its optimizer state and checkpoint iteration are deliberately ignored and audited empty,
+so Newton training starts at update zero without discarding the serious released skill.
 
 The motion inputs follow the official `SUGAR/train.sh` contract. `--motion-root` is the
 Refiner rollout `rl_dataset` seen by the Tracker student and critic;
