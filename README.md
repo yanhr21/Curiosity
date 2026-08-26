@@ -14,6 +14,16 @@ IsaacLab/PhysX；Newton 只作为 asset 来源，不作为执行后端。
 完整九个 handoff prefix、180 profiles 上 learned/exact-pre 为 `169/170` safe、`7/7` fall。
 它证明 demo condition 确实改变在线动作和箱体位移，但没有证明更安全的 demo following。
 
+随后完成了官方 CHORD 接触扳手表示诊断。代码固定到 NVIDIA `video_to_data` commit
+`5654c50e`，直接调用其 `wrench_preprocess_jit`、512 方向 support function、CWS reward、
+missed/unintended-contact 实现；输入是当前 IsaacLab rollout 的真实 PhysX 足—箱接触点和过滤
+接触力。原始 SUGAR Carry45/Kick21 包只有人体/物体运动和 binary contact label，没有接触点、
+法向或物体 part ID，因此不能忠实计算 human-demo CHORD target。当前不伪造该 target，而是固定
+released Kick21 专家 profile 0 的在线接触几何作为一条连贯机器人专家参考。已知 prefix53
+边界上，exact-pre/learned 的 mean CWS 为 `0.06574/0.04949`，missed-contact 为
+`0.91118/0.93762`，两者同为 `19/20` safe、`1/20` fall。现有 temporal composer 没有改善
+CHORD 接触能力；这是一项表示诊断，不是 human-video CHORD policy 结果。
+
 最新实验保留 released CarryBox/KickBox 两个 official Tracker actor 的完整参数和
 `510-D -> 512/256/128 -> 29-D` 闭环结构，只训练读取冻结 predictor `798-D` causal
 selected-demo condition 的 router。审计确认官方 Carry/Kick 推理环境除 SMALLBOX/BIGBOX
@@ -715,8 +725,9 @@ residual-only 各自复现；prefix61 profile14 的 lost-safe 在两条路径单
 `33/41/49/57/65` 上得到 learned/pre `92/91` safe、`5/5` fall；唯一安全结果变化是
 prefix33 profile17 的一个增益。把 seen 与 interleaved 合并为 `33..65`、步长 4 的完整网格后，
 safe 精确打平 `164/164`，learned 反而多一次 fall（`9/8`）。因此停止扩展当前 feed-forward
-composer；下一步先审计 official MimicKit/TinyMDM 是否真的暴露稳定的 selected-demo motion
-representation，不用任意 hidden activation 或自制 toy latent 冒充 SMP。
+composer。official MimicKit/TinyMDM 接口审计也已完成：发布接口没有稳定 selected-demo
+encoder/latent，不能把任意 hidden activation 冒充 SMP。后续 causal temporal composer 的
+完整九-prefix 结果同样为负，因此这些 topology 不再做 update、reward、history 或模型规模扫描。
 
 causal-composition 两 seed 实验的最短入口（必须在 retained GPU compute step 内运行）为：
 
@@ -754,8 +765,9 @@ pair、独立 seed 复现和固定 4x 诊断均已完成。1x 在 update 64 的�
 4x 却退化为 `1/4`，所以问题不是单纯 reward 太小。共享 MLP 的 full-510D BC 和三阶段
 DAgger 也未保持闭环稳定。新的 official-skill router 已让一个 checkpoint 在 matched 域中
 分别达到 Carry `18/20`、Kick `20/20` 且零跌倒，但 condition-only counterfactual 证明它仍有
-task-generator 耦合和跨域动作爆炸。下一步应使用 serious shared skill prior/latent 与
-state-aware safe transition policy，在保留 released expert 执行能力的同时逐步解除 Generator/
-Tracker 任务耦合。不得继续 reward-scale/optimizer-step sweep，不得把 future action label 放入
-deployed actor，也不得用 toy teacher/MLP 替代 official SUGAR 组件。SMP 只有在官方实现和
-selected-demo latent deviation 真正接通后才能称为集成。
+task-generator 耦合和跨域动作爆炸。当前官方 CHORD 诊断进一步表明：现有 temporal
+composer 没有学到 Kick 专家的接触扳手结构。下一项有效工作不是继续调旧 controller，而是
+先取得或用官方流水线重新生成带接触点、法向和 part ID 的示范数据，再做同 seed、同 prefix、
+同预算的 CHORD-on/off 因果对照。没有这种 reference geometry 时只能报告机器人专家表示诊断，
+不能声称 human-demo CHORD。不得继续 reward-scale/optimizer-step sweep，不得把 future label
+放入 deployed actor，也不得用 toy teacher/MLP/latent 替代官方 SUGAR、MimicKit 或 CHORD。

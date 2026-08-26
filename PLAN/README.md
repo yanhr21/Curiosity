@@ -508,7 +508,7 @@ one seed and is therefore not replicated. Mean learned-minus-pre-update displace
 `-0.01367 m`, foot-contact fraction `-0.00463`, and root-height loss `-0.00529 m`.
 
 This closes the feed-forward selected-expert-plus-residual topology under both single- and
-multi-context training. The next matched diagnostic changes action composition, not reward scale:
+multi-context training. The completed next matched diagnostic changed action composition, not reward scale:
 a full official-topology causal transition module must receive current online state plus both
 released Carry/Kick commands and learn a state-dependent interpolation between their exact frozen
 actions before a bounded residual. No future success/fall label, offline trace, prefix ID or
@@ -619,6 +619,36 @@ During causal-composer training, the `32/32` Carry/Kick assignment swaps parity 
 episode boundary. Thus every environment is exposed to both conditions instead of keeping
 condition permanently correlated with environment identity; frozen condition-swap evaluation stays
 fixed as intended.
+
+### Official CHORD audit and the next admissible experiment
+
+The official CHORD implementation is now pinned at NVIDIA `video_to_data` commit `5654c50e` and
+has been executed without replacing its 512-direction contact-wrench support representation. The
+diagnostic collects live filtered PhysX foot-box forces and contact positions from the known
+prefix53 boundary, then compares exact-pre and learned temporal-composer rollouts against one fixed
+released Kick21 expert trajectory indexed by the exact SUGAR motion frame. A single fixed profile
+is necessary: per-frame aggregation across randomized expert environments erases asynchronous kick
+contacts and is not a coherent demonstration.
+
+The result is negative. Exact-pre/learned mean CWS is `0.06574/0.04949`; missed-contact is
+`0.91118/0.93762`; both have `19/20` safe Kick and one fall. Learned CWS improves in 4 profiles,
+worsens in 5 and is unchanged in 11. The temporal composer therefore does not improve the released
+expert's object-centric contact capability even though it changes object displacement.
+
+This is not a human-demo CHORD reward experiment. The current SUGAR motion archive has only body
+and object kinematics plus one binary contact label; it has no per-contact positions, normals or
+object part identifiers. The next admissible causal experiment is therefore fixed:
+
+1. obtain or regenerate demonstration contact geometry with the released CHORD preprocessing path;
+2. reject the dataset if contact positions, normals, part IDs and motion clock cannot be aligned to
+   Carry45/Kick21 without synthetic inference from the binary label;
+3. once admitted, run a matched CHORD-off/on comparison with the same teacher replacement,
+   initialization, prefix schedule, update budget, seeds and frozen physical evaluation;
+4. require behavior/contact-wrench improvement, not lower reward loss alone.
+
+Until step 2 passes, no new policy update, reward-weight sweep or homemade contact target is an
+admissible CHORD result. The robot-expert diagnostic remains useful for evaluator and geometry
+integration only.
 
 ### Expected behavior, not just reward score
 

@@ -125,6 +125,17 @@ def _latest_filtered_force(sensor) -> torch.Tensor:
     return force[:, -1, 0, 0, :]
 
 
+def _filtered_contact_position(sensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return the live PhysX contact point and an explicit validity mask."""
+
+    position = sensor.data.contact_pos_w
+    if position is None or position.ndim != 4 or position.shape[1:3] != (1, 1):
+        raise RuntimeError("filtered foot-to-object contact-point geometry drift")
+    position = position[:, 0, 0, :]
+    valid = torch.isfinite(position).all(dim=-1)
+    return torch.where(valid.unsqueeze(-1), position, torch.zeros_like(position)), valid
+
+
 def _summaries(arrays: dict[str, np.ndarray]) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for profile in range(args.num_envs):
@@ -258,6 +269,13 @@ def main() -> None:
     cfg.observations.policy.enable_corruption = False
     cfg.terminations.physical_invalid = None
     cfg.rewards.physical_invalid_penalty = None
+    # CHORD-style contact-wrench support needs the contact point and normal,
+    # not only the thresholded contact flag.  IsaacLab reports the average
+    # point for this single foot-to-object filtered pair; the force direction
+    # below supplies the live contact normal, exactly as in official CHORD.
+    for sensor_cfg in (cfg.scene.left_foot_forces, cfg.scene.right_foot_forces):
+        sensor_cfg.track_contact_points = True
+        sensor_cfg.max_contact_data_count_per_prim = 8
     env = gym.make(args.task, cfg=cfg)
     wrapped = OnlineCrossSkillRecoveryVecEnvWrapper(
         env,
@@ -330,6 +348,7 @@ def main() -> None:
         transition_policy.eval().requires_grad_(False)
         actor = None
     base = wrapped.base_env
+    command = base.command_manager.get_term("motion")
 
     initial = {
         "robot_root_state_w": base.scene["robot"].data.root_state_w.detach().cpu().numpy().copy(),
@@ -366,11 +385,14 @@ def main() -> None:
         "robot_joint_velocity": [],
         "object_root_state_w": [],
         "foot_contact_force_w": [],
+        "foot_contact_position_w": [],
+        "foot_contact_position_valid": [],
         "foot_contact": [],
         "policy_observation": [],
         "action": [],
         "reward": [],
         "done": [],
+        "motion_frame": [],
     }
     if args.policy_topology in (
         "causal_action_composition",
@@ -430,6 +452,18 @@ def main() -> None:
                 ),
                 dim=1,
             )
+            left_position, left_position_valid = _filtered_contact_position(
+                base.scene.sensors["left_foot_forces"]
+            )
+            right_position, right_position_valid = _filtered_contact_position(
+                base.scene.sensors["right_foot_forces"]
+            )
+            contact_positions = torch.stack(
+                (left_position, right_position), dim=1
+            )
+            contact_position_valid = torch.stack(
+                (left_position_valid, right_position_valid), dim=1
+            )
             records["robot_root_state_w"].append(
                 base.scene["robot"].data.root_state_w.detach().cpu().numpy().copy()
             )
@@ -456,6 +490,12 @@ def main() -> None:
             )
             force_np = forces.detach().cpu().numpy().copy()
             records["foot_contact_force_w"].append(force_np)
+            records["foot_contact_position_w"].append(
+                contact_positions.detach().cpu().numpy().copy()
+            )
+            records["foot_contact_position_valid"].append(
+                contact_position_valid.detach().cpu().numpy().copy()
+            )
             records["foot_contact"].append(
                 np.linalg.norm(force_np, axis=-1) > CONTACT_THRESHOLD_N
             )
@@ -465,6 +505,9 @@ def main() -> None:
             records["action"].append(action.detach().cpu().numpy().copy())
             records["reward"].append(reward.detach().cpu().numpy().copy())
             records["done"].append(done.detach().cpu().numpy().astype(bool, copy=True))
+            records["motion_frame"].append(
+                command.time_steps.detach().cpu().numpy().copy()
+            )
 
     arrays = {name: np.stack(values) for name, values in records.items()}
     arrays.update({f"initial_{name}": value for name, value in initial.items()})
@@ -526,6 +569,16 @@ def main() -> None:
             "legacy_height_only_fall_reported_separately": True,
             "root_height_loss_referenced_to_handoff": True,
             "handoff_tilt_not_charged_to_policy": True,
+        },
+        "contact_geometry": {
+            "source": "online IsaacLab PhysX ContactSensor",
+            "sensor_pairs": ["left_foot_to_box", "right_foot_to_box"],
+            "contact_position": "mean of live points for each filtered pair",
+            "contact_normal": "unit direction of live filtered normal force",
+            "inactive_position_encoding": "zero plus explicit validity mask",
+            "actor_observation_augmented": False,
+            "future_or_outcome_labels_used": False,
+            "official_chord_reward_applied": False,
         },
         "action_composition": (
             {
@@ -612,6 +665,17 @@ def main() -> None:
                     "object_root_state_w",
                     "robot_body_names",
                     "robot_joint_names",
+                )
+            ),
+            "online_contact_geometry_recorded": bool(
+                arrays["foot_contact_position_w"].shape
+                == (args.steps, args.num_envs, 2, 3)
+                and arrays["foot_contact_position_valid"].shape
+                == (args.steps, args.num_envs, 2)
+                and np.all(
+                    arrays["foot_contact_position_w"]
+                    [~arrays["foot_contact_position_valid"]]
+                    == 0.0
                 )
             ),
         },

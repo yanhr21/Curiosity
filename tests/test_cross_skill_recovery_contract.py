@@ -330,6 +330,54 @@ def test_frozen_evaluator_is_cwd_independent() -> None:
     )
 
 
+def test_chord_geometry_collection_is_live_filtered_and_phase_aligned() -> None:
+    transition = _read(
+        ROOT / "scripts/sugar/demo_following/evaluate_cross_skill_recovery.py"
+    )
+    native = _read(
+        ROOT / "scripts/sugar/demo_following/evaluate_demo_conditioned_tracker.py"
+    )
+    for source in (transition, native):
+        assert "force_matrix_w_history" in source
+        assert "track_contact_points = True" in source
+        assert "contact_pos_w" in source
+        assert 'records["motion_frame"]' in source
+    assert 'records["foot_contact_position_w"]' in transition
+    assert 'records["contact_position_w"]' in native
+
+
+def test_chord_analysis_uses_official_representation_without_fabricated_demo_geometry() -> None:
+    source = _read(
+        ROOT / "scripts/sugar/demo_following/analyze_chord_contact_geometry.py"
+    )
+    for name in (
+        "wrench_preprocess_jit",
+        "wrench_support_one_body_jit",
+        "contact_wrench_support_reward_jit",
+        "missed_contact_penalty_jit",
+        "unintended_contact_penalty_jit",
+    ):
+        assert name in source
+    assert 'reference_profile = 0' in source
+    assert "per-frame median across randomized expert" in source
+    assert '"raw_sugar_demo_has_contact_points_or_normals": False' in source
+    assert '"therefore_not_human_demo_chord_reward": True' in source
+
+
+def test_chord_runner_has_no_human_authorization_state() -> None:
+    source = _read(
+        ROOT / "scripts/sugar/demo_following/run_chord_contact_geometry_collection.sh"
+    )
+    assert "model_pre_update.pt" in source
+    assert "model_64.pt" in source
+    assert "--carry-prefix-steps 53" in source
+    assert "--seed 181666" in source
+    assert "--seed 171611" in source
+    assert "analyze_chord_contact_geometry.py" in source
+    assert "read -" not in source
+    assert "approval" not in source.lower()
+
+
 def test_failure_rich_transition_overfit_is_fixed_and_automatic() -> None:
     source = _read(
         ROOT

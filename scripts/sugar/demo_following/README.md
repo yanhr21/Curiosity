@@ -14,8 +14,9 @@ The completed multi-context follow-up cycles online physical Carry handoffs `41/
 training/evaluation pairs `171642 -> 181652` and `171643 -> 181654`. Learned versus exact pre-update
 totals are `97/120` safe for both and `10/11` falls. Only seed171642 improves, so the benefit is not
 replicated. Same-checkpoint selected Kick/Carry behavior remains distinct. Do not add residual
-updates, reward scales or a third seed; the next controller must learn a causal state-dependent
-composition of both exact released actions under the same frozen comparison.
+updates, reward scales or a third seed. The later state-dependent and temporal composition
+controllers documented below are also complete and do not improve the final matched physical grid.
+The active work is official CHORD demonstration-contact data recovery, not another controller sweep.
 
 The causal-composition implementation is a full `512/256/128` SUGAR-topology module over the
 current `510-D` Tracker observation, current Carry/Kick `36-D` commands and selected-skill one-hot.
@@ -303,3 +304,26 @@ interleaved and seen-prefix frozen evaluation, renders paired H.264 videos and c
 `33..65` grid; there is no human approval state. Seed171648/181666 gives learned/exact-pre
 `169/170` safe kicks and `7/7` falls over 180 profiles, so this topology is closed rather than
 extended with an update, reward, history-length or model-size sweep.
+
+Apply the released NVIDIA CHORD contact-wrench representation to the known prefix53 boundary with:
+
+```bash
+bash scripts/sugar/demo_following/run_chord_contact_geometry_collection.sh \
+  experiments/demo_following/chord_contact_geometry_phase_aligned_prefix53_v1 cuda:0
+```
+
+The runner records live filtered PhysX foot-box contact points/forces for exact-pre, learned and the
+released Kick21 expert, aligns them by exact SUGAR motion frame, calls the official CHORD functions
+from pinned commit `5654c50e`, and enters the retained GPU holder. The fixed expert reference is
+profile 0; do not aggregate asynchronous expert contacts per frame. Render the synchronized evidence
+from another compute shell with:
+
+```bash
+$PYTHON scripts/sugar/demo_following/render_chord_contact_geometry.py \
+  --collection-root experiments/demo_following/chord_contact_geometry_phase_aligned_prefix53_v1 \
+  --output-dir experiments/demo_following/chord_contact_geometry_phase_aligned_prefix53_v1/visualizations/chord_exact_trace_v1
+```
+
+Exact-pre/learned CWS is `0.06574/0.04949`; the physical result ties at `19/20` safe and one fall.
+This is a robot-expert representation diagnostic. Raw SUGAR demos lack contact positions, normals
+and part IDs, so the result must not be called a human-demo CHORD reward or training result.

@@ -349,6 +349,15 @@ def _latest_filtered_force(sensor) -> torch.Tensor:
     return force[:, -1, 0, 0, :]
 
 
+def _filtered_contact_position(sensor) -> tuple[torch.Tensor, torch.Tensor]:
+    position = sensor.data.contact_pos_w
+    if position is None or position.ndim != 4 or position.shape[1:3] != (1, 1):
+        raise RuntimeError("filtered body-to-object contact-point geometry drift")
+    position = position[:, 0, 0, :]
+    valid = torch.isfinite(position).all(dim=-1)
+    return torch.where(valid.unsqueeze(-1), position, torch.zeros_like(position)), valid
+
+
 def _clone_state(module: torch.nn.Module) -> dict[str, torch.Tensor]:
     return {name: value.detach().cpu().clone() for name, value in module.state_dict().items()}
 
@@ -491,6 +500,10 @@ def main() -> None:
     for value in vars(env_cfg.scene).values():
         if hasattr(value, "debug_vis"):
             value.debug_vis = False
+    for sensor_name in SENSOR_NAMES:
+        sensor_cfg = getattr(env_cfg.scene, sensor_name)
+        sensor_cfg.track_contact_points = True
+        sensor_cfg.max_contact_data_count_per_prim = 8
 
     # cli_args expects args.checkpoint to be the official runner checkpoint.
     args.checkpoint = str(source["tracker"])
@@ -703,6 +716,8 @@ def main() -> None:
         "robot_body_position_w": [],
         "object_root_state_w": [],
         "contact_force_w": [],
+        "contact_position_w": [],
+        "contact_position_valid": [],
         "contact": [],
         "action": [],
         "student_action": [],
@@ -891,6 +906,16 @@ def main() -> None:
             [_latest_filtered_force(base.scene.sensors[name]) for name in SENSOR_NAMES],
             dim=1,
         )
+        contact_position_pairs = [
+            _filtered_contact_position(base.scene.sensors[name])
+            for name in SENSOR_NAMES
+        ]
+        contact_positions = torch.stack(
+            [pair[0] for pair in contact_position_pairs], dim=1
+        )
+        contact_position_valid = torch.stack(
+            [pair[1] for pair in contact_position_pairs], dim=1
+        )
         records["robot_root_state_w"].append(
             base.scene["robot"].data.root_state_w.detach().cpu().numpy().copy()
         )
@@ -902,6 +927,12 @@ def main() -> None:
         )
         force_np = forces.detach().cpu().numpy().copy()
         records["contact_force_w"].append(force_np)
+        records["contact_position_w"].append(
+            contact_positions.detach().cpu().numpy().copy()
+        )
+        records["contact_position_valid"].append(
+            contact_position_valid.detach().cpu().numpy().copy()
+        )
         records["contact"].append(
             np.linalg.norm(force_np, axis=-1) > CONTACT_THRESHOLD_N
         )
@@ -1012,6 +1043,16 @@ def main() -> None:
             np.isfinite(value).all()
             for value in arrays.values()
             if isinstance(value, np.ndarray) and value.dtype.kind in "f"
+        ),
+        "online_contact_geometry_recorded": bool(
+            arrays["contact_position_w"].shape
+            == (completed_frames, args.num_envs, len(SENSOR_NAMES), 3)
+            and arrays["contact_position_valid"].shape
+            == (completed_frames, args.num_envs, len(SENSOR_NAMES))
+            and np.all(
+                arrays["contact_position_w"][~arrays["contact_position_valid"]]
+                == 0.0
+            )
         ),
         "completed_all_650_control_frames": completed_frames == args.steps,
         "official_tracker_observation_remained_finite": invalid_transition is None,
@@ -1197,6 +1238,15 @@ def main() -> None:
             np.sum(arrays["transition_risk_latched_fallback"][-1])
         ),
         "profiles": records_by_profile,
+        "contact_geometry": {
+            "source": "online IsaacLab PhysX ContactSensor",
+            "contact_position": "mean of live points for each filtered body-to-box pair",
+            "contact_normal": "unit direction of live filtered normal force",
+            "inactive_position_encoding": "zero plus explicit validity mask",
+            "actor_observation_augmented": False,
+            "future_or_outcome_labels_used": False,
+            "official_chord_reward_applied": False,
+        },
         "claim_boundary": (
             "A frozen causal Carry45 transition-risk composition of two released "
             "SUGAR Generator+Tracker pairs. It observes only the first 50 frames "

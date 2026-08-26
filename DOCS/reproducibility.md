@@ -1836,6 +1836,68 @@ experiments/demo_following/causal_temporal_composition_dense_prefix_seed171648_v
 
 TinyMDM ESM/SDS 只作为单独报告的 auxiliary audit/target，不是 actor latent。
 
+### 5.13 Official CHORD contact-wrench representation diagnostic
+
+NVIDIA CHORD 已有官方代码。本仓库固定使用 `video_to_data` commit
+`5654c50edc1f3dea8e3145bf2dbfc277dbf27b4c`，不重写其 wrench representation：分析脚本直接
+载入官方 `wrench_preprocess_jit`、`wrench_support_one_body_jit`、
+`contact_wrench_support_reward_jit`、`missed_contact_penalty_jit` 和
+`unintended_contact_penalty_jit`。配置保持官方 512 个 6-D basis、8 条 friction-cone edge 和
+`mu=0.1`。本地忽略的官方 checkout 可用以下命令准备：
+
+```bash
+git clone --filter=blob:none --no-checkout \
+  https://github.com/nvidia-isaac/video_to_data.git \
+  experiments/runtime_assets/official_chord_5654c50e
+git -C experiments/runtime_assets/official_chord_5654c50e sparse-checkout set robotic_grounding
+git -C experiments/runtime_assets/official_chord_5654c50e checkout \
+  5654c50edc1f3dea8e3145bf2dbfc277dbf27b4c
+```
+
+在 retained GPU compute step 中运行固定 prefix53 collection：
+
+```bash
+bash scripts/sugar/demo_following/run_chord_contact_geometry_collection.sh \
+  experiments/demo_following/chord_contact_geometry_phase_aligned_prefix53_v1 cuda:0
+```
+
+该入口复用 temporal composer 的 exact-pre/update64 checkpoint，以 seed181666 分别收集 20 个
+250-frame rollout；另以 seed171611 收集 20 个 released Kick21 Generator+Tracker、650-frame
+reference rollout。所有接触点和过滤 foot-box force 都由当前 IsaacLab/PhysX step 在线产生。
+transition `motion_frame=55..304` 与 native `2..651` 精确对齐。参考固定为 native profile 0，
+选择与结果/接触强弱无关；不能逐 frame 对 20 个随机环境取 median，因为异步稀疏接触会被
+错误抹成零。
+
+结果为 exact-pre/learned mean CWS `0.065738/0.049494`，missed-contact
+`0.911185/0.937619`，unintended-contact `0.161937/0.149990`。两者同为 `19/20` safe Kick 和
+`1/20` fall；learned-minus-pre CWS 为 `-0.016245`，只有 4 profiles 变高、5 个变低、其余相同。
+因此 temporal composer 没有改善 Kick21 专家接触扳手能力。
+
+同步 exact-trace H.264 证据用以下命令生成：
+
+```bash
+$PYTHON_BIN scripts/sugar/demo_following/render_chord_contact_geometry.py \
+  --collection-root experiments/demo_following/chord_contact_geometry_phase_aligned_prefix53_v1 \
+  --output-dir experiments/demo_following/chord_contact_geometry_phase_aligned_prefix53_v1/visualizations/chord_exact_trace_v1
+```
+
+视频同时显示固定 Kick21 专家、exact-pre、learned 的 G1/box、真实 contact point 和过滤 PhysX
+force vector；下方保留全部 20 个 paired CWS delta 与同步 CWS 曲线。它是 exact recorded trace，
+不是 camera/physics replay。权威文件为：
+
+```text
+experiments/demo_following/chord_contact_geometry_phase_aligned_prefix53_v1/
+  official_chord_representation/RESULT.json
+  official_chord_representation/METRICS.npz
+  visualizations/chord_exact_trace_v1/chord_contact_geometry_exact_trace.mp4
+```
+
+原始 `SUGAR/data/CarryBox/data_045` 与 `SUGAR/data/KickBox/data_021` 只有
+`robot_50hz.npz`、object motion 和 binary `contact_labels_50hz.npy`，没有 CHORD 所需的
+per-contact position、normal 或 object part ID。因此上述参考明确是 released robot expert，
+不是 human-demo target，也不是 CHORD policy-training 结果。正式 CHORD-on/off 训练必须先用
+官方流程取得相同语义的 demonstration contact geometry；禁止从 binary label 伪造法向/接触点。
+
 ## 6. IsaacLab 在线整手触觉
 
 每只手的 27 个物理 patch 排列为掌心 12 个加五指各三段。official R15 taxel 在 patch 内

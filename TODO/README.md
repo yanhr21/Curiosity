@@ -241,6 +241,21 @@
   displacement rises `0.01781 m`, but the strict physical criterion fails. Close this topology;
   do not repeat it with longer training, reward, history or model-size sweeps. Official TinyMDM
   ESM/SDS remains auxiliary and is not a selected-demo latent.
+- [x] pin and execute the official NVIDIA CHORD contact-wrench representation on live SUGAR PhysX
+  contact geometry. Use one fixed released Kick21 expert profile aligned by exact motion frame;
+  never take a per-frame median across asynchronous randomized contacts. Exact-pre/learned CWS is
+  `0.06574/0.04949`, missed-contact is `0.91118/0.93762`, and physical outcomes tie at `19/20` safe
+  with one fall. The temporal composer does not improve the reference contact capability.
+- [x] render one synchronized H.264 exact-trace video containing the fixed Kick21 expert,
+  exact-pre and learned policies, live foot-box contact points/force vectors, all 20 paired CWS
+  deltas and the time-aligned CWS curves. Keep the explicit no-camera/no-physics-replay label.
+- [ ] obtain or regenerate Carry45/Kick21 demonstration contact positions, normals and object part
+  IDs through the released CHORD preprocessing path. Reject any source that only expands the SUGAR
+  binary contact label into invented geometry.
+- [ ] after that dataset passes clock/geometry checks, run one matched CHORD-off/on policy experiment
+  with identical teacher replacement, initialization, prefix schedule, update budget, seeds and
+  frozen physical evaluation. Advance automatically from data admission through evaluation and
+  video; there is no human-authorization state.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
@@ -274,10 +289,11 @@ seeds. The matched exact pre-update comparison rejects a learned safety benefit:
 but `2/0` falls. The fixed failure-rich overfit also fails its learnability rule through update256.
 The causal physical recovery objective passes fixed-context learnability only at update64/128.
 Its two-seed balanced formal test is negative: learned/pre-update both give `35/40` safe Kick and
-`4/40` falls. Multi-context failure-rich training is now also complete: learned/pre-update give
-`97/97` safe Kick and `10/11` falls, but the one-fall aggregate difference occurs in only one of
-two seeds. The active next task is state-dependent frozen-expert action composition, not another
-update extension, reward-scale sweep or extra residual seed.
+`4/40` falls. Multi-context, feed-forward composition and causal temporal composition are also
+complete; the final temporal grid is learned/pre `169/170` safe with equal `7/7` falls. The official
+CHORD representation diagnostic is complete and negative, while raw SUGAR demos lack the reference
+contact geometry required for faithful human-demo CHORD. The active task is official contact-data
+recovery followed by one matched CHORD-off/on test, not another update/reward/model sweep.
 
 ## Frozen tactile work
 
