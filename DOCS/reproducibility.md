@@ -1703,14 +1703,102 @@ experiments/demo_following/causal_composition_heldout_prefix33_65_v1/
   seed171645/videos_seed181661/prefix65/learned_vs_pre_update_prefix65.mp4
 ```
 
-下一实验保持同一模型、reward、optimizer、64-update budget 和 strict metric，只改变训练状态
-覆盖：训练 `33/41/49/57/65`，冻结测试交错未见的 `37/45/53/61`。首 seed 固定为
-`171646 -> 181662`，仅在其通过同一物理规则时自动运行 `171647 -> 181664`，全程无人工 gate。
+该后续实验保持同一模型、reward、optimizer、64-update budget 和 strict metric，只改变训练
+状态覆盖：训练 `33/41/49/57/65`，冻结测试交错未见的 `37/45/53/61`。首 seed 固定为
+`171646 -> 181662`；其物理规则未通过，因此流水线没有运行 `171647 -> 181664`。
 
 ```bash
 bash scripts/sugar/demo_following/run_dense_prefix_causal_composition.sh \
   experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1 cuda:0
 ```
+
+### 5.12 Dense coverage 与冻结路径消融
+
+seed171646 的训练只安装 `33/41/49/57/65`，次数为 `2/2/2/2/1`；每个同步 episode 保持
+Carry/Kick `32/32`，每个环境在 endpoint 前都见过两种 condition。冻结 seed181662 只测试
+`37/45/53/61`，每个 prefix、每个 endpoint 各 20 profiles。所有 exact expert、初始完整
+584-D actor input、无 replay/teleport、deployed/composed action 和 strict v4 contract 检查通过。
+
+```text
+prefix37: learned/pre = 19/19 safe, 0/0 falls
+prefix45: learned/pre = 18/18 safe, 2/2 falls
+prefix53: learned/pre = 18/18 safe, 1/0 falls
+prefix61: learned/pre = 17/18 safe, 1/1 falls
+total:    learned/pre = 72/73 safe, 4/3 falls
+```
+
+learned-minus-pre 的四 context 均值为 net displacement `-0.009252 m`、foot-contact fraction
+`-0.009050`、root-height loss `+0.008519 m`。因此
+`multi_context_training_does_not_improve_unseen_seed_kick_safety`，自动流水线没有启动
+seed171647。四个 profile0 camera videos 位于：
+
+```text
+experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1/
+  videos_seed181663/prefix37/learned_vs_pre_update_prefix37.mp4
+  videos_seed181663/prefix45/learned_vs_pre_update_prefix45.mp4
+  videos_seed181663/prefix53/learned_vs_pre_update_prefix53.mp4
+  videos_seed181663/prefix61/learned_vs_pre_update_prefix61.mp4
+```
+
+四条视频均为真实 camera-enabled rollout，只证明各自 camera seed；权威统计仍是上述
+camera-free seed181662。冻结路径消融不运行训练，只把 update64 composer 最后一层的 residual
+输出行或 gate 输出行精确置零，其他 tensor 逐元素不变：
+
+```bash
+bash scripts/sugar/demo_following/run_dense_prefix_composer_ablation.sh \
+  experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1 \
+  experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1_frozen_ablation \
+  cuda:0
+```
+
+full/gate-only/residual-only/exact-pre 的 80-profile 汇总为 `72/72/71/73` safe、`4/4/4/3`
+falls。prefix53 profile6 的 full 新增跌倒在两条单独路径中都复现；prefix61 profile14 的 full
+lost-safe 在两条路径单独保留时都消失。因此不能把失败归因于单一 gate 或 residual，也不能把
+删除任一支称为修复。full profile6 在第 39 步先达到 fall threshold，第 49 步 mean mixture
+change 才超过 `0.1`，晚期 action amplification 是失稳后的现象。
+
+两个实际 camera-enabled 2×2 视频按 full、gate-only、residual-only、exact-pre 同步排列；均
+已完整 H.264 解码并抽查。它们只证明自己的 camera rollout，权威计数仍来自 camera-free
+seed181662：
+
+```text
+experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1_frozen_ablation/
+  videos_camera_seed181662/prefix53_profile6/full_gate_residual_pre.mp4
+  videos_camera_seed181662/prefix61_profile14/full_gate_residual_pre.mp4
+```
+
+seen-context 审计同样不训练，复用 update64/exact-pre、seed181662 和 strict v4 evaluator：
+
+```bash
+bash scripts/sugar/demo_following/run_dense_prefix_seen_context_audit.sh \
+  experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1 \
+  experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1_seen_context_audit \
+  cuda:0
+```
+
+`33/41/49/57/65` 的 learned/pre 分别为 `20/19, 17/17, 18/18, 18/18, 19/19` safe；
+对应 fall 为 `0/0, 2/2, 1/1, 2/2, 0/0`。总计 `92/91` safe、`5/5` fall。唯一 safe outcome
+变化是 prefix33 profile17 的 gained-safe；完整 584-D 初值、exact experts、deployed action、
+strict success/fall 和 unseen evaluation seed 检查全部通过。learned-minus-pre 的五 prefix 均值
+为 displacement `+0.008257 m`、foot-contact fraction `-0.002680`、root-height loss
+`-0.006346 m`。
+
+与 interleaved `37/45/53/61` 合并后，九个 prefix 覆盖 `33..65`、步长 4：learned/pre safe
+精确打平 `164/164`，fall 为 `9/8`。raw Kick 为 `165/164`，但新增的第二个 raw Kick 与一次
+fall 重叠，不能算安全增益。数据支持“训练 prefix 上存在很小的 fitted effect，但条件之间不
+泛化”，并关闭当前 composer 的 prefix-density/update/reward sweep。
+
+唯一 outcome-change 视频为实际 camera-enabled rollout；它只证明自身 camera rollout，权威
+统计仍为 camera-free：
+
+```text
+experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1_seen_context_audit/
+  videos_camera_seed181662/prefix33_profile17/learned_vs_pre_update.mp4
+```
+
+下一步先做 official MimicKit/TinyMDM representation audit：只接受 released implementation
+中有明确接口和语义的 selected-demo representation；若只有 conditional energy 而没有稳定 motion
+latent，则记录接口边界，不使用任意 hidden activation 或 toy latent 代替。
 
 ## 6. IsaacLab 在线整手触觉
 

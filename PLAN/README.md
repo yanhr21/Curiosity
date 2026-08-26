@@ -543,13 +543,37 @@ both seeds tie independently. The learned endpoint-mixture action change falls t
 individual successes and failures. This rejects handoff-length generalization for the current
 three-prefix training distribution.
 
-The next matched experiment is a coverage test, not a scale or architecture sweep. Train the same
-causal composer for 64 updates on `33/41/49/57/65`, then evaluate exact learned/pre pairs only on
-interleaved unseen `37/45/53/61`. Keep the official experts exact, the 584-D causal input, 32/32
-condition balance with parity swapping, reward, optimizer and v4 success/fall metrics unchanged.
-The first seed is `171646 -> 181662`; an automatic positive-result replication uses
-`171647 -> 181664`. The executable entrypoint is
-`scripts/sugar/demo_following/run_dense_prefix_causal_composition.sh`.
+The dense coverage test is complete. The unchanged composer trained for 64 updates on
+`33/41/49/57/65` and was frozen on interleaved unseen `37/45/53/61`. Seed
+`171646 -> 181662` gives learned/exact-pre `72/73` safe kicks and `4/3` falls over 80 profiles per
+endpoint, so the automatic rule correctly skipped `171647 -> 181664`. Mean learned-minus-pre net
+displacement, foot-contact fraction and root-height loss are
+`-0.00925 m/-0.00905/+0.00852 m`. Coverage alone therefore does not transfer the earlier
+trained-prefix safety effect.
+
+The only full-policy outcome changes are an introduced fall at prefix53 profile6 and one lost safe
+Kick at prefix61 profile14. Temporal audit shows the former crosses the fall threshold at step39,
+while mean mixture deviation exceeds `0.1` only at step49; late endpoint amplification cannot be
+claimed as the initiating cause. A frozen output-row ablation with zero optimizer updates totals
+full/gate-only/residual-only/exact-pre at `72/72/71/73` safe and `4/4/4/3` falls. Both isolated
+paths reproduce profile6's fall, while neither isolated path reproduces profile14's lost success.
+The behavior is closed-loop and non-additive; removing one branch is not an admitted solution.
+
+The frozen seen-context fit audit is complete with no optimizer updates. On training prefixes
+`33/41/49/57/65`, learned/exact-pre gives `92/91` safe kicks and equal `5/5` falls over 100
+profiles. Only prefix33 profile17 changes safe outcome; `41/49/57/65` tie. Mean
+learned-minus-pre displacement/contact/root-height loss are
+`+0.00826 m/-0.00268/-0.00635 m`. Thus the covered conditions retain only a small fitted effect,
+while interleaved conditions regress. Across the combined every-four-frame grid
+`33/37/.../65`, learned/pre tie at `164/164` safe and learned adds one fall (`9/8`). Raw Kick is
+`165/164`, but that extra Kick overlaps a fall and is not a safe gain. This closes the current
+feed-forward composer rather than motivating more update, reward or prefix-density sweeps.
+
+Before another policy run, audit the official MimicKit/TinyMDM implementation for a documented,
+stable selected-demo representation that can measure causal trajectory deviation. Reuse official
+code/checkpoints and add only adapters. If the released interface exposes only conditional energy
+and no faithful motion latent, record that boundary and do not invent a local SMP replacement. A
+new matched controller topology may be specified only from that source-grounded result.
 
 The new frozen evaluator uses `foot_contact_coupled_planar_motion_v1`, not the historical loose
 any-contact label. Success requires `>=0.05 m` net planar displacement, `>=0.01 m` planar path on

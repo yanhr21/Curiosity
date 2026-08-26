@@ -155,6 +155,25 @@ has been archived.
 - `multi_context_transition_recovery_two_seed_v1/`: strict aggregate over 120 profiles per
   endpoint. Learned/pre-update are `97/10` versus `97/11` safe/fall, but only one seed improves;
   `RESULT.json` records `multi_context_kick_safety_improvement_not_replicated`;
+- `causal_action_composition_seed171644_autorun_v1/` and its seed171645 replication: exact frozen
+  Carry/Kick endpoints plus state-dependent action composition. The matched two-seed trained-prefix
+  result is learned/pre `94/92` safe and `17/20` falls, but the effect is more conservative and is
+  restricted to `41/49/57`;
+- `causal_composition_heldout_prefix33_65_v1/`: frozen no-training audit of both admitted
+  checkpoints on unseen `33/65`. Learned/pre tie at `68/68` safe and `1/1` falls, rejecting
+  handoff-prefix generalization; four paired world videos are retained;
+- `causal_action_composition_dense_prefix_seed171646_v1/`: unchanged update64 composer trained on
+  `33/41/49/57/65` and frozen only on interleaved `37/45/53/61`. Learned/pre are `72/73` safe and
+  `4/3` falls; all four paired world videos decode and the automatic rule skips seed171647;
+- `causal_action_composition_dense_prefix_seed171646_v1_frozen_ablation/`: no-training gate-only
+  and residual-only output-row ablation of the dense checkpoint. Full/gate-only/residual-only/pre
+  total `72/72/71/73` safe and `4/4/4/3` falls. The result rejects a one-path explanation and keeps
+  only the two changed-profile 2x2 videos;
+- `causal_action_composition_dense_prefix_seed171646_v1_seen_context_audit/`: no-training frozen
+  learned/pre audit on the actual training prefixes. Learned/pre is `92/91` safe and `5/5` falls;
+  only prefix33 profile17 changes safe outcome. Combined with interleaved prefixes, the complete
+  nine-prefix grid ties `164/164` safe and learned worsens falls `9/8`; one paired world video is
+  retained;
 - `runtime_assets/`: compact frozen inputs required by current scripts.
 
 The old 1216-update policy experiment, rejected 510-D/free-window event predictor, redundant CPU

@@ -47,6 +47,16 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--expected-schedule", default="41,49,57")
     parser.add_argument("--expected-evaluation-schedule")
     parser.add_argument(
+        "--expected-context-relation",
+        choices=("auto", "disjoint", "seen"),
+        default="auto",
+        help=(
+            "Expected relation between evaluation and training prefixes. "
+            "'seen' requires every evaluation prefix to be in the training schedule; "
+            "'disjoint' requires no overlap."
+        ),
+    )
+    parser.add_argument(
         "--expected-policy-topology",
         choices=("selected_expert_residual", "causal_action_composition"),
         default="selected_expert_residual",
@@ -140,6 +150,114 @@ def _comparison(
             and delta["safe_kick_success_count"] >= 0
         )
     )
+    learned_profiles = {
+        int(row["profile"]): row for row in learned.get("profiles", [])
+    }
+    pre_profiles = {int(row["profile"]): row for row in pre.get("profiles", [])}
+    if set(learned_profiles) != set(pre_profiles) or len(learned_profiles) != int(
+        learned["num_envs"]
+    ):
+        raise RuntimeError(f"prefix{prefix} learned/pre-update profile set drift")
+    outcome_changes = []
+    transition_counts = {
+        "safe_kick_gained": 0,
+        "safe_kick_lost": 0,
+        "fall_prevented": 0,
+        "fall_introduced": 0,
+    }
+    for profile in sorted(learned_profiles):
+        learned_row = learned_profiles[profile]
+        pre_row = pre_profiles[profile]
+        pre_safe = bool(pre_row["safe_kick_success"])
+        learned_safe = bool(learned_row["safe_kick_success"])
+        pre_fall = bool(pre_row["physical_robot_fall"])
+        learned_fall = bool(learned_row["physical_robot_fall"])
+        transition_counts["safe_kick_gained"] += int(learned_safe and not pre_safe)
+        transition_counts["safe_kick_lost"] += int(pre_safe and not learned_safe)
+        transition_counts["fall_prevented"] += int(pre_fall and not learned_fall)
+        transition_counts["fall_introduced"] += int(learned_fall and not pre_fall)
+        if (pre_safe, pre_fall) != (learned_safe, learned_fall):
+            change = {
+                "profile": profile,
+                "pre_safe_kick": pre_safe,
+                "learned_safe_kick": learned_safe,
+                "pre_fall": pre_fall,
+                "learned_fall": learned_fall,
+                "learned_minus_pre_net_displacement_m": float(
+                    learned_row["planar_object_net_displacement_m"]
+                    - pre_row["planar_object_net_displacement_m"]
+                ),
+                "learned_minus_pre_root_height_loss_m": float(
+                    learned_row["maximum_robot_root_height_loss_m"]
+                    - pre_row["maximum_robot_root_height_loss_m"]
+                ),
+            }
+            if policy_topology == "causal_action_composition":
+                learned_root = learned_trace["robot_root_state_w"][:, profile]
+                initial_root_height = float(
+                    learned_trace["initial_robot_root_state_w"][profile, 2]
+                )
+                height_loss = initial_root_height - learned_root[:, 2]
+                quaternion_wxyz = learned_root[:, 3:7]
+                root_up_z = 1.0 - 2.0 * (
+                    np.square(quaternion_wxyz[:, 1])
+                    + np.square(quaternion_wxyz[:, 2])
+                )
+                root_tilt_deg = np.degrees(
+                    np.arccos(np.clip(root_up_z, -1.0, 1.0))
+                )
+                physical_fall_steps = np.flatnonzero(
+                    (height_loss >= 0.35) | (root_tilt_deg >= 60.0)
+                )
+                action_difference = np.abs(
+                    learned_trace["action"][:, profile]
+                    - pre_trace["action"][:, profile]
+                )
+                mixed_difference = np.mean(
+                    np.abs(
+                        learned_trace["mixed_endpoint_action"][:, profile]
+                        - learned_trace["selected_endpoint_action"][:, profile]
+                    ),
+                    axis=-1,
+                )
+                gate_deviation = 1.0 - learned_trace[
+                    "kick_composition_weight"
+                ][:, profile, 0]
+                amplified_steps = np.flatnonzero(mixed_difference > 0.1)
+                gate_one_percent_steps = np.flatnonzero(gate_deviation > 0.01)
+                first_fall_step = (
+                    int(physical_fall_steps[0])
+                    if physical_fall_steps.size
+                    else None
+                )
+                first_amplified_step = (
+                    int(amplified_steps[0]) if amplified_steps.size else None
+                )
+                change.update(
+                    {
+                        "initial_action_mean_abs_difference": float(
+                            np.mean(action_difference[0])
+                        ),
+                        "initial_action_max_abs_difference": float(
+                            np.max(action_difference[0])
+                        ),
+                        "first_physical_fall_step": first_fall_step,
+                        "first_mixed_action_mean_abs_difference_over_0p1_step": (
+                            first_amplified_step
+                        ),
+                        "first_gate_deviation_over_one_percent_step": (
+                            int(gate_one_percent_steps[0])
+                            if gate_one_percent_steps.size
+                            else None
+                        ),
+                        "large_mixture_change_occurs_after_fall": bool(
+                            first_fall_step is not None
+                            and first_amplified_step is not None
+                            and first_amplified_step > first_fall_step
+                        ),
+                    }
+                )
+            outcome_changes.append(change)
     record = {
         "carry_prefix_steps": prefix,
         "evaluation_seed": learned["seed"],
@@ -149,6 +267,8 @@ def _comparison(
         "learned_minus_pre_update": delta,
         "initial_physics_elementwise_identical": True,
         "safety_improvement": safety_improvement,
+        "outcome_transition_counts": transition_counts,
+        "outcome_changes": outcome_changes,
     }
     if policy_topology == "causal_action_composition":
         learned_composition = learned.get("action_composition")
@@ -211,6 +331,19 @@ def _comparison(
             )
             >= MINIMUM_MEAN_COMPOSITION_DEVIATION
         )
+        gate_deviation = float(
+            learned_composition["mean_abs_deviation_from_selected_endpoint"]
+        )
+        mixed_action_deviation = float(
+            learned_composition[
+                "mean_abs_mixed_minus_selected_endpoint_action"
+            ]
+        )
+        record["endpoint_gap_amplification"] = (
+            mixed_action_deviation / gate_deviation
+            if gate_deviation > 0.0
+            else 0.0
+        )
     return record
 
 
@@ -236,6 +369,22 @@ def main() -> None:
         or len(set(expected_schedule)) != len(expected_schedule)
     ):
         raise RuntimeError("comparison prefixes do not match the predeclared schedule")
+    training_prefix_set = set(expected_schedule)
+    evaluation_prefix_set = set(expected_evaluation_schedule)
+    if evaluation_prefix_set.isdisjoint(training_prefix_set):
+        context_relation = "disjoint"
+    elif evaluation_prefix_set.issubset(training_prefix_set):
+        context_relation = "seen"
+    else:
+        context_relation = "mixed"
+    if (
+        args.expected_context_relation != "auto"
+        and context_relation != args.expected_context_relation
+    ):
+        raise RuntimeError(
+            "evaluation/training prefix relation drift: "
+            f"expected {args.expected_context_relation}, observed {context_relation}"
+        )
 
     training_audit = json.loads(args.training_audit.read_text(encoding="utf-8"))
     checkpoint_audit = json.loads(args.checkpoint_audit.read_text(encoding="utf-8"))
@@ -324,9 +473,9 @@ def main() -> None:
     )
     checks = {
         "all_predeclared_contexts_installed_online": True,
-        "evaluation_prefixes_disjoint_from_training": bool(
-            set(expected_evaluation_schedule).isdisjoint(expected_schedule)
-        ),
+        "evaluation_prefix_relation": context_relation,
+        "evaluation_prefixes_disjoint_from_training": context_relation == "disjoint",
+        "evaluation_prefixes_seen_in_training": context_relation == "seen",
         "exact_frozen_experts_preserved": True,
         "causal_reward_not_actor_input": True,
         "all_initial_physics_elementwise_identical": True,
@@ -349,6 +498,28 @@ def main() -> None:
                 "learned_action_composition_used_online": composition_used,
             }
         )
+    if context_relation == "seen":
+        conclusion = (
+            "multi_context_training_improves_seen_context_unseen_seed_kick_safety"
+            if aggregate_safety_improvement
+            else "multi_context_training_does_not_improve_seen_context_unseen_seed_kick_safety"
+        )
+        context_claim = (
+            "The physical handoff prefixes were installed during training, while the evaluation "
+            "seed and profiles were unseen. This tests fitted-context behavior, not interpolation "
+            "or prefix generalization."
+        )
+    else:
+        conclusion = (
+            "multi_context_training_improves_unseen_seed_kick_safety"
+            if aggregate_safety_improvement
+            else "multi_context_training_does_not_improve_unseen_seed_kick_safety"
+        )
+        context_claim = (
+            "The physical evaluation handoff prefixes were disjoint from training when "
+            "evaluation_prefix_relation is 'disjoint'."
+        )
+
     result = {
         "protocol": "sugar_multi_context_transition_recovery_diagnostic_v1",
         "training_seed": args.training_seed,
@@ -356,20 +527,19 @@ def main() -> None:
         "evaluation_seed": evaluation_seeds.pop(),
         "training_prefix_schedule": expected_schedule,
         "evaluation_prefix_schedule": expected_evaluation_schedule,
+        "evaluation_prefix_relation": context_relation,
         "training_prefix_install_counts": install_counts,
         "profiles_per_endpoint": sum(int(record["profiles"]) for record in records),
         "contexts": records,
         "count_totals": totals,
         "mean_learned_minus_pre_update": mean_delta,
         "checks": checks,
-        "conclusion": (
-            "multi_context_training_improves_unseen_seed_kick_safety"
-            if aggregate_safety_improvement
-            else "multi_context_training_does_not_improve_unseen_seed_kick_safety"
-        ),
+        "conclusion": conclusion,
         "claim_boundary": (
             "One multi-context training seed and one unseen evaluation seed across predeclared "
-            "physical evaluation handoffs. A positive diagnostic requires aggregate safe/fall "
+            "physical evaluation handoffs. "
+            + context_claim
+            + " A positive diagnostic requires aggregate safe/fall "
             "improvement over the exact pre-update Kick endpoint; reward and action changes are "
             "insufficient. Kick success requires foot-contact-coupled motion, not an unrelated "
             "one-frame touch; a fall is either 0.35 m root-height loss or 60 degree root tilt. "

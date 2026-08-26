@@ -419,6 +419,14 @@ def test_multi_context_recovery_cycles_online_prefixes_without_actor_leakage() -
     assert "expected_evaluation_schedule" in summary
     assert '"evaluation_prefix_schedule": expected_evaluation_schedule' in summary
     assert "evaluation_prefixes_disjoint_from_training" in summary
+    assert "evaluation_prefixes_seen_in_training" in summary
+    assert "--expected-context-relation" in summary
+    assert "multi_context_training_does_not_improve_seen_context_unseen_seed_kick_safety" in summary
+    assert '"outcome_transition_counts"' in summary
+    assert '"outcome_changes"' in summary
+    assert '"endpoint_gap_amplification"' in summary
+    assert '"first_physical_fall_step"' in summary
+    assert '"large_mixture_change_occurs_after_fall"' in summary
 
     aggregate = _read(
         ROOT
@@ -454,6 +462,21 @@ def test_multi_context_recovery_cycles_online_prefixes_without_actor_leakage() -
     )
     assert "REQUIRE_DISJOINT_PREFIX_SCHEDULES" in causal_runner
     assert "evaluation_prefixes_disjoint_from_training" in causal_runner
+
+    seen_runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/run_dense_prefix_seen_context_audit.sh"
+    )
+    assert "PREFIXES=(33 41 49 57 65)" in seen_runner
+    assert "TRAIN_SEED=171646" in seen_runner
+    assert "EVAL_SEED=181662" in seen_runner
+    assert "--expected-context-relation seen" in seen_runner
+    assert "policy_training_or_optimizer_updates=0" in seen_runner
+    assert "GPU_HOLD_AFTER_DENSE_PREFIX_SEEN_CONTEXT_AUDIT_READY" in seen_runner
+    assert "train.py" not in seen_runner
+    assert "--max_iterations" not in seen_runner
+    assert "approval" not in seen_runner.lower()
+    assert "confirm" not in seen_runner.lower()
 
 
 def test_causal_action_composer_uses_both_commands_and_has_no_manual_gate() -> None:
@@ -626,3 +649,45 @@ def test_heldout_causal_composition_eval_is_frozen_automatic_and_strict() -> Non
     assert "composed_action_deviation >= MINIMUM_MEAN_COMPOSITION_DEVIATION" in summary
     assert "heldout_safety_improvement_replicated_all_seeds" in summary
     assert "future_or_outcome_labels_used" in summary
+
+
+def test_dense_composer_ablation_is_frozen_causal_and_visualized() -> None:
+    maker = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "make_causal_composer_ablation_checkpoint.py"
+    )
+    summary = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "summarize_causal_composer_ablation.py"
+    )
+    runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/run_dense_prefix_composer_ablation.sh"
+    )
+
+    assert 'choices=("gate_only", "residual_only")' in maker
+    assert 'state[FINAL_WEIGHT][1:].zero_()' in maker
+    assert 'state[FINAL_WEIGHT][0].zero_()' in maker
+    assert '"policy_training_or_optimizer_updates": 0' in maker
+    assert '"all_non_output_tensors_elementwise_identical": True' in maker
+    assert 'ARMS = ("full", "gate_only", "residual_only", "exact_pre_update")' in summary
+    assert '"outcome_transition_counts_vs_pre"' in summary
+    assert '"initial_action_mean_abs_difference_from_pre"' in summary
+    assert '"full_outcome_attribution"' in summary
+    assert "full_outcome_changes_are_not_explained_by_one_isolated_path" in summary
+    assert '"visualization_targets"' in summary
+    assert '"no_policy_training_or_optimizer_updates": True' in summary
+    assert "PREFIXES=(37 45 53 61)" in runner
+    assert "--num-envs 20 --steps 250" in runner
+    assert "--profile-index" in runner and "--num-profiles 20" in runner
+    assert "full_gate_residual_pre.mp4" in runner
+    assert "mapfile -t visualization_targets" in runner
+    assert "valid_frozen_evaluation" in runner
+    assert "GPU_HOLD_AFTER_DENSE_PREFIX_COMPOSER_ABLATION_READY" in runner
+    assert "train.py" not in runner
+    assert "--max_iterations" not in runner
+    assert "read -p" not in runner
+    assert "approval" not in runner.lower()
+    assert "confirm" not in runner.lower()

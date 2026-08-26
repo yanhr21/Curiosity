@@ -209,8 +209,10 @@ checkpoint 与各自 disjoint evaluation seed 一一对应，learned/pre 的完�
 `33/40` safe、`1/40` fall，seed171645 双方都是 `35/40` safe、零 fall。learned 相对 pre 的
 平均净位移降低 `0.02110 m`、接触占比降低 `0.00400`，root-height loss 反而增加
 `0.000635 m`。训练 handoff 上的安全增益因此没有迁移到未见 handoff，不能称为 handoff
-generalization。下一项只扩大在线物理状态覆盖：保持模型、reward、update64 和 strict metric
-不变，以 `33/41/49/57/65` 训练，并仅在交错未见的 `37/45/53/61` 上做 matched frozen test。
+generalization。后续 dense coverage 保持模型、reward、update64 和 strict metric 不变，以
+`33/41/49/57/65` 训练并测试交错的 `37/45/53/61`，结果仍为负；再合并 seen-prefix 审计后，
+完整 `33..65` 九点网格 safe 为 `164/164`，learned fall 为 `9`、exact-pre 为 `8`。因此当前
+feed-forward composer 已关闭，下一步是 official MimicKit/TinyMDM representation 接口审计。
 
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能
@@ -680,13 +682,30 @@ bash scripts/sugar/demo_following/run_causal_composition_heldout_prefix_eval.sh 
 ```
 
 该入口不训练，固定运行八个 camera-free rollout、严格汇总和四个 learned/pre 并排视频，随后
-继续持有 GPU。当前下一实验是 `33/41/49/57/65` 训练、`37/45/53/61` 未见测试的单一 coverage
-改动，不改模型、reward、optimizer 或 update budget。
+继续持有 GPU。后续 dense coverage 实验已经完成：训练前缀扩展为
+`33/41/49/57/65`，只在未见的 `37/45/53/61` 上冻结测试，不改模型、reward、optimizer 或
+update budget。
 
 ```bash
 bash scripts/sugar/demo_following/run_dense_prefix_causal_composition.sh \
   experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1 cuda:0
 ```
+
+结果不是增益：learned/exact-pre 在 80 profiles 上分别为 `72/73` safe Kick、`4/3` fall；
+位移、foot-contact fraction 和 root-height loss 的 learned-minus-pre 均值分别是
+`-0.00925 m/-0.00905/+0.00852 m`。四个未见 prefix 的 safe/fall 分别为
+`19/0 vs 19/0`、`18/2 vs 18/2`、`18/1 vs 18/0`、`17/1 vs 18/1`。因此自动规则没有启动
+seed171647。
+
+不增加训练的 gate/residual 输出行消融进一步得到 full/gate-only/residual-only/exact-pre
+`72/72/71/73` safe、`4/4/4/3` fall。prefix53 profile6 的新增跌倒可由 gate-only 和
+residual-only 各自复现；prefix61 profile14 的 lost-safe 在两条路径单独保留时都消失，说明它是
+闭环交互，不是删掉某一支就能解决。随后同 checkpoint 的 seen-prefix 冻结审计在
+`33/41/49/57/65` 上得到 learned/pre `92/91` safe、`5/5` fall；唯一安全结果变化是
+prefix33 profile17 的一个增益。把 seen 与 interleaved 合并为 `33..65`、步长 4 的完整网格后，
+safe 精确打平 `164/164`，learned 反而多一次 fall（`9/8`）。因此停止扩展当前 feed-forward
+composer；下一步先审计 official MimicKit/TinyMDM 是否真的暴露稳定的 selected-demo motion
+representation，不用任意 hidden activation 或自制 toy latent 冒充 SMP。
 
 causal-composition 两 seed 实验的最短入口（必须在 retained GPU compute step 内运行）为：
 

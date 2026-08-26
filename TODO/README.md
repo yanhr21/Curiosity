@@ -215,10 +215,24 @@
   the same disjoint seeds and strict metrics. Across 80 profiles per endpoint, learned/pre are tied
   at `68` safe kicks and `1` fall; both seeds tie independently, so trained-context safety benefit
   does not generalize to these adjacent unseen handoffs.
-- [ ] run one dense-coverage causal-composer seed with training prefixes `33/41/49/57/65` and
+- [x] run one dense-coverage causal-composer seed with training prefixes `33/41/49/57/65` and
   frozen learned/pre evaluation only on interleaved unseen `37/45/53/61`. Preserve update64,
   architecture, reward, optimizer, balanced conditions and strict metrics; automatically replicate
-  as `171647 -> 181664` only if `171646 -> 181662` passes the same physical safety rule.
+  as `171647 -> 181664` only if `171646 -> 181662` passes the same physical safety rule. The first
+  seed is negative at learned/pre `72/73` safe and `4/3` falls, so replication was automatically
+  skipped.
+- [x] freeze the dense checkpoint into gate-only and residual-only output-row ablations without
+  optimizer updates. Totals are full/gate-only/residual-only/exact-pre `72/72/71/73` safe and
+  `4/4/4/3` falls; the two changed full outcomes are non-additive and neither path deletion is a
+  validated repair.
+- [x] freeze-evaluate the same dense learned/pre pair on its seen prefix schedule
+  `33/41/49/57/65` with evaluation seed181662 and strict v4 metrics. Learned/pre is `92/91` safe
+  and `5/5` falls; only prefix33 profile17 gains a safe outcome. Across the combined nine-prefix
+  `33..65` grid, safe ties `164/164` and learned falls worsen `9/8`, closing this composer.
+- [ ] audit the official MimicKit/TinyMDM code and admitted checkpoint for a documented stable
+  selected-demo representation usable as causal motion deviation. Use official interfaces and
+  adapter code only; record an interface blocker instead of substituting a toy or arbitrary hidden
+  activation. Define the next matched topology experiment only after this audit.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it

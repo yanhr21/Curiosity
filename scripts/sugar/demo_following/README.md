@@ -1,9 +1,10 @@
-# Same-teacher demo-following
+# Demo following and released-skill transition
 
-The active experiment fixes the CarryBox45 official Refiner teacher in both arms and changes only
-the selected reward demo: CarryBox45 (`correct`) or KickBox21 (`unrelated`). The active
-`phase_event_reward_only` design uses the frozen phase-aware contact/event scorer and stops at
-updates 32 and 64. Active experiments execute without artificial human-authorization gates.
+The active line preserves the exact released CarryBox45 and KickBox21 Generator+Tracker endpoints
+and learns only a causal state/demo-conditioned transition between them. The earlier same-teacher
+`phase_event_reward_only` experiment remains documented below as historical evidence; it is not the
+current execution queue. Active experiments advance through machine-checkable outcomes without a
+human-authorization state.
 
 ## Current transition-recovery verdict
 
@@ -45,6 +46,46 @@ contact. The historical any-contact-plus-net-displacement value remains visible 
 count; it cannot by itself make the first-seed decision positive.
 Physical safety is likewise strict: either 35 cm root-height loss or 60-degree root tilt is a fall.
 The evaluator reports height-only and tilt components separately.
+
+The dense coverage test keeps that implementation fixed, trains only seed171646 on
+`33/41/49/57/65`, and freezes it on interleaved `37/45/53/61`:
+
+```bash
+bash scripts/sugar/demo_following/run_dense_prefix_causal_composition.sh \
+  experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1 cuda:0
+```
+
+It is negative: learned/exact-pre total `72/73` safe and `4/3` falls. The automatic rule skips the
+second seed. Attribute its two changed outcomes without training or optimizer updates with:
+
+```bash
+bash scripts/sugar/demo_following/run_dense_prefix_composer_ablation.sh \
+  experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1 \
+  experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1_frozen_ablation \
+  cuda:0
+```
+
+This creates exact frozen gate-only and residual-only checkpoints by zeroing only the relevant
+final output rows. Full/gate-only/residual-only/exact-pre total `72/72/71/73` safe and `4/4/4/3`
+falls. Both isolated paths reproduce prefix53 profile6's fall; neither isolated path reproduces
+prefix61 profile14's lost safe outcome.
+
+The fitted-context audit reuses the same checkpoints, runs no optimizer step, and evaluates the
+actual training prefixes with the same unseen physical seed:
+
+```bash
+bash scripts/sugar/demo_following/run_dense_prefix_seen_context_audit.sh \
+  experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1 \
+  experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1_seen_context_audit \
+  cuda:0
+```
+
+The completed result is learned/pre `92/91` safe and `5/5` falls. Only prefix33 profile17 gains a
+safe outcome; the other four fitted prefixes tie. Combining these results with interleaved
+`37/45/53/61` gives `164/164` safe and `9/8` falls over the full nine-prefix grid. The runner labels
+the seen relation explicitly and renders only the one physical safe-outcome change. This closes the
+current feed-forward composer; audit the official MimicKit/TinyMDM representation interface before
+defining another policy topology.
 
 Reproduce one fresh multi-context seed inside a retained GPU step with:
 

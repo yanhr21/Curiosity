@@ -399,11 +399,39 @@ mixture-action deviation shrinks to `1.59e-5--2.27e-4`, while the bounded residu
 handoffs does not generalize to adjacent unseen handoffs. Do not describe the composer as
 handoff-general or add update/reward sweeps.
 
-The next bounded experiment changes only physical-state coverage: train the same exact-expert,
-update64 causal composer on prefixes `33/41/49/57/65`, then evaluate only interleaved unseen
-prefixes `37/45/53/61` against exact pre-update. Keep architecture, reward, optimizer, condition
-balance and strict metrics unchanged. Automatically replicate only when the first seed passes the
-same physical safety rule; no human gate is permitted.
+The dense-coverage experiment is complete and negative. Seed `171646` trained the unchanged
+update64 composer on `33/41/49/57/65`, then frozen seed `181662` evaluated only interleaved unseen
+`37/45/53/61`. Learned/exact-pre total `72/73` safe kicks and `4/3` falls over 80 profiles per
+endpoint; mean learned-minus-pre displacement/contact/root-height loss are
+`-0.00925 m/-0.00905/+0.00852 m`. The automatic rule therefore skipped seed171647. All exact
+expert, complete initial 584-D input, causal rollout and strict metric checks pass; do not call the
+negative result an execution failure or launch a second dense seed.
+
+Only two full-composer outcomes change: prefix53 profile6 introduces a fall and prefix61 profile14
+loses a safe Kick. In profile6 the first physical fall occurs at step39, before the mean mixture
+change exceeds `0.1` at step49 and before the gate deviation exceeds one percent at step50; the
+late endpoint-gap amplification is therefore an aftermath, not sufficient causal attribution.
+The zero-training frozen output-row ablation gives full/gate-only/residual-only/exact-pre totals of
+`72/72/71/73` safe and `4/4/4/3` falls. Both gate-only and residual-only independently reproduce
+profile6's fall. Neither alone reproduces profile14's lost success, so that loss requires their
+closed-loop interaction. Deleting either path is not a validated fix.
+
+The zero-training seen-context audit is complete on the same seed181662 profiles. Across
+`33/41/49/57/65`, learned/exact-pre gives `92/91` safe kicks and equal `5/5` falls. The only safe
+outcome change is a gain at prefix33 profile17; the other four prefixes tie. Mean
+learned-minus-pre displacement/contact/root-height loss are
+`+0.00826 m/-0.00268/-0.00635 m`. This is a small fitted-context effect, not a robust general
+advantage. Combining seen and interleaved evaluations into the complete every-four-frame
+`33..65` grid gives an exact tie at `164/164` safe kicks and worsens falls `8 -> 9`; raw Kick rises
+`164 -> 165` only because one additional Kick overlaps a fall. The current feed-forward composer
+is therefore closed for further prefix-density, update, reward or isolated-path sweeps.
+
+The next bounded action is an official MimicKit/TinyMDM representation audit before any new policy
+training. Determine whether the released serious implementation exposes a documented, stable
+selected-demo motion representation suitable for causal trajectory deviation. If it does, connect
+that official representation through adapter code only and define one matched topology test. If it
+does not, record the exact interface blocker; do not call an arbitrary hidden activation an SMP
+latent and do not write a toy substitute.
 For this new topology, Kick success uses frozen-evaluation contract v4: at least `0.05 m` planar
 net displacement, `0.01 m` contact-adjacent planar path and `0.03 m` path after first foot contact.
 The old any-foot-contact plus final-displacement count is reported as `legacy_kick_success` only and
