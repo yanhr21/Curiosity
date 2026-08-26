@@ -94,3 +94,104 @@ def make(num_envs: int, **kwargs) -> CarryBoxVecEnv:
 
 
 OBS_DIMS = {"policy": OBS_DIM, "critic": obs_890.OBS_DIM_890, "teacher": obs_890.OBS_DIM_890}
+
+
+class RefinerVecEnv:
+    """Official 890-D Refiner actor/critic contract over the Newton environment.
+
+    This is deliberately separate from :class:`CarryBoxVecEnv`: the Refiner itself is
+    trained with the privileged 890-D group for both actor and critic, exactly as
+    ``BaseObservationsCfg`` and ``BasePPORunnerCfg`` declare.  No Tracker observation or
+    distillation target is involved in this stage.
+    """
+
+    def __init__(
+        self,
+        env: CarryBoxEnv,
+        *,
+        reward_clip: float = 10.0,
+        sync_divergence_reset: bool = True,
+    ):
+        self.env = env
+        self.num_envs = env.num_envs
+        self.num_actions = N_DOF
+        self.device = env.device
+        self.max_episode_length = env.episode_length
+        if reward_clip <= 0.0:
+            raise ValueError("reward_clip must be positive")
+        self.reward_clip = float(reward_clip)
+        self.sync_divergence_reset = bool(sync_divergence_reset)
+        self.cfg = EnvCfg(
+            num_envs=env.num_envs,
+            episode_length=env.episode_length,
+            substeps=env.substeps,
+            dt=env.dt,
+            clips=list(env.clip_names),
+            observation_contract="official_refiner_890d",
+            reward_clip=self.reward_clip,
+            sync_divergence_reset=self.sync_divergence_reset,
+        )
+        self.episode_length_buf = torch.zeros(
+            env.num_envs, dtype=torch.long, device=env.device
+        )
+
+    def _obs(self) -> TensorDict:
+        privileged = obs_890.build(self.env, teacher=False)
+        return TensorDict(
+            {"policy": privileged, "critic": privileged},
+            batch_size=[self.num_envs],
+            device=self.device,
+        )
+
+    def get_observations(self) -> TensorDict:
+        return self._obs()
+
+    def reset(self) -> tuple[TensorDict, dict]:
+        self.env.reset()
+        self.episode_length_buf.zero_()
+        return self._obs(), {}
+
+    def step(self, actions: torch.Tensor):
+        _, reward, done, extras = self.env.step(actions)
+        divergence = extras.get("termination_terms", {}).get(
+            "diverged", torch.zeros_like(done)
+        )
+        # MuJoCo-Warp worlds are physically independent, but PPO collects one
+        # synchronized horizon.  If one solve becomes non-finite, reset the whole
+        # horizon boundary rather than mixing post-reset observations with the
+        # still-live worlds.  This is a training-only safety rule; frozen evaluation
+        # keeps the original per-profile termination behavior.
+        if self.sync_divergence_reset and bool(divergence.any()):
+            self.env.reset()
+            done = torch.ones_like(done)
+            extras["timeout"] = torch.zeros_like(done)
+        reward = torch.clamp(reward, -self.reward_clip, self.reward_clip)
+        self.episode_length_buf += 1
+        self.episode_length_buf[done] = 0
+        info = {
+            "time_outs": extras.get("timeout", torch.zeros_like(done)),
+            "episode": {
+                f"rew_{key}": torch.nan_to_num(
+                    value, nan=0.0, posinf=0.0, neginf=0.0
+                ).mean()
+                for key, value in extras.get("reward_terms", {}).items()
+            },
+        }
+        info["episode"]["diverged_total"] = torch.tensor(
+            float(self.env.num_diverged), device=self.device
+        )
+        return self._obs(), reward, done, info
+
+
+def make_refiner(
+    num_envs: int,
+    *,
+    reward_clip: float = 10.0,
+    sync_divergence_reset: bool = True,
+    **kwargs,
+) -> RefinerVecEnv:
+    return RefinerVecEnv(
+        CarryBoxEnv(num_envs=num_envs, **kwargs),
+        reward_clip=reward_clip,
+        sync_divergence_reset=sync_divergence_reset,
+    )

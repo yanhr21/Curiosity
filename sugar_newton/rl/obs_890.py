@@ -36,8 +36,8 @@ LAYOUT: tuple[tuple[str, int], ...] = (
     ("joint_pos_vel_future", FUTURE_FRAMES * N_DOF * 2),        # 464
     ("motion_anchor_pos_b_future", FUTURE_FRAMES * 3),          # 24
     ("motion_anchor_ori_b_future", FUTURE_FRAMES * ROT6),       # 48
-    ("ref_obj_pos_b_future", FUTURE_FRAMES * 3),                # 24
-    ("ref_obj_ori_b_future", FUTURE_FRAMES * ROT6),             # 48
+    ("obj_motion_pos_future", FUTURE_FRAMES * 3),               # 24
+    ("obj_motion_ori_future", FUTURE_FRAMES * ROT6),            # 48
     ("ref_obj_lin_vel_b_future", FUTURE_FRAMES * 3),            # 24
     ("ref_obj_ang_vel_b_future", FUTURE_FRAMES * 3),            # 24
     ("body_pos", N_BODIES * 3),                                 # 42
@@ -99,10 +99,23 @@ def build(env, teacher: bool = False) -> torch.Tensor:
     anchor_pos_b_future = R.quat_apply_inv(a_q_e, ref_anchor_p - a_p_e).reshape(n, -1)
     anchor_ori_b_future = _rot6(R.quat_mul(R.quat_conj(a_q_e), ref_anchor_q)).reshape(n, -1)
 
+    # These two official terms are named ``obj_motion_*_future`` and are not
+    # anchor-frame reference poses.  SUGAR expresses each future reference object pose
+    # relative to the *current simulated object* (observations.py:580 onwards).  Keeping
+    # the old anchor frame here preserves the 890-D shape while silently changing the
+    # released Refiner policy's input semantics.
     ref_o_p = reference["obj_pos"][mid, t_fut]
     ref_o_q = R.normalize(reference["obj_quat"][mid, t_fut])
-    obj_pos_b_future = R.quat_apply_inv(a_q_e, ref_o_p - a_p_e).reshape(n, -1)
-    obj_ori_b_future = _rot6(R.quat_mul(R.quat_conj(a_q_e), ref_o_q)).reshape(n, -1)
+    current_o_p = body_q[:, env.box_body, :3]
+    current_o_q = R.normalize(body_q[:, env.box_body, 3:7])
+    current_o_p_e = current_o_p.unsqueeze(1).expand(n, FUTURE_FRAMES, 3)
+    current_o_q_e = current_o_q.unsqueeze(1).expand(n, FUTURE_FRAMES, 4)
+    obj_pos_b_future = R.quat_apply_inv(
+        current_o_q_e, ref_o_p - current_o_p_e
+    ).reshape(n, -1)
+    obj_ori_b_future = _rot6(
+        R.quat_mul(R.quat_conj(current_o_q_e), ref_o_q)
+    ).reshape(n, -1)
     obj_lin_b_future = R.quat_apply_inv(a_q_e, reference["obj_lin_vel"][mid, t_fut]).reshape(n, -1)
     obj_ang_b_future = R.quat_apply_inv(a_q_e, reference["obj_ang_vel"][mid, t_fut]).reshape(n, -1)
 

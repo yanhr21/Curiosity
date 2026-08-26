@@ -1,9 +1,9 @@
 # Plan 16: Newton Tactile Rewrite — Measured Normal, Friction and Slip
 
-**Status:** integrated into `sugar` on 2026-08-27 for later Newton execution. The current
-demo-following queue remains active and tactile training remains frozen; this plan is the
-retained Newton implementation record, not an authorization boundary. Plan 15 stays as the
-record of the PhysX experiment and its audit.
+**Status:** integrated into `sugar` and under active Newton execution on 2026-08-27. All
+simulation, validation and training run inside the retained H200 Slurm allocation; the login
+node is not a compute path. This plan is an execution record, not an authorization boundary.
+Plan 15 stays as the record of the PhysX experiment and its audit.
 
 Plan 15 在 IsaacLab/PhysX 上得到 null result，随后的完整审计（115 条 findings，见
 `claude_context/findings.md`）确认该 null result 不能作为科学结论：触觉通道本身测不到
@@ -37,7 +37,7 @@ easier tactile sensing.
 | | decision |
 |---|---|
 | **Assets** | Kept. G1 29-DoF, 54 anatomical patches, official CarryBox. |
-| **Teacher** | Kept — `refiner_model10000.pt`, the same artifact training uses today. |
+| **Teacher** | Architecture and initialization kept — the exact official 890-D Refiner and `refiner_model10000.pt`; the released weights failed the Newton open-loop physical gate and are being adapted in Newton with fresh PPO state. |
 | **Warm start** | Kept — the official Tracker checkpoint. |
 | **Reference motion** | Kept — `data/CarryBox`. |
 | **Learning algorithm** | Kept — `BCPPO` (`rsl_rl_bcppo.py`), unmodified. |
@@ -53,9 +53,10 @@ Both roles must survive the port.
 
 ## 3. Where the code lives
 
-`sugar_newton/` in this repo, on branch `2026_8_19_sugar_newton` (branched from `sugar`).
-It **depends on** Newton rather than living inside the Newton fork, and the SUGAR source,
-the frozen teacher and BCPPO are all on the branch to port from.
+`sugar_newton/` in this repo. Development from `2026_8_19_sugar_newton` was compared and
+merged into `sugar` on 2026-08-27. It **depends on** the pinned Newton submodule rather than
+living inside the Newton fork; the SUGAR source, exact official teacher architecture and
+unmodified BCPPO implementation remain available to the port.
 
 The audit's sharpest lesson is `IsaacLab/.../tacsl_sensor/visuotactile_sensor.py:564-608`
 — a *local* modification inside vendored upstream code, indistinguishable from upstream by
@@ -209,8 +210,25 @@ state, or rigid-body state, all of which Newton provides. Port the 16 terms, loa
 checkpoint, run it open-loop, and answer one question: **does the frozen Refiner still lift
 the CarryBox under MuJoCo-Warp?**
 
-If yes, the teacher ports as-is. If no, a teacher is retrained in Newton from the reference
-motion — which is why the motion data matters more than the checkpoint.
+The fixed 20-profile gate answered **no** for the released weights: all 20 profiles remained
+finite, but only `1/20` lifted the box by at least 5 cm and `0/20` strictly completed; mean
+peak lift was `0.01125 m`. The exact official architecture and checkpoint initialization are
+therefore retained, while the acting teacher is adapted in Newton from the 100 CarryBox
+reference motions with fresh optimizer and iteration state. No Tracker training is admitted
+until the adapted teacher passes a frozen physical gate. The first transfer attempt exposed
+two Newton reset/capacity defects: per-world `njmax=2048` overflowed and q/qd-only reset left
+MuJoCo-Warp warm-start buffers contaminated after divergence. The corrected path uses 8192
+constraints per world and Newton's official masked `SolverMuJoCo.reset`. Its fresh 64-update
+run completes 12,288 transitions with one isolated divergence (`0.00814%`) and finite policy
+parameters; this is a training-stability pass only, while the fixed 20-profile deterministic
+physical gate remains the teacher-admission test.
+
+The 64-update frozen gate is stable but not admitted: `1/20` profiles lift at least 5 cm and
+`0/20` strictly complete. The continuous response is broad rather than one-outlier-only:
+`16/20` profiles improve peak lift (median `+0.00786 m`) and `19/20` improve bilateral contact
+(median `+0.02922`). This admits one longer 256-update run started fresh from the same official
+checkpoint. It is not a sweep: if that fixed endpoint still misses the original `16/20` lift
+and strict-completion gates, the objective is rejected and is not extended again.
 
 **Phase 4 — env and learning.** A vec-env implementing the `rsl_rl` VecEnv protocol
 (torch↔warp interop following `newton/_src/solvers/kamino/examples/rl/`), with BCPPO

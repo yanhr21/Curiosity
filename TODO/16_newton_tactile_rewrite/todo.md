@@ -5,8 +5,8 @@ Audit that motivated it: [`claude_context/findings.md`](../../claude_context/fin
 
 Code lives in this repo at `sugar_newton/`. It was developed on
 `2026_8_19_sugar_newton` and integrated into `sugar` on 2026-08-27 after comparison with
-the newer SUGAR/BCPPO code. The current demo-following queue remains active, so this is
-staged for later Newton execution rather than an active tactile-training launch.
+the newer SUGAR/BCPPO code. Newton execution is active on the retained H200 Slurm
+allocation; simulation and training are launched only through its tmux/srun panes.
 Plan 16 §3 — the package *depends on* Newton and never vendors or patches it; `git diff`
 against upstream Newton must stay empty.
 
@@ -267,20 +267,51 @@ against upstream Newton must stay empty.
 - [x] Motion command manager (future frames, anchors) on the ported `data/CarryBox`.
       It matches SUGAR's `data_{motion_id}_{env_id}` → `data_{motion_id}` alignment and
       rejects missing teacher IDs or a length mismatch greater than two frames.
-- [ ] Load `refiner_model10000.pt`, run open-loop. **Gate: does it still lift the box
-      under MuJoCo-Warp?** Record the answer either way.
-- [ ] If it does not: retrain a teacher in Newton from the reference motion. Budget for
-      this — it is the most likely schedule risk after the throughput benchmark.
+- [x] Load `refiner_model10000.pt` and run the fixed 20-profile open-loop gate. The exact
+      checkpoint SHA and `890 -> 512 -> 256 -> 128 -> 29` actor load strictly. All `20/20`
+      rollouts are finite, but only `1/20` lifts at least 5 cm and `0/20` strictly complete;
+      mean peak lift is `0.0112498 m`, mean bilateral-contact fraction is `0.193976`, and
+      failures are 19 object-position plus one end-effector-position termination. Therefore
+      the released weights do **not** port as an acting Newton teacher.
+- [x] Run the first bounded adaptation of the exact official Refiner in Newton from the 100
+      CarryBox reference motions.
+      Seed 171701 uses eight worlds, 64 fresh PPO updates, the official 890-D observation and
+      512/256/128 topology. Initialization audit proves exact source-parameter equality and
+      no optimizer or learning iteration is loaded. Frozen physical evaluation follows the
+      endpoint automatically. The first direct-Isaac-hyperparameter attempt was rejected at
+      update 5 after episode collapse and non-finite states; no checkpoint from it is reused.
+      The investigation found two Newton transfer defects rather than hiding them as policy
+      noise: `njmax=2048` overflowed at 2205 and q/qd reset left MuJoCo-Warp warm-start and
+      applied-force buffers contaminated after divergence. Capacity is now fixed at 8192 per
+      world and every environment reset calls Newton's official masked `SolverMuJoCo.reset`.
+      A zero-optimizer 1536-transition audit then reduced divergence from 437 to three isolated
+      terminations with exact zero parameter change. The subsequent eight-update smoke passed
+      its fixed `0.5%` training-divergence gate at `1/1536`, kept all parameters finite and did
+      not collapse episode length. The formal run started again from the exact source, not from
+      either smoke, and completed all 64 updates / 12,288 transitions. Its exact divergence rate
+      is `1/12288 = 0.00814%`, all policy parameters are finite, actor/critic maximum parameter
+      delta is `0.0110703`, and `TRAINING_RESULT.json` passes. The fixed 20-profile deterministic
+      frozen physical gate on `model_63.pt` remains negative: `20/20` finite and zero divergence,
+      but only `1/20` lifts at least 5 cm and `0/20` strictly complete. Mean peak lift improves
+      from `0.01125` to `0.02836 m` and bilateral contact from `0.19398` to `0.22297`; paired
+      audit finds lift improvement in `16/20` profiles (median `+0.00786 m`) and contact
+      improvement in `19/20` (median `+0.02922`). This is broad learnability, not teacher
+      admission.
+- [ ] Run one predeclared longer fresh adaptation from the same exact source for 256 updates;
+      do not resume `model_63.pt`. It keeps the same official topology, observation, reward and
+      fixed stability settings. Evaluate only against the same frozen 20-profile gate. If it
+      still misses `16/20` lift and `16/20` strict completion, reject this objective and do not
+      run another update-budget extension.
 
 ## E. Phase 4 — env and learning
 
 - [x] Vec-env implementing the `rsl_rl` VecEnv protocol; torch↔warp interop following
       `newton/_src/solvers/kamino/examples/rl/`.
-- [x] Wire `BCPPO` unmodified (`rsl_rl_bcppo.py`). Keep both teacher roles: distillation
-      target *and* acting policy for the episode prefix. An 8-world, 3-iteration smoke
-      passed; this proves execution only. The H200 runtime explicitly loads SUGAR's
-      compatible pure-Python `rsl_rl 3.0.1` while retaining Newton's Python 3.12,
-      Torch/CUDA and unmodified BCPPO implementation.
+- [ ] Wire `BCPPO` unmodified (`rsl_rl_bcppo.py`) with both required teacher roles:
+      distillation target **and acting policy for the episode prefix**. The H200 runtime
+      successfully imports SUGAR's compatible pure-Python `rsl_rl 3.0.1`, and the
+      distillation-only execution path ran, but it did not execute the Refiner as the acting
+      prefix policy. That run is rejected rather than counted as a completed handoff.
 - [x] **Reward contact terms implemented and H200-audited from live resolved forces:**
       - [x] ankles, rubber hands and box are excluded from undesired-contact bodies
             (audit #1)
@@ -294,7 +325,9 @@ against upstream Newton must stay empty.
             hence the official `+5.0` weight contributes `-3.0` as intended.
       - [x] Collision/solver capacity is now one contract: pipeline allocation is
             `num_envs * nconmax`. Before this audit, solver `8192` versus pipeline `2618`
-            made `update_contacts` fail before any contact reward could run.
+            made `update_contacts` fail before any contact reward could run. The later learned
+            contact-rich audit also raised per-world `njmax` from 2048 to 8192 after an observed
+            2205-constraint overflow.
 - [x] **Official Refiner-rollout Tracker data generated and audited on H200.** The
       parameter-exact recovered `refiner_model10000.pt` ran in the official SUGAR
       Refiner-Rollout environment with 1000 worlds. All environments completed; 912
@@ -309,12 +342,15 @@ against upstream Newton must stay empty.
       bodies. `load_clips` now admits only those two explicit layouts, gives student and
       teacher separate body indices, and fails before environment construction on missing,
       misaligned, nonnumeric or non-finite clip data.
-- [ ] **Formal Newton BCPPO is active on H200 job 262332.** Seed 0, eight worlds, all 912
-      admitted clips, 30,001 iterations, official raw CarryBox teacher data, TensorBoard
-      logging and no resume from the raw-motion smoke. Iteration 0 completed 192 real
-      transitions with reward `32.08`, distill weight `1.0`, all four contact terms live
-      and zero divergences. Continue monitoring checkpoints and strict physical outcomes;
-      an execution/training start is not a transfer-success claim.
+- [x] **Reject and stop the first formal Newton BCPPO attempt.** Although it used eight
+      worlds, all 912 admitted clips and the official distillation target, Newton executed
+      student actions from the first frame; the Refiner was never the acting prefix policy.
+      It was stopped at iteration 12, is invalid for the handoff contract and must never be
+      resumed or reported as Tracker progress.
+- [ ] After a Newton-adapted Refiner passes the frozen lift gate, implement the physical
+      acting-teacher prefix and automatic handoff (minimum 5 cm lift stable for 10 frames),
+      mask prefix transitions out of PPO, and start the faithful Tracker BCPPO run from
+      scratch.
 - [ ] Port the mass-jump event (the one part of Plan 15 the audit found sound: written at
       the action boundary, inertia scaled by exactly `target/default`, both values read
       back).

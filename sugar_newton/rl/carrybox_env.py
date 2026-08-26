@@ -266,12 +266,13 @@ class CarryBoxEnv:
                  box: str = "small", mu: float = 1.0, ke: float = 1.0e4,
                  kd: float = 3.2e2, substeps: int = 4, episode_length: int = 300,
                  device: str = "cuda:0", seed: int = 0,
-                 njmax: int = 2048, nconmax: int = 8192,
+                 njmax: int = 8192, nconmax: int = 8192,
                  auto_reset: bool = True):
         self.num_envs = num_envs
         self.substeps = substeps
         self.episode_length = episode_length
         self.device = torch.device(device)
+        self.njmax, self.nconmax = int(njmax), int(nconmax)
         self.gen = torch.Generator(device=self.device).manual_seed(seed)
         self.auto_reset = auto_reset
         self.motion_root = Path(motion_root).resolve()
@@ -354,7 +355,11 @@ class CarryBoxEnv:
         # the hand-box grip generates up to 6524 contacts per world, so MJWarp silently
         # drops everything above the limit ("Number of Newton contacts (6524) exceeded
         # MJWarp limit (1024)", 489 times in one short benchmark) and the simulation is
-        # simply wrong wherever it matters most. Measured peaks: 6524 contacts, njmax 570.
+        # simply wrong wherever it matters most. The initial contact audit measured 6524
+        # contacts and njmax 570, but the first serious Refiner adaptation reached njmax
+        # 2205 under learned contact-rich actions and overflowed the old 2048 allocation.
+        # Use a fixed 8192-per-world constraint capacity, matching the already-audited
+        # contact capacity, rather than treating solver truncation as policy divergence.
         # These defaults carry headroom over both.
         self.solver = newton.solvers.SolverMuJoCo(
             self.model, solver="newton", integrator="implicitfast",
@@ -496,6 +501,18 @@ class CarryBoxEnv:
         if env_ids.numel() == 0:
             return
         n = env_ids.numel()
+        # Resetting q/qd alone is insufficient for SolverMuJoCo: acceleration
+        # warm-start and applied-force buffers survive across steps and a non-finite
+        # solve then poisons the replacement episode.  Use Newton's official masked
+        # reset with flags=0 to clear only those solver-internal buffers; the exact
+        # reference q/qd are written below.
+        world_mask = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        world_mask[env_ids] = True
+        self.solver.reset(
+            self.state_0,
+            world_mask=wp.from_torch(world_mask),
+            flags=0,
+        )
         if motion_ids is None:
             selected = torch.randint(0, self.num_motions, (n,), device=self.device,
                                      generator=self.gen)
@@ -627,7 +644,11 @@ class CarryBoxEnv:
         # nan_to_num alone is not enough and the flagged envs are zeroed outright.
         reward = torch.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0)
         reward = torch.where(self.diverged, torch.zeros_like(reward), reward)
-        self.extras = {"reward_terms": terms, "timeout": timeout}
+        self.extras = {
+            "reward_terms": terms,
+            "timeout": timeout,
+            "termination_terms": self.termination_terms,
+        }
         obs = self.observe()
         reset_ids = done.nonzero(as_tuple=False).flatten()
         if self.auto_reset and reset_ids.numel():
@@ -672,6 +693,15 @@ class CarryBoxEnv:
 
         timeout = ((self.t - self.start) >= self.episode_length) | \
                   (self.t >= self.ref["length"][self.motion_id] - 1)
+        self.termination_terms = {
+            "anchor_ori": bad_ori,
+            "anchor_pos": bad_anchor,
+            "ee_pos": bad_ee,
+            "obj_pos": bad_obj,
+            "obj_ori": bad_obj_ori,
+            "diverged": diverged,
+            "timeout": timeout,
+        }
         fail = bad_ori | bad_anchor | bad_ee | bad_obj | bad_obj_ori | diverged
         return fail | timeout, timeout
 
