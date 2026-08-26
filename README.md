@@ -8,6 +8,12 @@ IsaacLab/PhysX；Newton 只作为 asset 来源，不作为执行后端。
 
 ### Demo following：可执行双技能路由成立，任意 demo following 尚未成立
 
+截至 2026-08-26，scalar TinyMDM reward、feed-forward composer 和 causal temporal composer
+三条连续 selected-demo 控制路线均已完成严格冻结对照，但都没有取得可重复的物理安全增益。
+最新 temporal controller 是六层、384-D、八头 Transformer，读取过去 `10 x 584` 在线记录；
+完整九个 handoff prefix、180 profiles 上 learned/exact-pre 为 `169/170` safe、`7/7` fall。
+它证明 demo condition 确实改变在线动作和箱体位移，但没有证明更安全的 demo following。
+
 最新实验保留 released CarryBox/KickBox 两个 official Tracker actor 的完整参数和
 `510-D -> 512/256/128 -> 29-D` 闭环结构，只训练读取冻结 predictor `798-D` causal
 selected-demo condition 的 router。审计确认官方 Carry/Kick 推理环境除 SMALLBOX/BIGBOX
@@ -212,7 +218,12 @@ checkpoint 与各自 disjoint evaluation seed 一一对应，learned/pre 的完�
 generalization。后续 dense coverage 保持模型、reward、update64 和 strict metric 不变，以
 `33/41/49/57/65` 训练并测试交错的 `37/45/53/61`，结果仍为负；再合并 seen-prefix 审计后，
 完整 `33..65` 九点网格 safe 为 `164/164`，learned fall 为 `9`、exact-pre 为 `8`。因此当前
-feed-forward composer 已关闭，下一步是 official MimicKit/TinyMDM representation 接口审计。
+feed-forward composer 已关闭。official MimicKit/TinyMDM 接口审计也已完成：官方模型只公开
+diffusion loss、sampling 和 ESM/SDS energy，没有稳定的 selected-demo latent；CondDiT 的条件是
+Carry/Kick task class，而不是指定 motion。后续六层、384-D、八头 causal temporal controller
+读取过去 `10 x 584` 在线记录并保持 released experts 的 exact endpoint。完整 `33..65` 九点网格
+上 learned/exact-pre 为 `169/170` safe、`7/7` fall，平均箱体净位移仅增加 `0.01781 m`；因此该
+temporal 路线同样没有建立安全增益，禁止继续扫 update、reward、history 或模型规模。
 
 准确结论是：causal demo condition 能可靠选择两个已发布完整技能，并在同一 SMALLBOX
 物理场景中产生可执行的 Carry/Kick 行为分叉；它仍不是任意视频生成新技能，也不是连续技能

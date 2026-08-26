@@ -285,6 +285,21 @@ bash scripts/sugar/demo_following/run_teacher_floor_overfit_pair.sh
 
 It resumes both seed161581 update-64 arms, executes 64 new updates while the common teacher moves
 from `1.0` to `0.25`, then freezes, evaluates and renders. The recorded result is behavioral
-collapse in both arms, not Carry/Kick semantic separation. The automatic next branch is therefore
+collapse in both arms, not Carry/Kick semantic separation. The subsequent historical branch was
 the contact/event reward redesign documented in `PLAN/README.md`; do not repeat this schedule over
 more seeds.
+
+The final causal temporal-composer diagnostic is reproduced inside a retained allocation with:
+
+```bash
+bash scripts/sugar/demo_following/run_dense_prefix_causal_temporal_composition.sh \
+  experiments/demo_following/causal_temporal_composition_dense_prefix_seed171648_v1 cuda:0
+```
+
+It freezes the released Carry/Kick experts and trains a six-layer, 384-D, eight-head Transformer
+over the causal past `10 x 584` transition record. The zero-initialized gate/residual head makes the
+pre-update checkpoint exactly equal to the selected expert. The launcher automatically performs
+interleaved and seen-prefix frozen evaluation, renders paired H.264 videos and combines the complete
+`33..65` grid; there is no human approval state. Seed171648/181666 gives learned/exact-pre
+`169/170` safe kicks and `7/7` falls over 180 profiles, so this topology is closed rather than
+extended with an update, reward, history-length or model-size sweep.

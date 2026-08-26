@@ -28,6 +28,10 @@ COMPOSITION_MEAN_FIELDS = (
     "mean_abs_bounded_residual_action",
     "mean_abs_composed_minus_selected_endpoint_action",
 )
+COMPOSER_TOPOLOGIES = {
+    "causal_action_composition",
+    "causal_temporal_action_composition",
+}
 
 
 def _parse_args() -> argparse.Namespace:
@@ -120,7 +124,7 @@ def main() -> None:
     ]
     action_composition = None
     composition_checks: dict[str, object] = {}
-    if expected_policy_topology == "causal_action_composition":
+    if expected_policy_topology in COMPOSER_TOPOLOGIES:
         per_seed_composition = []
         for record in records:
             contexts = record.get("contexts", [])

@@ -49,7 +49,11 @@ parser.add_argument(
 )
 parser.add_argument(
     "--policy-topology",
-    choices=("selected_expert_residual", "causal_action_composition"),
+    choices=(
+        "selected_expert_residual",
+        "causal_action_composition",
+        "causal_temporal_action_composition",
+    ),
     default="selected_expert_residual",
 )
 AppLauncher.add_app_launcher_args(parser)
@@ -59,7 +63,10 @@ if args.num_envs != 20 or args.steps != 250:
 if args.carry_prefix_steps <= 0:
     parser.error("carry prefix must be positive")
 if (
-    args.policy_topology == "causal_action_composition"
+    args.policy_topology in (
+        "causal_action_composition",
+        "causal_temporal_action_composition",
+    )
     and args.transition_selected_skill_id is None
 ):
     parser.error("causal action composition requires a selected skill")
@@ -98,6 +105,7 @@ from sugar_rl.utils.online_cross_skill_recovery_wrapper import (  # noqa: E402
 )
 from sugar_rl.utils.frozen_expert_transition_actor_critic import (  # noqa: E402
     FrozenExpertCausalActionComposerActorCritic,
+    FrozenExpertCausalTemporalActionComposerActorCritic,
     FrozenExpertTransitionActorCritic,
 )
 
@@ -267,14 +275,23 @@ def main() -> None:
         actor = _load_released_tracker_actor(checkpoint, wrapped.device)
         transition_policy = None
     else:
-        if args.policy_topology == "causal_action_composition":
-            policy_class = FrozenExpertCausalActionComposerActorCritic
+        if args.policy_topology in (
+            "causal_action_composition",
+            "causal_temporal_action_composition",
+        ):
+            policy_class = (
+                FrozenExpertCausalTemporalActionComposerActorCritic
+                if args.policy_topology == "causal_temporal_action_composition"
+                else FrozenExpertCausalActionComposerActorCritic
+            )
             policy_observation_groups = [
                 "policy",
                 "carry_skill_command",
                 "kick_skill_command",
                 "selected_skill_id",
             ]
+            if args.policy_topology == "causal_temporal_action_composition":
+                policy_observation_groups.append("transition_history")
         else:
             policy_class = FrozenExpertTransitionActorCritic
             policy_observation_groups = [
@@ -286,7 +303,15 @@ def main() -> None:
             observations,
             {
                 "policy": policy_observation_groups,
-                "critic": ["critic", *policy_observation_groups[1:]],
+                "critic": [
+                    "critic",
+                    *(
+                        policy_observation_groups[1:-1]
+                        if args.policy_topology
+                        == "causal_temporal_action_composition"
+                        else policy_observation_groups[1:]
+                    ),
+                ],
                 "teacher": ["teacher"],
             },
             29,
@@ -313,7 +338,10 @@ def main() -> None:
         "object_root_state_w": base.scene["obj"].data.root_state_w.detach().cpu().numpy().copy(),
         "policy_observation": observations["policy"].detach().cpu().numpy().copy(),
     }
-    if args.policy_topology == "causal_action_composition":
+    if args.policy_topology in (
+        "causal_action_composition",
+        "causal_temporal_action_composition",
+    ):
         initial.update(
             {
                 name: observations[name].detach().cpu().numpy().copy()
@@ -324,6 +352,10 @@ def main() -> None:
                 )
             }
         )
+        if args.policy_topology == "causal_temporal_action_composition":
+            initial["transition_history"] = (
+                observations["transition_history"].detach().cpu().numpy().copy()
+            )
     records: dict[str, list[np.ndarray]] = {
         "robot_root_state_w": [],
         "robot_body_position_w": [],
@@ -340,7 +372,10 @@ def main() -> None:
         "reward": [],
         "done": [],
     }
-    if args.policy_topology == "causal_action_composition":
+    if args.policy_topology in (
+        "causal_action_composition",
+        "causal_temporal_action_composition",
+    ):
         for name in (
             "carry_skill_command",
             "kick_skill_command",
@@ -362,7 +397,11 @@ def main() -> None:
                 else transition_policy.act_inference(observations)
             )
             if isinstance(
-                transition_policy, FrozenExpertCausalActionComposerActorCritic
+                transition_policy,
+                (
+                    FrozenExpertCausalActionComposerActorCritic,
+                    FrozenExpertCausalTemporalActionComposerActorCritic,
+                ),
             ):
                 for name in (
                     "carry_skill_command",
@@ -531,7 +570,10 @@ def main() -> None:
                 ),
                 "future_or_outcome_labels_used": False,
             }
-            if args.policy_topology == "causal_action_composition"
+            if args.policy_topology in (
+                "causal_action_composition",
+                "causal_temporal_action_composition",
+            )
             else None
         ),
         "checks": {
@@ -540,14 +582,22 @@ def main() -> None:
             "checkpoint_actor_contract_valid": True,
             "online_prefix_has_no_teleport_or_replay": True,
             "composition_weight_in_unit_interval": bool(
-                args.policy_topology != "causal_action_composition"
+                args.policy_topology
+                not in (
+                    "causal_action_composition",
+                    "causal_temporal_action_composition",
+                )
                 or (
                     np.min(arrays["kick_composition_weight"]) >= 0.0
                     and np.max(arrays["kick_composition_weight"]) <= 1.0
                 )
             ),
             "composition_terms_match_deployed_action": bool(
-                args.policy_topology != "causal_action_composition"
+                args.policy_topology
+                not in (
+                    "causal_action_composition",
+                    "causal_temporal_action_composition",
+                )
                 or np.array_equal(arrays["action"], arrays["composed_action"])
             ),
             "feature_complete_for_official_tinymdm": all(

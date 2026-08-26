@@ -569,11 +569,38 @@ while interleaved conditions regress. Across the combined every-four-frame grid
 `165/164`, but that extra Kick overlaps a fall and is not a safe gain. This closes the current
 feed-forward composer rather than motivating more update, reward or prefix-density sweeps.
 
-Before another policy run, audit the official MimicKit/TinyMDM implementation for a documented,
-stable selected-demo representation that can measure causal trajectory deviation. Reuse official
-code/checkpoints and add only adapters. If the released interface exposes only conditional energy
-and no faithful motion latent, record that boundary and do not invent a local SMP replacement. A
-new matched controller topology may be specified only from that source-grounded result.
+The official MimicKit/TinyMDM representation audit is complete. At pinned official commit
+`2ed1e6c`, `TinyMDMModel` exposes normalization, diffusion training loss, `sample`, `sample_ema`
+and `ESM_SDS_loss`. Its DiT/CondDiT `forward` returns only the denoising prediction; there is no
+released `encode`, `get_latent`, feature-return or metric-learning interface. Intermediate tokens
+depend on the noised input, sampled noise, diffusion timestep and, for CondDiT, the class label, so
+they are not a documented stable motion embedding. The official `SMPAgent` consumes only normalized
+ESM/SDS losses and their exponential reward; GSI consumes generated samples.
+
+The admitted shared conditional checkpoint confirms the same boundary experimentally. It is one
+2.837M-parameter CondDiT with a shared normalizer and only two conditions, `Carry=0` and `Kick=1`.
+It reaches `19/19` motion-level classification on disjoint test motions, proving a task-level prior,
+not selected-clip identity. On actual recovery trajectories it prefers the Carry condition in every
+profile and the online scalar reward variants do not produce a seed-robust physical advantage.
+Conversely, the old single-clip checkpoints prefer their exact training clip but fail the held-out
+same-task extension gate. Therefore selected-demo deviation in an official SMP latent is not
+implemented and cannot be added faithfully from the released TinyMDM interface.
+
+The resulting causal temporal transition controller is now complete. It retains the released
+Carry/Kick endpoints, adds a six-layer, 384-D, eight-head Transformer over the past `10 x 584`
+deployed transition record, and initializes its 30-D gate/residual output exactly to zero. Thus
+`model_pre_update.pt` is exactly the selected released expert; future state and outcome labels do
+not enter the actor. Seed171648 trains the same five seen prefixes `33/41/49/57/65` for 64 updates,
+and seed181666 freezes learned versus exact pre-update on both the four interleaved prefixes and the
+five seen prefixes.
+
+The interleaved result ties at `77/77` safe and `3/3` falls. The seen result is `92/93` safe and
+`4/4` falls. Across the complete nine-prefix, 180-profile grid, learned/exact-pre is therefore
+`169/170` safe and `7/7` falls. Weighted mean box net displacement changes by `+0.01781 m`, but the
+strict physical safety criterion is false. This closes the temporal controller together with the
+scalar-reward and feed-forward-composer families; do not convert the negative result into an update,
+reward, history-length or model-size sweep. Official TinyMDM ESM/SDS remains an auxiliary signal,
+not an actor latent and not evidence of selected-demo following.
 
 The new frozen evaluator uses `foot_contact_coupled_planar_motion_v1`, not the historical loose
 any-contact label. Success requires `>=0.05 m` net planar displacement, `>=0.01 m` planar path on

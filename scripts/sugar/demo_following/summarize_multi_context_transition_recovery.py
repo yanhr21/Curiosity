@@ -30,6 +30,10 @@ INITIAL_KEYS = (
     "initial_policy_observation",
 )
 MINIMUM_MEAN_COMPOSITION_DEVIATION = 1.0e-4
+COMPOSER_TOPOLOGIES = {
+    "causal_action_composition",
+    "causal_temporal_action_composition",
+}
 
 
 def _parse_args() -> argparse.Namespace:
@@ -58,7 +62,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--expected-policy-topology",
-        choices=("selected_expert_residual", "causal_action_composition"),
+        choices=("selected_expert_residual", *sorted(COMPOSER_TOPOLOGIES)),
         default="selected_expert_residual",
     )
     parser.add_argument("--output", type=Path, required=True)
@@ -74,7 +78,7 @@ def _evaluation(
     )
     valid_protocols = (
         {"sugar_cross_skill_recovery_frozen_eval_v4"}
-        if policy_topology == "causal_action_composition"
+        if policy_topology in COMPOSER_TOPOLOGIES
         else {
             "sugar_cross_skill_recovery_frozen_eval_v3",
             "sugar_cross_skill_recovery_frozen_eval_v4",
@@ -89,7 +93,7 @@ def _evaluation(
         or result.get("prefix", {}).get("carry_steps") != prefix
     ):
         raise RuntimeError(f"invalid prefix{prefix} Kick evaluation: {path}")
-    if policy_topology == "causal_action_composition":
+    if policy_topology in COMPOSER_TOPOLOGIES:
         contract = result.get("kick_success_contract", {})
         if contract != {
             "name": "foot_contact_coupled_planar_motion_v1",
@@ -124,12 +128,14 @@ def _comparison(
     learned_trace = np.load(learned_path.parent / "trace.npz")
     pre_trace = np.load(pre_path.parent / "trace.npz")
     initial_keys = INITIAL_KEYS
-    if policy_topology == "causal_action_composition":
+    if policy_topology in COMPOSER_TOPOLOGIES:
         initial_keys += (
             "initial_carry_skill_command",
             "initial_kick_skill_command",
             "initial_selected_skill_id",
         )
+        if policy_topology == "causal_temporal_action_composition":
+            initial_keys += ("initial_transition_history",)
     if not all(
         np.array_equal(learned_trace[key], pre_trace[key]) for key in initial_keys
     ):
@@ -192,7 +198,7 @@ def _comparison(
                     - pre_row["maximum_robot_root_height_loss_m"]
                 ),
             }
-            if policy_topology == "causal_action_composition":
+            if policy_topology in COMPOSER_TOPOLOGIES:
                 learned_root = learned_trace["robot_root_state_w"][:, profile]
                 initial_root_height = float(
                     learned_trace["initial_robot_root_state_w"][profile, 2]
@@ -270,7 +276,7 @@ def _comparison(
         "outcome_transition_counts": transition_counts,
         "outcome_changes": outcome_changes,
     }
-    if policy_topology == "causal_action_composition":
+    if policy_topology in COMPOSER_TOPOLOGIES:
         learned_composition = learned.get("action_composition")
         pre_composition = pre.get("action_composition")
         if (
@@ -406,7 +412,7 @@ def main() -> None:
         or training_audit.get("transition_selected_skill_counts") != [32, 32]
     ):
         raise RuntimeError("multi-context online training audit failed")
-    if args.expected_policy_topology == "causal_action_composition" and (
+    if args.expected_policy_topology in COMPOSER_TOPOLOGIES and (
         training_audit.get("transition_selected_skill_assignment")
         != "env_parity_swapped_each_episode"
         or min(
@@ -462,7 +468,7 @@ def main() -> None:
         )
     )
     composition_used = bool(
-        args.expected_policy_topology != "causal_action_composition"
+        args.expected_policy_topology not in COMPOSER_TOPOLOGIES
         or any(
             record.get("learned_composition_weight_changes_online") is True
             for record in records
@@ -485,7 +491,7 @@ def main() -> None:
         ),
         "aggregate_kick_safety_improvement": aggregate_safety_improvement,
     }
-    if args.expected_policy_topology == "causal_action_composition":
+    if args.expected_policy_topology in COMPOSER_TOPOLOGIES:
         checks.update(
             {
                 "pre_update_exact_selected_action_composition": True,

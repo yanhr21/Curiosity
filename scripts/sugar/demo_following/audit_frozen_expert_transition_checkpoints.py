@@ -68,12 +68,21 @@ def main() -> None:
                     float(torch.abs(pre[key] - value).max()),
                     float(torch.abs(post[key] - value).max()),
                 )
-        if any(name.startswith("actor.composer.") for name in pre):
+        if any(name.startswith("actor.temporal_composer.") for name in pre):
+            policy_topology = "causal_temporal_action_composition"
+            trainable_prefix = "actor.temporal_composer."
+            output_weight = f"{trainable_prefix}output.6.weight"
+            output_bias = f"{trainable_prefix}output.6.bias"
+        elif any(name.startswith("actor.composer.") for name in pre):
             policy_topology = "causal_action_composition"
             trainable_prefix = "actor.composer."
+            output_weight = f"{trainable_prefix}6.weight"
+            output_bias = f"{trainable_prefix}6.bias"
         elif any(name.startswith("actor.residual.") for name in pre):
             policy_topology = "selected_expert_residual"
             trainable_prefix = "actor.residual."
+            output_weight = f"{trainable_prefix}6.weight"
+            output_bias = f"{trainable_prefix}6.bias"
         else:
             raise RuntimeError(f"unknown transition topology in {checkpoint_root}")
         trainable_keys = [name for name in pre if name.startswith(trainable_prefix)]
@@ -81,8 +90,6 @@ def main() -> None:
             float(torch.abs(post[name] - pre[name]).max())
             for name in trainable_keys
         )
-        output_weight = f"{trainable_prefix}6.weight"
-        output_bias = f"{trainable_prefix}6.bias"
         output_zero = bool(
             torch.count_nonzero(pre[output_weight]) == 0
             and torch.count_nonzero(pre[output_bias]) == 0

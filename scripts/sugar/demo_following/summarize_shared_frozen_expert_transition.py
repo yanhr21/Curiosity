@@ -9,6 +9,10 @@ from pathlib import Path
 
 import numpy as np
 
+COMPOSER_TOPOLOGIES = {
+    "causal_action_composition",
+    "causal_temporal_action_composition",
+}
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--kick", type=Path, required=True)
@@ -21,7 +25,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--expected-policy-topology",
-    choices=("selected_expert_residual", "causal_action_composition"),
+    choices=("selected_expert_residual", *sorted(COMPOSER_TOPOLOGIES)),
     default="selected_expert_residual",
 )
 parser.add_argument("--output", type=Path, required=True)
@@ -35,7 +39,7 @@ def _evaluation(path: Path, skill_id: int) -> dict[str, object]:
     )
     valid_protocols = (
         {"sugar_cross_skill_recovery_frozen_eval_v4"}
-        if args.expected_policy_topology == "causal_action_composition"
+        if args.expected_policy_topology in COMPOSER_TOPOLOGIES
         else {
             "sugar_cross_skill_recovery_frozen_eval_v3",
             "sugar_cross_skill_recovery_frozen_eval_v4",
@@ -49,7 +53,7 @@ def _evaluation(path: Path, skill_id: int) -> dict[str, object]:
         or recorded_topology != args.expected_policy_topology
     ):
         raise RuntimeError(f"invalid shared transition evaluation: {path}")
-    if args.expected_policy_topology == "causal_action_composition":
+    if args.expected_policy_topology in COMPOSER_TOPOLOGIES:
         contract = result.get("kick_success_contract", {})
         if (
             contract.get("name") != "foot_contact_coupled_planar_motion_v1"
@@ -84,7 +88,7 @@ def main() -> None:
         ) != args.expected_policy_topology
     ):
         raise RuntimeError("shared transition training/checkpoint audit failed")
-    if args.expected_policy_topology == "causal_action_composition" and (
+    if args.expected_policy_topology in COMPOSER_TOPOLOGIES and (
         training_audit.get("transition_selected_skill_assignment")
         != "env_parity_swapped_each_episode"
         or min(
@@ -161,7 +165,7 @@ def main() -> None:
     )
     action_composition = None
     composition_checks: dict[str, object] = {}
-    if args.expected_policy_topology == "causal_action_composition":
+    if args.expected_policy_topology in COMPOSER_TOPOLOGIES:
         command_keys = (
             "initial_carry_skill_command",
             "initial_kick_skill_command",
@@ -171,6 +175,17 @@ def main() -> None:
             for key in command_keys
         ):
             raise RuntimeError("condition-swap initial causal commands differ")
+        if args.expected_policy_topology == "causal_temporal_action_composition":
+            kick_history = kick_trace["initial_transition_history"].reshape(
+                kick_trace["initial_transition_history"].shape[0], 10, 584
+            )
+            carry_history = carry_trace["initial_transition_history"].reshape(
+                carry_trace["initial_transition_history"].shape[0], 10, 584
+            )
+            if not np.array_equal(
+                kick_history[:, :, :-2], carry_history[:, :, :-2]
+            ):
+                raise RuntimeError("condition-swap initial temporal state differs")
         kick_skill = kick_trace["initial_selected_skill_id"]
         carry_skill = carry_trace["initial_selected_skill_id"]
         expected_kick = np.broadcast_to(

@@ -45,7 +45,11 @@ parser.add_argument(
 )
 parser.add_argument(
     "--policy-topology",
-    choices=("selected_expert_residual", "causal_action_composition"),
+    choices=(
+        "selected_expert_residual",
+        "causal_action_composition",
+        "causal_temporal_action_composition",
+    ),
     default="selected_expert_residual",
 )
 parser.add_argument("--profile-index", type=int, default=0)
@@ -59,7 +63,10 @@ if args.profile_index < 0:
 if args.num_profiles is not None and args.num_profiles <= args.profile_index:
     parser.error("num profiles must include the selected profile index")
 if (
-    args.policy_topology == "causal_action_composition"
+    args.policy_topology in (
+        "causal_action_composition",
+        "causal_temporal_action_composition",
+    )
     and args.transition_selected_skill_id is None
 ):
     parser.error("causal action composition requires a selected skill")
@@ -87,6 +94,7 @@ from sugar_rl.utils.online_cross_skill_recovery_wrapper import (  # noqa: E402
 )
 from sugar_rl.utils.frozen_expert_transition_actor_critic import (  # noqa: E402
     FrozenExpertCausalActionComposerActorCritic,
+    FrozenExpertCausalTemporalActionComposerActorCritic,
     FrozenExpertTransitionActorCritic,
 )
 
@@ -288,14 +296,23 @@ def main() -> None:
         transition_policy = None
     else:
         payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
-        if args.policy_topology == "causal_action_composition":
-            policy_class = FrozenExpertCausalActionComposerActorCritic
+        if args.policy_topology in (
+            "causal_action_composition",
+            "causal_temporal_action_composition",
+        ):
+            policy_class = (
+                FrozenExpertCausalTemporalActionComposerActorCritic
+                if args.policy_topology == "causal_temporal_action_composition"
+                else FrozenExpertCausalActionComposerActorCritic
+            )
             policy_observation_groups = [
                 "policy",
                 "carry_skill_command",
                 "kick_skill_command",
                 "selected_skill_id",
             ]
+            if args.policy_topology == "causal_temporal_action_composition":
+                policy_observation_groups.append("transition_history")
         else:
             policy_class = FrozenExpertTransitionActorCritic
             policy_observation_groups = [
@@ -307,7 +324,15 @@ def main() -> None:
             observations,
             {
                 "policy": policy_observation_groups,
-                "critic": ["critic", *policy_observation_groups[1:]],
+                "critic": [
+                    "critic",
+                    *(
+                        policy_observation_groups[1:-1]
+                        if args.policy_topology
+                        == "causal_temporal_action_composition"
+                        else policy_observation_groups[1:]
+                    ),
+                ],
                 "teacher": ["teacher"],
             },
             29,
@@ -328,7 +353,10 @@ def main() -> None:
             for step in range(args.steps):
                 if isinstance(
                     transition_policy,
-                    FrozenExpertCausalActionComposerActorCritic,
+                    (
+                        FrozenExpertCausalActionComposerActorCritic,
+                        FrozenExpertCausalTemporalActionComposerActorCritic,
+                    ),
                 ):
                     composition_terms = (
                         transition_policy.composition_audit_terms(observations)

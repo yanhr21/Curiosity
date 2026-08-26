@@ -143,3 +143,41 @@ class CrossSkillCausalActionComposerRunnerCfg(CrossSkillRecoveryRunnerCfg):
         if not self.policy.kick_tracker_checkpoint:
             raise RuntimeError("action composer requires official Kick Tracker")
         self.algorithm.teacher_ckpt = None
+
+
+@configclass
+class FrozenExpertCausalTemporalActionComposerActorCriticCfg(
+    FrozenExpertTransitionActorCriticCfg
+):
+    class_name: str = "FrozenExpertCausalTemporalActionComposerActorCritic"
+
+
+@configclass
+class CrossSkillCausalTemporalActionComposerRunnerCfg(
+    CrossSkillCausalActionComposerRunnerCfg
+):
+    """Exact frozen endpoints with a serious past-only temporal composer."""
+
+    experiment_name = "sugar_frozen_expert_causal_temporal_action_composer"
+    policy = FrozenExpertCausalTemporalActionComposerActorCriticCfg(
+        init_noise_std=0.05,
+        actor_hidden_dims=[512, 256, 128],
+        critic_hidden_dims=[512, 256, 128],
+        activation="elu",
+    )
+    obs_groups = {
+        "policy": [
+            "policy",
+            "carry_skill_command",
+            "kick_skill_command",
+            "selected_skill_id",
+            "transition_history",
+        ],
+        "critic": [
+            "critic",
+            "carry_skill_command",
+            "kick_skill_command",
+            "selected_skill_id",
+        ],
+        "teacher": ["teacher"],
+    }

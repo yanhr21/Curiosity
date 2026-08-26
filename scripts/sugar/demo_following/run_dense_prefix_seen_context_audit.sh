@@ -10,8 +10,18 @@ DEVICE="${3:-cuda:0}"
 PYTHON_BIN="${PYTHON_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python}"
 FFMPEG_BIN="${FFMPEG_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/lib/python3.11/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux-x86_64-v7.0.2}"
 PREFIXES=(33 41 49 57 65)
-TRAIN_SEED=171646
-EVAL_SEED=181662
+TRAIN_SEED="${SEEN_AUDIT_TRAIN_SEED_OVERRIDE:-171646}"
+EVAL_SEED="${SEEN_AUDIT_EVAL_SEED_OVERRIDE:-181662}"
+POLICY_TOPOLOGY="${SEEN_AUDIT_POLICY_TOPOLOGY_OVERRIDE:-causal_action_composition}"
+HOLD_AFTER_AUDIT="${SEEN_AUDIT_HOLD_AFTER_OVERRIDE:-1}"
+case "$POLICY_TOPOLOGY" in
+    causal_action_composition|causal_temporal_action_composition) ;;
+    *) echo "invalid seen-audit policy topology: $POLICY_TOPOLOGY" >&2; exit 2 ;;
+esac
+if [[ "$HOLD_AFTER_AUDIT" != "0" && "$HOLD_AFTER_AUDIT" != "1" ]]; then
+    echo "SEEN_AUDIT_HOLD_AFTER_OVERRIDE must be 0 or 1" >&2
+    exit 2
+fi
 
 if [[ -z "${SLURM_JOB_ID:-}" || -z "${SLURM_STEP_ID:-}" ]]; then
     echo "seen-context audit requires a retained GPU compute step" >&2
@@ -61,7 +71,7 @@ run_pipeline() (
             "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/evaluate_cross_skill_recovery.py" \
                 --checkpoint "$checkpoint" --output-dir "$result_dir" \
                 --transition-selected-skill-id 1 --carry-prefix-steps "$prefix" \
-                --policy-topology causal_action_composition \
+                --policy-topology "$POLICY_TOPOLOGY" \
                 --num-envs 20 --steps 250 --seed "$EVAL_SEED" --headless --device "$DEVICE" \
                 --kit_args="--/renderer/enabled=false --/renderer/multiGpu/enabled=false"
         done
@@ -84,7 +94,7 @@ run_pipeline() (
         --expected-schedule 33,41,49,57,65 \
         --expected-evaluation-schedule 33,41,49,57,65 \
         --expected-context-relation seen \
-        --expected-policy-topology causal_action_composition \
+        --expected-policy-topology "$POLICY_TOPOLOGY" \
         --output "$OUTPUT_ROOT/RESULT.json"
 
     # Visualize at most two profiles where learned and exact pre-update physical
@@ -118,7 +128,7 @@ run_pipeline() (
                 --checkpoint "$checkpoint" --output "$video" --label "$label" \
                 --steps 250 --seed "$EVAL_SEED" --carry-prefix-steps "$prefix" \
                 --transition-selected-skill-id 1 \
-                --policy-topology causal_action_composition \
+                --policy-topology "$POLICY_TOPOLOGY" \
                 --profile-index "$profile" --num-profiles 20 \
                 --headless --device "$DEVICE" \
                 --kit_args="--/renderer/multiGpu/enabled=false"
@@ -146,6 +156,10 @@ mkdir -p "$OUTPUT_ROOT"
     printf 'fitted_prefixes=33,41,49,57,65\n'
 } > "$OUTPUT_ROOT/PIPELINE_STATUS.env"
 echo "DENSE_PREFIX_SEEN_CONTEXT_AUDIT_RC=$pipeline_rc output=$OUTPUT_ROOT" >&2
+
+if [[ "$HOLD_AFTER_AUDIT" == "0" ]]; then
+    exit "$pipeline_rc"
+fi
 
 exec "$PYTHON_BIN" -u -c '
 import torch

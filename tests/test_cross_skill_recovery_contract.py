@@ -468,8 +468,8 @@ def test_multi_context_recovery_cycles_online_prefixes_without_actor_leakage() -
         / "scripts/sugar/demo_following/run_dense_prefix_seen_context_audit.sh"
     )
     assert "PREFIXES=(33 41 49 57 65)" in seen_runner
-    assert "TRAIN_SEED=171646" in seen_runner
-    assert "EVAL_SEED=181662" in seen_runner
+    assert "SEEN_AUDIT_TRAIN_SEED_OVERRIDE:-171646" in seen_runner
+    assert "SEEN_AUDIT_EVAL_SEED_OVERRIDE:-181662" in seen_runner
     assert "--expected-context-relation seen" in seen_runner
     assert "policy_training_or_optimizer_updates=0" in seen_runner
     assert "GPU_HOLD_AFTER_DENSE_PREFIX_SEEN_CONTEXT_AUDIT_READY" in seen_runner
@@ -608,8 +608,53 @@ def test_causal_action_composer_is_exact_at_pre_update_and_gate_is_trainable() -
         "summarize_multi_context_transition_recovery.py"
     )
     assert "MINIMUM_MEAN_COMPOSITION_DEVIATION = 1.0e-4" in summary
-    assert 'if args.expected_policy_topology == "causal_action_composition"' in summary
+    assert "COMPOSER_TOPOLOGIES" in summary
+    assert '"causal_temporal_action_composition"' in summary
     assert '"policy_topology", "selected_expert_residual"' in summary
+
+
+def test_causal_temporal_composer_is_past_only_exact_and_automatic() -> None:
+    actor = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/frozen_expert_transition_actor_critic.py"
+    )
+    wrapper = _read(
+        SUGAR
+        / "source/sugar_rl/sugar_rl/utils/online_cross_skill_recovery_wrapper.py"
+    )
+    runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "run_dense_prefix_causal_temporal_composition.sh"
+    )
+    generic_runner = _read(
+        ROOT
+        / "scripts/sugar/demo_following/"
+        "run_multi_context_transition_recovery.sh"
+    )
+    assert "class FrozenExpertCausalTemporalActionComposer" in actor
+    assert "TEMPORAL_HISTORY_STEPS = 10" in actor
+    assert "num_layers=6" in actor
+    assert "TEMPORAL_MODEL_DIM = 384" in actor
+    assert "nn.init.zeros_(final.weight)" in actor
+    assert "temporal history does not end at the deployed current state" in actor
+    assert "TRANSITION_HISTORY_STEPS = 10" in wrapper
+    assert "advanced_once_per_physical_control_step" in wrapper
+    assert '"future_or_outcome_labels_used": False' in wrapper
+    assert "advance_history=True" in wrapper
+    assert "POLICY_TOPOLOGY_OVERRIDE=causal_temporal_action_composition" in runner
+    assert "TRAIN_PREFIXES_CSV_OVERRIDE=33,41,49,57,65" in runner
+    assert "EVAL_PREFIXES_CSV_OVERRIDE=37,45,53,61" in runner
+    assert "GPU_HOLD_AFTER_CAUSAL_TEMPORAL_COMPOSITION_READY" in runner
+    assert "approval" not in runner.lower()
+    assert "confirm" not in runner.lower()
+    assert "RESUME_COMPLETED_TRAINING_OVERRIDE" not in generic_runner
+    assert 'if [[ -e "$OUTPUT_ROOT" ]]' in generic_runner
+    assert "automatically resumable training root" in generic_runner
+    assert "approval" not in generic_runner.lower()
+    train_entrypoint = _read(SUGAR / "scripts/sugar_rl/train.py")
+    assert "FrozenExpertCausalTemporalActionComposerActorCritic" in train_entrypoint
+    assert '"causal_temporal_action_composition"' in train_entrypoint
 
 
 def test_heldout_causal_composition_eval_is_frozen_automatic_and_strict() -> None:

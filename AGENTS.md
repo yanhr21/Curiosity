@@ -426,13 +426,23 @@ advantage. Combining seen and interleaved evaluations into the complete every-fo
 `164 -> 165` only because one additional Kick overlaps a fall. The current feed-forward composer
 is therefore closed for further prefix-density, update, reward or isolated-path sweeps.
 
-The next bounded action is an official MimicKit/TinyMDM representation audit before any new policy
-training. Determine whether the released serious implementation exposes a documented, stable
-selected-demo motion representation suitable for causal trajectory deviation. If it does, connect
-that official representation through adapter code only and define one matched topology test. If it
-does not, record the exact interface blocker; do not call an arbitrary hidden activation an SMP
-latent and do not write a toy substitute.
-For this new topology, Kick success uses frozen-evaluation contract v4: at least `0.05 m` planar
+The official MimicKit/TinyMDM representation audit is complete. Released `TinyMDMModel` exposes
+diffusion training loss, sampling and `ESM_SDS_loss`; it does not expose `encode`, `get_latent` or
+another documented stable motion representation. `CondDiT` conditions on a task class label, not a
+selected demonstration identity. Its intermediate activations depend on noised input, sampled
+noise, diffusion timestep and class conditioning, so they may never be called an SMP latent.
+The scalar TinyMDM reward and feed-forward action-composer families are closed by existing negative
+matched evidence. The serious causal temporal controller is also complete: it freezes the released
+Carry/Kick experts and uses a six-layer, 384-D, eight-head Transformer over the causal past
+`10 x 584` deployed transition record. Its output head is exact-zero before training, so the
+pre-update checkpoint is exactly the selected released expert. Seed171648 trained on prefixes
+`33/41/49/57/65`; frozen seed181666 evaluated the complete every-four-frame `33..65` grid against
+that exact pre-update endpoint. Learned/pre gives `169/170` safe kicks and equal `7/7` falls over
+180 profiles. Mean box displacement increases only `0.01781 m`; that signal use does not constitute
+a physical safety gain. The temporal controller is rejected and must not be extended through an
+update, reward, history-length or model-size sweep. Official TinyMDM energy remains an auxiliary
+audit/target, not an actor latent or proof of selected-demo following.
+For this topology, Kick success uses frozen-evaluation contract v4: at least `0.05 m` planar
 net displacement, `0.01 m` contact-adjacent planar path and `0.03 m` path after first foot contact.
 The old any-foot-contact plus final-displacement count is reported as `legacy_kick_success` only and
 may not support a causal Kick or safety claim.
@@ -533,10 +543,11 @@ to root up-z about `0.191`, recovers and carries.
   over body, box position, box rotation, box velocity, four-limb contact mismatch, event duration
   and motion regime. It reads only the past 10-frame 121-D actor core, the selected numeric demo and
   causal normalized phase. It is not an SMP-latent predictor.
-- The official MimicKit TinyMDM currently provides a shared generic motion prior. Exact
-  single-clip identity passes, but the independent CarryBox96/KickBox22 semantic extension fails.
-  Do not call an arbitrary hidden state an official SMP latent and do not integrate the selected
-  prior into policy before a semantic gate passes.
+- The official MimicKit TinyMDM provides a shared task-level motion prior. Exact single-clip
+  identity passes, while same-task extension fails; the admitted shared conditional model passes
+  motion-disjoint Carry/Kick classification but conditions only on task class. The released API has
+  no stable selected-demo representation. Do not call an arbitrary hidden state an official SMP
+  latent or claim that task-class energy measures deviation from a specified demonstration.
 - A valid policy comparison keeps teacher, initialization, update budget, seeds, reward weights,
   physics and frozen evaluation identical. Only the selected reward demo may differ.
 - The historical reset-zero seed161587 comparison remains invalid because its correct Carry rollout

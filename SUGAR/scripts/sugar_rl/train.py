@@ -157,6 +157,7 @@ from sugar_rl.utils.rsl_rl_bcppo import BCPPO
 from sugar_rl.utils.tactile_actor_critic import TactileActorCritic
 from sugar_rl.utils.frozen_expert_transition_actor_critic import (
     FrozenExpertCausalActionComposerActorCritic,
+    FrozenExpertCausalTemporalActionComposerActorCritic,
     FrozenExpertTransitionActorCritic,
 )
 setattr(builtins, "BCPPO", BCPPO)
@@ -172,6 +173,11 @@ setattr(
     on_policy_runner_module,
     "FrozenExpertCausalActionComposerActorCritic",
     FrozenExpertCausalActionComposerActorCritic,
+)
+setattr(
+    on_policy_runner_module,
+    "FrozenExpertCausalTemporalActionComposerActorCritic",
+    FrozenExpertCausalTemporalActionComposerActorCritic,
 )
 
 import isaaclab_tasks  # noqa: F401
@@ -440,6 +446,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     transition_policy_types = (
         FrozenExpertTransitionActorCritic,
         FrozenExpertCausalActionComposerActorCritic,
+        FrozenExpertCausalTemporalActionComposerActorCritic,
     )
     if isinstance(runner.alg.policy, transition_policy_types):
         if any(checkpoint_modes):
@@ -458,7 +465,12 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                     "official_endpoint_parameters_frozen": True,
                     "transition_trainable_output_zero_initialized": True,
                     "policy_topology": (
-                        "causal_action_composition"
+                        "causal_temporal_action_composition"
+                        if isinstance(
+                            runner.alg.policy,
+                            FrozenExpertCausalTemporalActionComposerActorCritic,
+                        )
+                        else "causal_action_composition"
                         if isinstance(
                             runner.alg.policy,
                             FrozenExpertCausalActionComposerActorCritic,

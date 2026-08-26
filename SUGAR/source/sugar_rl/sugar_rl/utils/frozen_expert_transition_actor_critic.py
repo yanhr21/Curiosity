@@ -31,6 +31,9 @@ DUAL_COMMAND_INPUT_DIM = (
     + 2 * GENERATED_COMMAND_DIM
     + SELECTED_SKILL_DIM
 )
+TEMPORAL_HISTORY_STEPS = 10
+TEMPORAL_MODEL_DIM = 384
+TEMPORAL_ACTOR_INPUT_DIM = DUAL_COMMAND_INPUT_DIM * (1 + TEMPORAL_HISTORY_STEPS)
 
 
 def _released_tracker(
@@ -377,3 +380,177 @@ class FrozenExpertCausalActionComposerActorCritic(ActorCritic):
         """Expose exact deployed terms to camera-free frozen evaluation only."""
 
         return self.actor.composition_terms(self._actor_input(obs))
+
+
+class _CausalTemporalComposerCore(nn.Module):
+    """Six-layer past-only transition model with an exact-zero output head."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.frame_projection = nn.Sequential(
+            nn.Linear(DUAL_COMMAND_INPUT_DIM, TEMPORAL_MODEL_DIM),
+            nn.LayerNorm(TEMPORAL_MODEL_DIM),
+        )
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, TEMPORAL_MODEL_DIM))
+        self.position_embedding = nn.Parameter(
+            torch.zeros(1, TEMPORAL_HISTORY_STEPS + 1, TEMPORAL_MODEL_DIM)
+        )
+        layer = nn.TransformerEncoderLayer(
+            d_model=TEMPORAL_MODEL_DIM,
+            nhead=8,
+            dim_feedforward=4 * TEMPORAL_MODEL_DIM,
+            dropout=0.0,
+            activation="gelu",
+            batch_first=True,
+            norm_first=True,
+        )
+        self.transformer = nn.TransformerEncoder(
+            layer,
+            num_layers=6,
+            norm=nn.LayerNorm(TEMPORAL_MODEL_DIM),
+            enable_nested_tensor=False,
+        )
+        self.output = MLP(
+            TEMPORAL_MODEL_DIM,
+            1 + ACTION_DIM,
+            list(OFFICIAL_HIDDEN_DIMS),
+            "elu",
+        )
+        final = self.output[-1]
+        if not isinstance(final, nn.Linear):
+            raise RuntimeError("temporal composer output layer drift")
+        nn.init.normal_(self.cls_token, mean=0.0, std=0.02)
+        nn.init.normal_(self.position_embedding, mean=0.0, std=0.02)
+        nn.init.zeros_(final.weight)
+        nn.init.zeros_(final.bias)
+
+    def forward(self, history: torch.Tensor) -> torch.Tensor:
+        if history.ndim != 3 or history.shape[1:] != (
+            TEMPORAL_HISTORY_STEPS,
+            DUAL_COMMAND_INPUT_DIM,
+        ):
+            raise RuntimeError(
+                f"causal temporal history drift: {tuple(history.shape)}"
+            )
+        tokens = self.frame_projection(history)
+        cls = self.cls_token.expand(history.shape[0], -1, -1)
+        tokens = torch.cat((cls, tokens), dim=1) + self.position_embedding
+        encoded = self.transformer(tokens)
+        return self.output(encoded[:, 0])
+
+
+class FrozenExpertCausalTemporalActionComposer(
+    FrozenExpertCausalActionComposer
+):
+    """Temporal exact-endpoint composer over an explicit causal 10-frame history."""
+
+    def __init__(
+        self,
+        carry_tracker_checkpoint: str | Path,
+        kick_tracker_checkpoint: str | Path,
+        composer_hidden_dims: Sequence[int] = OFFICIAL_HIDDEN_DIMS,
+        residual_limit: float = 1.0,
+    ) -> None:
+        super().__init__(
+            carry_tracker_checkpoint,
+            kick_tracker_checkpoint,
+            composer_hidden_dims,
+            residual_limit,
+        )
+        del self.composer
+        self.temporal_composer = _CausalTemporalComposerCore()
+
+    @staticmethod
+    def _split_temporal_input(
+        actor_input: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if actor_input.ndim != 2 or actor_input.shape[-1] != TEMPORAL_ACTOR_INPUT_DIM:
+            raise RuntimeError(
+                f"causal temporal actor input drift: {tuple(actor_input.shape)}"
+            )
+        if not torch.isfinite(actor_input).all():
+            raise RuntimeError("causal temporal actor input is non-finite")
+        current = actor_input[:, :DUAL_COMMAND_INPUT_DIM]
+        history = actor_input[:, DUAL_COMMAND_INPUT_DIM:].reshape(
+            actor_input.shape[0], TEMPORAL_HISTORY_STEPS, DUAL_COMMAND_INPUT_DIM
+        )
+        if not torch.equal(history[:, -1], current):
+            raise RuntimeError("temporal history does not end at the deployed current state")
+        return current, history
+
+    def expert_actions(
+        self, actor_input: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        current, _ = self._split_temporal_input(actor_input)
+        return super().expert_actions(current)
+
+    def endpoint_std(self, actor_input: torch.Tensor) -> torch.Tensor:
+        current, _ = self._split_temporal_input(actor_input)
+        return super().endpoint_std(current)
+
+    def _temporal_output(self, actor_input: torch.Tensor) -> torch.Tensor:
+        _, history = self._split_temporal_input(actor_input)
+        return self.temporal_composer(history)
+
+    def kick_weight(self, actor_input: torch.Tensor) -> torch.Tensor:
+        current, _ = self._split_temporal_input(actor_input)
+        _, _, skill, _ = super()._split(current)
+        gate_logit = self._temporal_output(actor_input)[:, :1]
+        return torch.clamp(skill[:, 1:2] - torch.tanh(gate_logit), 0.0, 1.0)
+
+    def composition_terms(
+        self, actor_input: torch.Tensor
+    ) -> dict[str, torch.Tensor]:
+        current, _ = self._split_temporal_input(actor_input)
+        carry_action, kick_action, skill = self.expert_actions(actor_input)
+        composer_output = self._temporal_output(actor_input)
+        kick_weight = torch.clamp(
+            skill[:, 1:2] - torch.tanh(composer_output[:, :1]), 0.0, 1.0
+        )
+        residual = self.residual_limit * torch.tanh(composer_output[:, 1:])
+        selected_endpoint = carry_action * skill[:, :1] + kick_action * skill[:, 1:2]
+        mixed_endpoint = carry_action * (1.0 - kick_weight) + kick_action * kick_weight
+        composed_action = mixed_endpoint + residual
+        return {
+            "kick_weight": kick_weight,
+            "selected_endpoint_action": selected_endpoint,
+            "mixed_endpoint_action": mixed_endpoint,
+            "bounded_residual_action": residual,
+            "composed_action": composed_action,
+            "temporal_history_last_frame": current,
+        }
+
+
+class FrozenExpertCausalTemporalActionComposerActorCritic(
+    FrozenExpertCausalActionComposerActorCritic
+):
+    """RSL-RL policy for exact-endpoint temporal frozen-expert composition."""
+
+    def __init__(
+        self,
+        obs,
+        obs_groups,
+        num_actions,
+        *,
+        carry_tracker_checkpoint: str,
+        kick_tracker_checkpoint: str,
+        transition_residual_limit: float = 1.0,
+        actor_hidden_dims: Sequence[int] = OFFICIAL_HIDDEN_DIMS,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            obs,
+            obs_groups,
+            num_actions,
+            carry_tracker_checkpoint=carry_tracker_checkpoint,
+            kick_tracker_checkpoint=kick_tracker_checkpoint,
+            transition_residual_limit=transition_residual_limit,
+            actor_hidden_dims=actor_hidden_dims,
+            **kwargs,
+        )
+        self.actor = FrozenExpertCausalTemporalActionComposer(
+            carry_tracker_checkpoint,
+            kick_tracker_checkpoint,
+            actor_hidden_dims,
+            transition_residual_limit,
+        ).to(next(self.critic.parameters()).device)

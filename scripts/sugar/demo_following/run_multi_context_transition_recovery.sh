@@ -31,6 +31,10 @@ case "$POLICY_TOPOLOGY" in
         TASK="Sugar-G129dof-KickBox-CausalActionComposition"
         TOPOLOGY_LABEL="Causal action composition"
         ;;
+    causal_temporal_action_composition)
+        TASK="Sugar-G129dof-KickBox-CausalTemporalActionComposition"
+        TOPOLOGY_LABEL="Causal temporal action composition"
+        ;;
     *) echo "Unknown policy topology: $POLICY_TOPOLOGY" >&2; exit 2 ;;
 esac
 validate_prefixes() {
@@ -52,11 +56,22 @@ validate_prefixes() {
 }
 validate_prefixes training "${TRAIN_PREFIXES[@]}"
 validate_prefixes evaluation "${EVAL_PREFIXES[@]}"
+resume_training=0
 if [[ -e "$OUTPUT_ROOT" ]]; then
-    echo "Refusing to overwrite $OUTPUT_ROOT" >&2
-    exit 2
+    if [[ ! -s "$OUTPUT_ROOT/train/model_pre_update.pt" \
+        || ! -s "$OUTPUT_ROOT/train/model_64.pt" \
+        || ! -s "$OUTPUT_ROOT/train/prefix_audit.json" \
+        || ! -s "$OUTPUT_ROOT/CHECKPOINT_AUDIT.json" ]] \
+        || ! jq -e --arg topology "$POLICY_TOPOLOGY" \
+            '.overall_pass == true and .arms.shared.policy_topology == $topology' \
+            "$OUTPUT_ROOT/CHECKPOINT_AUDIT.json" >/dev/null; then
+        echo "Existing output is not a complete automatically resumable training root: $OUTPUT_ROOT" >&2
+        exit 2
+    fi
+    resume_training=1
+else
+    mkdir -p "$OUTPUT_ROOT"
 fi
-mkdir -p "$OUTPUT_ROOT"
 
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPYCACHEPREFIX="/tmp/Curiosity_multi_context_${SLURM_JOB_ID:-local}"
@@ -81,17 +96,28 @@ export SUGAR_CROSS_SKILL_PREFIX_AUDIT="$OUTPUT_ROOT/train/prefix_audit.json"
 unset SUGAR_CONDITIONAL_TINYMDM_REWARD
 
 cd "$ROOT/SUGAR"
-"$PYTHON_BIN" -u scripts/sugar_rl/train.py \
-    --task "$TASK" \
-    --num_envs "$NUM_ENVS" --max_iterations 65 --seed "$TRAIN_SEED" \
-    --log_dir "$OUTPUT_ROOT/train" --headless --device "$DEVICE" \
-    --kit_args="--/renderer/enabled=false --/renderer/multiGpu/enabled=false"
-test -s "$OUTPUT_ROOT/train/model_pre_update.pt"
-test -s "$OUTPUT_ROOT/train/model_64.pt"
-test -s "$OUTPUT_ROOT/train/prefix_audit.json"
+if [[ "$resume_training" -eq 0 ]]; then
+    "$PYTHON_BIN" -u scripts/sugar_rl/train.py \
+        --task "$TASK" \
+        --num_envs "$NUM_ENVS" --max_iterations 65 --seed "$TRAIN_SEED" \
+        --log_dir "$OUTPUT_ROOT/train" --headless --device "$DEVICE" \
+        --kit_args="--/renderer/enabled=false --/renderer/multiGpu/enabled=false"
+    test -s "$OUTPUT_ROOT/train/model_pre_update.pt"
+    test -s "$OUTPUT_ROOT/train/model_64.pt"
+    test -s "$OUTPUT_ROOT/train/prefix_audit.json"
 
-"$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/audit_frozen_expert_transition_checkpoints.py" \
-    --shared-root "$OUTPUT_ROOT" --output "$OUTPUT_ROOT/CHECKPOINT_AUDIT.json"
+    "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/audit_frozen_expert_transition_checkpoints.py" \
+        --shared-root "$OUTPUT_ROOT" --output "$OUTPUT_ROOT/CHECKPOINT_AUDIT.json"
+fi
+
+valid_evaluation() {
+    local result="$1"
+    local trace="${result%/RESULT.json}/trace.npz"
+    [[ -s "$result" && -s "$trace" ]] && jq -e --arg topology "$POLICY_TOPOLOGY" \
+        '.protocol == "sugar_cross_skill_recovery_frozen_eval_v4" and
+         .structurally_valid == true and .policy_topology == $topology' \
+        "$result" >/dev/null
+}
 
 for prefix in "${EVAL_PREFIXES[@]}"; do
     for endpoint in learned pre_update; do
@@ -99,9 +125,14 @@ for prefix in "${EVAL_PREFIXES[@]}"; do
         if [[ "$endpoint" == "pre_update" ]]; then
             checkpoint="$OUTPUT_ROOT/train/model_pre_update.pt"
         fi
+        result_dir="$OUTPUT_ROOT/evaluation/prefix${prefix}/${endpoint}_kick"
+        if valid_evaluation "$result_dir/RESULT.json"; then
+            continue
+        fi
+        rm -rf "$result_dir"
         "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/evaluate_cross_skill_recovery.py" \
             --checkpoint "$checkpoint" \
-            --output-dir "$OUTPUT_ROOT/evaluation/prefix${prefix}/${endpoint}_kick" \
+            --output-dir "$result_dir" \
             --transition-selected-skill-id 1 --carry-prefix-steps "$prefix" \
             --policy-topology "$POLICY_TOPOLOGY" \
             --num-envs 20 --steps 250 --seed "$EVAL_SEED" --headless --device "$DEVICE" \
@@ -109,13 +140,17 @@ for prefix in "${EVAL_PREFIXES[@]}"; do
     done
 done
 
-"$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/evaluate_cross_skill_recovery.py" \
-    --checkpoint "$OUTPUT_ROOT/train/model_64.pt" \
-    --output-dir "$OUTPUT_ROOT/evaluation/prefix${EVAL_PREFIXES[0]}/learned_carry" \
-    --transition-selected-skill-id 0 --carry-prefix-steps "${EVAL_PREFIXES[0]}" \
-    --policy-topology "$POLICY_TOPOLOGY" \
-    --num-envs 20 --steps 250 --seed "$EVAL_SEED" --headless --device "$DEVICE" \
-    --kit_args="--/renderer/enabled=false --/renderer/multiGpu/enabled=false"
+carry_result_dir="$OUTPUT_ROOT/evaluation/prefix${EVAL_PREFIXES[0]}/learned_carry"
+if ! valid_evaluation "$carry_result_dir/RESULT.json"; then
+    rm -rf "$carry_result_dir"
+    "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/evaluate_cross_skill_recovery.py" \
+        --checkpoint "$OUTPUT_ROOT/train/model_64.pt" \
+        --output-dir "$carry_result_dir" \
+        --transition-selected-skill-id 0 --carry-prefix-steps "${EVAL_PREFIXES[0]}" \
+        --policy-topology "$POLICY_TOPOLOGY" \
+        --num-envs 20 --steps 250 --seed "$EVAL_SEED" --headless --device "$DEVICE" \
+        --kit_args="--/renderer/enabled=false --/renderer/multiGpu/enabled=false"
+fi
 
 "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/summarize_shared_frozen_expert_transition.py" \
     --kick "$OUTPUT_ROOT/evaluation/prefix${EVAL_PREFIXES[0]}/learned_kick/RESULT.json" \
@@ -153,6 +188,11 @@ for prefix in "${EVAL_PREFIXES[@]}"; do
             checkpoint="$OUTPUT_ROOT/train/model_pre_update.pt"
             label="Exact pre-update Kick: prefix ${prefix}"
         fi
+        if "$FFMPEG_BIN" -hide_banner -loglevel error \
+            -i "$video_dir/${endpoint}_kick.mp4" -f null - >/dev/null 2>&1; then
+            continue
+        fi
+        rm -f "$video_dir/${endpoint}_kick.mp4"
         "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/render_cross_skill_recovery_world.py" \
             --checkpoint "$checkpoint" --output "$video_dir/${endpoint}_kick.mp4" \
             --label "$label" --steps 250 --seed "$VIDEO_SEED" \

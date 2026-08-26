@@ -1796,9 +1796,45 @@ experiments/demo_following/causal_action_composition_dense_prefix_seed171646_v1_
   videos_camera_seed181662/prefix33_profile17/learned_vs_pre_update.mp4
 ```
 
-下一步先做 official MimicKit/TinyMDM representation audit：只接受 released implementation
-中有明确接口和语义的 selected-demo representation；若只有 conditional energy 而没有稳定 motion
-latent，则记录接口边界，不使用任意 hidden activation 或 toy latent 代替。
+official MimicKit/TinyMDM representation audit 已完成。固定官方 checkout 为 `2ed1e6c`；源码
+`mimickit/learning/tinymdm/tinymdm_model.py` 的公开能力只有 diffusion training loss、`sample`、
+`sample_ema` 和 `ESM_SDS_loss`，`arch.py` 的 DiT/CondDiT `forward` 只返回 denoising prediction。
+官方 `SMPAgent` 也只把 ESM/SDS loss 归一化后指数映射为 reward，GSI 则读取生成 sample；没有
+`encode`、`get_latent` 或稳定 metric representation 接口。
+
+已有 admitted conditional checkpoint 是一个 2,836,864 参数、共享 normalizer 的官方 CondDiT；
+条件严格为 `Carry=0/Kick=1`，不是具体 motion ID 或 selected clip。其 motion-disjoint test 为
+`19/19` task-level 正确，但 recovery traces 的全部 profile 仍偏向 Carry condition。旧 single-clip
+prior 对自身 clip 的 pairwise preference 为 `1.0/1.0`，却未通过 held-out same-task extension。
+因此不能把任意受 diffusion noise、timestep 和 class conditioning 影响的内部 token 称为 SMP
+latent，也不能声称已经实现 selected-demo latent deviation。
+
+causal temporal transition controller 已完成。它冻结 released Carry/Kick experts，用六层、
+384-D、八头 Transformer 读取过去 `10 x 584` deployed transition record；30-D gate/residual head
+在训练前严格为零，因此 `model_pre_update.pt` 等于 selected released expert。未来状态、reward、
+success/fall label 均不进入 actor。全流程在 retained GPU allocation 内自动训练、冻结评估、渲染，
+没有人工 checkpoint admission：
+
+```bash
+bash scripts/sugar/demo_following/run_dense_prefix_causal_temporal_composition.sh \
+  experiments/demo_following/causal_temporal_composition_dense_prefix_seed171648_v1 cuda:0
+```
+
+seed171648 在 `33/41/49/57/65` 训练 64 updates；seed181666 在 seen 五点和 interleaved
+`37/45/53/61` 上各用 20 profiles 对 learned/exact-pre 配对。interleaved 为 `77/77` safe、
+`3/3` fall，seen 为 `92/93` safe、`4/4` fall；完整九点网格为 `169/170` safe、`7/7` fall。
+weighted mean box net displacement 为 `+0.01781 m`，但严格安全判据失败，temporal controller
+不接纳。不得继续做 update、reward、history-length 或 model-size sweep。权威结果和视频入口：
+
+```text
+experiments/demo_following/causal_temporal_composition_dense_prefix_seed171648_v1/RESULT.json
+experiments/demo_following/causal_temporal_composition_dense_prefix_seed171648_v1_complete_grid/RESULT.json
+experiments/demo_following/causal_temporal_composition_dense_prefix_seed171648_v1/videos_seed181667/
+experiments/demo_following/causal_temporal_composition_dense_prefix_seed171648_v1_seen_context_audit/
+  videos_camera_seed181666/prefix33_profile10/learned_vs_pre_update.mp4
+```
+
+TinyMDM ESM/SDS 只作为单独报告的 auxiliary audit/target，不是 actor latent。
 
 ## 6. IsaacLab 在线整手触觉
 

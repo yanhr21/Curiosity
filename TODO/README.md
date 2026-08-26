@@ -229,10 +229,18 @@
   `33/41/49/57/65` with evaluation seed181662 and strict v4 metrics. Learned/pre is `92/91` safe
   and `5/5` falls; only prefix33 profile17 gains a safe outcome. Across the combined nine-prefix
   `33..65` grid, safe ties `164/164` and learned falls worsen `9/8`, closing this composer.
-- [ ] audit the official MimicKit/TinyMDM code and admitted checkpoint for a documented stable
-  selected-demo representation usable as causal motion deviation. Use official interfaces and
-  adapter code only; record an interface blocker instead of substituting a toy or arbitrary hidden
-  activation. Define the next matched topology experiment only after this audit.
+- [x] audit the official MimicKit/TinyMDM code and admitted checkpoint for a documented stable
+  selected-demo representation usable as causal motion deviation. The released API exposes
+  denoising/training loss, sampling and `ESM_SDS_loss`, but no `encode`, `get_latent` or documented
+  stable representation. The admitted conditional checkpoint is Carry/Kick class-conditioned,
+  not selected-clip-conditioned. Arbitrary timestep/noise-dependent hidden activations are rejected.
+- [x] implement one serious causal temporal transition controller over the frozen released
+  Carry/Kick experts. The six-layer, 384-D, eight-head Transformer reads only a causal `10 x 584`
+  deployed history and preserves exact expert endpoints through an exact-zero output head. On the
+  complete `33..65` grid, learned/exact-pre is `169/170` safe with equal `7/7` falls; mean box net
+  displacement rises `0.01781 m`, but the strict physical criterion fails. Close this topology;
+  do not repeat it with longer training, reward, history or model-size sweeps. Official TinyMDM
+  ESM/SDS remains auxiliary and is not a selected-demo latent.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it

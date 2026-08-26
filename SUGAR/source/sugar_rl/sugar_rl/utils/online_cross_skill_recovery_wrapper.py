@@ -30,6 +30,11 @@ from sugar_il.wrapper.sugar_il_wrapper import GeneratorObs, GeneratorWrapper
 TRACKER_OBSERVATION_DIM = 510
 TRACKER_ACTION_DIM = 29
 GENERATED_COMMAND_DIM = 36
+SELECTED_SKILL_DIM = 2
+TRANSITION_INPUT_DIM = (
+    TRACKER_OBSERVATION_DIM + 2 * GENERATED_COMMAND_DIM + SELECTED_SKILL_DIM
+)
+TRANSITION_HISTORY_STEPS = 10
 
 
 def _load_released_tracker_actor(
@@ -288,6 +293,7 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             raise ValueError("transition recovery reward requires a selected skill")
         self.transition_selected_skill_ids = None
         self.transition_selected_skill_exposure = None
+        self.transition_history: torch.Tensor | None = None
         if transition_selected_skill_id is not None:
             if transition_selected_skill_id == -1:
                 self.transition_selected_skill_ids = (
@@ -317,7 +323,9 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         self.max_handoff_observation_abs = 0.0
         self._install_prefix()
 
-    def _augment_transition_observation(self, observations):
+    def _augment_transition_observation(
+        self, observations, *, advance_history: bool = False
+    ):
         if self.transition_selected_skill_id is None:
             return observations
         if self.carry_shadow is None:
@@ -342,6 +350,31 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
         observations["kick_skill_command"] = kick_command
         observations["selected_skill_command"] = selected_command
         observations["selected_skill_id"] = selected_skill
+        current_transition_input = torch.cat(
+            (policy, carry_command, kick_command, selected_skill), dim=-1
+        )
+        if current_transition_input.shape != (
+            self.num_envs,
+            TRANSITION_INPUT_DIM,
+        ):
+            raise RuntimeError("temporal transition input geometry drift")
+        if self.transition_history is None:
+            self.transition_history = current_transition_input[:, None].expand(
+                -1, TRANSITION_HISTORY_STEPS, -1
+            ).clone()
+        elif advance_history:
+            self.transition_history[:, :-1] = self.transition_history[:, 1:].clone()
+            self.transition_history[:, -1] = current_transition_input
+        elif not torch.equal(self.transition_history[:, -1], current_transition_input):
+            raise RuntimeError(
+                "transition history may advance only once per physical control step"
+            )
+        # RSL-RL stores the observation only after stepping the environment.
+        # Return an owned snapshot so the next in-place history shift cannot
+        # mutate the previous actor input before rollout storage copies it.
+        observations["transition_history"] = self.transition_history.reshape(
+            self.num_envs, -1
+        ).clone()
         return observations
 
     def get_observations(self):
@@ -443,6 +476,7 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
                 device=self.base_env.device,
                 dtype=self._transition_handoff_object_xy.dtype,
             )
+        self.transition_history = None
         observations = self._augment_transition_observation(observations)
         self.carry_prefix_install_counts[self.carry_prefix_steps] += 1
         self.prefix_count += 1
@@ -535,6 +569,17 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             ),
             "transition_observation_is_causal": (
                 self.transition_selected_skill_id is not None
+            ),
+            "transition_history": (
+                {
+                    "steps": TRANSITION_HISTORY_STEPS,
+                    "frame_dim": TRANSITION_INPUT_DIM,
+                    "future_or_outcome_labels_used": False,
+                    "advanced_once_per_physical_control_step": True,
+                    "handoff_initialization": "repeat_current_handoff_frame",
+                }
+                if self.transition_selected_skill_id is not None
+                else None
             ),
             "transition_recovery_reward": {
                 "enabled": self.transition_recovery_reward_enabled,
@@ -638,7 +683,9 @@ class OnlineCrossSkillRecoveryVecEnvWrapper(RslRlVecEnvWrapper):
             if self.carry_shadow is None:
                 raise RuntimeError("transition causal Generator state is missing")
             self.carry_shadow.update_after_step(self.command)
-            observations = self._augment_transition_observation(observations)
+            observations = self._augment_transition_observation(
+                observations, advance_history=True
+            )
         if self.conditional_tinymdm_reward is not None:
             if torch.any(dones):
                 conditional_reward = torch.zeros_like(rewards)
