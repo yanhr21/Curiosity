@@ -20,9 +20,10 @@ and without it stages 1-2 have no loss at all.
 Usage::
 
     python -m sugar_newton.rl.train_bcppo \
-        --motion-root SUGAR/outputs/CarryBox_RUN/rollout_datasets/refiner/rl_dataset \
+        --motion-root experiments/sugar_reproduction/outputs/newton_refiner_dataset_20260827/rollout_datasets/refiner/rl_dataset \
         --num-envs 8 --max-iterations 30001 \
         --teacher-ckpt experiments/.../ckpts/refiner_model10000.pt \
+        --rsl-rl-root /path/to/SUGAR-compatible/site-packages/rsl_rl \
         --wandb-project sugar_newton --run-name carrybox_bcppo_$(date +%m%d_%H%M)
 
 The runner writes wandb through rsl_rl's own ``WandbSummaryWriter`` (``logger: wandb``),
@@ -36,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import builtins
+import importlib.util
 import os
 import sys
 from pathlib import Path
@@ -48,6 +50,45 @@ SUGAR_SRC = HERE.parents[1] / "SUGAR" / "source" / "sugar_rl"
 DEFAULT_TEACHER = (HERE.parents[1] / "experiments/sugar_reproduction/outputs/final"
                    / "official_sugar/baseline/ckpts/refiner_model10000.pt")
 DEFAULT_TEACHER_MOTIONS = HERE.parents[1] / "SUGAR/data/CarryBox"
+
+
+def activate_rsl_rl(package_root: str) -> None:
+    """Select the official SUGAR-compatible rsl-rl package before importing BCPPO.
+
+    The Newton runtime on this cluster carries rsl-rl 5.x, whose model/runner API is
+    incompatible with SUGAR's released BCPPO.  SUGAR's environment already contains the
+    required 3.0.1 package and it is pure Python, so load that exact package in the
+    Newton Python process rather than modifying either implementation.
+    """
+    if package_root:
+        root = Path(package_root).expanduser().resolve()
+        package = root if root.name == "rsl_rl" else root / "rsl_rl"
+        init = package / "__init__.py"
+        if not init.is_file():
+            raise SystemExit(f"rsl-rl package root has no rsl_rl/__init__.py: {root}")
+        for name in tuple(sys.modules):
+            if name == "rsl_rl" or name.startswith("rsl_rl."):
+                del sys.modules[name]
+        spec = importlib.util.spec_from_file_location(
+            "rsl_rl", init, submodule_search_locations=[str(package)]
+        )
+        if spec is None or spec.loader is None:
+            raise SystemExit(f"cannot load rsl-rl package from {package}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["rsl_rl"] = module
+        spec.loader.exec_module(module)
+
+    try:
+        import rsl_rl
+        from rsl_rl.modules import ActorCritic  # noqa: F401
+        from rsl_rl.runners import OnPolicyRunner  # noqa: F401
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise SystemExit(
+            "SUGAR BCPPO requires the rsl-rl 3.x ActorCritic/OnPolicyRunner API; "
+            "pass --rsl-rl-root or SUGAR_RSL_RL_ROOT pointing at the compatible "
+            f"rsl_rl package ({exc})"
+        ) from exc
+    print(f"[rsl-rl] SUGAR-compatible package: {Path(rsl_rl.__file__).resolve()}")
 
 
 def sugar_bcppo():
@@ -197,6 +238,11 @@ def main() -> None:
     ap.add_argument("--video-frames", type=int, default=400)
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument(
+        "--rsl-rl-root",
+        default=os.environ.get("SUGAR_RSL_RL_ROOT", ""),
+        help="site-packages directory (or rsl_rl package directory) for SUGAR's compatible rsl-rl 3.x",
+    )
     args = ap.parse_args()
 
     if not Path(args.teacher_ckpt).is_file():
@@ -207,9 +253,8 @@ def main() -> None:
         root_path = Path(root)
         if not root_path.is_dir() or not any(root_path.glob("data_*")):
             raise SystemExit(f"{label} root has no data_* clips: {root_path}")
-    # The port deliberately fails closed for a long run until it carries the complete
-    # official reward. A three-iteration run remains available as an execution smoke;
-    # it is not admitted as training evidence.
+    # The port fails closed if a future edit removes any official reward term. A
+    # three-iteration raw-motion run remains execution-smoke only.
     from sugar_newton.rl import rewards
 
     if rewards.OMITTED and args.max_iterations > 3:
@@ -226,6 +271,7 @@ def main() -> None:
     if args.logger == "wandb":
         ensure_wandb_credentials()
 
+    activate_rsl_rl(args.rsl_rl_root)
     sugar_bcppo()
     from rsl_rl.runners import OnPolicyRunner
 
@@ -256,3 +302,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+# Keep this file newline-terminated: compute nodes execute it over the shared filesystem.

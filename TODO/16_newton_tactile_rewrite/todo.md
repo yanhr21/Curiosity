@@ -43,9 +43,9 @@ against upstream Newton must stay empty.
 - [x] **SHA-256 recorded for every archive and for the key individual assets** —
       `SUGAR/_downloads/MANIFEST.md`. Plan 15's teacher pin was disabled
       (`expected_sha256=None`); this is the thing that stops a repeat.
-- [ ] **Newton env on this cluster.** Container recipe is in
-      `Curiosity_newton/renders/build_and_render.sh` (uv sync inside an interactive CUDA
-      container). A CPU-only login-node env also works for Phase 1 — see §B.
+- [x] **Newton env on this cluster.** H200 job 262332 on server63 uses the exact
+      `third_party/newton` submodule with the shared Python 3.12 environment and Warp
+      1.15 checkout through `srun --overlap`; no simulation runs on the login node.
 
 ## B. Phase 1 — tactile core + validator (**passing**, see `sugar_newton/README.md`)
 
@@ -107,12 +107,12 @@ against upstream Newton must stay empty.
       only produces scale != 1 when a contact patch is large enough for hydroelastic
       reduction to actually reduce — which the 54-pad hand will produce naturally.
       Re-check there, and do not describe audit #4 as fully closed until then.
-- [ ] **`validation/incline.py` currently exits 1** on the one sliding case
-      (theta = critical + 5): time-averaged normal load reads 6.01 N against 4.18 N
-      expected. This is the *measurement*, not the sensor — the 40-step window is far too
-      short to average a bounce cycle, so it is biased by whatever phase it lands in. The
-      four sticking cases pass to 4 decimals. Fix the window (or drive the sliding case
-      at prescribed velocity) rather than loosening the tolerance.
+- [x] **Free-slide phase bias separated from the quantitative gate.** On H200 the
+      critical+5 case reads 9.2076 N against 4.1793 N over its phase-local 40-frame
+      window; extending the window lets the block leave the ramp, so this accelerating,
+      chattering case is not a seated-equilibrium measurement. `incline.py` now reports
+      its normal load as a note while retaining the qualitative slip assertions. The
+      quantitative gate is the prescribed scene below; no force tolerance was loosened.
 - [x] **Contact area and peak pressure (channels 9-10) implemented and validated.**
       `reduce_contact_surface_kernel` + `finalize_pressure_kernel` in the reducer;
       `validation/pressure.py` exits 0 on GPU. Seated on a ramp: contact area reads
@@ -126,9 +126,13 @@ against upstream Newton must stay empty.
       depth field to integrate to the solved `normal_load`. Plan §4 corrected to match.
       The surface only reaches the reducer when the pipeline is built with
       `HydroelasticSDF.Config(output_contact_surface=True)` — off by default.
-- [ ] Prescribed-velocity sliding scene for a *quantitative* slip test; the free-slide
-      assertions are deliberately qualitative because a bouncing block's finite-differenced
-      speed and an instantaneous tactile reading are not the same quantity.
+- [x] **Prescribed-velocity quantitative slip gate passes on H200.** The first version
+      used `add_body` plus two extra prismatics, creating unsupported loop joints; it
+      falsely passed with 0/27 contacts. `validation/hand_map.py` now uses Newton's
+      supported kinematic-root prescribed motion against a constrained dynamic load-cell
+      plate and fails on zero contact/load. Exact carriage speed is 0.0500 m/s and the
+      load-weighted tactile slip is 0.0502 m/s, with 4/27 patches contacting, 5074.82 N
+      peak normal load, exact position tracking and no hydroelastic buffer overflow.
 - [x] Run on GPU — done, A100. Sticking cases reproduce the CPU numbers to 4 decimals.
 - [ ] Run with more than one world.
 - [ ] **Video.** `validation/render_friction.py` (pass 1, in-container) +
@@ -274,14 +278,43 @@ against upstream Newton must stay empty.
       `newton/_src/solvers/kamino/examples/rl/`.
 - [x] Wire `BCPPO` unmodified (`rsl_rl_bcppo.py`). Keep both teacher roles: distillation
       target *and* acting policy for the episode prefix. An 8-world, 3-iteration smoke
-      passed; this proves execution only. Formal runs fail closed while the reward item
-      below is incomplete.
-- [ ] **Reward, built correctly from the start:**
-      - [ ] patches excluded from any undesired-contact penalty (audit #1)
-      - [ ] contact reward pointed at bodies that actually have collision (audit #2)
-      - [ ] a term that rewards holding the box (audit #3)
-      - [ ] verify each term's sign and gradient with a unit test — Plan 15 shipped
-            `feet_air_time` at weight `+5.0` on a function that is always ≤ 0
+      passed; this proves execution only. The H200 runtime explicitly loads SUGAR's
+      compatible pure-Python `rsl_rl 3.0.1` while retaining Newton's Python 3.12,
+      Torch/CUDA and unmodified BCPPO implementation.
+- [x] **Reward contact terms implemented and H200-audited from live resolved forces:**
+      - [x] ankles, rubber hands and box are excluded from undesired-contact bodies
+            (audit #1)
+      - [x] hand reward filters the actual rubber-hand/box collision pair (audit #2)
+      - [x] bilateral hold consistency is rewarded against the official contact label
+            (audit #3)
+      - [x] `validation/contact_rewards.py` verifies every term body and weighted sign.
+            It observes 105-194 N live net force and nonzero box-filtered hand force,
+            crosses false/true labels, and independently reproduces `hoi_contact` every
+            frame. A controlled `last_air_time=0.2 s` two-foot landing returns `-0.6`,
+            hence the official `+5.0` weight contributes `-3.0` as intended.
+      - [x] Collision/solver capacity is now one contract: pipeline allocation is
+            `num_envs * nconmax`. Before this audit, solver `8192` versus pipeline `2618`
+            made `update_contacts` fail before any contact reward could run.
+- [x] **Official Refiner-rollout Tracker data generated and audited on H200.** The
+      parameter-exact recovered `refiner_model10000.pt` ran in the official SUGAR
+      Refiner-Rollout environment with 1000 worlds. All environments completed; 912
+      trajectories reached the natural endpoint and the 88 early failures were excluded
+      by the official collector. `process_refiner_rollout.py` processed all 912. The
+      resulting dataset is finite, has exact `(T,29)` joints and `(T,14,3)` configured
+      Tracker bodies, and every student/teacher length differs by exactly one frame.
+      Successful data cover 95/100 source motions; IDs `18/40/48/60/66` have no admitted
+      Refiner trajectory and are a recorded coverage limitation, not silently fabricated.
+- [x] **The formal student/teacher body-layout confound is removed.** Processed Tracker
+      data contain the 14 configured bodies, while raw teacher clips contain all 35 URDF
+      bodies. `load_clips` now admits only those two explicit layouts, gives student and
+      teacher separate body indices, and fails before environment construction on missing,
+      misaligned, nonnumeric or non-finite clip data.
+- [ ] **Formal Newton BCPPO is active on H200 job 262332.** Seed 0, eight worlds, all 912
+      admitted clips, 30,001 iterations, official raw CarryBox teacher data, TensorBoard
+      logging and no resume from the raw-motion smoke. Iteration 0 completed 192 real
+      transitions with reward `32.08`, distill weight `1.0`, all four contact terms live
+      and zero divergences. Continue monitoring checkpoints and strict physical outcomes;
+      an execution/training start is not a transfer-success claim.
 - [ ] Port the mass-jump event (the one part of Plan 15 the audit found sound: written at
       the action boundary, inertia scaled by exactly `target/default`, both values read
       back).

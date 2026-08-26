@@ -1,7 +1,10 @@
-#!/bin/bash
-# Persistent interactive GPU allocation for Plan 16 Newton work.
-# Held in screen session `newton_gpu`. interactive_singlenode has 1243 nodes
-# (vs 10 on `interactive`) and is what actually schedules; hard 4 h cap.
-cd /lustre/fs12/portfolios/nvr/projects/nvr_nxp_visionconferencing/users/shengzew/robot_baby/Curiosity
-exec salloc -A nvr_nxp_visionconferencing -p interactive_singlenode \
-     --gres=gpu:1 -N 1 -t 04:00:00 -J newton_gpu
+#!/usr/bin/env bash
+# Enter an already allocated Slurm job. Run this in a dedicated tmux pane.
+set -euo pipefail
+
+if [[ $# -ne 1 || ! "$1" =~ ^[0-9]+$ ]]; then
+  echo "usage: $0 H200_JOB_ID" >&2
+  exit 2
+fi
+
+exec srun --overlap --jobid="$1" --nodes=1 --ntasks=1 --pty bash -l

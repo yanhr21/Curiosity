@@ -22,8 +22,8 @@ surface at maximum Y. ``width_m`` is the X extent and ``length_m`` the Z extent;
 from __future__ import annotations
 
 import math
-import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -33,8 +33,7 @@ PATCH_THICKNESS_M = 0.0049
 PATCH_DENSITY_KG_M3 = 1070.0
 
 _MESH_DIR = (
-    "/lustre/fs12/portfolios/nvr/projects/nvr_nxp_visionconferencing/users/shengzew"
-    "/robot_baby/Curiosity/SUGAR/descriptions/robots/g1/meshes"
+    Path(__file__).resolve().parents[2] / "SUGAR/descriptions/robots/g1/meshes"
 )
 
 
@@ -108,7 +107,7 @@ def patch_names(sides: tuple[str, ...] = ("left", "right")) -> tuple[str, ...]:
 
 
 def hand_mesh_path(side: str) -> str:
-    return os.path.join(_MESH_DIR, f"{side}_rubber_hand.STL")
+    return str(_MESH_DIR / f"{side}_rubber_hand.STL")
 
 
 def load_hand_mesh(side: str):

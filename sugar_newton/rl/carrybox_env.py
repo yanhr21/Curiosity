@@ -41,6 +41,7 @@ import newton
 from newton import JointTargetMode
 
 from sugar_newton.rl import rewards as R
+from sugar_newton.rl.contacts import ContactHistory
 
 HERE = Path(__file__).resolve().parent
 SUGAR = HERE.parents[1] / "SUGAR"
@@ -181,7 +182,9 @@ def load_clips(root: Path, names: list[str]) -> dict:
 
     Everything is truncated to the robot clip's own length, which is what
     ``commands.py:MotionLoader`` does -- the object pickle and the contact labels are both
-    a few frames longer, from separate acquisition.
+    a few frames longer, from separate acquisition. Raw teacher clips carry all 35 robot
+    bodies, whereas official processed Refiner rollouts carry the 14 configured Tracker
+    bodies; both layouts are admitted explicitly and any other count fails closed.
     """
     robots, objs, contacts, lengths = [], [], [], []
     for name in names:
@@ -190,16 +193,46 @@ def load_clips(root: Path, names: list[str]) -> dict:
         with open(folder / "obj_motion_global_50hz.pkl", "rb") as f:
             o = pickle.load(f)
         t = d["joint_pos"].shape[0]
+        robot_keys = (
+            "joint_pos", "joint_vel", "body_pos_w", "body_quat_w",
+            "body_lin_vel_w", "body_ang_vel_w",
+        )
+        if any(np.asarray(d[key]).shape[0] != t for key in robot_keys):
+            raise ValueError(f"robot arrays have inconsistent lengths in {folder}")
+        object_keys = ("obj_trans", "obj_rot", "obj_lin_vel", "obj_ang_vel")
+        if any(np.asarray(o[key]).shape[0] < t for key in object_keys):
+            raise ValueError(f"object arrays are shorter than robot motion in {folder}")
+        contact = np.load(folder / "contact_labels_50hz.npy")
+        if contact.shape[0] < t:
+            raise ValueError(f"contact labels are shorter than robot motion in {folder}")
+
         lengths.append(t)
-        robots.append({k: np.asarray(d[k])[:t] for k in
-                       ("joint_pos", "joint_vel", "body_pos_w", "body_quat_w",
-                        "body_lin_vel_w", "body_ang_vel_w")})
-        objs.append((np.asarray(o["obj_trans"])[:t],
-                     np.stack([quat_from_mat_xyzw(m) for m in np.asarray(o["obj_rot"])[:t]]),
-                     np.asarray(o["obj_lin_vel"])[:t], np.asarray(o["obj_ang_vel"])[:t]))
-        contacts.append(np.load(folder / "contact_labels_50hz.npy")[:t])
+        robot = {key: np.asarray(d[key])[:t] for key in robot_keys}
+        obj = tuple(np.asarray(o[key])[:t] for key in object_keys)
+        contact = contact[:t]
+        numeric = tuple(robot.values()) + obj + (contact,)
+        if not all((np.issubdtype(value.dtype, np.number)
+                    or np.issubdtype(value.dtype, np.bool_))
+                   and np.isfinite(value).all() for value in numeric):
+            raise ValueError(f"non-finite or non-numeric motion data in {folder}")
+        robots.append(robot)
+        objs.append((obj[0], np.stack([quat_from_mat_xyzw(m) for m in obj[1]]),
+                     obj[2], obj[3]))
+        contacts.append(contact)
 
     m, tmax = len(names), max(lengths)
+    body_counts = {r["body_pos_w"].shape[1] for r in robots}
+    body_counts.update(r["body_quat_w"].shape[1] for r in robots)
+    body_counts.update(r["body_lin_vel_w"].shape[1] for r in robots)
+    body_counts.update(r["body_ang_vel_w"].shape[1] for r in robots)
+    if len(body_counts) != 1:
+        raise ValueError(f"inconsistent body counts under {root}: {sorted(body_counts)}")
+    body_count = body_counts.pop()
+    if body_count not in (len(BODY_NAMES), len(bfs_body_names(URDF))):
+        raise ValueError(
+            f"unsupported body count {body_count} under {root}; expected "
+            f"Tracker rollout {len(BODY_NAMES)} or raw motion {len(bfs_body_names(URDF))}"
+        )
 
     def pad(seq, shape):
         out = np.zeros((m, tmax, *shape), dtype=np.float32)
@@ -212,10 +245,10 @@ def load_clips(root: Path, names: list[str]) -> dict:
         "fps": 50.0,
         "joint_pos": pad([r["joint_pos"] for r in robots], (N_DOF,)),
         "joint_vel": pad([r["joint_vel"] for r in robots], (N_DOF,)),
-        "body_pos_w": pad([r["body_pos_w"] for r in robots], (35, 3)),
-        "body_quat_w": pad([r["body_quat_w"] for r in robots], (35, 4)),
-        "body_lin_vel_w": pad([r["body_lin_vel_w"] for r in robots], (35, 3)),
-        "body_ang_vel_w": pad([r["body_ang_vel_w"] for r in robots], (35, 3)),
+        "body_pos_w": pad([r["body_pos_w"] for r in robots], (body_count, 3)),
+        "body_quat_w": pad([r["body_quat_w"] for r in robots], (body_count, 4)),
+        "body_lin_vel_w": pad([r["body_lin_vel_w"] for r in robots], (body_count, 3)),
+        "body_ang_vel_w": pad([r["body_ang_vel_w"] for r in robots], (body_count, 3)),
         "obj_pos": pad([o[0] for o in objs], (3,)),
         "obj_quat": pad([o[1] for o in objs], (4,)),
         "obj_lin_vel": pad([o[2] for o in objs], (3,)),
@@ -250,6 +283,20 @@ class CarryBoxEnv:
             raise FileNotFoundError(f"no data_* motions found under {self.motion_root}")
         self.clip_names = clip_names
         raw = load_clips(self.motion_root, clip_names)
+        clip_bodies = bfs_body_names(URDF)
+
+        def reference_body_index(data: dict, label: str) -> torch.Tensor:
+            count = data["body_pos_w"].shape[2]
+            if count == len(BODY_NAMES):
+                # Official process_refiner_rollout.py preserves MotionCommandCfg.body_names.
+                indices = range(len(BODY_NAMES))
+            elif count == len(clip_bodies):
+                indices = [clip_bodies.index(name) for name in BODY_NAMES]
+            else:  # load_clips already rejects this; retain a local fail-closed guard.
+                raise ValueError(f"{label} reference has unsupported body count {count}")
+            return torch.as_tensor(list(indices), dtype=torch.long, device=self.device)
+
+        self.ref_body_idx = reference_body_index(raw, "student")
         self.ref = {k: (torch.as_tensor(v, device=self.device)
                         if isinstance(v, np.ndarray) else v) for k, v in raw.items()}
 
@@ -268,6 +315,7 @@ class CarryBoxEnv:
             )
         self.teacher_clip_names = [teacher_by_id[parse_motion_id(name)] for name in clip_names]
         teacher_raw = load_clips(self.teacher_motion_root, self.teacher_clip_names)
+        self.teacher_ref_body_idx = reference_body_index(teacher_raw, "teacher")
         if np.any(np.abs(teacher_raw["length"] - raw["length"]) > 2):
             raise RuntimeError("teacher motions are not aligned with student motions (length > 2)")
         self.teacher_ref = {
@@ -286,8 +334,19 @@ class CarryBoxEnv:
         # subtract. Use the viewer's set_world_offsets() if worlds need to be seen apart.
         builder.replicate(world, world_count=num_envs, spacing=(0.0, 0.0, 0.0))
         self.model = builder.finalize(device=device)
+        # The official CarryBox reward consumes real contact forces. This request must
+        # precede pipeline.contacts(), otherwise Newton does not allocate contacts.force.
+        self.model.request_contact_attributes("force")
 
-        self.pipeline = newton.CollisionPipeline(self.model, contact_matching="latest")
+        # ``nconmax`` is per MuJoCo world, while CollisionPipeline's capacity is
+        # global across the replicated model.  SolverMuJoCo.update_contacts fails
+        # if the latter is smaller; relying on the pipeline's geometry estimate
+        # allocated only 2618 slots for a one-world 8192-contact solver.
+        self.pipeline = newton.CollisionPipeline(
+            self.model,
+            contact_matching="latest",
+            rigid_contact_max=nconmax * num_envs,
+        )
         self.contacts = self.pipeline.contacts()
         # njmax and nconmax are PER WORLD (solver_mujoco.py:3183-3184), and they must be
         # sized for the WORST case, not the initial one. Leaving them None lets Newton
@@ -339,6 +398,7 @@ class CarryBoxEnv:
         self.extras: dict[str, torch.Tensor] = {}
         self.num_diverged = 0
         self.diverged = torch.zeros(num_envs, dtype=torch.bool, device=self.device)
+        self.contact_history = ContactHistory(self)
         self.reset()
 
     # ---- construction -------------------------------------------------------
@@ -408,14 +468,11 @@ class CarryBoxEnv:
         b.add_ground_plane(height=0.0)
 
         labels = [l.split("/")[-1] for l in b.body_label]
+        self.body_labels = labels
         self.box_body = labels.index("box")
         self._body_idx = [labels.index(n) for n in BODY_NAMES]
         self._ee_idx = [BODY_NAMES.index(n) for n in EE_BODIES]
         self.anchor_local = BODY_NAMES.index(ANCHOR_LINK)
-        # clip body ordering is the same BFS, minus the inertialess links
-        clip_bodies = bfs_body_names(URDF)
-        self.ref_body_idx = torch.as_tensor([clip_bodies.index(n) for n in BODY_NAMES],
-                                            device=self.device)
         return b
 
     # ---- state views --------------------------------------------------------
@@ -489,6 +546,8 @@ class CarryBoxEnv:
         self.prev_qd[env_ids] = 0.0
         for k in self.hist:                                   # CircularBuffer semantics:
             self.hist[k][env_ids] = 0.0                       # refill on the next observe
+        if hasattr(self, "contact_history"):
+            self.contact_history.reset(env_ids)
 
     # ---- observation --------------------------------------------------------
     def _push(self, key: str, value: torch.Tensor) -> torch.Tensor:
@@ -555,6 +614,11 @@ class CarryBoxEnv:
         self._rebind()
         self.t += 1
 
+        # Replace the pre-solve pipeline contacts with MuJoCo-Warp's resolved contacts,
+        # including forces, then advance the same three-frame history SUGAR reads.
+        self.solver.update_contacts(self.contacts, self.state_0)
+        self.contact_history.update()
+
         done, timeout = self._done()
         reward, terms = R.compute(self)
         # A diverged env is reset on this same call, so its reward is meaningless rather
@@ -610,3 +674,5 @@ class CarryBoxEnv:
                   (self.t >= self.ref["length"][self.motion_id] - 1)
         fail = bad_ori | bad_anchor | bad_ee | bad_obj | bad_obj_ori | diverged
         return fail | timeout, timeout
+
+# Keep this file newline-terminated: compute nodes execute it over the shared filesystem.

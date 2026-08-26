@@ -7,10 +7,9 @@ tuned here. Every tracking term has the same shape, ``exp(-error / std**2)``, so
 reward stays bounded and a term that is hopeless contributes ~0 rather than a large
 negative that drowns the rest.
 
-Two terms in SUGAR's config are ``MISSING`` at this level and filled in per-task
-(``undesired_contacts`` and ``hoi_contact``). They need per-body contact forces, which the
-Newton env does not surface yet, and are omitted -- so this reward is SUGAR's minus those
-two. That is a deliberate, recorded gap, not an oversight: see ``WEIGHTS`` below.
+The four contact-dependent terms read Newton's resolved contact forces through
+``rl.contacts.ContactHistory``. Their weights and three-frame history match the official
+CarryBox Tracker configuration.
 
 Quaternions are xyzw throughout, matching Newton. The reference clips store wxyz and are
 reordered at the call site, not here.
@@ -27,6 +26,9 @@ WEIGHTS = {
     "joint_torque": -1.0e-5,
     "action_rate": -1.0e-1,
     "joint_limit": -10.0,
+    "feet_slide": -0.1,
+    "feet_air_time": 5.0,
+    "undesired_contacts": -1.0,
     # tracking
     "motion_joint_pos": 0.125,
     "motion_global_anchor_pos": 0.25,
@@ -42,6 +44,7 @@ WEIGHTS = {
     # interaction
     "obj2body_pos": 0.25,
     "obj2body_ori": 0.25,
+    "hoi_contact": 1.0,
 }
 STD = {
     "motion_joint_pos": 0.6,
@@ -58,10 +61,7 @@ STD = {
     "obj2body_pos": 0.3,
     "obj2body_ori": 0.4,
 }
-# feet_slide (-0.1) and feet_air_time (+5.0) need contact sensors on the ankle rolls;
-# undesired_contacts and hoi_contact are MISSING in the base config and per-task. All four
-# are omitted until the env surfaces per-body contact forces.
-OMITTED = ("feet_slide", "feet_air_time", "undesired_contacts", "hoi_contact")
+OMITTED: tuple[str, ...] = ()
 
 
 # --- quaternion helpers, xyzw, batched ------------------------------------------
@@ -188,6 +188,29 @@ def compute(env) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     lo, hi = env.joint_limit_lo, env.joint_limit_hi
     q = env.q[:, env.act_coords]
     terms["joint_limit"] = ((lo - q).clamp_min(0.0) + (q - hi).clamp_min(0.0)).sum(-1)
+
+    # --- contact terms: exact CarryBox Tracker definitions ---
+    contact = env.contact_history
+    foot_hist = contact.net[:, :, contact.foot_idx]
+    feet_in_contact = foot_hist.norm(dim=-1).amax(dim=1) > 1.0
+    foot_planar_speed = body_qd[:, contact.foot_idx, :2].norm(dim=-1)
+    terms["feet_slide"] = (foot_planar_speed * feet_in_contact).sum(dim=1)
+
+    short_air = (contact.last_air_time - 0.5).clamp_max(0.0)
+    ready = (env.t - env.start) > 50
+    terms["feet_air_time"] = (
+        short_air * contact.first_foot_contact
+    ).sum(dim=1) * ready
+
+    undesired_hist = contact.net[:, :, contact.undesired_idx]
+    undesired = undesired_hist.norm(dim=-1).amax(dim=1) > 0.1
+    terms["undesired_contacts"] = undesired.float().sum(dim=1)
+
+    hand_box_hist = contact.box[:, :, contact.hand_idx]
+    hand_force = hand_box_hist.norm(dim=-1).amax(dim=1)
+    bilateral_contact = (hand_force[:, 0] > 0.1) & (hand_force[:, 1] > 0.1)
+    contact_label = env._ref("contact") > 0.5
+    terms["hoi_contact"] = (bilateral_contact == contact_label).float()
 
     total = sum(WEIGHTS[k] * v for k, v in terms.items())
     return total.detach(), {k: v.detach() for k, v in terms.items()}

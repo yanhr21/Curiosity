@@ -20,31 +20,26 @@ stay empty.
 
 The tactile core and its analytic validators run, the G1 CarryBox loop and official-BCPPO
 execution smoke have run on Newton, and the required SUGAR assets/Refiner checkpoint are
-present. This is not yet admitted for a formal training launch: the official Tracker
-student/teacher motion split is now enforced, but the Newton reward still lacks four
-contact-dependent official terms and correct-physics throughput has only been measured at
-small world counts. `rl/train_bcppo.py` therefore permits only a three-iteration execution
-smoke until that machine-checkable reward gap is closed.
+present. The four contact-dependent Tracker reward terms are implemented from resolved
+Newton forces with the official three-frame history and have passed the H200 environment-
+level runtime/sign audit. The official Refiner rollout produced 912 endpoint-complete
+Tracker clips; all are finite and aligned within one frame to their raw teacher motions.
+The formal eight-world seed-0 BCPPO run is active in H200 Slurm job `262332`. Raw CarryBox
+motions remain execution-smoke input only and are rejected for a formal run.
 
 ## Running the validator
 
-Newton runs on the OCI-ord **login node against the CPU device** — no container,
-no GPU, no SUGAR asset. That is what makes this validator cheap enough to run on
-every change.
+Run simulation and GPU validation through a Slurm compute allocation. The current H200
+runtime uses the exact Newton submodule plus the shared Python/Warp installations; no
+training or simulation is launched on the login node.
 
 ```bash
-NT=/lustre/fs12/portfolios/nvr/projects/nvr_nxp_visionconferencing/users/shengzew/robot_baby/Curiosity_newton
-SP=$NT/.venv/lib/python3.12/site-packages
-PY=<a python 3.12 interpreter>     # the venv's own python lives at /root/... inside the container
-
-cd /lustre/fs12/.../robot_baby/Curiosity     # on branch 2026_8_19_sugar_newton
-PYTHONPATH=$SP:$NT:$PWD $PY -m sugar_newton.validation.incline
+srun --overlap --jobid=<H200_JOB_ID> --nodes=1 --ntasks=1 --pty bash -l
+export NEWTON_PY=/public/home/yanhongru/envs/isaac_arena_py312/bin/python
+export PYTHONPATH=/public/home/yanhongru/envs/newton_warp_114:$PWD/third_party/newton:$PWD
+$NEWTON_PY -m sugar_newton.validation.incline
+$NEWTON_PY -m sugar_newton.validation.hand_map --out sugar_newton/_gpu_out/hand_map
 ```
-
-`$SP` supplies warp / mujoco_warp / torch; `$NT` supplies the editable `newton`
-package (the venv's `newton.pth` is not honoured when `PYTHONPATH` is set by
-hand). On GPU, run it inside the CUDA container per
-`Curiosity_newton/renders/build_and_render.sh`.
 
 ## What the validator asserts
 
@@ -66,7 +61,7 @@ force into the shear channel. It survived a full training and evaluation
 campaign. A static test this small would have caught it on day one and did not
 exist.
 
-Current output (CPU, `mu = 0.5`, critical angle 26.57°):
+Reference output from the original CPU diagnostic (`mu = 0.5`, critical angle 26.57°):
 
 ```
   theta  stick    N meas     N exp  u_mean   u_exp   u_max     slip d     slip v     |v| fd  gross
@@ -151,24 +146,23 @@ Recorded here because each one is a fact about the platform, not about this code
    this as a NOTE and still asserts the slip channels — it bounds the solver's
    envelope, not the sensor's.
 
-## Open — do not assume these are done
+## Remaining validation items
 
-- **The friction SCALE path needs a GPU and has not run.** Hydroelastic SDF
-  construction uses `wp.Volume.allocate_by_tiles` and `wp.Texture3D`, which are
-  CUDA-only, so `rigid_contact_friction` is not even allocated on a CPU device.
-  `friction.py --hydroelastic` exits 2 with an explanation rather than reporting
-  a pass. The material-μ half is verified (below); the scale half is not.
-- Contact area and peak pressure (Plan 16 §4 channels 9-10) are not implemented;
-  they need the hydroelastic contact surface.
-- The quantitative sliding test should be a prescribed-velocity scene, where
-  tangential velocity is an input rather than an outcome. The free-sliding
-  assertions here are deliberately qualitative.
-- Nothing has been run on GPU, and nothing has been run with more than one
-  world.
+- The hydroelastic friction-scale path has passed at scale 1.0, but a non-trivial
+  moment-matching scale is still required to close that audit completely.
+- More-than-one-world tactile validation and the composed friction video remain open.
+
+The prescribed-velocity quantitative gate now passes on H200 in
+`validation/hand_map.py`: exact kinematic carriage speed `0.0500 m/s`, load-weighted
+reported slip `0.0502 m/s`, nonzero solved normal load and no hydroelastic overflow.
+The free incline's sliding branch remains qualitative because its accelerating compliant
+block is phase-dependent; the four sticking analytic cases retain their force,
+utilization and exact-zero-slip assertions.
 
 ## Layout
 
 ```
 sugar_newton/tactile/reducer.py      PatchTactile — contacts to per-patch channels
 sugar_newton/validation/incline.py   analytic ground-truth validator
+sugar_newton/validation/hand_map.py  prescribed H200 hand/plate slip validator
 ```

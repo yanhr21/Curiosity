@@ -50,8 +50,7 @@ from sugar_newton.hand.patches import (
 from sugar_newton.tactile.field import ContactField
 from sugar_newton.tactile.reducer import PatchTactile
 
-SUGAR = Path("/lustre/fs12/portfolios/nvr/projects/nvr_nxp_visionconferencing/users/shengzew"
-             "/robot_baby/Curiosity/SUGAR")
+SUGAR = Path(__file__).resolve().parents[2] / "SUGAR"
 URDF = SUGAR / "descriptions/robots/g1/g1_29dof_rev_1_0_with_rubber_hand.urdf"
 CLIPS = SUGAR / "data/CarryBox"
 BOX_USD = {
@@ -801,3 +800,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+# Keep this file newline-terminated: several shared-filesystem clients execute it.

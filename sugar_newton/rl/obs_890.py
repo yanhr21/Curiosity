@@ -77,6 +77,7 @@ def build(env, teacher: bool = False) -> torch.Tensor:
 
     # --- future reference window, t + 0..7, clamped per clip ---
     reference = env.teacher_ref if teacher else env.ref
+    reference_body_idx = env.teacher_ref_body_idx if teacher else env.ref_body_idx
     length = reference["length"][env.motion_id]
     offs = torch.arange(FUTURE_FRAMES, device=dev)
     t_fut = (env.t.unsqueeze(-1) + offs.unsqueeze(0)).clamp(min=0)
@@ -92,8 +93,8 @@ def build(env, teacher: bool = False) -> torch.Tensor:
     a_p_e = a_p.unsqueeze(1).expand(n, FUTURE_FRAMES, 3)
     a_q_e = a_q.unsqueeze(1).expand(n, FUTURE_FRAMES, 4)
 
-    ref_anchor_p = reference["body_pos_w"][mid, t_fut][:, :, env.ref_body_idx[env.anchor_local]]
-    ref_anchor_q = reference["body_quat_w"][mid, t_fut][:, :, env.ref_body_idx[env.anchor_local]]
+    ref_anchor_p = reference["body_pos_w"][mid, t_fut][:, :, reference_body_idx[env.anchor_local]]
+    ref_anchor_q = reference["body_quat_w"][mid, t_fut][:, :, reference_body_idx[env.anchor_local]]
     ref_anchor_q = R.normalize(ref_anchor_q[..., [1, 2, 3, 0]])
     anchor_pos_b_future = R.quat_apply_inv(a_q_e, ref_anchor_p - a_p_e).reshape(n, -1)
     anchor_ori_b_future = _rot6(R.quat_mul(R.quat_conj(a_q_e), ref_anchor_q)).reshape(n, -1)

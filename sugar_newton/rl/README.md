@@ -5,13 +5,19 @@ Retrain (or fine-tune) SUGAR's tracker against Newton's contact model, because
 transfers: it lifts the box about a third of the reference height, and its wrists sit at
 their effort limit 37% of the carry against Isaac's 1.9%.
 
-    # smoke test
-    python -m sugar_newton.rl.train_bcppo --num-envs 8 --max-iterations 3 \
+    # Run only inside an H200 Slurm compute shell entered from tmux.
+    export NEWTON_PY=/public/home/yanhongru/envs/isaac_arena_py312/bin/python
+    export PYTHONPATH=/public/home/yanhongru/envs/newton_warp_114:$PWD/third_party/newton:$PWD
+    export SUGAR_RSL_RL_ROOT=/public/home/yanhongru/envs/sugar_py311_isaacsim510/lib/python3.11/site-packages/rsl_rl
+
+    # execution smoke (raw motions; never formal evidence)
+    $NEWTON_PY -m sugar_newton.rl.train_bcppo --num-envs 1 --max-iterations 1 \
         --motion-root SUGAR/data/CarryBox --clips data_000 --logger tensorboard
 
-    # formal command shape, once the contact-dependent reward admission check passes
-    python -m sugar_newton.rl.train_bcppo --num-envs 8 --max-iterations 30001 \
-        --motion-root SUGAR/outputs/CarryBox_RUN/rollout_datasets/refiner/rl_dataset \
+    # formal command shape (official processed Refiner rollout as student data)
+    $NEWTON_PY -m sugar_newton.rl.train_bcppo --num-envs 8 --max-iterations 30001 \
+        --motion-root experiments/sugar_reproduction/outputs/newton_refiner_dataset_20260827/rollout_datasets/refiner/rl_dataset \
+        --teacher-motion-root SUGAR/data/CarryBox \
         --wandb-project sugar_newton --run-name carrybox_bcppo
 
 Run inside the Newton container; `renders/render_carrybox_policy.sh` in the `third_party/newton`
@@ -52,12 +58,27 @@ as `MotionCommand` does. Missing IDs or length differences above two frames stop
 training. Pointing both roots at raw data is allowed only for the three-iteration execution
 smoke and is not faithful Tracker training.
 
-Formal training is intentionally fail-closed while `rewards.OMITTED` is non-empty. The
-current Newton port still lacks the official contact-dependent `feet_slide`,
-`feet_air_time`, `undesired_contacts` and `hoi_contact` terms. A run above three iterations
-exits before constructing the environment until these terms are implemented and audited.
-The validated default is eight worlds; the old 512-world default was never benchmarked and
-is not retained.
+Formal training fails closed if `rewards.OMITTED` becomes non-empty. The official
+contact-dependent `feet_slide`, `feet_air_time`, `undesired_contacts` and `hoi_contact`
+terms are reduced from Newton's resolved contact forces with the official three-frame
+history. `validation/contact_rewards.py` passes on H200 with live body and box-filtered
+forces, independent bilateral-contact comparison, excluded-body audit and a controlled
+short-air event (`-0.6`, weighted `-3.0`). The validated default is eight worlds; the old
+512-world default was never benchmarked and is not retained.
+
+The official H200 Refiner rollout produced 912 endpoint-complete student clips from 1000
+worlds. They cover 95 source motion IDs; `18/40/48/60/66` had no successful Refiner
+trajectory and remain an explicit coverage limitation. Processed clips contain the exact
+14 configured Tracker bodies, while raw teacher clips contain 35 URDF bodies. The loader
+keeps separate indices for those layouts and rejects every other body count, non-finite
+array or student/teacher length difference above two frames.
+
+The formal seed-0 run started from scratch on Slurm H200 job `262332` with eight worlds and
+all 912 admitted clips. Iteration 0 completed 192 transitions with mean reward `32.08`,
+distillation weight `1.0`, zero divergences and all four contact terms present. Logs and
+checkpoints are under
+`experiments/sugar_reproduction/outputs/newton_bcppo_h200_20260827/logs/carrybox_bcppo_seed0`.
+This is a training/runtime result, not yet a physical transfer result.
 
 An earlier version of this directory carried a hand-written PPO (`ppo.py`, `train.py`).
 It has been deleted. It was stage 3 with the distillation dropped, which is not the

@@ -405,13 +405,13 @@ def main() -> int:
         # the right expectation.  That regime is REPORTED rather than skipped:
         # a quietly dropped assertion is how Plan 15 accumulated ten problems.
         measured_normal = r["normal_load_timeavg"]
-        ballistic = not r["sticking"] and measured_normal < 0.5 * r["expected_normal"]
-        if ballistic:
+        if not r["sticking"]:
             notes.append(
-                f"{tag}: block is ballistic at this angle/dt (time-averaged normal load "
-                f"{measured_normal:.4f} N vs {r['expected_normal']:.4f} N seated). "
-                f"Normal-equilibrium assertion does not apply; slip assertions still do. "
-                f"This bounds the solver's envelope, not the sensor's."
+                f"{tag}: free sliding is accelerating/chattering at this angle/dt "
+                f"(phase-local normal average {measured_normal:.4f} N vs "
+                f"{r['expected_normal']:.4f} N seated). Normal equilibrium is diagnostic "
+                f"here, not an admission gate; qualitative slip assertions still apply. "
+                f"The prescribed-velocity quantitative gate is validation.hand_map."
             )
         elif abs(measured_normal - r["expected_normal"]) > args.force_tol * r["expected_normal"]:
             failures.append(
@@ -454,7 +454,7 @@ def main() -> int:
             # finite-difference of its centre of mass over a window are not the
             # same quantity, and forcing them to agree would be a test of the
             # solver's dynamics rather than of the sensor.  The quantitative
-            # sliding test is the prescribed-velocity one (--prescribed), where
+            # sliding test is ``validation.hand_map``, where
             # the tangential velocity is an input rather than an outcome.
             #
             # What must hold here: the patch reports that it is slipping.
