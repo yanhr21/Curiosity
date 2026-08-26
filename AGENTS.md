@@ -70,9 +70,17 @@ zero baseline (`0.712x` error) but selected-demo paired win rates are only
 `58.5%/43.3%/61.4%` on train/validation/test and Carry45 is misranked. No predictor or policy may be
 trained from either failed label. TMR remains a task-class semantic representation; MotionGPT
 VQ-VAE remains a reconstruction/tokenization model. Neither result is selected-demo following.
-The next bounded representation audit is faithful official XIRL/TCC on standardized SUGAR video;
-do not substitute a homemade visual encoder or reuse composite presentation videos as training
-data.
+
+The faithful official XIRL/TCC audit on standardized SUGAR video is also complete and negative.
+The exact-pose clean corpus contains 100 CarryBox and 99 KickBox motions, each normalized to 64
+RGB frames, with source-ID-disjoint train/valid/test splits. Released Google Research XIRL at
+commit `807d4a` uses its official ImageNet ResNet18, 32-D linear head, same-class sampler and TCC
+loss for 4000 iterations; compatibility changes only restore removed Python/PyTorch APIs. On the
+frozen test split, trained/raw-ImageNet normalized temporal MAE is `0.31675/0.29221`, Kendall tau is
+`0.01282/0.10697`, and Carry-vs-Kick reference accuracy is tied at `0.94737/0.94737`. The
+predeclared gate passes only reference accuracy and fails both temporal criteria. Do not train a
+predictor or policy from this representation, tune its budget/loss, substitute a homemade visual
+encoder, or reuse composite presentation videos as training data.
 
 The predeclared three-seed demo-following repeat and the seed161581 teacher-floor learnability
 diagnostic are complete. The latter annealed the common CarryBox45 teacher from `1.0` to `0.25` but

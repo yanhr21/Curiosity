@@ -598,12 +598,15 @@ ranking fails: continuous paired win rates are `0.585/0.433/0.614`, discrete-cod
 the selected-demo objective, not permission to fit a classifier, average class prototypes or
 train a reward predictor on invalid labels.
 
-The next representation experiment changes modality rather than reward scale. Use the released
-Google Research XIRL/TCC implementation faithfully on clean, standardized SUGAR world-camera
-videos with motion-disjoint source IDs. First gate temporal retrieval and selected-demo progress on
-held-out videos; only a passing frozen representation can define a causal visual target. Existing
-presentation composites, overlays and policy-result videos are evidence only and cannot become the
-training corpus.
+The modality-changing representation experiment is complete. A clean exact-pose SUGAR
+world-camera corpus contains 100 CarryBox and 99 KickBox source motions at exactly 64 RGB frames,
+with source-ID-disjoint splits. Released Google Research XIRL uses the official ImageNet ResNet18,
+32-D linear head, same-class sampler and TCC loss for 4000 iterations. On frozen test, trained/raw
+normalized temporal MAE is `0.31675/0.29221`, Kendall tau is `0.01282/0.10697`, and Carry-vs-Kick
+reference selection is tied at `0.94737/0.94737`. Thus the representation fails both temporal
+improvement gates and passes only the task-class gate. No causal visual target, reward predictor or
+policy is admitted from this result. Do not tune this loss/budget or replace it with a homemade
+visual model; presentation composites remain evidence only and are never training data.
 
 The resulting causal temporal transition controller is now complete. It retains the released
 Carry/Kick endpoints, adds a six-layer, 384-D, eight-head Transformer over the past `10 x 584`

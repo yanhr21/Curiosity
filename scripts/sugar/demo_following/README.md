@@ -420,3 +420,34 @@ bash scripts/sugar/demo_following/run_official_motiongpt_vqvae_instance_gate.sh 
 The VQ-VAE reconstructs better than zero but does not reliably rank the specified source demo.
 Both gates are representation evidence only; neither latent is exposed to the actor and neither
 starts policy optimization.
+
+### Official XIRL/TCC visual temporal gate
+
+From retained Slurm GPU compute, first verify the clean Carry45/Kick21 references:
+
+```bash
+bash scripts/sugar/demo_following/prepare_official_xirl_runtime.sh
+
+bash scripts/sugar/demo_following/run_xirl_reference_canaries_then_hold.sh \
+  experiments/demo_following/official_xirl_tcc_v1/corpus_canary
+```
+
+Then run the resumable full pipeline:
+
+```bash
+bash scripts/sugar/demo_following/run_xirl_full_pipeline_then_hold.sh \
+  experiments/demo_following/official_xirl_tcc_v1
+```
+
+It renders exact SUGAR root/joint/object trajectories through the official task scene and a clean
+RTX world camera, with no overlays or policy output. The corpus contract is 100 CarryBox and 99
+KickBox motions, 64 frames each; ID `%10==8` is validation, `%10==9` is test, all others train.
+Training is the released Google Research XIRL ResNet18-linear/TCC path for 4000 iterations. The
+runner tracks the one-line modern-PyTorch device patch, uses official Gym 0.17.3 and X-MAGICAL
+0.0.2 dependencies, resumes incomplete checkpoints, skips training at checkpoint 4001 and skips
+evaluation when its result JSON already exists.
+
+The admitted run is negative: trained/raw test temporal MAE is `0.31675/0.29221`, Kendall tau is
+`0.01282/0.10697`, and task-reference accuracy ties at `0.94737`. Its machine result is
+`pretrain_runs/sugar_carry_kick_tcc_seed271402/temporal_retrieval_result.json` with `passed=false`.
+This stops the pipeline before any reward predictor or policy training.

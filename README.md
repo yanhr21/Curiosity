@@ -804,5 +804,30 @@ MotionGPT 官方 HumanML3D VQ-VAE、官方 checkpoint 和精确配套 Mean/Std �
 零基线的 `0.712x`，但 own-demo 相对 cross-task-demo 的逐窗口胜率仅为
 `58.5%/43.3%/61.4%`，Carry45 仍被误排。结论是：TMR 可作 task-class semantic prior，VQ-VAE
 可作 motion reconstruction/tokenization；两者都不能直接当作 selected-demo trajectory loss，
-也没有进入 policy。下一项固定方法是官方 XIRL/TCC 视频时序表征准入，输入必须是标准化的
-SUGAR 世界相机视频，不得拿带文字、曲线或拼版的汇报视频训练。
+也没有进入 policy。
+
+官方 XIRL/TCC 视频时序表征准入也已完成。语料是 exact-pose SUGAR 世界相机 RGB：CarryBox
+100 段、KickBox 99 段，每段固定 64 帧；source motion ID 按 `%10` 划分，8 为 validation、9
+为 test，其余为 train。训练忠实使用 released Google Research XIRL 的 ImageNet ResNet18、
+32-D linear head、same-class sampler 和 TCC loss，seed271402 跑满 4000 iterations。冻结 test
+上 trained/raw temporal MAE 为 `0.31675/0.29221`，Kendall tau 为
+`0.01282/0.10697`，Carry/Kick reference accuracy 同为 `0.94737`。因此两个时序判据失败、
+只有任务类别判据通过，机器结果为 `passed=false`；没有启动 predictor 或 policy，也不允许
+从该失败标签继续调预算/损失。训练视频不得替换为带文字、曲线或拼版的汇报视频。
+
+在 retained Slurm GPU compute 内的最短复现入口为：
+
+```bash
+bash scripts/sugar/demo_following/prepare_official_xirl_runtime.sh
+
+bash scripts/sugar/demo_following/run_xirl_reference_canaries_then_hold.sh \
+  experiments/demo_following/official_xirl_tcc_v1/corpus_canary
+
+bash scripts/sugar/demo_following/run_xirl_full_pipeline_then_hold.sh \
+  experiments/demo_following/official_xirl_tcc_v1
+```
+
+第二个入口会自动完成 12,736 帧语料、官方 4000-step 训练、raw-ImageNet 对照、冻结评估和
+GPU holder；checkpoint 已到 4001 时只评估，结果 JSON 已存在时只进入 holder。关键机器结果为
+`experiments/demo_following/official_xirl_tcc_v1/pretrain_runs/`
+`sugar_carry_kick_tcc_seed271402/temporal_retrieval_result.json`。

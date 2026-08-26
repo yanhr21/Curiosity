@@ -266,9 +266,10 @@
 - [x] pin and strictly load the released MotionGPT HumanML3D VQ-VAE with the exact official
   evaluator Mean/Std; pass reconstruction but reject selected-demo instance distance at paired
   win rates `0.585/0.433/0.614` and retain Carry45 as a named counterexample.
-- [ ] build a clean standardized SUGAR world-camera corpus and run the released XIRL/TCC temporal
-  retrieval gate on motion-disjoint videos; automatically stop before predictor/policy training if
-  held-out selected-demo progress fails.
+- [x] build the clean exact-pose SUGAR world-camera corpus (100 CarryBox + 99 KickBox, 64 RGB frames
+  each) and run released XIRL/TCC for 4000 iterations on motion-disjoint source IDs. Frozen test
+  trained/raw MAE is `0.31675/0.29221`, tau is `0.01282/0.10697`, and task reference accuracy ties
+  at `0.94737`; the gate fails 2/3 criteria and automatically stops before predictor/policy training.
 
 Current endpoint: the earlier three-seed result remains negative, the teacher-floor diagnostic
 collapses, and the strictly matched seed161587 phase-event run is behaviorally negative because it
