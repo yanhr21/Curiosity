@@ -611,12 +611,64 @@ against upstream Newton must stay empty.
       keeps both experts exact and finishes 20/20 finite profiles, but reaches only `7/20` lift and
       `0/20` strict.  Mean lift/contact are `0.044066 m/0.122728`; failures are `ee_pos=11` and
       `obj_pos=9`.  Reject the topology and keep downstream Tracker/BCPPO closed.
-- [ ] Before another learned controller, run one parameter-free fixed-20 ceiling audit of the exact
+- [x] Before another learned controller, run one parameter-free fixed-20 ceiling audit of the exact
       released CarryBox Tracker on the same raw-motion Newton resets and termination rules.  Strictly
       load its official `510 -> 512/256/128 -> 29` actor, consume only `CarryBoxEnv.observe()` and
       preserve the unchanged `16/20` lift/strict rule.  This determines whether the current action
       label source itself is physically admissible; do not train, alter physics, tune thresholds or
-      sweep Tracker checkpoints.
+      sweep Tracker checkpoints.  The exact released checkpoint is finite on `20/20` profiles but
+      reaches only `2/20` lift and `0/20` strict completion, with mean lift/contact
+      `0.019740 m/0.054595`; failures are `ee_pos=18`, `obj_pos=2`.  Its action labels are rejected
+      for any further Newton Refiner distillation.
+- [x] Implement the next controller diagnosis as a fixed-context causal physical-recovery objective,
+      not another action label.  Preserve the parameter-exact official Refiner and the admitted
+      six-layer, 384-D, past-`10 x 890` additive Transformer.  Blend `0.5` normalized unchanged
+      official reward with `0.5` current-rollout physics: object/end-effector margins normalized by
+      their existing `0.30 m` terminations, real bilateral hand-box contact, bilateral lift normalized
+      by the existing `0.05 m` gate, and current failure.  These are reward labels only; actor input
+      remains 9790-D and no future/outcome tensor is exposed.
+- [x] Pass the fresh seed171731 zero-optimizer fixed-context gate on H200: `48/48` physical-reward
+      calls, maximum absolute combined reward `0.711533`, zero divergence, finite tensors and exact
+      zero policy-state change.  No reward label augments the actor.
+- [x] Finish the fresh seed171732 two-update gate and strict one-profile load audit.  Training has
+      `384/384` physical-reward calls, zero divergence, finite actor/critic deltas
+      `0.0002143/0.0004684`, fixed LR `1e-5` and maximum absolute reward `0.711787`.  Strict loading
+      preserves the official Refiner exactly; the diagnostic checkpoint gives `0.008810 m` peak lift
+      and `0/1` strict, with only `0.001170` mean absolute correction.
+- [x] Run one fresh 64-update frame-zero `data_000` learnability endpoint.  Admit a task-wide formal
+      run only if the
+      fixed context improves over the exact Refiner's `0.008450 m` peak lift and reaches trajectory
+      timeout without strict failure.  Do not sweep objective weights, controller capacity, history,
+      residual limit, LR or update budget.  Seed171733 passes the numerical training contract with
+      `12,288/12,288` reward calls, zero divergence, actor/critic deltas
+      `0.003044/0.013657` and finite parameters.  The frozen endpoint is negative: peak lift regresses
+      `0.008450 -> 0.006923 m`, bilateral contact `0.2000 -> 0.1872`, and both endpoints fail on
+      `obj_pos` at step 235.  Do not run the task-wide objective or tune it.
+- [x] Resolve the apparent contradiction with the legacy single-world Tracker claim.  Regenerating
+      `tracker_actor.npz` directly from the exact released checkpoint and rerunning `data_000` at
+      `mu=1.0` reproduces `0.2442 m` late lift, but that script has no strict termination: box height
+      is still only `0.207 m` at frame 200 and rises at frame 250, whereas the formal exact Tracker
+      fails `ee_pos` at frame 78 with only `0.001143 m` lift.  The historical lift occurs after the
+      trajectory is already invalid and is not an acting-teacher result.
+- [x] Before another optimizer run, test the parameter-free Newton reference-joint-target ceiling.
+      Convert each current reference joint pose through the exact Isaac action map
+      `(q_ref - q_default) / action_scale`, run the unchanged fixed-20 strict environment, and record
+      lift, strict completion, action magnitude and termination causes.  No policy training, physics
+      change, threshold change or action clipping is allowed.  This decides whether the reference is
+      dynamically executable with the admitted actuators before constructing a Newton-native action
+      teacher.  The exact inverse map has maximum reconstruction error `1.19e-7` and all twenty
+      rollouts are finite, but it gives `0/20` lift, `0/20` strict, mean lift/contact
+      `0.002915 m/0.001515` and maximum action `9.8803`; failures include `ee_pos=16`,
+      `anchor_pos=5`, `anchor_ori=1`.  Reference joint poses alone are not a valid Newton action
+      teacher because they omit the floating-base/contact dynamics needed to realize the motion.
+- [ ] Implement the next fixed failure-frontier diagnostic around the parameter-exact official
+      Refiner.  On frame-zero `data_000`, execute the exact Refiner for a fixed 200-step physical
+      prefix with zero PPO/value/entropy credit, then train the same serious additive temporal
+      controller only on the live post-prefix recovery segment using the admitted physical-recovery
+      objective and an exact Refiner action anchor.  Actor history must contain the real prefix,
+      future/outcome labels remain absent, and frozen evaluation must still deploy one checkpoint
+      from frame zero.  Require zero-optimizer and two-update gates before one 64-update learnability
+      endpoint; do not sweep prefix, objective weights, model, LR, residual or budget.
 
 ---
 

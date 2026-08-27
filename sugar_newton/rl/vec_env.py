@@ -27,7 +27,7 @@ from pathlib import Path
 import torch
 from tensordict import TensorDict
 
-from sugar_newton.rl import obs_890
+from sugar_newton.rl import obs_890, rewards
 from sugar_newton.rl.carrybox_env import (
     N_DOF,
     OBS_DIM,
@@ -352,6 +352,7 @@ class RefinerVecEnv:
         policy_history_steps: int = 0,
         policy_command_dim: int = 0,
         tracker_teacher: bool = False,
+        physical_recovery_objective: bool = False,
     ):
         self.env = env
         self.num_envs = env.num_envs
@@ -371,6 +372,9 @@ class RefinerVecEnv:
             )
         self.policy_command_dim = int(policy_command_dim)
         self.tracker_teacher = bool(tracker_teacher)
+        self.physical_recovery_objective = bool(physical_recovery_objective)
+        self.physical_recovery_calls = 0
+        self.physical_recovery_max_abs = 0.0
         if self.policy_command_dim and not self.tracker_teacher:
             raise ValueError(
                 "Refiner policy command conditioning requires the synchronized "
@@ -402,6 +406,7 @@ class RefinerVecEnv:
             policy_history_steps=self.policy_history_steps,
             policy_command_dim=self.policy_command_dim,
             tracker_teacher=self.tracker_teacher,
+            physical_recovery_objective=self.physical_recovery_objective,
         )
         self.episode_length_buf = torch.zeros(
             env.num_envs, dtype=torch.long, device=env.device
@@ -507,6 +512,45 @@ class RefinerVecEnv:
 
     def step(self, actions: torch.Tensor):
         tracker, reward, done, extras = self.env.step(actions)
+        if self.physical_recovery_objective:
+            recovery = extras.get("physical_recovery_terms")
+            required = {
+                "object_margin",
+                "end_effector_margin",
+                "bilateral_contact",
+                "lifted_bilateral_hold",
+                "failure",
+            }
+            if recovery is None or set(recovery) != required:
+                raise RuntimeError("Newton physical-recovery reward contract drift")
+            values = torch.stack(
+                [
+                    recovery["object_margin"],
+                    recovery["end_effector_margin"],
+                    recovery["bilateral_contact"],
+                    recovery["lifted_bilateral_hold"],
+                ],
+                dim=-1,
+            )
+            if not torch.isfinite(values).all():
+                raise RuntimeError("Newton physical-recovery labels are non-finite")
+            physical_score = values.mean(dim=-1) - recovery["failure"]
+            official_score = torch.clamp(
+                reward / rewards.OFFICIAL_POSITIVE_REWARD_SCALE, -1.0, 1.0
+            )
+            reward = 0.5 * official_score + 0.5 * physical_score
+            divergence = extras.get("termination_terms", {}).get(
+                "diverged", torch.zeros_like(done)
+            )
+            reward = torch.where(divergence, torch.zeros_like(reward), reward)
+            recovery["official_reward_normalized"] = official_score.detach()
+            recovery["physical_score"] = physical_score.detach()
+            recovery["combined_reward"] = reward.detach()
+            self.physical_recovery_calls += int(self.num_envs)
+            self.physical_recovery_max_abs = max(
+                self.physical_recovery_max_abs,
+                float(reward.abs().max().item()),
+            )
         divergence = extras.get("termination_terms", {}).get(
             "diverged", torch.zeros_like(done)
         )
@@ -540,6 +584,13 @@ class RefinerVecEnv:
                 for key, value in extras.get("reward_terms", {}).items()
             },
         }
+        if self.physical_recovery_objective:
+            info["episode"].update(
+                {
+                    f"physical_{key}": value.mean()
+                    for key, value in extras["physical_recovery_terms"].items()
+                }
+            )
         info["episode"]["diverged_total"] = torch.tensor(
             float(self.env.num_diverged), device=self.device
         )
@@ -554,6 +605,7 @@ def make_refiner(
     policy_history_steps: int = 0,
     policy_command_dim: int = 0,
     tracker_teacher: bool = False,
+    physical_recovery_objective: bool = False,
     **kwargs,
 ) -> RefinerVecEnv:
     return RefinerVecEnv(
@@ -563,4 +615,5 @@ def make_refiner(
         policy_history_steps=policy_history_steps,
         policy_command_dim=policy_command_dim,
         tracker_teacher=tracker_teacher,
+        physical_recovery_objective=physical_recovery_objective,
     )

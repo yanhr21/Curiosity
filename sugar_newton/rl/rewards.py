@@ -46,6 +46,12 @@ WEIGHTS = {
     "obj2body_ori": 0.25,
     "hoi_contact": 1.0,
 }
+# The official reward's dense positive tracking/contact terms have this finite
+# ceiling. ``feet_air_time`` is excluded because its term is non-positive and its
+# positive coefficient therefore acts as a penalty.  The physical-recovery
+# objective uses this constant only to put the unchanged official task reward on
+# a documented [-1, 1] scale before an equal-weight causal physics score is added.
+OFFICIAL_POSITIVE_REWARD_SCALE = 5.125
 STD = {
     "motion_joint_pos": 0.6,
     "motion_global_anchor_pos": 0.3,

@@ -662,3 +662,96 @@ strict rules.  No optimizer, future state, physics change, threshold change or c
 allowed.  If the Tracker ceiling fails, its action labels cannot justify further distillation; if it
 passes, the next serious controller must address student closed-loop/expert composition rather than
 teacher scale or command encoding.
+
+The exact released Tracker ceiling is now complete and negative.  The official
+`510 -> 512/256/128 -> 29` actor (SHA256
+`ea406c98f622588e8537c14240c3101c4c3c75a333e74572d63b81f3fc391aa2`) completes all
+twenty profiles with finite state/action tensors and no active divergence, but reaches only `2/20`
+five-centimetre lifts and `0/20` strict completions.  Mean peak lift is `0.019740 m`, mean bilateral
+contact is `0.054595`, and failures are `ee_pos=18`, `obj_pos=2`.  The exact label source is therefore
+far below the unchanged `16/20` gates; the causal students' `7--10/20` lift came from retaining the
+official Refiner, not from an admissible Tracker ceiling.  Stop Tracker action distillation and do not
+sweep its checkpoint, command encoding, student capacity, residual limit or update budget.
+
+The next bounded diagnosis changes the training objective rather than the official components.  It
+keeps the parameter-exact released Refiner inside the admitted six-layer, 384-D, past-`10 x 890`
+additive causal Transformer, starts at exact endpoint equality, and uses repository BCPPO/PPO with the
+same fixed `1e-5` learning rate and `0.05` exploration standard deviation.  The actor remains exactly
+9790-D.  A training-only physical-recovery score reads only the just-executed Newton transition:
+object and maximum end-effector margins normalized by their existing `0.30 m` termination thresholds,
+real bilateral hand-box contact, bilateral lift normalized by the fixed `0.05 m` gate, and current
+failure.  It is blended equally with the unchanged official reward normalized by its documented
+`5.125` positive scale.  No reward, contact label, future frame or outcome is appended to actor or
+critic observations.
+
+This objective first faces a fixed-context learnability diagnostic on frame-zero `data_000`, where the
+exact Refiner currently lifts only `0.008450 m` and terminates on `obj_pos` at step 235.  Fresh
+seed171731 passes the zero-optimizer H200 gate over 48 real transitions: all 48 reward calls occur,
+maximum absolute combined reward is `0.711533`, every tensor is finite, divergence is zero and policy
+state change is exact zero.  Fresh seed171732 is the single predeclared two-update gate; it must show
+finite nonzero actor/critic learning, zero divergence, exact frozen-expert retention, all 384 reward
+calls and strict checkpoint loading.  Only that pass admits one fresh fixed-context learnability
+endpoint.  Task-wide training is allowed only if that endpoint both improves over `0.008450 m` and
+reaches trajectory timeout without strict failure.  Objective weights, capacity, history, residual
+limit, learning rate and update budget are not sweep axes.  The admitted fixed-context endpoint is
+exactly 64 fresh updates; it is not an open budget axis.
+
+The two-update gate and strict loading audit now pass.  Seed171732 completes all 384 transitions with
+zero divergence, 384 physical-reward calls, maximum absolute reward `0.711787`, finite temporal-actor
+and critic changes `0.0002143/0.0004684`, fixed learning rate `1e-5` and action std `0.0500774`.
+Strict evaluation restores `model_1.pt` (SHA256
+`0d67f9b29192295670d81ff6a42ef290d42a305bc8de116d5abede255bd3bd48`), keeps the official
+Refiner parameter-exact and records only `0.001170` mean absolute correction.  Its `0.008810 m` peak
+lift and strict failure are short-checkpoint diagnostics, not the selection point.  These numerical
+and structural passes admit exactly one fresh seed171733, eight-world, frame-zero `data_000`,
+64-update learnability endpoint followed by the same deterministic one-profile physical gate.
+
+The fixed-context learnability result is negative.  Seed171733 finishes 64 updates / 12,288
+transitions with 12,288 physical-reward calls, zero divergence, finite parameters, temporal-actor and
+critic changes `0.003044/0.013657`, final std `0.050591` and maximum absolute combined reward
+`0.794655`.  Frozen `data_000` evaluation restores `model_63.pt` (SHA256
+`56a80b6423bfc7c333f304f010b72c81542e497f295de0016c555f011e8e2081`) and keeps the
+official Refiner exact, but peak lift regresses from `0.008450` to `0.006923 m`, bilateral-contact
+fraction from `0.2000` to `0.1872`, and both endpoints fail `obj_pos` at step 235.  The fixed-context
+gate therefore rejects task-wide training.  Do not tune this objective, its equal blend, controller
+capacity, history, residual limit, learning rate or update budget.
+
+A parameter-free rerun also resolves the old claim that the released Tracker lifts `0.2--0.3 m` in
+Newton.  The legacy single-world script was missing its derived actor asset; regenerating that asset
+directly from the exact released checkpoint and running `data_000` at `mu=1.0` reproduces a late
+`0.2442 m` lift over 400 frames.  It is not a contradiction with the strict ceiling.  The legacy
+script has no termination logic: box height remains `0.207 m` at frame 200 and only rises by frame
+250, while the formal exact-Tracker rollout has already failed `ee_pos` at frame 78 with
+`0.001143 m` lift.  Its final object tracking error is `0.7718 m`.  The historical peak is
+post-failure behavior and cannot admit an acting teacher.
+
+Before another learned controller or reward, run one exact reference-joint-target ceiling.  At each
+causal step convert the current reference joint pose through the same deployed Isaac action map,
+`action = (q_ref - q_default) / action_scale`, and execute it in the unchanged fixed-20 Newton
+environment.  This is not a learned or privileged replacement: it is a parameter-free feasibility
+test of whether the supplied motion can be dynamically executed with the admitted PD gains, effort
+limits, contact model and strict terminations.  Record action magnitude, lift, completion and failure
+causes without clipping actions, changing physics or tuning thresholds.  A negative ceiling blocks
+construction of another action teacher from this reference; a positive ceiling supports a serious
+Newton-native inverse-dynamics/action-distillation route.
+
+The exact reference-joint-target ceiling is complete and negative.  Across the fixed twenty profiles,
+the inverse action map reconstructs every commanded joint target within `1.19e-7`, uses finite
+unclipped actions (maximum magnitude `9.8803`) and produces finite Newton rollouts, but reaches
+`0/20` lift and `0/20` strict completion.  Mean peak lift and bilateral contact are only
+`0.002915 m/0.001515`; termination counts are `ee_pos=16`, `anchor_pos=5`, `anchor_ori=1` (some
+profiles have multiple causes).  This does not prove that the complete reference is dynamically
+impossible: it proves that reference joint poses alone are not a Newton action teacher, because they
+do not supply the floating-base/contact corrections needed to realize that motion.  Do not distill
+these actions.
+
+The next fixed diagnostic moves learning to the actual failure frontier instead of diluting it over
+the whole episode.  On frame-zero `data_000`, execute the parameter-exact official Refiner for 200
+real Newton steps, preserve those observations in the admitted past-`10 x 890` history, and give the
+sampled student zero PPO/value/entropy credit while its action is not executed.  Then hand off without
+reset to the same additive six-layer temporal controller and train only the live post-prefix recovery
+segment with the admitted causal physical-recovery objective plus the exact Refiner action anchor.
+The deployed checkpoint still acts from frame zero; no prefix mask, reward, future state or outcome
+enters its actor input.  First require zero-optimizer execution/mask/expert audits and one two-update
+gate.  Only both passes admit one fresh 64-update fixed-context endpoint.  Prefix 200, objective
+weights, model/history, residual limit, learning rate and budget are fixed rather than sweep axes.

@@ -539,13 +539,21 @@ def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) 
         (current[key] - value).abs().max().item() for key, value in frozen.items()
     )
     nonzero = torch.nonzero(divergence_by_motion, as_tuple=False).flatten()
+    transitions = horizons * 24 * env.num_envs
+    recovery_contract_pass = (
+        not env.physical_recovery_objective
+        or (
+            env.physical_recovery_calls == transitions
+            and env.physical_recovery_max_abs <= 1.0
+        )
+    )
     result = {
-        "protocol": "sugar_newton_refiner_zero_optimizer_diagnostic_v1",
+        "protocol": "sugar_newton_refiner_zero_optimizer_diagnostic_v2",
         "optimizer_steps": 0,
         "horizons": horizons,
         "steps_per_horizon": 24,
         "num_envs": env.num_envs,
-        "transitions": horizons * 24 * env.num_envs,
+        "transitions": transitions,
         "all_returned_tensors_finite": finite,
         "done_total": done_total,
         "divergence_total": divergence_total,
@@ -554,7 +562,19 @@ def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) 
             for index in nonzero.tolist()
         },
         "actor_critic_parameter_max_delta": parameter_max_delta,
-        "pass": finite and divergence_total == 0 and parameter_max_delta == 0.0,
+        "physical_recovery_objective": env.physical_recovery_objective,
+        "physical_recovery_actor_observation_augmented": False,
+        "physical_recovery_calls": int(env.physical_recovery_calls),
+        "physical_recovery_max_abs_reward": float(
+            env.physical_recovery_max_abs
+        ),
+        "physical_recovery_contract_pass": recovery_contract_pass,
+        "pass": (
+            finite
+            and divergence_total == 0
+            and parameter_max_delta == 0.0
+            and recovery_contract_pass
+        ),
     }
     (log_dir / "ZERO_OPTIMIZER_AUDIT.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n"
@@ -598,6 +618,14 @@ def main() -> None:
     )
     parser.add_argument("--released-tracker-action-supervision", action="store_true")
     parser.add_argument(
+        "--physical-recovery-objective",
+        action="store_true",
+        help=(
+            "blend the normalized official reward equally with current-rollout "
+            "object/hand/contact/lift gate margins; reward labels never enter the actor"
+        ),
+    )
+    parser.add_argument(
         "--pure-distill",
         action="store_true",
         help=(
@@ -635,6 +663,15 @@ def main() -> None:
     if args.pure_distill and not args.released_tracker_action_supervision:
         raise SystemExit(
             "--pure-distill requires --released-tracker-action-supervision"
+        )
+    if args.physical_recovery_objective and not (
+        args.frozen_expert_temporal_additive_residual
+        and not args.released_tracker_action_supervision
+        and not args.pure_distill
+    ):
+        raise SystemExit(
+            "--physical-recovery-objective requires the exact additive causal "
+            "Refiner and forbids released-Tracker supervision/pure distillation"
         )
     if (
         args.frozen_expert_temporal_command_additive_residual
@@ -760,6 +797,7 @@ def main() -> None:
         policy_history_steps=(10 if temporal_mode else 0),
         policy_command_dim=(36 if temporal_command_mode else 0),
         tracker_teacher=args.released_tracker_action_supervision,
+        physical_recovery_objective=args.physical_recovery_objective,
         device=args.device,
         seed=args.seed,
     )
@@ -851,6 +889,17 @@ def main() -> None:
                 getattr(runner.alg, "full_ppo_warmup_steps", 0)
             ),
             "reward_clip": args.reward_clip,
+            "physical_recovery_objective": args.physical_recovery_objective,
+            "physical_recovery_actor_observation_augmented": False,
+            "physical_recovery_official_weight": (
+                0.5 if args.physical_recovery_objective else None
+            ),
+            "physical_recovery_physics_weight": (
+                0.5 if args.physical_recovery_objective else None
+            ),
+            "physical_recovery_official_scale": (
+                5.125 if args.physical_recovery_objective else None
+            ),
             "sync_divergence_reset": True,
             "frame_zero_env_count": env.env.frame_zero_env_count,
             "solver_njmax_per_world": env.env.njmax,
@@ -983,6 +1032,12 @@ def main() -> None:
         "released_tracker_action_supervision": args.released_tracker_action_supervision,
         "temporal_tracker_action_supervision": temporal_tracker_supervision,
         "pure_distill": args.pure_distill,
+        "physical_recovery_objective": args.physical_recovery_objective,
+        "physical_recovery_actor_observation_augmented": False,
+        "physical_recovery_calls": int(env.physical_recovery_calls),
+        "physical_recovery_max_abs_reward": float(
+            env.physical_recovery_max_abs
+        ),
         "pure_distill_contract_pass": pure_distill_contract_pass,
         "pure_distill_short_divergence_pass": (
             pure_distill_short_divergence_pass
@@ -992,6 +1047,13 @@ def main() -> None:
             and divergence_rate <= 0.005
             and pure_distill_contract_pass
             and pure_distill_short_divergence_pass
+            and (
+                not args.physical_recovery_objective
+                or (
+                    env.physical_recovery_calls == transitions
+                    and env.physical_recovery_max_abs <= 1.0
+                )
+            )
         ),
         "frozen_evaluation_required": True,
     }

@@ -411,6 +411,9 @@ class CarryBoxEnv:
         self.extras: dict[str, torch.Tensor] = {}
         self.num_diverged = 0
         self.diverged = torch.zeros(num_envs, dtype=torch.bool, device=self.device)
+        self.episode_initial_box_z = torch.zeros(
+            num_envs, dtype=torch.float32, device=self.device
+        )
         self.contact_history = ContactHistory(self)
         self.reset()
 
@@ -619,6 +622,9 @@ class CarryBoxEnv:
         self.qd[env_ids] = qd
 
         newton.eval_fk(self.model, self.state_0.joint_q, self.state_0.joint_qd, self.state_0)
+        self.episode_initial_box_z[env_ids] = self._body_q()[
+            env_ids, self.box_body, 2
+        ]
         self.last_action[env_ids] = 0.0
         self.prev_action[env_ids] = 0.0
         self.prev_qd[env_ids] = 0.0
@@ -726,6 +732,7 @@ class CarryBoxEnv:
 
         done, timeout = self._done()
         reward, terms = R.compute(self)
+        recovery_terms = self._physical_recovery_terms()
         # A diverged env is reset on this same call, so its reward is meaningless rather
         # than merely bad. It is also often huge and FINITE -- joint_acc on exploding
         # velocities reached -1.7e5 and swamped every other env in the batch -- so
@@ -734,6 +741,7 @@ class CarryBoxEnv:
         reward = torch.where(self.diverged, torch.zeros_like(reward), reward)
         self.extras = {
             "reward_terms": terms,
+            "physical_recovery_terms": recovery_terms,
             "timeout": timeout,
             "termination_terms": self.termination_terms,
         }
@@ -743,6 +751,50 @@ class CarryBoxEnv:
             self.reset(reset_ids)
             obs = self.observe()
         return obs, reward, done, self.extras
+
+    def _physical_recovery_terms(self) -> dict[str, torch.Tensor]:
+        """Current-rollout signals aligned with the frozen physical gate.
+
+        These tensors are reward labels only.  They are computed after the real
+        Newton transition and before auto-reset; none is appended to the actor or
+        critic observation.  Every normalization is fixed by an existing gate:
+        the 0.30 m object/end-effector termination margins and the 0.05 m lift
+        threshold.  No future frame or outcome label is used.
+        """
+
+        body_q = self._body_q()
+        ref_body_p = self._ref("body_pos_w")[:, self.ref_body_idx]
+        robot_body_p = body_q[:, self.body_idx, :3]
+        object_p = body_q[:, self.box_body, :3]
+
+        object_error = (self._ref("obj_pos") - object_p).norm(dim=-1)
+        ee_error = (
+            ref_body_p[:, self.ee_idx] - robot_body_p[:, self.ee_idx]
+        ).norm(dim=-1).amax(dim=-1)
+
+        hand_box_hist = self.contact_history.box[:, :, self.contact_history.hand_idx]
+        hand_force = hand_box_hist.norm(dim=-1).amax(dim=1)
+        bilateral = (hand_force[:, 0] > 0.1) & (hand_force[:, 1] > 0.1)
+        lift_fraction = (
+            (object_p[:, 2] - self.episode_initial_box_z) / 0.05
+        ).clamp(0.0, 1.0)
+
+        failure = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        for key, value in self.termination_terms.items():
+            if key != "timeout":
+                failure |= value
+
+        result = {
+            "object_margin": (1.0 - object_error / TERM_OBJ_POS).clamp(0.0, 1.0),
+            "end_effector_margin": (1.0 - ee_error / TERM_EE_POS).clamp(0.0, 1.0),
+            "bilateral_contact": bilateral.float(),
+            "lifted_bilateral_hold": bilateral.float() * lift_fraction,
+            "failure": failure.float(),
+        }
+        return {
+            key: torch.nan_to_num(value, nan=0.0, posinf=0.0, neginf=0.0).detach()
+            for key, value in result.items()
+        }
 
     def _rebind(self) -> None:
         """Re-take the torch views after the double-buffer swap."""
