@@ -577,7 +577,9 @@ against upstream Newton must stay empty.
       the exact Refiner and training-only Tracker.  The command is the deployable current reference
       tuple `29 joint target + 3 root linear velocity + 3 root angular velocity + 1 contact`; it is
       not a future/outcome label.  Require exact observation synchronization, zero-start action and
-      expert drift before any fresh live Newton training.
+      expert drift before any fresh live Newton training.  The new non-mutating command builder now
+      passes its two-world H200 gate: state/history deltas are exact zero and both reset-time and
+      post-step maximum differences from `observe()[:, :36]` are exact zero.
 
 ---
 

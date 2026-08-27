@@ -55,6 +55,7 @@ BOX_MASS = {"small": 0.5, "big": 0.75}
 ANCHOR_LINK = "torso_link"
 N_DOF = 29
 OBS_DIM = 510
+TRACKER_COMMAND_DIM = 36
 HIST = 5
 
 # base_tracker_env_cfg.py: MotionCommandCfg.body_names, in this order. Index 0 is the
@@ -634,6 +635,39 @@ class CarryBoxEnv:
             self.hist[key] = torch.cat([self.hist[key][:, 1:], value.unsqueeze(1)], dim=1)
         return self.hist[key].reshape(self.num_envs, -1)
 
+    def tracker_command(self) -> torch.Tensor:
+        """Return the exact current 36-D released-Tracker reference command.
+
+        Unlike :meth:`observe`, this accessor does not advance any five-frame
+        state/action history.  It is therefore safe to expose to a deployed
+        command-conditioned controller and to audit against ``observe()[:, :36]``.
+        """
+
+        ref_rq = self._ref("body_quat_w")[:, 0]
+        ref_rq = R.normalize(ref_rq[:, [1, 2, 3, 0]])
+        ref_lin_b = R.quat_apply_inv(
+            ref_rq, self._ref("body_lin_vel_w")[:, 0]
+        )
+        ref_ang_b = R.quat_apply_inv(
+            ref_rq, self._ref("body_ang_vel_w")[:, 0]
+        )
+        command = torch.cat(
+            [
+                self._ref("joint_pos"),
+                ref_lin_b,
+                ref_ang_b,
+                self._ref("contact").unsqueeze(-1),
+            ],
+            dim=-1,
+        )
+        if tuple(command.shape) != (self.num_envs, TRACKER_COMMAND_DIM):
+            raise RuntimeError(
+                f"Tracker command drift: {tuple(command.shape)}"
+            )
+        if not torch.isfinite(command).all():
+            raise RuntimeError("Tracker command is non-finite")
+        return command
+
     def observe(self) -> torch.Tensor:
         body_q = self._body_q()
         root_quat = R.normalize(self.q[:, self.root_q0 + 3:self.root_q0 + 7])
@@ -653,14 +687,8 @@ class CarryBoxEnv:
         obj_quat_b = R.quat_mul(R.quat_conj(a_q), o_q)
         obj_ori_b = R.mat_from_quat(obj_quat_b)[..., :2].reshape(self.num_envs, 6)
 
-        ref_rq = self._ref("body_quat_w")[:, 0]
-        ref_rq = R.normalize(ref_rq[:, [1, 2, 3, 0]])
-        ref_lin_b = R.quat_apply_inv(ref_rq, self._ref("body_lin_vel_w")[:, 0])
-        ref_ang_b = R.quat_apply_inv(ref_rq, self._ref("body_ang_vel_w")[:, 0])
-
         return torch.cat([
-            self._ref("joint_pos"), ref_lin_b, ref_ang_b,
-            self._ref("contact").unsqueeze(-1),
+            self.tracker_command(),
             self._push("ang", base_ang_vel_b),
             self._push("jp", joint_pos - self.q_default),
             self._push("jv", joint_vel),

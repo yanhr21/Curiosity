@@ -601,3 +601,10 @@ training-only.  This is a deployable selected-reference command, not a future st
 outcome label.  First prove a non-mutating Newton command builder, elementwise synchronization with
 the first 36 Tracker-observation coordinates, exact-zero initialized action delta and exact-zero
 expert drift; only then predeclare fresh zero-optimizer and two-update live gates.
+
+The command-builder prerequisite now passes on two live H200 worlds.  Calling
+`tracker_command()` changes neither robot state nor any five-frame observation history (both maximum
+deltas are exactly zero), returns finite `(2, 36)` tensors, and matches `observe()[:, :36]`
+elementwise both immediately after reset and after one real Newton transition.  The remaining work
+is therefore the command-conditioned composer wiring and its exact-zero component audit, not
+reference-command reconstruction.
