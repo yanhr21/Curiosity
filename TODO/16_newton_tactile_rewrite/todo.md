@@ -297,21 +297,28 @@ against upstream Newton must stay empty.
       audit finds lift improvement in `16/20` profiles (median `+0.00786 m`) and contact
       improvement in `19/20` (median `+0.02922`). This is broad learnability, not teacher
       admission.
-- [ ] Run one predeclared longer fresh adaptation from the same exact source for 256 updates;
-      do not resume `model_63.pt`. It keeps the same official topology, observation, reward and
-      fixed stability settings. Evaluate only against the same frozen 20-profile gate. If it
-      still misses `16/20` lift and `16/20` strict completion, reject this objective and do not
-      run another update-budget extension.
+- [x] Run the one predeclared longer fresh adaptation from the same exact source for 256 updates;
+      `model_63.pt` was not resumed. Seed 171701 completed 256 updates / 49,152 transitions with
+      `13/49152 = 0.02645%` divergence, all policy parameters finite, maximum actor/critic delta
+      `0.0270707` and final action-std mean `0.0525262`; the training gate passes. The exact
+      `model_255.pt` SHA is `56b200dfc974b0017c4c654ee535128c2257ce5626cc3de5337a271f9e91fd4e`.
+      Its fixed 20-profile physical gate fails: `20/20` are finite, but lift is `0/20` and strict
+      completion is `0/20` against required `16/20`; mean peak lift is `0.0031307 m` and mean
+      bilateral contact is `0.152296`. The endpoint is worse than fresh-64 on both continuous
+      metrics. Reject this Refiner PPO objective; do not extend its budget or select another
+      checkpoint from the run.
 
 ## E. Phase 4 — env and learning
 
 - [x] Vec-env implementing the `rsl_rl` VecEnv protocol; torch↔warp interop following
       `newton/_src/solvers/kamino/examples/rl/`.
-- [ ] Wire `BCPPO` unmodified (`rsl_rl_bcppo.py`) with both required teacher roles:
+- [x] Wire `BCPPO` unmodified (`rsl_rl_bcppo.py`) with both required teacher roles:
       distillation target **and acting policy for the episode prefix**. The H200 runtime
       successfully imports SUGAR's compatible pure-Python `rsl_rl 3.0.1`, and the
       distillation-only execution path ran, but it did not execute the Refiner as the acting
-      prefix policy. That run is rejected rather than counted as a completed handoff.
+      prefix policy. That run is rejected rather than counted as a completed handoff. The corrected
+      acting/distillation implementation, exact official Tracker warm start and automatic launch
+      chain are now present; runtime training remains fail-closed on the physical Refiner gate.
 - [x] **Reward contact terms implemented and H200-audited from live resolved forces:**
       - [x] ankles, rubber hands and box are excluded from undesired-contact bodies
             (audit #1)
@@ -373,10 +380,12 @@ against upstream Newton must stay empty.
       evaluation validity separately from physical advantage; it cannot turn a finite run
       into an improvement claim. The automatic chain runs it only after the formal-3000
       training gate passes.
-- [ ] After a Newton-adapted Refiner passes the frozen lift gate, run the physical
-      acting-teacher prefix smoke and start the faithful Tracker BCPPO run from
-      scratch. The implementation is present, but runtime admission remains conditional on
-      the fresh-256 frozen result; no failed checkpoint may exercise BCPPO.
+- [x] Resolve the conditional acting-teacher/Tracker launch automatically from the fresh-256 gate.
+      The gate reports training pass but physical fail (`0/20` lift, `0/20` strict, required
+      `16/20`), and the chain records `AUTO_BCPPO_CHAIN_REJECTED_REFINER_GATE`. Therefore the
+      physical handoff smoke and fresh Tracker BCPPO run were correctly not started; no failed
+      checkpoint exercised BCPPO. A future run requires a different serious acting-teacher method,
+      not another update-budget extension of this objective.
 - [ ] Port the mass-jump event (the one part of Plan 15 the audit found sound: written at
       the action boundary, inertia scaled by exactly `target/default`, both values read
       back).

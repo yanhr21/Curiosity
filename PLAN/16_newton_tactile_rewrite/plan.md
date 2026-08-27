@@ -226,9 +226,15 @@ physical gate remains the teacher-admission test.
 The 64-update frozen gate is stable but not admitted: `1/20` profiles lift at least 5 cm and
 `0/20` strictly complete. The continuous response is broad rather than one-outlier-only:
 `16/20` profiles improve peak lift (median `+0.00786 m`) and `19/20` improve bilateral contact
-(median `+0.02922`). This admits one longer 256-update run started fresh from the same official
-checkpoint. It is not a sweep: if that fixed endpoint still misses the original `16/20` lift
-and strict-completion gates, the objective is rejected and is not extended again.
+(median `+0.02922`). The single predeclared longer run was therefore started fresh from the same
+official checkpoint, not resumed from update 64. It completed all 256 updates / 49,152
+transitions with `13/49152 = 0.02645%` divergence, finite policy parameters and a maximum
+actor/critic parameter delta of `0.0270707`; its training gate passes. The fixed frozen physical
+gate on `model_255.pt` is nevertheless decisively negative: all `20/20` profiles are finite, but
+`0/20` lift by 5 cm and `0/20` strictly complete. Mean peak lift is only `0.0031307 m` and mean
+bilateral contact is `0.152296`. This endpoint is worse than fresh-64 on the declared physical
+metrics, so the Refiner PPO objective is rejected and must not receive another update-budget
+extension or checkpoint-selection sweep.
 
 The downstream Tracker path now fails closed on that decision. Its Newton VecEnv loads the
 same checkpoint as a strict deterministic acting Refiner and as BCPPO's frozen distillation
@@ -239,10 +245,13 @@ official full-trajectory teacher distillation. The runner rejects a missing, fai
 differently hashed or malformed frozen-gate
 result and has no resume route. The student actor/critic/std load exactly from the released
 CarryBox Tracker while its checkpoint optimizer and iteration are ignored, preserving the
-declared warm start with fresh Newton BCPPO state. This implementation does not admit a launch by itself: the
-fresh-256 endpoint must first pass the unchanged gate.
+declared warm start with fresh Newton BCPPO state. This implementation does not admit a launch by
+itself. The fresh-256 endpoint failed the unchanged gate, and the automatic chain recorded
+`AUTO_BCPPO_CHAIN_REJECTED_REFINER_GATE`; no acting-handoff smoke or Tracker optimizer update was
+run.
 
-If admitted, one fixed 12-update / one-profile runtime smoke must first demonstrate a real
+For any future independently admitted acting checkpoint, one fixed 12-update / one-profile
+runtime smoke must first demonstrate a real
 handoff, nonzero student-controlled steps, finite policy state, frozen teacher parameters and
 the original divergence bound. It then launches one fresh 3000-update, eight-world BCPPO run,
 which reaches the complete official BC/critic/PPO curriculum rather than stopping inside pure
