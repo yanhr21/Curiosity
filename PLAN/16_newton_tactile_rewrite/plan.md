@@ -578,3 +578,26 @@ float32 mean is `0.99999994`, so the machine gate uses the structural identity c
 reporting tolerance rather than an invalid exact equality on the reduction.  These passes admit the
 single predeclared fresh seed171725 64-update run, now active on H200 with an automatic fixed-20
 evaluator behind its unchanged numerical gate.
+
+The seed171725 endpoint is complete and rejected.  Training passes all 64 updates / 12,288
+transitions with two synchronized divergences (`0.01628%`), finite parameters, composer delta
+`0.0145992`, exact-zero critic drift, action-std delta `7.45e-10` and fixed LR `1e-5`.  Frozen
+fixed-20 evaluation restores `model_63.pt` (SHA256
+`07a86510547dd2c967bdd19edd2d7452f7fff6d5d3d172c3d97f1786ec2e8a4f`), keeps both experts exact,
+never calls the Tracker at inference and finishes all profiles without active divergence.  Exact
+additive retention improves lift from `8/20` to `10/20` and bilateral contact from `0.128391` to
+`0.170408`, but strict completion remains `0/20`; mean peak lift is `0.058460 m`.  All ten lifted
+profiles terminate on `obj_pos`, and the full failure distribution is `obj_pos=13`, `ee_pos=6`,
+`obj_ori=1`.  This is a real topology improvement but remains below both fixed `16/20` gates.  Do
+not sweep this objective, scale, capacity or budget.
+
+The next bounded topology addresses a remaining conditioning omission.  The released Tracker's
+510-D actor input begins with an exact current 36-D reference command: 29 joint targets, root linear
+and angular velocity, and contact.  The 890-D Refiner input contains the joint reference but not the
+complete root-velocity/contact tuple, so current-state Tracker action labels are not fully
+conditioned in the deployed student.  Add this exact current 36-D command to the same additive
+six-layer causal composer, preserve the complete official Refiner endpoint and keep the Tracker
+training-only.  This is a deployable selected-reference command, not a future state, reward or
+outcome label.  First prove a non-mutating Newton command builder, elementwise synchronization with
+the first 36 Tracker-observation coordinates, exact-zero initialized action delta and exact-zero
+expert drift; only then predeclare fresh zero-optimizer and two-update live gates.

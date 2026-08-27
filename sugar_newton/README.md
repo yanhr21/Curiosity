@@ -74,6 +74,12 @@ delta `7.45e-10`; strict one-profile loading also passes with exact endpoint-plu
 The single fresh seed171725 64-update endpoint is now active on H200, followed automatically by the
 unchanged fixed-20 physical evaluator.
 
+Seed171725 is now complete: its numerical training gate passes, but fixed-20 reaches only `10/20`
+lift and `0/20` strict, with mean lift/contact `0.058460 m/0.170408`.  Exact additive retention
+improves the prior topology but does not admit Tracker/BCPPO.  The next implementation adds the
+missing current 36-D Tracker reference command to the same causal additive composer; it remains a
+current deployable command and the released Tracker remains training-only.
+
 ## Running the validator
 
 Run simulation and GPU validation through a Slurm compute allocation. The current H200

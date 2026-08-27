@@ -567,9 +567,17 @@ against upstream Newton must stay empty.
       divergence, composer delta `0.00046440`, exact-zero critic drift, std delta `7.45e-10` and
       distillation loss `0.3349 -> 0.1788`; the one-profile loading smoke passes every structural
       check and keeps both experts exact.  Its diagnostic result is `0/1` lift/strict.
-- [ ] Finish the automatically admitted fresh seed171725 64-update endpoint and unchanged fixed-20
-      physical gate.  Training and its serial evaluator watcher are active on the retained H200;
-      Tracker/BCPPO remains closed below `16/20` lift and strict.
+- [x] Finish the automatically admitted fresh seed171725 64-update endpoint and unchanged fixed-20
+      physical gate.  Training passes with 64 updates / 12,288 transitions, two divergences
+      (`0.01628%`), composer delta `0.0145992`, exact-zero critic drift and std delta `7.45e-10`.
+      Frozen evaluation gives `10/20` lift and `0/20` strict, mean lift/contact
+      `0.058460 m/0.170408`, exact unit endpoint retention and 20/20 finite profiles.  Reject the
+      endpoint and keep Tracker/BCPPO closed; do not sweep this additive topology.
+- [ ] Add the missing current 36-D Tracker command to the additive causal composer while preserving
+      the exact Refiner and training-only Tracker.  The command is the deployable current reference
+      tuple `29 joint target + 3 root linear velocity + 3 root angular velocity + 1 contact`; it is
+      not a future/outcome label.  Require exact observation synchronization, zero-start action and
+      expert drift before any fresh live Newton training.
 
 ---
 
