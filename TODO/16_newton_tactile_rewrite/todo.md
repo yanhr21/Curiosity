@@ -442,10 +442,27 @@ against upstream Newton must stay empty.
 - [x] Pass the fresh seed171705 fixed-rate two-update smoke: both logged rates `1e-5`,
       zero divergence, all finite, actor/critic deltas `0.0001936/0.0002668`, std
       `0.0500219`.  The zero-optimizer audit is still exact over 384 transitions.
-- [ ] Run one fresh seed171706, eight-world, 64-update action-anchor endpoint on H200.
-- [ ] Run the unchanged fixed-20 frozen Refiner gate.  Automatically reject before
+- [x] Run one fresh seed171706, eight-world, 64-update action-anchor endpoint on H200:
+      finite, `5/12288` divergences, fixed LR `1e-5`, actor delta `0.001884`.
+- [x] Run the unchanged fixed-20 frozen Refiner gate.  It is rejected at `2/20` lift and
+      `0/20` strict versus required `16/20`; a real Tracker entry call fails closed before
+      environment construction or any optimizer update.  Matched lift/contact improve in
+      `13/20` and `16/20`, so record a directional response but no acting-teacher pass.
+- [x] Generate and smoke the isolated Isaac-style torso convex hull: 51,410 mesh triangles
+      become 2,586 hull triangles, volume ratio `1.79x`, exactly two torso shapes replaced,
+      and the one-profile rollout is finite.
+- [x] Complete the fixed-20 exact-official-Refiner torso-hull causal comparison.  It is
+      negative: mesh/hull are both `1/20` lift and `0/20` strict; mean lift changes only
+      `0.011250 -> 0.011333 m`, matched mean delta `+0.0000834 m`.  Keep mesh as default;
+      do not hull more links or run another collision-geometry sweep.
+- [ ] Implement the next topology change as adapter-only control around a parameter-exact
+      frozen official Refiner.  It must retain the official `512/256/128` scale, consume
+      only the causal current 890-D Newton observation, start at exact zero action delta,
+      and pass a zero-optimizer plus bounded-update smoke before one fixed physical gate.
+- [x] Automatically reject before
       Tracker unless at least `16/20` profiles satisfy strict lift/hold; launch the
-      existing acting-teacher Tracker chain only on a machine-readable pass.
+      existing acting-teacher Tracker chain only on a machine-readable pass.  The
+      action-anchor endpoint failed, so no Tracker run was launched.
 
 ---
 

@@ -355,3 +355,30 @@ The formal endpoint is evaluated on the unchanged fixed 20-profile Refiner physi
 gate.  A numerical training pass is not admission: at least `16/20` profiles must satisfy
 the existing strict lift/hold rule.  Failure stops before Tracker/BCPPO; success alone
 allows the already implemented acting-teacher handoff chain to start automatically.
+
+That formal seed171706 endpoint is complete and rejected.  All 12,288 transitions and
+parameters are finite, divergence is `5/12288 = 0.0407%`, all 64 recorded learning rates
+remain `1e-5`, and actor/critic maximum changes are `0.001884/0.010272`.  The frozen gate
+has `20/20` finite profiles but only `2/20` 5-cm lifts and `0/20` strict completions; mean
+peak lift/contact are `0.027440 m/0.211441`.  This is below the fixed `16/20` rule, and a
+real `train_bcppo` entry call rejects the gate before constructing its environment or
+taking an optimizer step.  Relative to the exact official pre-update Refiner on the same
+profiles, lift improves in `13/20`, bilateral contact in `16/20`, and motion95 changes
+from `0.05312` to `0.22117 m`; this is a directional Newton-adaptation response, not an
+acting-teacher admission.  Do not extend the update budget or sweep anchor strength/LR.
+
+The next parameter-free physics audit changes only the still-unmatched torso collision
+topology.  Isaac's official URDF converter convex-hulls every mesh collider, while Newton
+currently keeps the 51,410-triangle torso mesh.  Its derived convex hull has 2,586
+triangles and `1.79x` the enclosed volume.  A one-profile execution smoke is finite and
+replaces exactly two torso shapes; the fixed-20 official-Refiner comparison decides this
+hypothesis without changing or training the policy.
+
+That torso comparison is complete and negative.  Exact-official mesh versus torso-hull
+both give `1/20` lift and `0/20` strict completion.  Mean lift changes only
+`0.011250 -> 0.011333 m` and bilateral contact `0.193976 -> 0.194529`; matched mean lift
+delta is `+0.0000834 m`, with `7/20` profiles improving and `9/20` worsening.  The largest
+absolute per-profile lift change is only `0.00248 m`.  Do not enable the torso hull by
+default, hull additional links, or run another collision-geometry sweep.  The next
+acting-policy method must change controller topology while keeping the exact official
+Refiner frozen, using only adapter code around that serious released component.

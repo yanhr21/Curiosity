@@ -182,6 +182,11 @@ def main() -> int:
     parser.add_argument("--mu", type=float, default=1.0)
     parser.add_argument("--minimum-lift", type=float, default=0.05)
     parser.add_argument("--minimum-pass-fraction", type=float, default=0.80)
+    parser.add_argument(
+        "--torso-hull",
+        action="store_true",
+        help="diagnostic: replace only the torso mesh collider with its convex hull",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--rsl-rl-root", required=True)
     args = parser.parse_args()
@@ -213,6 +218,7 @@ def main() -> int:
         mu=args.mu,
         device=args.device,
         seed=0,
+        torso_hull=args.torso_hull,
         auto_reset=False,
     )
     records = []
@@ -244,6 +250,9 @@ def main() -> int:
         "num_profiles": len(records),
         "minimum_lift_m": args.minimum_lift,
         "minimum_pass_fraction": args.minimum_pass_fraction,
+        "torso_hull_diagnostic": args.torso_hull,
+        "torso_hull_original_shape_count": env.torso_hull_original_shape_count,
+        "torso_hull_triangle_count": env.torso_hull_triangle_count,
         "required_profile_count": needed,
         "lifted_profile_count": sum(lifted),
         "strict_complete_profile_count": sum(strict_complete),

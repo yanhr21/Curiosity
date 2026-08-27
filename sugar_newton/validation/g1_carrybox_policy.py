@@ -78,10 +78,11 @@ Non-wrist joints agree, so legs, waist and shoulders behave the same in both; th
 discrepancy sits at the hand-box interface, and the wrists are the weakest actuators on
 this robot by a factor of ten (5 N.m against 50-139). Peak demand reaches 30.8 N.m, which
 is impulsive rather than static. Contact compliance was the obvious candidate and the
-``ke`` sweep above rules it out. The next untested one: Isaac hulls *every* link, not just
-the hands, and in the reference the box is carried pressed against the chest -- so the
-torso collider, which ``--hull-hands`` leaves alone, may be what forms the shelf the box
-rests on. These are PD estimates from position error, not measured joint torques.
+``ke`` sweep above rules it out. The later fixed-20 Refiner audit also replaced only the
+torso mesh by the exact derived convex hull implied by Isaac's converter (`1.79x` volume):
+lift remained `1/20`, strict completion `0/20`, and mean lift changed by only `0.000083 m`.
+The torso-shelf hypothesis is therefore rejected too. These are PD estimates from position
+error, not measured joint torques.
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """Generate the two derived binaries :mod:`g1_carrybox_policy` needs.
 
-Both outputs are ``*.npz`` and therefore gitignored (``.gitignore:59``), which is the
+All outputs are ``*.npz`` and therefore gitignored (``.gitignore:59``), which is the
 right convention -- they are derived from assets that are themselves not in the repo.
 Run this once on a machine that has torch and scipy (the login-node conda envs do; the
 Newton container deliberately does not) and the policy scene becomes runnable:
@@ -18,6 +18,12 @@ Newton container deliberately does not) and the policy scene becomes runnable:
     diagnostic ablation, which exists to test -- and, as it turned out, to refute -- the
     claim that Isaac's convex-hull hand colliders explain its stronger grasp. Nothing in
     the default path hulls anything.
+
+``torso_hull.npz``
+    Convex hull of the torso collision mesh.  This is a separate diagnostic because the
+    official Isaac URDF converter hulls every mesh link and the CarryBox reference presses
+    the object against the chest; it must not be conflated with the rejected hand-hull
+    hypothesis.
 """
 
 from __future__ import annotations
@@ -82,9 +88,38 @@ def export_hand_hulls(out: Path) -> None:
     print(f"wrote {out}")
 
 
+def export_torso_hull(out: Path) -> None:
+    """Export the exact convex hull Isaac's default mesh-collider policy implies."""
+
+    from scipy.spatial import ConvexHull
+
+    tri = read_stl(MESHES / "torso_link_rev_1_0.STL")
+    hull = ConvexHull(tri.reshape(-1, 3))
+    verts = hull.points[hull.vertices]
+    remap = {int(original): index for index, original in enumerate(hull.vertices)}
+    tris = np.array(
+        [[remap[int(index)] for index in simplex] for simplex in hull.simplices],
+        dtype=np.int32,
+    )
+    for index, _ in enumerate(hull.simplices):
+        a, b, c = verts[tris[index]]
+        if np.dot(np.cross(b - a, c - a), hull.equations[index, :3]) < 0.0:
+            tris[index] = tris[index][::-1]
+    a, b, c = tri[:, 0], tri[:, 1], tri[:, 2]
+    mesh_volume = abs(np.einsum("ij,ij->i", a, np.cross(b, c)).sum() / 6.0)
+    np.savez(out, verts=verts.astype(np.float32), tris=tris)
+    print(
+        f"  torso: mesh {len(tri)} tris, {mesh_volume * 1e6:.1f} cm^3 -> "
+        f"hull {len(tris)} tris, {hull.volume * 1e6:.1f} cm^3 "
+        f"({hull.volume / mesh_volume:.2f}x)"
+    )
+    print(f"wrote {out}")
+
+
 def main() -> None:
     export_actor(HERE / "tracker_actor.npz")
     export_hand_hulls(HERE / "hand_hulls.npz")
+    export_torso_hull(HERE / "torso_hull.npz")
 
 
 if __name__ == "__main__":

@@ -47,6 +47,7 @@ HERE = Path(__file__).resolve().parent
 SUGAR = HERE.parents[1] / "SUGAR"
 URDF = SUGAR / "descriptions/robots/g1/g1_29dof_rev_1_0_with_rubber_hand.urdf"
 CLIPS = SUGAR / "data/CarryBox"
+TORSO_HULL = HERE.parent / "validation/torso_hull.npz"
 BOX_USD = {"small": SUGAR / "descriptions/objects/small_box/obj_aligned.usd",
            "big": SUGAR / "descriptions/objects/big_box/obj_aligned.usd"}
 BOX_MASS = {"small": 0.5, "big": 0.75}
@@ -266,9 +267,10 @@ class CarryBoxEnv:
                  box: str = "small", mu: float = 1.0, ke: float = 1.0e4,
                  kd: float = 3.2e2, substeps: int = 4, episode_length: int = 300,
                  device: str = "cuda:0", seed: int = 0,
-                 njmax: int = 8192, nconmax: int = 8192,
-                 frame_zero_env_count: int = 0,
-                 auto_reset: bool = True):
+                   njmax: int = 8192, nconmax: int = 8192,
+                   frame_zero_env_count: int = 0,
+                   torso_hull: bool = False,
+                   auto_reset: bool = True):
         self.num_envs = num_envs
         self.substeps = substeps
         self.episode_length = episode_length
@@ -277,6 +279,7 @@ class CarryBoxEnv:
         if not 0 <= frame_zero_env_count <= num_envs:
             raise ValueError("frame_zero_env_count must be in [0, num_envs]")
         self.frame_zero_env_count = int(frame_zero_env_count)
+        self.torso_hull = bool(torso_hull)
         self.gen = torch.Generator(device=self.device).manual_seed(seed)
         self.auto_reset = auto_reset
         self.motion_root = Path(motion_root).resolve()
@@ -421,6 +424,41 @@ class CarryBoxEnv:
         b.add_urdf(str(URDF), floating=True, collapse_fixed_joints=False,
                    enable_self_collisions=False, joint_ordering="bfs",
                    ignore_inertial_definitions=False)
+
+        # Diagnostic one-variable match to Isaac's default URDF converter.  The hand
+        # hull was already rejected; this separately tests the torso mesh that can form
+        # a shelf while the reference presses the box against the chest.  Density zero
+        # preserves the official URDF inertial tensor exactly.
+        self.torso_hull_original_shape_count = 0
+        self.torso_hull_triangle_count = 0
+        if self.torso_hull:
+            if not TORSO_HULL.is_file():
+                raise FileNotFoundError(
+                    f"missing derived torso hull {TORSO_HULL}; run "
+                    "python -m sugar_newton.validation.make_policy_assets"
+                )
+            body_index = next(
+                index
+                for index, label in enumerate(b.body_label)
+                if label.split("/")[-1] == "torso_link"
+            )
+            for shape_index in range(b.shape_count):
+                if b.shape_body[shape_index] == body_index:
+                    b.shape_flags[shape_index] &= ~int(newton.ShapeFlags.COLLIDE_SHAPES)
+                    self.torso_hull_original_shape_count += 1
+            hull = np.load(TORSO_HULL)
+            triangles = np.asarray(hull["tris"], dtype=np.int32)
+            self.torso_hull_triangle_count = int(len(triangles))
+            b.add_shape_mesh(
+                body=body_index,
+                mesh=newton.Mesh(
+                    np.asarray(hull["verts"], dtype=np.float32), triangles.flatten()
+                ),
+                cfg=newton.ModelBuilder.ShapeConfig(
+                    ke=ke, kd=kd, mu=mu, density=0.0
+                ),
+                label="torso_link_convex_hull_diagnostic",
+            )
 
         self._act_dofs, self._act_coords, names = [], [], []
         for j, lbl in enumerate(b.joint_label):
