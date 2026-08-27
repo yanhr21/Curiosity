@@ -528,15 +528,25 @@ against upstream Newton must stay empty.
       0 / 192 transitions.  It has no `TRAINING_RESULT.json`, is not a formal endpoint and must not
       be resumed or reported.  The pure-distillation formal run and downstream Tracker/BCPPO are
       rejected; do not rerun this objective with another seed or sweep its settings.
-- [ ] Combine the admitted six-layer causal temporal Refiner composer with the exact released
+- [x] Combine the admitted six-layer causal temporal Refiner composer with the exact released
       Tracker as a training-only current-state action teacher.  Prove exact-zero composed/endpoint
       delta, exact-zero frozen Refiner/Tracker drift, synchronized 9790-D/510-D causal observations,
-      Tracker absence from inference and a fresh seed171720 48-transition zero-optimizer pass.
-- [ ] Run fresh seed171721 for exactly two Stage-1 pure-distillation updates / 384 transitions.
+      Tracker absence from inference and a fresh seed171720 48-transition zero-optimizer pass.  The
+      13,034,614-parameter implementation passes: its 11,360,286-parameter temporal composer starts
+      at exact zero, both released experts retain exact-zero weight/std drift, and all 48 live
+      Newton transitions are finite with zero divergence and zero policy-state change.
+- [x] Run fresh seed171721 for exactly two Stage-1 pure-distillation updates / 384 transitions.
       Require zero divergence, finite tensors, nonzero temporal-composer update and exact-zero
       critic/std/expert drift.  Only all passes admit one fresh seed171722 64-update endpoint and
       unchanged fixed-20 physical gate; do not sweep this topology or launch Tracker below the
-      `16/20` lift and strict rule.
+      `16/20` lift and strict rule.  The short gate passes with zero divergence, composer delta
+      `0.00045949`, exact-zero critic drift, std delta `7.45e-10` and distillation loss
+      `0.1205 -> 0.1103`.  Its strict fixed-20 loading audit preserves both experts exactly, never
+      calls the Tracker at inference and finishes `20/20` finite profiles without divergence; the
+      diagnostic physical result is `0/20` lift and `0/20` strict.
+- [ ] Finish the automatically admitted fresh seed171722 64-update endpoint and its unchanged
+      fixed-20 physical gate.  The run is active on the retained H200 allocation.  Downstream
+      Tracker/BCPPO remains machine-blocked unless both lift and strict completion reach `16/20`.
 
 ---
 

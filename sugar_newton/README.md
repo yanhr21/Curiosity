@@ -50,8 +50,14 @@ Tracker/BCPPO is admitted.
 
 The active bounded follow-up combines the same exact released Tracker action teacher with the
 already-admitted six-layer causal temporal Refiner composer.  The Tracker remains training-only;
-the deployed actor consumes the current 890-D state plus exact past `10 x 890` history.  Component,
-zero-optimizer and two-update H200 gates must pass before a single fresh 64-update endpoint can run.
+the deployed actor consumes the current 890-D state plus exact past `10 x 890` history.  Its
+component and seed171720 zero-optimizer gates pass with exact-zero endpoint/expert/state drift.
+Seed171721 then passes two Stage-1 updates / 384 transitions with zero divergence, composer delta
+`0.00045949`, exact-zero critic drift and std delta `7.45e-10`.  A strict fixed-20 audit proves both
+experts remain exact and the Tracker is absent at inference; all profiles are finite, while the
+diagnostic physical result is `0/20` lift and `0/20` strict.  These structural gates automatically
+admitted the single predeclared fresh seed171722 64-update run, now active on the retained H200.
+Tracker/BCPPO remains closed unless its fixed-20 endpoint reaches `16/20` lift and strict.
 
 ## Running the validator
 

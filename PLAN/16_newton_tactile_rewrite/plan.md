@@ -521,3 +521,17 @@ exact-zero critic/std/expert drift.  Only all machine passes admit one fresh see
 endpoint and the unchanged fixed-20 gate.  Do not sweep history, Transformer size, teacher/loss
 weight, LR, residual limit or update budget; Tracker/BCPPO remains closed below `16/20` lift and
 strict.
+
+The combined topology has now passed every pre-training gate.  It has 13,034,614 total parameters,
+of which only the 11,360,286-parameter temporal composer is trainable.  Seed171720 completes 48
+live Newton transitions with zero optimizer updates, zero divergence, finite tensors, exact-zero
+initial endpoint delta and exact-zero policy-state and released-expert drift.  Seed171721 completes
+the prescribed two Stage-1 updates / 384 transitions with zero divergence, composer delta
+`0.00045949`, exact-zero critic drift, action-std delta `7.45e-10` and fixed LR `1e-5`; distillation
+loss decreases from `0.1205` to `0.1103`.  Strict fixed-20 evaluation loads the combined checkpoint,
+keeps both official experts parameter-exact, proves the Tracker is unused at inference and finishes
+all profiles without active divergence.  Its diagnostic physical result is `0/20` lift and `0/20`
+strict, with mean lift/contact `0.009796 m/0.192179`; this short endpoint is not the physical
+selection point.  The machine gates therefore admit exactly the predeclared fresh seed171722
+64-update endpoint, which is now running on the retained H200 allocation.  Its fixed-20 result alone
+will decide whether the acting-Refiner queue reaches downstream Tracker/BCPPO.
