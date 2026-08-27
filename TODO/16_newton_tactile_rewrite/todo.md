@@ -573,13 +573,31 @@ against upstream Newton must stay empty.
       Frozen evaluation gives `10/20` lift and `0/20` strict, mean lift/contact
       `0.058460 m/0.170408`, exact unit endpoint retention and 20/20 finite profiles.  Reject the
       endpoint and keep Tracker/BCPPO closed; do not sweep this additive topology.
-- [ ] Add the missing current 36-D Tracker command to the additive causal composer while preserving
+- [x] Add the missing current 36-D Tracker command to the additive causal composer while preserving
       the exact Refiner and training-only Tracker.  The command is the deployable current reference
       tuple `29 joint target + 3 root linear velocity + 3 root angular velocity + 1 contact`; it is
       not a future/outcome label.  Require exact observation synchronization, zero-start action and
       expert drift before any fresh live Newton training.  The new non-mutating command builder now
       passes its two-world H200 gate: state/history deltas are exact zero and both reset-time and
-      post-step maximum differences from `observe()[:, :36]` are exact zero.
+      post-step maximum differences from `observe()[:, :36]` are exact zero.  The serious composer
+      keeps the same six-layer 384-D past-`10 x 890` Transformer and adds the current command as one
+      independent token.  Seed171726's CUDA component gate proves a 29-D exact-zero output head,
+      exact-zero initialized endpoint delta and Refiner gradient, exact unit retention, nonzero
+      composer gradient `0.24515`, and command-induced hidden-state delta `0.09760`.
+- [ ] Run exactly one fresh seed171727 zero-optimizer gate for 48 live Newton transitions.  Require
+      finite policy/state tensors, zero divergence, exact-zero policy and frozen-expert drift,
+      a `9826 = 890 + 10 x 890 + 36` policy tensor, history/current equality, and elementwise
+      equality between the appended command and the first 36 coordinates of the synchronized
+      released-Tracker observation.
+- [ ] Only if seed171727 passes, run exactly one fresh seed171728 two-update / 384-transition
+      Stage-1 pure-distillation gate.  Require zero divergence, nonzero composer update, exact-zero
+      critic and released-expert drift, action std within `1e-7` of `0.05`, fixed LR `1e-5`, finite
+      parameters, and strict loading of the resulting command-conditioned checkpoint.  Do not sweep
+      the command representation, history, capacity, loss, LR, residual limit or update budget.
+- [ ] Only if both short gates pass, run one fresh seed171729 eight-world, 64-update endpoint and the
+      unchanged fixed-20 physical evaluator.  Admit downstream Tracker/BCPPO only at at least
+      `16/20` lift and `16/20` strict completion; otherwise reject this topology automatically and
+      continue to the next serious controller diagnosis.
 
 ---
 

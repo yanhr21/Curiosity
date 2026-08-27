@@ -608,3 +608,23 @@ deltas are exactly zero), returns finite `(2, 36)` tensors, and matches `observe
 elementwise both immediately after reset and after one real Newton transition.  The remaining work
 is therefore the command-conditioned composer wiring and its exact-zero component audit, not
 reference-command reconstruction.
+
+That component wiring now passes its pre-training CUDA gate at seed171726.  The deployed policy
+input is exactly `current 890 + past 10 x 890 + current command 36 = 9826` coordinates.  The command
+is projected as its own token beside the CLS token and ten causal history tokens in the same
+six-layer, 384-D Transformer; no full 510-D Tracker state, future state, reward or outcome enters
+the actor.  The 29-D output head is exact zero, initialized composed/endpoint delta is exactly zero,
+retention is exactly one, official Refiner gradient is zero and composer gradient is `0.24515`.
+Changing only the command changes the Transformer CLS representation by `0.09760`, so the new token
+is functionally connected even though the zero head preserves the endpoint.
+
+This gate predeclares one bounded sequence with no sweep.  Fresh seed171727 runs 48 live Newton
+transitions and zero optimizer updates; it must retain exact state/parameter invariants, zero
+divergence and elementwise command/Tracker-prefix synchronization.  Only that pass admits fresh
+seed171728 for exactly two Stage-1 pure-distillation updates / 384 transitions, which must have zero
+divergence, a nonzero composer update, exact-zero critic/std/expert drift (std tolerance `1e-7` around
+`0.05`), fixed LR `1e-5`, finite tensors and strict checkpoint loading.  Only both short passes admit
+one fresh seed171729 eight-world, 64-update endpoint and the unchanged fixed-20 physical gate.  The
+acting Refiner still requires at least `16/20` lift and `16/20` strict completion before downstream
+Tracker/BCPPO; command layout, Transformer size/history, loss, LR, residual limit and budget are not
+tuning axes.

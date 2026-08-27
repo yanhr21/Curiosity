@@ -28,7 +28,12 @@ import torch
 from tensordict import TensorDict
 
 from sugar_newton.rl import obs_890
-from sugar_newton.rl.carrybox_env import N_DOF, OBS_DIM, CarryBoxEnv
+from sugar_newton.rl.carrybox_env import (
+    N_DOF,
+    OBS_DIM,
+    TRACKER_COMMAND_DIM,
+    CarryBoxEnv,
+)
 
 
 class EnvCfg(dict):
@@ -345,6 +350,7 @@ class RefinerVecEnv:
         reward_clip: float = 10.0,
         sync_divergence_reset: bool = True,
         policy_history_steps: int = 0,
+        policy_command_dim: int = 0,
         tracker_teacher: bool = False,
     ):
         self.env = env
@@ -359,7 +365,21 @@ class RefinerVecEnv:
         if policy_history_steps < 0:
             raise ValueError("policy_history_steps must be non-negative")
         self.policy_history_steps = int(policy_history_steps)
+        if policy_command_dim not in (0, TRACKER_COMMAND_DIM):
+            raise ValueError(
+                f"policy_command_dim must be 0 or {TRACKER_COMMAND_DIM}"
+            )
+        self.policy_command_dim = int(policy_command_dim)
         self.tracker_teacher = bool(tracker_teacher)
+        if self.policy_command_dim and not self.tracker_teacher:
+            raise ValueError(
+                "Refiner policy command conditioning requires the synchronized "
+                "Tracker observation"
+            )
+        if self.policy_command_dim and not self.policy_history_steps:
+            raise ValueError(
+                "Refiner policy command conditioning requires causal history"
+            )
         self.cfg = EnvCfg(
             num_envs=env.num_envs,
             episode_length=env.episode_length,
@@ -368,6 +388,11 @@ class RefinerVecEnv:
             clips=list(env.clip_names),
             observation_contract=(
                 f"official_refiner_current_plus_{self.policy_history_steps}x890d_history"
+                + (
+                    f"_plus_current_{self.policy_command_dim}d_reference_command"
+                    if self.policy_command_dim
+                    else ""
+                )
                 if self.policy_history_steps
                 else "official_refiner_890d"
             ),
@@ -375,16 +400,36 @@ class RefinerVecEnv:
             sync_divergence_reset=self.sync_divergence_reset,
             frame_zero_env_count=env.frame_zero_env_count,
             policy_history_steps=self.policy_history_steps,
+            policy_command_dim=self.policy_command_dim,
             tracker_teacher=self.tracker_teacher,
         )
         self.episode_length_buf = torch.zeros(
             env.num_envs, dtype=torch.long, device=env.device
         )
         self._current_tracker = self.env.observe() if self.tracker_teacher else None
+        self._current_command: torch.Tensor | None = None
+        self._synchronize_current_command()
         self._current_privileged = obs_890.build(self.env, teacher=False)
         self._observation_epoch = 0
         self._policy_history: torch.Tensor | None = None
         self._advance_policy_history(self._current_privileged, reset_all=True)
+
+    def _synchronize_current_command(self) -> None:
+        if not self.policy_command_dim:
+            self._current_command = None
+            return
+        if self._current_tracker is None:
+            raise RuntimeError("Tracker observation is missing for command sync")
+        command = self.env.tracker_command()
+        if tuple(command.shape) != (self.num_envs, self.policy_command_dim):
+            raise RuntimeError(f"Refiner policy command drift: {tuple(command.shape)}")
+        prefix = self._current_tracker[:, :self.policy_command_dim]
+        if not torch.equal(command, prefix):
+            delta = float((command - prefix).abs().max().item())
+            raise RuntimeError(
+                f"Refiner policy command differs from Tracker prefix: {delta}"
+            )
+        self._current_command = command
 
     def _advance_policy_history(
         self,
@@ -422,6 +467,15 @@ class RefinerVecEnv:
                 (privileged, self._policy_history.reshape(self.num_envs, -1)),
                 dim=-1,
             )
+        if self.policy_command_dim:
+            if self._current_command is None:
+                raise RuntimeError("Refiner policy command was not synchronized")
+            if self._current_tracker is None or not torch.equal(
+                self._current_command,
+                self._current_tracker[:, :self.policy_command_dim],
+            ):
+                raise RuntimeError("Refiner policy command/Tracker alignment drift")
+            policy = torch.cat((policy, self._current_command), dim=-1)
         teacher = self._current_tracker if self.tracker_teacher else policy
         if self.tracker_teacher:
             if teacher is None or tuple(teacher.shape) != (self.num_envs, OBS_DIM):
@@ -444,6 +498,7 @@ class RefinerVecEnv:
         self.episode_length_buf.zero_()
         if self.tracker_teacher:
             self._current_tracker = self.env.observe()
+        self._synchronize_current_command()
         self._advance_policy_history(
             obs_890.build(self.env, teacher=False), reset_all=True
         )
@@ -467,6 +522,7 @@ class RefinerVecEnv:
             extras["timeout"] = torch.zeros_like(done)
         if self.tracker_teacher:
             self._current_tracker = tracker
+        self._synchronize_current_command()
         reset_ids = done.nonzero(as_tuple=False).flatten()
         self._advance_policy_history(
             obs_890.build(self.env, teacher=False), reset_ids=reset_ids
@@ -496,6 +552,7 @@ def make_refiner(
     reward_clip: float = 10.0,
     sync_divergence_reset: bool = True,
     policy_history_steps: int = 0,
+    policy_command_dim: int = 0,
     tracker_teacher: bool = False,
     **kwargs,
 ) -> RefinerVecEnv:
@@ -504,5 +561,6 @@ def make_refiner(
         reward_clip=reward_clip,
         sync_divergence_reset=sync_divergence_reset,
         policy_history_steps=policy_history_steps,
+        policy_command_dim=policy_command_dim,
         tracker_teacher=tracker_teacher,
     )

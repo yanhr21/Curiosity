@@ -38,6 +38,9 @@ TEMPORAL_ACTOR_INPUT_DIM = DUAL_COMMAND_INPUT_DIM * (1 + TEMPORAL_HISTORY_STEPS)
 REFINER_TEMPORAL_ACTOR_INPUT_DIM = REFINER_OBSERVATION_DIM * (
     1 + TEMPORAL_HISTORY_STEPS
 )
+REFINER_TEMPORAL_COMMAND_ACTOR_INPUT_DIM = (
+    REFINER_TEMPORAL_ACTOR_INPUT_DIM + GENERATED_COMMAND_DIM
+)
 
 
 def _released_tracker(
@@ -393,19 +396,33 @@ class _CausalTemporalComposerCore(nn.Module):
         self,
         frame_input_dim: int = DUAL_COMMAND_INPUT_DIM,
         output_dim: int = 1 + ACTION_DIM,
+        condition_dim: int = 0,
     ) -> None:
         super().__init__()
-        if frame_input_dim < 1 or output_dim < 1:
+        if frame_input_dim < 1 or output_dim < 1 or condition_dim < 0:
             raise ValueError("temporal composer dimensions must be positive")
         self.frame_input_dim = int(frame_input_dim)
         self.output_dim = int(output_dim)
+        self.condition_dim = int(condition_dim)
         self.frame_projection = nn.Sequential(
             nn.Linear(self.frame_input_dim, TEMPORAL_MODEL_DIM),
             nn.LayerNorm(TEMPORAL_MODEL_DIM),
         )
+        self.condition_projection = (
+            nn.Sequential(
+                nn.Linear(self.condition_dim, TEMPORAL_MODEL_DIM),
+                nn.LayerNorm(TEMPORAL_MODEL_DIM),
+            )
+            if self.condition_dim
+            else None
+        )
         self.cls_token = nn.Parameter(torch.zeros(1, 1, TEMPORAL_MODEL_DIM))
         self.position_embedding = nn.Parameter(
-            torch.zeros(1, TEMPORAL_HISTORY_STEPS + 1, TEMPORAL_MODEL_DIM)
+            torch.zeros(
+                1,
+                TEMPORAL_HISTORY_STEPS + 1 + int(bool(self.condition_dim)),
+                TEMPORAL_MODEL_DIM,
+            )
         )
         layer = nn.TransformerEncoderLayer(
             d_model=TEMPORAL_MODEL_DIM,
@@ -436,7 +453,11 @@ class _CausalTemporalComposerCore(nn.Module):
         nn.init.zeros_(final.weight)
         nn.init.zeros_(final.bias)
 
-    def forward(self, history: torch.Tensor) -> torch.Tensor:
+    def encode(
+        self,
+        history: torch.Tensor,
+        condition: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         if history.ndim != 3 or history.shape[1:] != (
             TEMPORAL_HISTORY_STEPS,
             self.frame_input_dim,
@@ -446,9 +467,33 @@ class _CausalTemporalComposerCore(nn.Module):
             )
         tokens = self.frame_projection(history)
         cls = self.cls_token.expand(history.shape[0], -1, -1)
-        tokens = torch.cat((cls, tokens), dim=1) + self.position_embedding
+        if self.condition_projection is None:
+            if condition is not None:
+                raise RuntimeError("unconditioned temporal composer received a condition")
+            tokens = torch.cat((cls, tokens), dim=1)
+        else:
+            if condition is None or tuple(condition.shape) != (
+                history.shape[0],
+                self.condition_dim,
+            ):
+                raise RuntimeError(
+                    f"causal temporal condition drift: "
+                    f"{None if condition is None else tuple(condition.shape)}"
+                )
+            if not torch.isfinite(condition).all():
+                raise RuntimeError("causal temporal condition is non-finite")
+            condition_token = self.condition_projection(condition).unsqueeze(1)
+            tokens = torch.cat((cls, condition_token, tokens), dim=1)
+        tokens = tokens + self.position_embedding
         encoded = self.transformer(tokens)
-        return self.output(encoded[:, 0])
+        return encoded[:, 0]
+
+    def forward(
+        self,
+        history: torch.Tensor,
+        condition: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        return self.output(self.encode(history, condition))
 
 
 class FrozenExpertCausalTemporalActionComposer(
@@ -771,6 +816,7 @@ class FrozenOfficialRefinerCausalTemporalComposer(nn.Module):
         official_refiner_checkpoint: str | Path,
         residual_limit: float = 1.0,
         additive_residual: bool = False,
+        command_conditioned: bool = False,
     ) -> None:
         super().__init__()
         if not 0.0 < float(residual_limit) <= 1.0:
@@ -779,46 +825,65 @@ class FrozenOfficialRefinerCausalTemporalComposer(nn.Module):
         self.expert = expert
         self.register_buffer("expert_std", expert_std)
         self.additive_residual = bool(additive_residual)
+        self.command_conditioned = bool(command_conditioned)
+        if self.command_conditioned and not self.additive_residual:
+            raise ValueError(
+                "current-command conditioning is admitted only for the exact "
+                "additive Refiner correction"
+            )
         self.temporal_composer = _CausalTemporalComposerCore(
             REFINER_OBSERVATION_DIM,
             ACTION_DIM if self.additive_residual else 1 + ACTION_DIM,
+            GENERATED_COMMAND_DIM if self.command_conditioned else 0,
         )
         self.residual_limit = float(residual_limit)
 
-    @staticmethod
     def _split_temporal_input(
+        self,
         actor_input: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        if actor_input.ndim != 2 or actor_input.shape[-1] != (
-            REFINER_TEMPORAL_ACTOR_INPUT_DIM
-        ):
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
+        expected_dim = (
+            REFINER_TEMPORAL_COMMAND_ACTOR_INPUT_DIM
+            if self.command_conditioned
+            else REFINER_TEMPORAL_ACTOR_INPUT_DIM
+        )
+        if actor_input.ndim != 2 or actor_input.shape[-1] != expected_dim:
             raise RuntimeError(
                 f"Refiner temporal actor input drift: {tuple(actor_input.shape)}"
             )
         if not torch.isfinite(actor_input).all():
             raise RuntimeError("Refiner temporal actor input is non-finite")
         current = actor_input[:, :REFINER_OBSERVATION_DIM]
-        history = actor_input[:, REFINER_OBSERVATION_DIM:].reshape(
+        history_end = REFINER_TEMPORAL_ACTOR_INPUT_DIM
+        history = actor_input[
+            :, REFINER_OBSERVATION_DIM:history_end
+        ].reshape(
             actor_input.shape[0],
             TEMPORAL_HISTORY_STEPS,
             REFINER_OBSERVATION_DIM,
         )
         if not torch.equal(history[:, -1], current):
             raise RuntimeError("Refiner temporal history does not end at current state")
-        return current, history
+        command = actor_input[:, history_end:] if self.command_conditioned else None
+        if command is not None and tuple(command.shape) != (
+            actor_input.shape[0],
+            GENERATED_COMMAND_DIM,
+        ):
+            raise RuntimeError(f"Refiner current command drift: {tuple(command.shape)}")
+        return current, history, command
 
     def endpoint_action(self, actor_input: torch.Tensor) -> torch.Tensor:
-        current, _ = self._split_temporal_input(actor_input)
+        current, _, _ = self._split_temporal_input(actor_input)
         return self.expert(current)
 
     def endpoint_std(self, actor_input: torch.Tensor) -> torch.Tensor:
-        current, _ = self._split_temporal_input(actor_input)
+        current, _, _ = self._split_temporal_input(actor_input)
         return self.expert_std.expand(current.shape[0], -1)
 
     def composition_terms(self, actor_input: torch.Tensor) -> dict[str, torch.Tensor]:
-        current, history = self._split_temporal_input(actor_input)
+        current, history, command = self._split_temporal_input(actor_input)
         endpoint = self.expert(current)
-        composer_output = self.temporal_composer(history)
+        composer_output = self.temporal_composer(history, command)
         if self.additive_residual:
             expert_retention = torch.ones_like(composer_output[:, :1])
             residual = self.residual_limit * torch.tanh(composer_output)
@@ -837,6 +902,11 @@ class FrozenOfficialRefinerCausalTemporalComposer(nn.Module):
             "bounded_residual_action": residual,
             "composed_action": composed,
             "temporal_history_last_frame": history[:, -1],
+            **(
+                {"current_reference_command": command}
+                if command is not None
+                else {}
+            ),
         }
 
     def forward(self, actor_input: torch.Tensor) -> torch.Tensor:
@@ -855,6 +925,7 @@ class FrozenOfficialRefinerCausalTemporalComposerActorCritic(ActorCritic):
         official_refiner_checkpoint: str,
         transition_residual_limit: float = 1.0,
         temporal_additive_residual: bool = False,
+        temporal_command_conditioned: bool = False,
         actor_hidden_dims: Sequence[int] = OFFICIAL_HIDDEN_DIMS,
         **kwargs,
     ) -> None:
@@ -873,6 +944,7 @@ class FrozenOfficialRefinerCausalTemporalComposerActorCritic(ActorCritic):
             official_refiner_checkpoint,
             transition_residual_limit,
             additive_residual=temporal_additive_residual,
+            command_conditioned=temporal_command_conditioned,
         ).to(next(self.critic.parameters()).device)
 
     def _actor_input(self, obs) -> torch.Tensor:

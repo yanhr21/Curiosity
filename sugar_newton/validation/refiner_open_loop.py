@@ -83,6 +83,7 @@ def evaluate_batch(
     motion_ids: list[int],
     *,
     temporal_history_steps: int = 0,
+    temporal_command_conditioned: bool = False,
 ) -> list[dict]:
     count = len(motion_ids)
     if count > env.num_envs:
@@ -109,6 +110,9 @@ def evaluate_batch(
         for key in TERMINATION_KEYS
     }
     current_teacher_obs = obs_890.build(env, teacher=not temporal_history_steps)
+    current_reference_command = (
+        env.tracker_command() if temporal_command_conditioned else None
+    )
     temporal_history = None
     retention_sum = torch.zeros(env.num_envs, device=env.device)
     residual_abs_sum = torch.zeros(env.num_envs, device=env.device)
@@ -132,7 +136,21 @@ def evaluate_batch(
             actor_input = torch.cat(
                 (teacher_obs, temporal_history.reshape(env.num_envs, -1)), dim=-1
             )
+            if temporal_command_conditioned:
+                if current_reference_command is None:
+                    raise RuntimeError(
+                        "command-conditioned temporal Refiner command is missing"
+                    )
+                actor_input = torch.cat(
+                    (actor_input, current_reference_command), dim=-1
+                )
             terms = teacher.composition_terms(actor_input)
+            if temporal_command_conditioned and not torch.equal(
+                terms["current_reference_command"], current_reference_command
+            ):
+                raise RuntimeError(
+                    "command-conditioned temporal Refiner command audit drift"
+                )
             action = terms["composed_action"]
             if not torch.equal(action, teacher(actor_input)):
                 raise RuntimeError("temporal composed audit action differs from deployment")
@@ -185,6 +203,8 @@ def evaluate_batch(
         current_teacher_obs = obs_890.build(
             env, teacher=not temporal_history_steps
         )
+        if temporal_command_conditioned:
+            current_reference_command = env.tracker_command()
         if temporal_history_steps:
             temporal_history = torch.cat(
                 (temporal_history[:, 1:], current_teacher_obs[:, None, :]), dim=1
@@ -284,6 +304,14 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--causal-temporal-command-additive-residual",
+        action="store_true",
+        help=(
+            "interpret the checkpoint as the exact additive causal Refiner "
+            "conditioned on the current 36-D Tracker command"
+        ),
+    )
+    parser.add_argument(
         "--tracker-teacher-checkpoint",
         type=Path,
         default=None,
@@ -318,8 +346,17 @@ def main() -> int:
     temporal_mode = (
         args.causal_temporal_composer
         or args.causal_temporal_additive_residual
+        or args.causal_temporal_command_additive_residual
     )
-    if args.causal_temporal_composer and args.causal_temporal_additive_residual:
+    temporal_command_mode = args.causal_temporal_command_additive_residual
+    if sum(
+        int(value)
+        for value in (
+            args.causal_temporal_composer,
+            args.causal_temporal_additive_residual,
+            args.causal_temporal_command_additive_residual,
+        )
+    ) > 1:
         raise SystemExit("choose exactly one causal temporal composition rule")
     if temporal_mode and args.official_refiner_base_checkpoint is None:
         raise SystemExit(
@@ -368,7 +405,9 @@ def main() -> int:
                 {
                     "additive_residual": (
                         args.causal_temporal_additive_residual
-                    )
+                        or temporal_command_mode
+                    ),
+                    "command_conditioned": temporal_command_mode,
                 }
                 if temporal_mode
                 else {}
@@ -424,7 +463,9 @@ def main() -> int:
             "causal_temporal_composer": temporal_mode,
             "causal_temporal_additive_residual": (
                 args.causal_temporal_additive_residual
+                or temporal_command_mode
             ),
+            "causal_temporal_command_conditioned": temporal_command_mode,
             "temporal_history_steps": 10 if temporal_mode else 0,
             "temporal_model_dim": 384 if temporal_mode else None,
             "temporal_transformer_layers": 6 if temporal_mode else None,
@@ -507,6 +548,7 @@ def main() -> int:
                 teacher,
                 motion_ids,
                 temporal_history_steps=(10 if temporal_mode else 0),
+                temporal_command_conditioned=temporal_command_mode,
             )
         )
 
@@ -527,8 +569,18 @@ def main() -> int:
             )
         ),
         "causal_temporal_additive_residual_is_exact_endpoint_plus_residual": (
-            not args.causal_temporal_additive_residual
+            not (
+                args.causal_temporal_additive_residual
+                or temporal_command_mode
+            )
             or bool(teacher.additive_residual)
+        ),
+        "causal_temporal_command_is_exact_current_tracker_command": (
+            not temporal_command_mode
+            or (
+                bool(teacher.command_conditioned)
+                and teacher.temporal_composer.condition_dim == 36
+            )
         ),
         "frozen_expert_residual_is_parameter_exact": (
             residual_audit is None
@@ -558,7 +610,9 @@ def main() -> int:
         "causal_temporal_composer": temporal_mode,
         "causal_temporal_additive_residual": (
             args.causal_temporal_additive_residual
+            or temporal_command_mode
         ),
+        "causal_temporal_command_conditioned": temporal_command_mode,
         "motion_root": str(args.motion_root.resolve()),
         "num_profiles": len(records),
         "minimum_lift_m": args.minimum_lift,

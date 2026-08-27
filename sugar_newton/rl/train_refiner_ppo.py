@@ -67,6 +67,10 @@ def runner_cfg(args: argparse.Namespace) -> dict:
     temporal_mode = (
         args.frozen_expert_temporal_composer
         or args.frozen_expert_temporal_additive_residual
+        or args.frozen_expert_temporal_command_additive_residual
+    )
+    temporal_command_mode = (
+        args.frozen_expert_temporal_command_additive_residual
     )
     embedded_expert = (
         args.frozen_expert_residual
@@ -145,7 +149,11 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                           {
                               "temporal_additive_residual": (
                                   args.frozen_expert_temporal_additive_residual
-                              )
+                                  or temporal_command_mode
+                              ),
+                              "temporal_command_conditioned": (
+                                  temporal_command_mode
+                              ),
                           }
                           if temporal_mode
                           else {}
@@ -416,6 +424,24 @@ def audit_frozen_expert_temporal_composer(
         (terms["expert_retention"] - 1.0).abs().max().item()
     )
     residual_max = float(terms["bounded_residual_action"].abs().max().item())
+    command_conditioned = bool(actor.command_conditioned)
+    command_dim = int(actor.temporal_composer.condition_dim)
+    command_tracker_delta = 0.0
+    command_term_delta = 0.0
+    command_token_span = 0.0
+    if command_conditioned:
+        command = live_obs["policy"][:, -command_dim:]
+        tracker_command = live_obs["teacher"][:, :command_dim]
+        command_tracker_delta = float(
+            (command - tracker_command).abs().max().item()
+        )
+        command_term_delta = float(
+            (terms["current_reference_command"] - command).abs().max().item()
+        )
+        projected = actor.temporal_composer.condition_projection(command)
+        command_token_span = float(
+            (projected - projected[:1]).abs().max().item()
+        )
     if weight_delta != 0.0 or std_delta != 0.0 or not zero_final or not expert_frozen:
         raise RuntimeError(
             "frozen Refiner temporal initialization drift: "
@@ -427,17 +453,26 @@ def audit_frozen_expert_temporal_composer(
         endpoint_delta,
         retention_delta,
         residual_max,
+        command_tracker_delta,
+        command_term_delta,
     )):
         raise RuntimeError(
             "live temporal Refiner exact-endpoint audit drift: "
             f"history={history_last_delta}, endpoint={endpoint_delta}, "
             f"retention={retention_delta}, residual={residual_max}"
         )
+    if command_conditioned and (
+        command_dim != 36
+        or actor.temporal_composer.condition_projection is None
+        or actor.temporal_composer.position_embedding.shape[1] != 12
+    ):
+        raise RuntimeError("current-command temporal token geometry drift")
     return {
         "frozen_expert_temporal_composer": True,
         "frozen_expert_temporal_additive_residual": bool(
             actor.additive_residual
         ),
+        "frozen_expert_temporal_command_conditioned": command_conditioned,
         "frozen_expert_weight_max_delta": weight_delta,
         "frozen_expert_std_max_delta": std_delta,
         "frozen_expert_parameters_frozen": expert_frozen,
@@ -450,6 +485,10 @@ def audit_frozen_expert_temporal_composer(
         "live_composed_endpoint_max_delta": endpoint_delta,
         "live_expert_retention_delta_from_one": retention_delta,
         "live_bounded_residual_max": residual_max,
+        "current_reference_command_dim": command_dim,
+        "live_command_tracker_prefix_max_delta": command_tracker_delta,
+        "live_command_composition_term_max_delta": command_term_delta,
+        "live_command_token_span_across_worlds": command_token_span,
         "residual_limit": float(actor.residual_limit),
         "temporal_trainable_parameter_count": sum(
             parameter.numel()
@@ -549,6 +588,14 @@ def main() -> None:
             "29-D correction with the admitted causal temporal Transformer"
         ),
     )
+    parser.add_argument(
+        "--frozen-expert-temporal-command-additive-residual",
+        action="store_true",
+        help=(
+            "retain the exact Refiner and condition the serious additive "
+            "causal Transformer on the exact current 36-D Tracker command"
+        ),
+    )
     parser.add_argument("--released-tracker-action-supervision", action="store_true")
     parser.add_argument(
         "--pure-distill",
@@ -589,6 +636,15 @@ def main() -> None:
         raise SystemExit(
             "--pure-distill requires --released-tracker-action-supervision"
         )
+    if (
+        args.frozen_expert_temporal_command_additive_residual
+        and not args.released_tracker_action_supervision
+    ):
+        raise SystemExit(
+            "--frozen-expert-temporal-command-additive-residual requires "
+            "--released-tracker-action-supervision so the current 36-D "
+            "command is audited against the exact Tracker prefix"
+        )
     if not args.motion_root.is_dir() or not any(args.motion_root.glob("data_*")):
         raise SystemExit(f"raw CarryBox motion root is invalid: {args.motion_root}")
     if not 1 <= args.num_envs <= 8:
@@ -606,11 +662,19 @@ def main() -> None:
     temporal_mode = (
         args.frozen_expert_temporal_composer
         or args.frozen_expert_temporal_additive_residual
+        or args.frozen_expert_temporal_command_additive_residual
     )
-    if (
-        args.frozen_expert_temporal_composer
-        and args.frozen_expert_temporal_additive_residual
-    ):
+    temporal_command_mode = (
+        args.frozen_expert_temporal_command_additive_residual
+    )
+    if sum(
+        int(value)
+        for value in (
+            args.frozen_expert_temporal_composer,
+            args.frozen_expert_temporal_additive_residual,
+            args.frozen_expert_temporal_command_additive_residual,
+        )
+    ) > 1:
         raise SystemExit("choose exactly one causal temporal composition rule")
     selected_transfer_modes = sum(
         int(value)
@@ -694,6 +758,7 @@ def main() -> None:
         frame_zero_env_count=args.frame_zero_env_count,
         sync_divergence_reset=True,
         policy_history_steps=(10 if temporal_mode else 0),
+        policy_command_dim=(36 if temporal_command_mode else 0),
         tracker_teacher=args.released_tracker_action_supervision,
         device=args.device,
         seed=args.seed,
@@ -752,12 +817,14 @@ def main() -> None:
     source_action_std = float(runner.alg.policy.std.detach().mean().item())
     audit.update(
         {
-            "protocol": "sugar_newton_official_refiner_ppo_transfer_v4",
+            "protocol": "sugar_newton_official_refiner_ppo_transfer_v5",
             "seed": args.seed,
             "num_envs": args.num_envs,
             "num_motions": len(env.env.clip_names),
             "policy_observation_dim": (
-                890 * 11 if temporal_mode else 890
+                890 * 11 + (36 if temporal_command_mode else 0)
+                if temporal_mode
+                else 890
             ),
             "critic_observation_dim": 890,
             "teacher_observation_dim": (
@@ -910,7 +977,9 @@ def main() -> None:
         "frozen_expert_temporal_composer": temporal_mode,
         "frozen_expert_temporal_additive_residual": (
             args.frozen_expert_temporal_additive_residual
+            or temporal_command_mode
         ),
+        "frozen_expert_temporal_command_conditioned": temporal_command_mode,
         "released_tracker_action_supervision": args.released_tracker_action_supervision,
         "temporal_tracker_action_supervision": temporal_tracker_supervision,
         "pure_distill": args.pure_distill,

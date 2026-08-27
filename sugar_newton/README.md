@@ -80,6 +80,14 @@ improves the prior topology but does not admit Tracker/BCPPO.  The next implemen
 missing current 36-D Tracker reference command to the same causal additive composer; it remains a
 current deployable command and the released Tracker remains training-only.
 
+The command-conditioned implementation now passes its seed171726 CUDA component gate.  It keeps the
+same six-layer 384-D temporal model and exact Refiner endpoint, adds one current-command token, and
+uses a `9826-D` policy input.  Initialization has exact-zero endpoint delta, exact-one retention and
+zero official-Refiner gradient; changing only the command changes the hidden state.  The fixed run
+sequence is seed171727 zero-optimizer, seed171728 two-update, and—only after both automatic passes—
+one seed171729 fresh64 plus the unchanged fixed-20 gate.  No topology or optimization sweep is
+admitted.
+
 ## Running the validator
 
 Run simulation and GPU validation through a Slurm compute allocation. The current H200
