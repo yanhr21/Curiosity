@@ -391,5 +391,12 @@ is exact zero and whose deployed output is bounded by `tanh` with the existing l
 and nonzero residual gradients.  A 384-transition zero-optimizer Newton smoke has zero
 divergence and exact zero policy-state change.  The fresh two-update seed171709 smoke keeps
 the expert bitwise exact, changes the residual by `0.0002166`, holds LR at `1e-5`, std at
-`0.050024`, and remains finite with zero divergence.  One fixed 64-update endpoint is now
-admitted to run; no residual-limit/LR/update sweep is allowed.
+`0.050024`, and remains finite with zero divergence.  The fixed seed171710 endpoint is now
+complete.  All 64 logged learning rates are `1e-5`; training has 2 divergences in 12,288
+transitions (`0.01628%`), finite parameters, residual delta `0.002876`, and exact-zero
+embedded-expert weight/std drift.  The unchanged fixed-20 composed-action gate rejects it at
+`0/20` lift and `0/20` strict completion versus required `16/20`.  Mean peak lift is
+`0.009543 m` and bilateral contact `0.197050`.  Relative to the exact official Refiner,
+matched mean lift decreases by `0.001706 m`; relative to the action-anchor endpoint it
+decreases by `0.017897 m`.  This topology is physically rejected: do not sweep residual
+limit, learning rate, reward weights or update budget, and do not launch Tracker from it.

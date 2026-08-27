@@ -20,6 +20,7 @@ import argparse
 import hashlib
 import json
 import math
+import sys
 from pathlib import Path
 
 import torch
@@ -174,6 +175,12 @@ def evaluate_batch(env: CarryBoxEnv, teacher, motion_ids: list[int]) -> list[dic
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument(
+        "--official-refiner-base-checkpoint",
+        type=Path,
+        default=None,
+        help="interpret checkpoint as a frozen-official-Refiner residual policy",
+    )
     parser.add_argument("--motion-root", type=Path, default=Path("SUGAR/data/CarryBox"))
     parser.add_argument("--clips", nargs="*", default=list(DEFAULT_CLIPS))
     parser.add_argument("--num-envs", type=int, default=4)
@@ -206,7 +213,73 @@ def main() -> int:
         raise SystemExit("official Refiner gate must run on a Slurm CUDA compute node")
     activate_rsl_rl(args.rsl_rl_root)
     device = torch.device(args.device)
-    teacher, hidden_dims = load_official_teacher(args.checkpoint, device)
+    residual_audit = None
+    if args.official_refiner_base_checkpoint is None:
+        teacher, hidden_dims = load_official_teacher(args.checkpoint, device)
+    else:
+        if not args.official_refiner_base_checkpoint.is_file():
+            raise SystemExit(
+                "official Refiner base checkpoint not found: "
+                f"{args.official_refiner_base_checkpoint}"
+            )
+        sugar_rl_source = Path(__file__).resolve().parents[2] / "SUGAR/source/sugar_rl"
+        if str(sugar_rl_source) not in sys.path:
+            sys.path.insert(0, str(sugar_rl_source))
+        from sugar_rl.utils.frozen_expert_transition_actor_critic import (
+            FrozenOfficialRefinerResidual,
+        )
+
+        teacher = FrozenOfficialRefinerResidual(
+            args.official_refiner_base_checkpoint
+        ).to(device)
+        payload = torch.load(args.checkpoint, map_location=device, weights_only=False)
+        actor_state = {
+            key.removeprefix("actor."): value
+            for key, value in payload["model_state_dict"].items()
+            if key.startswith("actor.")
+        }
+        teacher.load_state_dict(actor_state, strict=True)
+        teacher.eval().requires_grad_(False)
+        base = torch.load(
+            args.official_refiner_base_checkpoint,
+            map_location=device,
+            weights_only=False,
+        )["model_state_dict"]
+        expert_weight_delta = max(
+            float(
+                (
+                    actor_state["expert." + key.removeprefix("actor.")] - value
+                ).abs().max().item()
+            )
+            for key, value in base.items()
+            if key.startswith("actor.")
+        )
+        if "std" in base:
+            base_std = base["std"]
+        elif "log_std" in base:
+            base_std = base["log_std"].exp()
+        else:
+            raise KeyError("official Refiner checkpoint is missing std/log_std")
+        expert_std_delta = float(
+            (actor_state["expert_std"] - base_std).abs().max().item()
+        )
+        expert_delta = max(expert_weight_delta, expert_std_delta)
+        if expert_delta != 0.0:
+            raise RuntimeError(f"frozen official Refiner expert drift: {expert_delta}")
+        residual_audit = {
+            "official_refiner_base_checkpoint": str(
+                args.official_refiner_base_checkpoint.resolve()
+            ),
+            "official_refiner_base_sha256": sha256(
+                args.official_refiner_base_checkpoint
+            ),
+            "frozen_expert_parameter_max_delta": expert_delta,
+            "frozen_expert_weight_max_delta": expert_weight_delta,
+            "frozen_expert_std_max_delta": expert_std_delta,
+            "residual_hidden_dims": [512, 256, 128],
+            "residual_limit": float(teacher.residual_limit),
+        }
+        hidden_dims = [512, 256, 128]
 
     env = CarryBoxEnv(
         num_envs=args.num_envs,
@@ -234,6 +307,10 @@ def main() -> int:
     needed = math.ceil(args.minimum_pass_fraction * len(records))
     checks = {
         "checkpoint_actor_is_exact_890_to_29_official_mlp": True,
+        "frozen_expert_residual_is_parameter_exact": (
+            residual_audit is None
+            or residual_audit["frozen_expert_parameter_max_delta"] == 0.0
+        ),
         "all_profiles_finished": all(record["finished"] for record in records),
         "no_active_profile_diverged": all(finite) and not any(
             "diverged" in record["strict_failure_reasons"] for record in records
@@ -246,6 +323,7 @@ def main() -> int:
         "checkpoint": str(args.checkpoint.resolve()),
         "checkpoint_sha256": sha256(args.checkpoint),
         "official_mlp_hidden_dims": hidden_dims,
+        "frozen_expert_residual_audit": residual_audit,
         "motion_root": str(args.motion_root.resolve()),
         "num_profiles": len(records),
         "minimum_lift_m": args.minimum_lift,

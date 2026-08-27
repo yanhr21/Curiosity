@@ -464,13 +464,17 @@ against upstream Newton must stay empty.
       residual gradients.  Zero-optimizer: 384 finite transitions, zero divergence and
       exact-zero state change.  Two-update seed171709: expert delta `0`, residual delta
       `0.0002166`, fixed LR `1e-5`, std `0.050024`, zero divergence.
-- [ ] Run one fresh seed171710, eight-world, 64-update frozen-expert residual endpoint and
-      its unchanged fixed-20 composed-action physical gate.  Do not sweep residual limit,
-      LR, reward weights or update budget.
+- [x] Run one fresh seed171710, eight-world, 64-update frozen-expert residual endpoint and
+      its unchanged fixed-20 composed-action physical gate.  Training passes with `2/12288`
+      divergences, 64 fixed `1e-5` learning rates, residual delta `0.002876`, and exact-zero
+      official expert weight/std drift.  The physical gate rejects it at `0/20` lift and
+      `0/20` strict versus required `16/20`; mean lift/contact are `0.009543 m/0.197050`.
+      Matched mean lift is `0.001706 m` below the official endpoint and `0.017897 m` below
+      action-anchor.  Do not sweep residual limit, LR, reward weights or update budget.
 - [x] Automatically reject before
       Tracker unless at least `16/20` profiles satisfy strict lift/hold; launch the
       existing acting-teacher Tracker chain only on a machine-readable pass.  The
-      action-anchor endpoint failed, so no Tracker run was launched.
+      action-anchor and frozen-residual endpoints failed, so no Tracker run was launched.
 
 ---
 

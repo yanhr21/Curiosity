@@ -55,9 +55,11 @@ BCPPO's curriculum, for reference:
 
 The teacher checkpoint is required, not optional.  In addition, `--teacher-gate-result`
 must be the fixed 20-profile gate for the exact checkpoint SHA and must contain all five
-passing checks.  The recovered source `refiner_model10000.pt` and the fresh-64 Newton
-adaptation both fail that gate, so neither can launch Tracker training.  There is no
-execution-only bypass and no resume path.
+passing checks.  The recovered source `refiner_model10000.pt`, the fresh-64 action-anchor
+adaptation, and the fresh-64 frozen-official-Refiner residual all fail that gate, so none can
+launch Tracker training.  The residual evaluator additionally requires the embedded official
+actor weights and action std to remain bitwise exact.  There is no execution-only bypass and
+no resume path.
 
 The student is parameter-exact warm-started from the released CarryBox `tracker.pt`:
 actor `510 -> 512/256/128 -> 29`, critic `890 -> 512/256/128 -> 1`, and released std.
