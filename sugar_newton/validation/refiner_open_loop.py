@@ -84,7 +84,14 @@ def evaluate_batch(
     *,
     temporal_history_steps: int = 0,
     temporal_command_conditioned: bool = False,
+    actor_observation: str = "refiner",
 ) -> list[dict]:
+    if actor_observation not in ("refiner", "tracker"):
+        raise ValueError(f"unknown actor observation mode: {actor_observation}")
+    if actor_observation == "tracker" and (
+        temporal_history_steps or temporal_command_conditioned
+    ):
+        raise ValueError("Tracker ceiling evaluation cannot use Refiner history")
     count = len(motion_ids)
     if count > env.num_envs:
         raise ValueError("batch is larger than the constructed Newton world count")
@@ -109,7 +116,11 @@ def evaluate_batch(
         key: torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
         for key in TERMINATION_KEYS
     }
-    current_teacher_obs = obs_890.build(env, teacher=not temporal_history_steps)
+    current_teacher_obs = (
+        env.observe()
+        if actor_observation == "tracker"
+        else obs_890.build(env, teacher=not temporal_history_steps)
+    )
     current_reference_command = (
         env.tracker_command() if temporal_command_conditioned else None
     )
@@ -199,9 +210,11 @@ def evaluate_batch(
         all_finite &= ~active | finite_action
         max_abs_action = torch.maximum(max_abs_action, action.abs().amax(dim=1))
 
-        _, reward, done, extras = env.step(action)
-        current_teacher_obs = obs_890.build(
-            env, teacher=not temporal_history_steps
+        tracker_obs, reward, done, extras = env.step(action)
+        current_teacher_obs = (
+            tracker_obs
+            if actor_observation == "tracker"
+            else obs_890.build(env, teacher=not temporal_history_steps)
         )
         if temporal_command_conditioned:
             current_reference_command = env.tracker_command()

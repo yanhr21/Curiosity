@@ -95,6 +95,13 @@ zero divergence, composer delta `0.00046290`, exact-zero critic/expert drift and
 inference check.  The single admitted seed171729 fresh64 endpoint is therefore the active run, with
 the same fixed-20 `16/20` lift and strict admission rule.
 
+Seed171729 completes with a passing numerical gate (`0/12288` divergences, composer delta
+`0.0162573`, exact-zero critic drift), but fixed-20 rejects it at `7/20` lift and `0/20` strict.
+Mean lift/contact regress to `0.044066 m/0.122728`, and `ee_pos` failures rise to `11/20`; the exact
+Tracker command is connected correctly but does not improve the acting Refiner.  Tracker/BCPPO stays
+closed.  The active parameter-free follow-up measures the exact released Tracker itself on the same
+fixed-20 Newton gate before any further action-teacher controller is considered.
+
 ## Running the validator
 
 Run simulation and GPU validation through a Slurm compute allocation. The current H200

@@ -601,10 +601,22 @@ against upstream Newton must stay empty.
       `model_1.pt` (SHA256 `e1dddcfb8fef26169394f323c1e3acde4ba251b31db4fd6167615c48ff8eb214`),
       keeps both experts exact, verifies the current-command contract and finishes finite without
       active divergence.  Its `0/1` lift/strict outcome is diagnostic-only.
-- [ ] Only if both short gates pass, run one fresh seed171729 eight-world, 64-update endpoint and the
+- [x] Only if both short gates pass, run one fresh seed171729 eight-world, 64-update endpoint and the
       unchanged fixed-20 physical evaluator.  Admit downstream Tracker/BCPPO only at at least
       `16/20` lift and `16/20` strict completion; otherwise reject this topology automatically and
-      continue to the next serious controller diagnosis.
+      continue to the next serious controller diagnosis.  Training passes all 64 updates / 12,288
+      transitions with zero divergence, composer delta `0.0162573`, exact-zero critic drift, std
+      delta `7.45e-10`, fixed LR `1e-5` and finite parameters.  Frozen fixed-20 strictly restores
+      `model_63.pt` (SHA256 `a7756a48137d2f6bfb069ef636d608bc8956fbba5ea8d5b2e8addf79014678e1`),
+      keeps both experts exact and finishes 20/20 finite profiles, but reaches only `7/20` lift and
+      `0/20` strict.  Mean lift/contact are `0.044066 m/0.122728`; failures are `ee_pos=11` and
+      `obj_pos=9`.  Reject the topology and keep downstream Tracker/BCPPO closed.
+- [ ] Before another learned controller, run one parameter-free fixed-20 ceiling audit of the exact
+      released CarryBox Tracker on the same raw-motion Newton resets and termination rules.  Strictly
+      load its official `510 -> 512/256/128 -> 29` actor, consume only `CarryBoxEnv.observe()` and
+      preserve the unchanged `16/20` lift/strict rule.  This determines whether the current action
+      label source itself is physically admissible; do not train, alter physics, tune thresholds or
+      sweep Tracker checkpoints.
 
 ---
 

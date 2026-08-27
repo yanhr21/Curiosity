@@ -641,3 +641,24 @@ parameter-exact, proves the Tracker is unused at inference, verifies the current
 action contracts, and finishes without active divergence.  Its `0/1` lift/strict physical result is
 short-checkpoint diagnosis only.  These machine passes admit exactly the predeclared fresh
 seed171729 64-update endpoint and unchanged fixed-20 gate.
+
+Seed171729 is now complete and rejected.  Its numerical training gate passes all 64 updates / 12,288
+transitions with zero divergence, composer delta `0.0162573`, exact-zero critic drift, action-std
+delta `7.45e-10`, fixed LR `1e-5` and finite parameters.  Frozen fixed-20 restores `model_63.pt`
+(SHA256 `a7756a48137d2f6bfb069ef636d608bc8956fbba5ea8d5b2e8addf79014678e1`), preserves exact Refiner,
+Tracker and current-command contracts, and finishes 20/20 profiles without divergence.  Physical
+performance nevertheless regresses to `7/20` lift and `0/20` strict, with mean lift/contact
+`0.044066 m/0.122728`, versus the unconditioned additive endpoint's `10/20` and
+`0.058460 m/0.170408`.  Failure counts shift from `ee_pos=6, obj_pos=13, obj_ori=1` to
+`ee_pos=11, obj_pos=9`, so the command token weakens bilateral hand tracking rather than repairing
+object completion.  Do not sweep this command topology; downstream Tracker/BCPPO remains closed.
+
+The next bounded action is a parameter-free teacher-ceiling audit, not another learned residual.
+Every failed distillation topology uses the exact released CarryBox Tracker as its current-state
+action label, but that exact 510-D actor has not yet faced this same fixed-20 raw-motion Newton gate.
+Strictly load the official `510 -> 512/256/128 -> 29` Tracker, drive the same Newton resets through
+the environment's once-per-step causal `observe()` tensor, and apply the unchanged `16/20` lift and
+strict rules.  No optimizer, future state, physics change, threshold change or checkpoint sweep is
+allowed.  If the Tracker ceiling fails, its action labels cannot justify further distillation; if it
+passes, the next serious controller must address student closed-loop/expert composition rather than
+teacher scale or command encoding.
