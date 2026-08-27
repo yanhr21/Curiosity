@@ -564,3 +564,17 @@ exactly two updates / 384 transitions with zero divergence, nonzero temporal upd
 critic/std/expert drift and a strict loading smoke.  Only all machine passes admit one fresh
 seed171725 64-update endpoint and the unchanged fixed-20 physical gate.  Do not sweep residual
 limit, history, Transformer size, teacher weight, LR or update budget.
+
+The additive implementation and both short gates now pass.  Its component audit gives a 29-D head,
+exact-zero endpoint delta, exact unit Refiner retention, zero Refiner gradient and composer gradient
+`0.25147`.  Fresh seed171723 completes 48 live zero-optimizer transitions with finite tensors, zero
+divergence and exact-zero policy-state change.  Fresh seed171724 completes two updates / 384
+transitions with zero divergence, composer delta `0.00046440`, exact-zero critic drift, action-std
+delta `7.45e-10` and fixed LR `1e-5`; distillation loss decreases `0.3349 -> 0.1788`.  A strict
+one-profile checkpoint smoke restores both experts exactly, verifies endpoint-plus-residual action,
+never calls the Tracker at inference and finishes without divergence.  Its `0/1` lift/strict result
+is diagnostic-only.  The per-step retention tensor is constructed as exact ones; its accumulated
+float32 mean is `0.99999994`, so the machine gate uses the structural identity check plus `1e-6`
+reporting tolerance rather than an invalid exact equality on the reduction.  These passes admit the
+single predeclared fresh seed171725 64-update run, now active on H200 with an automatic fixed-20
+evaluator behind its unchanged numerical gate.

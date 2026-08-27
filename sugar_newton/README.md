@@ -68,6 +68,12 @@ Refiner action plus one bounded 29-D temporal correction.  The head starts at ex
 Tracker remains training-only.  Fresh zero-optimizer and two-update gates precede a single fixed
 64-update endpoint; the physical admission rule remains `16/20` lift and strict.
 
+The additive component, seed171723 zero-optimizer and seed171724 two-update gates all pass.  The
+short run has zero divergence, composer delta `0.00046440`, exact-zero critic/expert drift and std
+delta `7.45e-10`; strict one-profile loading also passes with exact endpoint-plus-residual action.
+The single fresh seed171725 64-update endpoint is now active on H200, followed automatically by the
+unchanged fixed-20 physical evaluator.
+
 ## Running the validator
 
 Run simulation and GPU validation through a Slurm compute allocation. The current H200
