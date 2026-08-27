@@ -38,6 +38,12 @@ endpoint.  Downstream Tracker/BCPPO therefore has not launched.  Do not sweep te
 residual limit, LR, reward or update budget for this rejected topology.  Raw CarryBox motions
 remain execution-smoke input only and are rejected for a formal run.
 
+The next bounded diagnostic keeps the same serious frozen experts and deployed residual but uses
+the repository's official BCPPO Stage-1 pure-distillation schedule, removing the simultaneous PPO
+surrogate and critic updates that confounded the rejected mixed-objective endpoint.  A fresh
+two-update gate must prove residual-only learning with exact-zero critic/std/expert drift before a
+single fresh 64-update endpoint is admitted; the physical `16/20` rule remains unchanged.
+
 ## Running the validator
 
 Run simulation and GPU validation through a Slurm compute allocation. The current H200

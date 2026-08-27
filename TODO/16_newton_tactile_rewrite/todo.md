@@ -515,6 +515,15 @@ against upstream Newton must stay empty.
       exact-zero weight/std drift, the Tracker is unused at inference and all profiles are finite.
       Downstream Tracker was not launched.  Do not sweep teacher weight, residual limit, LR,
       reward or update budget for this topology.
+- [ ] Run fresh seed171718 for exactly two updates / 384 transitions using repository BCPPO
+      Stage-1 pure distillation with the same released-Tracker current-state teacher and frozen
+      official Refiner residual.  Require finite tensors, zero divergence, nonzero residual update,
+      exact-zero critic/std drift, exact-zero drift of both released experts and strict evaluator
+      loading before a formal endpoint is admitted.
+- [ ] If and only if that automatic gate passes, run one fresh seed171719, eight-world, 64-update
+      pure-distillation endpoint and the unchanged fixed-20 physical gate.  Do not sweep stage
+      length, loss coefficient, LR, residual limit, reward or update budget; do not launch
+      downstream Tracker/BCPPO below `16/20` lift and strict.
 
 ---
 

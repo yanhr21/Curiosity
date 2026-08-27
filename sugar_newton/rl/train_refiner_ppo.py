@@ -82,9 +82,15 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                 "stage3_distill_weight_floor": 1.0,
                 "training_mask_obs_group": None,
                 "distill_mask_start_step": 0,
-                "bc_only_steps": 0,
-                "critic_warmup_steps": 0,
-                "full_ppo_warmup_steps": 1,
+                "bc_only_steps": (
+                    args.max_iterations + 1 if args.pure_distill else 0
+                ),
+                "critic_warmup_steps": (
+                    args.max_iterations + 2 if args.pure_distill else 0
+                ),
+                "full_ppo_warmup_steps": (
+                    args.max_iterations + 3 if args.pure_distill else 1
+                ),
                 "teacher_mean_only": True,
                 "minimum_action_std": args.action_std,
                 # The student and teacher means are identical at initialization.
@@ -516,6 +522,14 @@ def main() -> None:
     parser.add_argument("--frozen-expert-temporal-composer", action="store_true")
     parser.add_argument("--released-tracker-action-supervision", action="store_true")
     parser.add_argument(
+        "--pure-distill",
+        action="store_true",
+        help=(
+            "keep every declared update in official BCPPO Stage 1 pure "
+            "distillation; valid only with released Tracker supervision"
+        ),
+    )
+    parser.add_argument(
         "--tracker-teacher-checkpoint",
         type=Path,
         default=DEFAULT_TRACKER_TEACHER,
@@ -541,6 +555,10 @@ def main() -> None:
     ):
         raise SystemExit(
             f"released Tracker teacher not found: {args.tracker_teacher_checkpoint}"
+        )
+    if args.pure_distill and not args.released_tracker_action_supervision:
+        raise SystemExit(
+            "--pure-distill requires --released-tracker-action-supervision"
         )
     if not args.motion_root.is_dir() or not any(args.motion_root.glob("data_*")):
         raise SystemExit(f"raw CarryBox motion root is invalid: {args.motion_root}")
@@ -701,6 +719,14 @@ def main() -> None:
                 (args.official_action_anchor or embedded_expert)
                 and runner.alg.desired_kl is None
             ),
+            "pure_distill": args.pure_distill,
+            "bc_only_steps": int(getattr(runner.alg, "bc_only_steps", 0)),
+            "critic_warmup_steps": int(
+                getattr(runner.alg, "critic_warmup_steps", 0)
+            ),
+            "full_ppo_warmup_steps": int(
+                getattr(runner.alg, "full_ppo_warmup_steps", 0)
+            ),
             "reward_clip": args.reward_clip,
             "sync_divergence_reset": True,
             "frame_zero_env_count": env.env.frame_zero_env_count,
@@ -744,7 +770,9 @@ def main() -> None:
         )
         return
     method = (
-        "BCPPO released-Tracker-supervised frozen-Refiner residual"
+        "BCPPO Stage-1 pure released-Tracker distillation into frozen-Refiner residual"
+        if args.released_tracker_action_supervision and args.pure_distill
+        else "BCPPO released-Tracker-supervised frozen-Refiner residual"
         if args.released_tracker_action_supervision
         else "BCPPO frozen-official-Refiner causal temporal composer"
         if args.frozen_expert_temporal_composer
@@ -780,6 +808,18 @@ def main() -> None:
     transitions = args.max_iterations * 24 * args.num_envs
     divergence_total = int(env.env.num_diverged)
     divergence_rate = divergence_total / transitions
+    final_action_std_mean = float(runner.alg.policy.std.detach().mean().item())
+    final_action_std_delta_from_config = abs(
+        final_action_std_mean - args.action_std
+    )
+    pure_distill_contract_pass = (
+        not args.pure_distill
+        or (
+            actor_parameter_max_delta > 0.0
+            and critic_parameter_max_delta == 0.0
+            and final_action_std_delta_from_config <= 1.0e-7
+        )
+    )
     result = {
         "protocol": "sugar_newton_refiner_ppo_training_gate_v1",
         "optimizer_updates": args.max_iterations,
@@ -791,13 +831,20 @@ def main() -> None:
         "actor_critic_parameter_max_delta": parameter_max_delta,
         "actor_parameter_max_delta": actor_parameter_max_delta,
         "critic_parameter_max_delta": critic_parameter_max_delta,
-        "final_action_std_mean": float(runner.alg.policy.std.detach().mean().item()),
+        "final_action_std_mean": final_action_std_mean,
+        "final_action_std_delta_from_config": final_action_std_delta_from_config,
         "final_learning_rate": float(runner.alg.learning_rate),
         "official_action_anchor": args.official_action_anchor,
         "frozen_expert_residual": args.frozen_expert_residual,
         "frozen_expert_temporal_composer": args.frozen_expert_temporal_composer,
         "released_tracker_action_supervision": args.released_tracker_action_supervision,
-        "pass": all_policy_parameters_finite and divergence_rate <= 0.005,
+        "pure_distill": args.pure_distill,
+        "pure_distill_contract_pass": pure_distill_contract_pass,
+        "pass": (
+            all_policy_parameters_finite
+            and divergence_rate <= 0.005
+            and pure_distill_contract_pass
+        ),
         "frozen_evaluation_required": True,
     }
     (log_dir / "TRAINING_RESULT.json").write_text(

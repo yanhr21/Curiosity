@@ -479,3 +479,16 @@ only `1/20` profiles reach a 5 cm lift and `0/20` meet strict completion, versus
 residual is `0.009393`.  This does not improve the rejected temporal endpoint's `1/20, 0/20`
 physical result.  Downstream Tracker/BCPPO remains closed; do not sweep the teacher weight,
 residual limit, LR, reward or update budget for this topology.
+
+The next bounded diagnostic isolates a controller-objective confound rather than scaling that
+rejected mixed objective.  The failed run entered BCPPO Stage 3 immediately, so every actor update
+combined PPO surrogate gradients with the exact released-Tracker action loss while the critic was
+also trained.  Repository BCPPO already implements a serious Stage-1 pure-distillation path.  Keep
+the same parameter-exact released Refiner and Tracker, synchronized current 890-D/510-D state,
+official-scale residual, fixed `1e-5` LR and `0.05` action std, but hold every declared update in
+Stage 1.  The Tracker remains a training-only current-state label source and the deployed actor is
+unchanged.  A fresh seed171718 two-update / 384-transition gate must show a nonzero residual update,
+exact-zero critic/std and released-expert drift, finite live Newton tensors and no divergence.
+Only that machine pass admits one fresh seed171719 eight-world, 64-update endpoint and the same
+fixed-20 physical gate.  There is no stage-length, loss-coefficient, LR, residual-limit, reward or
+update-budget sweep, and downstream Tracker/BCPPO remains forbidden below `16/20` lift and strict.
