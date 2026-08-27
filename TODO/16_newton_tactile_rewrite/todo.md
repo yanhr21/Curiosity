@@ -681,6 +681,13 @@ against upstream Newton must stay empty.
       and `0.20851` bilateral contact but still fails `obj_pos` at step 235, giving `0/1` lift and
       strict.  It improves only small pre-failure lift, not recovery; task-wide training and
       downstream Tracker/BCPPO remain closed, with no prefix/objective/budget sweep.
+- [x] Run one no-training exact-prefix deployment audit to distinguish frame-zero distribution drift
+      from a failed recovery.  Compose the same model63 with 200 parameter-exact official Refiner
+      actions, preserve real causal history, then execute the learned controller without reset.  The
+      audit executes `200/35` exact/student actions with only `0.00961` maximum handoff action jump
+      and no non-finite state, but again fails `obj_pos` at step 235 with `0.01072 m` lift and `0/1`
+      strict completion.  Recovery fails on its training handoff distribution; do not tune prefix,
+      reward or budget, and do not open downstream Tracker/BCPPO.
 
 ---
 

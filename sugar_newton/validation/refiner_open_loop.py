@@ -85,6 +85,8 @@ def evaluate_batch(
     temporal_history_steps: int = 0,
     temporal_command_conditioned: bool = False,
     actor_observation: str = "refiner",
+    exact_prefix_teacher=None,
+    exact_prefix_steps: int = 0,
 ) -> list[dict]:
     if actor_observation not in ("refiner", "tracker"):
         raise ValueError(f"unknown actor observation mode: {actor_observation}")
@@ -128,6 +130,11 @@ def evaluate_batch(
     retention_sum = torch.zeros(env.num_envs, device=env.device)
     residual_abs_sum = torch.zeros(env.num_envs, device=env.device)
     endpoint_delta_sum = torch.zeros(env.num_envs, device=env.device)
+    prefix_action_calls = torch.zeros(
+        env.num_envs, dtype=torch.long, device=env.device
+    )
+    student_action_calls = torch.zeros_like(prefix_action_calls)
+    handoff_action_delta = torch.zeros(env.num_envs, device=env.device)
     composition_audit = hasattr(teacher, "composition_terms")
     if temporal_history_steps:
         temporal_history = current_teacher_obs[:, None, :].expand(
@@ -205,6 +212,23 @@ def evaluate_batch(
                 )
             else:
                 action = teacher(teacher_obs)
+        if exact_prefix_steps:
+            if exact_prefix_teacher is None:
+                raise RuntimeError("exact prefix teacher is missing")
+            with torch.inference_mode():
+                prefix_action = exact_prefix_teacher(
+                    obs_890.build(env, teacher=True)
+                )
+            prefix_control = active & (evaluated_steps < exact_prefix_steps)
+            first_student = active & (evaluated_steps == exact_prefix_steps)
+            handoff_action_delta = torch.where(
+                first_student,
+                (action - prefix_action).abs().amax(dim=1),
+                handoff_action_delta,
+            )
+            prefix_action_calls += prefix_control.long()
+            student_action_calls += (active & ~prefix_control).long()
+            action = torch.where(prefix_control[:, None], prefix_action, action)
         action = torch.where(active[:, None], action, torch.zeros_like(action))
         finite_action = torch.isfinite(action).all(dim=1)
         all_finite &= ~active | finite_action
@@ -285,11 +309,19 @@ def evaluate_batch(
                   if composition_audit
                   else None
               ),
-              "mean_abs_composed_endpoint_delta": (
-                  float(endpoint_delta_sum[local_index] / max(steps, 1))
-                  if composition_audit
-                  else None
-              ),
+            "mean_abs_composed_endpoint_delta": (
+                float(endpoint_delta_sum[local_index] / max(steps, 1))
+                if composition_audit
+                else None
+            ),
+            "exact_refiner_prefix_steps": exact_prefix_steps,
+            "exact_refiner_prefix_action_calls": int(
+                prefix_action_calls[local_index]
+            ),
+            "student_action_calls": int(student_action_calls[local_index]),
+            "handoff_max_abs_action_delta": float(
+                handoff_action_delta[local_index]
+            ),
           })
     return records
 
@@ -322,6 +354,16 @@ def main() -> int:
         help=(
             "interpret the checkpoint as the exact additive causal Refiner "
             "conditioned on the current 36-D Tracker command"
+        ),
+    )
+    parser.add_argument(
+        "--exact-refiner-prefix-steps",
+        type=int,
+        default=0,
+        help=(
+            "deployment-topology diagnostic: execute the parameter-exact "
+            "official Refiner for this causal prefix, then the checkpoint "
+            "without a reset"
         ),
     )
     parser.add_argument(
@@ -371,6 +413,17 @@ def main() -> int:
         )
     ) > 1:
         raise SystemExit("choose exactly one causal temporal composition rule")
+    if args.exact_refiner_prefix_steps not in (0, 200):
+        raise SystemExit("--exact-refiner-prefix-steps is fixed at 0 or 200")
+    if args.exact_refiner_prefix_steps and not (
+        args.causal_temporal_additive_residual
+        and args.official_refiner_base_checkpoint is not None
+        and args.clips == ["data_000"]
+    ):
+        raise SystemExit(
+            "the exact-prefix diagnostic requires the additive temporal "
+            "Refiner on only data_000"
+        )
     if temporal_mode and args.official_refiner_base_checkpoint is None:
         raise SystemExit(
             "--causal-temporal-composer requires --official-refiner-base-checkpoint"
@@ -552,6 +605,18 @@ def main() -> int:
         torso_hull=args.torso_hull,
         auto_reset=False,
     )
+    exact_prefix_teacher = None
+    exact_prefix_hidden_dims = None
+    if args.exact_refiner_prefix_steps:
+        exact_prefix_teacher, exact_prefix_hidden_dims = load_official_teacher(
+            args.official_refiner_base_checkpoint, device
+        )
+        if exact_prefix_hidden_dims != [512, 256, 128]:
+            raise RuntimeError(
+                "exact prefix Refiner geometry drifted: "
+                f"{exact_prefix_hidden_dims}"
+            )
+
     records = []
     for begin in range(0, len(args.clips), args.num_envs):
         motion_ids = list(range(begin, min(begin + args.num_envs, len(args.clips))))
@@ -562,6 +627,8 @@ def main() -> int:
                 motion_ids,
                 temporal_history_steps=(10 if temporal_mode else 0),
                 temporal_command_conditioned=temporal_command_mode,
+                exact_prefix_teacher=exact_prefix_teacher,
+                exact_prefix_steps=args.exact_refiner_prefix_steps,
             )
         )
 
@@ -607,6 +674,16 @@ def main() -> int:
                 and not residual_audit["tracker_teacher_used_at_inference"]
             )
         ),
+        "exact_refiner_prefix_execution_contract_passes": (
+            not args.exact_refiner_prefix_steps
+            or all(
+                record["exact_refiner_prefix_action_calls"]
+                == args.exact_refiner_prefix_steps
+                and record["student_action_calls"] > 0
+                and math.isfinite(record["handoff_max_abs_action_delta"])
+                for record in records
+            )
+        ),
         "all_profiles_finished": all(record["finished"] for record in records),
         "no_active_profile_diverged": all(finite) and not any(
             "diverged" in record["strict_failure_reasons"] for record in records
@@ -626,6 +703,12 @@ def main() -> int:
             or temporal_command_mode
         ),
         "causal_temporal_command_conditioned": temporal_command_mode,
+        "exact_refiner_prefix_steps": args.exact_refiner_prefix_steps,
+        "exact_refiner_prefix_checkpoint_sha256": (
+            sha256(args.official_refiner_base_checkpoint)
+            if args.exact_refiner_prefix_steps
+            else None
+        ),
         "motion_root": str(args.motion_root.resolve()),
         "num_profiles": len(records),
         "minimum_lift_m": args.minimum_lift,

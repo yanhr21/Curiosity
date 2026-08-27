@@ -775,3 +775,13 @@ zero execution error, zero divergence and nonzero actor/critic/std changes of
 exactly where the released Refiner fails, and therefore gives `0/1` lift and `0/1` strict completion.
 The fixed failure-frontier objective improves small pre-failure lift but does not learn recovery.
 Do not run a task-wide repeat, prefix/objective/budget sweep, Tracker or BCPPO from this checkpoint.
+
+A final parameter-free deployment-topology audit rules out prefix-distribution contamination as the
+explanation.  The same model63 is composed causally with the exact official Refiner for its first 200
+steps, preserving the real temporal history, then executes 35 learned-recovery steps without reset.
+The exact/student action counts are `200/35`, the handoff maximum action jump is only `0.00961`, and
+all states remain finite.  Nevertheless it again fails `obj_pos` at step 235, reaches only
+`0.01072 m` peak lift and has `0/1` strict completion.  The trained recovery fails even on its own
+handoff distribution.  Reject this objective/topology and do not tune the prefix, reward or budget;
+the next training method must change the Newton action target/controller rather than mask more of the
+same released-Refiner rollout.
