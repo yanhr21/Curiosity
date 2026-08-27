@@ -89,7 +89,11 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                   ),
                 "stage3_distill_weight_floor": 1.0,
                 "training_mask_obs_group": None,
-                "distill_mask_start_step": 0,
+                "distill_mask_start_step": (
+                    args.max_iterations + 1
+                    if args.failure_frontier_prefix_steps
+                    else 0
+                ),
                 "bc_only_steps": (
                     args.max_iterations + 1 if args.pure_distill else 0
                 ),
@@ -111,6 +115,8 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                 "desired_kl": None,
             }
         )
+        if args.failure_frontier_prefix_steps:
+            algorithm["training_mask_obs_group"] = "training_handoff_mask"
     return {
         "num_steps_per_env": 24,
         "max_iterations": args.max_iterations,
@@ -547,6 +553,15 @@ def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) 
             and env.physical_recovery_max_abs <= 1.0
         )
     )
+    frontier_contract_pass = (
+        not env.cfg.get("failure_frontier_prefix_steps", 0)
+        or (
+            env.cumulative_teacher_control_steps > 0
+            and env.cumulative_policy_control_steps > 0
+            and env.maximum_teacher_execution_delta == 0.0
+            and env.maximum_policy_execution_delta == 0.0
+        )
+    )
     result = {
         "protocol": "sugar_newton_refiner_zero_optimizer_diagnostic_v2",
         "optimizer_steps": 0,
@@ -569,11 +584,28 @@ def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) 
             env.physical_recovery_max_abs
         ),
         "physical_recovery_contract_pass": recovery_contract_pass,
+        "failure_frontier_prefix_steps": int(
+            env.cfg.get("failure_frontier_prefix_steps", 0)
+        ),
+        "failure_frontier_teacher_control_steps": int(
+            getattr(env, "cumulative_teacher_control_steps", 0)
+        ),
+        "failure_frontier_policy_control_steps": int(
+            getattr(env, "cumulative_policy_control_steps", 0)
+        ),
+        "failure_frontier_teacher_execution_max_delta": float(
+            getattr(env, "maximum_teacher_execution_delta", 0.0)
+        ),
+        "failure_frontier_policy_execution_max_delta": float(
+            getattr(env, "maximum_policy_execution_delta", 0.0)
+        ),
+        "failure_frontier_contract_pass": frontier_contract_pass,
         "pass": (
             finite
             and divergence_total == 0
             and parameter_max_delta == 0.0
             and recovery_contract_pass
+            and frontier_contract_pass
         ),
     }
     (log_dir / "ZERO_OPTIMIZER_AUDIT.json").write_text(
@@ -626,6 +658,15 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--failure-frontier-prefix-steps",
+        type=int,
+        default=0,
+        help=(
+            "execute the exact Refiner for this fixed physical prefix and mask "
+            "PPO/value/entropy credit until the temporal student actually acts"
+        ),
+    )
+    parser.add_argument(
         "--pure-distill",
         action="store_true",
         help=(
@@ -672,6 +713,18 @@ def main() -> None:
         raise SystemExit(
             "--physical-recovery-objective requires the exact additive causal "
             "Refiner and forbids released-Tracker supervision/pure distillation"
+        )
+    if args.failure_frontier_prefix_steps not in (0, 200):
+        raise SystemExit("--failure-frontier-prefix-steps is fixed at 0 or 200")
+    if args.failure_frontier_prefix_steps and not (
+        args.physical_recovery_objective
+        and args.frozen_expert_temporal_additive_residual
+        and args.clips == ["data_000"]
+        and args.frame_zero_env_count == args.num_envs
+    ):
+        raise SystemExit(
+            "failure-frontier training requires the physical-recovery additive "
+            "temporal Refiner on only frame-zero data_000"
         )
     if (
         args.frozen_expert_temporal_command_additive_residual
@@ -798,6 +851,10 @@ def main() -> None:
         policy_command_dim=(36 if temporal_command_mode else 0),
         tracker_teacher=args.released_tracker_action_supervision,
         physical_recovery_objective=args.physical_recovery_objective,
+        failure_frontier_prefix_steps=args.failure_frontier_prefix_steps,
+        failure_frontier_teacher_checkpoint=(
+            args.initial_checkpoint if args.failure_frontier_prefix_steps else None
+        ),
         device=args.device,
         seed=args.seed,
     )
@@ -899,6 +956,13 @@ def main() -> None:
             ),
             "physical_recovery_official_scale": (
                 5.125 if args.physical_recovery_objective else None
+            ),
+            "failure_frontier_prefix_steps": args.failure_frontier_prefix_steps,
+            "failure_frontier_training_mask_actor_input": False,
+            "failure_frontier_teacher_checkpoint": (
+                str(args.initial_checkpoint.resolve())
+                if args.failure_frontier_prefix_steps
+                else None
             ),
             "sync_divergence_reset": True,
             "frame_zero_env_count": env.env.frame_zero_env_count,
@@ -1007,6 +1071,23 @@ def main() -> None:
         not (args.pure_distill and args.max_iterations == 2)
         or divergence_total == 0
     )
+    frontier_contract_pass = (
+        not args.failure_frontier_prefix_steps
+        or (
+            env.cumulative_teacher_control_steps > 0
+            and env.cumulative_policy_control_steps > 0
+            and env.maximum_teacher_execution_delta == 0.0
+            and env.maximum_policy_execution_delta == 0.0
+        )
+    )
+    frontier_learning_pass = (
+        not args.failure_frontier_prefix_steps
+        or (
+            actor_parameter_max_delta > 0.0
+            and critic_parameter_max_delta > 0.0
+            and final_action_std_delta_from_config > 0.0
+        )
+    )
     result = {
         "protocol": "sugar_newton_refiner_ppo_training_gate_v1",
         "optimizer_updates": args.max_iterations,
@@ -1038,6 +1119,22 @@ def main() -> None:
         "physical_recovery_max_abs_reward": float(
             env.physical_recovery_max_abs
         ),
+        "failure_frontier_prefix_steps": args.failure_frontier_prefix_steps,
+        "failure_frontier_training_mask_actor_input": False,
+        "failure_frontier_teacher_control_steps": int(
+            getattr(env, "cumulative_teacher_control_steps", 0)
+        ),
+        "failure_frontier_policy_control_steps": int(
+            getattr(env, "cumulative_policy_control_steps", 0)
+        ),
+        "failure_frontier_teacher_execution_max_delta": float(
+            getattr(env, "maximum_teacher_execution_delta", 0.0)
+        ),
+        "failure_frontier_policy_execution_max_delta": float(
+            getattr(env, "maximum_policy_execution_delta", 0.0)
+        ),
+        "failure_frontier_contract_pass": frontier_contract_pass,
+        "failure_frontier_learning_pass": frontier_learning_pass,
         "pure_distill_contract_pass": pure_distill_contract_pass,
         "pure_distill_short_divergence_pass": (
             pure_distill_short_divergence_pass
@@ -1047,6 +1144,8 @@ def main() -> None:
             and divergence_rate <= 0.005
             and pure_distill_contract_pass
             and pure_distill_short_divergence_pass
+            and frontier_contract_pass
+            and frontier_learning_pass
             and (
                 not args.physical_recovery_objective
                 or (

@@ -752,6 +752,26 @@ sampled student zero PPO/value/entropy credit while its action is not executed. 
 reset to the same additive six-layer temporal controller and train only the live post-prefix recovery
 segment with the admitted causal physical-recovery objective plus the exact Refiner action anchor.
 The deployed checkpoint still acts from frame zero; no prefix mask, reward, future state or outcome
-enters its actor input.  First require zero-optimizer execution/mask/expert audits and one two-update
-gate.  Only both passes admit one fresh 64-update fixed-context endpoint.  Prefix 200, objective
+enters its actor input.  First require a nine-horizon zero-optimizer execution/mask/expert audit and
+one ten-update gate: with 24 steps per update, the first eight updates are necessarily still inside
+the 200-step exact prefix and cannot diagnose student learning.  Only both passes admit one fresh
+64-update fixed-context endpoint.  Prefix 200, objective
 weights, model/history, residual limit, learning rate and budget are fixed rather than sweep axes.
+
+The failure-frontier execution and optimization gates pass.  Fresh seed171734 executes nine
+zero-optimizer horizons (`432` transitions): `400` exact-teacher and `32` student-control steps,
+zero teacher/student execution error, `432/432` physical-reward calls, zero divergence and exactly
+zero parameter change.  Fresh seed171735 then executes ten updates (`1,920` transitions): `1,640`
+teacher and `280` student-control steps, exact execution in both segments, zero divergence and
+nonzero actor/critic/std changes of `6.94e-4/7.50e-4/1.37e-4`.  Its frame-zero frozen diagnostic
+improves the one-profile peak lift from the exact Refiner's `0.00845 m` to `0.01269 m`, with
+`0.20851` bilateral-contact fraction, but remains below the `0.05 m` lift gate and has `0/1` strict
+completion.  This is a valid learning-direction diagnostic, not a successful endpoint.  The one
+predeclared fresh seed171736 64-update learnability run is now complete.  It passes the numerical
+contract with `12,288/12,288` reward calls, `10,608/1,680` exact teacher/student execution steps,
+zero execution error, zero divergence and nonzero actor/critic/std changes of
+`0.00396/0.00579/0.000598`.  Frozen model63 remains negative from frame zero: peak lift is
+`0.01223 m` and bilateral contact is `0.20851`, but the rollout still fails `obj_pos` at step 235,
+exactly where the released Refiner fails, and therefore gives `0/1` lift and `0/1` strict completion.
+The fixed failure-frontier objective improves small pre-failure lift but does not learn recovery.
+Do not run a task-wide repeat, prefix/objective/budget sweep, Tracker or BCPPO from this checkpoint.

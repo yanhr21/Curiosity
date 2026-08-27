@@ -661,14 +661,26 @@ against upstream Newton must stay empty.
       `0.002915 m/0.001515` and maximum action `9.8803`; failures include `ee_pos=16`,
       `anchor_pos=5`, `anchor_ori=1`.  Reference joint poses alone are not a valid Newton action
       teacher because they omit the floating-base/contact dynamics needed to realize the motion.
-- [ ] Implement the next fixed failure-frontier diagnostic around the parameter-exact official
+- [x] Implement the next fixed failure-frontier diagnostic around the parameter-exact official
       Refiner.  On frame-zero `data_000`, execute the exact Refiner for a fixed 200-step physical
       prefix with zero PPO/value/entropy credit, then train the same serious additive temporal
       controller only on the live post-prefix recovery segment using the admitted physical-recovery
       objective and an exact Refiner action anchor.  Actor history must contain the real prefix,
       future/outcome labels remain absent, and frozen evaluation must still deploy one checkpoint
-      from frame zero.  Require zero-optimizer and two-update gates before one 64-update learnability
-      endpoint; do not sweep prefix, objective weights, model, LR, residual or budget.
+      from frame zero.  Require a nine-horizon zero-optimizer gate and a ten-update gate (the first
+      eight 24-step updates are necessarily inside the 200-step prefix) before one 64-update learnability
+      endpoint; do not sweep prefix, objective weights, model, LR, residual or budget.  Seed171734
+      passes the zero-optimizer gate with `400/32` exact teacher/student execution steps, `432/432`
+      reward calls, zero divergence and zero parameter change.  Seed171735 passes the ten-update gate
+      with `1,640/280` teacher/student steps, exact execution, no divergence and nonzero
+      actor/critic/std changes `6.94e-4/7.50e-4/1.37e-4`.  Its frame-zero one-profile audit improves
+      peak lift `0.00845 -> 0.01269 m` and gives `0.20851` bilateral contact, but remains `0/1` lift
+      and strict.  Fresh seed171736 completes the single admitted 64-update endpoint with
+      `10,608/1,680` teacher/student steps, zero execution error/divergence and nonzero
+      actor/critic/std changes `0.00396/0.00579/0.000598`.  Frozen model63 reaches `0.01223 m` lift
+      and `0.20851` bilateral contact but still fails `obj_pos` at step 235, giving `0/1` lift and
+      strict.  It improves only small pre-failure lift, not recovery; task-wide training and
+      downstream Tracker/BCPPO remain closed, with no prefix/objective/budget sweep.
 
 ---
 

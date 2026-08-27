@@ -597,6 +597,128 @@ class RefinerVecEnv:
         return self._obs(), reward, done, info
 
 
+class RefinerFailureFrontierVecEnv(RefinerVecEnv):
+    """Train only after an exact-Refiner physical prefix, without resetting.
+
+    The sampled student action is stored by rsl_rl throughout the rollout, but
+    the exact released Refiner action is executed for the first ``prefix_steps``
+    transitions of every episode.  ``training_handoff_mask`` is zero there and
+    one only when the student's action is actually deployed.  The mask is a
+    storage/loss key; it is never concatenated into the 9790-D temporal actor.
+    """
+
+    def __init__(
+        self,
+        env: CarryBoxEnv,
+        *,
+        teacher_checkpoint: str | Path,
+        prefix_steps: int,
+        **kwargs,
+    ):
+        if prefix_steps <= 0:
+            raise ValueError("failure-frontier prefix must be positive")
+        super().__init__(env, **kwargs)
+        checkpoint = Path(teacher_checkpoint).expanduser().resolve()
+        if not checkpoint.is_file():
+            raise FileNotFoundError(checkpoint)
+        from sugar_newton.validation.refiner_open_loop import (
+            load_official_teacher,
+            sha256,
+        )
+
+        self.acting_teacher, hidden_dims = load_official_teacher(
+            checkpoint, torch.device(env.device)
+        )
+        if hidden_dims != [512, 256, 128]:
+            raise ValueError(f"acting Refiner geometry drifted: {hidden_dims}")
+        self.teacher_checkpoint = checkpoint
+        self.teacher_checkpoint_sha256 = sha256(checkpoint)
+        self.prefix_steps = int(prefix_steps)
+        self.cumulative_teacher_control_steps = 0
+        self.cumulative_policy_control_steps = 0
+        self.maximum_teacher_execution_delta = 0.0
+        self.maximum_policy_execution_delta = 0.0
+        self.last_teacher_control_mask: torch.Tensor | None = None
+        self.last_teacher_action: torch.Tensor | None = None
+        self.last_policy_action: torch.Tensor | None = None
+        self.last_executed_action: torch.Tensor | None = None
+        self.cfg.update(
+            failure_frontier_prefix_steps=self.prefix_steps,
+            acting_teacher_checkpoint=str(checkpoint),
+            acting_teacher_checkpoint_sha256=self.teacher_checkpoint_sha256,
+            training_mask_obs_group="training_handoff_mask",
+            training_mask_actor_input=False,
+        )
+
+    def _teacher_control(self) -> torch.Tensor:
+        return self.episode_length_buf < self.prefix_steps
+
+    def _obs(self) -> TensorDict:
+        observations = super()._obs()
+        observations.set(
+            "training_handoff_mask",
+            (~self._teacher_control()).to(torch.float32).unsqueeze(-1),
+        )
+        return observations
+
+    def step(self, actions: torch.Tensor):
+        if actions.shape != (self.num_envs, self.num_actions):
+            raise ValueError(
+                f"Refiner action shape is {tuple(actions.shape)}, expected "
+                f"{(self.num_envs, self.num_actions)}"
+            )
+        teacher_control = self._teacher_control().clone()
+        with torch.inference_mode():
+            teacher_action = self.acting_teacher(self._current_privileged)
+        if not torch.isfinite(teacher_action).all():
+            raise RuntimeError("failure-frontier Refiner action is non-finite")
+        executed_action = torch.where(
+            teacher_control[:, None], teacher_action, actions
+        )
+        if bool(teacher_control.any()):
+            self.maximum_teacher_execution_delta = max(
+                self.maximum_teacher_execution_delta,
+                float(
+                    (
+                        executed_action[teacher_control]
+                        - teacher_action[teacher_control]
+                    )
+                    .abs()
+                    .max()
+                    .item()
+                ),
+            )
+        if bool((~teacher_control).any()):
+            self.maximum_policy_execution_delta = max(
+                self.maximum_policy_execution_delta,
+                float(
+                    (executed_action[~teacher_control] - actions[~teacher_control])
+                    .abs()
+                    .max()
+                    .item()
+                ),
+            )
+        self.last_teacher_control_mask = teacher_control
+        self.last_teacher_action = teacher_action.detach().clone()
+        self.last_policy_action = actions.detach().clone()
+        self.last_executed_action = executed_action.detach().clone()
+        self.cumulative_teacher_control_steps += int(teacher_control.sum().item())
+        self.cumulative_policy_control_steps += int((~teacher_control).sum().item())
+
+        observations, reward, done, info = super().step(executed_action)
+        info["episode"].update(
+            failure_frontier_teacher_control_fraction=teacher_control.float().mean(),
+            failure_frontier_policy_control_fraction=(~teacher_control).float().mean(),
+            failure_frontier_teacher_steps=torch.tensor(
+                float(self.cumulative_teacher_control_steps), device=self.device
+            ),
+            failure_frontier_policy_steps=torch.tensor(
+                float(self.cumulative_policy_control_steps), device=self.device
+            ),
+        )
+        return observations, reward, done, info
+
+
 def make_refiner(
     num_envs: int,
     *,
@@ -606,10 +728,12 @@ def make_refiner(
     policy_command_dim: int = 0,
     tracker_teacher: bool = False,
     physical_recovery_objective: bool = False,
+    failure_frontier_prefix_steps: int = 0,
+    failure_frontier_teacher_checkpoint: str | Path | None = None,
     **kwargs,
 ) -> RefinerVecEnv:
-    return RefinerVecEnv(
-        CarryBoxEnv(num_envs=num_envs, **kwargs),
+    env = CarryBoxEnv(num_envs=num_envs, **kwargs)
+    wrapper_kwargs = dict(
         reward_clip=reward_clip,
         sync_divergence_reset=sync_divergence_reset,
         policy_history_steps=policy_history_steps,
@@ -617,3 +741,13 @@ def make_refiner(
         tracker_teacher=tracker_teacher,
         physical_recovery_objective=physical_recovery_objective,
     )
+    if failure_frontier_prefix_steps:
+        if failure_frontier_teacher_checkpoint is None:
+            raise ValueError("failure-frontier teacher checkpoint is required")
+        return RefinerFailureFrontierVecEnv(
+            env,
+            teacher_checkpoint=failure_frontier_teacher_checkpoint,
+            prefix_steps=failure_frontier_prefix_steps,
+            **wrapper_kwargs,
+        )
+    return RefinerVecEnv(env, **wrapper_kwargs)
