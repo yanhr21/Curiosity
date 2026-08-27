@@ -18,6 +18,7 @@ allocated H200 tmux window.
 from __future__ import annotations
 
 import argparse
+import builtins
 import hashlib
 import json
 from pathlib import Path
@@ -62,11 +63,16 @@ def runner_cfg(args: argparse.Namespace) -> dict:
         "desired_kl": 0.01,
         "max_grad_norm": 1.0,
     }
-    if args.official_action_anchor:
+    anchor_enabled = args.official_action_anchor or args.frozen_expert_residual
+    if anchor_enabled:
         algorithm.update(
             {
                 "class_name": "BCPPO",
-                "teacher_ckpt": str(args.initial_checkpoint),
+                  **(
+                      {}
+                      if args.frozen_expert_residual
+                      else {"teacher_ckpt": str(args.initial_checkpoint)}
+                  ),
                 "stage3_distill_weight_floor": 1.0,
                 "training_mask_obs_group": None,
                 "distill_mask_start_step": 0,
@@ -91,17 +97,29 @@ def runner_cfg(args: argparse.Namespace) -> dict:
         "save_interval": args.save_interval,
         "experiment_name": args.run_name,
         "empirical_normalization": False,
-        "obs_groups": {
+          "obs_groups": {
             "policy": ["policy"],
             "critic": ["critic"],
-            **({"teacher": ["teacher"]} if args.official_action_anchor else {}),
-        },
-        "policy": {
-            "class_name": "ActorCritic",
-            "init_noise_std": 1.0,
-            "actor_hidden_dims": [512, 256, 128],
-            "critic_hidden_dims": [512, 256, 128],
-            "activation": "elu",
+              **({"teacher": ["teacher"]} if anchor_enabled else {}),
+          },
+          "policy": {
+              "class_name": (
+                  "FrozenOfficialRefinerResidualActorCritic"
+                  if args.frozen_expert_residual
+                  else "ActorCritic"
+              ),
+              "init_noise_std": 1.0,
+              "actor_hidden_dims": [512, 256, 128],
+              "critic_hidden_dims": [512, 256, 128],
+              "activation": "elu",
+              **(
+                  {
+                      "official_refiner_checkpoint": str(args.initial_checkpoint),
+                      "transition_residual_limit": 1.0,
+                  }
+                  if args.frozen_expert_residual
+                  else {}
+              ),
         },
         "algorithm": algorithm,
         "logger": "tensorboard",
@@ -176,6 +194,52 @@ def audit_official_action_anchor(runner, enabled: bool) -> dict:
         "anchor_bc_only_steps": int(algorithm.bc_only_steps),
         "anchor_critic_warmup_steps": int(algorithm.critic_warmup_steps),
         "anchor_full_ppo_warmup_steps": int(algorithm.full_ppo_warmup_steps),
+    }
+
+
+def audit_frozen_expert_residual(runner, checkpoint: Path, enabled: bool) -> dict:
+    """Prove exact frozen endpoint and zero-start official-scale adapter."""
+
+    if not enabled:
+        return {"frozen_expert_residual": False}
+    policy = runner.alg.policy
+    actor = policy.actor
+    source = torch.load(checkpoint, map_location=runner.device, weights_only=False)[
+        "model_state_dict"
+    ]
+    source_actor = {
+        key.removeprefix("actor."): value
+        for key, value in source.items()
+        if key.startswith("actor.")
+    }
+    expert = actor.expert.state_dict()
+    if expert.keys() != source_actor.keys():
+        raise RuntimeError("frozen Refiner expert geometry differs from official source")
+    maximum_delta = max(
+        float((expert[key] - source_actor[key]).abs().max().item()) for key in expert
+    )
+    final = actor.residual[-1]
+    zero_final = float(final.weight.abs().max().item()) == 0.0 and float(
+        final.bias.abs().max().item()
+    ) == 0.0
+    expert_frozen = all(not parameter.requires_grad for parameter in actor.expert.parameters())
+    if maximum_delta != 0.0 or not zero_final or not expert_frozen:
+        raise RuntimeError(
+            "frozen Refiner residual initialization drift: "
+            f"expert_delta={maximum_delta}, zero_final={zero_final}, "
+            f"expert_frozen={expert_frozen}"
+        )
+    return {
+        "frozen_expert_residual": True,
+        "frozen_expert_parameter_max_delta": maximum_delta,
+        "frozen_expert_parameters_frozen": expert_frozen,
+        "residual_output_layer_exact_zero": zero_final,
+        "residual_limit": float(actor.residual_limit),
+        "residual_trainable_parameter_count": sum(
+            parameter.numel()
+            for parameter in actor.residual.parameters()
+            if parameter.requires_grad
+        ),
     }
 
 
@@ -259,6 +323,7 @@ def main() -> None:
     parser.add_argument("--reward-clip", type=float, default=10.0)
     parser.add_argument("--frame-zero-env-count", type=int, default=0)
     parser.add_argument("--official-action-anchor", action="store_true")
+    parser.add_argument("--frozen-expert-residual", action="store_true")
     parser.add_argument("--zero-optimizer-diagnostic-horizons", type=int, default=0)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--seed", type=int, default=171701)
@@ -288,13 +353,27 @@ def main() -> None:
         raise SystemExit("--reward-clip must be positive")
     if not 0 <= args.frame_zero_env_count <= args.num_envs:
         raise SystemExit("--frame-zero-env-count must be in [0, num-envs]")
+    if args.official_action_anchor and args.frozen_expert_residual:
+        raise SystemExit("choose action-anchor fine-tuning or frozen-expert residual, not both")
 
     wp.init()
     if not wp.get_device(args.device).is_cuda:
         raise SystemExit("Newton Refiner training must run on a Slurm CUDA compute node")
     activate_rsl_rl(args.rsl_rl_root)
-    if args.official_action_anchor:
+    if args.official_action_anchor or args.frozen_expert_residual:
         sugar_bcppo()
+    if args.frozen_expert_residual:
+        import rsl_rl.modules
+        from sugar_rl.utils.frozen_expert_transition_actor_critic import (
+            FrozenOfficialRefinerResidualActorCritic,
+        )
+
+        builtins.FrozenOfficialRefinerResidualActorCritic = (
+            FrozenOfficialRefinerResidualActorCritic
+        )
+        rsl_rl.modules.FrozenOfficialRefinerResidualActorCritic = (
+            FrozenOfficialRefinerResidualActorCritic
+        )
     from rsl_rl.runners import OnPolicyRunner
 
     from sugar_newton.rl.vec_env import make_refiner
@@ -322,8 +401,27 @@ def main() -> None:
         log_dir=str(log_dir),
         device=args.device,
     )
-    audit = load_initial_weights(runner, args.initial_checkpoint)
+    audit = (
+        {
+            "source_checkpoint": str(args.initial_checkpoint.resolve()),
+            "source_sha256": sha256(args.initial_checkpoint),
+            "strict_model_state_load": False,
+            "optimizer_state_loaded": False,
+            "learning_iteration_loaded": False,
+            "newton_learning_iteration": runner.current_learning_iteration,
+            "parameter_count": sum(
+                parameter.numel() for parameter in runner.alg.policy.parameters()
+            ),
+        }
+        if args.frozen_expert_residual
+        else load_initial_weights(runner, args.initial_checkpoint)
+    )
     audit.update(audit_official_action_anchor(runner, args.official_action_anchor))
+    audit.update(
+        audit_frozen_expert_residual(
+            runner, args.initial_checkpoint, args.frozen_expert_residual
+        )
+    )
     source_action_std = float(runner.alg.policy.std.detach().mean().item())
     audit.update(
         {
@@ -339,7 +437,8 @@ def main() -> None:
             "training_action_std": args.action_std,
             "learning_rate": args.learning_rate,
             "fixed_learning_rate": bool(
-                args.official_action_anchor and runner.alg.desired_kl is None
+                (args.official_action_anchor or args.frozen_expert_residual)
+                and runner.alg.desired_kl is None
             ),
             "reward_clip": args.reward_clip,
             "sync_divergence_reset": True,
@@ -383,7 +482,13 @@ def main() -> None:
             log_dir=log_dir,
         )
         return
-    method = "BCPPO official-action-anchor" if args.official_action_anchor else "PPO"
+    method = (
+        "BCPPO frozen-official-Refiner residual"
+        if args.frozen_expert_residual
+        else "BCPPO official-action-anchor"
+        if args.official_action_anchor
+        else "PPO"
+    )
     print(
         f"[train] official Refiner Newton transfer: {args.max_iterations} "
         f"fresh {method} updates"
@@ -424,6 +529,7 @@ def main() -> None:
         "final_action_std_mean": float(runner.alg.policy.std.detach().mean().item()),
         "final_learning_rate": float(runner.alg.learning_rate),
         "official_action_anchor": args.official_action_anchor,
+        "frozen_expert_residual": args.frozen_expert_residual,
         "pass": all_policy_parameters_finite and divergence_rate <= 0.005,
         "frozen_evaluation_required": True,
     }

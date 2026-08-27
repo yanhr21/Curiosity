@@ -382,3 +382,14 @@ absolute per-profile lift change is only `0.00248 m`.  Do not enable the torso h
 default, hull additional links, or run another collision-geometry sweep.  The next
 acting-policy method must change controller topology while keeping the exact official
 Refiner frozen, using only adapter code around that serious released component.
+
+The frozen-expert residual topology now passes its pre-training gates.  It reuses the
+repository's admitted `FrozenSelectedTrackerResidual` design: a parameter-exact frozen
+official Refiner plus one trainable `890 -> 512/256/128 -> 29` residual whose final layer
+is exact zero and whose deployed output is bounded by `tanh` with the existing limit
+`1.0`.  The component audit gives exact zero composed-action delta, zero expert gradients,
+and nonzero residual gradients.  A 384-transition zero-optimizer Newton smoke has zero
+divergence and exact zero policy-state change.  The fresh two-update seed171709 smoke keeps
+the expert bitwise exact, changes the residual by `0.0002166`, holds LR at `1e-5`, std at
+`0.050024`, and remains finite with zero divergence.  One fixed 64-update endpoint is now
+admitted to run; no residual-limit/LR/update sweep is allowed.

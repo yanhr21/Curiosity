@@ -455,10 +455,18 @@ against upstream Newton must stay empty.
       negative: mesh/hull are both `1/20` lift and `0/20` strict; mean lift changes only
       `0.011250 -> 0.011333 m`, matched mean delta `+0.0000834 m`.  Keep mesh as default;
       do not hull more links or run another collision-geometry sweep.
-- [ ] Implement the next topology change as adapter-only control around a parameter-exact
+- [x] Implement the next topology change as adapter-only control around a parameter-exact
       frozen official Refiner.  It must retain the official `512/256/128` scale, consume
       only the causal current 890-D Newton observation, start at exact zero action delta,
       and pass a zero-optimizer plus bounded-update smoke before one fixed physical gate.
+- [x] Reuse the admitted frozen-expert residual implementation at 890-D Refiner scale.
+      Component audit: exact-zero composed delta, frozen expert with no gradients, nonzero
+      residual gradients.  Zero-optimizer: 384 finite transitions, zero divergence and
+      exact-zero state change.  Two-update seed171709: expert delta `0`, residual delta
+      `0.0002166`, fixed LR `1e-5`, std `0.050024`, zero divergence.
+- [ ] Run one fresh seed171710, eight-world, 64-update frozen-expert residual endpoint and
+      its unchanged fixed-20 composed-action physical gate.  Do not sweep residual limit,
+      LR, reward weights or update budget.
 - [x] Automatically reject before
       Tracker unless at least `16/20` profiles satisfy strict lift/hold; launch the
       existing acting-teacher Tracker chain only on a machine-readable pass.  The

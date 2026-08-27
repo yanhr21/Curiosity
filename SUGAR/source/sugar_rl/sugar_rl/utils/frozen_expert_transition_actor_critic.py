@@ -25,6 +25,7 @@ TRACKER_OBSERVATION_DIM = 510
 GENERATED_COMMAND_DIM = 36
 SELECTED_SKILL_DIM = 2
 ACTION_DIM = 29
+REFINER_OBSERVATION_DIM = 890
 OFFICIAL_HIDDEN_DIMS = (512, 256, 128)
 DUAL_COMMAND_INPUT_DIM = (
     TRACKER_OBSERVATION_DIM
@@ -554,3 +555,141 @@ class FrozenExpertCausalTemporalActionComposerActorCritic(
             actor_hidden_dims,
             transition_residual_limit,
         ).to(next(self.critic.parameters()).device)
+
+
+def _released_refiner(
+    checkpoint: str | Path, device: torch.device | str = "cpu"
+) -> tuple[MLP, torch.Tensor]:
+    """Load only the exact released Refiner actor/std for adapter composition."""
+
+    path = Path(checkpoint).expanduser().resolve()
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    payload = torch.load(path, map_location=device, weights_only=True)
+    state = payload.get("model_state_dict")
+    if not isinstance(state, dict):
+        raise KeyError(f"released Refiner is missing model_state_dict: {path}")
+    actor_state = {
+        name.removeprefix("actor."): value
+        for name, value in state.items()
+        if name.startswith("actor.")
+    }
+    actor = MLP(
+        REFINER_OBSERVATION_DIM,
+        ACTION_DIM,
+        list(OFFICIAL_HIDDEN_DIMS),
+        "elu",
+    ).to(device)
+    actor.load_state_dict(actor_state, strict=True)
+    actor.eval().requires_grad_(False)
+    if "std" in state:
+        std = state["std"].detach().to(device)
+    elif "log_std" in state:
+        std = state["log_std"].detach().to(device).exp()
+    else:
+        raise KeyError(f"released Refiner is missing std/log_std: {path}")
+    if tuple(std.shape) != (ACTION_DIM,) or not torch.isfinite(std).all():
+        raise RuntimeError(f"released Refiner std geometry drift: {path}")
+    return actor, std
+
+
+class FrozenOfficialRefinerResidual(nn.Module):
+    """Exact official 890-D Refiner plus a zero-start bounded residual adapter."""
+
+    def __init__(
+        self,
+        official_refiner_checkpoint: str | Path,
+        residual_hidden_dims: Sequence[int] = OFFICIAL_HIDDEN_DIMS,
+        residual_limit: float = 1.0,
+    ) -> None:
+        super().__init__()
+        if tuple(int(value) for value in residual_hidden_dims) != OFFICIAL_HIDDEN_DIMS:
+            raise ValueError("Refiner residual must retain the official 512/256/128 topology")
+        if not 0.0 < float(residual_limit) <= 1.0:
+            raise ValueError("residual_limit must lie in (0, 1]")
+        expert, expert_std = _released_refiner(official_refiner_checkpoint)
+        self.expert = expert
+        self.register_buffer("expert_std", expert_std)
+        self.residual = MLP(
+            REFINER_OBSERVATION_DIM,
+            ACTION_DIM,
+            list(OFFICIAL_HIDDEN_DIMS),
+            "elu",
+        )
+        final = self.residual[-1]
+        if not isinstance(final, nn.Linear):
+            raise RuntimeError("Refiner residual output layer drift")
+        nn.init.zeros_(final.weight)
+        nn.init.zeros_(final.bias)
+        self.residual_limit = float(residual_limit)
+
+    @staticmethod
+    def _validate(actor_input: torch.Tensor) -> None:
+        if actor_input.ndim != 2 or actor_input.shape[-1] != REFINER_OBSERVATION_DIM:
+            raise RuntimeError(f"Refiner residual input drift: {tuple(actor_input.shape)}")
+        if not torch.isfinite(actor_input).all():
+            raise RuntimeError("Refiner residual input is non-finite")
+
+    def endpoint_action(self, actor_input: torch.Tensor) -> torch.Tensor:
+        self._validate(actor_input)
+        return self.expert(actor_input)
+
+    def endpoint_std(self, actor_input: torch.Tensor) -> torch.Tensor:
+        self._validate(actor_input)
+        return self.expert_std.expand(actor_input.shape[0], -1)
+
+    def composition_terms(self, actor_input: torch.Tensor) -> dict[str, torch.Tensor]:
+        endpoint = self.endpoint_action(actor_input)
+        residual = self.residual_limit * torch.tanh(self.residual(actor_input))
+        return {
+            "selected_endpoint_action": endpoint,
+            "bounded_residual_action": residual,
+            "composed_action": endpoint + residual,
+        }
+
+    def forward(self, actor_input: torch.Tensor) -> torch.Tensor:
+        return self.composition_terms(actor_input)["composed_action"]
+
+
+class FrozenOfficialRefinerResidualActorCritic(ActorCritic):
+    """RSL-RL interface for the exact Refiner plus trainable official-scale adapter."""
+
+    def __init__(
+        self,
+        obs,
+        obs_groups,
+        num_actions,
+        *,
+        official_refiner_checkpoint: str,
+        transition_residual_limit: float = 1.0,
+        actor_hidden_dims: Sequence[int] = OFFICIAL_HIDDEN_DIMS,
+        **kwargs,
+    ) -> None:
+        if num_actions != ACTION_DIM:
+            raise RuntimeError(f"Refiner residual action geometry drift: {num_actions}")
+        super().__init__(
+            obs,
+            obs_groups,
+            num_actions,
+            actor_hidden_dims=list(actor_hidden_dims),
+            **kwargs,
+        )
+        self.actor = FrozenOfficialRefinerResidual(
+            official_refiner_checkpoint,
+            actor_hidden_dims,
+            transition_residual_limit,
+        ).to(next(self.critic.parameters()).device)
+
+    def _actor_input(self, obs) -> torch.Tensor:
+        actor_input = self.actor_obs_normalizer(self.get_actor_obs(obs))
+        if self.actor_obs_normalization:
+            raise RuntimeError("Refiner residual normalization would alter exact inputs")
+        return actor_input
+
+    def distillation_teacher(self, obs) -> tuple[torch.Tensor, torch.Tensor]:
+        actor_input = self._actor_input(obs)
+        with torch.no_grad():
+            return self.actor.endpoint_action(actor_input), self.actor.endpoint_std(actor_input)
+
+    def composition_audit_terms(self, obs) -> dict[str, torch.Tensor]:
+        return self.actor.composition_terms(self._actor_input(obs))
