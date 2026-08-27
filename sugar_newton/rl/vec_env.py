@@ -363,6 +363,7 @@ class RefinerVecEnv:
             observation_contract="official_refiner_890d",
             reward_clip=self.reward_clip,
             sync_divergence_reset=self.sync_divergence_reset,
+            frame_zero_env_count=env.frame_zero_env_count,
         )
         self.episode_length_buf = torch.zeros(
             env.num_envs, dtype=torch.long, device=env.device

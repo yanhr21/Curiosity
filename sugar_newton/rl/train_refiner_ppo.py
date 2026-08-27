@@ -189,6 +189,7 @@ def main() -> None:
     parser.add_argument("--learning-rate", type=float, default=1.0e-5)
     parser.add_argument("--action-std", type=float, default=0.05)
     parser.add_argument("--reward-clip", type=float, default=10.0)
+    parser.add_argument("--frame-zero-env-count", type=int, default=0)
     parser.add_argument("--zero-optimizer-diagnostic-horizons", type=int, default=0)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--seed", type=int, default=171701)
@@ -216,6 +217,8 @@ def main() -> None:
         raise SystemExit("--action-std must be in (0, 1]")
     if args.reward_clip <= 0.0:
         raise SystemExit("--reward-clip must be positive")
+    if not 0 <= args.frame_zero_env_count <= args.num_envs:
+        raise SystemExit("--frame-zero-env-count must be in [0, num-envs]")
 
     wp.init()
     if not wp.get_device(args.device).is_cuda:
@@ -235,6 +238,7 @@ def main() -> None:
         substeps=args.substeps,
         mu=args.mu,
         reward_clip=args.reward_clip,
+        frame_zero_env_count=args.frame_zero_env_count,
         sync_divergence_reset=True,
         device=args.device,
         seed=args.seed,
@@ -264,6 +268,7 @@ def main() -> None:
             "learning_rate": args.learning_rate,
             "reward_clip": args.reward_clip,
             "sync_divergence_reset": True,
+            "frame_zero_env_count": env.env.frame_zero_env_count,
             "solver_njmax_per_world": env.env.njmax,
             "solver_nconmax_per_world": env.env.nconmax,
         }

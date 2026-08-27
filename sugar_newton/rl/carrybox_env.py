@@ -267,12 +267,16 @@ class CarryBoxEnv:
                  kd: float = 3.2e2, substeps: int = 4, episode_length: int = 300,
                  device: str = "cuda:0", seed: int = 0,
                  njmax: int = 8192, nconmax: int = 8192,
+                 frame_zero_env_count: int = 0,
                  auto_reset: bool = True):
         self.num_envs = num_envs
         self.substeps = substeps
         self.episode_length = episode_length
         self.device = torch.device(device)
         self.njmax, self.nconmax = int(njmax), int(nconmax)
+        if not 0 <= frame_zero_env_count <= num_envs:
+            raise ValueError("frame_zero_env_count must be in [0, num_envs]")
+        self.frame_zero_env_count = int(frame_zero_env_count)
         self.gen = torch.Generator(device=self.device).manual_seed(seed)
         self.auto_reset = auto_reset
         self.motion_root = Path(motion_root).resolve()
@@ -539,6 +543,14 @@ class CarryBoxEnv:
             span = torch.clamp(lengths - self.episode_length - 1, min=1)
             starts = (torch.rand(n, device=self.device, generator=self.gen)
                       * span.float()).long()
+            # A fixed subset of physical worlds can anchor the gate's exact frame-zero
+            # initial-state distribution while the remaining worlds retain SUGAR's random
+            # phase coverage. Explicit evaluator/collector start frames always override this.
+            starts = torch.where(
+                env_ids < self.frame_zero_env_count,
+                torch.zeros_like(starts),
+                starts,
+            )
         else:
             starts = torch.as_tensor(start_frames, dtype=torch.long,
                                      device=self.device).flatten()

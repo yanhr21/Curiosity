@@ -236,6 +236,23 @@ bilateral contact is `0.152296`. This endpoint is worse than fresh-64 on the dec
 metrics, so the Refiner PPO objective is rejected and must not receive another update-budget
 extension or checkpoint-selection sweep.
 
+The first post-rejection diagnostic isolates the initial-state distribution rather than changing
+the reward or extending the failed run. Under the exact 300-step training sampler, frame zero has
+only `1.787%` expected probability. The stronger hypothesis that training mostly starts with an
+already lifted box is false: only `3.208%` of reset choices exceed 5 cm, across 29/100 motions, so
+the reset-distribution audit records `reset_distribution_mismatch=false` under its predeclared
+criterion. Paired frozen endpoints nevertheless show that the 256-update degradation is broad:
+relative to fresh-64, lift and bilateral contact decrease on `19/20` profiles and mean termination
+moves from step `226.1` to `203.95`; four profiles now fail early on end-effector position.
+
+One bounded frame-zero-anchor diagnostic therefore changes exactly one variable: of eight Newton
+training worlds, one always resets at frame zero while seven retain the original random-phase
+coverage. It starts fresh from the exact official Refiner with seed 171702, unchanged reward,
+optimizer stabilization and 64-update budget. Explicit evaluator starts override the anchor. A
+16-reset H200 smoke verifies that the anchored world is always zero while the random world samples
+nonzero phases. The same frozen 20-profile physical gate decides the endpoint; failure rejects this
+reset intervention without an update extension.
+
 The downstream Tracker path now fails closed on that decision. Its Newton VecEnv loads the
 same checkpoint as a strict deterministic acting Refiner and as BCPPO's frozen distillation
 teacher, verifies parameter equality, executes the Refiner until a no-reset 5 cm / 10-frame

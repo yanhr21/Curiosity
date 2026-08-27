@@ -307,6 +307,16 @@ against upstream Newton must stay empty.
       bilateral contact is `0.152296`. The endpoint is worse than fresh-64 on both continuous
       metrics. Reject this Refiner PPO objective; do not extend its budget or select another
       checkpoint from the run.
+- [ ] Run one fixed frame-zero-anchor learnability diagnostic, not an extension of the rejected
+      objective. The exact reset audit finds only `1.787%` expected frame-zero exposure, but also
+      rejects the stronger already-lifted explanation: prelifted starts are only `3.208%` and its
+      predeclared `reset_distribution_mismatch` decision is false. Paired fresh-256 versus fresh-64
+      lift/contact both decrease on `19/20` profiles and mean termination advances from `226.1` to
+      `203.95` steps. Seed 171702 therefore starts fresh from the official Refiner for 64 updates
+      with exactly one of eight worlds anchored to frame zero and seven retaining random phases;
+      reward, topology and stabilization are unchanged. The 16-reset H200 runtime smoke passes.
+      Evaluate only with the unchanged 20-profile physical gate and do not extend this diagnostic
+      if it fails.
 
 ## E. Phase 4 — env and learning
 
