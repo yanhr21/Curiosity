@@ -785,3 +785,25 @@ all states remain finite.  Nevertheless it again fails `obj_pos` at step 235, re
 handoff distribution.  Reject this objective/topology and do not tune the prefix, reward or budget;
 the next training method must change the Newton action target/controller rather than mask more of the
 same released-Refiner rollout.
+
+The next bounded action-objective diagnostic removes the failed Isaac-domain Refiner action anchor
+only after the same exact prefix.  It keeps the parameter-exact official Refiner embedded, the fixed
+200-step physical prefix, past-`10 x 890` six-layer temporal controller, residual limit, causal
+physical reward, LR and budget unchanged, but sets post-handoff distillation weight to exactly zero
+so Newton physics alone can select the recovery correction.  This is one Newton-native free-residual
+test, not an anchor-weight sweep.  Require fresh seed171737 zero-optimizer and seed171738 ten-update
+execution/learning gates before the single fresh seed171739 64-update endpoint; evaluate model63
+first with the exact-prefix composition and then from frame zero only if recovery crosses step235.
+No task-wide or downstream training is admitted without the existing `16/20` lift and strict gates.
+
+The Newton-native free-residual diagnostic is complete and negative.  Seed171737 passes the
+zero-optimizer contract with `400/32` teacher/student actions, `432/432` reward calls and exactly
+zero parameter/execution error.  Seed171738 passes ten updates with `1,640/280` teacher/student
+actions, zero divergence and nonzero actor/critic/std changes.  Fresh seed171739 then passes the
+64-update numerical gate with `10,608/1,680` teacher/student actions, zero execution error,
+`12,288/12,288` reward calls and actor/critic/std changes of
+`0.00148/0.00682/0.000193`.  Exact-prefix frozen evaluation nevertheless executes only 35 recovery
+steps before the same step235 `obj_pos` failure: peak lift is `0.01045 m`, bilateral contact is
+`0.20426`, and the handoff action jump is `0.01576`.  Removing the action anchor increases the mean
+residual to `0.00383` but does not recover.  The Refiner anchor is not the bottleneck; do not launch
+frame-zero/task-wide evaluation or another anchor setting.

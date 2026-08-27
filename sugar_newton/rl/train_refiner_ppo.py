@@ -79,6 +79,7 @@ def runner_cfg(args: argparse.Namespace) -> dict:
     )
     anchor_enabled = args.official_action_anchor or embedded_expert
     if anchor_enabled:
+        free_recovery = args.newton_native_free_recovery
         algorithm.update(
             {
                 "class_name": "BCPPO",
@@ -87,21 +88,31 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                     if embedded_expert
                       else {"teacher_ckpt": str(args.initial_checkpoint)}
                   ),
-                "stage3_distill_weight_floor": 1.0,
+                "stage3_distill_weight_floor": 0.0 if free_recovery else 1.0,
                 "training_mask_obs_group": None,
                 "distill_mask_start_step": (
-                    args.max_iterations + 1
-                    if args.failure_frontier_prefix_steps
-                    else 0
+                    0
+                    if free_recovery
+                    else (
+                        args.max_iterations + 1
+                        if args.failure_frontier_prefix_steps
+                        else 0
+                    )
                 ),
                 "bc_only_steps": (
-                    args.max_iterations + 1 if args.pure_distill else 0
+                    args.max_iterations + 1
+                    if args.pure_distill
+                    else 0
                 ),
                 "critic_warmup_steps": (
-                    args.max_iterations + 2 if args.pure_distill else 0
+                    args.max_iterations + 2
+                    if args.pure_distill
+                    else 0
                 ),
                 "full_ppo_warmup_steps": (
-                    args.max_iterations + 3 if args.pure_distill else 1
+                    args.max_iterations + 3
+                    if args.pure_distill
+                    else 1
                 ),
                 "teacher_mean_only": True,
                 "minimum_action_std": args.action_std,
@@ -667,6 +678,15 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--newton-native-free-recovery",
+        action="store_true",
+        help=(
+            "remove the failed post-handoff Refiner action anchor while "
+            "retaining the parameter-exact embedded Refiner and masked "
+            "Newton recovery topology"
+        ),
+    )
+    parser.add_argument(
         "--pure-distill",
         action="store_true",
         help=(
@@ -725,6 +745,15 @@ def main() -> None:
         raise SystemExit(
             "failure-frontier training requires the physical-recovery additive "
             "temporal Refiner on only frame-zero data_000"
+        )
+    if args.newton_native_free_recovery and not (
+        args.failure_frontier_prefix_steps == 200
+        and args.physical_recovery_objective
+        and args.frozen_expert_temporal_additive_residual
+    ):
+        raise SystemExit(
+            "--newton-native-free-recovery is restricted to the fixed "
+            "prefix200 physical-recovery additive Refiner diagnostic"
         )
     if (
         args.frozen_expert_temporal_command_additive_residual
@@ -959,6 +988,10 @@ def main() -> None:
             ),
             "failure_frontier_prefix_steps": args.failure_frontier_prefix_steps,
             "failure_frontier_training_mask_actor_input": False,
+            "newton_native_free_recovery": args.newton_native_free_recovery,
+            "post_handoff_refiner_action_anchor": (
+                not args.newton_native_free_recovery
+            ),
             "failure_frontier_teacher_checkpoint": (
                 str(args.initial_checkpoint.resolve())
                 if args.failure_frontier_prefix_steps
@@ -1121,6 +1154,10 @@ def main() -> None:
         ),
         "failure_frontier_prefix_steps": args.failure_frontier_prefix_steps,
         "failure_frontier_training_mask_actor_input": False,
+        "newton_native_free_recovery": args.newton_native_free_recovery,
+        "post_handoff_refiner_action_anchor": (
+            not args.newton_native_free_recovery
+        ),
         "failure_frontier_teacher_control_steps": int(
             getattr(env, "cumulative_teacher_control_steps", 0)
         ),

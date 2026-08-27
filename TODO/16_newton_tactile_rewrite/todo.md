@@ -688,6 +688,19 @@ against upstream Newton must stay empty.
       and no non-finite state, but again fails `obj_pos` at step 235 with `0.01072 m` lift and `0/1`
       strict completion.  Recovery fails on its training handoff distribution; do not tune prefix,
       reward or budget, and do not open downstream Tracker/BCPPO.
+- [x] Run one fixed Newton-native free-residual diagnostic.  Preserve the exact Refiner, prefix200,
+      serious past-`10 x 890` six-layer controller, residual limit, physical objective, LR and
+      update budget, but remove the failed post-handoff Refiner action distillation entirely.  This
+      changes the action objective rather than sweeping its weight.  Require fresh seed171737
+      zero-optimizer and seed171738 ten-update gates before one seed171739 64-update model63; audit
+      exact-prefix recovery first and frame-zero deployment only if it crosses step235.  Keep the
+      task-wide `16/20` lift/strict and downstream Tracker/BCPPO gates closed meanwhile.  Seed171737
+      zero-opt and seed171738 ten-update gates pass.  Seed171739 also passes its 64-update numerical
+      contract with `10,608/1,680` exact/student actions, zero execution error/divergence and
+      actor/critic/std changes `0.00148/0.00682/0.000193`.  Exact-prefix model63 still fails
+      `obj_pos` at step235 after 35 student actions: lift/contact are `0.01045 m/0.20426`, handoff
+      jump is `0.01576`, and strict completion is `0/1`.  The action anchor is not the bottleneck;
+      frame-zero/task-wide evaluation and other anchor settings remain rejected.
 
 ---
 
