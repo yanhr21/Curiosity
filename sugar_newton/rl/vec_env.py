@@ -372,7 +372,11 @@ class RefinerVecEnv:
     def _obs(self) -> TensorDict:
         privileged = obs_890.build(self.env, teacher=False)
         return TensorDict(
-            {"policy": privileged, "critic": privileged},
+            # The optional Refiner BCPPO transfer uses the same causal/current Newton
+            # 890-D tensor to query a separately frozen official Refiner.  Keeping a
+            # distinct observation-group name makes that teacher contract explicit while
+            # leaving ordinary PPO's policy/critic groups unchanged.
+            {"policy": privileged, "critic": privileged, "teacher": privileged},
             batch_size=[self.num_envs],
             device=self.device,
         )

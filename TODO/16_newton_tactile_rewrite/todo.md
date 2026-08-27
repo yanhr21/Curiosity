@@ -432,6 +432,21 @@ against upstream Newton must stay empty.
       joint sag and tracking error.
 - [ ] A patch is the policy unit, never a contact point.
 
+## H. Official-Refiner action-anchor transfer (2026-08-27)
+
+- [x] Reject the adaptive-KL two-update smoke: learning rate reached `1e-2`, actor and
+      critic drifted by `0.02166/0.06118`, and std rose to `0.06406`.
+- [x] Disable KL learning-rate adaptation for this method while retaining official BCPPO,
+      the exact frozen official Refiner teacher, mean-only distillation, stage-3 floor
+      `1.0`, random resets, std `0.05`, and configured learning rate `1e-5`.
+- [x] Pass the fresh seed171705 fixed-rate two-update smoke: both logged rates `1e-5`,
+      zero divergence, all finite, actor/critic deltas `0.0001936/0.0002668`, std
+      `0.0500219`.  The zero-optimizer audit is still exact over 384 transitions.
+- [ ] Run one fresh seed171706, eight-world, 64-update action-anchor endpoint on H200.
+- [ ] Run the unchanged fixed-20 frozen Refiner gate.  Automatically reject before
+      Tracker unless at least `16/20` profiles satisfy strict lift/hold; launch the
+      existing acting-teacher Tracker chain only on a machine-readable pass.
+
 ---
 
 ## E. Phase 3 — the tracker in the Newton loop (2026-08-22)

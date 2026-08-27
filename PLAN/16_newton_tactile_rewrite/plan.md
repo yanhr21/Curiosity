@@ -329,3 +329,29 @@ sense weight" is not a claim this design can support in any engine.
   signals.
 - A patch is the policy unit, never a contact point.
 - Never report a number without naming the evaluation view.
+
+## 9. Official-Refiner action-anchor transfer (2026-08-27)
+
+The random-reset fresh-256 Refiner and the one-of-eight frame-zero fresh-64
+intervention both fail the unchanged frozen physical gate, so neither checkpoint may
+act for downstream Tracker training.  The next bounded method keeps the exact released
+`890 -> 512/256/128 -> 29` Refiner as both student initialization and a separately loaded,
+frozen BCPPO teacher.  Newton supplies the same current causal 890-D privileged group to
+the teacher; no future state, outcome label, reset anchor or toy controller is added.
+The official BCPPO mean-distillation term remains active with a stage-3 floor of `1.0`
+while PPO starts immediately.  Training uses random reset, eight worlds, action std
+`0.05`, fixed learning rate `1e-5`, and exactly 64 fresh updates.
+
+The first two-update smoke with adaptive KL is rejected.  Its first update raised the
+learning rate from `1e-5` to `1e-2`, producing actor/critic maximum parameter changes
+`0.02166/0.06118` and action std `0.06406`.  A single protocol correction disables that
+adaptive update (`desired_kl=None`) without changing the official BCPPO loss.  The fresh
+seed171705 smoke keeps both recorded learning rates at `1e-5`, has zero divergence,
+finite parameters, actor/critic changes `0.0001936/0.0002668`, and std `0.0500219`; it
+passes the predeclared smoke limits (`actor <= 0.002`, std `<= 0.052`).  The earlier
+zero-optimizer audit remains exact over 384 real Newton transitions.
+
+The formal endpoint is evaluated on the unchanged fixed 20-profile Refiner physical
+gate.  A numerical training pass is not admission: at least `16/20` profiles must satisfy
+the existing strict lift/hold rule.  Failure stops before Tracker/BCPPO; success alone
+allows the already implemented acting-teacher handoff chain to start automatically.

@@ -25,7 +25,7 @@ from pathlib import Path
 import torch
 import warp as wp
 
-from sugar_newton.rl.train_bcppo import activate_rsl_rl
+from sugar_newton.rl.train_bcppo import activate_rsl_rl, sugar_bcppo
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,13 +47,55 @@ def sha256(path: Path) -> str:
 def runner_cfg(args: argparse.Namespace) -> dict:
     """Official PPO geometry with explicit Newton-transfer stabilization."""
 
+    algorithm = {
+        "class_name": "PPO",
+        "value_loss_coef": 1.0,
+        "use_clipped_value_loss": True,
+        "clip_param": 0.2,
+        "entropy_coef": 0.005,
+        "num_learning_epochs": 5,
+        "num_mini_batches": 4,
+        "learning_rate": args.learning_rate,
+        "schedule": "adaptive",
+        "gamma": 0.99,
+        "lam": 0.95,
+        "desired_kl": 0.01,
+        "max_grad_norm": 1.0,
+    }
+    if args.official_action_anchor:
+        algorithm.update(
+            {
+                "class_name": "BCPPO",
+                "teacher_ckpt": str(args.initial_checkpoint),
+                "stage3_distill_weight_floor": 1.0,
+                "training_mask_obs_group": None,
+                "distill_mask_start_step": 0,
+                "bc_only_steps": 0,
+                "critic_warmup_steps": 0,
+                "full_ppo_warmup_steps": 1,
+                "teacher_mean_only": True,
+                "minimum_action_std": args.action_std,
+                # The student and teacher means are identical at initialization.
+                # Adaptive KL therefore interprets the first near-zero KL batches as
+                # permission to raise the learning rate as high as 1e-2 before the
+                # live Newton distribution has moved.  Keep this transfer at the
+                # declared 1e-5 rate; BCPPO's schedule flag is changed internally,
+                # while ``desired_kl=None`` disables the adaptive update itself.
+                "schedule": "fixed",
+                "desired_kl": None,
+            }
+        )
     return {
         "num_steps_per_env": 24,
         "max_iterations": args.max_iterations,
         "save_interval": args.save_interval,
         "experiment_name": args.run_name,
         "empirical_normalization": False,
-        "obs_groups": {"policy": ["policy"], "critic": ["critic"]},
+        "obs_groups": {
+            "policy": ["policy"],
+            "critic": ["critic"],
+            **({"teacher": ["teacher"]} if args.official_action_anchor else {}),
+        },
         "policy": {
             "class_name": "ActorCritic",
             "init_noise_std": 1.0,
@@ -61,21 +103,7 @@ def runner_cfg(args: argparse.Namespace) -> dict:
             "critic_hidden_dims": [512, 256, 128],
             "activation": "elu",
         },
-        "algorithm": {
-            "class_name": "PPO",
-            "value_loss_coef": 1.0,
-            "use_clipped_value_loss": True,
-            "clip_param": 0.2,
-            "entropy_coef": 0.005,
-            "num_learning_epochs": 5,
-            "num_mini_batches": 4,
-            "learning_rate": args.learning_rate,
-            "schedule": "adaptive",
-            "gamma": 0.99,
-            "lam": 0.95,
-            "desired_kl": 0.01,
-            "max_grad_norm": 1.0,
-        },
+        "algorithm": algorithm,
         "logger": "tensorboard",
     }
 
@@ -108,6 +136,46 @@ def load_initial_weights(runner, checkpoint: Path) -> dict:
         "learning_iteration_loaded": False,
         "newton_learning_iteration": runner.current_learning_iteration,
         "parameter_count": sum(parameter.numel() for parameter in runner.alg.policy.parameters()),
+    }
+
+
+def audit_official_action_anchor(runner, enabled: bool) -> dict:
+    """Prove that BCPPO's behavior target is an exact frozen official Refiner."""
+
+    if not enabled:
+        return {"official_action_anchor": False}
+    algorithm = runner.alg
+    teacher = getattr(algorithm, "teacher_model", None)
+    if teacher is None:
+        raise RuntimeError("official-action anchor has no checkpoint teacher")
+    student_actor = algorithm.policy.actor.state_dict()
+    teacher_actor = teacher.state_dict()
+    if student_actor.keys() != teacher_actor.keys():
+        raise RuntimeError("student/teacher Refiner actor keys differ")
+    maximum_delta = max(
+        float((student_actor[key] - teacher_actor[key]).abs().max().item())
+        for key in student_actor
+    )
+    teacher_frozen = all(not parameter.requires_grad for parameter in teacher.parameters())
+    fixed_learning_rate = algorithm.desired_kl is None
+    if maximum_delta != 0.0 or not teacher_frozen or not fixed_learning_rate:
+        raise RuntimeError(
+            "official action anchor drift: "
+            f"delta={maximum_delta}, frozen={teacher_frozen}, "
+            f"fixed_learning_rate={fixed_learning_rate}"
+        )
+    return {
+        "official_action_anchor": True,
+        "anchor_actor_parameter_max_delta_at_initialization": maximum_delta,
+        "anchor_teacher_parameters_frozen": teacher_frozen,
+        "anchor_fixed_learning_rate": fixed_learning_rate,
+        "anchor_teacher_mean_only": bool(algorithm.teacher_mean_only),
+        "anchor_stage3_distill_weight_floor": float(
+            algorithm.stage3_distill_weight_floor
+        ),
+        "anchor_bc_only_steps": int(algorithm.bc_only_steps),
+        "anchor_critic_warmup_steps": int(algorithm.critic_warmup_steps),
+        "anchor_full_ppo_warmup_steps": int(algorithm.full_ppo_warmup_steps),
     }
 
 
@@ -190,6 +258,7 @@ def main() -> None:
     parser.add_argument("--action-std", type=float, default=0.05)
     parser.add_argument("--reward-clip", type=float, default=10.0)
     parser.add_argument("--frame-zero-env-count", type=int, default=0)
+    parser.add_argument("--official-action-anchor", action="store_true")
     parser.add_argument("--zero-optimizer-diagnostic-horizons", type=int, default=0)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--seed", type=int, default=171701)
@@ -224,6 +293,8 @@ def main() -> None:
     if not wp.get_device(args.device).is_cuda:
         raise SystemExit("Newton Refiner training must run on a Slurm CUDA compute node")
     activate_rsl_rl(args.rsl_rl_root)
+    if args.official_action_anchor:
+        sugar_bcppo()
     from rsl_rl.runners import OnPolicyRunner
 
     from sugar_newton.rl.vec_env import make_refiner
@@ -252,10 +323,11 @@ def main() -> None:
         device=args.device,
     )
     audit = load_initial_weights(runner, args.initial_checkpoint)
+    audit.update(audit_official_action_anchor(runner, args.official_action_anchor))
     source_action_std = float(runner.alg.policy.std.detach().mean().item())
     audit.update(
         {
-            "protocol": "sugar_newton_official_refiner_ppo_transfer_v2",
+            "protocol": "sugar_newton_official_refiner_ppo_transfer_v3",
             "seed": args.seed,
             "num_envs": args.num_envs,
             "num_motions": len(env.env.clip_names),
@@ -266,6 +338,9 @@ def main() -> None:
             "source_action_std_mean": source_action_std,
             "training_action_std": args.action_std,
             "learning_rate": args.learning_rate,
+            "fixed_learning_rate": bool(
+                args.official_action_anchor and runner.alg.desired_kl is None
+            ),
             "reward_clip": args.reward_clip,
             "sync_divergence_reset": True,
             "frame_zero_env_count": env.env.frame_zero_env_count,
@@ -308,12 +383,26 @@ def main() -> None:
             log_dir=log_dir,
         )
         return
-    print(f"[train] official Refiner Newton transfer: {args.max_iterations} fresh PPO updates")
+    method = "BCPPO official-action-anchor" if args.official_action_anchor else "PPO"
+    print(
+        f"[train] official Refiner Newton transfer: {args.max_iterations} "
+        f"fresh {method} updates"
+    )
     runner.learn(num_learning_iterations=args.max_iterations, init_at_random_ep_len=False)
     final_state = runner.alg.policy.state_dict()
     parameter_max_delta = max(
         (final_state[key] - value).abs().max().item()
         for key, value in pre_training_state.items()
+    )
+    actor_parameter_max_delta = max(
+        (final_state[key] - value).abs().max().item()
+        for key, value in pre_training_state.items()
+        if key.startswith("actor.")
+    )
+    critic_parameter_max_delta = max(
+        (final_state[key] - value).abs().max().item()
+        for key, value in pre_training_state.items()
+        if key.startswith("critic.")
     )
     all_policy_parameters_finite = all(
         bool(torch.isfinite(value).all()) for value in final_state.values()
@@ -330,7 +419,11 @@ def main() -> None:
         "maximum_admitted_training_divergence_rate": 0.005,
         "all_policy_parameters_finite": all_policy_parameters_finite,
         "actor_critic_parameter_max_delta": parameter_max_delta,
+        "actor_parameter_max_delta": actor_parameter_max_delta,
+        "critic_parameter_max_delta": critic_parameter_max_delta,
         "final_action_std_mean": float(runner.alg.policy.std.detach().mean().item()),
+        "final_learning_rate": float(runner.alg.learning_rate),
+        "official_action_anchor": args.official_action_anchor,
         "pass": all_policy_parameters_finite and divergence_rate <= 0.005,
         "frozen_evaluation_required": True,
     }
