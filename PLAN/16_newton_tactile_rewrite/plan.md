@@ -535,3 +535,19 @@ strict, with mean lift/contact `0.009796 m/0.192179`; this short endpoint is not
 selection point.  The machine gates therefore admit exactly the predeclared fresh seed171722
 64-update endpoint, which is now running on the retained H200 allocation.  Its fixed-20 result alone
 will decide whether the acting-Refiner queue reaches downstream Tracker/BCPPO.
+
+The fixed seed171722 endpoint is now complete and rejected.  Training finishes all 64 updates /
+12,288 transitions with one synchronized divergence (`0.00814%`), finite parameters, composer
+delta `0.0162462`, exact-zero critic drift, action-std delta `7.45e-10` and fixed LR `1e-5`.
+Frozen fixed-20 evaluation restores `model_63.pt` (SHA256
+`141af2196e3e7335f58bd4626f7578ac232b78db7e064d501e640a7f1441826f`) and completes all profiles
+without active divergence.  The official Refiner and training-only Tracker retain exact-zero
+weight/std drift, and the Tracker is not called at inference.  Physical behavior improves from the
+short endpoint's `0/20` lift to `8/20`, with mean peak lift `0.071140 m`, but remains `0/20` strict
+against the fixed `16/20` requirements.  Mean bilateral-contact fraction is only `0.128391`, expert
+retention falls to `0.822457`, mean bounded residual is `0.204223` and composed-endpoint delta is
+`0.175667`.  This is meaningful action-teacher response, not an admitted acting Refiner.  Keep
+downstream Tracker/BCPPO closed and do not sweep this topology's scale, capacity or budget.  The
+next bounded diagnostic must change how the exact endpoint action is composed or retained, because
+additional magnitude in the same unconstrained temporal residual is not justified by zero strict
+completions and declining bilateral hold.

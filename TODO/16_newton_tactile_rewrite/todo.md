@@ -544,9 +544,14 @@ against upstream Newton must stay empty.
       `0.1205 -> 0.1103`.  Its strict fixed-20 loading audit preserves both experts exactly, never
       calls the Tracker at inference and finishes `20/20` finite profiles without divergence; the
       diagnostic physical result is `0/20` lift and `0/20` strict.
-- [ ] Finish the automatically admitted fresh seed171722 64-update endpoint and its unchanged
-      fixed-20 physical gate.  The run is active on the retained H200 allocation.  Downstream
-      Tracker/BCPPO remains machine-blocked unless both lift and strict completion reach `16/20`.
+- [x] Finish the automatically admitted fresh seed171722 64-update endpoint and its unchanged
+      fixed-20 physical gate.  Training passes with 64 updates / 12,288 transitions, one divergence
+      (`0.00814%`), composer delta `0.0162462`, exact-zero critic drift and std delta `7.45e-10`.
+      Frozen evaluation improves to `8/20` lift but remains `0/20` strict, versus the required
+      `16/20` for each.  Mean peak lift/bilateral contact are `0.071140 m/0.128391`; all profiles are
+      finite, both released experts remain exact and the Tracker is unused at inference.  Reject the
+      endpoint and keep downstream Tracker/BCPPO closed.  Do not sweep this topology's history,
+      Transformer size, teacher/loss weight, LR, residual limit or update budget.
 
 ---
 

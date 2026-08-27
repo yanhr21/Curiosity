@@ -56,8 +56,11 @@ Seed171721 then passes two Stage-1 updates / 384 transitions with zero divergenc
 `0.00045949`, exact-zero critic drift and std delta `7.45e-10`.  A strict fixed-20 audit proves both
 experts remain exact and the Tracker is absent at inference; all profiles are finite, while the
 diagnostic physical result is `0/20` lift and `0/20` strict.  These structural gates automatically
-admitted the single predeclared fresh seed171722 64-update run, now active on the retained H200.
-Tracker/BCPPO remains closed unless its fixed-20 endpoint reaches `16/20` lift and strict.
+admitted the single predeclared fresh seed171722 64-update run.  That endpoint passes its numerical
+training contract with one divergence in 12,288 transitions (`0.00814%`), but fixed-20 evaluation
+reaches only `8/20` lift and `0/20` strict.  Mean lift/contact are `0.071140 m/0.128391`; both experts
+remain exact and all profiles are finite.  This is a real improvement over the short checkpoint,
+not an admitted acting Refiner.  Tracker/BCPPO remains closed, and this topology must not be swept.
 
 ## Running the validator
 
