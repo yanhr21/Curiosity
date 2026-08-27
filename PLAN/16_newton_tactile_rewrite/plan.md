@@ -492,3 +492,18 @@ exact-zero critic/std and released-expert drift, finite live Newton tensors and 
 Only that machine pass admits one fresh seed171719 eight-world, 64-update endpoint and the same
 fixed-20 physical gate.  There is no stage-length, loss-coefficient, LR, residual-limit, reward or
 update-budget sweep, and downstream Tracker/BCPPO remains forbidden below `16/20` lift and strict.
+
+The pure-distillation pre-training diagnostic is complete but does not pass its predeclared gate.
+Fresh seed171718 runs two official BCPPO Stage-1 updates / 384 live Newton transitions with finite
+parameters, fixed LR `1e-5`, residual-only actor delta `0.00046239`, exact-zero critic drift and
+action-std delta `7.45e-10` from `0.05`.  The distillation loss moves `0.2150 -> 0.2052`.  Strict
+evaluation of `model_1.pt` restores both released experts with exact-zero weight/std drift, proves
+the Tracker is unused at inference, completes all 20 profiles without active divergence and records
+the deployed composed action exactly.  Its `1/20` lift and `0/20` strict result is diagnostic-only.
+However, training records one synchronized divergence (`1/384 = 0.2604%`) while the predeclared
+short gate required zero; the general `0.5%` training ceiling cannot retroactively weaken that
+stricter admission rule.  An automatic chain incorrectly began seed171719 under the general ceiling;
+it was stopped with `Ctrl+C` immediately after update 0 / 192 transitions, produced no
+`TRAINING_RESULT.json`, is not a formal endpoint and must never be resumed or reported.  The valid
+decision is rejection before formal training.  Do not rerun this pure-distillation objective with
+a new seed or proceed to Tracker/BCPPO from it.

@@ -820,6 +820,10 @@ def main() -> None:
             and final_action_std_delta_from_config <= 1.0e-7
         )
     )
+    pure_distill_short_divergence_pass = (
+        not (args.pure_distill and args.max_iterations == 2)
+        or divergence_total == 0
+    )
     result = {
         "protocol": "sugar_newton_refiner_ppo_training_gate_v1",
         "optimizer_updates": args.max_iterations,
@@ -840,10 +844,14 @@ def main() -> None:
         "released_tracker_action_supervision": args.released_tracker_action_supervision,
         "pure_distill": args.pure_distill,
         "pure_distill_contract_pass": pure_distill_contract_pass,
+        "pure_distill_short_divergence_pass": (
+            pure_distill_short_divergence_pass
+        ),
         "pass": (
             all_policy_parameters_finite
             and divergence_rate <= 0.005
             and pure_distill_contract_pass
+            and pure_distill_short_divergence_pass
         ),
         "frozen_evaluation_required": True,
     }

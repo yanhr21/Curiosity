@@ -40,9 +40,13 @@ remain execution-smoke input only and are rejected for a formal run.
 
 The next bounded diagnostic keeps the same serious frozen experts and deployed residual but uses
 the repository's official BCPPO Stage-1 pure-distillation schedule, removing the simultaneous PPO
-surrogate and critic updates that confounded the rejected mixed-objective endpoint.  A fresh
-two-update gate must prove residual-only learning with exact-zero critic/std/expert drift before a
-single fresh 64-update endpoint is admitted; the physical `16/20` rule remains unchanged.
+surrogate and critic updates that confounded the rejected mixed-objective endpoint.  Fresh
+seed171718 has residual delta `0.00046239`, exact-zero critic drift, std delta `7.45e-10`, finite
+tensors and exact-zero released-expert drift, but records one divergence in 384 transitions.  The
+predeclared short gate required zero, so the diagnostic is rejected.  A seed171719 automatic launch
+that mistakenly used the looser general ceiling was stopped after update 0 / 192 transitions; it
+has no final result and must not be resumed.  No pure-distillation formal endpoint or downstream
+Tracker/BCPPO is admitted.
 
 ## Running the validator
 
