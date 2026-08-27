@@ -32,6 +32,7 @@ smoke_name=carrybox_bcppo_acting_handoff_seed171702_smoke12
 formal_name=carrybox_bcppo_acting_handoff_seed171702_formal3000
 smoke_dir=${log_root}/${smoke_name}
 formal_dir=${log_root}/${formal_name}
+formal_eval=experiments/sugar_reproduction/outputs/newton_tracker_handoff_frozen_20260827/formal20_seed171702_model2999/RESULT.json
 
 echo "AUTO_BCPPO_CHAIN_WAITING_FOR_REFINER_GATE"
 while [[ ! -f "${teacher_gate}" ]]; do
@@ -157,3 +158,33 @@ echo "AUTO_BCPPO_FORMAL3000_START"
   --video-interval 0 \
   --rsl-rl-root "${rsl_rl_root}" \
   2>&1 | tee sugar_newton/_gpu_out/newton_bcppo_acting_handoff_seed171702_formal3000_h200.log
+
+if ! "${python_bin}" - "${formal_dir}/TRAINING_RESULT.json" <<'PY'
+import json
+import sys
+
+result = json.load(open(sys.argv[1]))
+print("AUTO_BCPPO_FORMAL3000_GATE", result, flush=True)
+raise SystemExit(0 if result.get("passed") is True else 1)
+PY
+then
+  echo "AUTO_TRACKER_FROZEN_EVAL_SKIPPED_FORMAL_TRAINING_GATE"
+  exit 0
+fi
+
+if [[ -e "${formal_eval}" ]]; then
+  echo "refusing to overwrite existing frozen evaluation: ${formal_eval}" >&2
+  exit 5
+fi
+
+echo "AUTO_TRACKER_MATCHED_FROZEN_EVAL_START"
+"${python_bin}" -m sugar_newton.validation.tracker_handoff_frozen \
+  --baseline-checkpoint "${tracker_warm_start}" \
+  --learned-checkpoint "${formal_dir}/model_2999.pt" \
+  --teacher-checkpoint "${teacher_checkpoint}" \
+  --teacher-gate-result "${teacher_gate}" \
+  --motion-root "${tracker_data}" \
+  --teacher-motion-root SUGAR/data/CarryBox \
+  --output "${formal_eval}" \
+  --rsl-rl-root "${rsl_rl_root}" \
+  2>&1 | tee sugar_newton/_gpu_out/newton_tracker_handoff_frozen_seed171702_model2999_h200.log

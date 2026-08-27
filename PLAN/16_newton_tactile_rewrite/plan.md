@@ -242,6 +242,15 @@ CarryBox Tracker while its checkpoint optimizer and iteration are ignored, prese
 declared warm start with fresh Newton BCPPO state. This implementation does not admit a launch by itself: the
 fresh-256 endpoint must first pass the unchanged gate.
 
+If admitted, one fixed 12-update / one-profile runtime smoke must first demonstrate a real
+handoff, nonzero student-controlled steps, finite policy state, frozen teacher parameters and
+the original divergence bound. It then launches one fresh 3000-update, eight-world BCPPO run,
+which reaches the complete official BC/critic/PPO curriculum rather than stopping inside pure
+distillation. The fixed endpoint is automatically compared with the exact released Tracker on
+twenty predeclared processed profiles. Both arms share the acting Refiner, frame-zero state,
+physics and observation hashes; evaluator validity and physical advantage are separate
+machine-readable decisions.
+
 **Phase 4 — env and learning.** A vec-env implementing the `rsl_rl` VecEnv protocol
 (torch↔warp interop following `newton/_src/solvers/kamino/examples/rl/`), with BCPPO
 unmodified. Reward built correctly from the start:

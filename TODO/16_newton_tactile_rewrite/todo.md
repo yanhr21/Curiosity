@@ -363,6 +363,16 @@ against upstream Newton must stay empty.
       pushing each frame into the causal history twice. Formal launch additionally requires
       a passing fixed-gate JSON whose checkpoint SHA matches the acting checkpoint; the
       failed source and fresh-64 results are rejected by test.
+- [x] **Predeclare the matched Tracker frozen evaluator and automatic endpoint chain.**
+      Twenty fixed motion-ID-disjoint processed profiles are reset at frame zero. The
+      official Tracker warm start and learned `model_2999.pt` use the same admitted acting
+      Refiner and one Newton environment whose solver, contact matcher, state, causal 510-D
+      history, 890-D critic and teacher observations are reset and hashed per arm. The
+      evaluator records handoff timing, actual teacher/student control steps, strict
+      failures, lift, bilateral contact, reward, root loss and action bounds. It reports
+      evaluation validity separately from physical advantage; it cannot turn a finite run
+      into an improvement claim. The automatic chain runs it only after the formal-3000
+      training gate passes.
 - [ ] After a Newton-adapted Refiner passes the frozen lift gate, run the physical
       acting-teacher prefix smoke and start the faithful Tracker BCPPO run from
       scratch. The implementation is present, but runtime admission remains conditional on

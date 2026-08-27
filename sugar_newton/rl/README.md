@@ -64,6 +64,13 @@ actor `510 -> 512/256/128 -> 29`, critic `890 -> 512/256/128 -> 1`, and released
 Its optimizer state and checkpoint iteration are deliberately ignored and audited empty,
 so Newton training starts at update zero without discarding the serious released skill.
 
+`launch_bcppo_after_refiner_gate.sh` is the non-interactive H200 chain. A passing exact
+Refiner gate admits a 12-update real-handoff smoke; only a passing smoke starts the fixed
+3000-update/eight-world run. Its `model_2999.pt` is then evaluated by
+`validation/tracker_handoff_frozen.py` against the released Tracker on twenty fixed processed
+profiles. That evaluator hashes the complete reset policy/critic/teacher observation state and
+reports validity separately from physical advantage.
+
 The motion inputs follow the official `SUGAR/train.sh` contract. `--motion-root` is the
 Refiner rollout `rl_dataset` seen by the Tracker student and critic;
 `--teacher-motion-root` defaults to raw `SUGAR/data/CarryBox` for the frozen Refiner.

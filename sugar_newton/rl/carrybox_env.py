@@ -508,6 +508,16 @@ class CarryBoxEnv:
         # reference q/qd are written below.
         world_mask = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         world_mask[env_ids] = True
+        # CollisionPipeline(contact_matching="latest") owns a cross-frame
+        # ContactMatcher.  Newton documents ContactMatcher.reset() for RL episode
+        # resets and teleports.  Its match indices are consumed by VBD rather than the
+        # MuJoCo-Warp solver used here, but clearing them still makes every post-reset
+        # contact report and deterministic frozen pair independent of the prior episode.
+        # The pipeline currently exposes the matcher as its expert/private component
+        # rather than forwarding reset(), so call the matcher's public reset directly.
+        contact_matcher = getattr(self.pipeline, "_contact_matcher", None)
+        if contact_matcher is not None:
+            contact_matcher.reset()
         self.solver.reset(
             self.state_0,
             world_mask=wp.from_torch(world_mask),
