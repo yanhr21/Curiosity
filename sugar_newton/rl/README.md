@@ -61,6 +61,14 @@ launch Tracker training.  The residual evaluator additionally requires the embed
 actor weights and action std to remain bitwise exact.  There is no execution-only bypass and
 no resume path.
 
+The next admitted Refiner transfer topology is `--frozen-expert-temporal-composer`.  It keeps the
+same official Refiner actor/std parameter-exact and frozen, while the deployed policy receives
+the current 890-D tensor plus an explicit causal `10 x 890` history.  The trainable controller is
+the repository's serious six-layer, 384-D Transformer composer with an exact-zero output head;
+it controls expert retention and a bounded 29-D correction.  Per-world resets refill all history
+frames and every actor call requires the last history frame to equal the current tensor exactly.
+Future states and outcome labels never enter the actor.
+
 The student is parameter-exact warm-started from the released CarryBox `tracker.pt`:
 actor `510 -> 512/256/128 -> 29`, critic `890 -> 512/256/128 -> 1`, and released std.
 Its optimizer state and checkpoint iteration are deliberately ignored and audited empty,

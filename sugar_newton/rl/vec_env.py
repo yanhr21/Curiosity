@@ -344,6 +344,7 @@ class RefinerVecEnv:
         *,
         reward_clip: float = 10.0,
         sync_divergence_reset: bool = True,
+        policy_history_steps: int = 0,
     ):
         self.env = env
         self.num_envs = env.num_envs
@@ -354,29 +355,74 @@ class RefinerVecEnv:
             raise ValueError("reward_clip must be positive")
         self.reward_clip = float(reward_clip)
         self.sync_divergence_reset = bool(sync_divergence_reset)
+        if policy_history_steps < 0:
+            raise ValueError("policy_history_steps must be non-negative")
+        self.policy_history_steps = int(policy_history_steps)
         self.cfg = EnvCfg(
             num_envs=env.num_envs,
             episode_length=env.episode_length,
             substeps=env.substeps,
             dt=env.dt,
             clips=list(env.clip_names),
-            observation_contract="official_refiner_890d",
+            observation_contract=(
+                f"official_refiner_current_plus_{self.policy_history_steps}x890d_history"
+                if self.policy_history_steps
+                else "official_refiner_890d"
+            ),
             reward_clip=self.reward_clip,
             sync_divergence_reset=self.sync_divergence_reset,
             frame_zero_env_count=env.frame_zero_env_count,
+            policy_history_steps=self.policy_history_steps,
         )
         self.episode_length_buf = torch.zeros(
             env.num_envs, dtype=torch.long, device=env.device
         )
+        self._current_privileged = obs_890.build(self.env, teacher=False)
+        self._policy_history: torch.Tensor | None = None
+        self._advance_policy_history(self._current_privileged, reset_all=True)
+
+    def _advance_policy_history(
+        self,
+        current: torch.Tensor,
+        *,
+        reset_ids: torch.Tensor | None = None,
+        reset_all: bool = False,
+    ) -> None:
+        if tuple(current.shape) != (self.num_envs, obs_890.OBS_DIM_890):
+            raise RuntimeError(f"Refiner current observation drift: {tuple(current.shape)}")
+        self._current_privileged = current
+        if not self.policy_history_steps:
+            return
+        repeated = current[:, None, :].expand(
+            -1, self.policy_history_steps, -1
+        ).clone()
+        if reset_all or self._policy_history is None:
+            self._policy_history = repeated
+            return
+        self._policy_history = torch.cat(
+            (self._policy_history[:, 1:], current[:, None, :]), dim=1
+        )
+        if reset_ids is not None and reset_ids.numel():
+            self._policy_history[reset_ids] = repeated[reset_ids]
 
     def _obs(self) -> TensorDict:
-        privileged = obs_890.build(self.env, teacher=False)
+        privileged = self._current_privileged
+        policy = privileged
+        if self.policy_history_steps:
+            if self._policy_history is None:
+                raise RuntimeError("Refiner policy history was not initialized")
+            if not torch.equal(self._policy_history[:, -1], privileged):
+                raise RuntimeError("Refiner policy history does not end at current state")
+            policy = torch.cat(
+                (privileged, self._policy_history.reshape(self.num_envs, -1)),
+                dim=-1,
+            )
         return TensorDict(
             # The optional Refiner BCPPO transfer uses the same causal/current Newton
             # 890-D tensor to query a separately frozen official Refiner.  Keeping a
             # distinct observation-group name makes that teacher contract explicit while
             # leaving ordinary PPO's policy/critic groups unchanged.
-            {"policy": privileged, "critic": privileged, "teacher": privileged},
+            {"policy": policy, "critic": privileged, "teacher": policy},
             batch_size=[self.num_envs],
             device=self.device,
         )
@@ -387,6 +433,9 @@ class RefinerVecEnv:
     def reset(self) -> tuple[TensorDict, dict]:
         self.env.reset()
         self.episode_length_buf.zero_()
+        self._advance_policy_history(
+            obs_890.build(self.env, teacher=False), reset_all=True
+        )
         return self._obs(), {}
 
     def step(self, actions: torch.Tensor):
@@ -403,6 +452,10 @@ class RefinerVecEnv:
             self.env.reset()
             done = torch.ones_like(done)
             extras["timeout"] = torch.zeros_like(done)
+        reset_ids = done.nonzero(as_tuple=False).flatten()
+        self._advance_policy_history(
+            obs_890.build(self.env, teacher=False), reset_ids=reset_ids
+        )
         reward = torch.clamp(reward, -self.reward_clip, self.reward_clip)
         self.episode_length_buf += 1
         self.episode_length_buf[done] = 0
@@ -426,10 +479,12 @@ def make_refiner(
     *,
     reward_clip: float = 10.0,
     sync_divergence_reset: bool = True,
+    policy_history_steps: int = 0,
     **kwargs,
 ) -> RefinerVecEnv:
     return RefinerVecEnv(
         CarryBoxEnv(num_envs=num_envs, **kwargs),
         reward_clip=reward_clip,
         sync_divergence_reset=sync_divergence_reset,
+        policy_history_steps=policy_history_steps,
     )

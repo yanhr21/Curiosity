@@ -400,3 +400,26 @@ embedded-expert weight/std drift.  The unchanged fixed-20 composed-action gate r
 matched mean lift decreases by `0.001706 m`; relative to the action-anchor endpoint it
 decreases by `0.017897 m`.  This topology is physically rejected: do not sweep residual
 limit, learning rate, reward weights or update budget, and do not launch Tracker from it.
+
+The next fixed controller-topology diagnostic is a causal temporal composer around the same
+parameter-exact official Refiner.  It reuses the repository's admitted six-layer, 384-D
+Transformer transition core rather than introducing a smaller local model.  The deployed actor
+receives the current official 890-D observation plus an explicit exact past `10 x 890` history;
+the history is reset per Newton world and its final frame must be elementwise identical to the
+current observation.  The frozen Refiner acts only on the current frame.  A zero-output head
+initializes the composed action exactly to that endpoint, while the trainable output controls a
+causal expert-retention scalar and bounded 29-D correction.  Future states, terminations and
+outcome labels never enter the actor.  This method must first pass component, zero-optimizer and
+two-update H200 gates.  Only those machine-readable passes admit one fresh 64-update endpoint;
+there is no history-length/model-size/LR/residual-limit/update sweep.
+
+Those pre-training gates now pass.  The component has 11,984,443 total and 11,360,286
+trainable parameters; composed/endpoint, retention-from-one and bounded-residual deltas are all
+exact zero, the official expert has zero gradients, the Transformer receives maximum gradient
+`8.4493`, and a mismatched final history frame is rejected.  Fresh seed171712 executes 384 live
+Newton transitions with zero optimizer steps, zero divergence, finite tensors and exact-zero
+policy-state change.  Fresh seed171713 executes two optimizer updates with zero divergence,
+fixed LR `1e-5`, composer delta `0.00021968`, final std `0.0500613`, and exact-zero embedded
+expert drift.  Its live 9790-D observation audit also records exact-zero history-last/current
+and composed/endpoint deltas.  These machine gates admit exactly one fresh seed171714,
+eight-world, 64-update endpoint followed by the unchanged fixed-20 gate.

@@ -63,14 +63,17 @@ def runner_cfg(args: argparse.Namespace) -> dict:
         "desired_kl": 0.01,
         "max_grad_norm": 1.0,
     }
-    anchor_enabled = args.official_action_anchor or args.frozen_expert_residual
+    embedded_expert = (
+        args.frozen_expert_residual or args.frozen_expert_temporal_composer
+    )
+    anchor_enabled = args.official_action_anchor or embedded_expert
     if anchor_enabled:
         algorithm.update(
             {
                 "class_name": "BCPPO",
                   **(
                       {}
-                      if args.frozen_expert_residual
+                    if embedded_expert
                       else {"teacher_ckpt": str(args.initial_checkpoint)}
                   ),
                 "stage3_distill_weight_floor": 1.0,
@@ -103,11 +106,13 @@ def runner_cfg(args: argparse.Namespace) -> dict:
               **({"teacher": ["teacher"]} if anchor_enabled else {}),
           },
           "policy": {
-              "class_name": (
-                  "FrozenOfficialRefinerResidualActorCritic"
-                  if args.frozen_expert_residual
-                  else "ActorCritic"
-              ),
+                "class_name": (
+                    "FrozenOfficialRefinerCausalTemporalComposerActorCritic"
+                    if args.frozen_expert_temporal_composer
+                    else "FrozenOfficialRefinerResidualActorCritic"
+                    if args.frozen_expert_residual
+                    else "ActorCritic"
+                ),
               "init_noise_std": 1.0,
               "actor_hidden_dims": [512, 256, 128],
               "critic_hidden_dims": [512, 256, 128],
@@ -117,9 +122,9 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                       "official_refiner_checkpoint": str(args.initial_checkpoint),
                       "transition_residual_limit": 1.0,
                   }
-                  if args.frozen_expert_residual
-                  else {}
-              ),
+                    if embedded_expert
+                    else {}
+                ),
         },
         "algorithm": algorithm,
         "logger": "tensorboard",
@@ -243,6 +248,97 @@ def audit_frozen_expert_residual(runner, checkpoint: Path, enabled: bool) -> dic
     }
 
 
+def audit_frozen_expert_temporal_composer(
+    runner, env, checkpoint: Path, enabled: bool
+) -> dict:
+    """Prove exact endpoint and zero-start serious causal temporal composer."""
+
+    if not enabled:
+        return {"frozen_expert_temporal_composer": False}
+    actor = runner.alg.policy.actor
+    source = torch.load(checkpoint, map_location=runner.device, weights_only=False)[
+        "model_state_dict"
+    ]
+    source_actor = {
+        key.removeprefix("actor."): value
+        for key, value in source.items()
+        if key.startswith("actor.")
+    }
+    expert = actor.expert.state_dict()
+    if expert.keys() != source_actor.keys():
+        raise RuntimeError("temporal Refiner expert geometry differs from official source")
+    weight_delta = max(
+        float((expert[key] - source_actor[key]).abs().max().item()) for key in expert
+    )
+    if "std" in source:
+        source_std = source["std"]
+    elif "log_std" in source:
+        source_std = source["log_std"].exp()
+    else:
+        raise KeyError("official Refiner checkpoint is missing std/log_std")
+    std_delta = float((actor.expert_std - source_std).abs().max().item())
+    final = actor.temporal_composer.output[-1]
+    zero_final = float(final.weight.abs().max().item()) == 0.0 and float(
+        final.bias.abs().max().item()
+    ) == 0.0
+    expert_frozen = all(not parameter.requires_grad for parameter in actor.expert.parameters())
+    live_obs = env.get_observations()
+    with torch.no_grad():
+        terms = runner.alg.policy.composition_audit_terms(live_obs)
+    current = live_obs["policy"][:, :890]
+    history_last_delta = float(
+        (terms["temporal_history_last_frame"] - current).abs().max().item()
+    )
+    endpoint_delta = float(
+        (terms["composed_action"] - terms["selected_endpoint_action"])
+        .abs()
+        .max()
+        .item()
+    )
+    retention_delta = float(
+        (terms["expert_retention"] - 1.0).abs().max().item()
+    )
+    residual_max = float(terms["bounded_residual_action"].abs().max().item())
+    if weight_delta != 0.0 or std_delta != 0.0 or not zero_final or not expert_frozen:
+        raise RuntimeError(
+            "frozen Refiner temporal initialization drift: "
+            f"weight_delta={weight_delta}, std_delta={std_delta}, "
+            f"zero_final={zero_final}, expert_frozen={expert_frozen}"
+        )
+    if any(value != 0.0 for value in (
+        history_last_delta,
+        endpoint_delta,
+        retention_delta,
+        residual_max,
+    )):
+        raise RuntimeError(
+            "live temporal Refiner exact-endpoint audit drift: "
+            f"history={history_last_delta}, endpoint={endpoint_delta}, "
+            f"retention={retention_delta}, residual={residual_max}"
+        )
+    return {
+        "frozen_expert_temporal_composer": True,
+        "frozen_expert_weight_max_delta": weight_delta,
+        "frozen_expert_std_max_delta": std_delta,
+        "frozen_expert_parameters_frozen": expert_frozen,
+        "temporal_output_layer_exact_zero": zero_final,
+        "temporal_history_steps": 10,
+        "temporal_model_dim": 384,
+        "temporal_transformer_layers": 6,
+        "live_policy_observation_dim": int(live_obs["policy"].shape[-1]),
+        "live_history_last_frame_max_delta": history_last_delta,
+        "live_composed_endpoint_max_delta": endpoint_delta,
+        "live_expert_retention_delta_from_one": retention_delta,
+        "live_bounded_residual_max": residual_max,
+        "residual_limit": float(actor.residual_limit),
+        "temporal_trainable_parameter_count": sum(
+            parameter.numel()
+            for parameter in actor.temporal_composer.parameters()
+            if parameter.requires_grad
+        ),
+    }
+
+
 def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) -> dict:
     """Exercise the exact stochastic actor without taking an optimizer step."""
 
@@ -324,6 +420,7 @@ def main() -> None:
     parser.add_argument("--frame-zero-env-count", type=int, default=0)
     parser.add_argument("--official-action-anchor", action="store_true")
     parser.add_argument("--frozen-expert-residual", action="store_true")
+    parser.add_argument("--frozen-expert-temporal-composer", action="store_true")
     parser.add_argument("--zero-optimizer-diagnostic-horizons", type=int, default=0)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--seed", type=int, default=171701)
@@ -353,18 +450,32 @@ def main() -> None:
         raise SystemExit("--reward-clip must be positive")
     if not 0 <= args.frame_zero_env_count <= args.num_envs:
         raise SystemExit("--frame-zero-env-count must be in [0, num-envs]")
-    if args.official_action_anchor and args.frozen_expert_residual:
-        raise SystemExit("choose action-anchor fine-tuning or frozen-expert residual, not both")
+    selected_transfer_modes = sum(
+        int(value)
+        for value in (
+            args.official_action_anchor,
+            args.frozen_expert_residual,
+            args.frozen_expert_temporal_composer,
+        )
+    )
+    if selected_transfer_modes > 1:
+        raise SystemExit(
+            "choose exactly one of action-anchor, frozen residual or temporal composer"
+        )
 
     wp.init()
     if not wp.get_device(args.device).is_cuda:
         raise SystemExit("Newton Refiner training must run on a Slurm CUDA compute node")
     activate_rsl_rl(args.rsl_rl_root)
-    if args.official_action_anchor or args.frozen_expert_residual:
+    embedded_expert = (
+        args.frozen_expert_residual or args.frozen_expert_temporal_composer
+    )
+    if args.official_action_anchor or embedded_expert:
         sugar_bcppo()
-    if args.frozen_expert_residual:
+    if embedded_expert:
         import rsl_rl.modules
         from sugar_rl.utils.frozen_expert_transition_actor_critic import (
+            FrozenOfficialRefinerCausalTemporalComposerActorCritic,
             FrozenOfficialRefinerResidualActorCritic,
         )
 
@@ -373,6 +484,12 @@ def main() -> None:
         )
         rsl_rl.modules.FrozenOfficialRefinerResidualActorCritic = (
             FrozenOfficialRefinerResidualActorCritic
+        )
+        builtins.FrozenOfficialRefinerCausalTemporalComposerActorCritic = (
+            FrozenOfficialRefinerCausalTemporalComposerActorCritic
+        )
+        rsl_rl.modules.FrozenOfficialRefinerCausalTemporalComposerActorCritic = (
+            FrozenOfficialRefinerCausalTemporalComposerActorCritic
         )
     from rsl_rl.runners import OnPolicyRunner
 
@@ -390,6 +507,7 @@ def main() -> None:
         reward_clip=args.reward_clip,
         frame_zero_env_count=args.frame_zero_env_count,
         sync_divergence_reset=True,
+        policy_history_steps=(10 if args.frozen_expert_temporal_composer else 0),
         device=args.device,
         seed=args.seed,
     )
@@ -413,7 +531,7 @@ def main() -> None:
                 parameter.numel() for parameter in runner.alg.policy.parameters()
             ),
         }
-        if args.frozen_expert_residual
+        if embedded_expert
         else load_initial_weights(runner, args.initial_checkpoint)
     )
     audit.update(audit_official_action_anchor(runner, args.official_action_anchor))
@@ -422,14 +540,25 @@ def main() -> None:
             runner, args.initial_checkpoint, args.frozen_expert_residual
         )
     )
+    audit.update(
+        audit_frozen_expert_temporal_composer(
+            runner,
+            env,
+            args.initial_checkpoint,
+            args.frozen_expert_temporal_composer,
+        )
+    )
     source_action_std = float(runner.alg.policy.std.detach().mean().item())
     audit.update(
         {
-            "protocol": "sugar_newton_official_refiner_ppo_transfer_v3",
+            "protocol": "sugar_newton_official_refiner_ppo_transfer_v4",
             "seed": args.seed,
             "num_envs": args.num_envs,
             "num_motions": len(env.env.clip_names),
-            "observation_dim": 890,
+            "policy_observation_dim": (
+                890 * 11 if args.frozen_expert_temporal_composer else 890
+            ),
+            "critic_observation_dim": 890,
             "action_dim": 29,
             "max_iterations": args.max_iterations,
             "fresh_optimizer": True,
@@ -437,7 +566,7 @@ def main() -> None:
             "training_action_std": args.action_std,
             "learning_rate": args.learning_rate,
             "fixed_learning_rate": bool(
-                (args.official_action_anchor or args.frozen_expert_residual)
+                (args.official_action_anchor or embedded_expert)
                 and runner.alg.desired_kl is None
             ),
             "reward_clip": args.reward_clip,
@@ -483,7 +612,9 @@ def main() -> None:
         )
         return
     method = (
-        "BCPPO frozen-official-Refiner residual"
+        "BCPPO frozen-official-Refiner causal temporal composer"
+        if args.frozen_expert_temporal_composer
+        else "BCPPO frozen-official-Refiner residual"
         if args.frozen_expert_residual
         else "BCPPO official-action-anchor"
         if args.official_action_anchor
@@ -530,6 +661,7 @@ def main() -> None:
         "final_learning_rate": float(runner.alg.learning_rate),
         "official_action_anchor": args.official_action_anchor,
         "frozen_expert_residual": args.frozen_expert_residual,
+        "frozen_expert_temporal_composer": args.frozen_expert_temporal_composer,
         "pass": all_policy_parameters_finite and divergence_rate <= 0.005,
         "frozen_evaluation_required": True,
     }

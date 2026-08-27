@@ -475,6 +475,22 @@ against upstream Newton must stay empty.
       Tracker unless at least `16/20` profiles satisfy strict lift/hold; launch the
       existing acting-teacher Tracker chain only on a machine-readable pass.  The
       action-anchor and frozen-residual endpoints failed, so no Tracker run was launched.
+- [x] Implement and audit the fixed causal temporal Refiner composer: exact frozen official
+      actor/std; explicit current plus past `10 x 890` observation contract; admitted six-layer,
+      384-D Transformer; exact-zero output head; causal expert-retention plus bounded 29-D
+      correction; no future/outcome actor input.  Component audit: 11.984M total/11.360M
+      trainable parameters, exact-zero endpoint delta, zero expert gradient, nonzero composer
+      gradient and fail-closed mismatched-history rejection.
+- [x] Pass one fresh zero-optimizer and one fresh two-update H200 gate.  Require exact history
+      reset/last-frame equality, exact-zero pre-update composed-action delta, exact-zero official
+      expert drift, finite tensors, zero diagnostic divergence, fixed `1e-5` LR and nonzero
+      temporal-composer gradient/parameter movement.  Seed171712 gives 384 transitions with zero
+      optimizer/state change and zero divergence.  Seed171713 gives composer delta `0.00021968`,
+      expert delta `0`, two fixed `1e-5` LR records and zero divergence.
+- [ ] If and only if both gates pass, run one fresh eight-world, 64-update endpoint and its
+      unchanged fixed-20 physical gate.  Do not sweep history length, Transformer size, residual
+      limit, LR, reward weights or update budget; do not launch Tracker below `16/20` strict
+      lift/hold.
 
 ---
 
