@@ -465,3 +465,17 @@ proves that the Tracker teacher is unused at inference, and verifies the deploye
 exactly.  Its physical outcome is diagnostic-only and does not select a checkpoint.  These gates
 admit exactly one fresh seed171717, eight-world, 64-update endpoint and the unchanged fixed-20
 physical gate.  There is no teacher weight, residual limit, LR, reward or update-budget sweep.
+
+That formal endpoint is now complete and rejected.  Fresh seed171717 finishes all 64 optimizer
+updates / 12,288 Newton transitions with finite parameters, fixed LR `1e-5`, final std `0.0507304`
+and `4/12288 = 0.03255%` synchronized divergences, below the fixed `0.5%` numerical ceiling.  The
+residual actor and critic change by `0.0032824/0.0124748`.  Frozen evaluation strictly restores
+the same `model_63.pt` (SHA256
+`b8279bc6de12ff86edfc679d0cbfaae5696a12951fd56506d3c2ed222ee86e96`) over all 20 fixed profiles.
+Both released experts retain exact-zero weight/std drift, the Tracker remains training-only, all
+profiles are finite and the recorded composed action equals the deployed action.  Nevertheless,
+only `1/20` profiles reach a 5 cm lift and `0/20` meet strict completion, versus the required
+`16/20` for each.  Mean peak lift/bilateral contact are `0.011805 m/0.195350`, and the mean absolute
+residual is `0.009393`.  This does not improve the rejected temporal endpoint's `1/20, 0/20`
+physical result.  Downstream Tracker/BCPPO remains closed; do not sweep the teacher weight,
+residual limit, LR, reward or update budget for this topology.

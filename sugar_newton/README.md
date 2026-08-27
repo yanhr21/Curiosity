@@ -26,17 +26,17 @@ level runtime/sign audit. The official Refiner rollout produced 912 endpoint-com
 Tracker clips; all are finite and aligned within one frame to their raw teacher motions.
 
 The acting-Refiner admission queue is currently closed.  Fresh PPO, frame-zero anchoring,
-official action anchoring, a frozen-expert residual and the admitted six-layer causal temporal
-composer have all completed their fixed Newton gates.  The latest seed171714 temporal endpoint
-passes its 64-update numerical gate but reaches only `1/20` 5-cm lifts and `0/20` strict
-completions, below the fixed `16/20` rule.  Downstream Tracker/BCPPO therefore has not launched.
-The next bounded diagnostic uses the parameter-exact released Tracker only as a current-state
-action-label source for an adapter around the frozen official Refiner; it does not use a toy
-teacher, future state or outcome label.  Its component, zero-optimizer, two-update and strict-load
-evaluator gates pass: the 510-D/890-D observations share one Newton action boundary, both released
-experts remain bitwise unchanged, and only the official-scale residual/critic update.  Exactly one
-fresh seed171717 64-update endpoint is admitted before the unchanged 20-profile physical gate.
-Raw CarryBox motions remain execution-smoke input only and are rejected for a formal run.
+official action anchoring, a frozen-expert residual, the six-layer causal temporal composer and
+the released-Tracker-supervised frozen-Refiner adapter have all completed their fixed Newton gates.
+The last topology uses the parameter-exact released Tracker only as a current-state action-label
+source; its 510-D observation is synchronized with the deployed actor's 890-D observation, and the
+teacher is absent at inference.  Fresh seed171717 passes the 64-update numerical gate with finite
+parameters and `4/12288 = 0.03255%` divergences.  Both released experts retain exact-zero drift,
+but frozen evaluation reaches only `1/20` 5-cm lifts and `0/20` strict completions, with mean
+lift/contact `0.011805 m/0.195350`, below the fixed `16/20` rule and no better than the temporal
+endpoint.  Downstream Tracker/BCPPO therefore has not launched.  Do not sweep teacher weight,
+residual limit, LR, reward or update budget for this rejected topology.  Raw CarryBox motions
+remain execution-smoke input only and are rejected for a formal run.
 
 ## Running the validator
 

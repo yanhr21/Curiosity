@@ -507,9 +507,14 @@ against upstream Newton must stay empty.
       384 transitions, zero divergence, fixed LR `1e-5`, residual/critic deltas
       `0.0004075/0.0004647`, and exact-zero Refiner/Tracker weight/std drift.  A one-profile
       evaluator smoke strictly loads the checkpoint and proves the Tracker is unused at inference.
-- [ ] Run exactly one fresh seed171717, eight-world, 64-update supervised-adapter endpoint and
-      the unchanged fixed-20 physical gate.  Do not sweep teacher weight, residual limit, LR,
-      reward or update budget; do not launch downstream Tracker below `16/20` lift and strict.
+- [x] Run exactly one fresh seed171717, eight-world, 64-update supervised-adapter endpoint and
+      the unchanged fixed-20 physical gate.  Training passes with 64 updates / 12,288 transitions,
+      finite parameters, fixed LR `1e-5`, residual/critic deltas `0.0032824/0.0124748` and
+      `4/12288 = 0.03255%` divergences.  The fixed-20 gate rejects the endpoint at `1/20` lift and
+      `0/20` strict, with mean lift/contact `0.011805 m/0.195350`.  Both released experts retain
+      exact-zero weight/std drift, the Tracker is unused at inference and all profiles are finite.
+      Downstream Tracker was not launched.  Do not sweep teacher weight, residual limit, LR,
+      reward or update budget for this topology.
 
 ---
 
