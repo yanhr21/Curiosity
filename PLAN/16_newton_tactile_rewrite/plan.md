@@ -253,6 +253,16 @@ optimizer stabilization and 64-update budget. Explicit evaluator starts override
 nonzero phases. The same frozen 20-profile physical gate decides the endpoint; failure rejects this
 reset intervention without an update extension.
 
+That diagnostic is complete and negative. Seed 171702 finishes 64 updates / 12,288 transitions
+with one divergence (`0.00814%`), finite policy parameters and the exact official topology. The
+frozen endpoint remains `0/20` lift and `0/20` strict completion, with mean lift `0.007011 m`, mean
+bilateral contact `0.179006` and mean termination step `218.75`. Relative to the original random
+fresh-64 endpoint, only `1/20` profiles improve lift, `2/20` improve contact and `2/20` run longer;
+all three aggregate metrics regress. Do not increase the number of anchored worlds, extend this
+run or turn reset weighting into a sweep. The next acting-teacher method must preserve the exact
+official Refiner while adding a serious action/behavior anchor during Newton adaptation rather
+than relying on the same unanchored PPO objective.
+
 The downstream Tracker path now fails closed on that decision. Its Newton VecEnv loads the
 same checkpoint as a strict deterministic acting Refiner and as BCPPO's frozen distillation
 teacher, verifies parameter equality, executes the Refiner until a no-reset 5 cm / 10-frame

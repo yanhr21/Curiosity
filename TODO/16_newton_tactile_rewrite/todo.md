@@ -307,7 +307,7 @@ against upstream Newton must stay empty.
       bilateral contact is `0.152296`. The endpoint is worse than fresh-64 on both continuous
       metrics. Reject this Refiner PPO objective; do not extend its budget or select another
       checkpoint from the run.
-- [ ] Run one fixed frame-zero-anchor learnability diagnostic, not an extension of the rejected
+- [x] Run one fixed frame-zero-anchor learnability diagnostic, not an extension of the rejected
       objective. The exact reset audit finds only `1.787%` expected frame-zero exposure, but also
       rejects the stronger already-lifted explanation: prelifted starts are only `3.208%` and its
       predeclared `reset_distribution_mismatch` decision is false. Paired fresh-256 versus fresh-64
@@ -316,7 +316,17 @@ against upstream Newton must stay empty.
       with exactly one of eight worlds anchored to frame zero and seven retaining random phases;
       reward, topology and stabilization are unchanged. The 16-reset H200 runtime smoke passes.
       Evaluate only with the unchanged 20-profile physical gate and do not extend this diagnostic
-      if it fails.
+      if it fails. The run completes 64 updates / 12,288 transitions with one divergence
+      (`0.00814%`) and finite parameters. Its frozen gate is negative: `0/20` lift, `0/20` strict,
+      mean lift `0.007011 m`, mean bilateral contact `0.179006` and mean termination step `218.75`.
+      Against random fresh-64, only `1/20`, `2/20` and `2/20` profiles improve lift, contact and
+      duration respectively. Reject the reset intervention; do not increase its anchored-world
+      count or update budget.
+- [ ] Audit and implement a serious official-action-anchored Refiner transfer method. It must keep
+      the exact released `890 -> 512/256/128 -> 29` Refiner as initialization and frozen behavior
+      target, use the existing official SUGAR/BCPPO machinery where compatible, and retain the
+      unchanged Newton physical gate. Do not substitute a local toy residual/controller or launch
+      Tracker training before the resulting acting checkpoint passes.
 
 ## E. Phase 4 — env and learning
 
