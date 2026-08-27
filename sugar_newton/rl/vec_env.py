@@ -345,6 +345,7 @@ class RefinerVecEnv:
         reward_clip: float = 10.0,
         sync_divergence_reset: bool = True,
         policy_history_steps: int = 0,
+        tracker_teacher: bool = False,
     ):
         self.env = env
         self.num_envs = env.num_envs
@@ -358,6 +359,7 @@ class RefinerVecEnv:
         if policy_history_steps < 0:
             raise ValueError("policy_history_steps must be non-negative")
         self.policy_history_steps = int(policy_history_steps)
+        self.tracker_teacher = bool(tracker_teacher)
         self.cfg = EnvCfg(
             num_envs=env.num_envs,
             episode_length=env.episode_length,
@@ -373,11 +375,14 @@ class RefinerVecEnv:
             sync_divergence_reset=self.sync_divergence_reset,
             frame_zero_env_count=env.frame_zero_env_count,
             policy_history_steps=self.policy_history_steps,
+            tracker_teacher=self.tracker_teacher,
         )
         self.episode_length_buf = torch.zeros(
             env.num_envs, dtype=torch.long, device=env.device
         )
+        self._current_tracker = self.env.observe() if self.tracker_teacher else None
         self._current_privileged = obs_890.build(self.env, teacher=False)
+        self._observation_epoch = 0
         self._policy_history: torch.Tensor | None = None
         self._advance_policy_history(self._current_privileged, reset_all=True)
 
@@ -417,12 +422,16 @@ class RefinerVecEnv:
                 (privileged, self._policy_history.reshape(self.num_envs, -1)),
                 dim=-1,
             )
+        teacher = self._current_tracker if self.tracker_teacher else policy
+        if self.tracker_teacher:
+            if teacher is None or tuple(teacher.shape) != (self.num_envs, OBS_DIM):
+                raise RuntimeError("Tracker teacher observation was not synchronized")
         return TensorDict(
             # The optional Refiner BCPPO transfer uses the same causal/current Newton
             # 890-D tensor to query a separately frozen official Refiner.  Keeping a
             # distinct observation-group name makes that teacher contract explicit while
             # leaving ordinary PPO's policy/critic groups unchanged.
-            {"policy": policy, "critic": privileged, "teacher": policy},
+            {"policy": policy, "critic": privileged, "teacher": teacher},
             batch_size=[self.num_envs],
             device=self.device,
         )
@@ -433,13 +442,16 @@ class RefinerVecEnv:
     def reset(self) -> tuple[TensorDict, dict]:
         self.env.reset()
         self.episode_length_buf.zero_()
+        if self.tracker_teacher:
+            self._current_tracker = self.env.observe()
         self._advance_policy_history(
             obs_890.build(self.env, teacher=False), reset_all=True
         )
+        self._observation_epoch += 1
         return self._obs(), {}
 
     def step(self, actions: torch.Tensor):
-        _, reward, done, extras = self.env.step(actions)
+        tracker, reward, done, extras = self.env.step(actions)
         divergence = extras.get("termination_terms", {}).get(
             "diverged", torch.zeros_like(done)
         )
@@ -450,12 +462,16 @@ class RefinerVecEnv:
         # keeps the original per-profile termination behavior.
         if self.sync_divergence_reset and bool(divergence.any()):
             self.env.reset()
+            tracker = self.env.observe()
             done = torch.ones_like(done)
             extras["timeout"] = torch.zeros_like(done)
+        if self.tracker_teacher:
+            self._current_tracker = tracker
         reset_ids = done.nonzero(as_tuple=False).flatten()
         self._advance_policy_history(
             obs_890.build(self.env, teacher=False), reset_ids=reset_ids
         )
+        self._observation_epoch += 1
         reward = torch.clamp(reward, -self.reward_clip, self.reward_clip)
         self.episode_length_buf += 1
         self.episode_length_buf[done] = 0
@@ -480,6 +496,7 @@ def make_refiner(
     reward_clip: float = 10.0,
     sync_divergence_reset: bool = True,
     policy_history_steps: int = 0,
+    tracker_teacher: bool = False,
     **kwargs,
 ) -> RefinerVecEnv:
     return RefinerVecEnv(
@@ -487,4 +504,5 @@ def make_refiner(
         reward_clip=reward_clip,
         sync_divergence_reset=sync_divergence_reset,
         policy_history_steps=policy_history_steps,
+        tracker_teacher=tracker_teacher,
     )

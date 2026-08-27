@@ -494,13 +494,22 @@ against upstream Newton must stay empty.
       finite parameters, but the physical gate rejects it at `1/20` lift and `0/20` strict.
       Mean lift/contact are `0.012809 m/0.198697`; expert retention is `0.99999988` and mean
       absolute correction only `0.010058`.  Tracker was not launched.
-- [ ] Implement the next bounded released-Tracker action-supervision diagnostic around the
+- [x] Implement the next bounded released-Tracker action-supervision diagnostic around the
       parameter-exact frozen Refiner.  The exact released Tracker supplies current-state action
       labels only; its 510-D observation and the Refiner's 890-D observation must be built from
-      the same Newton state, and no future state/outcome may enter the actor.
-- [ ] Pass component, zero-optimizer and short-update gates before any formal endpoint: strict
+      the same Newton state, and no future state/outcome may enter the actor.  The deployed actor
+      remains the official-scale frozen-Refiner residual; the Tracker is training-only.
+- [x] Pass component, zero-optimizer and short-update gates before any formal endpoint: strict
       loading of both released experts, nonzero adapter-only gradient/update, exact-zero expert
       actor/std drift, finite live Newton transitions and a machine-checked causal alignment.
+      Component residual gradient is `0.38765` with zero expert gradients.  Seed171715 gives
+      48 zero-update transitions with zero divergence/state change.  Seed171716 gives two updates,
+      384 transitions, zero divergence, fixed LR `1e-5`, residual/critic deltas
+      `0.0004075/0.0004647`, and exact-zero Refiner/Tracker weight/std drift.  A one-profile
+      evaluator smoke strictly loads the checkpoint and proves the Tracker is unused at inference.
+- [ ] Run exactly one fresh seed171717, eight-world, 64-update supervised-adapter endpoint and
+      the unchanged fixed-20 physical gate.  Do not sweep teacher weight, residual limit, LR,
+      reward or update budget; do not launch downstream Tracker below `16/20` lift and strict.
 
 ---
 

@@ -706,6 +706,57 @@ class FrozenOfficialRefinerResidualActorCritic(ActorCritic):
         return self.actor.composition_terms(self._actor_input(obs))
 
 
+class FrozenOfficialRefinerTrackerSupervisedResidualActorCritic(
+    FrozenOfficialRefinerResidualActorCritic
+):
+    """Frozen Refiner adapter supervised by the exact released Tracker action.
+
+    The deployed actor remains the official 890-D Refiner plus its bounded
+    official-scale residual.  The 510-D Tracker is a frozen, training-only
+    distillation teacher queried from a separately named observation group.
+    """
+
+    def __init__(
+        self,
+        obs,
+        obs_groups,
+        num_actions,
+        *,
+        official_refiner_checkpoint: str,
+        released_tracker_checkpoint: str,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            obs,
+            obs_groups,
+            num_actions,
+            official_refiner_checkpoint=official_refiner_checkpoint,
+            **kwargs,
+        )
+        device = next(self.critic.parameters()).device
+        teacher, teacher_std = _released_tracker(
+            released_tracker_checkpoint, device=device
+        )
+        self.tracker_teacher = teacher
+        self.register_buffer("tracker_teacher_std", teacher_std)
+
+    def distillation_teacher(self, obs) -> tuple[torch.Tensor, torch.Tensor]:
+        teacher_groups = self.obs_groups.get("teacher")
+        if not teacher_groups:
+            raise RuntimeError("Tracker supervision requires a teacher observation group")
+        teacher_input = torch.cat([obs[name] for name in teacher_groups], dim=-1)
+        if teacher_input.ndim != 2 or teacher_input.shape[-1] != TRACKER_OBSERVATION_DIM:
+            raise RuntimeError(
+                f"Tracker teacher observation drift: {tuple(teacher_input.shape)}"
+            )
+        if not torch.isfinite(teacher_input).all():
+            raise RuntimeError("Tracker teacher observation is non-finite")
+        with torch.no_grad():
+            mean = self.tracker_teacher(teacher_input)
+            std = self.tracker_teacher_std.expand(teacher_input.shape[0], -1)
+        return mean, std
+
+
 class FrozenOfficialRefinerCausalTemporalComposer(nn.Module):
     """Exact official Refiner plus a serious past-only transition composer.
 

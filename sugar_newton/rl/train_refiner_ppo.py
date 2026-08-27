@@ -35,6 +35,7 @@ DEFAULT_INITIAL = (
     / "experiments/sugar_reproduction/outputs/final/official_sugar/baseline/ckpts"
     / "refiner_model10000.pt"
 )
+DEFAULT_TRACKER_TEACHER = ROOT / "SUGAR/demo_ckpts/CarryBox/tracker.pt"
 
 
 def sha256(path: Path) -> str:
@@ -64,7 +65,9 @@ def runner_cfg(args: argparse.Namespace) -> dict:
         "max_grad_norm": 1.0,
     }
     embedded_expert = (
-        args.frozen_expert_residual or args.frozen_expert_temporal_composer
+        args.frozen_expert_residual
+        or args.frozen_expert_temporal_composer
+        or args.released_tracker_action_supervision
     )
     anchor_enabled = args.official_action_anchor or embedded_expert
     if anchor_enabled:
@@ -109,6 +112,8 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                 "class_name": (
                     "FrozenOfficialRefinerCausalTemporalComposerActorCritic"
                     if args.frozen_expert_temporal_composer
+                    else "FrozenOfficialRefinerTrackerSupervisedResidualActorCritic"
+                    if args.released_tracker_action_supervision
                     else "FrozenOfficialRefinerResidualActorCritic"
                     if args.frozen_expert_residual
                     else "ActorCritic"
@@ -121,6 +126,15 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                   {
                       "official_refiner_checkpoint": str(args.initial_checkpoint),
                       "transition_residual_limit": 1.0,
+                      **(
+                          {
+                              "released_tracker_checkpoint": str(
+                                  args.tracker_teacher_checkpoint
+                              )
+                          }
+                          if args.released_tracker_action_supervision
+                          else {}
+                      ),
                   }
                     if embedded_expert
                     else {}
@@ -245,6 +259,85 @@ def audit_frozen_expert_residual(runner, checkpoint: Path, enabled: bool) -> dic
             for parameter in actor.residual.parameters()
             if parameter.requires_grad
         ),
+    }
+
+
+def audit_released_tracker_action_supervision(
+    runner, env, checkpoint: Path, enabled: bool
+) -> dict:
+    """Prove the current-state released Tracker teacher and frozen experts."""
+
+    if not enabled:
+        return {"released_tracker_action_supervision": False}
+    policy = runner.alg.policy
+    tracker = policy.tracker_teacher
+    source = torch.load(checkpoint, map_location=runner.device, weights_only=False)[
+        "model_state_dict"
+    ]
+    source_actor = {
+        key.removeprefix("actor."): value
+        for key, value in source.items()
+        if key.startswith("actor.")
+    }
+    tracker_state = tracker.state_dict()
+    if tracker_state.keys() != source_actor.keys():
+        raise RuntimeError("released Tracker teacher geometry differs from source")
+    weight_delta = max(
+        float((tracker_state[key] - source_actor[key]).abs().max().item())
+        for key in tracker_state
+    )
+    source_std = source.get("std")
+    if source_std is None:
+        log_std = source.get("log_std")
+        if log_std is None:
+            raise KeyError("released Tracker checkpoint is missing std/log_std")
+        source_std = log_std.exp()
+    std_delta = float(
+        (policy.tracker_teacher_std - source_std.to(runner.device)).abs().max().item()
+    )
+    teacher_frozen = all(not parameter.requires_grad for parameter in tracker.parameters())
+    q_before = env.env.q.clone()
+    qd_before = env.env.qd.clone()
+    live_obs = env.get_observations()
+    state_read_delta = max(
+        float((env.env.q - q_before).abs().max().item()),
+        float((env.env.qd - qd_before).abs().max().item()),
+    )
+    with torch.no_grad():
+        teacher_action, teacher_std = policy.distillation_teacher(live_obs)
+        terms = policy.composition_audit_terms(live_obs)
+    endpoint_delta = float(
+        (terms["composed_action"] - terms["selected_endpoint_action"])
+        .abs()
+        .max()
+        .item()
+    )
+    if (
+        weight_delta != 0.0
+        or std_delta != 0.0
+        or not teacher_frozen
+        or state_read_delta != 0.0
+        or endpoint_delta != 0.0
+    ):
+        raise RuntimeError(
+            "released Tracker supervision initialization drift: "
+            f"weight={weight_delta}, std={std_delta}, frozen={teacher_frozen}, "
+            f"state_read={state_read_delta}, endpoint={endpoint_delta}"
+        )
+    return {
+        "released_tracker_action_supervision": True,
+        "tracker_teacher_checkpoint": str(checkpoint.resolve()),
+        "tracker_teacher_sha256": sha256(checkpoint),
+        "tracker_teacher_weight_max_delta": weight_delta,
+        "tracker_teacher_std_max_delta": std_delta,
+        "tracker_teacher_parameters_frozen": teacher_frozen,
+        "teacher_observation_dim": int(live_obs["teacher"].shape[-1]),
+        "student_observation_dim": int(live_obs["policy"].shape[-1]),
+        "same_state_observation_read_max_delta": state_read_delta,
+        "initial_composed_endpoint_max_delta": endpoint_delta,
+        "teacher_action_all_finite": bool(torch.isfinite(teacher_action).all()),
+        "teacher_std_all_finite": bool(torch.isfinite(teacher_std).all()),
+        "observation_epoch": int(env._observation_epoch),
     }
 
 
@@ -421,6 +514,12 @@ def main() -> None:
     parser.add_argument("--official-action-anchor", action="store_true")
     parser.add_argument("--frozen-expert-residual", action="store_true")
     parser.add_argument("--frozen-expert-temporal-composer", action="store_true")
+    parser.add_argument("--released-tracker-action-supervision", action="store_true")
+    parser.add_argument(
+        "--tracker-teacher-checkpoint",
+        type=Path,
+        default=DEFAULT_TRACKER_TEACHER,
+    )
     parser.add_argument("--zero-optimizer-diagnostic-horizons", type=int, default=0)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--seed", type=int, default=171701)
@@ -436,6 +535,13 @@ def main() -> None:
 
     if not args.initial_checkpoint.is_file():
         raise SystemExit(f"initial checkpoint not found: {args.initial_checkpoint}")
+    if (
+        args.released_tracker_action_supervision
+        and not args.tracker_teacher_checkpoint.is_file()
+    ):
+        raise SystemExit(
+            f"released Tracker teacher not found: {args.tracker_teacher_checkpoint}"
+        )
     if not args.motion_root.is_dir() or not any(args.motion_root.glob("data_*")):
         raise SystemExit(f"raw CarryBox motion root is invalid: {args.motion_root}")
     if not 1 <= args.num_envs <= 8:
@@ -456,11 +562,12 @@ def main() -> None:
             args.official_action_anchor,
             args.frozen_expert_residual,
             args.frozen_expert_temporal_composer,
+            args.released_tracker_action_supervision,
         )
     )
     if selected_transfer_modes > 1:
         raise SystemExit(
-            "choose exactly one of action-anchor, frozen residual or temporal composer"
+            "choose exactly one transfer mode"
         )
 
     wp.init()
@@ -468,7 +575,9 @@ def main() -> None:
         raise SystemExit("Newton Refiner training must run on a Slurm CUDA compute node")
     activate_rsl_rl(args.rsl_rl_root)
     embedded_expert = (
-        args.frozen_expert_residual or args.frozen_expert_temporal_composer
+        args.frozen_expert_residual
+        or args.frozen_expert_temporal_composer
+        or args.released_tracker_action_supervision
     )
     if args.official_action_anchor or embedded_expert:
         sugar_bcppo()
@@ -477,6 +586,7 @@ def main() -> None:
         from sugar_rl.utils.frozen_expert_transition_actor_critic import (
             FrozenOfficialRefinerCausalTemporalComposerActorCritic,
             FrozenOfficialRefinerResidualActorCritic,
+            FrozenOfficialRefinerTrackerSupervisedResidualActorCritic,
         )
 
         builtins.FrozenOfficialRefinerResidualActorCritic = (
@@ -490,6 +600,12 @@ def main() -> None:
         )
         rsl_rl.modules.FrozenOfficialRefinerCausalTemporalComposerActorCritic = (
             FrozenOfficialRefinerCausalTemporalComposerActorCritic
+        )
+        builtins.FrozenOfficialRefinerTrackerSupervisedResidualActorCritic = (
+            FrozenOfficialRefinerTrackerSupervisedResidualActorCritic
+        )
+        rsl_rl.modules.FrozenOfficialRefinerTrackerSupervisedResidualActorCritic = (
+            FrozenOfficialRefinerTrackerSupervisedResidualActorCritic
         )
     from rsl_rl.runners import OnPolicyRunner
 
@@ -508,6 +624,7 @@ def main() -> None:
         frame_zero_env_count=args.frame_zero_env_count,
         sync_divergence_reset=True,
         policy_history_steps=(10 if args.frozen_expert_temporal_composer else 0),
+        tracker_teacher=args.released_tracker_action_supervision,
         device=args.device,
         seed=args.seed,
     )
@@ -537,7 +654,17 @@ def main() -> None:
     audit.update(audit_official_action_anchor(runner, args.official_action_anchor))
     audit.update(
         audit_frozen_expert_residual(
-            runner, args.initial_checkpoint, args.frozen_expert_residual
+            runner,
+            args.initial_checkpoint,
+            args.frozen_expert_residual or args.released_tracker_action_supervision,
+        )
+    )
+    audit.update(
+        audit_released_tracker_action_supervision(
+            runner,
+            env,
+            args.tracker_teacher_checkpoint,
+            args.released_tracker_action_supervision,
         )
     )
     audit.update(
@@ -559,6 +686,11 @@ def main() -> None:
                 890 * 11 if args.frozen_expert_temporal_composer else 890
             ),
             "critic_observation_dim": 890,
+            "teacher_observation_dim": (
+                510 if args.released_tracker_action_supervision else int(
+                    env.get_observations()["teacher"].shape[-1]
+                )
+            ),
             "action_dim": 29,
             "max_iterations": args.max_iterations,
             "fresh_optimizer": True,
@@ -612,7 +744,9 @@ def main() -> None:
         )
         return
     method = (
-        "BCPPO frozen-official-Refiner causal temporal composer"
+        "BCPPO released-Tracker-supervised frozen-Refiner residual"
+        if args.released_tracker_action_supervision
+        else "BCPPO frozen-official-Refiner causal temporal composer"
         if args.frozen_expert_temporal_composer
         else "BCPPO frozen-official-Refiner residual"
         if args.frozen_expert_residual
@@ -662,6 +796,7 @@ def main() -> None:
         "official_action_anchor": args.official_action_anchor,
         "frozen_expert_residual": args.frozen_expert_residual,
         "frozen_expert_temporal_composer": args.frozen_expert_temporal_composer,
+        "released_tracker_action_supervision": args.released_tracker_action_supervision,
         "pass": all_policy_parameters_finite and divergence_rate <= 0.005,
         "frozen_evaluation_required": True,
     }

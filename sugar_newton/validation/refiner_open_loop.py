@@ -113,6 +113,7 @@ def evaluate_batch(
     retention_sum = torch.zeros(env.num_envs, device=env.device)
     residual_abs_sum = torch.zeros(env.num_envs, device=env.device)
     endpoint_delta_sum = torch.zeros(env.num_envs, device=env.device)
+    composition_audit = hasattr(teacher, "composition_terms")
     if temporal_history_steps:
         temporal_history = current_teacher_obs[:, None, :].expand(
             -1, temporal_history_steps, -1
@@ -151,7 +152,30 @@ def evaluate_batch(
                 torch.zeros_like(reward_sum),
             )
         else:
-            action = teacher(teacher_obs)
+            if composition_audit:
+                terms = teacher.composition_terms(teacher_obs)
+                action = terms["composed_action"]
+                if not torch.equal(action, teacher(teacher_obs)):
+                    raise RuntimeError(
+                        "residual composed audit action differs from deployment"
+                    )
+                residual_abs_sum += torch.where(
+                    active,
+                    terms["bounded_residual_action"].abs().mean(dim=1),
+                    torch.zeros_like(reward_sum),
+                )
+                endpoint_delta_sum += torch.where(
+                    active,
+                    (
+                        terms["composed_action"]
+                        - terms["selected_endpoint_action"]
+                    )
+                    .abs()
+                    .mean(dim=1),
+                    torch.zeros_like(reward_sum),
+                )
+            else:
+                action = teacher(teacher_obs)
         action = torch.where(active[:, None], action, torch.zeros_like(action))
         finite_action = torch.isfinite(action).all(dim=1)
         all_finite &= ~active | finite_action
@@ -225,12 +249,12 @@ def evaluate_batch(
               ),
               "mean_abs_bounded_residual": (
                   float(residual_abs_sum[local_index] / max(steps, 1))
-                  if temporal_history_steps
+                  if composition_audit
                   else None
               ),
               "mean_abs_composed_endpoint_delta": (
                   float(endpoint_delta_sum[local_index] / max(steps, 1))
-                  if temporal_history_steps
+                  if composition_audit
                   else None
               ),
           })
@@ -250,6 +274,12 @@ def main() -> int:
         "--causal-temporal-composer",
         action="store_true",
         help="interpret the adapter checkpoint as the causal 10-frame Refiner composer",
+    )
+    parser.add_argument(
+        "--tracker-teacher-checkpoint",
+        type=Path,
+        default=None,
+        help="audit a training-only released Tracker embedded beside the deployed residual",
     )
     parser.add_argument("--motion-root", type=Path, default=Path("SUGAR/data/CarryBox"))
     parser.add_argument("--clips", nargs="*", default=list(DEFAULT_CLIPS))
@@ -281,6 +311,15 @@ def main() -> int:
         raise SystemExit(
             "--causal-temporal-composer requires --official-refiner-base-checkpoint"
         )
+    if args.tracker_teacher_checkpoint is not None:
+        if args.official_refiner_base_checkpoint is None:
+            raise SystemExit(
+                "--tracker-teacher-checkpoint requires --official-refiner-base-checkpoint"
+            )
+        if not args.tracker_teacher_checkpoint.is_file():
+            raise SystemExit(
+                f"Tracker teacher checkpoint not found: {args.tracker_teacher_checkpoint}"
+            )
 
     wp.init()
     if not wp.get_device(args.device).is_cuda:
@@ -311,9 +350,10 @@ def main() -> int:
         )
         teacher = teacher_class(args.official_refiner_base_checkpoint).to(device)
         payload = torch.load(args.checkpoint, map_location=device, weights_only=False)
+        checkpoint_state = payload["model_state_dict"]
         actor_state = {
             key.removeprefix("actor."): value
-            for key, value in payload["model_state_dict"].items()
+            for key, value in checkpoint_state.items()
             if key.startswith("actor.")
         }
         teacher.load_state_dict(actor_state, strict=True)
@@ -361,6 +401,60 @@ def main() -> int:
             "temporal_model_dim": 384 if args.causal_temporal_composer else None,
             "temporal_transformer_layers": 6 if args.causal_temporal_composer else None,
         }
+        if args.tracker_teacher_checkpoint is not None:
+            tracker_source = torch.load(
+                args.tracker_teacher_checkpoint,
+                map_location=device,
+                weights_only=False,
+            )["model_state_dict"]
+            tracker_weight_delta = max(
+                float(
+                    (
+                        checkpoint_state[
+                            "tracker_teacher." + key.removeprefix("actor.")
+                        ]
+                        - value
+                    )
+                    .abs()
+                    .max()
+                    .item()
+                )
+                for key, value in tracker_source.items()
+                if key.startswith("actor.")
+            )
+            tracker_source_std = tracker_source.get("std")
+            if tracker_source_std is None:
+                tracker_log_std = tracker_source.get("log_std")
+                if tracker_log_std is None:
+                    raise KeyError("released Tracker is missing std/log_std")
+                tracker_source_std = tracker_log_std.exp()
+            tracker_std_delta = float(
+                (
+                    checkpoint_state["tracker_teacher_std"] - tracker_source_std
+                )
+                .abs()
+                .max()
+                .item()
+            )
+            if max(tracker_weight_delta, tracker_std_delta) != 0.0:
+                raise RuntimeError(
+                    "training-only released Tracker teacher drift: "
+                    f"weight={tracker_weight_delta}, std={tracker_std_delta}"
+                )
+            residual_audit.update(
+                {
+                    "tracker_action_supervision": True,
+                    "tracker_teacher_checkpoint": str(
+                        args.tracker_teacher_checkpoint.resolve()
+                    ),
+                    "tracker_teacher_sha256": sha256(
+                        args.tracker_teacher_checkpoint
+                    ),
+                    "tracker_teacher_weight_max_delta": tracker_weight_delta,
+                    "tracker_teacher_std_max_delta": tracker_std_delta,
+                    "tracker_teacher_used_at_inference": False,
+                }
+            )
         hidden_dims = [512, 256, 128]
 
     env = CarryBoxEnv(
@@ -398,11 +492,23 @@ def main() -> int:
         **(
             {"checkpoint_actor_is_exact_frozen_refiner_plus_causal_temporal_composer": True}
             if args.causal_temporal_composer
-            else {"checkpoint_actor_is_exact_890_to_29_official_mlp": True}
+            else (
+                {"checkpoint_actor_is_exact_frozen_refiner_plus_residual": True}
+                if residual_audit is not None
+                else {"checkpoint_actor_is_exact_890_to_29_official_mlp": True}
+            )
         ),
         "frozen_expert_residual_is_parameter_exact": (
             residual_audit is None
             or residual_audit["frozen_expert_parameter_max_delta"] == 0.0
+        ),
+        "training_only_tracker_teacher_is_parameter_exact": (
+            args.tracker_teacher_checkpoint is None
+            or (
+                residual_audit["tracker_teacher_weight_max_delta"] == 0.0
+                and residual_audit["tracker_teacher_std_max_delta"] == 0.0
+                and not residual_audit["tracker_teacher_used_at_inference"]
+            )
         ),
         "all_profiles_finished": all(record["finished"] for record in records),
         "no_active_profile_diverged": all(finite) and not any(
@@ -440,13 +546,13 @@ def main() -> int:
         ),
         "mean_abs_bounded_residual": (
             sum(r["mean_abs_bounded_residual"] for r in records) / len(records)
-            if args.causal_temporal_composer
+            if residual_audit is not None
             else None
         ),
         "mean_abs_composed_endpoint_delta": (
             sum(r["mean_abs_composed_endpoint_delta"] for r in records)
             / len(records)
-            if args.causal_temporal_composer
+            if residual_audit is not None
             else None
         ),
         "checks": checks,

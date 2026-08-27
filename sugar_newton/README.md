@@ -32,8 +32,11 @@ passes its 64-update numerical gate but reaches only `1/20` 5-cm lifts and `0/20
 completions, below the fixed `16/20` rule.  Downstream Tracker/BCPPO therefore has not launched.
 The next bounded diagnostic uses the parameter-exact released Tracker only as a current-state
 action-label source for an adapter around the frozen official Refiner; it does not use a toy
-teacher, future state or outcome label. Raw CarryBox motions remain execution-smoke input only
-and are rejected for a formal run.
+teacher, future state or outcome label.  Its component, zero-optimizer, two-update and strict-load
+evaluator gates pass: the 510-D/890-D observations share one Newton action boundary, both released
+experts remain bitwise unchanged, and only the official-scale residual/critic update.  Exactly one
+fresh seed171717 64-update endpoint is admitted before the unchanged 20-profile physical gate.
+Raw CarryBox motions remain execution-smoke input only and are rejected for a formal run.
 
 ## Running the validator
 

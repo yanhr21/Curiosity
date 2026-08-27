@@ -446,3 +446,22 @@ must prove exact released-checkpoint loading, causal 510-D/890-D state alignment
 state change in a live smoke, nonzero adapter-only gradients, and exact-zero frozen-expert drift.
 This is an action-supervision diagnostic using serious released SUGAR components, not permission
 to start downstream Tracker/BCPPO or to substitute a local teacher.
+
+The released-Tracker-supervised adapter now passes its pre-training gates.  BCPPO receives a
+separate exact 510-D Tracker observation from the same Newton action boundary as the student's
+890-D Refiner observation; reading the paired groups changes neither `q` nor `qd`.  The deployed
+actor is the existing frozen-official-Refiner `890 -> 512/256/128 -> 29` residual topology, while
+the exact released Tracker is registered only as a frozen training teacher.  The component gate
+starts at exact zero endpoint delta, gives zero Refiner and Tracker gradients, and gives residual
+gradient `0.38765`.  Fresh seed171715 runs 48 live Newton transitions with zero optimizer updates,
+zero divergence, finite tensors and exact-zero policy-state change.  Fresh seed171716 runs two
+updates / 384 transitions with zero divergence, fixed LR `1e-5`, residual/critic deltas
+`0.0004075/0.0004647` and final std `0.0500423`; the two frozen experts retain exact-zero
+weight/std drift.  Distillation loss decreases from `0.2598` to `0.1961`, establishing a real
+released-Tracker action signal rather than the earlier near-identity Refiner anchor.
+
+A one-profile evaluator smoke strictly loads the resulting dual-expert training checkpoint,
+proves that the Tracker teacher is unused at inference, and verifies the deployed composed action
+exactly.  Its physical outcome is diagnostic-only and does not select a checkpoint.  These gates
+admit exactly one fresh seed171717, eight-world, 64-update endpoint and the unchanged fixed-20
+physical gate.  There is no teacher weight, residual limit, LR, reward or update-budget sweep.
