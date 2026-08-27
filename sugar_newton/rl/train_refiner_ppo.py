@@ -64,9 +64,13 @@ def runner_cfg(args: argparse.Namespace) -> dict:
         "desired_kl": 0.01,
         "max_grad_norm": 1.0,
     }
+    temporal_mode = (
+        args.frozen_expert_temporal_composer
+        or args.frozen_expert_temporal_additive_residual
+    )
     embedded_expert = (
         args.frozen_expert_residual
-        or args.frozen_expert_temporal_composer
+        or temporal_mode
         or args.released_tracker_action_supervision
     )
     anchor_enabled = args.official_action_anchor or embedded_expert
@@ -118,11 +122,11 @@ def runner_cfg(args: argparse.Namespace) -> dict:
               "class_name": (
                     "FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic"
                     if (
-                        args.frozen_expert_temporal_composer
+                        temporal_mode
                         and args.released_tracker_action_supervision
                     )
                     else "FrozenOfficialRefinerCausalTemporalComposerActorCritic"
-                    if args.frozen_expert_temporal_composer
+                    if temporal_mode
                     else "FrozenOfficialRefinerTrackerSupervisedResidualActorCritic"
                     if args.released_tracker_action_supervision
                     else "FrozenOfficialRefinerResidualActorCritic"
@@ -137,6 +141,15 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                   {
                       "official_refiner_checkpoint": str(args.initial_checkpoint),
                       "transition_residual_limit": 1.0,
+                      **(
+                          {
+                              "temporal_additive_residual": (
+                                  args.frozen_expert_temporal_additive_residual
+                              )
+                          }
+                          if temporal_mode
+                          else {}
+                      ),
                       **(
                           {
                               "released_tracker_checkpoint": str(
@@ -422,6 +435,9 @@ def audit_frozen_expert_temporal_composer(
         )
     return {
         "frozen_expert_temporal_composer": True,
+        "frozen_expert_temporal_additive_residual": bool(
+            actor.additive_residual
+        ),
         "frozen_expert_weight_max_delta": weight_delta,
         "frozen_expert_std_max_delta": std_delta,
         "frozen_expert_parameters_frozen": expert_frozen,
@@ -525,6 +541,14 @@ def main() -> None:
     parser.add_argument("--official-action-anchor", action="store_true")
     parser.add_argument("--frozen-expert-residual", action="store_true")
     parser.add_argument("--frozen-expert-temporal-composer", action="store_true")
+    parser.add_argument(
+        "--frozen-expert-temporal-additive-residual",
+        action="store_true",
+        help=(
+            "retain the exact Refiner additively and learn only a bounded "
+            "29-D correction with the admitted causal temporal Transformer"
+        ),
+    )
     parser.add_argument("--released-tracker-action-supervision", action="store_true")
     parser.add_argument(
         "--pure-distill",
@@ -579,17 +603,26 @@ def main() -> None:
         raise SystemExit("--reward-clip must be positive")
     if not 0 <= args.frame_zero_env_count <= args.num_envs:
         raise SystemExit("--frame-zero-env-count must be in [0, num-envs]")
+    temporal_mode = (
+        args.frozen_expert_temporal_composer
+        or args.frozen_expert_temporal_additive_residual
+    )
+    if (
+        args.frozen_expert_temporal_composer
+        and args.frozen_expert_temporal_additive_residual
+    ):
+        raise SystemExit("choose exactly one causal temporal composition rule")
     selected_transfer_modes = sum(
         int(value)
         for value in (
             args.official_action_anchor,
             args.frozen_expert_residual,
-            args.frozen_expert_temporal_composer,
+            temporal_mode,
             args.released_tracker_action_supervision,
         )
     )
     temporal_tracker_supervision = (
-        args.frozen_expert_temporal_composer
+        temporal_mode
         and args.released_tracker_action_supervision
     )
     if selected_transfer_modes > 1 and not (
@@ -606,7 +639,7 @@ def main() -> None:
     activate_rsl_rl(args.rsl_rl_root)
     embedded_expert = (
         args.frozen_expert_residual
-        or args.frozen_expert_temporal_composer
+        or temporal_mode
         or args.released_tracker_action_supervision
     )
     if args.official_action_anchor or embedded_expert:
@@ -660,7 +693,7 @@ def main() -> None:
         reward_clip=args.reward_clip,
         frame_zero_env_count=args.frame_zero_env_count,
         sync_divergence_reset=True,
-        policy_history_steps=(10 if args.frozen_expert_temporal_composer else 0),
+        policy_history_steps=(10 if temporal_mode else 0),
         tracker_teacher=args.released_tracker_action_supervision,
         device=args.device,
         seed=args.seed,
@@ -696,7 +729,7 @@ def main() -> None:
             args.frozen_expert_residual
             or (
                 args.released_tracker_action_supervision
-                and not args.frozen_expert_temporal_composer
+                and not temporal_mode
             ),
         )
     )
@@ -713,7 +746,7 @@ def main() -> None:
             runner,
             env,
             args.initial_checkpoint,
-            args.frozen_expert_temporal_composer,
+            temporal_mode,
         )
     )
     source_action_std = float(runner.alg.policy.std.detach().mean().item())
@@ -724,7 +757,7 @@ def main() -> None:
             "num_envs": args.num_envs,
             "num_motions": len(env.env.clip_names),
             "policy_observation_dim": (
-                890 * 11 if args.frozen_expert_temporal_composer else 890
+                890 * 11 if temporal_mode else 890
             ),
             "critic_observation_dim": 890,
             "teacher_observation_dim": (
@@ -795,13 +828,13 @@ def main() -> None:
     method = (
         "BCPPO Stage-1 pure released-Tracker distillation into frozen-Refiner causal temporal composer"
         if (
-            args.frozen_expert_temporal_composer
+            temporal_mode
             and args.released_tracker_action_supervision
             and args.pure_distill
         )
         else "BCPPO released-Tracker-supervised frozen-Refiner causal temporal composer"
         if (
-            args.frozen_expert_temporal_composer
+            temporal_mode
             and args.released_tracker_action_supervision
         )
         else "BCPPO Stage-1 pure released-Tracker distillation into frozen-Refiner residual"
@@ -809,7 +842,7 @@ def main() -> None:
         else "BCPPO released-Tracker-supervised frozen-Refiner residual"
         if args.released_tracker_action_supervision
         else "BCPPO frozen-official-Refiner causal temporal composer"
-        if args.frozen_expert_temporal_composer
+        if temporal_mode
         else "BCPPO frozen-official-Refiner residual"
         if args.frozen_expert_residual
         else "BCPPO official-action-anchor"
@@ -874,7 +907,10 @@ def main() -> None:
         "final_learning_rate": float(runner.alg.learning_rate),
         "official_action_anchor": args.official_action_anchor,
         "frozen_expert_residual": args.frozen_expert_residual,
-        "frozen_expert_temporal_composer": args.frozen_expert_temporal_composer,
+        "frozen_expert_temporal_composer": temporal_mode,
+        "frozen_expert_temporal_additive_residual": (
+            args.frozen_expert_temporal_additive_residual
+        ),
         "released_tracker_action_supervision": args.released_tracker_action_supervision,
         "temporal_tracker_action_supervision": temporal_tracker_supervision,
         "pure_distill": args.pure_distill,

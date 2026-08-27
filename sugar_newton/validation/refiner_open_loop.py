@@ -276,6 +276,14 @@ def main() -> int:
         help="interpret the adapter checkpoint as the causal 10-frame Refiner composer",
     )
     parser.add_argument(
+        "--causal-temporal-additive-residual",
+        action="store_true",
+        help=(
+            "interpret the checkpoint as the causal composer with exact "
+            "additive Refiner retention"
+        ),
+    )
+    parser.add_argument(
         "--tracker-teacher-checkpoint",
         type=Path,
         default=None,
@@ -307,7 +315,13 @@ def main() -> int:
     missing = [clip for clip in args.clips if not (args.motion_root / clip).is_dir()]
     if missing:
         raise SystemExit(f"missing source clips: {missing}")
-    if args.causal_temporal_composer and args.official_refiner_base_checkpoint is None:
+    temporal_mode = (
+        args.causal_temporal_composer
+        or args.causal_temporal_additive_residual
+    )
+    if args.causal_temporal_composer and args.causal_temporal_additive_residual:
+        raise SystemExit("choose exactly one causal temporal composition rule")
+    if temporal_mode and args.official_refiner_base_checkpoint is None:
         raise SystemExit(
             "--causal-temporal-composer requires --official-refiner-base-checkpoint"
         )
@@ -345,10 +359,21 @@ def main() -> int:
 
         teacher_class = (
             FrozenOfficialRefinerCausalTemporalComposer
-            if args.causal_temporal_composer
+            if temporal_mode
             else FrozenOfficialRefinerResidual
         )
-        teacher = teacher_class(args.official_refiner_base_checkpoint).to(device)
+        teacher = teacher_class(
+            args.official_refiner_base_checkpoint,
+            **(
+                {
+                    "additive_residual": (
+                        args.causal_temporal_additive_residual
+                    )
+                }
+                if temporal_mode
+                else {}
+            ),
+        ).to(device)
         payload = torch.load(args.checkpoint, map_location=device, weights_only=False)
         checkpoint_state = payload["model_state_dict"]
         actor_state = {
@@ -396,10 +421,13 @@ def main() -> int:
             "frozen_expert_std_max_delta": expert_std_delta,
             "residual_hidden_dims": [512, 256, 128],
             "residual_limit": float(teacher.residual_limit),
-            "causal_temporal_composer": args.causal_temporal_composer,
-            "temporal_history_steps": 10 if args.causal_temporal_composer else 0,
-            "temporal_model_dim": 384 if args.causal_temporal_composer else None,
-            "temporal_transformer_layers": 6 if args.causal_temporal_composer else None,
+            "causal_temporal_composer": temporal_mode,
+            "causal_temporal_additive_residual": (
+                args.causal_temporal_additive_residual
+            ),
+            "temporal_history_steps": 10 if temporal_mode else 0,
+            "temporal_model_dim": 384 if temporal_mode else None,
+            "temporal_transformer_layers": 6 if temporal_mode else None,
         }
         if args.tracker_teacher_checkpoint is not None:
             tracker_source = torch.load(
@@ -478,7 +506,7 @@ def main() -> int:
                 env,
                 teacher,
                 motion_ids,
-                temporal_history_steps=(10 if args.causal_temporal_composer else 0),
+                temporal_history_steps=(10 if temporal_mode else 0),
             )
         )
 
@@ -491,12 +519,16 @@ def main() -> int:
     checks = {
         **(
             {"checkpoint_actor_is_exact_frozen_refiner_plus_causal_temporal_composer": True}
-            if args.causal_temporal_composer
+            if temporal_mode
             else (
                 {"checkpoint_actor_is_exact_frozen_refiner_plus_residual": True}
                 if residual_audit is not None
                 else {"checkpoint_actor_is_exact_890_to_29_official_mlp": True}
             )
+        ),
+        "causal_temporal_additive_residual_is_exact_endpoint_plus_residual": (
+            not args.causal_temporal_additive_residual
+            or bool(teacher.additive_residual)
         ),
         "frozen_expert_residual_is_parameter_exact": (
             residual_audit is None
@@ -523,7 +555,10 @@ def main() -> int:
         "checkpoint_sha256": sha256(args.checkpoint),
         "official_mlp_hidden_dims": hidden_dims,
         "frozen_expert_residual_audit": residual_audit,
-        "causal_temporal_composer": args.causal_temporal_composer,
+        "causal_temporal_composer": temporal_mode,
+        "causal_temporal_additive_residual": (
+            args.causal_temporal_additive_residual
+        ),
         "motion_root": str(args.motion_root.resolve()),
         "num_profiles": len(records),
         "minimum_lift_m": args.minimum_lift,
@@ -541,7 +576,7 @@ def main() -> int:
         ) / len(records),
         "mean_expert_retention": (
             sum(r["mean_expert_retention"] for r in records) / len(records)
-            if args.causal_temporal_composer
+            if temporal_mode
             else None
         ),
         "mean_abs_bounded_residual": (

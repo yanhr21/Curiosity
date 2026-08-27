@@ -551,3 +551,16 @@ downstream Tracker/BCPPO closed and do not sweep this topology's scale, capacity
 next bounded diagnostic must change how the exact endpoint action is composed or retained, because
 additional magnitude in the same unconstrained temporal residual is not justified by zero strict
 completions and declining bilateral hold.
+
+The next diagnostic removes that non-identifiable composition degree of freedom without changing
+the serious components, data or objective.  The exact official Refiner remains fully present in
+every deployed action; the same admitted six-layer 384-D past-`10 x 890` causal Transformer emits
+only a bounded 29-D additive correction, and its exact-zero head makes initialization bitwise equal
+to the released Refiner.  The released Tracker remains a parameter-exact, training-only
+current-state label source and repository BCPPO stays entirely in Stage 1.  This tests whether the
+lost endpoint retention, rather than missing action magnitude, caused the `8/20` lift but `0/20`
+strict result.  First run seed171723 for 48 zero-optimizer live transitions, then seed171724 for
+exactly two updates / 384 transitions with zero divergence, nonzero temporal update, exact-zero
+critic/std/expert drift and a strict loading smoke.  Only all machine passes admit one fresh
+seed171725 64-update endpoint and the unchanged fixed-20 physical gate.  Do not sweep residual
+limit, history, Transformer size, teacher weight, LR or update budget.

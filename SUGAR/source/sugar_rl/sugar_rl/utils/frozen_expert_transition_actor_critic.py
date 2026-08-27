@@ -770,6 +770,7 @@ class FrozenOfficialRefinerCausalTemporalComposer(nn.Module):
         self,
         official_refiner_checkpoint: str | Path,
         residual_limit: float = 1.0,
+        additive_residual: bool = False,
     ) -> None:
         super().__init__()
         if not 0.0 < float(residual_limit) <= 1.0:
@@ -777,9 +778,10 @@ class FrozenOfficialRefinerCausalTemporalComposer(nn.Module):
         expert, expert_std = _released_refiner(official_refiner_checkpoint)
         self.expert = expert
         self.register_buffer("expert_std", expert_std)
+        self.additive_residual = bool(additive_residual)
         self.temporal_composer = _CausalTemporalComposerCore(
             REFINER_OBSERVATION_DIM,
-            1 + ACTION_DIM,
+            ACTION_DIM if self.additive_residual else 1 + ACTION_DIM,
         )
         self.residual_limit = float(residual_limit)
 
@@ -817,13 +819,18 @@ class FrozenOfficialRefinerCausalTemporalComposer(nn.Module):
         current, history = self._split_temporal_input(actor_input)
         endpoint = self.expert(current)
         composer_output = self.temporal_composer(history)
-        expert_retention = torch.clamp(
-            1.0 - torch.tanh(composer_output[:, :1]),
-            0.0,
-            1.0,
-        )
-        residual = self.residual_limit * torch.tanh(composer_output[:, 1:])
-        composed = expert_retention * endpoint + residual
+        if self.additive_residual:
+            expert_retention = torch.ones_like(composer_output[:, :1])
+            residual = self.residual_limit * torch.tanh(composer_output)
+            composed = endpoint + residual
+        else:
+            expert_retention = torch.clamp(
+                1.0 - torch.tanh(composer_output[:, :1]),
+                0.0,
+                1.0,
+            )
+            residual = self.residual_limit * torch.tanh(composer_output[:, 1:])
+            composed = expert_retention * endpoint + residual
         return {
             "expert_retention": expert_retention,
             "selected_endpoint_action": endpoint,
@@ -847,6 +854,7 @@ class FrozenOfficialRefinerCausalTemporalComposerActorCritic(ActorCritic):
         *,
         official_refiner_checkpoint: str,
         transition_residual_limit: float = 1.0,
+        temporal_additive_residual: bool = False,
         actor_hidden_dims: Sequence[int] = OFFICIAL_HIDDEN_DIMS,
         **kwargs,
     ) -> None:
@@ -864,6 +872,7 @@ class FrozenOfficialRefinerCausalTemporalComposerActorCritic(ActorCritic):
         self.actor = FrozenOfficialRefinerCausalTemporalComposer(
             official_refiner_checkpoint,
             transition_residual_limit,
+            additive_residual=temporal_additive_residual,
         ).to(next(self.critic.parameters()).device)
 
     def _actor_input(self, obs) -> torch.Tensor:

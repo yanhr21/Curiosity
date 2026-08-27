@@ -62,6 +62,12 @@ reaches only `8/20` lift and `0/20` strict.  Mean lift/contact are `0.071140 m/0
 remain exact and all profiles are finite.  This is a real improvement over the short checkpoint,
 not an admitted acting Refiner.  Tracker/BCPPO remains closed, and this topology must not be swept.
 
+The active follow-up keeps the same official Refiner, released Tracker teacher and six-layer causal
+Transformer but makes composition identifiable: deployed action is always the complete exact
+Refiner action plus one bounded 29-D temporal correction.  The head starts at exact zero and the
+Tracker remains training-only.  Fresh zero-optimizer and two-update gates precede a single fixed
+64-update endpoint; the physical admission rule remains `16/20` lift and strict.
+
 ## Running the validator
 
 Run simulation and GPU validation through a Slurm compute allocation. The current H200

@@ -552,6 +552,15 @@ against upstream Newton must stay empty.
       finite, both released experts remain exact and the Tracker is unused at inference.  Reject the
       endpoint and keep downstream Tracker/BCPPO closed.  Do not sweep this topology's history,
       Transformer size, teacher/loss weight, LR, residual limit or update budget.
+- [ ] Replace the rejected non-identifiable `retention * Refiner + residual` rule with an exact
+      additive causal correction.  Preserve the parameter-exact official Refiner, exact released
+      Tracker training teacher and admitted six-layer 384-D past-`10 x 890` Transformer; initialize
+      the 29-D output head at exact zero so deployed action is bitwise the official Refiner.
+- [ ] Run fresh seed171723 for 48 zero-optimizer transitions, then fresh seed171724 for exactly two
+      Stage-1 updates / 384 transitions.  Require zero divergence, finite tensors, nonzero temporal
+      update, exact-zero critic/std/expert drift, exact unit Refiner retention and strict checkpoint
+      loading.  Only all machine passes admit one fresh seed171725 64-update endpoint plus the
+      unchanged fixed-20 gate; no scale, capacity, LR, loss or budget sweep is allowed.
 
 ---
 
