@@ -77,7 +77,13 @@ def load_official_teacher(checkpoint: Path, device: torch.device):
 
 
 @torch.inference_mode()
-def evaluate_batch(env: CarryBoxEnv, teacher, motion_ids: list[int]) -> list[dict]:
+def evaluate_batch(
+    env: CarryBoxEnv,
+    teacher,
+    motion_ids: list[int],
+    *,
+    temporal_history_steps: int = 0,
+) -> list[dict]:
     count = len(motion_ids)
     if count > env.num_envs:
         raise ValueError("batch is larger than the constructed Newton world count")
@@ -102,19 +108,63 @@ def evaluate_batch(env: CarryBoxEnv, teacher, motion_ids: list[int]) -> list[dic
         key: torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
         for key in TERMINATION_KEYS
     }
+    current_teacher_obs = obs_890.build(env, teacher=not temporal_history_steps)
+    temporal_history = None
+    retention_sum = torch.zeros(env.num_envs, device=env.device)
+    residual_abs_sum = torch.zeros(env.num_envs, device=env.device)
+    endpoint_delta_sum = torch.zeros(env.num_envs, device=env.device)
+    if temporal_history_steps:
+        temporal_history = current_teacher_obs[:, None, :].expand(
+            -1, temporal_history_steps, -1
+        ).clone()
 
     max_steps = int(env.ref["length"][torch.tensor(padded, device=env.device)].max()) + 2
     for _ in range(max_steps):
         if not bool(active[:count].any()):
             break
-        teacher_obs = obs_890.build(env, teacher=True)
-        action = teacher(teacher_obs)
+        teacher_obs = current_teacher_obs
+        if temporal_history_steps:
+            if temporal_history is None:
+                raise RuntimeError("temporal Refiner evaluation history is missing")
+            if not torch.equal(temporal_history[:, -1], teacher_obs):
+                raise RuntimeError("temporal Refiner evaluation history drift")
+            actor_input = torch.cat(
+                (teacher_obs, temporal_history.reshape(env.num_envs, -1)), dim=-1
+            )
+            terms = teacher.composition_terms(actor_input)
+            action = terms["composed_action"]
+            if not torch.equal(action, teacher(actor_input)):
+                raise RuntimeError("temporal composed audit action differs from deployment")
+            retention_sum += torch.where(
+                active, terms["expert_retention"][:, 0], torch.zeros_like(reward_sum)
+            )
+            residual_abs_sum += torch.where(
+                active,
+                terms["bounded_residual_action"].abs().mean(dim=1),
+                torch.zeros_like(reward_sum),
+            )
+            endpoint_delta_sum += torch.where(
+                active,
+                (terms["composed_action"] - terms["selected_endpoint_action"])
+                .abs()
+                .mean(dim=1),
+                torch.zeros_like(reward_sum),
+            )
+        else:
+            action = teacher(teacher_obs)
         action = torch.where(active[:, None], action, torch.zeros_like(action))
         finite_action = torch.isfinite(action).all(dim=1)
         all_finite &= ~active | finite_action
         max_abs_action = torch.maximum(max_abs_action, action.abs().amax(dim=1))
 
         _, reward, done, extras = env.step(action)
+        current_teacher_obs = obs_890.build(
+            env, teacher=not temporal_history_steps
+        )
+        if temporal_history_steps:
+            temporal_history = torch.cat(
+                (temporal_history[:, 1:], current_teacher_obs[:, None, :]), dim=1
+            )
         body_q = env._body_q()
         finite_state = (
             torch.isfinite(body_q).all(dim=(1, 2))
@@ -167,8 +217,23 @@ def evaluate_batch(env: CarryBoxEnv, teacher, motion_ids: list[int]) -> list[dic
                 bilateral_steps[local_index] / max(steps, 1)
             ),
             "mean_reward_per_step": float(reward_sum[local_index] / max(steps, 1)),
-            "max_abs_action": float(max_abs_action[local_index]),
-        })
+              "max_abs_action": float(max_abs_action[local_index]),
+              "mean_expert_retention": (
+                  float(retention_sum[local_index] / max(steps, 1))
+                  if temporal_history_steps
+                  else None
+              ),
+              "mean_abs_bounded_residual": (
+                  float(residual_abs_sum[local_index] / max(steps, 1))
+                  if temporal_history_steps
+                  else None
+              ),
+              "mean_abs_composed_endpoint_delta": (
+                  float(endpoint_delta_sum[local_index] / max(steps, 1))
+                  if temporal_history_steps
+                  else None
+              ),
+          })
     return records
 
 
@@ -180,6 +245,11 @@ def main() -> int:
         type=Path,
         default=None,
         help="interpret checkpoint as a frozen-official-Refiner residual policy",
+    )
+    parser.add_argument(
+        "--causal-temporal-composer",
+        action="store_true",
+        help="interpret the adapter checkpoint as the causal 10-frame Refiner composer",
     )
     parser.add_argument("--motion-root", type=Path, default=Path("SUGAR/data/CarryBox"))
     parser.add_argument("--clips", nargs="*", default=list(DEFAULT_CLIPS))
@@ -207,6 +277,10 @@ def main() -> int:
     missing = [clip for clip in args.clips if not (args.motion_root / clip).is_dir()]
     if missing:
         raise SystemExit(f"missing source clips: {missing}")
+    if args.causal_temporal_composer and args.official_refiner_base_checkpoint is None:
+        raise SystemExit(
+            "--causal-temporal-composer requires --official-refiner-base-checkpoint"
+        )
 
     wp.init()
     if not wp.get_device(args.device).is_cuda:
@@ -226,12 +300,16 @@ def main() -> int:
         if str(sugar_rl_source) not in sys.path:
             sys.path.insert(0, str(sugar_rl_source))
         from sugar_rl.utils.frozen_expert_transition_actor_critic import (
+            FrozenOfficialRefinerCausalTemporalComposer,
             FrozenOfficialRefinerResidual,
         )
 
-        teacher = FrozenOfficialRefinerResidual(
-            args.official_refiner_base_checkpoint
-        ).to(device)
+        teacher_class = (
+            FrozenOfficialRefinerCausalTemporalComposer
+            if args.causal_temporal_composer
+            else FrozenOfficialRefinerResidual
+        )
+        teacher = teacher_class(args.official_refiner_base_checkpoint).to(device)
         payload = torch.load(args.checkpoint, map_location=device, weights_only=False)
         actor_state = {
             key.removeprefix("actor."): value
@@ -278,6 +356,10 @@ def main() -> int:
             "frozen_expert_std_max_delta": expert_std_delta,
             "residual_hidden_dims": [512, 256, 128],
             "residual_limit": float(teacher.residual_limit),
+            "causal_temporal_composer": args.causal_temporal_composer,
+            "temporal_history_steps": 10 if args.causal_temporal_composer else 0,
+            "temporal_model_dim": 384 if args.causal_temporal_composer else None,
+            "temporal_transformer_layers": 6 if args.causal_temporal_composer else None,
         }
         hidden_dims = [512, 256, 128]
 
@@ -297,7 +379,14 @@ def main() -> int:
     records = []
     for begin in range(0, len(args.clips), args.num_envs):
         motion_ids = list(range(begin, min(begin + args.num_envs, len(args.clips))))
-        records.extend(evaluate_batch(env, teacher, motion_ids))
+        records.extend(
+            evaluate_batch(
+                env,
+                teacher,
+                motion_ids,
+                temporal_history_steps=(10 if args.causal_temporal_composer else 0),
+            )
+        )
 
     lifted = [record["box_peak_lift_m"] >= args.minimum_lift for record in records]
     strict_complete = [
@@ -306,7 +395,11 @@ def main() -> int:
     finite = [record["all_finite"] for record in records]
     needed = math.ceil(args.minimum_pass_fraction * len(records))
     checks = {
-        "checkpoint_actor_is_exact_890_to_29_official_mlp": True,
+        **(
+            {"checkpoint_actor_is_exact_frozen_refiner_plus_causal_temporal_composer": True}
+            if args.causal_temporal_composer
+            else {"checkpoint_actor_is_exact_890_to_29_official_mlp": True}
+        ),
         "frozen_expert_residual_is_parameter_exact": (
             residual_audit is None
             or residual_audit["frozen_expert_parameter_max_delta"] == 0.0
@@ -324,6 +417,7 @@ def main() -> int:
         "checkpoint_sha256": sha256(args.checkpoint),
         "official_mlp_hidden_dims": hidden_dims,
         "frozen_expert_residual_audit": residual_audit,
+        "causal_temporal_composer": args.causal_temporal_composer,
         "motion_root": str(args.motion_root.resolve()),
         "num_profiles": len(records),
         "minimum_lift_m": args.minimum_lift,
@@ -339,6 +433,22 @@ def main() -> int:
         "mean_bilateral_contact_fraction": sum(
             r["bilateral_contact_fraction"] for r in records
         ) / len(records),
+        "mean_expert_retention": (
+            sum(r["mean_expert_retention"] for r in records) / len(records)
+            if args.causal_temporal_composer
+            else None
+        ),
+        "mean_abs_bounded_residual": (
+            sum(r["mean_abs_bounded_residual"] for r in records) / len(records)
+            if args.causal_temporal_composer
+            else None
+        ),
+        "mean_abs_composed_endpoint_delta": (
+            sum(r["mean_abs_composed_endpoint_delta"] for r in records)
+            / len(records)
+            if args.causal_temporal_composer
+            else None
+        ),
         "checks": checks,
         "passed": all(checks.values()),
         "profiles": records,
