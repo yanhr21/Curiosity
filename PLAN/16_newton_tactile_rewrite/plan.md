@@ -507,3 +507,17 @@ it was stopped with `Ctrl+C` immediately after update 0 / 192 transitions, produ
 `TRAINING_RESULT.json`, is not a formal endpoint and must never be resumed or reported.  The valid
 decision is rejection before formal training.  Do not rerun this pure-distillation objective with
 a new seed or proceed to Tracker/BCPPO from it.
+
+The next bounded topology combines two independently audited serious components rather than
+repeating either rejected controller.  Keep the parameter-exact official Refiner inside the
+admitted six-layer, 384-D, past-`10 x 890` causal temporal composer, and use the parameter-exact
+released Tracker only as a training-time current-state action teacher from the synchronized 510-D
+observation.  The deployed actor never queries the Tracker; future states, rewards and outcomes do
+not enter its input.  Use repository BCPPO Stage-1 pure distillation so the causal composer receives
+the action signal without PPO/critic gradient conflict.  First require an exact-zero endpoint and
+expert drift audit, a fresh seed171720 zero-optimizer 48-transition live gate, then a fresh
+seed171721 two-update / 384-transition gate with zero divergence, nonzero composer update and
+exact-zero critic/std/expert drift.  Only all machine passes admit one fresh seed171722 64-update
+endpoint and the unchanged fixed-20 gate.  Do not sweep history, Transformer size, teacher/loss
+weight, LR, residual limit or update budget; Tracker/BCPPO remains closed below `16/20` lift and
+strict.

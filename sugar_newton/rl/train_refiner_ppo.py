@@ -115,8 +115,13 @@ def runner_cfg(args: argparse.Namespace) -> dict:
               **({"teacher": ["teacher"]} if anchor_enabled else {}),
           },
           "policy": {
-                "class_name": (
-                    "FrozenOfficialRefinerCausalTemporalComposerActorCritic"
+              "class_name": (
+                    "FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic"
+                    if (
+                        args.frozen_expert_temporal_composer
+                        and args.released_tracker_action_supervision
+                    )
+                    else "FrozenOfficialRefinerCausalTemporalComposerActorCritic"
                     if args.frozen_expert_temporal_composer
                     else "FrozenOfficialRefinerTrackerSupervisedResidualActorCritic"
                     if args.released_tracker_action_supervision
@@ -583,9 +588,16 @@ def main() -> None:
             args.released_tracker_action_supervision,
         )
     )
-    if selected_transfer_modes > 1:
+    temporal_tracker_supervision = (
+        args.frozen_expert_temporal_composer
+        and args.released_tracker_action_supervision
+    )
+    if selected_transfer_modes > 1 and not (
+        temporal_tracker_supervision and selected_transfer_modes == 2
+    ):
         raise SystemExit(
-            "choose exactly one transfer mode"
+            "choose one transfer mode; temporal composer plus released-Tracker "
+            "supervision is the only admitted combination"
         )
 
     wp.init()
@@ -604,6 +616,7 @@ def main() -> None:
         from sugar_rl.utils.frozen_expert_transition_actor_critic import (
             FrozenOfficialRefinerCausalTemporalComposerActorCritic,
             FrozenOfficialRefinerResidualActorCritic,
+            FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic,
             FrozenOfficialRefinerTrackerSupervisedResidualActorCritic,
         )
 
@@ -618,6 +631,12 @@ def main() -> None:
         )
         rsl_rl.modules.FrozenOfficialRefinerCausalTemporalComposerActorCritic = (
             FrozenOfficialRefinerCausalTemporalComposerActorCritic
+        )
+        builtins.FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic = (
+            FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic
+        )
+        rsl_rl.modules.FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic = (
+            FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic
         )
         builtins.FrozenOfficialRefinerTrackerSupervisedResidualActorCritic = (
             FrozenOfficialRefinerTrackerSupervisedResidualActorCritic
@@ -674,7 +693,11 @@ def main() -> None:
         audit_frozen_expert_residual(
             runner,
             args.initial_checkpoint,
-            args.frozen_expert_residual or args.released_tracker_action_supervision,
+            args.frozen_expert_residual
+            or (
+                args.released_tracker_action_supervision
+                and not args.frozen_expert_temporal_composer
+            ),
         )
     )
     audit.update(
@@ -770,7 +793,18 @@ def main() -> None:
         )
         return
     method = (
-        "BCPPO Stage-1 pure released-Tracker distillation into frozen-Refiner residual"
+        "BCPPO Stage-1 pure released-Tracker distillation into frozen-Refiner causal temporal composer"
+        if (
+            args.frozen_expert_temporal_composer
+            and args.released_tracker_action_supervision
+            and args.pure_distill
+        )
+        else "BCPPO released-Tracker-supervised frozen-Refiner causal temporal composer"
+        if (
+            args.frozen_expert_temporal_composer
+            and args.released_tracker_action_supervision
+        )
+        else "BCPPO Stage-1 pure released-Tracker distillation into frozen-Refiner residual"
         if args.released_tracker_action_supervision and args.pure_distill
         else "BCPPO released-Tracker-supervised frozen-Refiner residual"
         if args.released_tracker_action_supervision
@@ -842,6 +876,7 @@ def main() -> None:
         "frozen_expert_residual": args.frozen_expert_residual,
         "frozen_expert_temporal_composer": args.frozen_expert_temporal_composer,
         "released_tracker_action_supervision": args.released_tracker_action_supervision,
+        "temporal_tracker_action_supervision": temporal_tracker_supervision,
         "pure_distill": args.pure_distill,
         "pure_distill_contract_pass": pure_distill_contract_pass,
         "pure_distill_short_divergence_pass": (

@@ -528,6 +528,15 @@ against upstream Newton must stay empty.
       0 / 192 transitions.  It has no `TRAINING_RESULT.json`, is not a formal endpoint and must not
       be resumed or reported.  The pure-distillation formal run and downstream Tracker/BCPPO are
       rejected; do not rerun this objective with another seed or sweep its settings.
+- [ ] Combine the admitted six-layer causal temporal Refiner composer with the exact released
+      Tracker as a training-only current-state action teacher.  Prove exact-zero composed/endpoint
+      delta, exact-zero frozen Refiner/Tracker drift, synchronized 9790-D/510-D causal observations,
+      Tracker absence from inference and a fresh seed171720 48-transition zero-optimizer pass.
+- [ ] Run fresh seed171721 for exactly two Stage-1 pure-distillation updates / 384 transitions.
+      Require zero divergence, finite tensors, nonzero temporal-composer update and exact-zero
+      critic/std/expert drift.  Only all passes admit one fresh seed171722 64-update endpoint and
+      unchanged fixed-20 physical gate; do not sweep this topology or launch Tracker below the
+      `16/20` lift and strict rule.
 
 ---
 

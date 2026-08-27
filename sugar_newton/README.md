@@ -48,6 +48,11 @@ that mistakenly used the looser general ceiling was stopped after update 0 / 192
 has no final result and must not be resumed.  No pure-distillation formal endpoint or downstream
 Tracker/BCPPO is admitted.
 
+The active bounded follow-up combines the same exact released Tracker action teacher with the
+already-admitted six-layer causal temporal Refiner composer.  The Tracker remains training-only;
+the deployed actor consumes the current 890-D state plus exact past `10 x 890` history.  Component,
+zero-optimizer and two-update H200 gates must pass before a single fresh 64-update endpoint can run.
+
 ## Running the validator
 
 Run simulation and GPU validation through a Slurm compute allocation. The current H200
