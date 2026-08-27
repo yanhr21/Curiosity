@@ -88,6 +88,13 @@ sequence is seed171727 zero-optimizer, seed171728 two-update, and—only after b
 one seed171729 fresh64 plus the unchanged fixed-20 gate.  No topology or optimization sweep is
 admitted.
 
+Both short gates pass.  Seed171727 records 48 finite zero-optimizer transitions with zero divergence
+and exact-zero state/parameter and command-alignment deltas.  Seed171728 records 384 transitions,
+zero divergence, composer delta `0.00046290`, exact-zero critic/expert drift and std delta
+`7.45e-10`; strict loading of its command-conditioned `model_1.pt` also passes every structural and
+inference check.  The single admitted seed171729 fresh64 endpoint is therefore the active run, with
+the same fixed-20 `16/20` lift and strict admission rule.
+
 ## Running the validator
 
 Run simulation and GPU validation through a Slurm compute allocation. The current H200

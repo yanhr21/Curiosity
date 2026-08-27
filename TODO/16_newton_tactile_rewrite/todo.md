@@ -584,16 +584,23 @@ against upstream Newton must stay empty.
       independent token.  Seed171726's CUDA component gate proves a 29-D exact-zero output head,
       exact-zero initialized endpoint delta and Refiner gradient, exact unit retention, nonzero
       composer gradient `0.24515`, and command-induced hidden-state delta `0.09760`.
-- [ ] Run exactly one fresh seed171727 zero-optimizer gate for 48 live Newton transitions.  Require
+- [x] Run exactly one fresh seed171727 zero-optimizer gate for 48 live Newton transitions.  Require
       finite policy/state tensors, zero divergence, exact-zero policy and frozen-expert drift,
       a `9826 = 890 + 10 x 890 + 36` policy tensor, history/current equality, and elementwise
       equality between the appended command and the first 36 coordinates of the synchronized
-      released-Tracker observation.
-- [ ] Only if seed171727 passes, run exactly one fresh seed171728 two-update / 384-transition
+      released-Tracker observation.  All checks pass: `48/48` transitions are finite, divergence and
+      policy-state delta are zero, all three history/command alignment deltas are exactly zero, and
+      the two live worlds have command-token representation span `2.78275`.
+- [x] Only if seed171727 passes, run exactly one fresh seed171728 two-update / 384-transition
       Stage-1 pure-distillation gate.  Require zero divergence, nonzero composer update, exact-zero
       critic and released-expert drift, action std within `1e-7` of `0.05`, fixed LR `1e-5`, finite
       parameters, and strict loading of the resulting command-conditioned checkpoint.  Do not sweep
       the command representation, history, capacity, loss, LR, residual limit or update budget.
+      Training passes with zero divergence, composer delta `0.00046290`, exact-zero critic drift,
+      std delta `7.45e-10` and fixed LR `1e-5`.  The one-profile strict-load smoke restores
+      `model_1.pt` (SHA256 `e1dddcfb8fef26169394f323c1e3acde4ba251b31db4fd6167615c48ff8eb214`),
+      keeps both experts exact, verifies the current-command contract and finishes finite without
+      active divergence.  Its `0/1` lift/strict outcome is diagnostic-only.
 - [ ] Only if both short gates pass, run one fresh seed171729 eight-world, 64-update endpoint and the
       unchanged fixed-20 physical evaluator.  Admit downstream Tracker/BCPPO only at at least
       `16/20` lift and `16/20` strict completion; otherwise reject this topology automatically and

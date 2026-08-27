@@ -628,3 +628,16 @@ one fresh seed171729 eight-world, 64-update endpoint and the unchanged fixed-20 
 acting Refiner still requires at least `16/20` lift and `16/20` strict completion before downstream
 Tracker/BCPPO; command layout, Transformer size/history, loss, LR, residual limit and budget are not
 tuning axes.
+
+Both short gates now pass.  Seed171727 runs the prescribed 48 live transitions with zero optimizer
+updates, zero divergence, finite tensors and exact-zero policy-state change.  Its live policy is
+9826-D; history/current, appended-command/Tracker-prefix and composition-command deltas are all
+exactly zero, while the command-token span across two worlds is `2.78275`.  Seed171728 runs exactly
+two Stage-1 updates / 384 transitions with zero divergence, composer delta `0.00046290`, exact-zero
+critic drift, action-std delta `7.45e-10`, fixed LR `1e-5` and finite parameters.  Strict one-profile
+evaluation restores `model_1.pt` (SHA256
+`e1dddcfb8fef26169394f323c1e3acde4ba251b31db4fd6167615c48ff8eb214`), keeps both official experts
+parameter-exact, proves the Tracker is unused at inference, verifies the current-command and deployed
+action contracts, and finishes without active divergence.  Its `0/1` lift/strict physical result is
+short-checkpoint diagnosis only.  These machine passes admit exactly the predeclared fresh
+seed171729 64-update endpoint and unchanged fixed-20 gate.
