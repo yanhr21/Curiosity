@@ -487,10 +487,20 @@ against upstream Newton must stay empty.
       temporal-composer gradient/parameter movement.  Seed171712 gives 384 transitions with zero
       optimizer/state change and zero divergence.  Seed171713 gives composer delta `0.00021968`,
       expert delta `0`, two fixed `1e-5` LR records and zero divergence.
-- [ ] If and only if both gates pass, run one fresh eight-world, 64-update endpoint and its
+- [x] If and only if both gates pass, run one fresh eight-world, 64-update endpoint and its
       unchanged fixed-20 physical gate.  Do not sweep history length, Transformer size, residual
       limit, LR, reward weights or update budget; do not launch Tracker below `16/20` strict
-      lift/hold.
+      lift/hold.  Seed171714 passes the numerical training gate with `3/12288` divergences and
+      finite parameters, but the physical gate rejects it at `1/20` lift and `0/20` strict.
+      Mean lift/contact are `0.012809 m/0.198697`; expert retention is `0.99999988` and mean
+      absolute correction only `0.010058`.  Tracker was not launched.
+- [ ] Implement the next bounded released-Tracker action-supervision diagnostic around the
+      parameter-exact frozen Refiner.  The exact released Tracker supplies current-state action
+      labels only; its 510-D observation and the Refiner's 890-D observation must be built from
+      the same Newton state, and no future state/outcome may enter the actor.
+- [ ] Pass component, zero-optimizer and short-update gates before any formal endpoint: strict
+      loading of both released experts, nonzero adapter-only gradient/update, exact-zero expert
+      actor/std drift, finite live Newton transitions and a machine-checked causal alignment.
 
 ---
 

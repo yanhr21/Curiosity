@@ -423,3 +423,26 @@ fixed LR `1e-5`, composer delta `0.00021968`, final std `0.0500613`, and exact-z
 expert drift.  Its live 9790-D observation audit also records exact-zero history-last/current
 and composed/endpoint deltas.  These machine gates admit exactly one fresh seed171714,
 eight-world, 64-update endpoint followed by the unchanged fixed-20 gate.
+
+That formal endpoint is complete and rejected.  Seed171714 finishes all 64 updates / 12,288
+transitions with three divergences (`0.02441%`), finite policy parameters, fixed final learning
+rate `1e-5`, actor/critic maximum changes `0.003092/0.012734`, and final std `0.050575`.
+The embedded official Refiner actor and std remain parameter-exact.  The fixed 20-profile Newton
+gate has `20/20` finite profiles and no active rollout divergence, but only `1/20` reaches a
+5-cm lift and `0/20` reaches strict completion versus the required `16/20`.  Mean peak lift and
+bilateral contact are `0.012809 m/0.198697`.  Mean expert retention is `0.99999988` and the mean
+absolute bounded correction is only `0.010058`, so the learned temporal controller remains
+near the rejected official endpoint rather than producing the missing executable contact
+behavior.  Do not sweep history length, Transformer size, residual limit, learning rate, reward
+weights or update budget, and do not launch Tracker from this checkpoint.
+
+The next bounded serious diagnostic changes the supervision source rather than scaling the same
+PPO/distillation objective.  The released parameter-exact CarryBox Tracker has already executed
+closed-loop in Newton and lifted the box by `0.21--0.30 m`; it may therefore provide a current-state
+action label for an adapter around the frozen official Refiner.  The released Tracker and Refiner
+remain frozen, Tracker actions are training labels only, and future states, rewards, outcomes and
+terminations never enter the deployed actor.  Before any formal Newton run, the implementation
+must prove exact released-checkpoint loading, causal 510-D/890-D state alignment, zero optimizer
+state change in a live smoke, nonzero adapter-only gradients, and exact-zero frozen-expert drift.
+This is an action-supervision diagnostic using serious released SUGAR components, not permission
+to start downstream Tracker/BCPPO or to substitute a local teacher.

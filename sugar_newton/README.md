@@ -24,8 +24,16 @@ present. The four contact-dependent Tracker reward terms are implemented from re
 Newton forces with the official three-frame history and have passed the H200 environment-
 level runtime/sign audit. The official Refiner rollout produced 912 endpoint-complete
 Tracker clips; all are finite and aligned within one frame to their raw teacher motions.
-The formal eight-world seed-0 BCPPO run is active in H200 Slurm job `262332`. Raw CarryBox
-motions remain execution-smoke input only and are rejected for a formal run.
+
+The acting-Refiner admission queue is currently closed.  Fresh PPO, frame-zero anchoring,
+official action anchoring, a frozen-expert residual and the admitted six-layer causal temporal
+composer have all completed their fixed Newton gates.  The latest seed171714 temporal endpoint
+passes its 64-update numerical gate but reaches only `1/20` 5-cm lifts and `0/20` strict
+completions, below the fixed `16/20` rule.  Downstream Tracker/BCPPO therefore has not launched.
+The next bounded diagnostic uses the parameter-exact released Tracker only as a current-state
+action-label source for an adapter around the frozen official Refiner; it does not use a toy
+teacher, future state or outcome label. Raw CarryBox motions remain execution-smoke input only
+and are rejected for a formal run.
 
 ## Running the validator
 
