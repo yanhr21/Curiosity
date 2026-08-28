@@ -807,3 +807,134 @@ steps before the same step235 `obj_pos` failure: peak lift is `0.01045 m`, bilat
 `0.20426`, and the handoff action jump is `0.01576`.  Removing the action anchor increases the mean
 residual to `0.00383` but does not recover.  The Refiner anchor is not the bottleneck; do not launch
 frame-zero/task-wide evaluation or another anchor setting.
+
+The next action-target method is a faithful Newton-native black-box shooting teacher, because the
+deployed MuJoCo-Warp CarryBox solver exposes no usable Tape gradient path.  Fresh seed171740 replays
+the parameter-exact Refiner for 200 steps, then optimizes a full 35-step `35 x 29` action correction
+in unchanged Newton physics using fixed CEM: seven five-step knots, population 32, elite 8, four
+generations, correction bound one.  Candidates are ordered lexicographically by crossing step235,
+survival, strict object margin, lift, bilateral contact, end-effector margin and minimum correction
+energy; no scalar policy reward or future actor input is used.  Every generation includes the exact
+zero-correction baseline.  A passing search must reproduce its step235 `obj_pos` failure, preserve
+the official Refiner bit-for-bit, evaluate every candidate from the same captured eight-world
+step200 frontier, replay the best candidate exactly and remain strict-valid after all 35 recovery
+steps.  Only then may its causal
+observation/action trajectory become a Newton-native supervision target.
+
+The first seed171740 implementation found a strong but inadmissible existence signal.  Across four
+generations its nominal best progressed to `29/32` surviving candidates, `0.12082 m` peak lift,
+full-window bilateral contact and `0.28627` minimum object margin, while the zero correction always
+failed `obj_pos` at step235.  However, the eight replicated MuJoCo-Warp worlds had a `0.06533`
+step200 q/qd spread, so assigning one candidate to one world confounded the CEM score; the independent
+best replay also differed by `0.00353 m` lift.  This v1 result is not a supervision target.
+
+The corrected v2 captures one complete step200 frontier, including Newton q/qd/body state,
+MuJoCo-Warp acceleration warm-start, causal observation/action histories, contact histories and
+clock state.  Every candidate is then evaluated on all eight restored worlds and ranked by all-world
+survival followed by worst-case survival, object margin, lift, bilateral contact, end-effector margin
+and correction energy.  A pre-search double-zero smoke measured maximum same-world continuous-metric
+replay error `2.2067e-4`; the fixed replay tolerance is therefore `5e-4`, while survival, step count
+and failure reasons remain exact.  Frontier tensors themselves must restore with zero error, all
+eight zero baselines must reproduce the step235 `obj_pos` failure, the final candidate must survive
+in all eight worlds and its independent replay must pass the fixed tolerance.
+
+Matched v2 is complete and rejected as a supervision target.  All four CEM generations improve and
+the final search record is a strong existence signal: `26/32` candidates survive in all worlds, the
+best has worst/mean lift `0.11027/0.11707 m`, full bilateral contact, worst object/end-effector margin
+`0.29729/0.17454` and no strict failure.  Independent replay is also `8/8` strict with worst lift
+`0.11259 m`, but it misses the fixed tolerance by more than an order of magnitude: maximum delta is
+`0.006412`, driven by world-0 object margin, while peak-lift delta reaches `0.002880 m`.  The run also
+emits two triangle-pair overflow warnings from the generation-4 candidate pool.  Official parameters
+and frontier tensors remain exact, and the zero baseline remains `8/8` step235 `obj_pos`.  Do not
+distill this sensitive v2 target or relax the tolerance.
+
+The next fixed target-selection diagnostic is fresh seed171742 robust matched-v3 CEM.  It preserves
+the same Refiner, frontier, `7 x 5` knots, population/elite/generations `32/8/4`, bound and strict
+physics ordering, but evaluates every candidate twice from the restored frontier.  Candidate ranking
+first requires no public Newton triangle-pair overflow and exact categorical plus `5e-4` continuous
+replay agreement, then applies the unchanged worst-case physics ordering across both replays.  The
+selected target must pass a third replay not used by CEM selection and match both prior executions.
+This addresses target sensitivity and collision-buffer validity; it is not a tolerance, action-bound
+or CEM-budget sweep.
+
+Robust matched-v3 is complete and negative.  All four generations remain overflow-free, and the
+number of candidates that cross the frontier in all eight worlds rises from `5/32` to `15/32`,
+`18/32` and `30/32`.  Replay stability moves in the opposite direction: fixed-tolerance/fully-robust
+counts are `3/3`, `1/1`, `0/0` and `0/0`.  The selected stable generation-0 candidate matches its
+paired executions within `5.19e-6`, preserves the official Refiner and restores every audited
+frontier tensor exactly, but it remains `0/8` strict with worst/mean lift only
+`0.01563/0.01702 m`.  Its final replay is also `0/8`; no triangle-pair overflow occurs and the
+maximum count is `334497/1000000`.  The high-survival candidates therefore remain sensitive to
+serial restored-world contact execution.  Do not distill the v2 or v3 target, relax `5e-4`, or
+change the shooting bound/population/generation budget.
+
+The next bounded diagnostic changes only the replay topology.  Duplicate each of the eight matched
+frontier worlds into independent paired blocks inside one Newton environment, restore both blocks
+tensor-exactly, and execute the same correction in the same control step.  Compare paired profile
+metrics under this simultaneous execution before any new CEM run.  The smoke must reproduce the
+zero-correction step235 `obj_pos` failure in every copy, keep the official Refiner exact, stay within
+the public triangle-pair capacity and use the unchanged `5e-4` metric tolerance.  Only if the saved
+v2 correction is stable and strict in every simultaneous pair may this topology become a fresh
+target-selection run; otherwise action shooting is closed as a supervision source.
+
+The simultaneous matched-world v4 smoke is complete and negative.  Pairing is tensor-exact and
+both replay restores have zero audited error; the released Refiner remains parameter-exact.  The
+saved v2 correction is physically strong in this topology (`16/16` strict, worst/mean lift
+`0.10077/0.10980 m`, minimum bilateral contact `0.97143`), but identical paired worlds still differ
+by `0.02915`, far above `5e-4`, and the source replay reaches
+`1321029/1000000` triangle pairs.  Even zero correction differs by `0.02857` across paired world
+indices, although all 16 copies reproduce the step235 `obj_pos` failure.  Thus neither serial
+restore nor simultaneous duplicate worlds yield a capacity-valid, fixed-tolerance shooting label.
+Close action shooting as a supervision source and do not run the conditional seed171741
+distillation.  The next controller experiment must obtain supervision/objectives without treating
+a non-deterministic Newton shooting trajectory as ground truth.
+
+The next serious controller topology is causal Refiner reference-phase retiming, not another action
+residual or scalar-reward transform.  Keep the released `890 -> 512/256/128 -> 29` Refiner and its
+action std parameter-exact and frozen.  A separate policy-reference phase may change only the
+future-reference indices assembled for that Refiner; Newton physical progress, reward, strict
+termination checks and timeout continue to use the original monotonically increasing environment
+clock.  The trainable controller reuses the repository's six-layer 384-D causal Transformer over
+the exact past `10 x 890` physical history and emits one bounded phase offset, rather than a
+simplified local policy.  The offset envelope is exactly zero at the step200 handoff and physical
+step235 endpoint and is bounded to `+/-7` frames between them, matching the released observation's
+eight-frame future window.  Thus it can redistribute reference timing but cannot stall the clock,
+change the endpoint reference or relax a termination.
+
+Fresh seed171744 first runs a zero-optimizer component audit.  Zero phase offset must reproduce the
+official Refiner observation and action bit-for-bit; nonzero offsets must change only reference
+features and the resulting frozen-Refiner action; physical state features, official parameters,
+CPU/CUDA RNG and original-clock termination inputs must remain exact.  Future rollout states and
+outcome labels never enter the controller.  Only that machine pass admits fresh seed171745 ten-update
+execution/learning smoke and one seed171746 64-update fixed-frontier endpoint under the unchanged
+causal physical-recovery reward.  The fixed evaluation must reach physical step235 with policy phase
+235, at least 5 cm lift and strict validity before the unchanged task-wide `16/20` lift and `16/20`
+strict gate.  Do not tune the phase bound, envelope, reward, prefix or budget.
+
+If and only if an admitted matched shooting target passes, one fresh seed171741 supervised
+distillation is predeclared.  It
+must reuse the repository's exact frozen official 890-D Refiner plus the existing past-`10 x 890`,
+six-layer 384-D causal Transformer and official `512/256/128` output MLP in exact additive-residual
+mode.  Replaying the admitted shooting correction supplies 35 recovery labels in all eight matched
+worlds; the final 64 exact-Refiner prefix frames supply zero-correction retention labels.  Worlds
+`0--5` are training data and `6--7` are held out, batches are balanced between retention and recovery,
+and AdamW is fixed at 3000 fresh steps, `1e-4` learning rate, `1e-4` weight decay and 128 total samples.
+Future shooting states are labels only; the actor sees only the real causal history ending at the
+current observation.  This is one serious controller-fit diagnostic, not a model/LR/budget sweep.
+Its first closed-loop gate must preserve the official Refiner exactly, cross the 35-step frontier and
+reach at least 5 cm lift in all eight matched worlds.  Only that pass opens the unchanged frozen
+20-profile `16/20` lift and `16/20` strict gate; Tracker/BCPPO remains closed below it.
+
+The reference-phase diagnostic is complete and negative at its fixed physical gate.  Seed171744
+passes every isolation check: released-Refiner parameter delta, physical-state delta, the 234-D
+physical observation suffix and CPU/CUDA RNG deltas are exactly zero; only the 656-D reference
+prefix changes, producing a `0.64942` frozen-action response.  Seed171745 passes the ten-update
+smoke with `1920/1920` physical-reward calls, zero divergence and 21 retimed calls.  Seed171746
+completes 64 fresh updates (`12288` transitions) with finite parameters, zero divergence, 101
+retimed calls and only a one-frame observed maximum offset.
+
+Frozen seed181746 nevertheless fails `obj_pos` at physical step235, lifts only `0.00870 m`, has
+`0.19574` bilateral contact and makes no integer phase change on the deterministic data000 rollout.
+It fails both the fixed 5 cm lift and strict-completion criteria.  Do not run the task-wide gate,
+tune phase quantization/bound/envelope/reward/prefix/budget, or open Tracker/BCPPO.  This closes
+reference-phase retiming under the fixed Newton Refiner recovery setup.

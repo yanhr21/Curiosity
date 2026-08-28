@@ -34,6 +34,7 @@ from sugar_newton.rl.carrybox_env import (
     TRACKER_COMMAND_DIM,
     CarryBoxEnv,
 )
+from sugar_newton.rl.reference_phase import policy_reference_phase
 
 
 class EnvCfg(dict):
@@ -719,6 +720,136 @@ class RefinerFailureFrontierVecEnv(RefinerVecEnv):
         return observations, reward, done, info
 
 
+class RefinerReferencePhaseVecEnv(RefinerVecEnv):
+    """Learn one causal reference-phase scalar around an exact frozen Refiner.
+
+    Physical time, reward, termination and timeout remain owned by
+    :class:`CarryBoxEnv`.  The policy scalar only selects the future-reference
+    indices used to build the frozen Refiner's 890-D input.  The fixed envelope
+    is exactly zero at physical steps 200 and 235, so the controller cannot
+    stall the clock or change the endpoint reference.
+    """
+
+    def __init__(
+        self,
+        env: CarryBoxEnv,
+        *,
+        teacher_checkpoint: str | Path,
+        prefix_steps: int = 200,
+        endpoint_step: int = 235,
+        maximum_offset: int = 7,
+        **kwargs,
+    ) -> None:
+        if prefix_steps != 200 or endpoint_step != 235 or maximum_offset != 7:
+            raise ValueError("reference-phase recovery contract is fixed at 200/235/+/-7")
+        super().__init__(env, **kwargs)
+        if self.policy_history_steps != 10:
+            raise ValueError("reference-phase controller requires exact 10-frame history")
+        checkpoint = Path(teacher_checkpoint).expanduser().resolve()
+        if not checkpoint.is_file():
+            raise FileNotFoundError(checkpoint)
+        from sugar_newton.validation.refiner_open_loop import (
+            load_official_teacher,
+            sha256,
+        )
+
+        self.acting_teacher, hidden_dims = load_official_teacher(
+            checkpoint, torch.device(env.device)
+        )
+        if hidden_dims != [512, 256, 128]:
+            raise ValueError(f"acting Refiner geometry drifted: {hidden_dims}")
+        self.num_actions = 1
+        self.teacher_checkpoint = checkpoint
+        self.teacher_checkpoint_sha256 = sha256(checkpoint)
+        self.prefix_steps = int(prefix_steps)
+        self.endpoint_step = int(endpoint_step)
+        self.maximum_offset = int(maximum_offset)
+        self.cumulative_masked_steps = 0
+        self.cumulative_retimed_steps = 0
+        self.maximum_abs_phase_offset = 0
+        self.last_raw_phase: torch.Tensor | None = None
+        self.last_reference_t: torch.Tensor | None = None
+        self.last_refiner_action: torch.Tensor | None = None
+        self.cfg.update(
+            reference_phase_retiming=True,
+            reference_phase_handoff_step=self.prefix_steps,
+            reference_phase_endpoint_step=self.endpoint_step,
+            reference_phase_maximum_offset=self.maximum_offset,
+            acting_teacher_checkpoint=str(checkpoint),
+            acting_teacher_checkpoint_sha256=self.teacher_checkpoint_sha256,
+            training_mask_obs_group="training_handoff_mask",
+            training_mask_actor_input=False,
+            physical_clock_modified=False,
+        )
+
+    def _policy_control(self) -> torch.Tensor:
+        return self.episode_length_buf >= self.prefix_steps
+
+    def _obs(self) -> TensorDict:
+        observations = super()._obs()
+        observations.set(
+            "training_handoff_mask",
+            self._policy_control().to(torch.float32).unsqueeze(-1),
+        )
+        return observations
+
+    def step(self, actions: torch.Tensor):
+        if tuple(actions.shape) != (self.num_envs, 1):
+            raise ValueError(
+                f"reference-phase action shape is {tuple(actions.shape)}, expected "
+                f"{(self.num_envs, 1)}"
+            )
+        if not torch.isfinite(actions).all():
+            raise RuntimeError("reference-phase action is non-finite")
+        physical_t = self.env.t.detach().clone()
+        reference_t = policy_reference_phase(
+            actions,
+            physical_t,
+            handoff_step=self.prefix_steps,
+            endpoint_step=self.endpoint_step,
+            maximum_offset=self.maximum_offset,
+        )
+        phase_offset = reference_t - physical_t
+        with torch.inference_mode():
+            retimed_obs = obs_890.build(
+                self.env,
+                teacher=False,
+                reference_t=reference_t,
+            )
+            refiner_action = self.acting_teacher(retimed_obs)
+        if not torch.isfinite(refiner_action).all():
+            raise RuntimeError("reference-phase frozen Refiner action is non-finite")
+        if not torch.equal(self.env.t, physical_t):
+            raise RuntimeError("reference-phase construction modified physical time")
+
+        policy_control = self._policy_control().clone()
+        self.cumulative_masked_steps += int((~policy_control).sum().item())
+        self.cumulative_retimed_steps += int(
+            (policy_control & (phase_offset != 0)).sum().item()
+        )
+        self.maximum_abs_phase_offset = max(
+            self.maximum_abs_phase_offset,
+            int(phase_offset.abs().max().item()),
+        )
+        self.last_raw_phase = actions.detach().clone()
+        self.last_reference_t = reference_t.detach().clone()
+        self.last_refiner_action = refiner_action.detach().clone()
+
+        observations, reward, done, info = super().step(refiner_action)
+        info["episode"].update(
+            reference_phase_policy_control_fraction=policy_control.float().mean(),
+            reference_phase_nonzero_fraction=(phase_offset != 0).float().mean(),
+            reference_phase_mean_offset=phase_offset.float().mean(),
+            reference_phase_maximum_abs_offset=torch.tensor(
+                float(self.maximum_abs_phase_offset), device=self.device
+            ),
+            reference_phase_retimed_steps=torch.tensor(
+                float(self.cumulative_retimed_steps), device=self.device
+            ),
+        )
+        return observations, reward, done, info
+
+
 def make_refiner(
     num_envs: int,
     *,
@@ -730,6 +861,7 @@ def make_refiner(
     physical_recovery_objective: bool = False,
     failure_frontier_prefix_steps: int = 0,
     failure_frontier_teacher_checkpoint: str | Path | None = None,
+    reference_phase_retiming: bool = False,
     **kwargs,
 ) -> RefinerVecEnv:
     env = CarryBoxEnv(num_envs=num_envs, **kwargs)
@@ -741,6 +873,17 @@ def make_refiner(
         tracker_teacher=tracker_teacher,
         physical_recovery_objective=physical_recovery_objective,
     )
+    if reference_phase_retiming:
+        if failure_frontier_prefix_steps != 200:
+            raise ValueError("reference-phase retiming requires fixed prefix200")
+        if failure_frontier_teacher_checkpoint is None:
+            raise ValueError("reference-phase frozen Refiner checkpoint is required")
+        return RefinerReferencePhaseVecEnv(
+            env,
+            teacher_checkpoint=failure_frontier_teacher_checkpoint,
+            prefix_steps=failure_frontier_prefix_steps,
+            **wrapper_kwargs,
+        )
     if failure_frontier_prefix_steps:
         if failure_frontier_teacher_checkpoint is None:
             raise ValueError("failure-frontier teacher checkpoint is required")

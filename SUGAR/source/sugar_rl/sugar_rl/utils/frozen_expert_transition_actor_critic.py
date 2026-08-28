@@ -962,6 +962,94 @@ class FrozenOfficialRefinerCausalTemporalComposerActorCritic(ActorCritic):
         return self.actor.composition_terms(self._actor_input(obs))
 
 
+class RefinerReferencePhaseCausalTemporalActor(nn.Module):
+    """Serious past-only controller for one frozen-Refiner reference phase.
+
+    The environment, rather than this module, owns and freezes the released
+    Refiner.  This actor consumes the exact current 890-D observation followed
+    by the same explicit ten-frame causal history used by the admitted temporal
+    composer.  Its single exact-zero-initialized output retimes only the future
+    reference fields supplied to that Refiner.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.temporal_composer = _CausalTemporalComposerCore(
+            REFINER_OBSERVATION_DIM,
+            1,
+        )
+
+    @staticmethod
+    def _history(actor_input: torch.Tensor) -> torch.Tensor:
+        if actor_input.ndim != 2 or actor_input.shape[-1] != REFINER_TEMPORAL_ACTOR_INPUT_DIM:
+            raise RuntimeError(
+                f"Refiner reference-phase actor input drift: {tuple(actor_input.shape)}"
+            )
+        if not torch.isfinite(actor_input).all():
+            raise RuntimeError("Refiner reference-phase actor input is non-finite")
+        current = actor_input[:, :REFINER_OBSERVATION_DIM]
+        history = actor_input[:, REFINER_OBSERVATION_DIM:].reshape(
+            actor_input.shape[0],
+            TEMPORAL_HISTORY_STEPS,
+            REFINER_OBSERVATION_DIM,
+        )
+        if not torch.equal(history[:, -1], current):
+            raise RuntimeError(
+                "Refiner reference-phase history does not end at current state"
+            )
+        return history
+
+    def forward(self, actor_input: torch.Tensor) -> torch.Tensor:
+        return self.temporal_composer(self._history(actor_input))
+
+
+class RefinerReferencePhaseCausalTemporalActorCritic(ActorCritic):
+    """RSL-RL interface for the one-scalar causal reference-phase controller."""
+
+    def __init__(
+        self,
+        obs,
+        obs_groups,
+        num_actions,
+        *,
+        actor_hidden_dims: Sequence[int] = OFFICIAL_HIDDEN_DIMS,
+        **kwargs,
+    ) -> None:
+        if num_actions != 1:
+            raise RuntimeError(
+                f"Refiner reference-phase action geometry drift: {num_actions}"
+            )
+        if tuple(int(value) for value in actor_hidden_dims) != OFFICIAL_HIDDEN_DIMS:
+            raise ValueError(
+                "Refiner reference-phase controller must retain 512/256/128 output MLP"
+            )
+        super().__init__(
+            obs,
+            obs_groups,
+            num_actions,
+            actor_hidden_dims=list(actor_hidden_dims),
+            **kwargs,
+        )
+        self.actor = RefinerReferencePhaseCausalTemporalActor().to(
+            next(self.critic.parameters()).device
+        )
+
+    def _actor_input(self, obs) -> torch.Tensor:
+        actor_input = self.actor_obs_normalizer(self.get_actor_obs(obs))
+        if self.actor_obs_normalization:
+            raise RuntimeError(
+                "Refiner reference-phase normalization would alter exact inputs"
+            )
+        return actor_input
+
+    def distillation_teacher(self, obs) -> tuple[torch.Tensor, torch.Tensor]:
+        actor_input = self._actor_input(obs)
+        zero_phase = torch.zeros(
+            actor_input.shape[0], 1, device=actor_input.device, dtype=actor_input.dtype
+        )
+        return zero_phase, torch.full_like(zero_phase, 0.05)
+
+
 class FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic(
     FrozenOfficialRefinerCausalTemporalComposerActorCritic
 ):

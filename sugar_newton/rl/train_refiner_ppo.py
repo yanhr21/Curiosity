@@ -72,10 +72,12 @@ def runner_cfg(args: argparse.Namespace) -> dict:
     temporal_command_mode = (
         args.frozen_expert_temporal_command_additive_residual
     )
+    reference_phase_mode = args.reference_phase_retiming
     embedded_expert = (
         args.frozen_expert_residual
         or temporal_mode
         or args.released_tracker_action_supervision
+        or reference_phase_mode
     )
     anchor_enabled = args.official_action_anchor or embedded_expert
     if anchor_enabled:
@@ -141,7 +143,9 @@ def runner_cfg(args: argparse.Namespace) -> dict:
           },
           "policy": {
               "class_name": (
-                    "FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic"
+                    "RefinerReferencePhaseCausalTemporalActorCritic"
+                    if reference_phase_mode
+                    else "FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic"
                     if (
                         temporal_mode
                         and args.released_tracker_action_supervision
@@ -185,7 +189,7 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                           else {}
                       ),
                   }
-                    if embedded_expert
+                    if embedded_expert and not reference_phase_mode
                     else {}
                 ),
         },
@@ -687,6 +691,14 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--reference-phase-retiming",
+        action="store_true",
+        help=(
+            "learn only a bounded causal reference-phase offset around the "
+            "parameter-exact frozen official Refiner"
+        ),
+    )
+    parser.add_argument(
         "--pure-distill",
         action="store_true",
         help=(
@@ -726,7 +738,10 @@ def main() -> None:
             "--pure-distill requires --released-tracker-action-supervision"
         )
     if args.physical_recovery_objective and not (
-        args.frozen_expert_temporal_additive_residual
+        (
+            args.frozen_expert_temporal_additive_residual
+            or args.reference_phase_retiming
+        )
         and not args.released_tracker_action_supervision
         and not args.pure_distill
     ):
@@ -738,7 +753,10 @@ def main() -> None:
         raise SystemExit("--failure-frontier-prefix-steps is fixed at 0 or 200")
     if args.failure_frontier_prefix_steps and not (
         args.physical_recovery_objective
-        and args.frozen_expert_temporal_additive_residual
+        and (
+            args.frozen_expert_temporal_additive_residual
+            or args.reference_phase_retiming
+        )
         and args.clips == ["data_000"]
         and args.frame_zero_env_count == args.num_envs
     ):
@@ -749,7 +767,10 @@ def main() -> None:
     if args.newton_native_free_recovery and not (
         args.failure_frontier_prefix_steps == 200
         and args.physical_recovery_objective
-        and args.frozen_expert_temporal_additive_residual
+        and (
+            args.frozen_expert_temporal_additive_residual
+            or args.reference_phase_retiming
+        )
     ):
         raise SystemExit(
             "--newton-native-free-recovery is restricted to the fixed "
@@ -792,6 +813,7 @@ def main() -> None:
             args.frozen_expert_temporal_composer,
             args.frozen_expert_temporal_additive_residual,
             args.frozen_expert_temporal_command_additive_residual,
+            args.reference_phase_retiming,
         )
     ) > 1:
         raise SystemExit("choose exactly one causal temporal composition rule")
@@ -802,6 +824,7 @@ def main() -> None:
             args.frozen_expert_residual,
             temporal_mode,
             args.released_tracker_action_supervision,
+            args.reference_phase_retiming,
         )
     )
     temporal_tracker_supervision = (
@@ -824,6 +847,7 @@ def main() -> None:
         args.frozen_expert_residual
         or temporal_mode
         or args.released_tracker_action_supervision
+        or args.reference_phase_retiming
     )
     if args.official_action_anchor or embedded_expert:
         sugar_bcppo()
@@ -834,6 +858,7 @@ def main() -> None:
             FrozenOfficialRefinerResidualActorCritic,
             FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic,
             FrozenOfficialRefinerTrackerSupervisedResidualActorCritic,
+            RefinerReferencePhaseCausalTemporalActorCritic,
         )
 
         builtins.FrozenOfficialRefinerResidualActorCritic = (
@@ -860,6 +885,12 @@ def main() -> None:
         rsl_rl.modules.FrozenOfficialRefinerTrackerSupervisedResidualActorCritic = (
             FrozenOfficialRefinerTrackerSupervisedResidualActorCritic
         )
+        builtins.RefinerReferencePhaseCausalTemporalActorCritic = (
+            RefinerReferencePhaseCausalTemporalActorCritic
+        )
+        rsl_rl.modules.RefinerReferencePhaseCausalTemporalActorCritic = (
+            RefinerReferencePhaseCausalTemporalActorCritic
+        )
     from rsl_rl.runners import OnPolicyRunner
 
     from sugar_newton.rl.vec_env import make_refiner
@@ -876,7 +907,9 @@ def main() -> None:
         reward_clip=args.reward_clip,
         frame_zero_env_count=args.frame_zero_env_count,
         sync_divergence_reset=True,
-        policy_history_steps=(10 if temporal_mode else 0),
+        policy_history_steps=(
+            10 if (temporal_mode or args.reference_phase_retiming) else 0
+        ),
         policy_command_dim=(36 if temporal_command_mode else 0),
         tracker_teacher=args.released_tracker_action_supervision,
         physical_recovery_objective=args.physical_recovery_objective,
@@ -884,6 +917,7 @@ def main() -> None:
         failure_frontier_teacher_checkpoint=(
             args.initial_checkpoint if args.failure_frontier_prefix_steps else None
         ),
+        reference_phase_retiming=args.reference_phase_retiming,
         device=args.device,
         seed=args.seed,
     )
@@ -947,7 +981,7 @@ def main() -> None:
             "num_motions": len(env.env.clip_names),
             "policy_observation_dim": (
                 890 * 11 + (36 if temporal_command_mode else 0)
-                if temporal_mode
+                if (temporal_mode or args.reference_phase_retiming)
                 else 890
             ),
             "critic_observation_dim": 890,
@@ -956,7 +990,7 @@ def main() -> None:
                     env.get_observations()["teacher"].shape[-1]
                 )
             ),
-            "action_dim": 29,
+            "action_dim": 1 if args.reference_phase_retiming else 29,
             "max_iterations": args.max_iterations,
             "fresh_optimizer": True,
             "source_action_std_mean": source_action_std,
@@ -989,6 +1023,7 @@ def main() -> None:
             "failure_frontier_prefix_steps": args.failure_frontier_prefix_steps,
             "failure_frontier_training_mask_actor_input": False,
             "newton_native_free_recovery": args.newton_native_free_recovery,
+            "reference_phase_retiming": args.reference_phase_retiming,
             "post_handoff_refiner_action_anchor": (
                 not args.newton_native_free_recovery
             ),
@@ -1107,6 +1142,14 @@ def main() -> None:
     frontier_contract_pass = (
         not args.failure_frontier_prefix_steps
         or (
+            args.reference_phase_retiming
+            and env.cumulative_masked_steps > 0
+            and env.maximum_abs_phase_offset <= 7
+            and env.teacher_checkpoint_sha256 == sha256(args.initial_checkpoint)
+        )
+        or (
+            not args.reference_phase_retiming
+            and
             env.cumulative_teacher_control_steps > 0
             and env.cumulative_policy_control_steps > 0
             and env.maximum_teacher_execution_delta == 0.0
@@ -1155,6 +1198,13 @@ def main() -> None:
         "failure_frontier_prefix_steps": args.failure_frontier_prefix_steps,
         "failure_frontier_training_mask_actor_input": False,
         "newton_native_free_recovery": args.newton_native_free_recovery,
+        "reference_phase_retiming": args.reference_phase_retiming,
+        "reference_phase_maximum_abs_offset": int(
+            getattr(env, "maximum_abs_phase_offset", 0)
+        ),
+        "reference_phase_retimed_steps": int(
+            getattr(env, "cumulative_retimed_steps", 0)
+        ),
         "post_handoff_refiner_action_anchor": (
             not args.newton_native_free_recovery
         ),

@@ -61,7 +61,11 @@ def _rot6(q: torch.Tensor) -> torch.Tensor:
     return R.mat_from_quat(q)[..., :2].reshape(*q.shape[:-1], ROT6)
 
 
-def build(env, teacher: bool = False) -> torch.Tensor:
+def build(
+    env,
+    teacher: bool = False,
+    reference_t: torch.Tensor | None = None,
+) -> torch.Tensor:
     """Assemble the 890-D vector for every world.
 
     Args:
@@ -69,6 +73,9 @@ def build(env, teacher: bool = False) -> torch.Tensor:
         teacher: read the raw teacher motion instead of the student's Refiner-rollout
             motion. This mirrors SUGAR's ``--motion_folder`` plus
             ``--teacher_motion_folder`` contract.
+        reference_t: optional per-world reference indices used only for the
+            future-reference fields.  Current physical state always comes from
+            ``env``.  The default is exactly ``env.t``.
     """
     n = env.num_envs
     dev = env.device
@@ -80,7 +87,17 @@ def build(env, teacher: bool = False) -> torch.Tensor:
     reference_body_idx = env.teacher_ref_body_idx if teacher else env.ref_body_idx
     length = reference["length"][env.motion_id]
     offs = torch.arange(FUTURE_FRAMES, device=dev)
-    t_fut = (env.t.unsqueeze(-1) + offs.unsqueeze(0)).clamp(min=0)
+    if reference_t is None:
+        reference_t = env.t
+    if (
+        reference_t.shape != env.t.shape
+        or reference_t.device != env.t.device
+        or reference_t.dtype != env.t.dtype
+    ):
+        raise ValueError(
+            "reference_t must match env.t shape, device and integer dtype"
+        )
+    t_fut = (reference_t.unsqueeze(-1) + offs.unsqueeze(0)).clamp(min=0)
     t_fut = torch.minimum(t_fut, (length - 1).unsqueeze(-1))
     mid = env.motion_id.unsqueeze(-1).expand(-1, FUTURE_FRAMES)
 
