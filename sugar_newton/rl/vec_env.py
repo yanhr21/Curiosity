@@ -850,6 +850,167 @@ class RefinerReferencePhaseVecEnv(RefinerVecEnv):
         return observations, reward, done, info
 
 
+class RefinerActionChunkVecEnv(RefinerVecEnv):
+    """Latch one causal seven-knot correction plan at the step200 handoff."""
+
+    KNOT_COUNT = 7
+    STEPS_PER_KNOT = 5
+    PREFIX_STEPS = 200
+    CHUNK_STEPS = KNOT_COUNT * STEPS_PER_KNOT
+    ACTION_DIM = KNOT_COUNT * N_DOF
+
+    def __init__(
+        self,
+        env: CarryBoxEnv,
+        *,
+        teacher_checkpoint: str | Path,
+        **kwargs,
+    ) -> None:
+        super().__init__(env, **kwargs)
+        if self.policy_history_steps != 10:
+            raise ValueError("action-chunk controller requires exact 10-frame history")
+        checkpoint = Path(teacher_checkpoint).expanduser().resolve()
+        if not checkpoint.is_file():
+            raise FileNotFoundError(checkpoint)
+        from sugar_newton.validation.refiner_open_loop import (
+            load_official_teacher,
+            sha256,
+        )
+
+        self.acting_teacher, hidden_dims = load_official_teacher(
+            checkpoint, torch.device(env.device)
+        )
+        if hidden_dims != [512, 256, 128]:
+            raise ValueError(f"acting Refiner geometry drifted: {hidden_dims}")
+        self.num_actions = self.ACTION_DIM
+        self.teacher_checkpoint = checkpoint
+        self.teacher_checkpoint_sha256 = sha256(checkpoint)
+        self.latched_knots = torch.zeros(
+            self.num_envs,
+            self.KNOT_COUNT,
+            N_DOF,
+            device=self.device,
+        )
+        self.plan_latched = torch.zeros(
+            self.num_envs, dtype=torch.bool, device=self.device
+        )
+        self.cumulative_teacher_control_steps = 0
+        self.cumulative_policy_control_steps = 0
+        self.cumulative_plan_latches = 0
+        self.maximum_teacher_execution_delta = 0.0
+        self.maximum_policy_execution_delta = 0.0
+        self.maximum_correction_abs = 0.0
+        self.last_plan_action: torch.Tensor | None = None
+        self.last_executed_correction: torch.Tensor | None = None
+        self.cfg.update(
+            failure_frontier_prefix_steps=self.PREFIX_STEPS,
+            action_chunk_recovery=True,
+            action_chunk_knot_count=self.KNOT_COUNT,
+            action_chunk_steps_per_knot=self.STEPS_PER_KNOT,
+            action_chunk_horizon=self.CHUNK_STEPS,
+            action_chunk_correction_bound=1.0,
+            action_chunk_future_or_outcome_input=False,
+            acting_teacher_checkpoint=str(checkpoint),
+            acting_teacher_checkpoint_sha256=self.teacher_checkpoint_sha256,
+            training_mask_obs_group="training_handoff_mask",
+            training_mask_actor_input=False,
+        )
+
+    def _plan_decision(self) -> torch.Tensor:
+        return self.episode_length_buf == self.PREFIX_STEPS
+
+    def _obs(self) -> TensorDict:
+        observations = super()._obs()
+        observations.set(
+            "training_handoff_mask",
+            self._plan_decision().to(torch.float32).unsqueeze(-1),
+        )
+        return observations
+
+    def reset(self) -> tuple[TensorDict, dict]:
+        observations, info = super().reset()
+        self.latched_knots.zero_()
+        self.plan_latched.zero_()
+        return observations, info
+
+    def step(self, actions: torch.Tensor):
+        if tuple(actions.shape) != (self.num_envs, self.ACTION_DIM):
+            raise ValueError(
+                f"action-chunk shape is {tuple(actions.shape)}, expected "
+                f"{(self.num_envs, self.ACTION_DIM)}"
+            )
+        if not torch.isfinite(actions).all():
+            raise RuntimeError("action-chunk sample is non-finite")
+        episode_step = self.episode_length_buf.detach().clone()
+        plan_decision = episode_step == self.PREFIX_STEPS
+        if bool(plan_decision.any()):
+            knots = torch.tanh(actions).reshape(
+                self.num_envs, self.KNOT_COUNT, N_DOF
+            )
+            self.latched_knots[plan_decision] = knots[plan_decision]
+            self.plan_latched[plan_decision] = True
+            self.cumulative_plan_latches += int(plan_decision.sum().item())
+            self.last_plan_action = actions.detach().clone()
+
+        chunk_active = (
+            (episode_step >= self.PREFIX_STEPS)
+            & (episode_step < self.PREFIX_STEPS + self.CHUNK_STEPS)
+        )
+        if bool((chunk_active & ~self.plan_latched).any()):
+            raise RuntimeError("action-chunk execution has no latched handoff plan")
+        knot_index = torch.div(
+            (episode_step - self.PREFIX_STEPS).clamp(min=0),
+            self.STEPS_PER_KNOT,
+            rounding_mode="floor",
+        ).clamp(max=self.KNOT_COUNT - 1)
+        correction = torch.zeros(
+            self.num_envs, N_DOF, device=self.device
+        )
+        world = torch.arange(self.num_envs, device=self.device)
+        correction[chunk_active] = self.latched_knots[
+            world[chunk_active], knot_index[chunk_active]
+        ]
+        with torch.inference_mode():
+            teacher_action = self.acting_teacher(self._current_privileged)
+        if not torch.isfinite(teacher_action).all():
+            raise RuntimeError("action-chunk frozen Refiner action is non-finite")
+        executed_action = teacher_action + correction
+        expected = teacher_action + correction
+        self.maximum_teacher_execution_delta = max(
+            self.maximum_teacher_execution_delta,
+            float((executed_action[~chunk_active] - teacher_action[~chunk_active]).abs().max().item())
+            if bool((~chunk_active).any()) else 0.0,
+        )
+        self.maximum_policy_execution_delta = max(
+            self.maximum_policy_execution_delta,
+            float((executed_action[chunk_active] - expected[chunk_active]).abs().max().item())
+            if bool(chunk_active.any()) else 0.0,
+        )
+        self.maximum_correction_abs = max(
+            self.maximum_correction_abs, float(correction.abs().max().item())
+        )
+        self.last_executed_correction = correction.detach().clone()
+        self.cumulative_teacher_control_steps += int((~chunk_active).sum().item())
+        self.cumulative_policy_control_steps += int(chunk_active.sum().item())
+
+        observations, reward, done, info = super().step(executed_action)
+        reset_ids = done.nonzero(as_tuple=False).flatten()
+        if reset_ids.numel():
+            self.latched_knots[reset_ids] = 0.0
+            self.plan_latched[reset_ids] = False
+        info["episode"].update(
+            action_chunk_plan_decision_fraction=plan_decision.float().mean(),
+            action_chunk_execution_fraction=chunk_active.float().mean(),
+            action_chunk_plan_latches=torch.tensor(
+                float(self.cumulative_plan_latches), device=self.device
+            ),
+            action_chunk_maximum_correction=torch.tensor(
+                self.maximum_correction_abs, device=self.device
+            ),
+        )
+        return observations, reward, done, info
+
+
 def make_refiner(
     num_envs: int,
     *,
@@ -862,6 +1023,7 @@ def make_refiner(
     failure_frontier_prefix_steps: int = 0,
     failure_frontier_teacher_checkpoint: str | Path | None = None,
     reference_phase_retiming: bool = False,
+    action_chunk_recovery: bool = False,
     **kwargs,
 ) -> RefinerVecEnv:
     env = CarryBoxEnv(num_envs=num_envs, **kwargs)
@@ -882,6 +1044,16 @@ def make_refiner(
             env,
             teacher_checkpoint=failure_frontier_teacher_checkpoint,
             prefix_steps=failure_frontier_prefix_steps,
+            **wrapper_kwargs,
+        )
+    if action_chunk_recovery:
+        if failure_frontier_prefix_steps != 200:
+            raise ValueError("action-chunk recovery requires fixed prefix200")
+        if failure_frontier_teacher_checkpoint is None:
+            raise ValueError("action-chunk frozen Refiner checkpoint is required")
+        return RefinerActionChunkVecEnv(
+            env,
+            teacher_checkpoint=failure_frontier_teacher_checkpoint,
             **wrapper_kwargs,
         )
     if failure_frontier_prefix_steps:

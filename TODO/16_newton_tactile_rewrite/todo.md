@@ -775,6 +775,24 @@ against upstream Newton must stay empty.
       change.  The task-wide gate is not launched and Tracker/BCPPO stays closed; do not tune this
       topology.
 
+- [x] Implement the causal latched transition-plan controller.  Keep the released Refiner exact;
+      at step200 use the existing six-layer 384-D past-`10 x 890` Transformer once to emit seven
+      bounded 29-D correction knots, hold each for five physical controls, then return to the exact
+      Refiner at step235.  Mask all action samples except the handoff plan, expose no future/outcome
+      actor input, and never use the rejected shooting correction as a supervision label.  Fix
+      bound/std/LR at `1/0.35/1e-5` with one 256-update budget and no sweep.
+- [x] Run fresh seed171747 zero-optimizer component/runtime gates, then seed171748 ten-update smoke
+      and exactly one seed171749 256-update training only if preceding machine checks pass.  Frozen
+      seed181748 must reach 5 cm lift and strict validity at step235 before the unchanged task-wide
+      `16/20` gate; otherwise close this topology and keep Tracker/BCPPO closed.
+      The zero/runtime and ten-update gates pass.  Seed171749 completes 49,152 transitions and 208
+      plan latches with zero divergence; actor/critic deltas are `0.00200/0.00970`.  Frozen
+      seed181748 verifies exact official control outside the 35-step chunk and one latch, but data000
+      lifts only `0.01112 m`, has `0.20851` bilateral contact, fails `obj_pos` at step235 and reaches
+      `0/1` strict completion.  The deterministic maximum correction is `0.06366`.  The fixed gate
+      fails, so no task-wide evaluation or Tracker/BCPPO launch is admitted and this topology is
+      closed without a sweep.
+
 ---
 
 ## E. Phase 3 — the tracker in the Newton loop (2026-08-22)

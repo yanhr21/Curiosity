@@ -41,6 +41,8 @@ REFINER_TEMPORAL_ACTOR_INPUT_DIM = REFINER_OBSERVATION_DIM * (
 REFINER_TEMPORAL_COMMAND_ACTOR_INPUT_DIM = (
     REFINER_TEMPORAL_ACTOR_INPUT_DIM + GENERATED_COMMAND_DIM
 )
+REFINER_ACTION_CHUNK_KNOTS = 7
+REFINER_ACTION_CHUNK_DIM = REFINER_ACTION_CHUNK_KNOTS * ACTION_DIM
 
 
 def _released_tracker(
@@ -1048,6 +1050,71 @@ class RefinerReferencePhaseCausalTemporalActorCritic(ActorCritic):
             actor_input.shape[0], 1, device=actor_input.device, dtype=actor_input.dtype
         )
         return zero_phase, torch.full_like(zero_phase, 0.05)
+
+
+class RefinerActionChunkCausalTemporalActor(nn.Module):
+    """Past-only 35-step transition planner with an exact-zero output head."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.temporal_composer = _CausalTemporalComposerCore(
+            REFINER_OBSERVATION_DIM,
+            REFINER_ACTION_CHUNK_DIM,
+        )
+
+    def forward(self, actor_input: torch.Tensor) -> torch.Tensor:
+        history = RefinerReferencePhaseCausalTemporalActor._history(actor_input)
+        return self.temporal_composer(history)
+
+
+class RefinerActionChunkCausalTemporalActorCritic(ActorCritic):
+    """RSL-RL interface for one latched seven-knot Refiner correction plan."""
+
+    def __init__(
+        self,
+        obs,
+        obs_groups,
+        num_actions,
+        *,
+        actor_hidden_dims: Sequence[int] = OFFICIAL_HIDDEN_DIMS,
+        **kwargs,
+    ) -> None:
+        if num_actions != REFINER_ACTION_CHUNK_DIM:
+            raise RuntimeError(
+                f"Refiner action-chunk geometry drift: {num_actions}"
+            )
+        if tuple(int(value) for value in actor_hidden_dims) != OFFICIAL_HIDDEN_DIMS:
+            raise ValueError(
+                "Refiner action-chunk controller must retain 512/256/128 output MLP"
+            )
+        super().__init__(
+            obs,
+            obs_groups,
+            num_actions,
+            actor_hidden_dims=list(actor_hidden_dims),
+            **kwargs,
+        )
+        self.actor = RefinerActionChunkCausalTemporalActor().to(
+            next(self.critic.parameters()).device
+        )
+
+    def _actor_input(self, obs) -> torch.Tensor:
+        actor_input = self.actor_obs_normalizer(self.get_actor_obs(obs))
+        if self.actor_obs_normalization:
+            raise RuntimeError(
+                "Refiner action-chunk normalization would alter exact inputs"
+            )
+        return actor_input
+
+    def distillation_teacher(self, obs) -> tuple[torch.Tensor, torch.Tensor]:
+        actor_input = self._actor_input(obs)
+        zero_plan = torch.zeros(
+            actor_input.shape[0],
+            REFINER_ACTION_CHUNK_DIM,
+            device=actor_input.device,
+            dtype=actor_input.dtype,
+        )
+        return zero_plan, torch.full_like(zero_plan, 0.35)
 
 
 class FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic(

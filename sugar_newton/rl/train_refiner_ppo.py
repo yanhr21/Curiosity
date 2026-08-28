@@ -73,11 +73,13 @@ def runner_cfg(args: argparse.Namespace) -> dict:
         args.frozen_expert_temporal_command_additive_residual
     )
     reference_phase_mode = args.reference_phase_retiming
+    action_chunk_mode = args.action_chunk_recovery
     embedded_expert = (
         args.frozen_expert_residual
         or temporal_mode
         or args.released_tracker_action_supervision
         or reference_phase_mode
+        or action_chunk_mode
     )
     anchor_enabled = args.official_action_anchor or embedded_expert
     if anchor_enabled:
@@ -143,7 +145,9 @@ def runner_cfg(args: argparse.Namespace) -> dict:
           },
           "policy": {
               "class_name": (
-                    "RefinerReferencePhaseCausalTemporalActorCritic"
+                    "RefinerActionChunkCausalTemporalActorCritic"
+                    if action_chunk_mode
+                    else "RefinerReferencePhaseCausalTemporalActorCritic"
                     if reference_phase_mode
                     else "FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic"
                     if (
@@ -189,7 +193,7 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                           else {}
                       ),
                   }
-                    if embedded_expert and not reference_phase_mode
+                    if embedded_expert and not (reference_phase_mode or action_chunk_mode)
                     else {}
                 ),
         },
@@ -519,6 +523,52 @@ def audit_frozen_expert_temporal_composer(
     }
 
 
+def audit_action_chunk_controller(runner, env, enabled: bool) -> dict:
+    """Prove exact-zero serious planner initialization and frozen Refiner."""
+
+    if not enabled:
+        return {"action_chunk_recovery": False}
+    actor = runner.alg.policy.actor
+    temporal = actor.temporal_composer
+    final = temporal.output[-1]
+    if not isinstance(final, torch.nn.Linear):
+        raise RuntimeError("action-chunk temporal output layer drift")
+    live_obs = env.get_observations()
+    with torch.inference_mode():
+        raw_plan = actor(runner.alg.policy._actor_input(live_obs))
+    zero_output = bool(
+        torch.count_nonzero(final.weight) == 0
+        and torch.count_nonzero(final.bias) == 0
+        and torch.count_nonzero(raw_plan) == 0
+    )
+    frozen_refiner = not any(
+        parameter.requires_grad for parameter in env.acting_teacher.parameters()
+    )
+    if tuple(raw_plan.shape) != (env.num_envs, 7 * 29):
+        raise RuntimeError(f"action-chunk live plan drift: {tuple(raw_plan.shape)}")
+    if not zero_output or not frozen_refiner:
+        raise RuntimeError(
+            f"action-chunk initialization drift: zero={zero_output}, "
+            f"frozen_refiner={frozen_refiner}"
+        )
+    return {
+        "action_chunk_recovery": True,
+        "action_chunk_knot_count": 7,
+        "action_chunk_steps_per_knot": 5,
+        "action_chunk_horizon": 35,
+        "action_chunk_output_dim": int(raw_plan.shape[-1]),
+        "action_chunk_output_layer_exact_zero": zero_output,
+        "action_chunk_live_raw_plan_max_abs": float(raw_plan.abs().max().item()),
+        "action_chunk_frozen_refiner_parameters": frozen_refiner,
+        "action_chunk_future_or_outcome_actor_input": False,
+        "action_chunk_trainable_parameter_count": sum(
+            parameter.numel()
+            for parameter in temporal.parameters()
+            if parameter.requires_grad
+        ),
+    }
+
+
 def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) -> dict:
     """Exercise the exact stochastic actor without taking an optimizer step."""
 
@@ -615,6 +665,13 @@ def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) 
             getattr(env, "maximum_policy_execution_delta", 0.0)
         ),
         "failure_frontier_contract_pass": frontier_contract_pass,
+        "action_chunk_recovery": bool(env.cfg.get("action_chunk_recovery", False)),
+        "action_chunk_plan_latches": int(
+            getattr(env, "cumulative_plan_latches", 0)
+        ),
+        "action_chunk_maximum_correction": float(
+            getattr(env, "maximum_correction_abs", 0.0)
+        ),
         "pass": (
             finite
             and divergence_total == 0
@@ -699,6 +756,14 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--action-chunk-recovery",
+        action="store_true",
+        help=(
+            "sample one causal seven-knot correction plan at step200 and "
+            "execute its fixed 35-step chunk around the frozen Refiner"
+        ),
+    )
+    parser.add_argument(
         "--pure-distill",
         action="store_true",
         help=(
@@ -741,6 +806,7 @@ def main() -> None:
         (
             args.frozen_expert_temporal_additive_residual
             or args.reference_phase_retiming
+            or args.action_chunk_recovery
         )
         and not args.released_tracker_action_supervision
         and not args.pure_distill
@@ -756,6 +822,7 @@ def main() -> None:
         and (
             args.frozen_expert_temporal_additive_residual
             or args.reference_phase_retiming
+            or args.action_chunk_recovery
         )
         and args.clips == ["data_000"]
         and args.frame_zero_env_count == args.num_envs
@@ -770,6 +837,7 @@ def main() -> None:
         and (
             args.frozen_expert_temporal_additive_residual
             or args.reference_phase_retiming
+            or args.action_chunk_recovery
         )
     ):
         raise SystemExit(
@@ -814,6 +882,7 @@ def main() -> None:
             args.frozen_expert_temporal_additive_residual,
             args.frozen_expert_temporal_command_additive_residual,
             args.reference_phase_retiming,
+            args.action_chunk_recovery,
         )
     ) > 1:
         raise SystemExit("choose exactly one causal temporal composition rule")
@@ -825,6 +894,7 @@ def main() -> None:
             temporal_mode,
             args.released_tracker_action_supervision,
             args.reference_phase_retiming,
+            args.action_chunk_recovery,
         )
     )
     temporal_tracker_supervision = (
@@ -848,6 +918,7 @@ def main() -> None:
         or temporal_mode
         or args.released_tracker_action_supervision
         or args.reference_phase_retiming
+        or args.action_chunk_recovery
     )
     if args.official_action_anchor or embedded_expert:
         sugar_bcppo()
@@ -859,6 +930,7 @@ def main() -> None:
             FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic,
             FrozenOfficialRefinerTrackerSupervisedResidualActorCritic,
             RefinerReferencePhaseCausalTemporalActorCritic,
+            RefinerActionChunkCausalTemporalActorCritic,
         )
 
         builtins.FrozenOfficialRefinerResidualActorCritic = (
@@ -891,6 +963,12 @@ def main() -> None:
         rsl_rl.modules.RefinerReferencePhaseCausalTemporalActorCritic = (
             RefinerReferencePhaseCausalTemporalActorCritic
         )
+        builtins.RefinerActionChunkCausalTemporalActorCritic = (
+            RefinerActionChunkCausalTemporalActorCritic
+        )
+        rsl_rl.modules.RefinerActionChunkCausalTemporalActorCritic = (
+            RefinerActionChunkCausalTemporalActorCritic
+        )
     from rsl_rl.runners import OnPolicyRunner
 
     from sugar_newton.rl.vec_env import make_refiner
@@ -908,7 +986,13 @@ def main() -> None:
         frame_zero_env_count=args.frame_zero_env_count,
         sync_divergence_reset=True,
         policy_history_steps=(
-            10 if (temporal_mode or args.reference_phase_retiming) else 0
+            10
+            if (
+                temporal_mode
+                or args.reference_phase_retiming
+                or args.action_chunk_recovery
+            )
+            else 0
         ),
         policy_command_dim=(36 if temporal_command_mode else 0),
         tracker_teacher=args.released_tracker_action_supervision,
@@ -918,6 +1002,7 @@ def main() -> None:
             args.initial_checkpoint if args.failure_frontier_prefix_steps else None
         ),
         reference_phase_retiming=args.reference_phase_retiming,
+        action_chunk_recovery=args.action_chunk_recovery,
         device=args.device,
         seed=args.seed,
     )
@@ -972,6 +1057,13 @@ def main() -> None:
             temporal_mode,
         )
     )
+    audit.update(
+        audit_action_chunk_controller(
+            runner,
+            env,
+            args.action_chunk_recovery,
+        )
+    )
     source_action_std = float(runner.alg.policy.std.detach().mean().item())
     audit.update(
         {
@@ -981,7 +1073,11 @@ def main() -> None:
             "num_motions": len(env.env.clip_names),
             "policy_observation_dim": (
                 890 * 11 + (36 if temporal_command_mode else 0)
-                if (temporal_mode or args.reference_phase_retiming)
+                if (
+                    temporal_mode
+                    or args.reference_phase_retiming
+                    or args.action_chunk_recovery
+                )
                 else 890
             ),
             "critic_observation_dim": 890,
@@ -990,7 +1086,13 @@ def main() -> None:
                     env.get_observations()["teacher"].shape[-1]
                 )
             ),
-            "action_dim": 1 if args.reference_phase_retiming else 29,
+            "action_dim": (
+                203
+                if args.action_chunk_recovery
+                else 1
+                if args.reference_phase_retiming
+                else 29
+            ),
             "max_iterations": args.max_iterations,
             "fresh_optimizer": True,
             "source_action_std_mean": source_action_std,
@@ -1024,6 +1126,7 @@ def main() -> None:
             "failure_frontier_training_mask_actor_input": False,
             "newton_native_free_recovery": args.newton_native_free_recovery,
             "reference_phase_retiming": args.reference_phase_retiming,
+            "action_chunk_recovery": args.action_chunk_recovery,
             "post_handoff_refiner_action_anchor": (
                 not args.newton_native_free_recovery
             ),
@@ -1199,6 +1302,13 @@ def main() -> None:
         "failure_frontier_training_mask_actor_input": False,
         "newton_native_free_recovery": args.newton_native_free_recovery,
         "reference_phase_retiming": args.reference_phase_retiming,
+        "action_chunk_recovery": args.action_chunk_recovery,
+        "action_chunk_plan_latches": int(
+            getattr(env, "cumulative_plan_latches", 0)
+        ),
+        "action_chunk_maximum_correction": float(
+            getattr(env, "maximum_correction_abs", 0.0)
+        ),
         "reference_phase_maximum_abs_offset": int(
             getattr(env, "maximum_abs_phase_offset", 0)
         ),

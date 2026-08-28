@@ -938,3 +938,40 @@ Frozen seed181746 nevertheless fails `obj_pos` at physical step235, lifts only `
 It fails both the fixed 5 cm lift and strict-completion criteria.  Do not run the task-wide gate,
 tune phase quantization/bound/envelope/reward/prefix/budget, or open Tracker/BCPPO.  This closes
 reference-phase retiming under the fixed Newton Refiner recovery setup.
+
+The next scientifically distinct controller is a causal latched transition-plan policy.  Preserve
+the exact released Refiner and the physical prefix through step200.  At the handoff, the existing
+six-layer 384-D causal Transformer reads the exact past `10 x 890` history once and emits seven
+29-D correction knots; each knot is held for five controls, giving one bounded 35-step action
+chunk.  The chunk is latched and cannot inspect future states or outcomes; after physical step235
+control returns to the exact Refiner.  Only the handoff plan sample receives PPO credit, while the
+200 prefix and 34 subsequent executions are masked from action-log-probability loss.  This changes
+the controller topology from reactive one-step residuals to a state-conditioned transition plan;
+it does not use the rejected shooting correction as a label.
+
+Fix the correction bound at one, the seven-by-five geometry, exploration std at `0.35`, the
+existing physical-recovery reward, LR `1e-5`, eight data000 worlds and a single 256-update budget.
+Fresh seed171747 must first pass a zero-optimizer component/runtime audit proving exact-zero output
+head, frozen Refiner, one latch per episode, exact execution of the latched knots, no future input
+and finite Newton state.  Only that pass admits seed171748 ten-update learning smoke and fresh
+seed171749 256-update training.  Frozen seed181748 must cross step235 with at least 5 cm lift and
+strict validity before the unchanged task-wide `16/20` lift and `16/20` strict gate.  Do not sweep
+knot count, hold length, action bound, exploration std, reward, prefix, LR or budget.
+
+This causal latched transition-plan experiment is complete and negative.  Seed171747 passes the
+zero-optimizer runtime gate over 1,920 Newton transitions with zero parameter change, zero
+divergence, eight plan latches and 280 exact chunk-control steps.  Seed171748 then passes the fixed
+ten-update learning smoke.  Fresh seed171749 completes the single 256-update endpoint with 49,152
+transitions, 208 plan latches, zero divergence, actor/critic maximum parameter deltas
+`0.00200/0.00970`, fixed LR `1e-5` and all training contracts passing.
+
+Frozen seed181748 loads only `model_255.pt` and executes the deterministic actor mean.  The
+deployment audit passes: the official Refiner is exact before step200 and after step235, exactly one
+plan is latched, the 35-step chunk runs, all tensors remain finite and the correction respects the
+tanh bound.  Nevertheless data000 terminates at step235 for `obj_pos`, lifts only `0.01112 m`, has
+`0.20851` bilateral-contact fraction and reaches `0/1` strict completion.  The deterministic maximum
+correction is only `0.06366` despite the fixed training exploration std.  It fails both required
+physical criteria, so the task-wide gate and Tracker/BCPPO are not launched.  Do not select an
+earlier checkpoint, extend the budget, or sweep chunk geometry, bound, std, reward, prefix or LR.
+This closes the fixed handoff-only action-chunk topology under the current Newton Refiner recovery
+setup.
