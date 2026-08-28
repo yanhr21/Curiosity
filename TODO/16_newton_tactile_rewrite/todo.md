@@ -793,6 +793,23 @@ against upstream Newton must stay empty.
       fails, so no task-wide evaluation or Tracker/BCPPO launch is admitted and this topology is
       closed without a sweep.
 
+- [x] Repair the action-chunk semi-Markov return boundary without changing its controller or reward.
+      The rejected runner used 24-step storage for a 35-step latched action and masked value loss on
+      every execution row, so each handoff return was necessarily truncated.  Fix episode length and
+      `num_steps_per_env` together at 235, retaining prefix200, `7 x 5` knots, bound/std/LR
+      `1/0.35/1e-5`, the same physical reward and exact frozen Refiner.
+- [x] Run fresh seed171750 for one zero-optimizer 235-step horizon and fresh seed171751 for exactly
+      two updates / 3,760 transitions.  Only both machine passes admit fresh seed171752 for one
+      32-update / 60,160-transition endpoint and frozen seed181750 data000 evaluation.  Require 5 cm
+      lift plus strict step235 validity before task-wide `16/20`; otherwise close the credit-aligned
+      topology and keep Tracker/BCPPO closed.
+      Both short gates pass.  Seed171752 completes 60,160 transitions and 256 plans with zero
+      divergence and actor/critic/std deltas `0.002175/0.007671/0.002226`.  Frozen seed181750 remains
+      finite and exact outside the chunk; deterministic correction improves `0.06366 -> 0.08505`,
+      lift improves `0.01112 -> 0.02214 m`, and bilateral contact improves
+      `0.20851 -> 0.22034`, but it still fails `obj_pos` after 236 steps and reaches `0/1` strict.
+      No task-wide gate or Tracker/BCPPO launch is admitted; close this family without an extension.
+
 ---
 
 ## E. Phase 3 — the tracker in the Newton loop (2026-08-22)

@@ -975,3 +975,45 @@ physical criteria, so the task-wide gate and Tracker/BCPPO are not launched.  Do
 earlier checkpoint, extend the budget, or sweep chunk geometry, bound, std, reward, prefix or LR.
 This closes the fixed handoff-only action-chunk topology under the current Newton Refiner recovery
 setup.
+
+The negative endpoint also exposes a causal credit-assignment defect that is distinct from a chunk
+or budget sweep.  The seven-by-five plan lasts 35 physical controls, but the rejected runner stores
+only 24 controls per PPO rollout.  Every step200 plan outcome is therefore truncated at a rollout
+boundary.  Only the handoff row is admitted by the training mask, while the boundary critic neither
+observes the latched plan nor receives value loss on the masked execution rows.  The endpoint's
+deterministic correction collapsing to `0.06366` despite `0.35` sampling noise is consistent with
+this broken semi-Markov return, so another 24-step run or update extension is not justified.
+
+Run one credit-aligned semi-Markov correction with all controller and physics choices fixed.  Keep
+the exact released Refiner, step200 handoff, past `10 x 890` six-layer 384-D Transformer, seven
+29-D knots held for five controls, tanh bound one, std `0.35`, physical reward and LR `1e-5`.
+Change only storage topology: set both the physical episode and `num_steps_per_env` to 235, so every
+PPO update contains a complete causal episode and the handoff action's return includes all 35 chunk
+steps before termination or timeout.  This is a return-correctness repair, not a rollout-length
+sweep; all other action rows remain masked.
+
+Fresh seed171750 must pass one 235-step zero-optimizer horizon with exact frozen-prefix/chunk
+execution, one plan latch per world, finite tensors and zero parameter change.  Only that pass admits
+fresh seed171751 for two updates / 3,760 transitions, which must show finite nonzero actor/critic/std
+learning and zero divergence.  Only both gates admit fresh seed171752 for exactly 32 updates / 60,160
+transitions, followed by frozen seed181750 on data000.  The frozen checkpoint must reach 5 cm lift
+and strict validity at step235 before the unchanged task-wide `16/20` lift and `16/20` strict gate.
+Do not change the chunk, std, reward, prefix, LR or select an intermediate checkpoint.
+
+The credit-aligned semi-Markov correction is complete and negative.  Seed171750 passes one complete
+235-step zero-optimizer rollout: 1,880 transitions, eight plan latches, 1,600 exact-prefix controls,
+280 exact chunk controls, zero divergence and exact-zero parameter change.  Seed171751 passes two
+complete updates / 3,760 transitions with 16 plan latches, zero divergence and nonzero
+actor/critic/std changes of `0.000156/0.000384/0.0000538`.
+
+Fresh seed171752 then completes the fixed 32 updates / 60,160 transitions with 256 plan latches,
+zero divergence, actor/critic/std changes `0.002175/0.007671/0.002226`, fixed LR `1e-5` and all
+execution/learning contracts passing.  Frozen seed181750 loads only `model_31.pt`, verifies one
+plan latch, exact official Refiner control outside the chunk, finite tensors and bounded correction.
+Credit alignment produces a real but insufficient deterministic response: maximum correction rises
+from the rejected 24-step endpoint's `0.06366` to `0.08505`, peak lift rises
+`0.01112 -> 0.02214 m`, and bilateral contact rises `0.20851 -> 0.22034`.  The rollout still fails
+`obj_pos` after 236 evaluated steps, remains below 5 cm and reaches `0/1` strict completion.  Do not
+extend the aligned budget or change its horizon, chunk, std, reward, prefix or LR.  The task-wide
+gate and Tracker/BCPPO remain closed; this closes the handoff-only action-plan family under the
+current Newton recovery objective.

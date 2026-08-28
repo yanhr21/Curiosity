@@ -133,7 +133,7 @@ def runner_cfg(args: argparse.Namespace) -> dict:
         if args.failure_frontier_prefix_steps:
             algorithm["training_mask_obs_group"] = "training_handoff_mask"
     return {
-        "num_steps_per_env": 24,
+        "num_steps_per_env": args.num_steps_per_env,
         "max_iterations": args.max_iterations,
         "save_interval": args.save_interval,
         "experiment_name": args.run_name,
@@ -587,7 +587,8 @@ def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) 
     divergence_total = 0
     done_total = 0
     finite = True
-    for _ in range(horizons * 24):
+    steps_per_horizon = int(runner.cfg["num_steps_per_env"])
+    for _ in range(horizons * steps_per_horizon):
         motion_before = env.env.motion_id.clone()
         with torch.no_grad():
             actions = policy.act(obs)
@@ -610,7 +611,7 @@ def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) 
         (current[key] - value).abs().max().item() for key, value in frozen.items()
     )
     nonzero = torch.nonzero(divergence_by_motion, as_tuple=False).flatten()
-    transitions = horizons * 24 * env.num_envs
+    transitions = horizons * steps_per_horizon * env.num_envs
     recovery_contract_pass = (
         not env.physical_recovery_objective
         or (
@@ -631,7 +632,7 @@ def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) 
         "protocol": "sugar_newton_refiner_zero_optimizer_diagnostic_v2",
         "optimizer_steps": 0,
         "horizons": horizons,
-        "steps_per_horizon": 24,
+        "steps_per_horizon": steps_per_horizon,
         "num_envs": env.num_envs,
         "transitions": transitions,
         "all_returned_tensors_finite": finite,
@@ -695,6 +696,7 @@ def main() -> None:
     parser.add_argument("--max-iterations", type=int, default=64)
     parser.add_argument("--save-interval", type=int, default=32)
     parser.add_argument("--episode-length", type=int, default=300)
+    parser.add_argument("--num-steps-per-env", type=int, default=24)
     parser.add_argument("--substeps", type=int, default=4)
     parser.add_argument("--mu", type=float, default=1.0)
     parser.add_argument("--learning-rate", type=float, default=1.0e-5)
@@ -761,6 +763,14 @@ def main() -> None:
         help=(
             "sample one causal seven-knot correction plan at step200 and "
             "execute its fixed 35-step chunk around the frozen Refiner"
+        ),
+    )
+    parser.add_argument(
+        "--credit-aligned-action-chunk",
+        action="store_true",
+        help=(
+            "use one exact 235-step rollout per PPO update so the step200 "
+            "plan decision receives its complete 35-step causal return"
         ),
     )
     parser.add_argument(
@@ -859,6 +869,27 @@ def main() -> None:
         raise SystemExit("--num-envs must remain in the validated Newton range 1..8")
     if args.max_iterations < 1:
         raise SystemExit("--max-iterations must be positive")
+    if args.num_steps_per_env < 1:
+        raise SystemExit("--num-steps-per-env must be positive")
+    if args.credit_aligned_action_chunk and not (
+        args.action_chunk_recovery
+        and args.failure_frontier_prefix_steps == 200
+        and args.episode_length == 235
+        and args.num_steps_per_env == 235
+    ):
+        raise SystemExit(
+            "--credit-aligned-action-chunk requires action-chunk recovery, "
+            "prefix200, episode length 235 and exactly 235 steps per rollout"
+        )
+    if (
+        args.action_chunk_recovery
+        and args.num_steps_per_env != 24
+        and not args.credit_aligned_action_chunk
+    ):
+        raise SystemExit(
+            "non-default action-chunk rollout length requires the fixed "
+            "credit-aligned contract"
+        )
     if not 0.0 < args.learning_rate <= 1.0e-3:
         raise SystemExit("--learning-rate must be in (0, 1e-3]")
     if not 0.0 < args.action_std <= 1.0:
@@ -1094,6 +1125,9 @@ def main() -> None:
                 else 29
             ),
             "max_iterations": args.max_iterations,
+            "num_steps_per_env": args.num_steps_per_env,
+            "episode_length": args.episode_length,
+            "credit_aligned_action_chunk": args.credit_aligned_action_chunk,
             "fresh_optimizer": True,
             "source_action_std_mean": source_action_std,
             "training_action_std": args.action_std,
@@ -1223,7 +1257,7 @@ def main() -> None:
     all_policy_parameters_finite = all(
         bool(torch.isfinite(value).all()) for value in final_state.values()
     )
-    transitions = args.max_iterations * 24 * args.num_envs
+    transitions = args.max_iterations * args.num_steps_per_env * args.num_envs
     divergence_total = int(env.env.num_diverged)
     divergence_rate = divergence_total / transitions
     final_action_std_mean = float(runner.alg.policy.std.detach().mean().item())
@@ -1303,6 +1337,9 @@ def main() -> None:
         "newton_native_free_recovery": args.newton_native_free_recovery,
         "reference_phase_retiming": args.reference_phase_retiming,
         "action_chunk_recovery": args.action_chunk_recovery,
+        "credit_aligned_action_chunk": args.credit_aligned_action_chunk,
+        "num_steps_per_env": args.num_steps_per_env,
+        "episode_length": args.episode_length,
         "action_chunk_plan_latches": int(
             getattr(env, "cumulative_plan_latches", 0)
         ),
