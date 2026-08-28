@@ -810,6 +810,23 @@ against upstream Newton must stay empty.
       `0.20851 -> 0.22034`, but it still fails `obj_pos` after 236 steps and reaches `0/1` strict.
       No task-wide gate or Tracker/BCPPO launch is admitted; close this family without an extension.
 
+- [x] Run the single predeclared causal receding-knot Refiner diagnostic.  Keep the exact released
+      Refiner, past `10 x 890` six-layer 384-D Transformer, prefix200, 35-step interval,
+      bound/std/LR `1/0.35/1e-5` and the same physical reward.  Replan one 29-D correction only at
+      steps `200/205/.../230`, hold each for five controls, mask PPO to those seven decisions, and
+      retain matched 235-step episode/storage.  Future/outcome labels, shooting targets, Tracker
+      and BCPPO remain absent.
+- [ ] Gate it automatically with fresh seed171753 for one zero-optimizer horizon and fresh
+      seed171754 for exactly two updates / 3,760 transitions.  Only exact execution, seven latches
+      per world, finite tensors, zero divergence and the required zero/nonzero parameter contracts
+      admit fresh seed171755 for exactly 32 updates / 60,160 transitions.  Freeze model31 and use
+      seed181752 on data000; require 5 cm lift plus strict step235 validity before task-wide
+      `16/20`.  Otherwise close the topology with no sweep and keep Tracker/BCPPO closed.
+      Seed171753 passes 1,880 zero-optimizer transitions with 56 exact latches, zero divergence and
+      zero parameter change.  Seed171754 passes two updates / 3,760 transitions with 112 latches,
+      zero divergence and actor/critic/std deltas `0.000223/0.000407/0.0000477`.  Fresh seed171755
+      is now running the sole admitted 32-update endpoint from scratch on the retained H200.
+
 ---
 
 ## E. Phase 3 — the tracker in the Newton loop (2026-08-22)

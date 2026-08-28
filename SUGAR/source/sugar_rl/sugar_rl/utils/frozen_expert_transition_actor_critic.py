@@ -1117,6 +1117,71 @@ class RefinerActionChunkCausalTemporalActorCritic(ActorCritic):
         return zero_plan, torch.full_like(zero_plan, 0.35)
 
 
+class RefinerRecedingKnotCausalTemporalActor(nn.Module):
+    """Past-only state-feedback actor for one five-step Refiner knot."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.temporal_composer = _CausalTemporalComposerCore(
+            REFINER_OBSERVATION_DIM,
+            ACTION_DIM,
+        )
+
+    def forward(self, actor_input: torch.Tensor) -> torch.Tensor:
+        history = RefinerReferencePhaseCausalTemporalActor._history(actor_input)
+        return self.temporal_composer(history)
+
+
+class RefinerRecedingKnotCausalTemporalActorCritic(ActorCritic):
+    """RSL-RL interface for seven causal five-step state-feedback knots."""
+
+    def __init__(
+        self,
+        obs,
+        obs_groups,
+        num_actions,
+        *,
+        actor_hidden_dims: Sequence[int] = OFFICIAL_HIDDEN_DIMS,
+        **kwargs,
+    ) -> None:
+        if num_actions != ACTION_DIM:
+            raise RuntimeError(
+                f"Refiner receding-knot geometry drift: {num_actions}"
+            )
+        if tuple(int(value) for value in actor_hidden_dims) != OFFICIAL_HIDDEN_DIMS:
+            raise ValueError(
+                "Refiner receding-knot controller must retain 512/256/128 output MLP"
+            )
+        super().__init__(
+            obs,
+            obs_groups,
+            num_actions,
+            actor_hidden_dims=list(actor_hidden_dims),
+            **kwargs,
+        )
+        self.actor = RefinerRecedingKnotCausalTemporalActor().to(
+            next(self.critic.parameters()).device
+        )
+
+    def _actor_input(self, obs) -> torch.Tensor:
+        actor_input = self.actor_obs_normalizer(self.get_actor_obs(obs))
+        if self.actor_obs_normalization:
+            raise RuntimeError(
+                "Refiner receding-knot normalization would alter exact inputs"
+            )
+        return actor_input
+
+    def distillation_teacher(self, obs) -> tuple[torch.Tensor, torch.Tensor]:
+        actor_input = self._actor_input(obs)
+        zero_knot = torch.zeros(
+            actor_input.shape[0],
+            ACTION_DIM,
+            device=actor_input.device,
+            dtype=actor_input.dtype,
+        )
+        return zero_knot, torch.full_like(zero_knot, 0.35)
+
+
 class FrozenOfficialRefinerTrackerSupervisedCausalTemporalComposerActorCritic(
     FrozenOfficialRefinerCausalTemporalComposerActorCritic
 ):

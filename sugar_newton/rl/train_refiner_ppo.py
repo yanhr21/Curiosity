@@ -74,12 +74,14 @@ def runner_cfg(args: argparse.Namespace) -> dict:
     )
     reference_phase_mode = args.reference_phase_retiming
     action_chunk_mode = args.action_chunk_recovery
+    receding_knot_mode = args.receding_knot_recovery
     embedded_expert = (
         args.frozen_expert_residual
         or temporal_mode
         or args.released_tracker_action_supervision
         or reference_phase_mode
         or action_chunk_mode
+        or receding_knot_mode
     )
     anchor_enabled = args.official_action_anchor or embedded_expert
     if anchor_enabled:
@@ -145,7 +147,9 @@ def runner_cfg(args: argparse.Namespace) -> dict:
           },
           "policy": {
               "class_name": (
-                    "RefinerActionChunkCausalTemporalActorCritic"
+                    "RefinerRecedingKnotCausalTemporalActorCritic"
+                    if receding_knot_mode
+                    else "RefinerActionChunkCausalTemporalActorCritic"
                     if action_chunk_mode
                     else "RefinerReferencePhaseCausalTemporalActorCritic"
                     if reference_phase_mode
@@ -193,7 +197,8 @@ def runner_cfg(args: argparse.Namespace) -> dict:
                           else {}
                       ),
                   }
-                    if embedded_expert and not (reference_phase_mode or action_chunk_mode)
+                    if embedded_expert
+                    and not (reference_phase_mode or action_chunk_mode or receding_knot_mode)
                     else {}
                 ),
         },
@@ -569,6 +574,52 @@ def audit_action_chunk_controller(runner, env, enabled: bool) -> dict:
     }
 
 
+def audit_receding_knot_controller(runner, env, enabled: bool) -> dict:
+    """Prove exact-zero state-feedback knot initialization and frozen Refiner."""
+
+    if not enabled:
+        return {"receding_knot_recovery": False}
+    actor = runner.alg.policy.actor
+    temporal = actor.temporal_composer
+    final = temporal.output[-1]
+    if not isinstance(final, torch.nn.Linear):
+        raise RuntimeError("receding-knot temporal output layer drift")
+    live_obs = env.get_observations()
+    with torch.inference_mode():
+        raw_knot = actor(runner.alg.policy._actor_input(live_obs))
+    zero_output = bool(
+        torch.count_nonzero(final.weight) == 0
+        and torch.count_nonzero(final.bias) == 0
+        and torch.count_nonzero(raw_knot) == 0
+    )
+    frozen_refiner = not any(
+        parameter.requires_grad for parameter in env.acting_teacher.parameters()
+    )
+    if tuple(raw_knot.shape) != (env.num_envs, 29):
+        raise RuntimeError(f"receding-knot live action drift: {tuple(raw_knot.shape)}")
+    if not zero_output or not frozen_refiner:
+        raise RuntimeError(
+            f"receding-knot initialization drift: zero={zero_output}, "
+            f"frozen_refiner={frozen_refiner}"
+        )
+    return {
+        "receding_knot_recovery": True,
+        "receding_knot_count": 7,
+        "receding_knot_steps": 5,
+        "receding_knot_horizon": 35,
+        "receding_knot_output_dim": int(raw_knot.shape[-1]),
+        "receding_knot_output_layer_exact_zero": zero_output,
+        "receding_knot_live_raw_max_abs": float(raw_knot.abs().max().item()),
+        "receding_knot_frozen_refiner_parameters": frozen_refiner,
+        "receding_knot_future_or_outcome_actor_input": False,
+        "receding_knot_trainable_parameter_count": sum(
+            parameter.numel()
+            for parameter in temporal.parameters()
+            if parameter.requires_grad
+        ),
+    }
+
+
 def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) -> dict:
     """Exercise the exact stochastic actor without taking an optimizer step."""
 
@@ -667,6 +718,7 @@ def run_zero_optimizer_diagnostic(runner, env, *, horizons: int, log_dir: Path) 
         ),
         "failure_frontier_contract_pass": frontier_contract_pass,
         "action_chunk_recovery": bool(env.cfg.get("action_chunk_recovery", False)),
+        "receding_knot_recovery": bool(env.cfg.get("receding_knot_recovery", False)),
         "action_chunk_plan_latches": int(
             getattr(env, "cumulative_plan_latches", 0)
         ),
@@ -774,6 +826,14 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--receding-knot-recovery",
+        action="store_true",
+        help=(
+            "causally replan one bounded 29-D correction every five steps "
+            "from step200 through step230"
+        ),
+    )
+    parser.add_argument(
         "--pure-distill",
         action="store_true",
         help=(
@@ -817,6 +877,7 @@ def main() -> None:
             args.frozen_expert_temporal_additive_residual
             or args.reference_phase_retiming
             or args.action_chunk_recovery
+            or args.receding_knot_recovery
         )
         and not args.released_tracker_action_supervision
         and not args.pure_distill
@@ -833,6 +894,7 @@ def main() -> None:
             args.frozen_expert_temporal_additive_residual
             or args.reference_phase_retiming
             or args.action_chunk_recovery
+            or args.receding_knot_recovery
         )
         and args.clips == ["data_000"]
         and args.frame_zero_env_count == args.num_envs
@@ -848,6 +910,7 @@ def main() -> None:
             args.frozen_expert_temporal_additive_residual
             or args.reference_phase_retiming
             or args.action_chunk_recovery
+            or args.receding_knot_recovery
         )
     ):
         raise SystemExit(
@@ -880,6 +943,17 @@ def main() -> None:
         raise SystemExit(
             "--credit-aligned-action-chunk requires action-chunk recovery, "
             "prefix200, episode length 235 and exactly 235 steps per rollout"
+        )
+    if args.receding_knot_recovery and not (
+        args.failure_frontier_prefix_steps == 200
+        and args.episode_length == 235
+        and args.num_steps_per_env == 235
+        and args.physical_recovery_objective
+        and args.newton_native_free_recovery
+    ):
+        raise SystemExit(
+            "--receding-knot-recovery requires the fixed prefix200, "
+            "235-step credit-aligned physical-recovery contract"
         )
     if (
         args.action_chunk_recovery
@@ -914,6 +988,7 @@ def main() -> None:
             args.frozen_expert_temporal_command_additive_residual,
             args.reference_phase_retiming,
             args.action_chunk_recovery,
+            args.receding_knot_recovery,
         )
     ) > 1:
         raise SystemExit("choose exactly one causal temporal composition rule")
@@ -926,6 +1001,7 @@ def main() -> None:
             args.released_tracker_action_supervision,
             args.reference_phase_retiming,
             args.action_chunk_recovery,
+            args.receding_knot_recovery,
         )
     )
     temporal_tracker_supervision = (
@@ -950,6 +1026,7 @@ def main() -> None:
         or args.released_tracker_action_supervision
         or args.reference_phase_retiming
         or args.action_chunk_recovery
+        or args.receding_knot_recovery
     )
     if args.official_action_anchor or embedded_expert:
         sugar_bcppo()
@@ -962,6 +1039,7 @@ def main() -> None:
             FrozenOfficialRefinerTrackerSupervisedResidualActorCritic,
             RefinerReferencePhaseCausalTemporalActorCritic,
             RefinerActionChunkCausalTemporalActorCritic,
+            RefinerRecedingKnotCausalTemporalActorCritic,
         )
 
         builtins.FrozenOfficialRefinerResidualActorCritic = (
@@ -1000,6 +1078,12 @@ def main() -> None:
         rsl_rl.modules.RefinerActionChunkCausalTemporalActorCritic = (
             RefinerActionChunkCausalTemporalActorCritic
         )
+        builtins.RefinerRecedingKnotCausalTemporalActorCritic = (
+            RefinerRecedingKnotCausalTemporalActorCritic
+        )
+        rsl_rl.modules.RefinerRecedingKnotCausalTemporalActorCritic = (
+            RefinerRecedingKnotCausalTemporalActorCritic
+        )
     from rsl_rl.runners import OnPolicyRunner
 
     from sugar_newton.rl.vec_env import make_refiner
@@ -1022,6 +1106,7 @@ def main() -> None:
                 temporal_mode
                 or args.reference_phase_retiming
                 or args.action_chunk_recovery
+                or args.receding_knot_recovery
             )
             else 0
         ),
@@ -1034,6 +1119,7 @@ def main() -> None:
         ),
         reference_phase_retiming=args.reference_phase_retiming,
         action_chunk_recovery=args.action_chunk_recovery,
+        receding_knot_recovery=args.receding_knot_recovery,
         device=args.device,
         seed=args.seed,
     )
@@ -1095,6 +1181,13 @@ def main() -> None:
             args.action_chunk_recovery,
         )
     )
+    audit.update(
+        audit_receding_knot_controller(
+            runner,
+            env,
+            args.receding_knot_recovery,
+        )
+    )
     source_action_std = float(runner.alg.policy.std.detach().mean().item())
     audit.update(
         {
@@ -1108,6 +1201,7 @@ def main() -> None:
                     temporal_mode
                     or args.reference_phase_retiming
                     or args.action_chunk_recovery
+                    or args.receding_knot_recovery
                 )
                 else 890
             ),
@@ -1120,6 +1214,8 @@ def main() -> None:
             "action_dim": (
                 203
                 if args.action_chunk_recovery
+                else 29
+                if args.receding_knot_recovery
                 else 1
                 if args.reference_phase_retiming
                 else 29
@@ -1161,6 +1257,7 @@ def main() -> None:
             "newton_native_free_recovery": args.newton_native_free_recovery,
             "reference_phase_retiming": args.reference_phase_retiming,
             "action_chunk_recovery": args.action_chunk_recovery,
+            "receding_knot_recovery": args.receding_knot_recovery,
             "post_handoff_refiner_action_anchor": (
                 not args.newton_native_free_recovery
             ),
@@ -1337,6 +1434,13 @@ def main() -> None:
         "newton_native_free_recovery": args.newton_native_free_recovery,
         "reference_phase_retiming": args.reference_phase_retiming,
         "action_chunk_recovery": args.action_chunk_recovery,
+        "receding_knot_recovery": args.receding_knot_recovery,
+        "receding_knot_latches": int(
+            getattr(env, "cumulative_plan_latches", 0)
+        ),
+        "receding_knot_maximum_correction": float(
+            getattr(env, "maximum_correction_abs", 0.0)
+        ),
         "credit_aligned_action_chunk": args.credit_aligned_action_chunk,
         "num_steps_per_env": args.num_steps_per_env,
         "episode_length": args.episode_length,

@@ -1017,3 +1017,32 @@ from the rejected 24-step endpoint's `0.06366` to `0.08505`, peak lift rises
 extend the aligned budget or change its horizon, chunk, std, reward, prefix or LR.  The task-wide
 gate and Tracker/BCPPO remain closed; this closes the handoff-only action-plan family under the
 current Newton recovery objective.
+
+The next controller-topology diagnostic replaces the closed handoff-only family with causal
+state feedback while retaining every admitted serious component.  Freeze the exact released
+Refiner and retain the same past `10 x 890`, six-layer, 384-D causal Transformer, prefix200,
+35-step recovery interval, tanh bound one, exploration std `0.35`, physical objective and fixed
+LR `1e-5`.  At the seven fixed knot boundaries `200/205/.../230`, query the current causal history
+for one 29-D correction and hold that correction for exactly five controls.  Only these seven
+decision rows enter PPO; no future state, outcome label, shooting target, Tracker or BCPPO teacher
+enters the actor.  Episode length and PPO storage both remain 235 so every knot receives its
+complete within-episode return.  This is one predeclared receding-horizon state-feedback topology,
+not a knot-geometry or hyperparameter sweep.
+
+Fresh seed171753 must first pass one complete 235-step zero-optimizer horizon with exactly seven
+latches per world, 1,600 parameter-exact prefix controls, 280 bounded correction controls, finite
+tensors, zero divergence and bitwise-zero parameter change.  Only that machine pass admits fresh
+seed171754 for two updates / 3,760 transitions; it must retain exact frozen Refiner parameters,
+produce nonzero finite actor/critic/std changes and zero divergence.  Only both passes admit fresh
+seed171755 for exactly 32 updates / 60,160 transitions and frozen seed181752 on fixed data000.
+The frozen checkpoint must reach at least 5 cm lift and strict validity at step235 before the
+unchanged task-wide `16/20` lift and `16/20` strict gate.  Failure closes this topology without an
+update, knot, bound, std, reward, prefix or LR sweep and keeps Tracker/BCPPO closed.
+
+The two admission gates pass.  Seed171753 completes one 235-step zero-optimizer horizon with
+1,880 finite transitions, exactly 56 latches (`8 x 7`), 1,600 exact-prefix controls, 280 bounded
+closed-loop controls, zero divergence and bitwise-zero policy change.  Fresh seed171754 completes
+two updates / 3,760 transitions with 112 latches and zero divergence; actor/critic/std changes are
+`0.000223/0.000407/0.0000477`, so its execution and learning contracts pass.  Fresh seed171755 is
+therefore the only admitted 32-update endpoint and is running from scratch on the retained H200;
+no earlier checkpoint is eligible for frozen evaluation.
