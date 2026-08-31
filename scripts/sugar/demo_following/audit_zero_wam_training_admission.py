@@ -67,13 +67,18 @@ PROMPT_CHECKS = (
     "predicted_future_changes_before_action_decoder",
 )
 ADAPTER_CHECKS = (
+    "official_release_provenance_and_data_identity",
+    "frozen_prompt_gate_passed_same_checkpoint",
     "documented_official_embodiment_adapter",
     "supports_29d_continuous_action_chunks",
+    "official_architecture_preserved",
     "zero_update_audit",
     "two_update_optimizer_smoke",
     "joint_video_action_overfit",
     "official_optimizer_and_schedule_recorded",
     "no_local_action_transformer",
+    "future_and_outcome_labels_excluded_from_deployed_inputs",
+    "exact_predeclared_32_motion_128_sample_diagnostic",
 )
 
 
@@ -255,8 +260,16 @@ def evaluate(
     adapter_checks = {
         "protocol_exact": adapter.get("protocol") == ADAPTER_PROTOCOL,
         "passed": adapter.get("passed") is True,
+        "all_checks_true": checks_all_true(adapter),
         "official_provenance": adapter.get("provenance") == "official_zero_wam_release",
         "same_official_commit": adapter.get("model_commit") == official_commit,
+        "same_official_checkpoint_as_prompt_gate": (
+            valid_sha256(adapter.get("checkpoint_sha256"))
+            and adapter.get("checkpoint_sha256") == prompt.get("checkpoint_sha256")
+        ),
+        "exact_sugar_manifest": (
+            adapter.get("sugar_manifest_sha256") == EXPECTED_SUGAR_ICL_MANIFEST_SHA256
+        ),
         "all_fixed_adapter_checks_true": named_checks_true(adapter, ADAPTER_CHECKS),
     }
     official_adapter_ready = all(adapter_checks.values())
@@ -417,6 +430,8 @@ def run_self_test() -> None:
         "passed": True,
         "provenance": "official_zero_wam_release",
         "model_commit": commit,
+        "checkpoint_sha256": "c" * 64,
+        "sugar_manifest_sha256": EXPECTED_SUGAR_ICL_MANIFEST_SHA256,
         "checks": {name: True for name in ADAPTER_CHECKS},
     }
     admitted = evaluate(release, wan, manifest, diversity, prompt_cases, prompt, adapter)

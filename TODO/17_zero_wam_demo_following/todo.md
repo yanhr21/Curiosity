@@ -85,6 +85,14 @@
 
 ## D. Official G1 adaptation
 
+- [x] Freeze a model-free evidence auditor for the official 29-DoF path: same passed prompt
+      checkpoint, official adapter/config hashes, exact zero-update parameters, exact official
+      two-update trainable scope, frozen VAE and joint video/action/IFP losses.
+- [x] Freeze the serious fixed-data learnability contract at exactly 32 train motions (16/16), at
+      chunk anchors `21/49/77/105` (exactly 128 causal samples) and `<=0.5x` tail-median
+      video/action flow-loss ratios; pass complete
+      synthetic evidence and reject action-only, frozen-scope drift and undocumented-interface cases.
+      Fix each task's motion IDs to `2/7/14/21/26/33/40/45/52/57/64/71/76/83/90/95` before release.
 - [ ] Inspect the released embodiment/action adapter and verify that 29-DoF continuous action
       chunks and SUGAR causal state can be represented without changing Zero-WAM semantics.
 - [ ] If no documented adapter path exists, record an unsupported-embodiment blocker; do not write a

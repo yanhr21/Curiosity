@@ -609,6 +609,28 @@ requires separately positive Carry/Kick directions, exact matched-noise fingerpr
 official robot-future predictions before the action decoder. Its synthetic fixtures validate only
 the decision contract and are never model evidence.
 
+After that real prompt gate passes, audit evidence from the official 29-DoF adapter path with:
+
+```bash
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/demo_following/audit_zero_wam_official_29dof_adapter.py \
+  --evidence-json OFFICIAL_ZERO_WAM_SUGAR_29DOF_ADAPTER_EVIDENCE.json \
+  --prompt-gate-result experiments/demo_following/zero_wam_official_v1/frozen_prompt_gate_v1/FROZEN_PROMPT_GATE_RESULT.json \
+  --expected-model-commit OFFICIAL_40_HEX_COMMIT \
+  --expected-checkpoint-sha256 OFFICIAL_64_HEX_CHECKPOINT_SHA256 \
+  --output-dir experiments/demo_following/zero_wam_official_v1/official_29dof_adapter_audit_v1
+```
+
+This audit contains no adapter or model. It requires exact official module/config/checkpoint hashes,
+zero parameter change at zero updates, exactly the official trainable scope after two updates, a
+bitwise-frozen VAE and finite nonzero video/action gradients. The fixed-data diagnostic uses IDs
+`2/7/14/21/26/33/40/45/52/57/64/71/76/83/90/95` for each task (exactly 16 Carry/16 Kick),
+selection SHA256 `949346b5e54710f49d7b8ea3683be6d96397a5a7ad22a4c459e9b4137eec645a`, at
+fixed chunk anchors `21/49/77/105` for exactly 128 causal samples, and must reduce both official
+video-flow and action-flow tail-median losses to at most half their initial values without worsening
+IFP. Passing only opens full 160-motion / 22,400-chunk bounded post-training; it is not itself an
+adapted checkpoint or closed-loop result.
+
 Keep the release and admission decisions live inside the retained H200 allocation with:
 
 ```bash

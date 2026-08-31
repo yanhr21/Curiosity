@@ -115,6 +115,21 @@ official predicted robot future before the action decoder. The case manifest is 
 `035e554a94ecd506e4e4d287f32cf90d21f78f8a5211277f34daedf4516e37f5`. Do not change anchors,
 statistical unit, comparison family or thresholds after official scores are observed.
 
+The Stage D adapter evidence contract is also frozen and contains no replacement model. An official
+adapter must be documented at the same commit/checkpoint that passed Stage C, expose continuous
+29-DoF executed-action chunks, retain the released VAE/video Transformer/action Transformer/MoT/IFP
+with no architecture diff or local learned module, and exclude future/outcome fields from deployed
+inputs. Zero-update hashes are exact. The two-update changed-module set must equal the official
+configuration exactly, the VAE stays bitwise frozen and both video/action gradient norms are finite
+and positive. The joint fixed-data diagnostic uses source IDs
+`2/7/14/21/26/33/40/45/52/57/64/71/76/83/90/95` for each task (exactly 16 Carry/16 Kick), with
+selection SHA256 `949346b5e54710f49d7b8ea3683be6d96397a5a7ad22a4c459e9b4137eec645a`, at
+fixed chunk anchors `21/49/77/105` for exactly 128 causal samples, an official config frozen before
+outcomes, `<=0.5x` tail-median reductions
+for both video-flow and action-flow loss and no IFP worsening. This does not reduce formal
+post-training below all 160 train motions / 22,400 chunks and does not itself count as training
+success. Do not weaken it after seeing official evidence.
+
 The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
 updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752
 is finite and keeps the released Refiner exact outside the recovery interval, but reaches only

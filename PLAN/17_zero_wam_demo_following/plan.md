@@ -277,6 +277,26 @@ not action MSE alone.  The stopping point and optimizer are copied from the rele
 recipe if one exists.  If none exists, this stage is blocked as an unsupported embodiment rather
 than replaced with a hand-written head.
 
+The adapter evidence auditor is frozen before release and contains no model implementation. It
+requires an official repository-relative adapter/config document and exact commit/checkpoint hashes;
+29-D continuous executed-action chunks; the released VAE, video Transformer, action Transformer,
+MoT and IFP; no architecture diff or local learned module; and future/outcome labels excluded from
+deployed inputs. Zero-update hashes must be identical across every official module scope. At two
+updates the changed scope must equal the official trainable-module set exactly, the VAE must remain
+bitwise unchanged, and both video/action branch gradient norms must be finite and positive.
+
+The fixed-data diagnostic uses exactly 32 distinct train motions (16 Carry, 16 Kick): source IDs
+`2/7/14/21/26/33/40/45/52/57/64/71/76/83/90/95` for each task, selected evenly from the sorted
+80-motion train set before release. The canonical selection SHA256 is
+`949346b5e54710f49d7b8ea3683be6d96397a5a7ad22a4c459e9b4137eec645a`. Each motion uses fixed
+chunk anchors `21/49/77/105`, for exactly 128 causal samples. Its optimizer, schedule, stopping
+point and module selection come from a config
+frozen before the run. The tail-median official video-flow and action-flow losses must each be at
+most `0.5x` their initial value, while IFP may not worsen. This diagnostic tests interface
+learnability only; a pass does not reduce the formal post-training corpus below all 160 train motions
+and 22,400 non-overlapping chunks. Synthetic evidence tests pass the complete contract and reject
+action-only improvement, frozen-VAE drift and an undocumented adapter; they are not model results.
+
 ### Stage E — same-checkpoint closed-loop frozen evaluation
 
 The first physical gate uses the compatible SMALLBOX scene where exact released endpoints already
