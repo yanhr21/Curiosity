@@ -137,6 +137,12 @@
       no fall regression. Prove predicted future -> decoder -> executed 29-D action at every frame
       with no teacher future/target/router/demo reward. Contract tests reject checkpoint/state/cache,
       causal-chain/action, endpoint-identity, fall and 15/20 failures; fixtures are not model results.
+- [x] Freeze the motion-disjoint test case set before outcomes: all 19 test motions, ten deterministic
+      paired physics profiles and matched/reversed/same-task-alternate/wrong-task prompts, yielding
+      190 groups / 760 rollouts / 494,000 frames. All prompt sources remain test-only, evaluation
+      targets stay outside deployed inputs and exact manifest SHA256 is
+      `8acaf4613d8c194bbbf03977c9c6c2b9837d09e8d29f175457377f4e76ba0c71`. Require per-source
+      `8/10` prompted-task safety plus separate Holm-corrected order and identity gates.
 
 - [ ] Freeze one adapted checkpoint and restore elementwise-identical SMALLBOX physics/history for
       Carry45 and Kick21 prompt-only swaps.

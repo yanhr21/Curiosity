@@ -364,6 +364,22 @@ ordered-versus-reversed preference and same-task alternate-prompt preference sep
 claim requires the physical task outcome and selected-motion/order gates to pass together; task
 classification or generated-video quality alone is insufficient.
 
+The motion-disjoint closed-loop set is also frozen before any adapted result. All 19 immutable test
+motions (Carry `9/19/.../99`, Kick `9/19/.../89`) expand over ten deterministic paired physics
+profiles and four prompt conditions: matched, identical reversed, fixed same-task alternate and
+fixed wrong-task. This yields 190 paired groups, 760 rollouts and 494,000 required 650-frame closed
+loop steps. Every condition in a group shares physics seed and matched scoring-noise seed; every
+prompt source remains test-only, and no evaluation target enters the deployed model. The exact case
+manifest SHA256 is `8acaf4613d8c194bbbf03977c9c6c2b9837d09e8d29f175457377f4e76ba0c71`.
+
+For every source motion, matched and wrong-task prompts must each produce at least `8/10` safe
+outcomes for the prompted task with no fall regression against its exact released endpoint. Order
+and selected-motion identity remain distinct gates: using matched official diffusion noise, matched
+must beat reversed and same-task-alternate official flow loss at source-motion level, with positive
+per-task means, win rate above `0.5`, and one-sided exact sign tests passing one Holm family. Physical
+task switching, temporal order and identity must pass together; any single failure closes the broad
+test-motion claim without a guidance/reward/update sweep.
+
 The SMALLBOX decision is frozen as an executable trace audit before the model exists. Evaluation
 seed `281500` runs exactly 20 matched profiles x Carry45/Kick21 x adapted/released-endpoint routes x
 650 frames. All four routes for a profile must restore identical full-state/history hashes and

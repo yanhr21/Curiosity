@@ -13,6 +13,7 @@ ICL_MANIFEST="$BASE/icl_manifest_v2"
 DATA_DIVERSITY="$BASE/training_data_diversity_v1"
 PROMPT_GATE_CASES="$BASE/frozen_prompt_gate_cases_v1"
 TRAINING_SCHEDULE="$BASE/bounded_posttraining_schedule_v1"
+MOTION_DISJOINT_CASES="$BASE/motion_disjoint_closed_loop_cases_v1"
 PROMPT_ROOT="$BASE/prompt_rgb_isolated_v1"
 KIT_ARGS="--/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
 
@@ -110,3 +111,13 @@ if [[ ! -f "$TRAINING_SCHEDULE/BOUNDED_POSTTRAINING_SCHEDULE_RESULT.json" ]]; th
         --output-dir "$TRAINING_SCHEDULE"
 fi
 jq -e '.passed == true' "$TRAINING_SCHEDULE/BOUNDED_POSTTRAINING_SCHEDULE_RESULT.json" >/dev/null
+
+if [[ ! -f "$MOTION_DISJOINT_CASES/MOTION_DISJOINT_CLOSED_LOOP_CASES_RESULT.json" ]]; then
+    "$PYTHON_BIN" \
+        "$ROOT/scripts/sugar/demo_following/build_zero_wam_motion_disjoint_closed_loop_cases.py" \
+        --source-manifest "$ICL_MANIFEST/ICL_MANIFEST.jsonl" \
+        --output-dir "$MOTION_DISJOINT_CASES" \
+        --self-test
+fi
+jq -e '.passed == true' \
+    "$MOTION_DISJOINT_CASES/MOTION_DISJOINT_CLOSED_LOOP_CASES_RESULT.json" >/dev/null

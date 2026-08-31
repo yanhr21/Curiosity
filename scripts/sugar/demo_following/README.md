@@ -707,6 +707,25 @@ prove official predicted future -> action-decoder input -> finite executed 29-D 
 teacher future, future target, outcome label, router or demo reward. Passing is only a two-prompt
 SMALLBOX result; motion-disjoint and cross-asset gates remain separate.
 
+Freeze the motion-disjoint test rollouts independently of model outcomes with:
+
+```bash
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/demo_following/build_zero_wam_motion_disjoint_closed_loop_cases.py \
+  --source-manifest experiments/demo_following/zero_wam_official_v1/icl_manifest_v2/ICL_MANIFEST.jsonl \
+  --output-dir experiments/demo_following/zero_wam_official_v1/motion_disjoint_closed_loop_cases_v1 \
+  --self-test
+```
+
+The immutable result contains every test motion (10 Carry, 9 Kick), ten paired physics profiles and
+matched/reversed/same-task-alternate/wrong-task prompts: 190 four-condition groups, 760 rollouts and
+494,000 fixed closed-loop frames. All prompt sources are test-only and share exact per-group physics
+and scoring-noise seeds. Its case-manifest SHA256 is
+`8acaf4613d8c194bbbf03977c9c6c2b9837d09e8d29f175457377f4e76ba0c71`. Matched and wrong-task
+prompts must produce `8/10` safe prompted-task outcomes per source without endpoint fall regression;
+matched-vs-reversed order and matched-vs-same-task identity official-flow margins are evaluated
+separately with source-motion statistics and one Holm family. All three gates must pass together.
+
 Keep the release and admission decisions live inside the retained H200 allocation with:
 
 ```bash

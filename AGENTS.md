@@ -179,6 +179,18 @@ demo reward use. All 20 prompt swaps must change predicted future before or with
 change. Reject identity/state/cache drift, action without future change, action mismatch, endpoint
 drift, fall regression and 15/20 outcomes without a sweep. Passing is not arbitrary-demo following.
 
+The motion-disjoint Zero-WAM closed-loop cases are frozen before model outcomes. All 19 immutable
+test motions (10 Carry, 9 Kick) use ten deterministic paired physics profiles and four conditions:
+matched, reversed, same-task alternate and wrong task. This is 190 groups / 760 rollouts / 494,000
+frames, with test-only prompt sources, shared per-group physics/noise seeds and no evaluation target
+in deployed inputs. The case manifest SHA256 is
+`8acaf4613d8c194bbbf03977c9c6c2b9837d09e8d29f175457377f4e76ba0c71`. Require every source's
+matched and wrong-task prompt to reach `8/10` safe prompted-task outcomes without endpoint fall
+regression. Separately require matched to beat reversed and same-task alternate official flow loss
+at source-motion level, positive per-task means, win rate above 0.5 and one Holm-corrected family.
+Physical task switching, order and identity must pass together; do not reinterpret a subset as
+arbitrary-demo following or tune after failure.
+
 The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
 updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752
 is finite and keeps the released Refiner exact outside the recovery interval, but reaches only
