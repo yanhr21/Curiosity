@@ -111,8 +111,12 @@ exact trajectory imitation.
 
 ## 3. SUGAR scope and claim boundary
 
-The existing immutable prompt corpus is suitable for an audit but not for reproducing the paper's
-scale:
+The historical XIRL prompt corpus remains valid evidence for its closed negative audit, but visual
+inspection during Plan 17 found that its 2.5 m tiled-scene spacing lets neighboring environments
+enter the camera frustum.  It must not be reused as a selected-demo training stream.  Plan 17
+therefore re-renders the same exact source motions with 30 m environment spacing, a 20 m camera far
+clip and one fixed first-frame robot/object XY centering transform per trajectory.  No future or
+per-frame camera tracking is used.  The isolated corpus keeps the same bounded scale:
 
 - 100 CarryBox and 99 KickBox source motions;
 - exactly 64 clean `320 x 320` RGB frames per motion;
@@ -130,6 +134,15 @@ actual action annotation:
 Before model work, an adapter audit must prove which of the 199 source motions has a complete,
 finite, temporally aligned `(prompt RGB, robot RGB, Generator command, Tracker observation,
 29-D action)` record.  Missing pairs are reported, never synthesized with a local expert.
+
+That data audit is complete as of 2026-08-31. All 199 motions have one complete isolated prompt and
+robot stream plus 700 exact released Generator+Tracker transitions, for 139,300 transitions total.
+The immutable v2 manifest contains 27,860 synchronized video/action intervals, including 22,400
+train intervals. It passes every predeclared split, finiteness, continuity, executed-action,
+command/observation equality, camera-isolation and pixel-nonreuse check. Across 12,736 normalized
+prompt/target frame comparisons and 199 complete streams there are zero identical pairs. The data
+are sufficient for the fixed two-task SUGAR audit once the official model exists; they do not make
+the corpus equivalent to HumanGen or authorize a local substitute.
 
 SUGAR currently supplies only two task families.  Consequently:
 
@@ -162,12 +175,14 @@ class/config, a complete official example and no local model substitution.
 
 ### Stage B — immutable SUGAR ICL manifest
 
-Build a manifest without rendering new presentation videos.  Every row records task, source ID,
+Build a manifest without rendering presentation/composite videos.  Every row records task, source ID,
 split, prompt frames, target robot frames, Generator commands, 510-D Tracker observations, 29-D
 actions, frame timestamps and the exact released expert identities.  Enforce:
 
 - source IDs are disjoint across train/validation/test;
 - prompt and target streams are synchronized by physical time, not free-window nearest matching;
+- all prompt/target environments are beyond the camera far clip of every neighboring environment,
+  and a strict non-constant-frame gate passes after fixed first-frame causal centering;
 - all arrays are finite and every action is the action actually executed by the paired expert;
 - no future target, outcome label, task-success label or selected-demo ID enters deployed history;
 - counterfactual prompts change only prefix memory; robot history, target, noise and language state

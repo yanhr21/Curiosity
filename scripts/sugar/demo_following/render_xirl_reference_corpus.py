@@ -66,6 +66,15 @@ parser.add_argument("--output-root", type=Path, required=True)
 parser.add_argument("--frames-per-motion", type=int, default=64)
 parser.add_argument("--camera-width", type=int, default=320)
 parser.add_argument("--camera-height", type=int, default=320)
+parser.add_argument(
+    "--env-spacing",
+    type=float,
+    default=2.5,
+    help=(
+        "Environment-center spacing in meters. Plan 17 uses 30 m so every "
+        "neighbor lies beyond the camera far clip."
+    ),
+)
 parser.add_argument("--embodiment", choices=("g1", "sphere"), default="g1")
 parser.add_argument("--write-preview-mp4", action="store_true")
 AppLauncher.add_app_launcher_args(parser)
@@ -287,6 +296,9 @@ def main() -> None:
 
     cfg = cfg_class()
     cfg.scene.num_envs = len(motions)
+    if args.env_spacing <= 0:
+        raise ValueError("--env-spacing must be positive")
+    cfg.scene.env_spacing = args.env_spacing
     cfg.seed = 271401
     cfg.sim.device = args.device
     cfg.scene.world_camera = camera_cfg()
@@ -325,6 +337,18 @@ def main() -> None:
         origin = scene.env_origins
         device = origin.device
         env_ids = torch.arange(len(motions), device=device, dtype=torch.long)
+        initial_focus_xy = torch.as_tensor(
+            np.stack(
+                [
+                    0.5 * (
+                        motion["robot_root"][0, :2]
+                        + motion["object_root"][0, :2]
+                    )
+                    for motion in motions
+                ]
+            ),
+            device=device,
+        )
         if args.write_preview_mp4:
             writers = [
                 FfmpegWriter(
@@ -345,6 +369,8 @@ def main() -> None:
             ).clone()
             robot_root[:, :3] += origin
             object_root[:, :3] += origin
+            robot_root[:, :2] -= initial_focus_xy
+            object_root[:, :2] -= initial_focus_xy
             joint_pos = torch.as_tensor(
                 np.stack([motion["joint_pos"][frame_id] for motion in motions]),
                 device=device,
@@ -439,8 +465,17 @@ def main() -> None:
         "frames_per_motion": OUTPUT_FRAME_COUNT,
         "resolution": [args.camera_width, args.camera_height],
         "rtx_render_resolution": [RTX_RENDER_SIZE, RTX_RENDER_SIZE],
+        "environment_spacing_m": args.env_spacing,
+        "camera_far_clip_m": 20.0,
+        "neighbor_center_is_beyond_far_clip": bool(
+            args.env_spacing - float(np.hypot(3.6, 3.6)) > 20.0
+        ),
         "source": "exact SUGAR 50Hz root/joint/object trajectory",
         "render": "IsaacLab RTX TiledCamera exact-pose playback; no physics replay",
+        "fixed_trajectory_centering": (
+            "subtract the per-motion first-frame robot/object XY midpoint once; "
+            "no future or per-frame camera tracking"
+        ),
         "clean_frame_contract": "RGB only; no text, plot, border, metric or policy output",
         "sphere_agent_contract": (
             {

@@ -18,9 +18,13 @@ loading, followed by a frozen SUGAR matched/wrong/reversed/same-task prompt gate
 task, temporal order and selected-motion identity opens official 29-DoF action adaptation and one
 same-checkpoint SMALLBOX physical prompt swap.
 
-SUGAR's existing 100 Carry + 99 Kick clean RGB motions are a two-task same-embodiment audit, not a
-replica of HumanGen's 74.2K pairs/8.6K tasks or an open-ended cross-embodiment claim.  The complete
-Generator+Tracker inference pair and actual executed 29-D actions are mandatory targets.
+The immutable SUGAR data stage is complete: 199 isolated prompt/robot streams, 139,300 exact
+Generator+Tracker transitions, 27,860 synchronized video/action intervals and 22,400 train
+intervals pass the v2 machine gate.  The old 2.5 m XIRL renders are excluded because neighboring
+environments are visible; Plan 17 uses 30 m spacing, a 20 m far clip and one causal first-frame
+centering transform.  All 12,736 normalized prompt/target comparisons and all complete streams are
+nonidentical.  This is still a two-task same-embodiment audit, not a replica of HumanGen's 74.2K
+pairs/8.6K tasks or an open-ended cross-embodiment claim.
 
 The Newton receding-knot Refiner diagnostic is closed.  Seed171755 completed 32 updates / 60,160
 transitions with 1,792 latches and zero divergence, but frozen seed181752 reached only `0.01005 m`

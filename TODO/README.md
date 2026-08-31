@@ -9,6 +9,9 @@
   [`17_zero_wam_demo_following/todo.md`](17_zero_wam_demo_following/todo.md);
 - [x] record that official main `5a8a2da` is project-page-only as of 2026-08-31 and that code,
   model and data are announced before 2026-09-15; do not substitute a local world model;
+- [x] build the immutable isolated SUGAR gate corpus: 199 prompt/robot streams, 139,300 exact
+  Generator+Tracker actions and 27,860 synchronized intervals, with 30 m camera isolation and zero
+  reused prompt/target streams;
 - [ ] when official artifacts appear, strict-load the released checkpoint on H200 and pass the
   fixed matched/wrong/reversed/same-task SUGAR prompt gate before any action adaptation;
 - [ ] only after that gate, use the official embodiment/action path for one 29-DoF same-checkpoint

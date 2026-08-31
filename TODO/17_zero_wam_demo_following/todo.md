@@ -20,19 +20,26 @@
 
 ## B. SUGAR paired-data contract
 
-- [x] Verify the existing clean prompt corpus: 100 Carry + 99 Kick motions, 64 RGB frames each,
-      `320 x 320`, clean-frame contract and fixed source-ID-disjoint train/valid/test split.
+- [x] Verify the historical XIRL prompt corpus dimensions: 100 Carry + 99 Kick motions, 64 RGB
+      frames each, `320 x 320` and fixed source-ID-disjoint train/valid/test split.
+- [x] Reject that historical corpus for Plan 17 selected-demo training after visual inspection found
+      neighboring tiled environments inside the 2.5 m-spacing camera frustum.
+- [x] Complete the isolated Plan 17 prompt re-render with 30 m spacing, 20 m far clip and a fixed
+      first-frame-only centering transform; retain the constant-frame gate.
 - [x] Identify the required executable target chain as complete Generator+Tracker pairs with
       current 36-D command, 510-D Tracker observation and actual 29-D executed action.
-- [ ] Inventory complete action-grounded robot-video targets for all 199 source motions; record
-      missing or non-finite motions instead of synthesizing actions.
-- [ ] Build one immutable manifest row per complete pair with task/source/split, prompt/target frame
+- [x] Inventory the action-grounded half for all 199 motions: 139,300 official Generator+Tracker
+      transitions, exact 36-D command/510-D observation/29-D executed-action equality, finite
+      pre/post states, no reset and bitwise reproduction of the historical same-seed collector.
+- [x] Build one immutable manifest row per complete pair with task/source/split, prompt/target frame
       paths, timestamps, command, observation, action and exact released expert identities.
-- [ ] Prove source-ID split disjointness, physical-time alignment, finite arrays and actual-action
+- [x] Prove source-ID split disjointness, physical-time alignment, finite arrays and actual-action
       replay; reject prompt/target rows that reuse identical rendered pixels.
-- [ ] Build fixed wrong-task, reversed-frame and same-task-alternate prompt indices while holding
+- [x] Build fixed wrong-task, reversed-frame and same-task-alternate prompt indices while holding
       robot history, target, diffusion noise and disabled-language state identical.
-- [ ] Emit a machine-readable manifest gate; do not start model adaptation when it fails.
+- [x] Emit the passing v2 machine-readable manifest gate: 199 rows, 139,300 actions, 27,860
+      video-action intervals, 22,400 train intervals, 12,736 normalized pixel comparisons and zero
+      identical prompt/robot pairs or complete streams.
 
 ## C. Frozen official prompt gate
 
@@ -84,4 +91,4 @@
       `0/1` strict; task-wide was automatically skipped.
 - [x] Forbid another Newton residual, knot, update, bound, reward, prefix, std or LR sweep as the
       response to this failure.
-- [ ] Keep datasets/checkpoints/videos under ignored `experiments/`; commit only source and docs.
+- [x] Keep datasets/checkpoints/videos under ignored `experiments/`; commit only source and docs.

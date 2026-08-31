@@ -63,8 +63,18 @@ shrink Wan-2.2-TI2V-5B, or call a homemade video/action Transformer a reproducti
 official artifacts appear, first strict-load the released checkpoint and run the fixed SUGAR
 matched/wrong/reversed/same-task prompt gate with official video/IFP losses. Only a pass on held-out
 task, order and selected-motion identity may open the official 29-DoF embodiment/action adaptation
-and same-checkpoint closed-loop physical gate. The current 100 Carry + 99 Kick corpus is a two-task
-same-embodiment audit, not HumanGen-scale, open-ended or cross-embodiment evidence.
+and same-checkpoint closed-loop physical gate.
+
+The immutable SUGAR side of that gate is complete. The historical 2.5 m-spaced XIRL renders are
+rejected for Plan 17 because neighboring environments enter the camera frustum. The replacement
+corpus re-renders all 100 Carry + 99 Kick prompts and robot targets at 30 m spacing with a 20 m far
+clip and one first-frame-only fixed centering transform. It contains 139,300 exact released
+Generator+Tracker transitions, 27,860 synchronized video/action intervals and 22,400 train
+intervals. The v2 manifest passes split, finiteness, pre/post continuity, executed-action,
+command/observation equality, camera-isolation and pixel-nonreuse checks; all 12,736 normalized
+prompt/target comparisons and all 199 complete streams are nonidentical. This remains a two-task
+same-embodiment audit, not HumanGen-scale, open-ended or cross-embodiment evidence. No model is
+trained until the actual official Zero-WAM implementation and weights can be strict-loaded.
 
 The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
 updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752

@@ -4,8 +4,10 @@
 This collector runs the released task-specific Tracker and Generator in the
 IsaacLab/PhysX inference environment.  It records the four filtered physical
 ContactSensors (left/right hand and foot), body/object state, actions, motion
-frame and reset boundary on the same control clock.  Reference binary labels
-are never used as actual-contact targets.
+frame and reset boundary on the same control clock.  It also records exact
+pre-transition robot/object state, the 36-D Generator command, 510-D Tracker
+observation and requested/executed 29-D action for action-grounded video-policy
+adapters.  Reference binary labels are never used as actual-contact targets.
 """
 
 from __future__ import annotations
@@ -375,10 +377,27 @@ def main() -> None:
     obs = env.get_observations()
     if isinstance(obs, tuple):
         obs = obs[0]
+    command = base.command_manager.get_term("motion")
     body_names = np.asarray(base.scene["robot"].body_names, dtype="U64")
     records: dict[str, list[np.ndarray]] = {
+        # Action-grounded, pre-transition records.  These fields are deliberately
+        # sampled before policy inference and env.step so that each row is the
+        # causal state/command that produced the paired executed action.
+        "robot_root_state_before_w": [],
+        "robot_joint_pos_before": [],
+        "robot_joint_vel_before": [],
+        "object_root_state_before_w": [],
+        "policy_observation_before": [],
+        "generator_command_before": [],
+        "motion_frame_before": [],
+        "local_motion_id_before": [],
+        "requested_action": [],
+        "executed_action": [],
+        # Existing post-transition contact-event records are retained exactly.
         "robot_root_state_w": [],
         "robot_body_position_w": [],
+        "robot_joint_pos": [],
+        "robot_joint_vel": [],
         "object_root_state_w": [],
         "contact_force_w": [],
         "action": [],
@@ -391,14 +410,87 @@ def main() -> None:
     started = time.time()
     print("COLLECTOR_PHASE=rollout_started", flush=True)
     for step in range(args.steps):
+        policy_observation_before = obs["policy"]
+        generator_command_before = command.last_command[:, 0, :]
+        if policy_observation_before.shape != (args.num_envs, 510):
+            raise RuntimeError(
+                "official Tracker policy observation shape drift: "
+                f"{tuple(policy_observation_before.shape)}"
+            )
+        if generator_command_before.shape != (args.num_envs, 36):
+            raise RuntimeError(
+                "official Generator command shape drift: "
+                f"{tuple(generator_command_before.shape)}"
+            )
+        if not torch.equal(
+            policy_observation_before[:, :36], generator_command_before
+        ):
+            maximum_error = torch.amax(
+                torch.abs(
+                    policy_observation_before[:, :36] - generator_command_before
+                )
+            ).item()
+            raise RuntimeError(
+                "Tracker observation does not begin with the exact current "
+                f"Generator command; max error={maximum_error}"
+            )
+        records["robot_root_state_before_w"].append(
+            base.scene["robot"].data.root_state_w.detach().cpu().numpy().copy()
+        )
+        records["robot_joint_pos_before"].append(
+            base.scene["robot"].data.joint_pos.detach().cpu().numpy().copy()
+        )
+        records["robot_joint_vel_before"].append(
+            base.scene["robot"].data.joint_vel.detach().cpu().numpy().copy()
+        )
+        records["object_root_state_before_w"].append(
+            base.scene["obj"].data.root_state_w.detach().cpu().numpy().copy()
+        )
+        records["policy_observation_before"].append(
+            policy_observation_before.detach().cpu().numpy().copy()
+        )
+        records["generator_command_before"].append(
+            generator_command_before.detach().cpu().numpy().copy()
+        )
+        records["motion_frame_before"].append(
+            command.time_steps.detach().cpu().numpy().copy()
+        )
+        records["local_motion_id_before"].append(
+            command.motion_id.detach().cpu().numpy().copy()
+        )
         with torch.inference_mode():
             action = policy(obs)
             obs, _, done, _ = env.step(action)
+        executed_action = base.action_manager.action
+        if executed_action.shape != action.shape or not torch.equal(
+            executed_action, action
+        ):
+            maximum_error = (
+                float("inf")
+                if executed_action.shape != action.shape
+                else torch.amax(torch.abs(executed_action - action)).item()
+            )
+            raise RuntimeError(
+                "executed action differs from the official Tracker output; "
+                f"max error={maximum_error}"
+            )
+        records["requested_action"].append(
+            action.detach().cpu().numpy().copy()
+        )
+        records["executed_action"].append(
+            executed_action.detach().cpu().numpy().copy()
+        )
         records["robot_root_state_w"].append(
             base.scene["robot"].data.root_state_w.detach().cpu().numpy().copy()
         )
         records["robot_body_position_w"].append(
             base.scene["robot"].data.body_pos_w.detach().cpu().numpy().copy()
+        )
+        records["robot_joint_pos"].append(
+            base.scene["robot"].data.joint_pos.detach().cpu().numpy().copy()
+        )
+        records["robot_joint_vel"].append(
+            base.scene["robot"].data.joint_vel.detach().cpu().numpy().copy()
         )
         records["object_root_state_w"].append(
             base.scene["obj"].data.root_state_w.detach().cpu().numpy().copy()
@@ -411,7 +503,6 @@ def main() -> None:
         )
         records["action"].append(action.detach().cpu().numpy().copy())
         records["done"].append(done.detach().cpu().numpy().astype(bool, copy=True))
-        command = base.command_manager.get_term("motion")
         records["motion_frame"].append(command.time_steps.detach().cpu().numpy().copy())
         records["local_motion_id"].append(command.motion_id.detach().cpu().numpy().copy())
         records["policy_observation"].append(
@@ -434,6 +525,10 @@ def main() -> None:
     ):
         raise RuntimeError("local motion ID is outside the enumerated motion folder")
     arrays["source_motion_id"] = source_motion_id_by_local[local_motion_id]
+    local_motion_id_before = arrays["local_motion_id_before"].astype(np.int64)
+    arrays["source_motion_id_before"] = source_motion_id_by_local[
+        local_motion_id_before
+    ]
     force = arrays["contact_force_w"].astype(np.float32)
     reset_before = arrays["done"].astype(bool)
     contact = np.linalg.norm(force, axis=-1) > args.contact_threshold_n
@@ -489,6 +584,11 @@ def main() -> None:
         robot_body_names=body_names,
         source_motion_id_by_local_motion=source_motion_id_by_local,
         source_reference_steps_by_local_motion=source_reference_steps_by_local,
+        environment_origin_w=base.scene.env_origins.detach().cpu().numpy().copy(),
+        transition_index=np.arange(args.steps, dtype=np.int32),
+        transition_time_s=(
+            np.arange(args.steps, dtype=np.float64) * CONTROL_DT_S
+        ),
         control_dt_s=np.asarray([CONTROL_DT_S], dtype=np.float32),
     )
     (output / "RESULT.json").write_text(

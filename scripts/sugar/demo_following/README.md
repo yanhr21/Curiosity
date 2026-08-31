@@ -472,3 +472,38 @@ The admitted run is negative: trained/raw test temporal MAE is `0.31675/0.29221`
 `0.01282/0.10697`, and task-reference accuracy ties at `0.94737`. Its machine result is
 `pretrain_runs/sugar_carry_kick_tcc_seed271402/temporal_retrieval_result.json` with `passed=false`.
 This stops the pipeline before any reward predictor or policy training.
+
+### Official Zero-WAM data preparation
+
+Plan 17 keeps the model boundary strict: until the official Zero-WAM code and
+weights are released, this repository prepares only the paired SUGAR adapter
+data and never trains a local replacement world/action model.  From a retained
+H200 Slurm step, run:
+
+```bash
+bash scripts/sugar/demo_following/run_zero_wam_sugar_data_pipeline.sh \
+  /public/home/yanhongru/Curiosity/experiments/demo_following/zero_wam_official_v1
+```
+
+The first stage executes the released Carry/Kick Generator+Tracker pairs for all
+100/99 source motions and records 700 causal control transitions per trajectory.
+For every action it stores the exact pre-step 36-D Generator command, 510-D
+Tracker observation, 29-D requested/executed action and pre/post physical state.
+The action audit requires exact command-prefix equality, exact requested/executed
+action equality, transition continuity, no reset, finite arrays and full
+source-ID-disjoint coverage.
+
+The renderer then uses those recorded states without rerunning policy or physics.
+It emits 141 clean 320x320 robot frames at 10 Hz per trajectory; each adjacent
+frame pair maps to exactly five of the 700 actions, including an exact terminal
+post-state.  Prompt and robot streams are both re-rendered for Plan 17 with 30 m
+between environment centers while the camera far clip is 20 m, so neighboring
+motions cannot enter a selected-demo image.  Each trajectory is translated once
+using only its first-frame robot/object midpoint; the camera never follows future
+state.  The final immutable manifest joins these robot streams to the isolated
+64-frame prompts and freezes split-matched wrong-task, reversed and same-task-
+alternate prefixes.  Outcome/contact arrays are excluded from the deployed input
+allowlist.  Passing this data gate gives 199 trajectories,
+139,300 actions and 27,860 video-action intervals (22,400 train intervals) for
+the bounded two-task SUGAR audit; it is not Zero-WAM pre-training or an
+open-ended/cross-embodiment result.
