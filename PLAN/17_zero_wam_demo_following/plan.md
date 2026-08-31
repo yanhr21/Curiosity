@@ -356,6 +356,12 @@ optimizer row must match that composition field-for-field in addition to sharing
 This prevents an optimizer trace from claiming balanced or differently assigned data that never
 contributed to that update.
 
+The optimizer trace also records official task-conditioned loss reductions without changing the
+training objective. For a step, Carry/Kick video-flow, action-flow and IFP losses are present if and
+only if the atomic composition contains that task. Per-epoch medians are then computed separately;
+both Carry and Kick must improve final video/action loss and keep final IFP non-worse than their own
+first complete epoch. Aggregate improvement cannot compensate for one stalled task.
+
 ### Stage E — same-checkpoint closed-loop frozen evaluation
 
 The first physical gate uses the compatible SMALLBOX scene where exact released endpoints already

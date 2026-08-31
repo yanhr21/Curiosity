@@ -124,6 +124,10 @@
       interval counts, action exposures, forward batches and packed samples from the atomic log, then
       require field-exact optimizer-trace equality. Reject cross-epoch steps and a forged task
       composition while preserving the official model/optimizer boundary.
+- [x] Prevent aggregate-loss masking: require task-conditioned official video/action/IFP losses only
+      for tasks actually consumed by each step, then require Carry and Kick independently to improve
+      last-epoch video/action medians with non-worse IFP. Reject loss records for absent tasks and a
+      flat Kick trace even when aggregate losses improve.
 - [ ] Inspect the released embodiment/action adapter and verify that 29-DoF continuous action
       chunks and SUGAR causal state can be represented without changing Zero-WAM semantics.
 - [ ] If no documented adapter path exists, record an unsupported-embodiment blocker; do not write a

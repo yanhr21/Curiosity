@@ -181,6 +181,12 @@ count. The formal optimizer trace must repeat these fields exactly. Matching onl
 insufficient; reject any claimed epoch/task composition that differs from the immutable consumption
 log.
 
+Aggregate loss progress may not hide a failed task. Each optimizer row must report official
+video/action/IFP losses separately for exactly the Carry/Kick tasks whose interval count is nonzero;
+an absent task must have no task-loss record. Reduce these values per epoch and require Carry and
+Kick independently to lower final video/action medians and not worsen IFP versus the first complete
+epoch. Reject aggregate improvement when either task stalls.
+
 The frozen Zero-WAM SMALLBOX gate is executable and immutable before real training. Seed281500 uses
 20 matched profiles x Carry45/Kick21 x adapted/exact released-endpoint routes x 650 frames. All four
 routes per profile restore identical full physics/history hashes and observed initial physics; both

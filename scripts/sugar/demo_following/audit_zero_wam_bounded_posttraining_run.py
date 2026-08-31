@@ -42,6 +42,7 @@ MINIMUM_OPTIMIZER_STEPS = (
     MINIMUM_INTERVAL_EXPOSURES + MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP - 1
 ) // MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
 LOSS_FIELDS = ("video_flow_loss", "action_flow_loss", "ifp_loss")
+TASKS = ("CarryBox", "KickBox")
 GRADIENT_FIELDS = (
     "video_gradient_norm",
     "action_gradient_norm",
@@ -498,6 +499,86 @@ def evaluate(
             if isinstance(optimizer_row.get("optimizer_step"), int)
         )
     )
+    task_loss_values_by_epoch: dict[
+        int, dict[str, dict[str, list[float]]]
+    ] = defaultdict(
+        lambda: {
+            task: {field: [] for field in LOSS_FIELDS}
+            for task in TASKS
+        }
+    )
+    task_loss_presence_exact = bool(optimizer_rows)
+    for optimizer_row in optimizer_rows:
+        epoch_index = optimizer_row.get("epoch_index")
+        task_losses = optimizer_row.get("task_losses")
+        row_valid = (
+            isinstance(epoch_index, int)
+            and epoch_index in completed_epoch_indices
+            and isinstance(task_losses, dict)
+            and set(task_losses) == set(TASKS)
+        )
+        task_loss_presence_exact = task_loss_presence_exact and row_valid
+        if not row_valid:
+            continue
+        for task, count_field in (
+            ("CarryBox", "carry_interval_count"),
+            ("KickBox", "kick_interval_count"),
+        ):
+            interval_count = optimizer_row.get(count_field)
+            values = task_losses.get(task)
+            if isinstance(interval_count, int) and interval_count > 0:
+                value_valid = (
+                    isinstance(values, dict)
+                    and set(values) == set(LOSS_FIELDS)
+                    and all(finite_nonnegative(values.get(field)) for field in LOSS_FIELDS)
+                )
+                task_loss_presence_exact = task_loss_presence_exact and value_valid
+                if value_valid:
+                    for field in LOSS_FIELDS:
+                        task_loss_values_by_epoch[epoch_index][task][field].append(
+                            float(values[field])
+                        )
+            else:
+                task_loss_presence_exact = (
+                    task_loss_presence_exact
+                    and interval_count == 0
+                    and values is None
+                )
+    task_epoch_loss_medians = {
+        epoch_index: {
+            task: {
+                field: statistics.median(values[task][field])
+                if values[task][field]
+                else None
+                for field in LOSS_FIELDS
+            }
+            for task in TASKS
+        }
+        for epoch_index, values in sorted(task_loss_values_by_epoch.items())
+    }
+    every_task_full_data_loss_progress = (
+        first_epoch is not None
+        and last_epoch is not None
+        and first_epoch != last_epoch
+        and set(task_epoch_loss_medians) == set(completed_epoch_indices)
+    )
+    if every_task_full_data_loss_progress:
+        for task in TASKS:
+            first_task_losses = task_epoch_loss_medians[first_epoch][task]
+            last_task_losses = task_epoch_loss_medians[last_epoch][task]
+            every_task_full_data_loss_progress = (
+                every_task_full_data_loss_progress
+                and all(
+                    isinstance(first_task_losses.get(field), (int, float))
+                    and isinstance(last_task_losses.get(field), (int, float))
+                    for field in LOSS_FIELDS
+                )
+                and last_task_losses["video_flow_loss"]
+                < first_task_losses["video_flow_loss"]
+                and last_task_losses["action_flow_loss"]
+                < first_task_losses["action_flow_loss"]
+                and last_task_losses["ifp_loss"] <= first_task_losses["ifp_loss"]
+            )
     optimization_checks = {
         "optimizer_trace_nonempty_and_strictly_increasing": (
             bool(optimizer_steps)
@@ -524,12 +605,16 @@ def evaluate(
         "optimizer_trace_composition_exactly_matches_atomic_consumption": (
             optimizer_trace_composition_exact
         ),
+        "task_losses_match_exact_consumed_task_presence": task_loss_presence_exact,
         "joint_video_action_ifp_losses_finite": bool(optimizer_rows) and losses_finite,
         "joint_video_action_ifp_gradients_finite": bool(optimizer_rows) and gradients_finite,
         "video_action_ifp_receive_positive_gradient_at_every_step": (
             bool(optimizer_rows) and gradients_positive_every_step
         ),
         "full_data_epoch_loss_progress": full_data_loss_progress,
+        "carry_and_kick_each_make_full_data_loss_progress": (
+            every_task_full_data_loss_progress
+        ),
     }
 
     modules = module_audit.get("modules", [])
@@ -618,6 +703,7 @@ def evaluate(
             MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
         ),
         "epoch_loss_medians": epoch_loss_medians,
+        "task_epoch_loss_medians": task_epoch_loss_medians,
         "model_commit": identity.get("model_commit"),
         "initial_checkpoint_sha256": identity.get("initial_checkpoint_sha256"),
         "final_checkpoint_sha256": final_hash if passed else None,
@@ -728,6 +814,19 @@ def run_self_test() -> None:
             }
             for optimizer_step in range(MINIMUM_OPTIMIZER_STEPS)
         ]
+        for row in optimizer_rows:
+            row["task_losses"] = {
+                "CarryBox": (
+                    {field: row[field] for field in LOSS_FIELDS}
+                    if row["carry_interval_count"] > 0
+                    else None
+                ),
+                "KickBox": (
+                    {field: row[field] for field in LOSS_FIELDS}
+                    if row["kick_interval_count"] > 0
+                    else None
+                ),
+            }
         modules = {
             "official_trainable_scope_exact": True,
             "modules": [
@@ -887,6 +986,34 @@ def run_self_test() -> None:
         flat_loss_failure = evaluate(admission_path, schedule_path, evidence_path)
         assert flat_loss_failure["checks"]["full_data_epoch_loss_progress"] is False
 
+        false_task_presence = copy.deepcopy(optimizer_rows)
+        false_task_presence[0]["task_losses"]["KickBox"] = {
+            field: false_task_presence[0][field] for field in LOSS_FIELDS
+        }
+        emit(epoch_rows, false_task_presence, modules)
+        task_presence_failure = evaluate(admission_path, schedule_path, evidence_path)
+        assert (
+            task_presence_failure["checks"][
+                "task_losses_match_exact_consumed_task_presence"
+            ]
+            is False
+        )
+
+        kick_stalled = copy.deepcopy(optimizer_rows)
+        for row in kick_stalled:
+            if row["kick_interval_count"] > 0:
+                row["task_losses"]["KickBox"] = {
+                    field: 1.0 for field in LOSS_FIELDS
+                }
+        emit(epoch_rows, kick_stalled, modules)
+        kick_stalled_failure = evaluate(admission_path, schedule_path, evidence_path)
+        assert (
+            kick_stalled_failure["checks"][
+                "carry_and_kick_each_make_full_data_loss_progress"
+            ]
+            is False
+        )
+
         missing_optimizer_step = optimizer_rows[:5] + optimizer_rows[6:]
         emit(epoch_rows, missing_optimizer_step, modules)
         optimizer_gap_failure = evaluate(admission_path, schedule_path, evidence_path)
@@ -968,6 +1095,8 @@ def run_self_test() -> None:
                         "action_only_gradient",
                         "single_joint_gradient_step",
                         "no_full_data_loss_progress",
+                        "task_loss_without_consumed_task",
+                        "kick_task_loss_stalled",
                         "optimizer_trace_gap",
                         "optimizer_task_composition_mismatch",
                         "frozen_vae_drift",

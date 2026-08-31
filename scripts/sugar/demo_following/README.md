@@ -689,6 +689,11 @@ atomic-interval counts, action exposures, forward batches and packed samples. Th
 requires the optimizer trace to match every composition field exactly; identical step IDs alone do
 not pass. Cross-epoch accumulation and forged task composition are explicit negative tests.
 
+Each optimizer row additionally reports official video/action/IFP losses for exactly the tasks with
+nonzero consumed intervals; inactive tasks must be `null`. Carry and Kick are reduced separately by
+complete epoch, and each must improve final video/action medians with non-worse IFP. Aggregate loss
+improvement cannot hide a stalled task.
+
 The evidence manifest also points to hash-verified per-trajectory epoch JSONL, optimizer JSONL,
 official module before/after hashes and the complete final checkpoint file or sharded directory. The gate requires H200 Slurm execution, the
 exact official entrypoint/config and checkpoint identity, all ten scheduled epochs, at least
