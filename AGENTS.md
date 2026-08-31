@@ -130,6 +130,16 @@ for both video-flow and action-flow loss and no IFP worsening. This does not red
 post-training below all 160 train motions / 22,400 chunks and does not itself count as training
 success. Do not weaken it after seeing official evidence.
 
+The formal bounded post-training coverage floor is immutable. Schedule seed271500 produces ten
+distinct complete epochs; each epoch contains all 160 train trajectories once, interleaves 80 Carry
+and 80 Kick so task-count prefix imbalance never exceeds one, and preserves every trajectory's 140
+chronological atomic intervals / 700 actions. The official loader may pack only contiguous intervals
+inside a trajectory according to its released schema; it may not drop or reorder them. The floor is
+224,000 atomic interval exposures and 1,120,000 action exposures. Official recipes may extend it
+only through additional complete epochs and may never use validation/test to stop below ten. The
+schedule SHA256 is `0f30252c0315855a1154d2c9f68d78b283cf35d2eee772a16692f5b0f1882ec1`.
+This controls coverage and is not by itself a success claim.
+
 The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
 updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752
 is finite and keeps the released Refiner exact outside the recovery interval, but reaches only

@@ -566,6 +566,8 @@ Recompute the explicit model/data training boundary with:
   --sugar-manifest-result experiments/demo_following/zero_wam_official_v1/icl_manifest_v2/RESULT.json \
   --sugar-data-diversity-result experiments/demo_following/zero_wam_official_v1/training_data_diversity_v1/SUGAR_TRAINING_DATA_DIVERSITY.json \
   --prompt-case-result experiments/demo_following/zero_wam_official_v1/frozen_prompt_gate_cases_v1/FROZEN_PROMPT_GATE_CASES_RESULT.json \
+  --training-schedule-result experiments/demo_following/zero_wam_official_v1/bounded_posttraining_schedule_v1/BOUNDED_POSTTRAINING_SCHEDULE_RESULT.json \
+  --training-schedule experiments/demo_following/zero_wam_official_v1/bounded_posttraining_schedule_v1/BOUNDED_POSTTRAINING_SCHEDULE.json \
   --output-dir experiments/demo_following/zero_wam_official_v1/training_admission_v1
 ```
 
@@ -630,6 +632,22 @@ fixed chunk anchors `21/49/77/105` for exactly 128 causal samples, and must redu
 video-flow and action-flow tail-median losses to at most half their initial values without worsening
 IFP. Passing only opens full 160-motion / 22,400-chunk bounded post-training; it is not itself an
 adapted checkpoint or closed-loop result.
+
+Generate the model-schema-independent full-data exposure floor with:
+
+```bash
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/demo_following/build_zero_wam_bounded_posttraining_schedule.py \
+  --source-manifest experiments/demo_following/zero_wam_official_v1/icl_manifest_v2/ICL_MANIFEST.jsonl \
+  --output-dir experiments/demo_following/zero_wam_official_v1/bounded_posttraining_schedule_v1
+```
+
+Seed271500 freezes ten complete trajectory epochs. Each epoch covers all 160 train motions once,
+interleaves Carry/Kick with prefix imbalance at most one and retains each trajectory's chronological
+140 atomic intervals / 700 actions. This gives minimum totals of 224,000 interval exposures and
+1,120,000 action exposures. The official loader may pack contiguous intervals to its released chunk
+shape but may not omit or reorder them. Admission checks both the result and actual schedule file
+against SHA256 `0f30252c0315855a1154d2c9f68d78b283cf35d2eee772a16692f5b0f1882ec1`.
 
 Keep the release and admission decisions live inside the retained H200 allocation with:
 

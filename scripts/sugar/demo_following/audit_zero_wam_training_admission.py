@@ -10,6 +10,7 @@ rejected as foundation pre-training data.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -21,6 +22,7 @@ WAN_BASE_PROTOCOL = "official_wan22_ti2v_5b_base_audit_v1"
 SUGAR_MANIFEST_PROTOCOL = "sugar_zero_wam_immutable_video_action_icl_manifest_v1"
 SUGAR_DIVERSITY_PROTOCOL = "sugar_zero_wam_training_data_diversity_v1"
 PROMPT_CASE_PROTOCOL = "sugar_zero_wam_frozen_prompt_gate_cases_v1"
+TRAINING_SCHEDULE_PROTOCOL = "sugar_zero_wam_bounded_posttraining_schedule_v1"
 PROMPT_GATE_PROTOCOL = "official_zero_wam_frozen_sugar_prompt_gate_v1"
 ADAPTER_PROTOCOL = "official_zero_wam_sugar_29dof_adapter_admission_v1"
 EXPECTED_SUGAR_ICL_MANIFEST_SHA256 = (
@@ -28,6 +30,9 @@ EXPECTED_SUGAR_ICL_MANIFEST_SHA256 = (
 )
 EXPECTED_FROZEN_PROMPT_CASE_MANIFEST_SHA256 = (
     "035e554a94ecd506e4e4d287f32cf90d21f78f8a5211277f34daedf4516e37f5"
+)
+EXPECTED_BOUNDED_POSTTRAINING_SCHEDULE_SHA256 = (
+    "0f30252c0315855a1154d2c9f68d78b283cf35d2eee772a16692f5b0f1882ec1"
 )
 
 EXPECTED_SUGAR_SCALE = {
@@ -89,6 +94,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sugar-manifest-result", type=Path, required=True)
     parser.add_argument("--sugar-data-diversity-result", type=Path, required=True)
     parser.add_argument("--prompt-case-result", type=Path, required=True)
+    parser.add_argument("--training-schedule-result", type=Path, required=True)
+    parser.add_argument("--training-schedule", type=Path, required=True)
     parser.add_argument("--prompt-gate-result", type=Path)
     parser.add_argument("--adapter-audit-result", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -104,6 +111,14 @@ def read_json(path: Path | None) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"expected JSON object: {path}")
     return value
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def checks_all_true(value: dict[str, Any]) -> bool:
@@ -126,6 +141,8 @@ def evaluate(
     manifest: dict[str, Any],
     diversity: dict[str, Any],
     prompt_cases: dict[str, Any],
+    training_schedule: dict[str, Any],
+    training_schedule_file_sha256: str,
     prompt: dict[str, Any],
     adapter: dict[str, Any],
 ) -> dict[str, Any]:
@@ -217,6 +234,43 @@ def evaluate(
     }
     prompt_case_contract_ready = all(prompt_case_checks.values())
 
+    training_schedule_checks = {
+        "protocol_exact": (
+            training_schedule.get("protocol") == TRAINING_SCHEDULE_PROTOCOL
+        ),
+        "passed": training_schedule.get("passed") is True,
+        "all_checks_true": checks_all_true(training_schedule),
+        "bound_to_exact_immutable_source_manifest": (
+            training_schedule.get("source_manifest_sha256")
+            == EXPECTED_SUGAR_ICL_MANIFEST_SHA256
+        ),
+        "result_records_exact_schedule_hash": (
+            training_schedule.get("schedule_sha256")
+            == EXPECTED_BOUNDED_POSTTRAINING_SCHEDULE_SHA256
+        ),
+        "actual_schedule_file_hash_exact": (
+            training_schedule_file_sha256
+            == EXPECTED_BOUNDED_POSTTRAINING_SCHEDULE_SHA256
+        ),
+        "exact_160_training_trajectories": (
+            training_schedule.get("training_trajectory_count") == 160
+        ),
+        "exact_80_80_task_balance": (
+            training_schedule.get("task_trajectory_counts")
+            == {"CarryBox": 80, "KickBox": 80}
+        ),
+        "minimum_10_complete_epochs": (
+            training_schedule.get("minimum_full_epochs") == 10
+        ),
+        "exact_224000_atomic_interval_exposure_floor": (
+            training_schedule.get("minimum_atomic_interval_exposures") == 224_000
+        ),
+        "exact_1120000_action_exposure_floor": (
+            training_schedule.get("minimum_action_exposures") == 1_120_000
+        ),
+    }
+    training_schedule_ready = all(training_schedule_checks.values())
+
     wan_base_checks = {
         "protocol_exact": wan_base.get("protocol") == WAN_BASE_PROTOCOL,
         "passed": wan_base.get("passed") is True,
@@ -279,6 +333,7 @@ def evaluate(
         "official_zero_wam_release_ready": official_release_ready,
         "sugar_two_task_posttraining_data_ready": sugar_posttraining_data_ready,
         "frozen_prompt_case_contract_ready": prompt_case_contract_ready,
+        "bounded_posttraining_schedule_ready": training_schedule_ready,
         "frozen_official_prompt_gate_ready": frozen_prompt_gate_ready,
         "official_29dof_adapter_ready": official_adapter_ready,
     }
@@ -302,6 +357,8 @@ def evaluate(
         next_branch = "strict_load_official_zero_wam_checkpoint_and_example"
     elif not prompt_case_contract_ready:
         next_branch = "rebuild_exact_frozen_prompt_case_contract"
+    elif not training_schedule_ready:
+        next_branch = "rebuild_exact_bounded_posttraining_schedule"
     elif not frozen_prompt_gate_ready:
         next_branch = "run_frozen_official_sugar_prompt_gate"
     elif not official_adapter_ready:
@@ -337,6 +394,10 @@ def evaluate(
         "frozen_prompt_case_contract": {
             "ready": prompt_case_contract_ready,
             "checks": prompt_case_checks,
+        },
+        "bounded_posttraining_schedule": {
+            "ready": training_schedule_ready,
+            "checks": training_schedule_checks,
         },
         "frozen_official_prompt_gate": {"ready": frozen_prompt_gate_ready, "checks": prompt_checks},
         "official_29dof_adapter": {"ready": official_adapter_ready, "checks": adapter_checks},
@@ -399,6 +460,18 @@ def run_self_test() -> None:
         "condition_instance_count": 1_950,
         "checks": {"frozen_contract_passed": True},
     }
+    training_schedule = {
+        "protocol": TRAINING_SCHEDULE_PROTOCOL,
+        "passed": True,
+        "source_manifest_sha256": EXPECTED_SUGAR_ICL_MANIFEST_SHA256,
+        "schedule_sha256": EXPECTED_BOUNDED_POSTTRAINING_SCHEDULE_SHA256,
+        "training_trajectory_count": 160,
+        "task_trajectory_counts": {"CarryBox": 80, "KickBox": 80},
+        "minimum_full_epochs": 10,
+        "minimum_atomic_interval_exposures": 224_000,
+        "minimum_action_exposures": 1_120_000,
+        "checks": {"full_schedule_passed": True},
+    }
     wan = {
         "protocol": WAN_BASE_PROTOCOL,
         "passed": True,
@@ -434,11 +507,31 @@ def run_self_test() -> None:
         "sugar_manifest_sha256": EXPECTED_SUGAR_ICL_MANIFEST_SHA256,
         "checks": {name: True for name in ADAPTER_CHECKS},
     }
-    admitted = evaluate(release, wan, manifest, diversity, prompt_cases, prompt, adapter)
+    admitted = evaluate(
+        release,
+        wan,
+        manifest,
+        diversity,
+        prompt_cases,
+        training_schedule,
+        EXPECTED_BOUNDED_POSTTRAINING_SCHEDULE_SHA256,
+        prompt,
+        adapter,
+    )
     assert admitted["bounded_sugar_posttraining"]["allowed"] is True
     assert admitted["sugar_foundation_pretraining"]["allowed"] is False
 
-    no_release = evaluate({}, wan, manifest, diversity, prompt_cases, {}, {})
+    no_release = evaluate(
+        {},
+        wan,
+        manifest,
+        diversity,
+        prompt_cases,
+        training_schedule,
+        EXPECTED_BOUNDED_POSTTRAINING_SCHEDULE_SHA256,
+        {},
+        {},
+    )
     assert no_release["sugar_bounded_posttraining_data"]["ready"] is True
     assert no_release["bounded_sugar_posttraining"]["allowed"] is False
     assert no_release["automatic_next_branch"] == "recheck_canonical_official_repository"
@@ -446,7 +539,15 @@ def run_self_test() -> None:
     too_small = dict(manifest)
     too_small["trajectory_count"] = 10
     rejected_data = evaluate(
-        release, wan, too_small, diversity, prompt_cases, prompt, adapter
+        release,
+        wan,
+        too_small,
+        diversity,
+        prompt_cases,
+        training_schedule,
+        EXPECTED_BOUNDED_POSTTRAINING_SCHEDULE_SHA256,
+        prompt,
+        adapter,
     )
     assert rejected_data["sugar_bounded_posttraining_data"]["ready"] is False
     assert rejected_data["bounded_sugar_posttraining"]["allowed"] is False
@@ -454,7 +555,15 @@ def run_self_test() -> None:
     duplicated = dict(diversity)
     duplicated["train_action_chunk_unique_fraction"] = 0.5
     rejected_diversity = evaluate(
-        release, wan, manifest, duplicated, prompt_cases, prompt, adapter
+        release,
+        wan,
+        manifest,
+        duplicated,
+        prompt_cases,
+        training_schedule,
+        EXPECTED_BOUNDED_POSTTRAINING_SCHEDULE_SHA256,
+        prompt,
+        adapter,
     )
     assert rejected_diversity["sugar_bounded_posttraining_data"]["ready"] is False
     assert rejected_diversity["bounded_sugar_posttraining"]["allowed"] is False
@@ -462,12 +571,39 @@ def run_self_test() -> None:
     incomplete_cases = dict(prompt_cases)
     incomplete_cases["case_group_count"] = 389
     rejected_cases = evaluate(
-        release, wan, manifest, diversity, incomplete_cases, prompt, adapter
+        release,
+        wan,
+        manifest,
+        diversity,
+        incomplete_cases,
+        training_schedule,
+        EXPECTED_BOUNDED_POSTTRAINING_SCHEDULE_SHA256,
+        prompt,
+        adapter,
     )
     assert rejected_cases["frozen_prompt_case_contract"]["ready"] is False
     assert rejected_cases["bounded_sugar_posttraining"]["allowed"] is False
     assert rejected_cases["automatic_next_branch"] == (
         "rebuild_exact_frozen_prompt_case_contract"
+    )
+
+    undertrained = dict(training_schedule)
+    undertrained["minimum_full_epochs"] = 1
+    rejected_schedule = evaluate(
+        release,
+        wan,
+        manifest,
+        diversity,
+        prompt_cases,
+        undertrained,
+        EXPECTED_BOUNDED_POSTTRAINING_SCHEDULE_SHA256,
+        prompt,
+        adapter,
+    )
+    assert rejected_schedule["bounded_posttraining_schedule"]["ready"] is False
+    assert rejected_schedule["bounded_sugar_posttraining"]["allowed"] is False
+    assert rejected_schedule["automatic_next_branch"] == (
+        "rebuild_exact_bounded_posttraining_schedule"
     )
 
 
@@ -481,6 +617,8 @@ def main() -> None:
         read_json(args.sugar_manifest_result),
         read_json(args.sugar_data_diversity_result),
         read_json(args.prompt_case_result),
+        read_json(args.training_schedule_result),
+        file_sha256(args.training_schedule),
         read_json(args.prompt_gate_result),
         read_json(args.adapter_audit_result),
     )

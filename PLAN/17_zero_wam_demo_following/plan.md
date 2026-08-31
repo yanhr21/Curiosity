@@ -297,6 +297,17 @@ learnability only; a pass does not reduce the formal post-training corpus below 
 and 22,400 non-overlapping chunks. Synthetic evidence tests pass the complete contract and reject
 action-only improvement, frozen-VAE drift and an undocumented adapter; they are not model results.
 
+Formal bounded post-training has a separate full-data exposure floor. Seed `271500` creates ten
+distinct deterministic epochs; every epoch contains all 160 train trajectories exactly once, with
+Carry/Kick strictly interleaved so every prefix differs by at most one trajectory. Each trajectory
+retains all 140 chronological atomic video/action intervals and 700 actions. The official loader may
+pack contiguous intervals to its released action-chunk schema, but may not drop, cross-trajectory or
+reorder them. The minimum therefore exposes 224,000 atomic intervals and 1,120,000 actions. If the
+official recipe requires more, extend only with complete epochs under the same deterministic rule;
+validation/test may never choose an early stop below ten. The exact schedule SHA256 is
+`0f30252c0315855a1154d2c9f68d78b283cf35d2eee772a16692f5b0f1882ec1`. This is a training
+coverage floor, not evidence that ten epochs guarantee physical success.
+
 ### Stage E — same-checkpoint closed-loop frozen evaluation
 
 The first physical gate uses the compatible SMALLBOX scene where exact released endpoints already

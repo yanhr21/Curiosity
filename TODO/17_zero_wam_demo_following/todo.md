@@ -93,6 +93,10 @@
       video/action flow-loss ratios; pass complete
       synthetic evidence and reject action-only, frozen-scope drift and undocumented-interface cases.
       Fix each task's motion IDs to `2/7/14/21/26/33/40/45/52/57/64/71/76/83/90/95` before release.
+- [x] Freeze the full formal-training coverage floor: seed271500, ten distinct complete epochs,
+      every one of 160 train trajectories exactly once per epoch, chronological 140 intervals / 700
+      actions per trajectory, prefix-balanced Carry/Kick, 224,000 interval and 1,120,000 action
+      exposures, with exact schedule-file hash enforced by admission.
 - [ ] Inspect the released embodiment/action adapter and verify that 29-DoF continuous action
       chunks and SUGAR causal state can be represented without changing Zero-WAM semantics.
 - [ ] If no documented adapter path exists, record an unsupported-embodiment blocker; do not write a
