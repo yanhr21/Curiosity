@@ -518,10 +518,13 @@ bash scripts/sugar/demo_following/run_zero_wam_official_release_audit.sh \
   experiments/demo_following/zero_wam_official_v1/official_release_status
 ```
 
-The auditor records the full main commit and recursive tree, then requires real method code,
-training/inference entrypoints, a data schema, world/action/IFP/MoT implementation, official
-checkpoint files, strict load, checkpoint hashes, an official example and explicit official
-provenance.  On 2026-08-31 canonical main is
+The wrapper inventories canonical main, every public official tag and every public GitHub Release
+tag/asset, resolves and archives every commit/tree, and selects a structural code release even if
+main remains page-only. Unresolved refs and external repositories fail closed. The selected source
+must then provide real method code, training/inference entrypoints, a data schema,
+world/action/IFP/MoT implementation, official checkpoint files, strict load, checkpoint hashes, an
+official example and explicit official provenance. On 2026-08-31 the API contains one main candidate
+and no tags/releases; canonical main is
 `5a8a2da069392c1974ee98941ada13a5208b0ca5`; it has five blobs, zero Python files, zero
 entrypoints/schema paths and correctly emits `release_available=false` with exit status 3.
 
@@ -782,7 +785,8 @@ bash scripts/sugar/demo_following/run_zero_wam_release_training_monitor.sh \
   experiments/demo_following/zero_wam_official_v1/release_training_monitor_v1 600 30
 ```
 
-Each poll archives the canonical commit/tree, recomputes training admission and writes one compact
-`MONITOR_STATE.json`.  It exits automatically if the official repository changes to a real release
+Each poll archives the canonical main/tag/release candidate inventory and selected commit/tree,
+recomputes training admission and writes one compact `MONITOR_STATE.json` with the selected source
+kinds and candidate count. It exits automatically if any official ref changes to a real release
 so the next autonomous stage can inspect and strict-load the unknown official schema; it has no
 approval flag, sentinel or manual checkpoint gate.

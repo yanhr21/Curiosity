@@ -352,7 +352,7 @@ def evaluate(
     foundation_pretraining_allowed = all(foundation_pretraining_checks.values())
 
     if not release.get("release_available"):
-        next_branch = "recheck_canonical_official_repository"
+        next_branch = "recheck_official_main_tags_and_releases"
     elif not official_release_ready:
         next_branch = "strict_load_official_zero_wam_checkpoint_and_example"
     elif not prompt_case_contract_ready:
@@ -538,7 +538,10 @@ def run_self_test() -> None:
     )
     assert no_release["sugar_bounded_posttraining_data"]["ready"] is True
     assert no_release["bounded_sugar_posttraining"]["allowed"] is False
-    assert no_release["automatic_next_branch"] == "recheck_canonical_official_repository"
+    assert (
+        no_release["automatic_next_branch"]
+        == "recheck_official_main_tags_and_releases"
+    )
 
     too_small = dict(manifest)
     too_small["trajectory_count"] = 10

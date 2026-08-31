@@ -81,6 +81,8 @@ for ((poll_index = 1; poll_index <= MAX_POLLS; poll_index += 1)); do
 
     release_available=$(jq -r '.release_available' "$release_result")
     release_passed=$(jq -r '.passed' "$release_result")
+    release_source_kinds=$(jq -c '.release_source_kinds' "$release_result")
+    multiref_candidate_count=$(jq -r '.multiref_candidate_count' "$release_result")
     training_allowed=$(jq -r '.training_allowed' "$admission_result")
     next_branch=$(jq -r '.automatic_next_branch' "$admission_result")
     jq -n \
@@ -90,6 +92,8 @@ for ((poll_index = 1; poll_index <= MAX_POLLS; poll_index += 1)); do
         --argjson release_rc "$release_rc" \
         --argjson release_available "$release_available" \
         --argjson release_passed "$release_passed" \
+        --argjson release_source_kinds "$release_source_kinds" \
+        --argjson multiref_candidate_count "$multiref_candidate_count" \
         --argjson training_allowed "$training_allowed" \
         --arg next_branch "$next_branch" \
         '{
@@ -99,6 +103,8 @@ for ((poll_index = 1; poll_index <= MAX_POLLS; poll_index += 1)); do
             release_audit_rc: $release_rc,
             release_available: $release_available,
             release_passed: $release_passed,
+            release_source_kinds: $release_source_kinds,
+            multiref_candidate_count: $multiref_candidate_count,
             training_allowed: $training_allowed,
             automatic_next_branch: $next_branch
         }' >"$poll_dir/MONITOR_STATE.json"

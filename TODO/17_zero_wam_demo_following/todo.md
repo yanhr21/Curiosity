@@ -30,6 +30,10 @@
 - [x] Add a retained-H200 monitor that recomputes canonical release and training admission every
       fixed interval, exits automatically when official artifacts change and contains no approval
       or manual sentinel state.
+- [x] Expand release discovery beyond main: inventory every official GitHub tag and public Release
+      tag/asset, resolve and archive every commit/tree, reject unresolved or external refs and select
+      a structural tagged release even while main is page-only. Synthetic discovery passes that case;
+      the real 2026-08-31 audit finds one main candidate and zero tags/releases.
 - [ ] Detect the first official code/model/data release, freeze its full commit and checkpoint,
       and write `OFFICIAL_RELEASE_AUDIT.json` without asking for user authorization.
 - [ ] Strict-load the official model on H200 and reproduce one released example plus documented

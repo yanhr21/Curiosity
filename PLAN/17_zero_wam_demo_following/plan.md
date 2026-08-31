@@ -173,7 +173,11 @@ compatibility status, not a request for human authorization.
 Stage A passes only when `OFFICIAL_RELEASE_AUDIT.json` proves strict loading, exact official model
 class/config, a complete official example and no local model substitution.
 
-The live release gate is implemented and fail-closed.  On 2026-08-31 it resolves canonical main to
+The live release gate is implemented and fail-closed across official main, public tags and public
+GitHub Release tags/assets. Every discovered ref is resolved to a full canonical commit and recursive
+tree; an unresolved ref or non-official candidate rejects discovery. A synthetic contract selects a
+real tagged code release while main remains page-only and rejects an external repository. On
+2026-08-31 the official API contains one main candidate and no tags or releases. Main resolves to
 full commit `5a8a2da069392c1974ee98941ada13a5208b0ca5`: the recursive tree contains only five blobs,
 zero Python files, zero training/inference entrypoints and zero data-schema paths, so
 `release_available=false`.  Separately, the exact public Wan2.2 source at commit

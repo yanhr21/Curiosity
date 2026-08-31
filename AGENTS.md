@@ -65,9 +65,13 @@ matched/wrong/reversed/same-task prompt gate with official video/IFP losses. Onl
 task, order and selected-motion identity may open the official 29-DoF embodiment/action adaptation
 and same-checkpoint closed-loop physical gate.
 
-The canonical live release gate is now fail-closed and records full main
+The canonical live release gate is now fail-closed across official main, every public tag and every
+public GitHub Release tag/asset. It archives each resolved commit and recursive tree, rejects any
+unresolved ref or non-official repository, and selects a structural code release even when main is
+still page-only. On 2026-08-31 the only candidate remains full main
 `5a8a2da069392c1974ee98941ada13a5208b0ca5`: five blobs, zero Python files, zero
-training/inference entrypoints and zero data-schema paths, hence `release_available=false`. The
+training/inference entrypoints and zero data-schema paths; both tag and release inventories are empty,
+hence `release_available=false`. The
 exact public Wan2.2 source commit `42bf4cfaa384bc21833865abc2f9e6c0e67233dc` and all 22
 Wan2.2-TI2V-5B files (`34,203,123,632` bytes) are staged only for H200 base-runtime verification.
 Even a passing base audit does not open training; the released Zero-WAM action branch, MoT/IFP
