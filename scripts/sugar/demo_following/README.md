@@ -505,7 +505,8 @@ state.  The final immutable manifest joins these robot streams to the isolated
 alternate prefixes.  Outcome/contact arrays are excluded from the deployed input
 allowlist.  Passing this data gate gives 199 trajectories,
 139,300 actions and 27,860 video-action intervals (22,400 train intervals) for
-the bounded two-task SUGAR audit; it is not Zero-WAM pre-training or an
+the bounded two-task SUGAR audit. The separate effective-diversity audit below
+must also pass; neither result is Zero-WAM pre-training or an
 open-ended/cross-embodiment result.
 
 ### Official Zero-WAM release and public Wan base gates
@@ -552,16 +553,28 @@ missing/unexpected/mismatched keys.  CPU strict load takes `13.6326 s`, BF16 H20
 Recompute the explicit model/data training boundary with:
 
 ```bash
-python3 scripts/sugar/demo_following/audit_zero_wam_training_admission.py \
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/demo_following/audit_zero_wam_sugar_data_diversity.py \
+  --manifest experiments/demo_following/zero_wam_official_v1/icl_manifest_v2/ICL_MANIFEST.jsonl \
+  --project-root /public/home/yanhongru/Curiosity \
+  --output-dir experiments/demo_following/zero_wam_official_v1/training_data_diversity_v1
+
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/demo_following/audit_zero_wam_training_admission.py \
   --release-audit experiments/demo_following/zero_wam_official_v1/official_release_status/audit/OFFICIAL_RELEASE_AUDIT.json \
   --wan-base-audit experiments/demo_following/zero_wam_official_v1/wan_base_h200_audit_v1/WAN22_BASE_AUDIT.json \
   --sugar-manifest-result experiments/demo_following/zero_wam_official_v1/icl_manifest_v2/RESULT.json \
+  --sugar-data-diversity-result experiments/demo_following/zero_wam_official_v1/training_data_diversity_v1/SUGAR_TRAINING_DATA_DIVERSITY.json \
   --output-dir experiments/demo_following/zero_wam_official_v1/training_admission_v1
 ```
 
-The current result intentionally has `training_allowed=false`: public-Wan and bounded-data gates
-pass, while official Zero-WAM release, frozen prompt dependence and official 29-DoF adapter gates
-remain false.  It separately emits
+The diversity result binds to the exact immutable manifest SHA256. It measures 11,200
+non-overlapping five-action chunks per task; all 22,400 action chunks and 22,400 observation chunks
+are unique, exact held-out overlap is zero, all 29 action dimensions vary, action covariance rank is
+29 and each of ten phase bins contains 1,120 chunks per task. The current admission intentionally
+has `training_allowed=false`: public-Wan, manifest and effective-diversity gates pass, while official
+Zero-WAM release, frozen prompt dependence and official 29-DoF adapter gates remain false. It
+separately emits
 `sugar_foundation_pretraining.decision=forbidden_do_not_train_5b_from_scratch_on_sugar`; 22,400
 intervals do not turn two tasks into foundation-scale diversity.
 

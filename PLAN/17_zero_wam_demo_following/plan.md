@@ -193,7 +193,13 @@ the exact 22 paths/bytes, no incomplete fragments and SHA256 for every file.
 The model/data training-admission gate is also executable and distinguishes two claims that must
 never be merged.  The current immutable SUGAR corpus passes every fixed requirement for the bounded
 two-task post-training audit (`160/20/19` train/validation/test motions and `22,400` train
-video-action intervals), but foundation pre-training is forbidden: two tasks and 199 trajectories
+video-action intervals). A second audit binds this conclusion to the exact immutable manifest and
+checks effective rather than nominal sample count: Carry/Kick contribute `11,200/11,200`
+non-overlapping five-action chunks, all `22,400` action chunks and all `22,400` 510-D observation
+chunks are byte-distinct, exact held-out overlap is zero, every one of the 29 action dimensions
+varies and action covariance has numerical rank 29. Each task also has exactly 1,120 chunks in each
+of ten causal phase bins, while one trajectory contributes at most `0.625%` of training. Foundation
+pre-training is nevertheless forbidden: two tasks and 199 trajectories
 are orders of magnitude below the reported `>6,000` robot tasks / about 400K trajectories per epoch
 plus 74.2K HumanGen pairs over 8.6K tasks.  Formal SUGAR training remains false until one official
 Zero-WAM commit/checkpoint/example, the frozen task/order/identity prompt gate and a documented

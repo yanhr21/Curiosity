@@ -19,8 +19,12 @@ from typing import Any
 RELEASE_PROTOCOL = "official_zero_wam_release_strict_admission_v1"
 WAN_BASE_PROTOCOL = "official_wan22_ti2v_5b_base_audit_v1"
 SUGAR_MANIFEST_PROTOCOL = "sugar_zero_wam_immutable_video_action_icl_manifest_v1"
+SUGAR_DIVERSITY_PROTOCOL = "sugar_zero_wam_training_data_diversity_v1"
 PROMPT_GATE_PROTOCOL = "official_zero_wam_frozen_sugar_prompt_gate_v1"
 ADAPTER_PROTOCOL = "official_zero_wam_sugar_29dof_adapter_admission_v1"
+EXPECTED_SUGAR_ICL_MANIFEST_SHA256 = (
+    "24cc2b99b26e3136acb1508e4c1d8a6193702d25a43005978e9920179fc366c8"
+)
 
 EXPECTED_SUGAR_SCALE = {
     "trajectory_count": 199,
@@ -69,6 +73,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--release-audit", type=Path, required=True)
     parser.add_argument("--wan-base-audit", type=Path, required=True)
     parser.add_argument("--sugar-manifest-result", type=Path, required=True)
+    parser.add_argument("--sugar-data-diversity-result", type=Path, required=True)
     parser.add_argument("--prompt-gate-result", type=Path)
     parser.add_argument("--adapter-audit-result", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -104,12 +109,13 @@ def evaluate(
     release: dict[str, Any],
     wan_base: dict[str, Any],
     manifest: dict[str, Any],
+    diversity: dict[str, Any],
     prompt: dict[str, Any],
     adapter: dict[str, Any],
 ) -> dict[str, Any]:
     split_counts = manifest.get("split_counts", {})
     task_counts = manifest.get("task_counts", {})
-    sugar_data_checks = {
+    sugar_manifest_checks = {
         "manifest_protocol_exact": manifest.get("protocol") == SUGAR_MANIFEST_PROTOCOL,
         "manifest_passed": manifest.get("passed") is True,
         "all_manifest_checks_true": checks_all_true(manifest),
@@ -130,7 +136,48 @@ def evaluate(
             is True
         ),
     }
-    sugar_posttraining_data_ready = all(sugar_data_checks.values())
+    sugar_manifest_ready = all(sugar_manifest_checks.values())
+    sugar_diversity_checks = {
+        "protocol_exact": diversity.get("protocol") == SUGAR_DIVERSITY_PROTOCOL,
+        "passed": diversity.get("passed") is True,
+        "all_checks_true": checks_all_true(diversity),
+        "bound_to_exact_immutable_manifest": (
+            diversity.get("manifest_sha256") == EXPECTED_SUGAR_ICL_MANIFEST_SHA256
+        ),
+        "split_trajectory_counts_exact": (
+            diversity.get("split_trajectory_counts")
+            == {"train": 160, "validation": 20, "test": 19}
+        ),
+        "train_task_trajectory_counts_exact": (
+            diversity.get("train_task_trajectory_counts")
+            == {"CarryBox": 80, "KickBox": 80}
+        ),
+        "train_task_chunk_counts_exact": (
+            diversity.get("train_task_chunk_counts")
+            == {"CarryBox": 11_200, "KickBox": 11_200}
+        ),
+        "exact_22400_train_chunks": diversity.get("train_action_chunk_count") == 22_400,
+        "all_train_action_chunks_unique": (
+            diversity.get("train_action_chunk_unique_fraction") == 1.0
+        ),
+        "all_train_observation_chunks_unique": (
+            diversity.get("train_observation_chunk_unique_fraction") == 1.0
+        ),
+        "zero_exact_action_chunk_cross_split_overlap": (
+            diversity.get("train_action_heldout_exact_chunk_overlap_count") == 0
+        ),
+        "zero_exact_observation_chunk_cross_split_overlap": (
+            diversity.get("train_observation_heldout_exact_chunk_overlap_count") == 0
+        ),
+        "all_29_action_dimensions_vary": (
+            diversity.get("variable_action_dimension_count_at_1e_4") == 29
+        ),
+        "action_covariance_numerical_rank_29": (
+            diversity.get("action_covariance_numerical_rank_at_relative_1e_6") == 29
+        ),
+    }
+    sugar_diversity_ready = all(sugar_diversity_checks.values())
+    sugar_posttraining_data_ready = sugar_manifest_ready and sugar_diversity_ready
 
     wan_base_checks = {
         "protocol_exact": wan_base.get("protocol") == WAN_BASE_PROTOCOL,
@@ -204,8 +251,10 @@ def evaluate(
         next_branch = "run_frozen_official_sugar_prompt_gate"
     elif not official_adapter_ready:
         next_branch = "audit_official_sugar_29dof_adapter"
-    elif not sugar_posttraining_data_ready:
+    elif not sugar_manifest_ready:
         next_branch = "repair_immutable_sugar_posttraining_manifest"
+    elif not sugar_diversity_ready:
+        next_branch = "repair_sugar_training_data_diversity_without_synthesis"
     else:
         next_branch = "run_predeclared_bounded_sugar_posttraining"
 
@@ -220,7 +269,11 @@ def evaluate(
         "official_zero_wam_release": {"ready": official_release_ready, "checks": release_checks},
         "sugar_bounded_posttraining_data": {
             "ready": sugar_posttraining_data_ready,
-            "checks": sugar_data_checks,
+            "manifest": {"ready": sugar_manifest_ready, "checks": sugar_manifest_checks},
+            "effective_diversity": {
+                "ready": sugar_diversity_ready,
+                "checks": sugar_diversity_checks,
+            },
             "claim_boundary": (
                 "Ready only for the fixed two-task, same-embodiment SUGAR post-training audit "
                 "from a strict-loaded official pretrained Zero-WAM checkpoint."
@@ -261,6 +314,22 @@ def run_self_test() -> None:
             "outcome_and_future_fields_excluded_from_deployed_inputs": True,
         },
     }
+    diversity = {
+        "protocol": SUGAR_DIVERSITY_PROTOCOL,
+        "passed": True,
+        "manifest_sha256": EXPECTED_SUGAR_ICL_MANIFEST_SHA256,
+        "split_trajectory_counts": {"train": 160, "validation": 20, "test": 19},
+        "train_task_trajectory_counts": {"CarryBox": 80, "KickBox": 80},
+        "train_task_chunk_counts": {"CarryBox": 11_200, "KickBox": 11_200},
+        "train_action_chunk_count": 22_400,
+        "train_action_chunk_unique_fraction": 1.0,
+        "train_observation_chunk_unique_fraction": 1.0,
+        "train_action_heldout_exact_chunk_overlap_count": 0,
+        "train_observation_heldout_exact_chunk_overlap_count": 0,
+        "variable_action_dimension_count_at_1e_4": 29,
+        "action_covariance_numerical_rank_at_relative_1e_6": 29,
+        "checks": {"effective_diversity_passed": True},
+    }
     wan = {
         "protocol": WAN_BASE_PROTOCOL,
         "passed": True,
@@ -292,20 +361,26 @@ def run_self_test() -> None:
         "model_commit": commit,
         "checks": {name: True for name in ADAPTER_CHECKS},
     }
-    admitted = evaluate(release, wan, manifest, prompt, adapter)
+    admitted = evaluate(release, wan, manifest, diversity, prompt, adapter)
     assert admitted["bounded_sugar_posttraining"]["allowed"] is True
     assert admitted["sugar_foundation_pretraining"]["allowed"] is False
 
-    no_release = evaluate({}, wan, manifest, {}, {})
+    no_release = evaluate({}, wan, manifest, diversity, {}, {})
     assert no_release["sugar_bounded_posttraining_data"]["ready"] is True
     assert no_release["bounded_sugar_posttraining"]["allowed"] is False
     assert no_release["automatic_next_branch"] == "recheck_canonical_official_repository"
 
     too_small = dict(manifest)
     too_small["trajectory_count"] = 10
-    rejected_data = evaluate(release, wan, too_small, prompt, adapter)
+    rejected_data = evaluate(release, wan, too_small, diversity, prompt, adapter)
     assert rejected_data["sugar_bounded_posttraining_data"]["ready"] is False
     assert rejected_data["bounded_sugar_posttraining"]["allowed"] is False
+
+    duplicated = dict(diversity)
+    duplicated["train_action_chunk_unique_fraction"] = 0.5
+    rejected_diversity = evaluate(release, wan, manifest, duplicated, prompt, adapter)
+    assert rejected_diversity["sugar_bounded_posttraining_data"]["ready"] is False
+    assert rejected_diversity["bounded_sugar_posttraining"]["allowed"] is False
 
 
 def main() -> None:
@@ -316,6 +391,7 @@ def main() -> None:
         read_json(args.release_audit),
         read_json(args.wan_base_audit),
         read_json(args.sugar_manifest_result),
+        read_json(args.sugar_data_diversity_result),
         read_json(args.prompt_gate_result),
         read_json(args.adapter_audit_result),
     )

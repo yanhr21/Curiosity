@@ -81,7 +81,12 @@ Zero-WAM checkpoint, official example or permission to train SUGAR.
 
 The training-admission gate is mandatory. It records that the exact `160/20/19` motion split,
 139,300 transitions and 22,400 training video-action intervals are sufficient only for the fixed
-two-task post-training audit from an official pretrained Zero-WAM checkpoint. They are not
+two-task post-training audit from an official pretrained Zero-WAM checkpoint. Effective-diversity
+admission is separately bound to the exact immutable manifest: Carry/Kick each have 11,200
+non-overlapping five-action chunks, all 22,400 action and 510-D observation chunks are unique,
+exact train/held-out chunk overlap is zero, all 29 action dimensions vary, action covariance rank is
+29 and all ten phase bins are exactly balanced per task. These measurements support the bounded
+two-task audit only. They are not
 foundation-scale data: SUGAR has two tasks / 199 trajectories versus the reported `>6,000` robot
 tasks / about 400K trajectories per epoch and 74.2K HumanGen pairs / 8.6K tasks. Never train the 5B
 model from scratch on SUGAR, inflate interval count into task diversity, or let the public Wan base

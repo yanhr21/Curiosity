@@ -10,6 +10,7 @@ POLL_SECONDS="${2:-600}"
 MAX_POLLS="${3:-30}"
 WAN_BASE_AUDIT="${WAN_BASE_AUDIT:-$PROJECT_ROOT/experiments/demo_following/zero_wam_official_v1/wan_base_h200_audit_v1/WAN22_BASE_AUDIT.json}"
 SUGAR_MANIFEST_RESULT="${SUGAR_MANIFEST_RESULT:-$PROJECT_ROOT/experiments/demo_following/zero_wam_official_v1/icl_manifest_v2/RESULT.json}"
+SUGAR_DATA_DIVERSITY_RESULT="${SUGAR_DATA_DIVERSITY_RESULT:-$PROJECT_ROOT/experiments/demo_following/zero_wam_official_v1/training_data_diversity_v1/SUGAR_TRAINING_DATA_DIVERSITY.json}"
 PROMPT_GATE_RESULT="${PROMPT_GATE_RESULT:-}"
 ADAPTER_AUDIT_RESULT="${ADAPTER_AUDIT_RESULT:-}"
 
@@ -30,8 +31,8 @@ if ! [[ "$MAX_POLLS" =~ ^[0-9]+$ ]] || ((MAX_POLLS < 1)); then
     echo "max polls must be a positive integer" >&2
     exit 2
 fi
-if [[ ! -f "$WAN_BASE_AUDIT" || ! -f "$SUGAR_MANIFEST_RESULT" ]]; then
-    echo "required Wan base or SUGAR manifest audit is missing" >&2
+if [[ ! -f "$WAN_BASE_AUDIT" || ! -f "$SUGAR_MANIFEST_RESULT" || ! -f "$SUGAR_DATA_DIVERSITY_RESULT" ]]; then
+    echo "required Wan base, SUGAR manifest or SUGAR diversity audit is missing" >&2
     exit 2
 fi
 
@@ -58,6 +59,7 @@ for ((poll_index = 1; poll_index <= MAX_POLLS; poll_index += 1)); do
         --release-audit "$release_result"
         --wan-base-audit "$WAN_BASE_AUDIT"
         --sugar-manifest-result "$SUGAR_MANIFEST_RESULT"
+        --sugar-data-diversity-result "$SUGAR_DATA_DIVERSITY_RESULT"
         --output-dir "$admission_dir"
     )
     if [[ -n "$PROMPT_GATE_RESULT" && -f "$PROMPT_GATE_RESULT" ]]; then

@@ -58,6 +58,10 @@
 - [x] Emit the passing v2 machine-readable manifest gate: 199 rows, 139,300 actions, 27,860
       video-action intervals, 22,400 train intervals, 12,736 normalized pixel comparisons and zero
       identical prompt/robot pairs or complete streams.
+- [x] Audit effective training diversity on the exact immutable manifest: Carry/Kick each contribute
+      11,200 non-overlapping five-action chunks; all 22,400 action and observation chunks are unique,
+      held-out exact overlap is zero, all 29 action dimensions vary, covariance rank is 29 and every
+      task/phase bin is exactly balanced. Bind this result into formal training admission.
 
 ## C. Frozen official prompt gate
 
