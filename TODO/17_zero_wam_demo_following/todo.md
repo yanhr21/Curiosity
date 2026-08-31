@@ -97,6 +97,12 @@
       every one of 160 train trajectories exactly once per epoch, chronological 140 intervals / 700
       actions per trajectory, prefix-balanced Carry/Kick, 224,000 interval and 1,120,000 action
       exposures, with exact schedule-file hash enforced by admission.
+- [x] Freeze the formal run-completion evidence auditor: bind the real official run to the passed
+      admission/commit/checkpoint and exact schedule; require H200 Slurm execution, at least ten
+      complete epochs, joint finite nonzero video/action/IFP gradients, exact official trainable
+      scope changes, bitwise-frozen VAE/scopes and hash-verified logs/checkpoint. Its contract tests
+      pass complete evidence and reject nine epochs, order drift, action-only gradients, VAE drift
+      and held-out leakage; synthetic fixtures are not model evidence.
 - [ ] Inspect the released embodiment/action adapter and verify that 29-DoF continuous action
       chunks and SUGAR causal state can be represented without changing Zero-WAM semantics.
 - [ ] If no documented adapter path exists, record an unsupported-embodiment blocker; do not write a
@@ -108,6 +114,8 @@
 - [ ] Run one fixed-data serious overfit using both official video-flow and 29-D action-flow targets;
       action MSE alone is insufficient.
 - [ ] Admit formal post-training only if the joint overfit and frozen prompt gates pass.
+- [ ] Run the exact admitted official recipe over the frozen full-data schedule and admit its final
+      checkpoint to Stage E only if `audit_zero_wam_bounded_posttraining_run.py` passes.
 
 ## E. Closed-loop physical gates
 

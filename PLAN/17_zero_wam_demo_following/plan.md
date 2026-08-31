@@ -308,6 +308,18 @@ validation/test may never choose an early stop below ten. The exact schedule SHA
 `0f30252c0315855a1154d2c9f68d78b283cf35d2eee772a16692f5b0f1882ec1`. This is a training
 coverage floor, not evidence that ten epochs guarantee physical success.
 
+Formal training completion is a separate fail-closed evidence gate. The official run must bind to
+the exact passed admission file, official commit/checkpoint and frozen schedule; execute on an H200
+Slurm compute node; record every one of the 160 trajectory exposures in every complete epoch; and
+retain hash-verified optimizer, module-scope and final-checkpoint artifacts. At least ten complete
+epochs, 224,000 atomic intervals and 1,120,000 actions must be observed. Official video-flow,
+action-flow and IFP losses and gradients must all remain finite and active, the official
+video-world-model and action-decoder scopes must change, and the released video VAE and every other
+official frozen scope must remain bitwise exact. Validation/test exposure, validation-selected
+early stopping, action-only training, a local learned module or a public-Wan-only substitute rejects
+the run. Passing proves adequate official post-training execution only and automatically opens the
+frozen Stage E evaluation; it is not a selected-demo or physical-success claim.
+
 ### Stage E — same-checkpoint closed-loop frozen evaluation
 
 The first physical gate uses the compatible SMALLBOX scene where exact released endpoints already

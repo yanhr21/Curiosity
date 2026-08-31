@@ -649,6 +649,26 @@ interleaves Carry/Kick with prefix imbalance at most one and retains each trajec
 shape but may not omit or reorder them. Admission checks both the result and actual schedule file
 against SHA256 `0f30252c0315855a1154d2c9f68d78b283cf35d2eee772a16692f5b0f1882ec1`.
 
+After the real official run finishes, audit training sufficiency before any frozen evaluation:
+
+```bash
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/demo_following/audit_zero_wam_bounded_posttraining_run.py \
+  --training-admission OFFICIAL_PASSED_ZERO_WAM_TRAINING_ADMISSION.json \
+  --training-schedule experiments/demo_following/zero_wam_official_v1/bounded_posttraining_schedule_v1/BOUNDED_POSTTRAINING_SCHEDULE.json \
+  --run-evidence OFFICIAL_ZERO_WAM_SUGAR_POSTTRAINING_EVIDENCE.json \
+  --output-dir experiments/demo_following/zero_wam_official_v1/bounded_posttraining_completion_v1
+```
+
+The evidence manifest points to hash-verified per-trajectory epoch JSONL, optimizer JSONL, official
+module before/after hashes and the complete final checkpoint file or sharded directory. The gate requires H200 Slurm execution, the
+exact official entrypoint/config and checkpoint identity, all ten scheduled epochs, at least
+224,000 interval and 1,120,000 action exposures, finite active video/action/IFP losses and gradients,
+changed official video/action trainable scopes, and a bitwise-frozen official video VAE. It rejects
+undertraining, schedule drift, action-only training, frozen-scope drift, held-out leakage, local
+learned modules and public-Wan-only substitutes. Passing opens frozen evaluation; it is not model
+success. `--self-test` exercises only synthetic evidence-contract fixtures.
+
 Keep the release and admission decisions live inside the retained H200 allocation with:
 
 ```bash

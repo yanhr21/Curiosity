@@ -375,6 +375,10 @@ def evaluate(
         "passed": bounded_posttraining_allowed,
         "training_allowed": bounded_posttraining_allowed,
         "automatic_next_branch": next_branch,
+        "official_identity": {
+            "model_commit": official_commit,
+            "checkpoint_sha256": prompt.get("checkpoint_sha256"),
+        },
         "official_reported_pretraining_scale": OFFICIAL_REPORTED_PRETRAIN_SCALE,
         "current_sugar_scale": EXPECTED_SUGAR_SCALE,
         "public_wan_base_preflight": {"ready": public_wan_base_ready, "checks": wan_base_checks},

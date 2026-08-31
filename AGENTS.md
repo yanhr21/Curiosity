@@ -140,6 +140,16 @@ only through additional complete epochs and may never use validation/test to sto
 schedule SHA256 is `0f30252c0315855a1154d2c9f68d78b283cf35d2eee772a16692f5b0f1882ec1`.
 This controls coverage and is not by itself a success claim.
 
+The formal run-completion audit is also frozen before release. A real run must bind to the exact
+passed admission file, official commit/checkpoint and immutable schedule; run on an H200 Slurm
+compute node; expose at least ten complete epochs / 224,000 atomic intervals / 1,120,000 actions;
+and preserve hash-verified epoch, optimizer, module-scope and checkpoint evidence. Joint official
+video/action/IFP losses and gradients must be finite and active, official video/action trainable
+scopes must change, and the official video VAE plus all frozen scopes must remain bitwise exact.
+Reject nine-epoch or off-schedule runs, action-only training, held-out leakage, validation-selected
+early stopping, local learned modules and public-Wan-only substitutes. Passing this audit opens
+frozen evaluation only; it is not selected-demo following or physical success.
+
 The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
 updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752
 is finite and keeps the released Refiner exact outside the recovery interval, but reaches only
