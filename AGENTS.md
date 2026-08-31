@@ -181,15 +181,23 @@ drift, fall regression and 15/20 outcomes without a sweep. Passing is not arbitr
 
 The motion-disjoint Zero-WAM closed-loop cases are frozen before model outcomes. All 19 immutable
 test motions (10 Carry, 9 Kick) use ten deterministic paired physics profiles and four conditions:
-matched, reversed, same-task alternate and wrong task. This is 190 groups / 760 rollouts / 494,000
-frames, with test-only prompt sources, shared per-group physics/noise seeds and no evaluation target
+matched, reversed, same-task alternate and wrong task. This is 190 groups / 760 adapted rollouts plus
+380 identical-initial-state exact endpoint baselines: 1,140 traces / 741,000 frames, with test-only prompt sources, shared per-group physics/noise seeds and no evaluation target
 in deployed inputs. The case manifest SHA256 is
-`8acaf4613d8c194bbbf03977c9c6c2b9837d09e8d29f175457377f4e76ba0c71`. Require every source's
+`4be15b98fc8b0b71792dee053e657e39bdeaf0f8dd68840514c5b2d08f1d05e5`. Require every source's
 matched and wrong-task prompt to reach `8/10` safe prompted-task outcomes without endpoint fall
 regression. Separately require matched to beat reversed and same-task alternate official flow loss
 at source-motion level, positive per-task means, win rate above 0.5 and one Holm-corrected family.
 Physical task switching, order and identity must pass together; do not reinterpret a subset as
 arbitrary-demo following or tune after failure.
+
+The motion-disjoint evaluator must reopen/hash all 1,140 full traces and exact endpoint checkpoint
+files. Every unique prompt fingerprint is officially encoded once and its cache is bound to all
+adapted traces. The 190 matched causal histories are rescored with matched/reversed/alternate prompts
+using identical diffusion noise, the fixed score seed and the same formal checkpoint. Reduce margins
+over ten profiles before source-motion statistics. Reject missing/duplicate trace evidence, `7/10`
+physical outcomes, fall regression, prompt cache re-encoding, unmatched noise, or reversed
+order/identity margins. Do not accept self-reported rollout summaries.
 
 The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
 updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752

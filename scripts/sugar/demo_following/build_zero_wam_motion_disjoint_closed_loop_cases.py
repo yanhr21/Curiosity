@@ -156,6 +156,18 @@ def build_cases(source_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                             "may_enter_deployed_model": False,
                             "official_matched_noise_flow_scoring_only": True,
                         },
+                        "endpoint_baseline": {
+                            "required": condition in ("matched", "wrong_task"),
+                            "prompted_task": prompt_task,
+                            "generator_checkpoint": prompt_source["expert"][
+                                "generator_checkpoint"
+                            ],
+                            "tracker_checkpoint": prompt_source["expert"][
+                                "tracker_checkpoint"
+                            ],
+                            "must_restore_identical_initial_physics": True,
+                            "parameter_exact": True,
+                        },
                     }
                 )
     return cases
@@ -211,6 +223,7 @@ def validate_cases(
             }
         )
         allowlist = case.get("deployed_input_contract", {})
+        baseline = case.get("endpoint_baseline", {})
         all_rows_semantically_exact = all_rows_semantically_exact and (
             case.get("protocol") == PROTOCOL
             and case.get("evaluation_seed") == EVALUATION_SEED
@@ -248,6 +261,15 @@ def validate_cases(
             }
             and case.get("evaluation_only_targets", {}).get("may_enter_deployed_model")
             is False
+            and baseline.get("required")
+            is (condition in ("matched", "wrong_task"))
+            and baseline.get("prompted_task") == expected_prompt_task
+            and baseline.get("generator_checkpoint")
+            == prompt_source.get("expert", {}).get("generator_checkpoint")
+            and baseline.get("tracker_checkpoint")
+            == prompt_source.get("expert", {}).get("tracker_checkpoint")
+            and baseline.get("must_restore_identical_initial_physics") is True
+            and baseline.get("parameter_exact") is True
         )
         prompt_sources_test_only = prompt_sources_test_only and prompt_source.get("split") == "test"
 
@@ -272,6 +294,9 @@ def validate_cases(
             == len(CONDITIONS)
         )
 
+    endpoint_baseline_count = sum(
+        bool(case["endpoint_baseline"]["required"]) for case in cases
+    )
     checks = {
         "bound_to_exact_immutable_source_manifest": (
             source_manifest_sha256 == EXPECTED_SOURCE_MANIFEST_SHA256
@@ -284,6 +309,7 @@ def validate_cases(
         "every_case_matches_immutable_prompt_and_seed_contract": all_rows_semantically_exact,
         "all_counterfactual_prompt_sources_remain_test_only": prompt_sources_test_only,
         "case_identity_set_complete": identities == expected_identities,
+        "exact_380_matched_initial_endpoint_baselines": endpoint_baseline_count == 380,
     }
     return {
         "protocol": PROTOCOL,
@@ -294,9 +320,15 @@ def validate_cases(
         "profile_count_per_target": PROFILE_COUNT,
         "condition_count": len(CONDITIONS),
         "case_count": len(cases),
-        "rollout_count": len(cases),
+        "adapted_rollout_count": len(cases),
+        "endpoint_baseline_rollout_count": endpoint_baseline_count,
+        "total_trace_rollout_count": len(cases) + endpoint_baseline_count,
         "rollout_steps": ROLLOUT_STEPS,
-        "total_closed_loop_frames": len(cases) * ROLLOUT_STEPS,
+        "adapted_closed_loop_frames": len(cases) * ROLLOUT_STEPS,
+        "endpoint_baseline_frames": endpoint_baseline_count * ROLLOUT_STEPS,
+        "total_closed_loop_frames": (
+            len(cases) + endpoint_baseline_count
+        ) * ROLLOUT_STEPS,
         "decision_contract": {
             "matched_task_success_per_source": "at_least_8_of_10_safe outcomes",
             "wrong_task_switch_per_source": "at_least_8_of_10 safe outcomes for prompted task",
@@ -344,7 +376,8 @@ def run_self_test(
             {
                 "self_test_passed": True,
                 "positive_real_case_count": len(cases),
-                "positive_real_frame_budget": len(cases) * ROLLOUT_STEPS,
+                "positive_real_adapted_frame_budget": len(cases) * ROLLOUT_STEPS,
+                "positive_real_total_frame_budget": (len(cases) + 380) * ROLLOUT_STEPS,
                 "rejected": [
                     "missing_case",
                     "duplicate_condition",

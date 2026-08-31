@@ -139,10 +139,17 @@
       causal-chain/action, endpoint-identity, fall and 15/20 failures; fixtures are not model results.
 - [x] Freeze the motion-disjoint test case set before outcomes: all 19 test motions, ten deterministic
       paired physics profiles and matched/reversed/same-task-alternate/wrong-task prompts, yielding
-      190 groups / 760 rollouts / 494,000 frames. All prompt sources remain test-only, evaluation
+      190 groups / 760 adapted rollouts plus 380 identical-initial-state exact endpoint baselines,
+      totaling 1,140 traces / 741,000 frames. All prompt sources remain test-only, evaluation
       targets stay outside deployed inputs and exact manifest SHA256 is
-      `8acaf4613d8c194bbbf03977c9c6c2b9837d09e8d29f175457377f4e76ba0c71`. Require per-source
+      `4be15b98fc8b0b71792dee053e657e39bdeaf0f8dd68840514c5b2d08f1d05e5`. Require per-source
       `8/10` prompted-task safety plus separate Holm-corrected order and identity gates.
+- [x] Freeze the motion-disjoint result evaluator: re-audit all 1,140 full traces and endpoint file
+      hashes, bind every prompt fingerprint to one official cached encoding, require exact initial
+      physics/history and prompt-only condition swaps, and score 190 matched causal traces under
+      matched diffusion noise. Aggregate physical safety/falls per source and order/identity after
+      ten-profile reduction with one Holm family. Reject missing traces, `7/10`, fall regression,
+      order/identity reversal, mismatched noise and prompt re-encoding in contract tests.
 
 - [ ] Freeze one adapted checkpoint and restore elementwise-identical SMALLBOX physics/history for
       Carry45 and Kick21 prompt-only swaps.

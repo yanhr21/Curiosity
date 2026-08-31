@@ -367,10 +367,11 @@ classification or generated-video quality alone is insufficient.
 The motion-disjoint closed-loop set is also frozen before any adapted result. All 19 immutable test
 motions (Carry `9/19/.../99`, Kick `9/19/.../89`) expand over ten deterministic paired physics
 profiles and four prompt conditions: matched, identical reversed, fixed same-task alternate and
-fixed wrong-task. This yields 190 paired groups, 760 rollouts and 494,000 required 650-frame closed
-loop steps. Every condition in a group shares physics seed and matched scoring-noise seed; every
+fixed wrong-task. This yields 190 paired groups and 760 adapted rollouts. Matched and wrong-task
+cases additionally require 380 exact released-endpoint rollouts from identical initial physics, so
+the full no-regression evidence is 1,140 rollouts / 741,000 required 650-frame closed-loop steps. Every condition in a group shares physics seed and matched scoring-noise seed; every
 prompt source remains test-only, and no evaluation target enters the deployed model. The exact case
-manifest SHA256 is `8acaf4613d8c194bbbf03977c9c6c2b9837d09e8d29f175457377f4e76ba0c71`.
+manifest SHA256 is `4be15b98fc8b0b71792dee053e657e39bdeaf0f8dd68840514c5b2d08f1d05e5`.
 
 For every source motion, matched and wrong-task prompts must each produce at least `8/10` safe
 outcomes for the prompted task with no fall regression against its exact released endpoint. Order
@@ -379,6 +380,14 @@ must beat reversed and same-task-alternate official flow loss at source-motion l
 per-task means, win rate above `0.5`, and one-sided exact sign tests passing one Holm family. Physical
 task switching, temporal order and identity must pass together; any single failure closes the broad
 test-motion claim without a guidance/reward/update sweep.
+
+The result evaluator reopens and hashes all 1,140 traces rather than trusting rollout summaries.
+Every unique prompt fingerprint is encoded exactly once and bound to every adapted trace that reuses
+its cache. Exact endpoint checkpoint files are hashed for all baseline routes. The 190 matched
+rollout histories are rescored under matched/reversed/same-task prompts with identical diffusion
+noise; score records must bind to the matched causal-trace hash, fixed score-noise seed and same
+formal checkpoint. The aggregate passes only when all 19 per-source physical gates and the joint
+Holm-corrected order/identity family pass together.
 
 The SMALLBOX decision is frozen as an executable trace audit before the model exists. Evaluation
 seed `281500` runs exactly 20 matched profiles x Carry45/Kick21 x adapted/released-endpoint routes x

@@ -557,6 +557,8 @@ def evaluate(
         ),
         "outcome_counts": outcome_counts,
         "future_precedes_action_profile_count": future_precedes_action_profiles,
+        "model_commit": model_commit,
+        "adapted_checkpoint_sha256": final_checkpoint,
         "checks": checks,
         "claim_boundary": (
             "Passing proves one official same-checkpoint Carry45/Kick21 SMALLBOX prompt switch. "

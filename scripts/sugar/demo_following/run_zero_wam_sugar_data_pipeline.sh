@@ -13,7 +13,7 @@ ICL_MANIFEST="$BASE/icl_manifest_v2"
 DATA_DIVERSITY="$BASE/training_data_diversity_v1"
 PROMPT_GATE_CASES="$BASE/frozen_prompt_gate_cases_v1"
 TRAINING_SCHEDULE="$BASE/bounded_posttraining_schedule_v1"
-MOTION_DISJOINT_CASES="$BASE/motion_disjoint_closed_loop_cases_v1"
+MOTION_DISJOINT_CASES="$BASE/motion_disjoint_closed_loop_cases_v2"
 PROMPT_ROOT="$BASE/prompt_rgb_isolated_v1"
 KIT_ARGS="--/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
 

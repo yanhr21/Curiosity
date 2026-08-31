@@ -713,18 +713,39 @@ Freeze the motion-disjoint test rollouts independently of model outcomes with:
 /public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
   scripts/sugar/demo_following/build_zero_wam_motion_disjoint_closed_loop_cases.py \
   --source-manifest experiments/demo_following/zero_wam_official_v1/icl_manifest_v2/ICL_MANIFEST.jsonl \
-  --output-dir experiments/demo_following/zero_wam_official_v1/motion_disjoint_closed_loop_cases_v1 \
+  --output-dir experiments/demo_following/zero_wam_official_v1/motion_disjoint_closed_loop_cases_v2 \
   --self-test
 ```
 
 The immutable result contains every test motion (10 Carry, 9 Kick), ten paired physics profiles and
-matched/reversed/same-task-alternate/wrong-task prompts: 190 four-condition groups, 760 rollouts and
-494,000 fixed closed-loop frames. All prompt sources are test-only and share exact per-group physics
+matched/reversed/same-task-alternate/wrong-task prompts: 190 four-condition groups and 760 adapted
+rollouts. Matched/wrong-task cases add 380 exact endpoint baselines from identical initial states,
+for 1,140 traces / 741,000 fixed closed-loop frames. All prompt sources are test-only and share exact per-group physics
 and scoring-noise seeds. Its case-manifest SHA256 is
-`8acaf4613d8c194bbbf03977c9c6c2b9837d09e8d29f175457377f4e76ba0c71`. Matched and wrong-task
+`4be15b98fc8b0b71792dee053e657e39bdeaf0f8dd68840514c5b2d08f1d05e5`. Matched and wrong-task
 prompts must produce `8/10` safe prompted-task outcomes per source without endpoint fall regression;
 matched-vs-reversed order and matched-vs-same-task identity official-flow margins are evaluated
 separately with source-motion statistics and one Holm family. All three gates must pass together.
+
+After SMALLBOX passes and the complete grid is collected, run:
+
+```bash
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/demo_following/evaluate_zero_wam_motion_disjoint_closed_loop.py \
+  --smallbox-audit experiments/demo_following/zero_wam_official_v1/smallbox_closed_loop_v1/SMALLBOX_CLOSED_LOOP_AUDIT.json \
+  --training-completion experiments/demo_following/zero_wam_official_v1/bounded_posttraining_completion_v1/BOUNDED_POSTTRAINING_COMPLETION_AUDIT.json \
+  --case-result experiments/demo_following/zero_wam_official_v1/motion_disjoint_closed_loop_cases_v2/MOTION_DISJOINT_CLOSED_LOOP_CASES_RESULT.json \
+  --case-manifest experiments/demo_following/zero_wam_official_v1/motion_disjoint_closed_loop_cases_v2/MOTION_DISJOINT_CLOSED_LOOP_CASES.jsonl \
+  --project-root /public/home/yanhongru/Curiosity \
+  --evidence-json OFFICIAL_ZERO_WAM_MOTION_DISJOINT_EVIDENCE.json \
+  --flow-scores OFFICIAL_ZERO_WAM_MOTION_DISJOINT_FLOW_SCORES.jsonl \
+  --output-dir experiments/demo_following/zero_wam_official_v1/motion_disjoint_closed_loop_v1
+```
+
+This evaluator re-audits every full trace, exact endpoint file and prompt cache rather than accepting
+self-reported outcomes. The 190 matched causal traces are scored under matched/reversed/alternate
+prompts with identical diffusion noise; margins are reduced across ten profiles before the
+source-motion sign tests and Holm correction. Physical safety, order and identity must all pass.
 
 Keep the release and admission decisions live inside the retained H200 allocation with:
 
