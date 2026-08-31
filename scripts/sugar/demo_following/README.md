@@ -565,6 +565,7 @@ Recompute the explicit model/data training boundary with:
   --wan-base-audit experiments/demo_following/zero_wam_official_v1/wan_base_h200_audit_v1/WAN22_BASE_AUDIT.json \
   --sugar-manifest-result experiments/demo_following/zero_wam_official_v1/icl_manifest_v2/RESULT.json \
   --sugar-data-diversity-result experiments/demo_following/zero_wam_official_v1/training_data_diversity_v1/SUGAR_TRAINING_DATA_DIVERSITY.json \
+  --prompt-case-result experiments/demo_following/zero_wam_official_v1/frozen_prompt_gate_cases_v1/FROZEN_PROMPT_GATE_CASES_RESULT.json \
   --output-dir experiments/demo_following/zero_wam_official_v1/training_admission_v1
 ```
 
@@ -577,6 +578,36 @@ Zero-WAM release, frozen prompt dependence and official 29-DoF adapter gates rem
 separately emits
 `sugar_foundation_pretraining.decision=forbidden_do_not_train_5b_from_scratch_on_sugar`; 22,400
 intervals do not turn two tasks into foundation-scale diversity.
+
+Freeze the official-model prompt-gate cases before any checkpoint score is observed:
+
+```bash
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/demo_following/build_zero_wam_frozen_prompt_gate_cases.py \
+  --source-manifest experiments/demo_following/zero_wam_official_v1/icl_manifest_v2/ICL_MANIFEST.jsonl \
+  --output-dir experiments/demo_following/zero_wam_official_v1/frozen_prompt_gate_cases_v1
+```
+
+The passing result fixes 39 held-out source motions, ten causal phase anchors per motion and five
+prompt interventions, producing 390 matched-noise groups / 1,950 score instances. The case manifest
+SHA256 is `035e554a94ecd506e4e4d287f32cf90d21f78f8a5211277f34daedf4516e37f5`.
+Once the strict-loaded official runner emits the required score JSONL, evaluate it with:
+
+```bash
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/demo_following/evaluate_zero_wam_frozen_prompt_gate.py \
+  --case-manifest experiments/demo_following/zero_wam_official_v1/frozen_prompt_gate_cases_v1/FROZEN_PROMPT_GATE_CASES.jsonl \
+  --score-jsonl OFFICIAL_ZERO_WAM_SUGAR_PROMPT_SCORES.jsonl \
+  --expected-model-commit OFFICIAL_40_HEX_COMMIT \
+  --expected-checkpoint-sha256 OFFICIAL_64_HEX_CHECKPOINT_SHA256 \
+  --output-dir experiments/demo_following/zero_wam_official_v1/frozen_prompt_gate_v1
+```
+
+The evaluator first averages ten anchor margins within each source motion, then applies directional
+exact sign tests and one Holm correction across task/order/identity/mask x validation/test. It also
+requires separately positive Carry/Kick directions, exact matched-noise fingerprints and changed
+official robot-future predictions before the action decoder. Its synthetic fixtures validate only
+the decision contract and are never model evidence.
 
 Keep the release and admission decisions live inside the retained H200 allocation with:
 

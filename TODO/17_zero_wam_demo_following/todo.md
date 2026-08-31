@@ -65,6 +65,12 @@
 
 ## C. Frozen official prompt gate
 
+- [x] Freeze all 39 held-out motions at ten fixed causal phase anchors with matched, wrong-task,
+      reversed, same-task-alternate and masked conditions: 390 matched-noise groups / 1,950 score
+      instances, with source motion as the primary statistical unit.
+- [x] Implement the fail-closed trajectory-level evaluator with one-sided exact sign tests, one
+      eight-comparison Holm family, per-task direction checks, exact official provenance and
+      pre-action-decoder future-change checks; pass positive and reject wrong-task-better fixtures.
 - [ ] Run the released checkpoint on teacher-forced SUGAR robot histories with matched noise and
       official next-video flow loss.
 - [ ] Evaluate matching versus wrong-task prompts on validation and test.

@@ -227,20 +227,35 @@ derive from the same rendered frames rather than separately generated prompt/rob
 ### Stage C — frozen official prompt-dependence gate
 
 Before post-training an action head, test the released checkpoint with teacher-forced SUGAR robot
-history and matched diffusion noise.  For every held-out target, score four prefix conditions:
+history and matched diffusion noise. The frozen executable case manifest uses all 39 held-out source
+motions, ten fixed causal phase anchors per motion (`7/21/.../133`) and five conditions per anchor,
+for 390 matched-noise groups and 1,950 official-model score calls. For every held-out target, score:
 
 1. matching selected prompt;
 2. wrong-task prompt;
 3. identical matching frames in reverse temporal order;
 4. a different same-task source motion.
+5. the matching prompt with cached prompt latents masked after official preprocessing.
 
 Use the official next-video flow loss and, if the released API exposes it, the official IFP loss.
 No locally invented embedding distance is an admission metric.  Validation fixes all normalization
 and evaluation settings; test is read once.  Each of task, temporal order and selected-motion
-identity passes only when both validation and test have positive mean paired margin, paired win rate
-above 0.5 and Holm-corrected exact paired-sign `p < 0.05`.  Prompt masking must also be worse than
-the matching prompt.  Identical robot histories with swapped prompts must change the predicted
-future before the action decoder.
+identity and prompt presence pass only when both validation and test have positive mean paired
+margin and paired win rate above 0.5, separately positive Carry and Kick means/win rates, and a
+Holm-corrected predeclared directional exact sign `p < 0.05`. The correction family contains all
+eight comparisons (four interventions x two splits). Ten anchor losses are averaged inside each
+source motion before inference, so frames are never treated as independent samples. Identical robot
+histories with swapped prompts must change the predicted future before the action decoder at every
+anchor.
+
+The case builder is complete and binds to immutable ICL manifest SHA256
+`24cc2b99b26e3136acb1508e4c1d8a6193702d25a43005978e9920179fc366c8`; its frozen case
+manifest SHA256 is `035e554a94ecd506e4e4d287f32cf90d21f78f8a5211277f34daedf4516e37f5`.
+The model-independent evaluator requires one complete 1,950-row score matrix, exact official commit
+and checkpoint hashes, official next-video flow loss, identical noise tensor fingerprints across
+conditions and pre-action-decoder predicted-future hashes. Synthetic contract tests pass a fully
+positive fixture and reject a wrong-task-better fixture. These fixtures test only the gate and are
+not model evidence.
 
 Failure at task, order or identity closes SUGAR policy adaptation from that checkpoint.  It may be
 reported as task semantics, ordering or instance information respectively, but may not be promoted

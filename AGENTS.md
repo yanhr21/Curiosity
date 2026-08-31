@@ -104,6 +104,17 @@ prompt/target comparisons and all 199 complete streams are nonidentical. This re
 same-embodiment audit, not HumanGen-scale, open-ended or cross-embodiment evidence. No model is
 trained until the actual official Zero-WAM implementation and weights can be strict-loaded.
 
+The frozen prompt-dependence contract is also fixed before release. It contains all 39 held-out
+source motions, ten causal phase anchors per motion and matched/wrong-task/reversed/
+same-task-alternate/masked conditions: 390 matched-noise groups and 1,950 official-model score
+instances. All conditions in a group must share the exact diffusion-noise tensor fingerprint.
+Anchor losses are averaged within source motion before directional exact sign tests; the one Holm
+family contains all four interventions x validation/test. Every comparison additionally requires
+positive Carry and Kick motion-level margins/win rates, and every prompt swap must change the
+official predicted robot future before the action decoder. The case manifest is bound to SHA256
+`035e554a94ecd506e4e4d287f32cf90d21f78f8a5211277f34daedf4516e37f5`. Do not change anchors,
+statistical unit, comparison family or thresholds after official scores are observed.
+
 The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
 updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752
 is finite and keeps the released Refiner exact outside the recovery interval, but reaches only

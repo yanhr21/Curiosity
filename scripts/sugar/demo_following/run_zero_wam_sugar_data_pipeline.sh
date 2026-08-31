@@ -10,6 +10,8 @@ ACTION_ROOT="$BASE/action_corpus_v1"
 ACTION_AUDIT="$BASE/action_grounding_audit_v2"
 ROBOT_RGB="$BASE/robot_rgb_isolated_10hz_v2"
 ICL_MANIFEST="$BASE/icl_manifest_v2"
+DATA_DIVERSITY="$BASE/training_data_diversity_v1"
+PROMPT_GATE_CASES="$BASE/frozen_prompt_gate_cases_v1"
 PROMPT_ROOT="$BASE/prompt_rgb_isolated_v1"
 KIT_ARGS="--/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1"
 
@@ -83,3 +85,19 @@ if [[ ! -f "$ICL_MANIFEST/RESULT.json" ]]; then
         --output-dir "$ICL_MANIFEST"
 fi
 jq -e '.passed == true' "$ICL_MANIFEST/RESULT.json" >/dev/null
+
+if [[ ! -f "$DATA_DIVERSITY/SUGAR_TRAINING_DATA_DIVERSITY.json" ]]; then
+    "$PYTHON_BIN" "$ROOT/scripts/sugar/demo_following/audit_zero_wam_sugar_data_diversity.py" \
+        --manifest "$ICL_MANIFEST/ICL_MANIFEST.jsonl" \
+        --project-root "$ROOT" \
+        --output-dir "$DATA_DIVERSITY"
+fi
+jq -e '.passed == true' "$DATA_DIVERSITY/SUGAR_TRAINING_DATA_DIVERSITY.json" >/dev/null
+
+if [[ ! -f "$PROMPT_GATE_CASES/FROZEN_PROMPT_GATE_CASES_RESULT.json" ]]; then
+    "$PYTHON_BIN" \
+        "$ROOT/scripts/sugar/demo_following/build_zero_wam_frozen_prompt_gate_cases.py" \
+        --source-manifest "$ICL_MANIFEST/ICL_MANIFEST.jsonl" \
+        --output-dir "$PROMPT_GATE_CASES"
+fi
+jq -e '.passed == true' "$PROMPT_GATE_CASES/FROZEN_PROMPT_GATE_CASES_RESULT.json" >/dev/null

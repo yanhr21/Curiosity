@@ -20,10 +20,14 @@ RELEASE_PROTOCOL = "official_zero_wam_release_strict_admission_v1"
 WAN_BASE_PROTOCOL = "official_wan22_ti2v_5b_base_audit_v1"
 SUGAR_MANIFEST_PROTOCOL = "sugar_zero_wam_immutable_video_action_icl_manifest_v1"
 SUGAR_DIVERSITY_PROTOCOL = "sugar_zero_wam_training_data_diversity_v1"
+PROMPT_CASE_PROTOCOL = "sugar_zero_wam_frozen_prompt_gate_cases_v1"
 PROMPT_GATE_PROTOCOL = "official_zero_wam_frozen_sugar_prompt_gate_v1"
 ADAPTER_PROTOCOL = "official_zero_wam_sugar_29dof_adapter_admission_v1"
 EXPECTED_SUGAR_ICL_MANIFEST_SHA256 = (
     "24cc2b99b26e3136acb1508e4c1d8a6193702d25a43005978e9920179fc366c8"
+)
+EXPECTED_FROZEN_PROMPT_CASE_MANIFEST_SHA256 = (
+    "035e554a94ecd506e4e4d287f32cf90d21f78f8a5211277f34daedf4516e37f5"
 )
 
 EXPECTED_SUGAR_SCALE = {
@@ -44,8 +48,13 @@ OFFICIAL_REPORTED_PRETRAIN_SCALE = {
     "pretraining_gpu_hours": 15_360,
 }
 PROMPT_CHECKS = (
+    "exact_frozen_case_manifest",
+    "complete_1950_condition_score_matrix",
+    "official_release_model_and_checkpoint_provenance",
     "official_next_video_flow_loss",
     "matched_noise",
+    "language_disabled",
+    "source_motion_level_statistics_after_ten_anchor_reduction",
     "matched_beats_wrong_task_validation",
     "matched_beats_wrong_task_test",
     "matched_beats_reversed_validation",
@@ -74,6 +83,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--wan-base-audit", type=Path, required=True)
     parser.add_argument("--sugar-manifest-result", type=Path, required=True)
     parser.add_argument("--sugar-data-diversity-result", type=Path, required=True)
+    parser.add_argument("--prompt-case-result", type=Path, required=True)
     parser.add_argument("--prompt-gate-result", type=Path)
     parser.add_argument("--adapter-audit-result", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -110,6 +120,7 @@ def evaluate(
     wan_base: dict[str, Any],
     manifest: dict[str, Any],
     diversity: dict[str, Any],
+    prompt_cases: dict[str, Any],
     prompt: dict[str, Any],
     adapter: dict[str, Any],
 ) -> dict[str, Any]:
@@ -179,6 +190,28 @@ def evaluate(
     sugar_diversity_ready = all(sugar_diversity_checks.values())
     sugar_posttraining_data_ready = sugar_manifest_ready and sugar_diversity_ready
 
+    prompt_case_checks = {
+        "protocol_exact": prompt_cases.get("protocol") == PROMPT_CASE_PROTOCOL,
+        "passed": prompt_cases.get("passed") is True,
+        "all_checks_true": checks_all_true(prompt_cases),
+        "bound_to_exact_immutable_source_manifest": (
+            prompt_cases.get("source_manifest_sha256")
+            == EXPECTED_SUGAR_ICL_MANIFEST_SHA256
+        ),
+        "exact_frozen_case_manifest": (
+            prompt_cases.get("case_manifest_sha256")
+            == EXPECTED_FROZEN_PROMPT_CASE_MANIFEST_SHA256
+        ),
+        "exact_39_heldout_source_motions": (
+            prompt_cases.get("target_source_motion_count") == 39
+        ),
+        "exact_390_matched_noise_groups": prompt_cases.get("case_group_count") == 390,
+        "exact_1950_condition_instances": (
+            prompt_cases.get("condition_instance_count") == 1_950
+        ),
+    }
+    prompt_case_contract_ready = all(prompt_case_checks.values())
+
     wan_base_checks = {
         "protocol_exact": wan_base.get("protocol") == WAN_BASE_PROTOCOL,
         "passed": wan_base.get("passed") is True,
@@ -207,8 +240,14 @@ def evaluate(
     prompt_checks = {
         "protocol_exact": prompt.get("protocol") == PROMPT_GATE_PROTOCOL,
         "passed": prompt.get("passed") is True,
+        "all_checks_true": checks_all_true(prompt),
         "official_provenance": prompt.get("provenance") == "official_zero_wam_release",
         "same_official_commit": prompt.get("model_commit") == official_commit,
+        "checkpoint_hash_recorded": valid_sha256(prompt.get("checkpoint_sha256")),
+        "exact_frozen_case_manifest": (
+            prompt.get("case_manifest_sha256")
+            == EXPECTED_FROZEN_PROMPT_CASE_MANIFEST_SHA256
+        ),
         "all_fixed_prompt_checks_true": named_checks_true(prompt, PROMPT_CHECKS),
     }
     frozen_prompt_gate_ready = all(prompt_checks.values())
@@ -226,6 +265,7 @@ def evaluate(
         "public_wan_base_preflight_ready": public_wan_base_ready,
         "official_zero_wam_release_ready": official_release_ready,
         "sugar_two_task_posttraining_data_ready": sugar_posttraining_data_ready,
+        "frozen_prompt_case_contract_ready": prompt_case_contract_ready,
         "frozen_official_prompt_gate_ready": frozen_prompt_gate_ready,
         "official_29dof_adapter_ready": official_adapter_ready,
     }
@@ -247,6 +287,8 @@ def evaluate(
         next_branch = "recheck_canonical_official_repository"
     elif not official_release_ready:
         next_branch = "strict_load_official_zero_wam_checkpoint_and_example"
+    elif not prompt_case_contract_ready:
+        next_branch = "rebuild_exact_frozen_prompt_case_contract"
     elif not frozen_prompt_gate_ready:
         next_branch = "run_frozen_official_sugar_prompt_gate"
     elif not official_adapter_ready:
@@ -278,6 +320,10 @@ def evaluate(
                 "Ready only for the fixed two-task, same-embodiment SUGAR post-training audit "
                 "from a strict-loaded official pretrained Zero-WAM checkpoint."
             ),
+        },
+        "frozen_prompt_case_contract": {
+            "ready": prompt_case_contract_ready,
+            "checks": prompt_case_checks,
         },
         "frozen_official_prompt_gate": {"ready": frozen_prompt_gate_ready, "checks": prompt_checks},
         "official_29dof_adapter": {"ready": official_adapter_ready, "checks": adapter_checks},
@@ -330,6 +376,16 @@ def run_self_test() -> None:
         "action_covariance_numerical_rank_at_relative_1e_6": 29,
         "checks": {"effective_diversity_passed": True},
     }
+    prompt_cases = {
+        "protocol": PROMPT_CASE_PROTOCOL,
+        "passed": True,
+        "source_manifest_sha256": EXPECTED_SUGAR_ICL_MANIFEST_SHA256,
+        "case_manifest_sha256": EXPECTED_FROZEN_PROMPT_CASE_MANIFEST_SHA256,
+        "target_source_motion_count": 39,
+        "case_group_count": 390,
+        "condition_instance_count": 1_950,
+        "checks": {"frozen_contract_passed": True},
+    }
     wan = {
         "protocol": WAN_BASE_PROTOCOL,
         "passed": True,
@@ -352,6 +408,8 @@ def run_self_test() -> None:
         "passed": True,
         "provenance": "official_zero_wam_release",
         "model_commit": commit,
+        "checkpoint_sha256": "c" * 64,
+        "case_manifest_sha256": EXPECTED_FROZEN_PROMPT_CASE_MANIFEST_SHA256,
         "checks": {name: True for name in PROMPT_CHECKS},
     }
     adapter = {
@@ -361,26 +419,41 @@ def run_self_test() -> None:
         "model_commit": commit,
         "checks": {name: True for name in ADAPTER_CHECKS},
     }
-    admitted = evaluate(release, wan, manifest, diversity, prompt, adapter)
+    admitted = evaluate(release, wan, manifest, diversity, prompt_cases, prompt, adapter)
     assert admitted["bounded_sugar_posttraining"]["allowed"] is True
     assert admitted["sugar_foundation_pretraining"]["allowed"] is False
 
-    no_release = evaluate({}, wan, manifest, diversity, {}, {})
+    no_release = evaluate({}, wan, manifest, diversity, prompt_cases, {}, {})
     assert no_release["sugar_bounded_posttraining_data"]["ready"] is True
     assert no_release["bounded_sugar_posttraining"]["allowed"] is False
     assert no_release["automatic_next_branch"] == "recheck_canonical_official_repository"
 
     too_small = dict(manifest)
     too_small["trajectory_count"] = 10
-    rejected_data = evaluate(release, wan, too_small, diversity, prompt, adapter)
+    rejected_data = evaluate(
+        release, wan, too_small, diversity, prompt_cases, prompt, adapter
+    )
     assert rejected_data["sugar_bounded_posttraining_data"]["ready"] is False
     assert rejected_data["bounded_sugar_posttraining"]["allowed"] is False
 
     duplicated = dict(diversity)
     duplicated["train_action_chunk_unique_fraction"] = 0.5
-    rejected_diversity = evaluate(release, wan, manifest, duplicated, prompt, adapter)
+    rejected_diversity = evaluate(
+        release, wan, manifest, duplicated, prompt_cases, prompt, adapter
+    )
     assert rejected_diversity["sugar_bounded_posttraining_data"]["ready"] is False
     assert rejected_diversity["bounded_sugar_posttraining"]["allowed"] is False
+
+    incomplete_cases = dict(prompt_cases)
+    incomplete_cases["case_group_count"] = 389
+    rejected_cases = evaluate(
+        release, wan, manifest, diversity, incomplete_cases, prompt, adapter
+    )
+    assert rejected_cases["frozen_prompt_case_contract"]["ready"] is False
+    assert rejected_cases["bounded_sugar_posttraining"]["allowed"] is False
+    assert rejected_cases["automatic_next_branch"] == (
+        "rebuild_exact_frozen_prompt_case_contract"
+    )
 
 
 def main() -> None:
@@ -392,6 +465,7 @@ def main() -> None:
         read_json(args.wan_base_audit),
         read_json(args.sugar_manifest_result),
         read_json(args.sugar_data_diversity_result),
+        read_json(args.prompt_case_result),
         read_json(args.prompt_gate_result),
         read_json(args.adapter_audit_result),
     )
