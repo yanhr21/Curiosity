@@ -65,6 +65,20 @@ matched/wrong/reversed/same-task prompt gate with official video/IFP losses. Onl
 task, order and selected-motion identity may open the official 29-DoF embodiment/action adaptation
 and same-checkpoint closed-loop physical gate.
 
+The canonical live release gate is now fail-closed and records full main
+`5a8a2da069392c1974ee98941ada13a5208b0ca5`: five blobs, zero Python files, zero
+training/inference entrypoints and zero data-schema paths, hence `release_available=false`. The
+exact public Wan2.2 source commit `42bf4cfaa384bc21833865abc2f9e6c0e67233dc` and all 22
+Wan2.2-TI2V-5B files (`34,203,123,632` bytes) are staged only for H200 base-runtime verification.
+Even a passing base audit does not open training; the released Zero-WAM action branch, MoT/IFP
+implementation, checkpoint and official example remain mandatory.
+
+The exact public-base audit passes on H200: the DiT strict-load has zero
+missing/unexpected/mismatched keys and `4,999,787,712` parameters; BF16 minimal-valid execution of
+all 30 layers peaks at `10,263,348,736` bytes and takes `0.5462 s`. The exact 22-file snapshot has
+no incomplete fragments and is hash-recorded. This is Wan base compatibility evidence only, not a
+Zero-WAM checkpoint, official example or permission to train SUGAR.
+
 The immutable SUGAR side of that gate is complete. The historical 2.5 m-spaced XIRL renders are
 rejected for Plan 17 because neighboring environments enter the camera frustum. The replacement
 corpus re-renders all 100 Carry + 99 Kick prompts and robot targets at 30 m spacing with a 20 m far

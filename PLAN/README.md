@@ -18,6 +18,17 @@ loading, followed by a frozen SUGAR matched/wrong/reversed/same-task prompt gate
 task, temporal order and selected-motion identity opens official 29-DoF action adaptation and one
 same-checkpoint SMALLBOX physical prompt swap.
 
+The live machine gate now records the full official commit and rejects it with five blobs, zero
+Python files, zero entrypoints and zero data-schema paths.  The exact public Wan2.2 source commit
+`42bf4cf` and all 22 Wan2.2-TI2V-5B files (`34,203,123,632` bytes) are staged separately for H200
+base-runtime verification.  This preflight cannot substitute for the absent Zero-WAM action branch,
+MoT/IFP code, checkpoint or released example and therefore does not open training.
+
+The public-base H200 preflight passes: strict load has zero missing/unexpected/mismatched keys,
+`4,999,787,712` parameters and exact BF16 residency; its 30-layer minimal-valid forward takes
+`0.5462 s` and peaks at `10,263,348,736` bytes.  All 22 official snapshot paths and bytes are exact,
+with no partial file retained.  This remains base compatibility evidence rather than Stage A.
+
 The immutable SUGAR data stage is complete: 199 isolated prompt/robot streams, 139,300 exact
 Generator+Tracker transitions, 27,860 synchronized video/action intervals and 22,400 train
 intervals pass the v2 machine gate.  The old 2.5 m XIRL renders are excluded because neighboring

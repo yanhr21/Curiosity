@@ -1,0 +1,12 @@
+# Isolated compatibility layer for the official Wan2.2-TI2V-5B base audit.
+# Torch/CUDA come from the retained H200 runtime; this is not a Zero-WAM stack.
+diffusers==0.33.0
+transformers==4.51.3
+tokenizers==0.21.4
+numpy==1.26.4
+easydict==1.13
+ftfy==6.3.1
+decord==0.6.0
+ninja==1.13.0
+flash-attn==2.8.3.post1
+modelscope==1.39.1

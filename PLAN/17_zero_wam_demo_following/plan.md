@@ -173,6 +173,23 @@ compatibility status, not a request for human authorization.
 Stage A passes only when `OFFICIAL_RELEASE_AUDIT.json` proves strict loading, exact official model
 class/config, a complete official example and no local model substitution.
 
+The live release gate is implemented and fail-closed.  On 2026-08-31 it resolves canonical main to
+full commit `5a8a2da069392c1974ee98941ada13a5208b0ca5`: the recursive tree contains only five blobs,
+zero Python files, zero training/inference entrypoints and zero data-schema paths, so
+`release_available=false`.  Separately, the exact public Wan2.2 source at commit
+`42bf4cfaa384bc21833865abc2f9e6c0e67233dc` and all 22 published Wan2.2-TI2V-5B files
+(`34,203,123,632` bytes) are staged for an H200 base-runtime audit.  A passing Wan base audit is
+preflight evidence only: it cannot satisfy Stage A or open SUGAR training because it contains no
+released Zero-WAM action branch, MoT/IFP implementation, checkpoint or official example.
+
+That public-base preflight now passes on H200.  The exact three-shard DiT strict-loads with zero
+missing, unexpected or mismatched keys and has `4,999,787,712` parameters.  BF16 residency uses
+`10,001,017,344` allocated bytes; the full minimal-valid 30-layer forward peaks at
+`10,263,348,736` bytes and finishes in `0.5462 s`.  CPU load and H200 transfer take `13.6326 s` and
+`5.4647 s`.  The runtime is pinned to Torch `2.7.0+cu128`, Diffusers `0.33.0`, Transformers
+`4.51.3` and official FlashAttention `2.8.3.post1`; the final snapshot gate additionally requires
+the exact 22 paths/bytes, no incomplete fragments and SHA256 for every file.
+
 ### Stage B — immutable SUGAR ICL manifest
 
 Build a manifest without rendering presentation/composite videos.  Every row records task, source ID,

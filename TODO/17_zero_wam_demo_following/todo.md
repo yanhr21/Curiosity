@@ -12,6 +12,18 @@
       robot tasks, about 400K robot trajectories per epoch and 15,360 GPU-hours of pre-training.
 - [x] Record the evidence boundary: `46.95%` on seven unseen RoboTwin tasks, IFP ablation
       `28.55% -> 46.95%`, stationary-tabletop emphasis and no exact-trajectory claim.
+- [x] Implement and run a fail-closed canonical-release auditor: full main commit, recursive tree,
+      real method code/entrypoints/schema, official checkpoint, strict load, official example,
+      hashes and no-local-substitute must all pass machine-readable checks.
+- [x] Reconfirm canonical main `5a8a2da069392c1974ee98941ada13a5208b0ca5` on 2026-08-31:
+      five blobs, zero Python files, zero entrypoints/schema paths and
+      `release_available=false`.
+- [x] Stage the exact public Wan2.2 source commit `42bf4cfaa384bc21833865abc2f9e6c0e67233dc`
+      plus all 22 Wan2.2-TI2V-5B files (`34,203,123,632` bytes) in an isolated runtime; keep this
+      explicitly below the Zero-WAM admission boundary.
+- [x] Strict-load the exact public Wan base on H200 in BF16 with zero missing/unexpected/mismatched
+      keys: `4,999,787,712` parameters, `10,263,348,736` peak bytes and a `0.5462 s` minimal-valid
+      forward through all 30 released DiT blocks; record exact 22-file snapshot SHA256s.
 - [ ] Detect the first official code/model/data release, freeze its full commit and checkpoint,
       and write `OFFICIAL_RELEASE_AUDIT.json` without asking for user authorization.
 - [ ] Strict-load the official model on H200 and reproduce one released example plus documented

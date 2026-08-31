@@ -507,3 +507,44 @@ allowlist.  Passing this data gate gives 199 trajectories,
 139,300 actions and 27,860 video-action intervals (22,400 train intervals) for
 the bounded two-task SUGAR audit; it is not Zero-WAM pre-training or an
 open-ended/cross-embodiment result.
+
+### Official Zero-WAM release and public Wan base gates
+
+From a retained Slurm compute step, recheck the canonical repository with:
+
+```bash
+bash scripts/sugar/demo_following/run_zero_wam_official_release_audit.sh \
+  experiments/demo_following/zero_wam_official_v1/official_release_status
+```
+
+The auditor records the full main commit and recursive tree, then requires real method code,
+training/inference entrypoints, a data schema, world/action/IFP/MoT implementation, official
+checkpoint files, strict load, checkpoint hashes, an official example and explicit official
+provenance.  On 2026-08-31 canonical main is
+`5a8a2da069392c1974ee98941ada13a5208b0ca5`; it has five blobs, zero Python files, zero
+entrypoints/schema paths and correctly emits `release_available=false` with exit status 3.
+
+The public Wan2.2 base is a separate preflight, not a Zero-WAM release.  The exact official source
+commit is `42bf4cfaa384bc21833865abc2f9e6c0e67233dc`; the staged Wan2.2-TI2V-5B snapshot contains
+all 22 published files and `34,203,123,632` bytes.  In an isolated official-compatible runtime on
+H200, run:
+
+```bash
+bash scripts/sugar/demo_following/run_wan22_base_h200_audit.sh \
+  experiments/demo_following/zero_wam_official_v1/wan_base_runtime_v1/Wan2.2-42bf4cfaa384bc21833865abc2f9e6c0e67233dc \
+  experiments/demo_following/zero_wam_official_v1/wan_base_runtime_v1/Wan2.2-TI2V-5B \
+  experiments/demo_following/zero_wam_official_v1/wan_base_runtime_v1/runtime_venv/bin/python \
+  experiments/demo_following/zero_wam_official_v1/wan_base_h200_audit_v1
+```
+
+This gate strict-loads every published DiT shard, requires exact config/parameter identity and
+BF16 H200 residency, executes all 30 official DiT blocks on a minimal valid latent, and hashes every
+one of the 22 official snapshot files while rejecting any `.incomplete` fragment.  Passing it proves
+only the public video backbone; it cannot open SUGAR
+training without the released Zero-WAM action branch, MoT/IFP path, checkpoint and example.
+
+The admitted public-base result has `4,999,787,712` parameters and zero
+missing/unexpected/mismatched keys.  CPU strict load takes `13.6326 s`, BF16 H200 transfer takes
+`5.4647 s`, and the exact 30-layer minimal-valid forward takes `0.5462 s` with
+`10,263,348,736` peak allocated bytes.  The exact pinned runtime is Torch `2.7.0+cu128`, CUDA
+`12.8`, Diffusers `0.33.0`, Transformers `4.51.3` and FlashAttention `2.8.3.post1`.
