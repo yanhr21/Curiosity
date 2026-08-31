@@ -681,8 +681,11 @@ must not be worse; a single joint-gradient step or flat full-data trace fails.
 
 Every packed sample must stay inside one batch and optimizer step, and every batch maps to one step.
 No optimizer step may aggregate more than 140 atomic intervals, one complete-trajectory equivalent.
-Thus the ten-epoch 224,000-interval floor requires at least 1,600 optimizer updates; the full-scale
-contract fixture contains 7,000 and explicitly rejects one-update-per-epoch pseudo-training.
+Thus the ten-epoch 224,000-interval floor requires at least 1,600 optimizer updates by coverage.
+Formal completion is stricter: it takes the maximum of that count, the paper's 4,000-step RoboTwin
+post-training reference and any larger released official recipe. The full-scale contract fixture
+contains 7,000 updates and explicitly rejects both a coverage-only 1,600-step trace and
+one-update-per-epoch pseudo-training.
 
 The atomic result also contains one composition row per optimizer step: unique epoch, Carry/Kick
 atomic-interval counts, action exposures, forward batches and packed samples. The completion audit
@@ -698,8 +701,8 @@ The evidence manifest also points to hash-verified per-trajectory epoch JSONL, o
 official module before/after hashes and the complete final checkpoint file or sharded directory. The gate requires H200 Slurm execution, the
 exact official entrypoint/config and checkpoint identity, all ten scheduled epochs, at least
 224,000 interval and 1,120,000 action exposures, finite video/action/IFP losses, strictly positive
-three-branch gradients at every optimizer step, at least 1,600 updates and first-to-last epoch median
-loss progress,
+three-branch gradients at every optimizer step, at least 4,000 updates (or a larger released official
+budget) and first-to-last epoch median loss progress,
 changed official video/action trainable scopes, and a bitwise-frozen official video VAE. It rejects
 undertraining, schedule drift, action-only training, collapsed inputs, frozen-scope drift, held-out leakage, local
 learned modules and public-Wan-only substitutes. Passing opens frozen evaluation; it is not model

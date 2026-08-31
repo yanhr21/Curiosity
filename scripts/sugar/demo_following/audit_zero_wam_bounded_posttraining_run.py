@@ -38,9 +38,14 @@ ACTIONS_PER_INTERVAL = 5
 MINIMUM_INTERVAL_EXPOSURES = 224_000
 MINIMUM_ACTION_EXPOSURES = 1_120_000
 MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP = INTERVALS_PER_TRAJECTORY
-MINIMUM_OPTIMIZER_STEPS = (
+COVERAGE_MINIMUM_OPTIMIZER_STEPS = (
     MINIMUM_INTERVAL_EXPOSURES + MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP - 1
 ) // MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
+PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR = 4_000
+MINIMUM_OPTIMIZER_STEPS = max(
+    COVERAGE_MINIMUM_OPTIMIZER_STEPS,
+    PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR,
+)
 LOSS_FIELDS = ("video_flow_loss", "action_flow_loss", "ifp_loss")
 TASKS = ("CarryBox", "KickBox")
 GRADIENT_FIELDS = (
@@ -261,7 +266,20 @@ def evaluate(
             and recipe.get("repository_clean") is True
             and recipe.get("local_training_diff_paths") == []
         ),
-        "official_budget_satisfied": recipe.get("released_budget_satisfied") is True,
+        "official_budget_is_structured_and_not_below_paper_reference": (
+            recipe.get("paper_posttraining_optimizer_step_floor")
+            == PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR
+            and isinstance(recipe.get("released_optimizer_steps"), int)
+            and recipe["released_optimizer_steps"] > 0
+            and isinstance(recipe.get("configured_optimizer_steps"), int)
+            and recipe["configured_optimizer_steps"]
+            >= max(
+                PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR,
+                recipe["released_optimizer_steps"],
+            )
+            and len(optimizer_rows) == recipe["configured_optimizer_steps"]
+            and recipe.get("released_budget_satisfied") is True
+        ),
         "h200_slurm_compute": (
             isinstance(slurm.get("job_id"), (str, int))
             and bool(str(slurm.get("job_id")))
@@ -393,7 +411,7 @@ def evaluate(
             )
             is True
             and consumption_audit.get("checks", {}).get(
-                "optimizer_update_count_meets_dynamic_coverage_floor"
+                "optimizer_update_count_meets_coverage_and_reference_budget_floor"
             )
             is True
         ),
@@ -699,6 +717,10 @@ def evaluate(
         "optimizer_trace_records": len(optimizer_rows),
         "optimizer_step_composition_records": len(composition_by_step),
         "minimum_optimizer_step_floor": MINIMUM_OPTIMIZER_STEPS,
+        "coverage_minimum_optimizer_step_floor": COVERAGE_MINIMUM_OPTIMIZER_STEPS,
+        "paper_posttraining_optimizer_step_floor": (
+            PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR
+        ),
         "maximum_atomic_intervals_per_optimizer_step": (
             MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
         ),
@@ -777,22 +799,29 @@ def run_self_test() -> None:
         consumption_audit_path = root / "atomic_consumption_audit.json"
         consumption_log_path = root / "atomic_consumption.jsonl"
         evidence_path = root / "evidence.json"
+        fixture_intervals_per_optimizer_step = (
+            MINIMUM_INTERVAL_EXPOSURES // MINIMUM_OPTIMIZER_STEPS
+        )
+        assert (
+            fixture_intervals_per_optimizer_step * MINIMUM_OPTIMIZER_STEPS
+            == MINIMUM_INTERVAL_EXPOSURES
+        )
         optimizer_step_composition = [
             {
                 "optimizer_step": optimizer_step,
                 "epoch_index": optimizer_step
                 // (MINIMUM_OPTIMIZER_STEPS // MINIMUM_EPOCHS),
-                "atomic_interval_count": MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP,
+                "atomic_interval_count": fixture_intervals_per_optimizer_step,
                 "action_exposure_count": (
-                    MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP * ACTIONS_PER_INTERVAL
+                    fixture_intervals_per_optimizer_step * ACTIONS_PER_INTERVAL
                 ),
                 "carry_interval_count": (
-                    MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
+                    fixture_intervals_per_optimizer_step
                     if optimizer_step % 2 == 0
                     else 0
                 ),
                 "kick_interval_count": (
-                    MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
+                    fixture_intervals_per_optimizer_step
                     if optimizer_step % 2 == 1
                     else 0
                 ),
@@ -859,7 +888,7 @@ def run_self_test() -> None:
             "checks": {
                 "full_atomic_consumption_contract_passed": True,
                 "no_optimizer_step_exceeds_one_trajectory_equivalent": True,
-                "optimizer_update_count_meets_dynamic_coverage_floor": True,
+                "optimizer_update_count_meets_coverage_and_reference_budget_floor": True,
                 "optimizer_steps_have_single_epoch_and_exact_task_composition": True,
             },
         }
@@ -900,6 +929,13 @@ def run_self_test() -> None:
                     "unmodified": True,
                     "repository_clean": True,
                     "local_training_diff_paths": [],
+                    "paper_posttraining_optimizer_step_floor": (
+                        PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR
+                    ),
+                    "released_optimizer_steps": (
+                        PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR
+                    ),
+                    "configured_optimizer_steps": MINIMUM_OPTIMIZER_STEPS,
                     "released_budget_satisfied": True,
                 },
                 "slurm_compute": {
@@ -935,6 +971,19 @@ def run_self_test() -> None:
         emit(epoch_rows, optimizer_rows, modules)
         positive = evaluate(admission_path, schedule_path, evidence_path)
         assert positive["passed"] is True, positive
+
+        low_configured_budget = read_json(evidence_path)
+        low_configured_budget["official_recipe"]["configured_optimizer_steps"] = (
+            PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR - 1
+        )
+        write_json(evidence_path, low_configured_budget)
+        low_budget_failure = evaluate(admission_path, schedule_path, evidence_path)
+        assert (
+            low_budget_failure["checks"][
+                "official_budget_is_structured_and_not_below_paper_reference"
+            ]
+            is False
+        )
 
         emit(
             [row for row in epoch_rows if row["epoch_index"] < 9],
@@ -1060,7 +1109,7 @@ def run_self_test() -> None:
             "no_optimizer_step_exceeds_one_trajectory_equivalent"
         ] = False
         insufficient_updates["checks"][
-            "optimizer_update_count_meets_dynamic_coverage_floor"
+            "optimizer_update_count_meets_coverage_and_reference_budget_floor"
         ] = False
         emit(
             epoch_rows,
@@ -1091,6 +1140,7 @@ def run_self_test() -> None:
                     "positive_fixture_passed": True,
                     "rejected": [
                         "undertrained_nine_epoch",
+                        "configured_budget_below_paper_reference",
                         "off_schedule_order",
                         "action_only_gradient",
                         "single_joint_gradient_step",

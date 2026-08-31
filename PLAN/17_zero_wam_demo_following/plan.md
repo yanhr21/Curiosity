@@ -347,8 +347,12 @@ formal run was jointly active and the full-data objective made measurable progre
 Packed-sample membership is also audited: one packed sample cannot straddle batches or optimizer
 steps, and one batch cannot map to multiple steps. A single optimizer step may consume at most one
 trajectory equivalent (`140` atomic intervals). The fixed 224,000-interval floor therefore requires
-at least 1,600 contiguous optimizer updates; the current full-scale contract fixture contains 7,000.
-This is a coverage floor, not a locally invented optimizer or a substitute for the released recipe.
+at least 1,600 contiguous updates by coverage alone, but formal completion uses the maximum of that
+count, the paper's 4,000-step RoboTwin post-training reference and any larger released official
+recipe. The current full-scale contract fixture contains 7,000 updates and explicitly rejects a
+coverage-complete 1,600-step trace. Evidence records the paper floor, released-recipe step count and
+effective configured count rather than trusting a budget-satisfied boolean. This is a training
+sufficiency floor, not a locally invented optimizer or a substitute for the released recipe.
 
 For each update, the atomic auditor derives and archives its unique epoch plus exact Carry/Kick
 interval counts, five-action exposure count, forward-batch count and packed-sample count. The formal

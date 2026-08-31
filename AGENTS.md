@@ -171,9 +171,13 @@ sample optimizer evidence or merely positive run-wide gradient sums are insuffic
 
 Forward coverage is not optimizer coverage. Each packed sample must remain within one batch and
 optimizer step, and every batch maps to exactly one step. No step may aggregate more than one full
-trajectory equivalent (`140` atomic intervals), so the 224,000-interval ten-epoch floor requires at
-least 1,600 optimizer updates. One update per epoch or another giant-accumulation count is rejected
-even if every interval reached an official forward call.
+trajectory equivalent (`140` atomic intervals). Coverage arithmetic alone therefore requires 1,600
+updates, but formal completion additionally inherits the paper's 4,000-step RoboTwin post-training
+reference. The fixed floor is the maximum of exact coverage, 4,000 steps and any larger released
+official recipe. The evidence must record the paper floor, released step budget and effective
+configured budget as integers; a boolean `released_budget_satisfied` is insufficient. A 1,600-step
+coverage-only run, one update per epoch or another giant-accumulation count is rejected even if every
+interval reached an official forward call.
 
 The atomic audit must derive a composition record for every optimizer step: single epoch, exact
 Carry/Kick atomic-interval counts, action exposure count, forward-batch count and packed-sample

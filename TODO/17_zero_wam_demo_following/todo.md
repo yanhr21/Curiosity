@@ -118,8 +118,14 @@
       consumption-step gap, optimizer-trace gap, single-joint-step trace and flat losses in tests.
 - [x] Prevent forward-only pseudo-training: require each packed sample to remain in one batch/step,
       every batch to map to one step, at most 140 atomic intervals per optimizer update and therefore
-      at least 1,600 updates for the ten-epoch floor. The 224,000-row fixture executes 7,000 updates
-      and rejects one-update-per-epoch evidence; no model or optimizer substitute is introduced.
+      a 1,600-update coverage minimum. Formal completion takes the maximum of that minimum, the
+      paper's 4,000-step post-training reference and any larger released recipe. The 224,000-row
+      fixture executes 7,000 updates and rejects both coverage-only 1,600-step and one-update-per-epoch
+      evidence; no model or optimizer substitute is introduced.
+- [x] Replace the self-reported budget boolean with structured evidence: require exact 4,000-step
+      paper floor, positive released-recipe step count, effective configured step count no smaller
+      than either, and at least the same number of contiguous consumed/optimizer-trace steps. Reject
+      a configured 3,999-step fixture even when all other execution evidence passes.
 - [x] Bind optimizer contents, not only IDs: derive every step's single epoch, exact Carry/Kick
       interval counts, action exposures, forward batches and packed samples from the atomic log, then
       require field-exact optimizer-trace equality. Reject cross-epoch steps and a forged task

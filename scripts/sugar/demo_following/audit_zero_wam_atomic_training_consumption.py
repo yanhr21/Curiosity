@@ -30,9 +30,14 @@ INTERVALS_PER_EPOCH = 22_400
 MINIMUM_INTERVAL_EXPOSURES = 224_000
 MINIMUM_ACTION_EXPOSURES = 1_120_000
 MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP = INTERVALS_PER_TRAJECTORY
-MINIMUM_OPTIMIZER_STEPS = (
+COVERAGE_MINIMUM_OPTIMIZER_STEPS = (
     MINIMUM_INTERVAL_EXPOSURES + MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP - 1
 ) // MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
+PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR = 4_000
+MINIMUM_OPTIMIZER_STEPS = max(
+    COVERAGE_MINIMUM_OPTIMIZER_STEPS,
+    PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -333,9 +338,13 @@ def evaluate(
                 "packed_sample_count": len(packed_sample_ids),
             }
         )
-    dynamic_minimum_optimizer_steps = (
+    coverage_minimum_optimizer_steps = (
         len(rows) + MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP - 1
     ) // MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
+    required_minimum_optimizer_steps = max(
+        coverage_minimum_optimizer_steps,
+        PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR,
+    )
     checks = {
         **schedule_checks,
         "global_consumption_index_exact": index_sequence_exact,
@@ -384,9 +393,8 @@ def evaluate(
             and max(optimizer_interval_counts.values())
             <= MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
         ),
-        "optimizer_update_count_meets_dynamic_coverage_floor": (
-            len(unique_optimizer_steps) >= dynamic_minimum_optimizer_steps
-            and len(unique_optimizer_steps) >= MINIMUM_OPTIMIZER_STEPS
+        "optimizer_update_count_meets_coverage_and_reference_budget_floor": (
+            len(unique_optimizer_steps) >= required_minimum_optimizer_steps
         ),
         "at_least_224000_atomic_interval_exposures": len(rows) >= MINIMUM_INTERVAL_EXPOSURES,
         "at_least_1120000_action_exposures": total_actions >= MINIMUM_ACTION_EXPOSURES,
@@ -407,7 +415,11 @@ def evaluate(
         "optimizer_step_min": unique_optimizer_steps[0] if unique_optimizer_steps else None,
         "optimizer_step_max": unique_optimizer_steps[-1] if unique_optimizer_steps else None,
         "distinct_optimizer_step_count": len(unique_optimizer_steps),
-        "minimum_required_optimizer_step_count": dynamic_minimum_optimizer_steps,
+        "coverage_minimum_optimizer_step_count": coverage_minimum_optimizer_steps,
+        "paper_posttraining_optimizer_step_floor": (
+            PAPER_POSTTRAINING_OPTIMIZER_STEP_FLOOR
+        ),
+        "minimum_required_optimizer_step_count": required_minimum_optimizer_steps,
         "maximum_atomic_intervals_per_optimizer_step": (
             max(optimizer_interval_counts.values()) if optimizer_interval_counts else None
         ),
@@ -636,6 +648,28 @@ def run_self_test(training_schedule: Path | None = None) -> None:
         rows[epoch_boundary]["optimizer_step"] = original_boundary_step
 
         for row in rows:
+            row["optimizer_step"] = row["batch_index"] // 35
+        coverage_only_budget = evaluate(
+            schedule, EXPECTED_SCHEDULE_SHA256, rows, log_hash
+        )
+        assert (
+            coverage_only_budget["distinct_optimizer_step_count"]
+            == COVERAGE_MINIMUM_OPTIMIZER_STEPS
+        )
+        assert (
+            coverage_only_budget["checks"][
+                "no_optimizer_step_exceeds_one_trajectory_equivalent"
+            ]
+            is True
+        )
+        assert (
+            coverage_only_budget["checks"][
+                "optimizer_update_count_meets_coverage_and_reference_budget_floor"
+            ]
+            is False
+        )
+
+        for row in rows:
             row["optimizer_step"] = row["epoch_index"]
         one_update_per_epoch = evaluate(
             schedule, EXPECTED_SCHEDULE_SHA256, rows, log_hash
@@ -648,7 +682,7 @@ def run_self_test(training_schedule: Path | None = None) -> None:
         )
         assert (
             one_update_per_epoch["checks"][
-                "optimizer_update_count_meets_dynamic_coverage_floor"
+                "optimizer_update_count_meets_coverage_and_reference_budget_floor"
             ]
             is False
         )
@@ -679,6 +713,7 @@ def run_self_test(training_schedule: Path | None = None) -> None:
                         "collapsed_forward_input",
                         "optimizer_step_gap",
                         "optimizer_step_crosses_epoch",
+                        "coverage_only_1600_optimizer_steps",
                         "one_optimizer_update_per_epoch",
                     ],
                     "fixture_claim_boundary": "synthetic contract test only; not model evidence",
