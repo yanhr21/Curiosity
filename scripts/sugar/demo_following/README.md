@@ -653,6 +653,12 @@ After the real official run finishes, audit training sufficiency before any froz
 
 ```bash
 /public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/demo_following/audit_zero_wam_atomic_training_consumption.py \
+  --training-schedule experiments/demo_following/zero_wam_official_v1/bounded_posttraining_schedule_v1/BOUNDED_POSTTRAINING_SCHEDULE.json \
+  --consumption-log OFFICIAL_ZERO_WAM_ATOMIC_CONSUMPTION.jsonl \
+  --output-dir experiments/demo_following/zero_wam_official_v1/atomic_training_consumption_v1
+
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
   scripts/sugar/demo_following/audit_zero_wam_bounded_posttraining_run.py \
   --training-admission OFFICIAL_PASSED_ZERO_WAM_TRAINING_ADMISSION.json \
   --training-schedule experiments/demo_following/zero_wam_official_v1/bounded_posttraining_schedule_v1/BOUNDED_POSTTRAINING_SCHEDULE.json \
@@ -660,12 +666,20 @@ After the real official run finishes, audit training sufficiency before any froz
   --output-dir experiments/demo_following/zero_wam_official_v1/bounded_posttraining_completion_v1
 ```
 
-The evidence manifest points to hash-verified per-trajectory epoch JSONL, optimizer JSONL, official
-module before/after hashes and the complete final checkpoint file or sharded directory. The gate requires H200 Slurm execution, the
+The official loader log has one record per consumed five-action atomic interval. It binds every
+record to the immutable source row, prompt/robot sequence hashes and action trace; proves exact
+frozen order and complete `10 x 160 x 140` coverage; verifies contiguous single-trajectory packing;
+and records that the sample reached the official forward path with video/action/IFP targets. The
+fingerprint covers exact preprocessed model inputs and must be distinct for all 22,400 intervals in
+each epoch, rejecting collapsed or repeated loader outputs. The
+completion evidence must include hash references to both this complete log and its passing audit.
+
+The evidence manifest also points to hash-verified per-trajectory epoch JSONL, optimizer JSONL,
+official module before/after hashes and the complete final checkpoint file or sharded directory. The gate requires H200 Slurm execution, the
 exact official entrypoint/config and checkpoint identity, all ten scheduled epochs, at least
 224,000 interval and 1,120,000 action exposures, finite active video/action/IFP losses and gradients,
 changed official video/action trainable scopes, and a bitwise-frozen official video VAE. It rejects
-undertraining, schedule drift, action-only training, frozen-scope drift, held-out leakage, local
+undertraining, schedule drift, action-only training, collapsed inputs, frozen-scope drift, held-out leakage, local
 learned modules and public-Wan-only substitutes. Passing opens frozen evaluation; it is not model
 success. `--self-test` exercises only synthetic evidence-contract fixtures.
 

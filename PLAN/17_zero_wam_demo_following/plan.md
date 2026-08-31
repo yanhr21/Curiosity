@@ -320,6 +320,19 @@ early stopping, action-only training, a local learned module or a public-Wan-onl
 the run. Passing proves adequate official post-training execution only and automatically opens the
 frozen Stage E evaluation; it is not a selected-demo or physical-success claim.
 
+Trajectory-level counters are not sufficient evidence of data use. The official loader must also
+emit one ordered record for every consumed atomic interval. The fixed ten-epoch floor therefore
+contains exactly 224,000 records, each bound to its immutable source-manifest row, prompt/robot
+sequence hashes, action trace and exact five-action range. Packed samples may contain only a
+contiguous interval partition from one trajectory, and every record must reach the official forward
+path with video-flow, action-flow and IFP targets present. The forward fingerprint includes the
+exact preprocessed model inputs and must remain distinct for all 22,400 intervals within each epoch,
+so a collapsed/repeated loader cannot satisfy counters alone. Global consumption order, batch and
+optimizer indices are monotonic; every epoch matches the frozen trajectory order and contains each
+of 160 x 140 intervals exactly once. Future/outcome inputs, held-out rows, duplicated/dropped
+intervals, collapsed inputs, trajectory reordering and cross-trajectory packing reject the run. The formal completion
+gate must hash and require this passing atomic-consumption audit and its complete log.
+
 ### Stage E — same-checkpoint closed-loop frozen evaluation
 
 The first physical gate uses the compatible SMALLBOX scene where exact released endpoints already

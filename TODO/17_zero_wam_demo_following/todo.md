@@ -103,6 +103,13 @@
       scope changes, bitwise-frozen VAE/scopes and hash-verified logs/checkpoint. Its contract tests
       pass complete evidence and reject nine epochs, order drift, action-only gradients, VAE drift
       and held-out leakage; synthetic fixtures are not model evidence.
+- [x] Replace trajectory-summary-only data evidence with a full-scale atomic-consumption contract:
+      require exactly ordered records for all 224,000 ten-epoch intervals / 1,120,000 actions,
+      immutable source/prompt/robot/action identities, contiguous single-trajectory packing, actual
+      official-forward consumption and joint video/action/IFP targets. Pass the full-size contract
+      fixture and reject nine epochs, duplication, reordering, cross-trajectory packing, held-out
+      leakage, action-only targets and collapsed forward inputs; require 22,400 distinct forward
+      fingerprints per epoch and bind the result/log hashes into checkpoint completion.
 - [ ] Inspect the released embodiment/action adapter and verify that 29-DoF continuous action
       chunks and SUGAR causal state can be represented without changing Zero-WAM semantics.
 - [ ] If no documented adapter path exists, record an unsupported-embodiment blocker; do not write a

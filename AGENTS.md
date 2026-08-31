@@ -150,6 +150,17 @@ Reject nine-epoch or off-schedule runs, action-only training, held-out leakage, 
 early stopping, local learned modules and public-Wan-only substitutes. Passing this audit opens
 frozen evaluation only; it is not selected-demo following or physical success.
 
+Training-data use must be proved at atomic-interval granularity, not inferred from trajectory
+summary counters. The official loader must record all 224,000 interval consumptions for the ten
+epoch floor, bound to exact source-row, prompt/robot sequence and action-trace identities. Every
+epoch must consume all 160 x 140 intervals once in frozen order; each packed sample must be a
+contiguous partition within one trajectory; every interval must reach the official forward with
+video/action/IFP targets; batch/optimizer indices must be monotonic; future/outcome inputs and all
+held-out rows remain absent. Exact preprocessed forward-input fingerprints must be distinct across
+all 22,400 intervals within every epoch, preventing collapsed inputs from passing by count. The completion gate must hash and require both the passing atomic
+consumption audit and its full log. Reject count-only claims, dropped/duplicated intervals,
+reordering, cross-trajectory packing, held-out leakage and action-only targets.
+
 The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
 updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752
 is finite and keeps the released Refiner exact outside the recovery interval, but reaches only

@@ -24,6 +24,7 @@ from typing import Any
 PROTOCOL = "official_zero_wam_sugar_bounded_posttraining_run_v1"
 ADMISSION_PROTOCOL = "zero_wam_model_data_training_admission_v1"
 SCHEDULE_PROTOCOL = "sugar_zero_wam_bounded_posttraining_schedule_v1"
+CONSUMPTION_PROTOCOL = "official_zero_wam_sugar_atomic_training_consumption_v1"
 EXPECTED_SCHEDULE_SHA256 = (
     "0f30252c0315855a1154d2c9f68d78b283cf35d2eee772a16692f5b0f1882ec1"
 )
@@ -155,13 +156,35 @@ def evaluate(
     )
     module_path, module_hash = resolve_artifact(evidence_path, artifacts.get("module_hash_audit"))
     final_path, final_hash = resolve_artifact(evidence_path, artifacts.get("final_checkpoint"))
-    artifact_paths = (epoch_path, optimizer_path, module_path, final_path)
-    artifact_expected_hashes = (epoch_hash, optimizer_hash, module_hash, final_hash)
+    consumption_audit_path, consumption_audit_hash = resolve_artifact(
+        evidence_path, artifacts.get("atomic_consumption_audit")
+    )
+    consumption_log_path, consumption_log_hash = resolve_artifact(
+        evidence_path, artifacts.get("atomic_consumption_log")
+    )
+    artifact_paths = (
+        epoch_path,
+        optimizer_path,
+        module_path,
+        final_path,
+        consumption_audit_path,
+        consumption_log_path,
+    )
+    artifact_expected_hashes = (
+        epoch_hash,
+        optimizer_hash,
+        module_hash,
+        final_hash,
+        consumption_audit_hash,
+        consumption_log_hash,
+    )
     artifact_hashes_valid = all(valid_sha256(value) for value in artifact_expected_hashes)
     artifact_files_exist = (
         epoch_path.is_file()
         and optimizer_path.is_file()
         and module_path.is_file()
+        and consumption_audit_path.is_file()
+        and consumption_log_path.is_file()
         and (
             final_path.is_file()
             or (final_path.is_dir() and any(value.is_file() for value in final_path.rglob("*")))
@@ -170,7 +193,7 @@ def evaluate(
     artifact_actual_hashes = (
         tuple(artifact_sha256(path) for path in artifact_paths)
         if artifact_files_exist
-        else ("", "", "", "")
+        else ("", "", "", "", "", "")
     )
     artifact_hashes_exact = artifact_files_exist and artifact_hashes_valid and (
         artifact_actual_hashes == artifact_expected_hashes
@@ -179,6 +202,9 @@ def evaluate(
     epoch_rows = read_jsonl(epoch_path) if epoch_path.is_file() else []
     optimizer_rows = read_jsonl(optimizer_path) if optimizer_path.is_file() else []
     module_audit = read_json(module_path) if module_path.is_file() else {}
+    consumption_audit = (
+        read_json(consumption_audit_path) if consumption_audit_path.is_file() else {}
+    )
 
     admission_checks = {
         "admission_protocol_exact": admission.get("protocol") == ADMISSION_PROTOCOL,
@@ -312,6 +338,36 @@ def evaluate(
         ),
     }
 
+    consumption_checks = {
+        "atomic_consumption_protocol_exact": (
+            consumption_audit.get("protocol") == CONSUMPTION_PROTOCOL
+        ),
+        "atomic_consumption_audit_passed": consumption_audit.get("passed") is True,
+        "all_atomic_consumption_checks_true": (
+            isinstance(consumption_audit.get("checks"), dict)
+            and bool(consumption_audit.get("checks"))
+            and all(value is True for value in consumption_audit["checks"].values())
+        ),
+        "atomic_consumption_bound_to_exact_schedule": (
+            consumption_audit.get("schedule_sha256") == schedule_hash
+        ),
+        "atomic_consumption_log_hash_exact": (
+            valid_sha256(consumption_log_hash)
+            and artifact_actual_hashes[5] == consumption_log_hash
+            and consumption_audit.get("consumption_log_sha256") == consumption_log_hash
+        ),
+        "at_least_10_atomic_consumption_epochs": (
+            consumption_audit.get("completed_full_epochs", 0) >= MINIMUM_EPOCHS
+        ),
+        "atomic_audit_proves_224000_interval_exposures": (
+            consumption_audit.get("atomic_interval_exposures", 0)
+            >= MINIMUM_INTERVAL_EXPOSURES
+        ),
+        "atomic_audit_proves_1120000_action_exposures": (
+            consumption_audit.get("action_exposures", 0) >= MINIMUM_ACTION_EXPOSURES
+        ),
+    }
+
     optimizer_steps = [row.get("optimizer_step") for row in optimizer_rows]
     optimizer_epoch_set = {row.get("epoch_index") for row in optimizer_rows}
     losses_finite = all(
@@ -380,7 +436,7 @@ def evaluate(
                 or (final_path.is_dir() and any(value.is_file() for value in final_path.rglob("*")))
             )
             and valid_sha256(final_hash)
-            and artifact_actual_hashes[-1] == final_hash
+            and artifact_actual_hashes[3] == final_hash
             and final_hash != identity.get("initial_checkpoint_sha256")
         ),
     }
@@ -390,6 +446,7 @@ def evaluate(
         **identity_checks,
         **execution_checks,
         **coverage_checks,
+        **consumption_checks,
         **optimization_checks,
         **module_checks,
     }
@@ -400,6 +457,8 @@ def evaluate(
         next_branch = "reject_run_and_restore_exact_official_admission_identity"
     elif not all(coverage_checks.values()):
         next_branch = "reject_undertrained_or_off_schedule_run"
+    elif not all(consumption_checks.values()):
+        next_branch = "reject_unproven_atomic_training_data_consumption"
     elif not all(optimization_checks.values()):
         next_branch = "reject_non_joint_or_nonfinite_training_run"
     elif not all(module_checks.values()):
@@ -415,6 +474,7 @@ def evaluate(
         "completed_full_epochs": len(completed_epoch_indices),
         "atomic_interval_exposures": exposure_totals["atomic_intervals"],
         "action_exposures": exposure_totals["actions"],
+        "atomic_consumption_audit_passed": all(consumption_checks.values()),
         "optimizer_trace_records": len(optimizer_rows),
         "checks": checks,
         "claim_boundary": (
@@ -483,6 +543,8 @@ def run_self_test() -> None:
         optimizer_path = root / "optimizer.jsonl"
         module_path = root / "modules.json"
         final_path = root / "final_checkpoint"
+        consumption_audit_path = root / "atomic_consumption_audit.json"
+        consumption_log_path = root / "atomic_consumption.jsonl"
         evidence_path = root / "evidence.json"
         optimizer_rows = [
             {
@@ -509,6 +571,17 @@ def run_self_test() -> None:
         final_path.mkdir()
         (final_path / "model-00001-of-00002.safetensors").write_bytes(b"official-zero-wam-shard-1")
         (final_path / "model-00002-of-00002.safetensors").write_bytes(b"official-zero-wam-shard-2")
+        consumption_log_path.write_text('{"synthetic_contract_only":true}\n', encoding="utf-8")
+        good_consumption = {
+            "protocol": CONSUMPTION_PROTOCOL,
+            "passed": True,
+            "schedule_sha256": file_sha256(schedule_path),
+            "consumption_log_sha256": file_sha256(consumption_log_path),
+            "completed_full_epochs": MINIMUM_EPOCHS,
+            "atomic_interval_exposures": MINIMUM_INTERVAL_EXPOSURES,
+            "action_exposures": MINIMUM_ACTION_EXPOSURES,
+            "checks": {"full_atomic_consumption_contract_passed": True},
+        }
 
         def emit(
             epochs_value: list[dict[str, Any]],
@@ -516,10 +589,15 @@ def run_self_test() -> None:
             modules_value: dict[str, Any],
             *,
             heldout: int = 0,
+            consumption_value: dict[str, Any] | None = None,
         ) -> None:
             write_jsonl(epoch_path, epochs_value)
             write_jsonl(optimizer_path, optimizer_value)
             write_json(module_path, modules_value)
+            write_json(
+                consumption_audit_path,
+                good_consumption if consumption_value is None else consumption_value,
+            )
             evidence = {
                 "protocol": PROTOCOL,
                 "training_admission_sha256": file_sha256(admission_path),
@@ -561,6 +639,14 @@ def run_self_test() -> None:
                     "optimizer_trace": {"path": optimizer_path.name, "sha256": file_sha256(optimizer_path)},
                     "module_hash_audit": {"path": module_path.name, "sha256": file_sha256(module_path)},
                     "final_checkpoint": {"path": final_path.name, "sha256": artifact_sha256(final_path)},
+                    "atomic_consumption_audit": {
+                        "path": consumption_audit_path.name,
+                        "sha256": file_sha256(consumption_audit_path),
+                    },
+                    "atomic_consumption_log": {
+                        "path": consumption_log_path.name,
+                        "sha256": file_sha256(consumption_log_path),
+                    },
                 },
             }
             write_json(evidence_path, evidence)
@@ -598,6 +684,15 @@ def run_self_test() -> None:
         emit(epoch_rows, optimizer_rows, modules, heldout=1)
         heldout_failure = evaluate(admission_path, schedule_path, evidence_path)
         assert heldout_failure["checks"]["train_split_only"] is False
+
+        underconsumed = dict(good_consumption)
+        underconsumed["passed"] = False
+        underconsumed["atomic_interval_exposures"] = MINIMUM_INTERVAL_EXPOSURES - 1
+        underconsumed["checks"] = {"full_atomic_consumption_contract_passed": False}
+        emit(epoch_rows, optimizer_rows, modules, consumption_value=underconsumed)
+        consumption_failure = evaluate(admission_path, schedule_path, evidence_path)
+        assert consumption_failure["checks"]["atomic_consumption_audit_passed"] is False
+        assert consumption_failure["checks"]["atomic_audit_proves_224000_interval_exposures"] is False
         print(
             json.dumps(
                 {
@@ -609,6 +704,7 @@ def run_self_test() -> None:
                         "action_only_gradient",
                         "frozen_vae_drift",
                         "heldout_data_leak",
+                        "unproven_atomic_consumption",
                     ],
                     "fixture_claim_boundary": "synthetic contract test only; not model evidence",
                 },
