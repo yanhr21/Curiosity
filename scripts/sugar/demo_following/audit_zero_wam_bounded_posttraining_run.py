@@ -34,6 +34,7 @@ MINIMUM_EPOCHS = 10
 TRAJECTORIES_PER_EPOCH = 160
 INTERVALS_PER_TRAJECTORY = 140
 ACTIONS_PER_TRAJECTORY = 700
+ACTIONS_PER_INTERVAL = 5
 MINIMUM_INTERVAL_EXPOSURES = 224_000
 MINIMUM_ACTION_EXPOSURES = 1_120_000
 MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP = INTERVALS_PER_TRAJECTORY
@@ -395,6 +396,15 @@ def evaluate(
             )
             is True
         ),
+        "atomic_audit_proves_optimizer_step_composition": (
+            consumption_audit.get("checks", {}).get(
+                "optimizer_steps_have_single_epoch_and_exact_task_composition"
+            )
+            is True
+            and isinstance(consumption_audit.get("optimizer_step_composition"), list)
+            and len(consumption_audit["optimizer_step_composition"])
+            == consumption_audit.get("distinct_optimizer_step_count")
+        ),
     }
 
     optimizer_steps = [row.get("optimizer_step") for row in optimizer_rows]
@@ -444,6 +454,50 @@ def evaluate(
         and last_losses["action_flow_loss"] < first_losses["action_flow_loss"]
         and last_losses["ifp_loss"] <= first_losses["ifp_loss"]
     )
+    composition_fields = (
+        "epoch_index",
+        "atomic_interval_count",
+        "action_exposure_count",
+        "carry_interval_count",
+        "kick_interval_count",
+        "forward_batch_count",
+        "packed_sample_count",
+    )
+    composition_rows = consumption_audit.get("optimizer_step_composition", [])
+    composition_by_step: dict[int, dict[str, Any]] = {}
+    composition_contract = isinstance(composition_rows, list)
+    for row in composition_rows if isinstance(composition_rows, list) else []:
+        optimizer_step = row.get("optimizer_step")
+        row_valid = (
+            isinstance(optimizer_step, int)
+            and optimizer_step >= 0
+            and optimizer_step not in composition_by_step
+            and all(isinstance(row.get(field), int) for field in composition_fields)
+            and row.get("atomic_interval_count", 0) > 0
+            and row.get("action_exposure_count")
+            == row.get("atomic_interval_count", 0) * ACTIONS_PER_INTERVAL
+            and row.get("carry_interval_count", -1)
+            + row.get("kick_interval_count", -1)
+            == row.get("atomic_interval_count")
+            and row.get("forward_batch_count", 0) > 0
+            and row.get("packed_sample_count", 0) > 0
+        )
+        composition_contract = composition_contract and row_valid
+        if isinstance(optimizer_step, int) and optimizer_step >= 0:
+            composition_by_step[optimizer_step] = row
+    optimizer_trace_composition_exact = (
+        composition_contract
+        and set(composition_by_step) == set(optimizer_steps)
+        and all(
+            all(
+                optimizer_row.get(field)
+                == composition_by_step[int(optimizer_row["optimizer_step"])].get(field)
+                for field in composition_fields
+            )
+            for optimizer_row in optimizer_rows
+            if isinstance(optimizer_row.get("optimizer_step"), int)
+        )
+    )
     optimization_checks = {
         "optimizer_trace_nonempty_and_strictly_increasing": (
             bool(optimizer_steps)
@@ -466,6 +520,9 @@ def evaluate(
                 )
             )
             and len(optimizer_steps) == consumption_audit["distinct_optimizer_step_count"]
+        ),
+        "optimizer_trace_composition_exactly_matches_atomic_consumption": (
+            optimizer_trace_composition_exact
         ),
         "joint_video_action_ifp_losses_finite": bool(optimizer_rows) and losses_finite,
         "joint_video_action_ifp_gradients_finite": bool(optimizer_rows) and gradients_finite,
@@ -555,6 +612,7 @@ def evaluate(
         "action_exposures": exposure_totals["actions"],
         "atomic_consumption_audit_passed": all(consumption_checks.values()),
         "optimizer_trace_records": len(optimizer_rows),
+        "optimizer_step_composition_records": len(composition_by_step),
         "minimum_optimizer_step_floor": MINIMUM_OPTIMIZER_STEPS,
         "maximum_atomic_intervals_per_optimizer_step": (
             MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
@@ -633,9 +691,33 @@ def run_self_test() -> None:
         consumption_audit_path = root / "atomic_consumption_audit.json"
         consumption_log_path = root / "atomic_consumption.jsonl"
         evidence_path = root / "evidence.json"
+        optimizer_step_composition = [
+            {
+                "optimizer_step": optimizer_step,
+                "epoch_index": optimizer_step
+                // (MINIMUM_OPTIMIZER_STEPS // MINIMUM_EPOCHS),
+                "atomic_interval_count": MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP,
+                "action_exposure_count": (
+                    MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP * ACTIONS_PER_INTERVAL
+                ),
+                "carry_interval_count": (
+                    MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
+                    if optimizer_step % 2 == 0
+                    else 0
+                ),
+                "kick_interval_count": (
+                    MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
+                    if optimizer_step % 2 == 1
+                    else 0
+                ),
+                "forward_batch_count": 1,
+                "packed_sample_count": 1,
+            }
+            for optimizer_step in range(MINIMUM_OPTIMIZER_STEPS)
+        ]
         optimizer_rows = [
             {
-                "epoch_index": optimizer_step // (MINIMUM_OPTIMIZER_STEPS // MINIMUM_EPOCHS),
+                **optimizer_step_composition[optimizer_step],
                 "optimizer_step": optimizer_step,
                 "video_flow_loss": 1.0 / (optimizer_step + 1),
                 "action_flow_loss": 0.8 / (optimizer_step + 1),
@@ -674,10 +756,12 @@ def run_self_test() -> None:
             "maximum_atomic_intervals_per_optimizer_step": (
                 MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
             ),
+            "optimizer_step_composition": optimizer_step_composition,
             "checks": {
                 "full_atomic_consumption_contract_passed": True,
                 "no_optimizer_step_exceeds_one_trajectory_equivalent": True,
                 "optimizer_update_count_meets_dynamic_coverage_floor": True,
+                "optimizer_steps_have_single_epoch_and_exact_task_composition": True,
             },
         }
 
@@ -813,6 +897,22 @@ def run_self_test() -> None:
             is False
         )
 
+        wrong_task_composition = copy.deepcopy(optimizer_rows)
+        wrong_task_composition[0]["carry_interval_count"] = 0
+        wrong_task_composition[0]["kick_interval_count"] = (
+            wrong_task_composition[0]["atomic_interval_count"]
+        )
+        emit(epoch_rows, wrong_task_composition, modules)
+        task_composition_failure = evaluate(
+            admission_path, schedule_path, evidence_path
+        )
+        assert (
+            task_composition_failure["checks"][
+                "optimizer_trace_composition_exactly_matches_atomic_consumption"
+            ]
+            is False
+        )
+
         drifted = copy.deepcopy(modules)
         drifted["modules"][-1]["after_sha256"] = "0" * 64
         emit(epoch_rows, optimizer_rows, drifted)
@@ -869,6 +969,7 @@ def run_self_test() -> None:
                         "single_joint_gradient_step",
                         "no_full_data_loss_progress",
                         "optimizer_trace_gap",
+                        "optimizer_task_composition_mismatch",
                         "frozen_vae_drift",
                         "heldout_data_leak",
                         "insufficient_optimizer_updates",

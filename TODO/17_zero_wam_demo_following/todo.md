@@ -120,6 +120,10 @@
       every batch to map to one step, at most 140 atomic intervals per optimizer update and therefore
       at least 1,600 updates for the ten-epoch floor. The 224,000-row fixture executes 7,000 updates
       and rejects one-update-per-epoch evidence; no model or optimizer substitute is introduced.
+- [x] Bind optimizer contents, not only IDs: derive every step's single epoch, exact Carry/Kick
+      interval counts, action exposures, forward batches and packed samples from the atomic log, then
+      require field-exact optimizer-trace equality. Reject cross-epoch steps and a forged task
+      composition while preserving the official model/optimizer boundary.
 - [ ] Inspect the released embodiment/action adapter and verify that 29-DoF continuous action
       chunks and SUGAR causal state can be represented without changing Zero-WAM semantics.
 - [ ] If no documented adapter path exists, record an unsupported-embodiment blocker; do not write a

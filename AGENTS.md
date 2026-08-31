@@ -175,6 +175,12 @@ trajectory equivalent (`140` atomic intervals), so the 224,000-interval ten-epoc
 least 1,600 optimizer updates. One update per epoch or another giant-accumulation count is rejected
 even if every interval reached an official forward call.
 
+The atomic audit must derive a composition record for every optimizer step: single epoch, exact
+Carry/Kick atomic-interval counts, action exposure count, forward-batch count and packed-sample
+count. The formal optimizer trace must repeat these fields exactly. Matching only the step-ID set is
+insufficient; reject any claimed epoch/task composition that differs from the immutable consumption
+log.
+
 The frozen Zero-WAM SMALLBOX gate is executable and immutable before real training. Seed281500 uses
 20 matched profiles x Carry45/Kick21 x adapted/exact released-endpoint routes x 650 frames. All four
 routes per profile restore identical full physics/history hashes and observed initial physics; both

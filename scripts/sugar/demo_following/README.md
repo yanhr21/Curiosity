@@ -684,6 +684,11 @@ No optimizer step may aggregate more than 140 atomic intervals, one complete-tra
 Thus the ten-epoch 224,000-interval floor requires at least 1,600 optimizer updates; the full-scale
 contract fixture contains 7,000 and explicitly rejects one-update-per-epoch pseudo-training.
 
+The atomic result also contains one composition row per optimizer step: unique epoch, Carry/Kick
+atomic-interval counts, action exposures, forward batches and packed samples. The completion audit
+requires the optimizer trace to match every composition field exactly; identical step IDs alone do
+not pass. Cross-epoch accumulation and forged task composition are explicit negative tests.
+
 The evidence manifest also points to hash-verified per-trajectory epoch JSONL, optimizer JSONL,
 official module before/after hashes and the complete final checkpoint file or sharded directory. The gate requires H200 Slurm execution, the
 exact official entrypoint/config and checkpoint identity, all ten scheduled epochs, at least

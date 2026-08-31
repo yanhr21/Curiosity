@@ -289,6 +289,50 @@ def evaluate(
         optimizer_step: len(group_rows)
         for optimizer_step, group_rows in optimizer_groups.items()
     }
+    optimizer_step_composition: list[dict[str, Any]] = []
+    optimizer_composition_exact = bool(optimizer_groups)
+    for optimizer_step in sorted(optimizer_groups):
+        group_rows = optimizer_groups[optimizer_step]
+        epoch_indices = {row.get("epoch_index") for row in group_rows}
+        batch_ids = {row.get("batch_index") for row in group_rows}
+        packed_sample_ids = {
+            (row.get("epoch_index"), row.get("packed_sample_id")) for row in group_rows
+        }
+        carry_intervals = sum(
+            isinstance(row.get("trajectory_id"), str)
+            and row["trajectory_id"].startswith("train/CarryBox/")
+            for row in group_rows
+        )
+        kick_intervals = sum(
+            isinstance(row.get("trajectory_id"), str)
+            and row["trajectory_id"].startswith("train/KickBox/")
+            for row in group_rows
+        )
+        row_exact = (
+            len(epoch_indices) == 1
+            and all(isinstance(value, int) and value >= 0 for value in batch_ids)
+            and all(
+                isinstance(epoch_index, int)
+                and isinstance(sample_id, str)
+                and bool(sample_id)
+                for epoch_index, sample_id in packed_sample_ids
+            )
+            and carry_intervals + kick_intervals == len(group_rows)
+        )
+        optimizer_composition_exact = optimizer_composition_exact and row_exact
+        epoch_index = next(iter(epoch_indices)) if len(epoch_indices) == 1 else None
+        optimizer_step_composition.append(
+            {
+                "optimizer_step": optimizer_step,
+                "epoch_index": epoch_index,
+                "atomic_interval_count": len(group_rows),
+                "action_exposure_count": len(group_rows) * ACTIONS_PER_INTERVAL,
+                "carry_interval_count": carry_intervals,
+                "kick_interval_count": kick_intervals,
+                "forward_batch_count": len(batch_ids),
+                "packed_sample_count": len(packed_sample_ids),
+            }
+        )
     dynamic_minimum_optimizer_steps = (
         len(rows) + MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP - 1
     ) // MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
@@ -306,6 +350,9 @@ def evaluate(
             packing_exact
         ),
         "every_batch_maps_to_one_optimizer_step": batch_to_single_optimizer_step,
+        "optimizer_steps_have_single_epoch_and_exact_task_composition": (
+            optimizer_composition_exact
+        ),
         "all_rows_are_train_split_only": all_train_only,
         "every_interval_reaches_official_forward": all_forward_consumed,
         "every_interval_uses_joint_video_action_ifp_targets": all_joint_targets_present,
@@ -364,6 +411,7 @@ def evaluate(
         "maximum_atomic_intervals_per_optimizer_step": (
             max(optimizer_interval_counts.values()) if optimizer_interval_counts else None
         ),
+        "optimizer_step_composition": optimizer_step_composition,
         "checks": checks,
         "automatic_next_branch": (
             "continue_official_training_completion_audit"
@@ -571,6 +619,22 @@ def run_self_test(training_schedule: Path | None = None) -> None:
         for row in changed_optimizer_rows:
             row["optimizer_step"] = 1
 
+        epoch_boundary = INTERVALS_PER_EPOCH
+        original_boundary_step = rows[epoch_boundary]["optimizer_step"]
+        rows[epoch_boundary]["optimizer_step"] = rows[epoch_boundary - 1][
+            "optimizer_step"
+        ]
+        cross_epoch_step = evaluate(
+            schedule, EXPECTED_SCHEDULE_SHA256, rows, log_hash
+        )
+        assert (
+            cross_epoch_step["checks"][
+                "optimizer_steps_have_single_epoch_and_exact_task_composition"
+            ]
+            is False
+        )
+        rows[epoch_boundary]["optimizer_step"] = original_boundary_step
+
         for row in rows:
             row["optimizer_step"] = row["epoch_index"]
         one_update_per_epoch = evaluate(
@@ -600,6 +664,9 @@ def run_self_test(training_schedule: Path | None = None) -> None:
                         "atomic_intervals": len(rows),
                         "actions": len(rows) * ACTIONS_PER_INTERVAL,
                         "optimizer_steps": positive["distinct_optimizer_step_count"],
+                        "optimizer_composition_rows": len(
+                            positive["optimizer_step_composition"]
+                        ),
                         "minimum_optimizer_steps": MINIMUM_OPTIMIZER_STEPS,
                     },
                     "rejected": [
@@ -611,6 +678,7 @@ def run_self_test(training_schedule: Path | None = None) -> None:
                         "action_only_target",
                         "collapsed_forward_input",
                         "optimizer_step_gap",
+                        "optimizer_step_crosses_epoch",
                         "one_optimizer_update_per_epoch",
                     ],
                     "fixture_claim_boundary": "synthetic contract test only; not model evidence",

@@ -350,6 +350,12 @@ trajectory equivalent (`140` atomic intervals). The fixed 224,000-interval floor
 at least 1,600 contiguous optimizer updates; the current full-scale contract fixture contains 7,000.
 This is a coverage floor, not a locally invented optimizer or a substitute for the released recipe.
 
+For each update, the atomic auditor derives and archives its unique epoch plus exact Carry/Kick
+interval counts, five-action exposure count, forward-batch count and packed-sample count. The formal
+optimizer row must match that composition field-for-field in addition to sharing the exact step ID.
+This prevents an optimizer trace from claiming balanced or differently assigned data that never
+contributed to that update.
+
 ### Stage E — same-checkpoint closed-loop frozen evaluation
 
 The first physical gate uses the compatible SMALLBOX scene where exact released endpoints already
