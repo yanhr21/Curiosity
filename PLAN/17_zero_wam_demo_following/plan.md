@@ -364,6 +364,26 @@ ordered-versus-reversed preference and same-task alternate-prompt preference sep
 claim requires the physical task outcome and selected-motion/order gates to pass together; task
 classification or generated-video quality alone is insufficient.
 
+The SMALLBOX decision is frozen as an executable trace audit before the model exists. Evaluation
+seed `281500` runs exactly 20 matched profiles x Carry45/Kick21 x adapted/released-endpoint routes x
+650 frames. All four routes for a profile must restore identical full-state/history hashes and
+identical observed initial physics; the adapted arms load the same formally completed checkpoint and
+change only the cached prompt. Each prompt is encoded exactly once and reused for all 13,000 frames.
+The evaluator hashes every one of 80 unique traces, independently recomputes safe Carry, strict-v4
+safe Kick and root-height/root-tilt falls, and hashes the actual released Generator/Tracker files
+used for the two no-regression baselines. Carry45 and Kick21 each require at least 16/20 matched safe
+successes, each must outperform the other prompt on its own physical topology, and neither fall
+count may exceed its exact endpoint baseline.
+
+Every adapted frame must use the official predicted robot future as the action decoder input, emit
+a finite 29-D decoded action equal to the executed action within `1e-6`, and record zero
+teacher-forced future, future target, outcome label, endpoint router and demo reward use. For all 20
+profiles, prompt swapping must change the predicted future before or at the first changed action.
+Any checkpoint mismatch, prompt re-encoding, initial-state mismatch, action-without-future change,
+decoded/executed mismatch, endpoint identity drift, fall regression or `15/20` task result rejects
+the checkpoint without a threshold/reward/update sweep. Passing remains a bounded two-prompt
+SMALLBOX result, not arbitrary-demo or cross-asset following.
+
 ### Stage F — cross-embodiment HumanGen follow-up
 
 This stage is outside the first SUGAR claim and opens only if the official HumanGen generator,

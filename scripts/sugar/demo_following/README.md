@@ -686,6 +686,27 @@ undertraining, schedule drift, action-only training, collapsed inputs, frozen-sc
 learned modules and public-Wan-only substitutes. Passing opens frozen evaluation; it is not model
 success. `--self-test` exercises only synthetic evidence-contract fixtures.
 
+After training completion passes, audit the fixed same-checkpoint SMALLBOX rollouts with:
+
+```bash
+/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python \
+  scripts/sugar/demo_following/evaluate_zero_wam_smallbox_closed_loop.py \
+  --training-completion experiments/demo_following/zero_wam_official_v1/bounded_posttraining_completion_v1/BOUNDED_POSTTRAINING_COMPLETION_AUDIT.json \
+  --source-manifest experiments/demo_following/zero_wam_official_v1/icl_manifest_v2/ICL_MANIFEST.jsonl \
+  --project-root /public/home/yanhongru/Curiosity \
+  --evidence-json OFFICIAL_ZERO_WAM_SMALLBOX_CLOSED_LOOP_EVIDENCE.json \
+  --output-dir experiments/demo_following/zero_wam_official_v1/smallbox_closed_loop_v1
+```
+
+Seed281500 fixes 20 profiles, Carry45/Kick21 prompt-only swaps, exact released endpoint baselines and
+650 frames. The audit hashes 80 traces, restores identical physics/history, verifies a single adapted
+checkpoint and one cached encoding per prompt, and recomputes Carry/Kick/fall outcomes from root,
+object and filtered hand/foot contact traces. It requires at least 16/20 safe matched outcomes per
+prompt, topology-specific condition advantages and no fall regression. Every adapted frame must
+prove official predicted future -> action-decoder input -> finite executed 29-D action, with no
+teacher future, future target, outcome label, router or demo reward. Passing is only a two-prompt
+SMALLBOX result; motion-disjoint and cross-asset gates remain separate.
+
 Keep the release and admission decisions live inside the retained H200 allocation with:
 
 ```bash

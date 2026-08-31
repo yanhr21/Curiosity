@@ -489,6 +489,9 @@ def evaluate(
         "action_exposures": exposure_totals["actions"],
         "atomic_consumption_audit_passed": all(consumption_checks.values()),
         "optimizer_trace_records": len(optimizer_rows),
+        "model_commit": identity.get("model_commit"),
+        "initial_checkpoint_sha256": identity.get("initial_checkpoint_sha256"),
+        "final_checkpoint_sha256": final_hash if passed else None,
         "checks": checks,
         "claim_boundary": (
             "Passing proves official bounded post-training execution and coverage, not selected-demo "

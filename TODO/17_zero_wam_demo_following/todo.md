@@ -130,6 +130,14 @@
 
 ## E. Closed-loop physical gates
 
+- [x] Freeze the executable same-checkpoint SMALLBOX audit at seed281500: 20 matched profiles x two
+      prompts x adapted/exact-endpoint baselines x 650 frames, 80 hash-unique traces, exact initial
+      state/history and official endpoint-file hashes. Recompute safe Carry, strict-v4 safe Kick and
+      root-height/root-tilt falls; require 16/20 per matched prompt, topology-specific advantage and
+      no fall regression. Prove predicted future -> decoder -> executed 29-D action at every frame
+      with no teacher future/target/router/demo reward. Contract tests reject checkpoint/state/cache,
+      causal-chain/action, endpoint-identity, fall and 15/20 failures; fixtures are not model results.
+
 - [ ] Freeze one adapted checkpoint and restore elementwise-identical SMALLBOX physics/history for
       Carry45 and Kick21 prompt-only swaps.
 - [ ] Require at least `16/20` strict Carry with 5 cm lift under Carry45 and `16/20` strict-v4 Kick

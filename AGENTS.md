@@ -166,6 +166,19 @@ completion audit must require the optimizer trace to contain exactly the consume
 with no missing or extra update, and finite official video/action/IFP losses and gradients at every
 step. Epoch-level sample optimizer evidence is insufficient.
 
+The frozen Zero-WAM SMALLBOX gate is executable and immutable before real training. Seed281500 uses
+20 matched profiles x Carry45/Kick21 x adapted/exact released-endpoint routes x 650 frames. All four
+routes per profile restore identical full physics/history hashes and observed initial physics; both
+adapted conditions load the same formally completed checkpoint and change only a prompt encoded once
+and cached. Hash all 80 unique traces and actual released Generator/Tracker checkpoint files.
+Independently recompute safe Carry, strict-v4 safe Kick and root-height/root-tilt falls. Each matched
+prompt needs at least 16/20 safe successes and a topology-specific advantage; falls may not exceed
+its exact endpoint baseline. Every adapted frame must prove official predicted-future -> decoder ->
+finite executed 29-D action within `1e-6`, with zero teacher future/target, outcome label, router and
+demo reward use. All 20 prompt swaps must change predicted future before or with the first action
+change. Reject identity/state/cache drift, action without future change, action mismatch, endpoint
+drift, fall regression and 15/20 outcomes without a sweep. Passing is not arbitrary-demo following.
+
 The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
 updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752
 is finite and keeps the released Refiner exact outside the recovery interval, but reaches only
