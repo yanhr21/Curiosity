@@ -313,7 +313,10 @@ the exact passed admission file, official commit/checkpoint and frozen schedule;
 Slurm compute node; record every one of the 160 trajectory exposures in every complete epoch; and
 retain hash-verified optimizer, module-scope and final-checkpoint artifacts. At least ten complete
 epochs, 224,000 atomic intervals and 1,120,000 actions must be observed. Official video-flow,
-action-flow and IFP losses and gradients must all remain finite and active, the official
+action-flow and IFP losses must remain finite, and all three gradient norms must be finite and
+strictly positive at every recorded optimizer step. Per-epoch medians must show lower final
+video/action flow loss than the first complete epoch and non-worse final IFP; one positive joint
+step or a positive run-wide gradient sum is not sufficient. The official
 video-world-model and action-decoder scopes must change, and the released video VAE and every other
 official frozen scope must remain bitwise exact. Validation/test exposure, validation-selected
 early stopping, action-only training, a local learned module or a public-Wan-only substitute rejects
@@ -336,8 +339,16 @@ gate must hash and require this passing atomic-consumption audit and its complet
 The consumption log's batch and optimizer-step indices must be monotonic and contiguous from zero.
 It reports the exact optimizer-step range and count; the formal optimizer trace must contain exactly
 that full step set with no missing or additional record. Every recorded step must carry finite
-official video-flow, action-flow and IFP losses and gradients. This closes the gap between “data
-reached some forward calls” and “every optimizer update in the formal run was jointly audited.”
+official video-flow, action-flow and IFP losses and strictly positive finite gradients for all three
+branches. First/last complete-epoch medians must show video/action improvement and non-worse IFP.
+This closes the gap between “data reached some forward calls” and “every optimizer update in the
+formal run was jointly active and the full-data objective made measurable progress.”
+
+Packed-sample membership is also audited: one packed sample cannot straddle batches or optimizer
+steps, and one batch cannot map to multiple steps. A single optimizer step may consume at most one
+trajectory equivalent (`140` atomic intervals). The fixed 224,000-interval floor therefore requires
+at least 1,600 contiguous optimizer updates; the current full-scale contract fixture contains 7,000.
+This is a coverage floor, not a locally invented optimizer or a substitute for the released recipe.
 
 ### Stage E — same-checkpoint closed-loop frozen evaluation
 

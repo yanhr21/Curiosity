@@ -15,6 +15,7 @@ import hashlib
 import json
 import math
 import re
+import statistics
 import tempfile
 from collections import defaultdict
 from pathlib import Path
@@ -35,6 +36,10 @@ INTERVALS_PER_TRAJECTORY = 140
 ACTIONS_PER_TRAJECTORY = 700
 MINIMUM_INTERVAL_EXPOSURES = 224_000
 MINIMUM_ACTION_EXPOSURES = 1_120_000
+MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP = INTERVALS_PER_TRAJECTORY
+MINIMUM_OPTIMIZER_STEPS = (
+    MINIMUM_INTERVAL_EXPOSURES + MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP - 1
+) // MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
 LOSS_FIELDS = ("video_flow_loss", "action_flow_loss", "ifp_loss")
 GRADIENT_FIELDS = (
     "video_gradient_norm",
@@ -115,6 +120,10 @@ def resolve_artifact(evidence_path: Path, reference: Any) -> tuple[Path, str]:
 
 def finite_nonnegative(value: Any) -> bool:
     return isinstance(value, (int, float)) and math.isfinite(float(value)) and value >= 0
+
+
+def finite_positive(value: Any) -> bool:
+    return isinstance(value, (int, float)) and math.isfinite(float(value)) and value > 0
 
 
 def frozen_epoch_order(epoch_index: int, trajectory_ids: set[str]) -> list[str]:
@@ -366,6 +375,26 @@ def evaluate(
         "atomic_audit_proves_1120000_action_exposures": (
             consumption_audit.get("action_exposures", 0) >= MINIMUM_ACTION_EXPOSURES
         ),
+        "atomic_audit_proves_optimizer_update_floor": (
+            consumption_audit.get("distinct_optimizer_step_count", 0)
+            >= MINIMUM_OPTIMIZER_STEPS
+            and consumption_audit.get("minimum_required_optimizer_step_count", 0)
+            >= MINIMUM_OPTIMIZER_STEPS
+            and isinstance(
+                consumption_audit.get("maximum_atomic_intervals_per_optimizer_step"),
+                int,
+            )
+            and consumption_audit["maximum_atomic_intervals_per_optimizer_step"]
+            <= MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
+            and consumption_audit.get("checks", {}).get(
+                "no_optimizer_step_exceeds_one_trajectory_equivalent"
+            )
+            is True
+            and consumption_audit.get("checks", {}).get(
+                "optimizer_update_count_meets_dynamic_coverage_floor"
+            )
+            is True
+        ),
     }
 
     optimizer_steps = [row.get("optimizer_step") for row in optimizer_rows]
@@ -377,17 +406,53 @@ def evaluate(
         all(finite_nonnegative(row.get(field)) for field in GRADIENT_FIELDS)
         for row in optimizer_rows
     )
-    positive_gradient_sums = {
-        field: sum(float(row.get(field, 0.0)) for row in optimizer_rows) for field in GRADIENT_FIELDS
+    gradients_positive_every_step = all(
+        all(finite_positive(row.get(field)) for field in GRADIENT_FIELDS)
+        for row in optimizer_rows
+    )
+    loss_values_by_epoch: dict[int, dict[str, list[float]]] = defaultdict(
+        lambda: {field: [] for field in LOSS_FIELDS}
+    )
+    optimizer_epoch_indices_valid = True
+    for row in optimizer_rows:
+        epoch_index = row.get("epoch_index")
+        if not isinstance(epoch_index, int) or epoch_index not in completed_epoch_indices:
+            optimizer_epoch_indices_valid = False
+            continue
+        for field in LOSS_FIELDS:
+            value = row.get(field)
+            if finite_nonnegative(value):
+                loss_values_by_epoch[epoch_index][field].append(float(value))
+    epoch_loss_medians = {
+        epoch_index: {
+            field: statistics.median(values[field]) if values[field] else None
+            for field in LOSS_FIELDS
+        }
+        for epoch_index, values in sorted(loss_values_by_epoch.items())
     }
+    first_epoch = completed_epoch_indices[0] if completed_epoch_indices else None
+    last_epoch = completed_epoch_indices[-1] if completed_epoch_indices else None
+    first_losses = epoch_loss_medians.get(first_epoch, {})
+    last_losses = epoch_loss_medians.get(last_epoch, {})
+    full_data_loss_progress = (
+        first_epoch is not None
+        and last_epoch is not None
+        and first_epoch != last_epoch
+        and all(isinstance(first_losses.get(field), (int, float)) for field in LOSS_FIELDS)
+        and all(isinstance(last_losses.get(field), (int, float)) for field in LOSS_FIELDS)
+        and last_losses["video_flow_loss"] < first_losses["video_flow_loss"]
+        and last_losses["action_flow_loss"] < first_losses["action_flow_loss"]
+        and last_losses["ifp_loss"] <= first_losses["ifp_loss"]
+    )
     optimization_checks = {
         "optimizer_trace_nonempty_and_strictly_increasing": (
             bool(optimizer_steps)
             and all(isinstance(step, int) and step >= 0 for step in optimizer_steps)
             and optimizer_steps == sorted(set(optimizer_steps))
         ),
-        "every_completed_epoch_has_optimizer_evidence": (
-            set(completed_epoch_indices).issubset(optimizer_epoch_set)
+        "optimizer_evidence_covers_exact_completed_epochs": (
+            optimizer_epoch_indices_valid
+            and optimizer_epoch_set == set(completed_epoch_indices)
         ),
         "optimizer_trace_exactly_matches_atomic_consumption_steps": (
             isinstance(consumption_audit.get("optimizer_step_min"), int)
@@ -404,9 +469,10 @@ def evaluate(
         ),
         "joint_video_action_ifp_losses_finite": bool(optimizer_rows) and losses_finite,
         "joint_video_action_ifp_gradients_finite": bool(optimizer_rows) and gradients_finite,
-        "video_action_ifp_all_receive_gradient": all(
-            value > 0 for value in positive_gradient_sums.values()
+        "video_action_ifp_receive_positive_gradient_at_every_step": (
+            bool(optimizer_rows) and gradients_positive_every_step
         ),
+        "full_data_epoch_loss_progress": full_data_loss_progress,
     }
 
     modules = module_audit.get("modules", [])
@@ -473,7 +539,7 @@ def evaluate(
     elif not all(consumption_checks.values()):
         next_branch = "reject_unproven_atomic_training_data_consumption"
     elif not all(optimization_checks.values()):
-        next_branch = "reject_non_joint_or_nonfinite_training_run"
+        next_branch = "reject_inactive_underupdated_or_nonprogressing_training_run"
     elif not all(module_checks.values()):
         next_branch = "reject_architecture_or_parameter_scope_drift"
     else:
@@ -489,6 +555,11 @@ def evaluate(
         "action_exposures": exposure_totals["actions"],
         "atomic_consumption_audit_passed": all(consumption_checks.values()),
         "optimizer_trace_records": len(optimizer_rows),
+        "minimum_optimizer_step_floor": MINIMUM_OPTIMIZER_STEPS,
+        "maximum_atomic_intervals_per_optimizer_step": (
+            MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
+        ),
+        "epoch_loss_medians": epoch_loss_medians,
         "model_commit": identity.get("model_commit"),
         "initial_checkpoint_sha256": identity.get("initial_checkpoint_sha256"),
         "final_checkpoint_sha256": final_hash if passed else None,
@@ -564,16 +635,16 @@ def run_self_test() -> None:
         evidence_path = root / "evidence.json"
         optimizer_rows = [
             {
-                "epoch_index": epoch,
-                "optimizer_step": epoch,
-                "video_flow_loss": 1.0 / (epoch + 1),
-                "action_flow_loss": 0.8 / (epoch + 1),
-                "ifp_loss": 0.6 / (epoch + 1),
+                "epoch_index": optimizer_step // (MINIMUM_OPTIMIZER_STEPS // MINIMUM_EPOCHS),
+                "optimizer_step": optimizer_step,
+                "video_flow_loss": 1.0 / (optimizer_step + 1),
+                "action_flow_loss": 0.8 / (optimizer_step + 1),
+                "ifp_loss": 0.6 / (optimizer_step + 1),
                 "video_gradient_norm": 1.0,
                 "action_gradient_norm": 0.5,
                 "ifp_gradient_norm": 0.25,
             }
-            for epoch in range(MINIMUM_EPOCHS)
+            for optimizer_step in range(MINIMUM_OPTIMIZER_STEPS)
         ]
         modules = {
             "official_trainable_scope_exact": True,
@@ -597,9 +668,17 @@ def run_self_test() -> None:
             "atomic_interval_exposures": MINIMUM_INTERVAL_EXPOSURES,
             "action_exposures": MINIMUM_ACTION_EXPOSURES,
             "optimizer_step_min": 0,
-            "optimizer_step_max": MINIMUM_EPOCHS - 1,
-            "distinct_optimizer_step_count": MINIMUM_EPOCHS,
-            "checks": {"full_atomic_consumption_contract_passed": True},
+            "optimizer_step_max": MINIMUM_OPTIMIZER_STEPS - 1,
+            "distinct_optimizer_step_count": MINIMUM_OPTIMIZER_STEPS,
+            "minimum_required_optimizer_step_count": MINIMUM_OPTIMIZER_STEPS,
+            "maximum_atomic_intervals_per_optimizer_step": (
+                MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
+            ),
+            "checks": {
+                "full_atomic_consumption_contract_passed": True,
+                "no_optimizer_step_exceeds_one_trajectory_equivalent": True,
+                "optimizer_update_count_meets_dynamic_coverage_floor": True,
+            },
         }
 
         def emit(
@@ -674,7 +753,11 @@ def run_self_test() -> None:
         positive = evaluate(admission_path, schedule_path, evidence_path)
         assert positive["passed"] is True, positive
 
-        emit([row for row in epoch_rows if row["epoch_index"] < 9], optimizer_rows[:9], modules)
+        emit(
+            [row for row in epoch_rows if row["epoch_index"] < 9],
+            [row for row in optimizer_rows if row["epoch_index"] < 9],
+            modules,
+        )
         undertrained = evaluate(admission_path, schedule_path, evidence_path)
         assert undertrained["passed"] is False
         assert undertrained["checks"]["at_least_10_contiguous_complete_epochs"] is False
@@ -692,7 +775,33 @@ def run_self_test() -> None:
             row["video_gradient_norm"] = 0.0
         emit(epoch_rows, action_only, modules)
         action_only_failure = evaluate(admission_path, schedule_path, evidence_path)
-        assert action_only_failure["checks"]["video_action_ifp_all_receive_gradient"] is False
+        assert (
+            action_only_failure["checks"][
+                "video_action_ifp_receive_positive_gradient_at_every_step"
+            ]
+            is False
+        )
+
+        one_joint_step = copy.deepcopy(optimizer_rows)
+        for row in one_joint_step[1:]:
+            row["video_gradient_norm"] = 0.0
+            row["ifp_gradient_norm"] = 0.0
+        emit(epoch_rows, one_joint_step, modules)
+        one_joint_step_failure = evaluate(admission_path, schedule_path, evidence_path)
+        assert (
+            one_joint_step_failure["checks"][
+                "video_action_ifp_receive_positive_gradient_at_every_step"
+            ]
+            is False
+        )
+
+        flat_losses = copy.deepcopy(optimizer_rows)
+        for row in flat_losses:
+            for field in LOSS_FIELDS:
+                row[field] = 1.0
+        emit(epoch_rows, flat_losses, modules)
+        flat_loss_failure = evaluate(admission_path, schedule_path, evidence_path)
+        assert flat_loss_failure["checks"]["full_data_epoch_loss_progress"] is False
 
         missing_optimizer_step = optimizer_rows[:5] + optimizer_rows[6:]
         emit(epoch_rows, missing_optimizer_step, modules)
@@ -714,6 +823,32 @@ def run_self_test() -> None:
         heldout_failure = evaluate(admission_path, schedule_path, evidence_path)
         assert heldout_failure["checks"]["train_split_only"] is False
 
+        insufficient_updates = copy.deepcopy(good_consumption)
+        insufficient_updates["optimizer_step_max"] = MINIMUM_EPOCHS - 1
+        insufficient_updates["distinct_optimizer_step_count"] = MINIMUM_EPOCHS
+        insufficient_updates["maximum_atomic_intervals_per_optimizer_step"] = (
+            MINIMUM_INTERVAL_EXPOSURES // MINIMUM_EPOCHS
+        )
+        insufficient_updates["checks"][
+            "no_optimizer_step_exceeds_one_trajectory_equivalent"
+        ] = False
+        insufficient_updates["checks"][
+            "optimizer_update_count_meets_dynamic_coverage_floor"
+        ] = False
+        emit(
+            epoch_rows,
+            optimizer_rows,
+            modules,
+            consumption_value=insufficient_updates,
+        )
+        update_floor_failure = evaluate(admission_path, schedule_path, evidence_path)
+        assert (
+            update_floor_failure["checks"][
+                "atomic_audit_proves_optimizer_update_floor"
+            ]
+            is False
+        )
+
         underconsumed = dict(good_consumption)
         underconsumed["passed"] = False
         underconsumed["atomic_interval_exposures"] = MINIMUM_INTERVAL_EXPOSURES - 1
@@ -731,9 +866,12 @@ def run_self_test() -> None:
                         "undertrained_nine_epoch",
                         "off_schedule_order",
                         "action_only_gradient",
+                        "single_joint_gradient_step",
+                        "no_full_data_loss_progress",
                         "optimizer_trace_gap",
                         "frozen_vae_drift",
                         "heldout_data_leak",
+                        "insufficient_optimizer_updates",
                         "unproven_atomic_consumption",
                     ],
                     "fixture_claim_boundary": "synthetic contract test only; not model evidence",

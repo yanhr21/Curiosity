@@ -675,12 +675,21 @@ each epoch, rejecting collapsed or repeated loader outputs. The
 completion evidence must include hash references to both this complete log and its passing audit.
 Batch and optimizer-step indices must be monotonic and contiguous from zero. The joint optimizer
 trace must contain exactly the same min/max/count step set, so no update can escape finite
-video-flow, action-flow and IFP loss/gradient checks.
+video-flow, action-flow and IFP loss checks or strictly positive finite gradients on every branch.
+The last complete epoch's median video/action losses must be below the first epoch and its IFP median
+must not be worse; a single joint-gradient step or flat full-data trace fails.
+
+Every packed sample must stay inside one batch and optimizer step, and every batch maps to one step.
+No optimizer step may aggregate more than 140 atomic intervals, one complete-trajectory equivalent.
+Thus the ten-epoch 224,000-interval floor requires at least 1,600 optimizer updates; the full-scale
+contract fixture contains 7,000 and explicitly rejects one-update-per-epoch pseudo-training.
 
 The evidence manifest also points to hash-verified per-trajectory epoch JSONL, optimizer JSONL,
 official module before/after hashes and the complete final checkpoint file or sharded directory. The gate requires H200 Slurm execution, the
 exact official entrypoint/config and checkpoint identity, all ten scheduled epochs, at least
-224,000 interval and 1,120,000 action exposures, finite active video/action/IFP losses and gradients,
+224,000 interval and 1,120,000 action exposures, finite video/action/IFP losses, strictly positive
+three-branch gradients at every optimizer step, at least 1,600 updates and first-to-last epoch median
+loss progress,
 changed official video/action trainable scopes, and a bitwise-frozen official video VAE. It rejects
 undertraining, schedule drift, action-only training, collapsed inputs, frozen-scope drift, held-out leakage, local
 learned modules and public-Wan-only substitutes. Passing opens frozen evaluation; it is not model

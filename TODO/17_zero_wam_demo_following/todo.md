@@ -99,10 +99,11 @@
       exposures, with exact schedule-file hash enforced by admission.
 - [x] Freeze the formal run-completion evidence auditor: bind the real official run to the passed
       admission/commit/checkpoint and exact schedule; require H200 Slurm execution, at least ten
-      complete epochs, joint finite nonzero video/action/IFP gradients, exact official trainable
-      scope changes, bitwise-frozen VAE/scopes and hash-verified logs/checkpoint. Its contract tests
-      pass complete evidence and reject nine epochs, order drift, action-only gradients, VAE drift
-      and held-out leakage; synthetic fixtures are not model evidence.
+      complete epochs, finite strictly positive video/action/IFP gradients at every optimizer step,
+      lower last-epoch median video/action loss, non-worse IFP, exact official trainable scope
+      changes, bitwise-frozen VAE/scopes and hash-verified logs/checkpoint. Its contract tests pass
+      complete evidence and reject nine epochs, order drift, action-only or single-joint-step
+      gradients, flat full-data losses, VAE drift and held-out leakage; fixtures are not model evidence.
 - [x] Replace trajectory-summary-only data evidence with a full-scale atomic-consumption contract:
       require exactly ordered records for all 224,000 ten-epoch intervals / 1,120,000 actions,
       immutable source/prompt/robot/action identities, contiguous single-trajectory packing, actual
@@ -112,8 +113,13 @@
       fingerprints per epoch and bind the result/log hashes into checkpoint completion.
 - [x] Bind every atomic-consumption optimizer-step ID to the joint optimizer trace: require batch
       and step indices monotonic and contiguous from zero, exact consumed-step min/max/count, no
-      missing or extra optimizer record, and finite video/action/IFP losses and gradients at every
-      step. Reject a consumption-step gap and an optimizer-trace gap in contract tests.
+      missing or extra optimizer record, finite video/action/IFP losses and strictly positive
+      gradients at every step, plus first/last complete-epoch median progress. Reject a
+      consumption-step gap, optimizer-trace gap, single-joint-step trace and flat losses in tests.
+- [x] Prevent forward-only pseudo-training: require each packed sample to remain in one batch/step,
+      every batch to map to one step, at most 140 atomic intervals per optimizer update and therefore
+      at least 1,600 updates for the ten-epoch floor. The 224,000-row fixture executes 7,000 updates
+      and rejects one-update-per-epoch evidence; no model or optimizer substitute is introduced.
 - [ ] Inspect the released embodiment/action adapter and verify that 29-DoF continuous action
       chunks and SUGAR causal state can be represented without changing Zero-WAM semantics.
 - [ ] If no documented adapter path exists, record an unsupported-embodiment blocker; do not write a

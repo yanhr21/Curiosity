@@ -163,8 +163,17 @@ reordering, cross-trajectory packing, held-out leakage and action-only targets.
 
 Atomic-consumption batch and optimizer-step indices must be monotonic and contiguous from zero. The
 completion audit must require the optimizer trace to contain exactly the consumed step min/max/count
-with no missing or extra update, and finite official video/action/IFP losses and gradients at every
-step. Epoch-level sample optimizer evidence is insufficient.
+with no missing or extra update. Official video/action/IFP losses must be finite and every branch's
+gradient norm must be finite and strictly positive at every optimizer step; a single early joint
+step cannot excuse later branch inactivity. Compare per-epoch medians over the exact trace: the last
+complete epoch must improve video/action flow loss over the first and may not worsen IFP. Epoch-level
+sample optimizer evidence or merely positive run-wide gradient sums are insufficient.
+
+Forward coverage is not optimizer coverage. Each packed sample must remain within one batch and
+optimizer step, and every batch maps to exactly one step. No step may aggregate more than one full
+trajectory equivalent (`140` atomic intervals), so the 224,000-interval ten-epoch floor requires at
+least 1,600 optimizer updates. One update per epoch or another giant-accumulation count is rejected
+even if every interval reached an official forward call.
 
 The frozen Zero-WAM SMALLBOX gate is executable and immutable before real training. Seed281500 uses
 20 matched profiles x Carry45/Kick21 x adapted/exact released-endpoint routes x 650 frames. All four

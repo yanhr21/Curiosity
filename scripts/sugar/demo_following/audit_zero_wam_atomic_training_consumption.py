@@ -29,6 +29,10 @@ ACTIONS_PER_INTERVAL = 5
 INTERVALS_PER_EPOCH = 22_400
 MINIMUM_INTERVAL_EXPOSURES = 224_000
 MINIMUM_ACTION_EXPOSURES = 1_120_000
+MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP = INTERVALS_PER_TRAJECTORY
+MINIMUM_OPTIMIZER_STEPS = (
+    MINIMUM_INTERVAL_EXPOSURES + MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP - 1
+) // MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
 
 
 def parse_args() -> argparse.Namespace:
@@ -121,6 +125,8 @@ def evaluate(
     observed_orders: list[list[str]] = []
     every_epoch_complete = valid_epoch_indices and bool(completed_epochs)
     packed_groups: dict[tuple[int, str], list[dict[str, Any]]] = defaultdict(list)
+    batch_groups: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    optimizer_groups: dict[int, list[dict[str, Any]]] = defaultdict(list)
 
     for epoch_index in completed_epochs:
         epoch_rows = rows_by_epoch[epoch_index]
@@ -146,6 +152,14 @@ def evaluate(
                 optimizer_steps.append(optimizer_step)
             else:
                 interval_metadata_exact = False
+            if (
+                isinstance(batch_index, int)
+                and batch_index >= 0
+                and isinstance(optimizer_step, int)
+                and optimizer_step >= 0
+            ):
+                batch_groups[batch_index].append(row)
+                optimizer_groups[optimizer_step].append(row)
 
         every_epoch_complete = every_epoch_complete and (
             len(epoch_rows) == INTERVALS_PER_EPOCH
@@ -250,6 +264,8 @@ def evaluate(
         )
         packing_exact = packing_exact and (
             len(trajectory_ids) == len(epoch_indices) == len(starts) == len(ends) == 1
+            and len({row.get("batch_index") for row in group_rows}) == 1
+            and len({row.get("optimizer_step") for row in group_rows}) == 1
             and bool(interval_indices)
         )
         if len(starts) == 1 and len(ends) == 1:
@@ -265,6 +281,17 @@ def evaluate(
     total_actions = len(rows) * ACTIONS_PER_INTERVAL
     unique_batch_indices = sorted(set(batch_indices))
     unique_optimizer_steps = sorted(set(optimizer_steps))
+    batch_to_single_optimizer_step = bool(batch_groups) and all(
+        len({row.get("optimizer_step") for row in group_rows}) == 1
+        for group_rows in batch_groups.values()
+    )
+    optimizer_interval_counts = {
+        optimizer_step: len(group_rows)
+        for optimizer_step, group_rows in optimizer_groups.items()
+    }
+    dynamic_minimum_optimizer_steps = (
+        len(rows) + MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP - 1
+    ) // MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
     checks = {
         **schedule_checks,
         "global_consumption_index_exact": index_sequence_exact,
@@ -275,7 +302,10 @@ def evaluate(
         "trajectory_and_interval_order_matches_frozen_schedule": schedule_orders_match,
         "all_raw_source_identities_match_schedule": identity_exact,
         "all_action_ranges_are_exact_five_action_intervals": interval_metadata_exact,
-        "packed_samples_are_contiguous_and_never_cross_trajectory": packing_exact,
+        "packed_samples_are_contiguous_single_batch_step_and_never_cross_trajectory": (
+            packing_exact
+        ),
+        "every_batch_maps_to_one_optimizer_step": batch_to_single_optimizer_step,
         "all_rows_are_train_split_only": all_train_only,
         "every_interval_reaches_official_forward": all_forward_consumed,
         "every_interval_uses_joint_video_action_ifp_targets": all_joint_targets_present,
@@ -302,6 +332,15 @@ def evaluate(
             bool(unique_optimizer_steps)
             and unique_optimizer_steps == list(range(unique_optimizer_steps[-1] + 1))
         ),
+        "no_optimizer_step_exceeds_one_trajectory_equivalent": (
+            bool(optimizer_interval_counts)
+            and max(optimizer_interval_counts.values())
+            <= MAXIMUM_INTERVALS_PER_OPTIMIZER_STEP
+        ),
+        "optimizer_update_count_meets_dynamic_coverage_floor": (
+            len(unique_optimizer_steps) >= dynamic_minimum_optimizer_steps
+            and len(unique_optimizer_steps) >= MINIMUM_OPTIMIZER_STEPS
+        ),
         "at_least_224000_atomic_interval_exposures": len(rows) >= MINIMUM_INTERVAL_EXPOSURES,
         "at_least_1120000_action_exposures": total_actions >= MINIMUM_ACTION_EXPOSURES,
     }
@@ -321,6 +360,10 @@ def evaluate(
         "optimizer_step_min": unique_optimizer_steps[0] if unique_optimizer_steps else None,
         "optimizer_step_max": unique_optimizer_steps[-1] if unique_optimizer_steps else None,
         "distinct_optimizer_step_count": len(unique_optimizer_steps),
+        "minimum_required_optimizer_step_count": dynamic_minimum_optimizer_steps,
+        "maximum_atomic_intervals_per_optimizer_step": (
+            max(optimizer_interval_counts.values()) if optimizer_interval_counts else None
+        ),
         "checks": checks,
         "automatic_next_branch": (
             "continue_official_training_completion_audit"
@@ -328,8 +371,8 @@ def evaluate(
             else "reject_incomplete_or_nonconformant_training_data_consumption"
         ),
         "claim_boundary": (
-            "Passing proves exact full-data loader/forward consumption, not optimization quality, "
-            "checkpoint quality, selected-demo following or physical success."
+            "Passing proves exact full-data loader/forward and minimum optimizer-update coverage, "
+            "not loss improvement, checkpoint quality, selected-demo following or physical success."
         ),
     }
 
@@ -496,7 +539,12 @@ def run_self_test(training_schedule: Path | None = None) -> None:
         original_sample = rows[INTERVALS_PER_TRAJECTORY]["packed_sample_id"]
         rows[INTERVALS_PER_TRAJECTORY]["packed_sample_id"] = rows[0]["packed_sample_id"]
         crossed_result = evaluate(schedule, EXPECTED_SCHEDULE_SHA256, rows, log_hash)
-        assert crossed_result["checks"]["packed_samples_are_contiguous_and_never_cross_trajectory"] is False
+        assert (
+            crossed_result["checks"][
+                "packed_samples_are_contiguous_single_batch_step_and_never_cross_trajectory"
+            ]
+            is False
+        )
         rows[INTERVALS_PER_TRAJECTORY]["packed_sample_id"] = original_sample
 
         rows[0]["split"] = "validation"
@@ -522,6 +570,26 @@ def run_self_test(training_schedule: Path | None = None) -> None:
         assert optimizer_gap_result["checks"]["optimizer_steps_are_contiguous_from_zero"] is False
         for row in changed_optimizer_rows:
             row["optimizer_step"] = 1
+
+        for row in rows:
+            row["optimizer_step"] = row["epoch_index"]
+        one_update_per_epoch = evaluate(
+            schedule, EXPECTED_SCHEDULE_SHA256, rows, log_hash
+        )
+        assert (
+            one_update_per_epoch["checks"][
+                "no_optimizer_step_exceeds_one_trajectory_equivalent"
+            ]
+            is False
+        )
+        assert (
+            one_update_per_epoch["checks"][
+                "optimizer_update_count_meets_dynamic_coverage_floor"
+            ]
+            is False
+        )
+        for row in rows:
+            row["optimizer_step"] = row["batch_index"] // 8
         print(
             json.dumps(
                 {
@@ -531,6 +599,8 @@ def run_self_test(training_schedule: Path | None = None) -> None:
                         "epochs": MINIMUM_EPOCHS,
                         "atomic_intervals": len(rows),
                         "actions": len(rows) * ACTIONS_PER_INTERVAL,
+                        "optimizer_steps": positive["distinct_optimizer_step_count"],
+                        "minimum_optimizer_steps": MINIMUM_OPTIMIZER_STEPS,
                     },
                     "rejected": [
                         "nine_epoch_undertraining",
@@ -541,6 +611,7 @@ def run_self_test(training_schedule: Path | None = None) -> None:
                         "action_only_target",
                         "collapsed_forward_input",
                         "optimizer_step_gap",
+                        "one_optimizer_update_per_epoch",
                     ],
                     "fixture_claim_boundary": "synthetic contract test only; not model evidence",
                 },
