@@ -32,6 +32,9 @@ EXPECTED_CASE_COUNT = 760
 EXPECTED_ENDPOINT_BASELINES = 380
 EXPECTED_FLOW_GROUPS = 190
 PROFILE_COUNT = 10
+ROLLOUT_STEPS = 650
+SCORE_STEPS = tuple(range(49, ROLLOUT_STEPS, 50))
+EXPECTED_FLOW_ROWS = EXPECTED_FLOW_GROUPS * len(SCORE_STEPS)
 MINIMUM_SAFE_PER_SOURCE = 8
 CONDITIONS = ("matched", "reversed", "same_task_alternate", "wrong_task")
 
@@ -251,11 +254,13 @@ def aggregate(
             case["target"]["task"],
             case["target"]["source_motion_id"],
             case["profile_index"],
+            score_step,
         )
         for case in cases
         if case["condition"] == "matched"
+        for score_step in SCORE_STEPS
     }
-    flow_by_key: dict[tuple[str, str, int, int], dict[str, Any]] = {}
+    flow_by_key: dict[tuple[str, str, int, int, int], dict[str, Any]] = {}
     flow_contract = isinstance(flow_rows, list)
     for row in flow_rows if isinstance(flow_rows, list) else []:
         try:
@@ -264,6 +269,7 @@ def aggregate(
                 str(row.get("target_task")),
                 int(row.get("target_source_motion_id", -1)),
                 int(row.get("profile_index", -1)),
+                int(row.get("score_step", -1)),
             )
         except (TypeError, ValueError):
             flow_contract = False
@@ -277,7 +283,7 @@ def aggregate(
         matched_cases_by_group = {
             case["paired_group_id"]: case for case in cases if case["condition"] == "matched"
         }
-        margins_by_source: dict[tuple[str, int], dict[str, list[float]]] = defaultdict(
+        margins_by_profile: dict[tuple[str, int, int], dict[str, list[float]]] = defaultdict(
             lambda: {"order": [], "identity": []}
         )
         for key, row in flow_by_key.items():
@@ -316,20 +322,33 @@ def aggregate(
             flow_contract = flow_contract and row_valid
             if not row_valid:
                 continue
-            margins_by_source[(key[1], key[2])]["order"].append(
+            margins_by_profile[(key[1], key[2], key[3])]["order"].append(
                 float(row["reversed_flow_loss"]) - float(row["matched_flow_loss"])
             )
-            margins_by_source[(key[1], key[2])]["identity"].append(
+            margins_by_profile[(key[1], key[2], key[3])]["identity"].append(
                 float(row["same_task_alternate_flow_loss"])
                 - float(row["matched_flow_loss"])
             )
+        margins_by_source: dict[tuple[str, int], dict[str, list[float]]] = defaultdict(
+            lambda: {"order": [], "identity": []}
+        )
+        for profile, margins in margins_by_profile.items():
+            flow_contract = flow_contract and all(
+                len(values) == len(SCORE_STEPS) for values in margins.values()
+            )
+            for name, values in margins.items():
+                if values:
+                    margins_by_source[(profile[0], profile[1])][name].append(
+                        sum(values) / len(values)
+                    )
         for source, margins in margins_by_source.items():
             flow_contract = flow_contract and all(
                 len(values) == PROFILE_COUNT for values in margins.values()
             )
-            source_margins[source] = {
-                name: sum(values) / len(values) for name, values in margins.items()
-            }
+            if all(values for values in margins.values()):
+                source_margins[source] = {
+                    name: sum(values) / len(values) for name, values in margins.items()
+                }
 
     statistical: dict[str, Any] = {}
     pvalues: dict[str, float] = {}
@@ -376,7 +395,7 @@ def aggregate(
         "every_source_matched_and_wrong_task_reaches_8_of_10_without_fall_regression": (
             physical_contract and len(per_source) == 19
         ),
-        "exact_190_matched_noise_flow_groups": flow_contract,
+        "exact_2470_full_horizon_matched_noise_flow_rows": flow_contract,
         "order_and_identity_source_motion_statistics_pass": stats_contract,
     }
     return {
@@ -387,7 +406,8 @@ def aggregate(
         },
         "statistics": statistical,
         "trace_entry_count": len(evidence_entries),
-        "flow_group_count": len(flow_rows),
+        "flow_score_row_count": len(flow_rows),
+        "flow_score_steps": list(SCORE_STEPS),
     }
 
 
@@ -594,37 +614,39 @@ def run_self_test() -> None:
     for case in cases:
         if case["condition"] != "matched":
             continue
-        flow_rows.append(
-            {
-                "paired_group_id": case["paired_group_id"],
-                "target_task": case["target"]["task"],
-                "target_source_motion_id": case["target"]["source_motion_id"],
-                "profile_index": case["profile_index"],
-                "matched_score_noise_seed": case["matched_score_noise_seed"],
-                "model_checkpoint_sha256": checkpoint,
-                "causal_trace_sha256": audits[
-                    (case["case_id"], "adapted_zero_wam")
-                ]["trace_sha256"],
-                "matched_flow_loss": 0.2,
-                "reversed_flow_loss": 0.4,
-                "same_task_alternate_flow_loss": 0.5,
-                "official_video_flow_loss": True,
-                "language_enabled": False,
-                "evaluation_target_used_as_model_input": False,
-                "matched_noise_sha256": hashlib.sha256(
-                    f"noise/{case['paired_group_id']}".encode()
-                ).hexdigest(),
-                "matched_predicted_future_sha256": hashlib.sha256(
-                    f"matched/{case['paired_group_id']}".encode()
-                ).hexdigest(),
-                "reversed_predicted_future_sha256": hashlib.sha256(
-                    f"reversed/{case['paired_group_id']}".encode()
-                ).hexdigest(),
-                "same_task_alternate_predicted_future_sha256": hashlib.sha256(
-                    f"alternate/{case['paired_group_id']}".encode()
-                ).hexdigest(),
-            }
-        )
+        for score_step in SCORE_STEPS:
+            flow_rows.append(
+                {
+                    "paired_group_id": case["paired_group_id"],
+                    "target_task": case["target"]["task"],
+                    "target_source_motion_id": case["target"]["source_motion_id"],
+                    "profile_index": case["profile_index"],
+                    "score_step": score_step,
+                    "matched_score_noise_seed": case["matched_score_noise_seed"],
+                    "model_checkpoint_sha256": checkpoint,
+                    "causal_trace_sha256": audits[
+                        (case["case_id"], "adapted_zero_wam")
+                    ]["trace_sha256"],
+                    "matched_flow_loss": 0.2,
+                    "reversed_flow_loss": 0.4,
+                    "same_task_alternate_flow_loss": 0.5,
+                    "official_video_flow_loss": True,
+                    "language_enabled": False,
+                    "evaluation_target_used_as_model_input": False,
+                    "matched_noise_sha256": hashlib.sha256(
+                        f"noise/{case['paired_group_id']}/{score_step}".encode()
+                    ).hexdigest(),
+                    "matched_predicted_future_sha256": hashlib.sha256(
+                        f"matched/{case['paired_group_id']}/{score_step}".encode()
+                    ).hexdigest(),
+                    "reversed_predicted_future_sha256": hashlib.sha256(
+                        f"reversed/{case['paired_group_id']}/{score_step}".encode()
+                    ).hexdigest(),
+                    "same_task_alternate_predicted_future_sha256": hashlib.sha256(
+                        f"alternate/{case['paired_group_id']}/{score_step}".encode()
+                    ).hexdigest(),
+                }
+            )
     for row in flow_rows:
         row["reversed_noise_sha256"] = row["matched_noise_sha256"]
         row["same_task_alternate_noise_sha256"] = row["matched_noise_sha256"]
@@ -655,6 +677,14 @@ def run_self_test() -> None:
         cases, entries, missing_audits, flow_rows, checkpoint, prompt_registry
     )
     assert missing_audit["checks"]["all_1140_trace_hashes_unique_and_content_audits_pass"] is False
+
+    missing_flow = aggregate(
+        cases, entries, audits, flow_rows[:-1], checkpoint, prompt_registry
+    )
+    assert (
+        missing_flow["checks"]["exact_2470_full_horizon_matched_noise_flow_rows"]
+        is False
+    )
 
     bad_audits = dict(audits)
     matched_case = next(case for case in cases if case["condition"] == "matched")
@@ -696,7 +726,10 @@ def run_self_test() -> None:
     noise_failure = aggregate(
         cases, entries, audits, mismatched_noise, checkpoint, prompt_registry
     )
-    assert noise_failure["checks"]["exact_190_matched_noise_flow_groups"] is False
+    assert (
+        noise_failure["checks"]["exact_2470_full_horizon_matched_noise_flow_rows"]
+        is False
+    )
 
     fall_audits = dict(audits)
     baseline_key = next(key for key in audits if key[1] == "released_endpoint")
@@ -727,10 +760,16 @@ def run_self_test() -> None:
         json.dumps(
             {
                 "self_test_passed": True,
-                "positive": {"adapted": 760, "endpoint": 380, "flow_groups": 190},
+                "positive": {
+                    "adapted": 760,
+                    "endpoint": 380,
+                    "flow_rows": EXPECTED_FLOW_ROWS,
+                    "flow_score_steps": list(SCORE_STEPS),
+                },
                 "rejected": [
                     "missing_trace_entry",
                     "missing_trace_audit",
+                    "missing_full_horizon_flow_anchor",
                     "only_7_of_10_safe",
                     "order_margin_reversed",
                     "identity_margin_reversed",

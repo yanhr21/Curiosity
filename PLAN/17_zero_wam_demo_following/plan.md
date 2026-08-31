@@ -383,11 +383,13 @@ test-motion claim without a guidance/reward/update sweep.
 
 The result evaluator reopens and hashes all 1,140 traces rather than trusting rollout summaries.
 Every unique prompt fingerprint is encoded exactly once and bound to every adapted trace that reuses
-its cache. Exact endpoint checkpoint files are hashed for all baseline routes. The 190 matched
-rollout histories are rescored under matched/reversed/same-task prompts with identical diffusion
-noise; score records must bind to the matched causal-trace hash, fixed score-noise seed and same
-formal checkpoint. The aggregate passes only when all 19 per-source physical gates and the joint
-Holm-corrected order/identity family pass together.
+its cache. Exact endpoint checkpoint files are hashed for all baseline routes. Every one of the 190
+matched rollout histories is rescored at fixed full-horizon causal steps `49/99/.../649` under
+matched/reversed/same-task prompts with identical diffusion noise. This requires 2,470 matched-noise
+rows and 7,410 official flow comparisons; every row binds to the matched causal-trace hash, fixed
+score-noise seed and same formal checkpoint. Margins reduce over the 13 anchors before the ten
+profiles, then over source motions for inference. The aggregate passes only when all 19 per-source
+physical gates and the joint Holm-corrected order/identity family pass together.
 
 The SMALLBOX decision is frozen as an executable trace audit before the model exists. Evaluation
 seed `281500` runs exactly 20 matched profiles x Carry45/Kick21 x adapted/released-endpoint routes x

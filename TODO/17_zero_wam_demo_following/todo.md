@@ -146,10 +146,11 @@
       `8/10` prompted-task safety plus separate Holm-corrected order and identity gates.
 - [x] Freeze the motion-disjoint result evaluator: re-audit all 1,140 full traces and endpoint file
       hashes, bind every prompt fingerprint to one official cached encoding, require exact initial
-      physics/history and prompt-only condition swaps, and score 190 matched causal traces under
-      matched diffusion noise. Aggregate physical safety/falls per source and order/identity after
-      ten-profile reduction with one Holm family. Reject missing traces, `7/10`, fall regression,
-      order/identity reversal, mismatched noise and prompt re-encoding in contract tests.
+      physics/history and prompt-only condition swaps. Score every one of 190 matched causal traces
+      at fixed full-horizon steps `49/99/.../649`: 2,470 matched-noise rows / 7,410 official flow
+      comparisons. Aggregate physical safety/falls per source and order/identity after anchor then
+      ten-profile reduction with one Holm family. Reject missing traces/anchors, `7/10`, fall
+      regression, order/identity reversal, mismatched noise and prompt re-encoding in contract tests.
 
 - [ ] Freeze one adapted checkpoint and restore elementwise-identical SMALLBOX physics/history for
       Carry45 and Kick21 prompt-only swaps.

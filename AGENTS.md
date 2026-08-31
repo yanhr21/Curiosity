@@ -193,11 +193,13 @@ arbitrary-demo following or tune after failure.
 
 The motion-disjoint evaluator must reopen/hash all 1,140 full traces and exact endpoint checkpoint
 files. Every unique prompt fingerprint is officially encoded once and its cache is bound to all
-adapted traces. The 190 matched causal histories are rescored with matched/reversed/alternate prompts
-using identical diffusion noise, the fixed score seed and the same formal checkpoint. Reduce margins
-over ten profiles before source-motion statistics. Reject missing/duplicate trace evidence, `7/10`
-physical outcomes, fall regression, prompt cache re-encoding, unmatched noise, or reversed
-order/identity margins. Do not accept self-reported rollout summaries.
+adapted traces. Every one of the 190 matched causal histories is rescored at fixed full-horizon steps
+`49/99/.../649`, yielding 2,470 matched-noise rows and 7,410 official flow comparisons under
+matched/reversed/alternate prompts. Use identical diffusion noise, the fixed score seed and the same
+formal checkpoint. Reduce margins over 13 anchors, then ten profiles, before source-motion
+statistics. Reject missing/duplicate trace or anchor evidence, `7/10` physical outcomes, fall
+regression, prompt cache re-encoding, unmatched noise, or reversed order/identity margins. Do not
+accept self-reported rollout summaries.
 
 The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
 updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752

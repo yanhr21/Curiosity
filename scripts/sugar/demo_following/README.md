@@ -743,8 +743,9 @@ After SMALLBOX passes and the complete grid is collected, run:
 ```
 
 This evaluator re-audits every full trace, exact endpoint file and prompt cache rather than accepting
-self-reported outcomes. The 190 matched causal traces are scored under matched/reversed/alternate
-prompts with identical diffusion noise; margins are reduced across ten profiles before the
+self-reported outcomes. Every one of the 190 matched causal traces is scored at fixed full-horizon
+steps `49/99/.../649`, producing 2,470 matched-noise rows and 7,410 official flow comparisons under
+matched/reversed/alternate prompts. Margins reduce over 13 anchors and then ten profiles before the
 source-motion sign tests and Holm correction. Physical safety, order and identity must all pass.
 
 Keep the release and admission decisions live inside the retained H200 allocation with:
