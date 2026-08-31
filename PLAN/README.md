@@ -2,6 +2,31 @@
 
 ## Current priority: demo following
 
+### Official Zero-WAM selected-video following: active, release-gated
+
+The next controller topology is documented in
+[`17_zero_wam_demo_following/plan.md`](17_zero_wam_demo_following/plan.md).  Zero-WAM's causal
+chain—demo-video prefix to predicted robot future to inverse-dynamics action chunk—targets the gap
+left by the completed scalar-reward, frozen-representation, router and residual-controller lines.
+Its training-only IFP heads explicitly prevent the deployed world branch from solving next-chunk
+prediction from recent robot history while ignoring the demo.
+
+As of 2026-08-31, the official repository at main `5a8a2da` contains project material only and
+announces code, model and data before 2026-09-15.  No local implementation is called Zero-WAM and
+no smaller substitute is admitted.  The first executable stage is strict official release/checkpoint
+loading, followed by a frozen SUGAR matched/wrong/reversed/same-task prompt gate.  Only a pass on
+task, temporal order and selected-motion identity opens official 29-DoF action adaptation and one
+same-checkpoint SMALLBOX physical prompt swap.
+
+SUGAR's existing 100 Carry + 99 Kick clean RGB motions are a two-task same-embodiment audit, not a
+replica of HumanGen's 74.2K pairs/8.6K tasks or an open-ended cross-embodiment claim.  The complete
+Generator+Tracker inference pair and actual executed 29-D actions are mandatory targets.
+
+The Newton receding-knot Refiner diagnostic is closed.  Seed171755 completed 32 updates / 60,160
+transitions with 1,792 latches and zero divergence, but frozen seed181752 reached only `0.01005 m`
+lift and `0/1` strict completion on data000.  Task-wide evaluation was automatically skipped; do
+not extend or sweep that family.
+
 ### Executable full official-skill router: complete
 
 The physically valid shared-checkpoint baseline is complete. One checkpoint contains the exact

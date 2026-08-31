@@ -1044,5 +1044,18 @@ The two admission gates pass.  Seed171753 completes one 235-step zero-optimizer 
 closed-loop controls, zero divergence and bitwise-zero policy change.  Fresh seed171754 completes
 two updates / 3,760 transitions with 112 latches and zero divergence; actor/critic/std changes are
 `0.000223/0.000407/0.0000477`, so its execution and learning contracts pass.  Fresh seed171755 is
-therefore the only admitted 32-update endpoint and is running from scratch on the retained H200;
-no earlier checkpoint is eligible for frozen evaluation.
+therefore the only admitted 32-update endpoint; no earlier checkpoint is eligible for frozen
+evaluation.
+
+The formal endpoint and automatic frozen gate are now complete and negative.  Seed171755 finishes
+all 32 updates / 60,160 transitions with exactly 1,792 receding-knot latches, zero divergence,
+finite policy parameters and actor/critic maximum deltas `0.003087/0.007679`.  Frozen seed181752
+loads only `model_31.pt`, executes exactly seven state-feedback latches, keeps the official Refiner
+exact outside the 35-step interval and remains finite.  Its deterministic data000 rollout reaches
+only `0.01005 m` peak lift, `0.20851` bilateral-contact fraction and `0/1` strict completion;
+maximum correction is `0.03528`.  It fails both the fixed 5 cm lift and strict gates, so the
+task-wide evaluation was automatically skipped.  Do not extend the update budget, select an
+intermediate checkpoint or sweep knot geometry, bound, std, reward, prefix or LR.  This closes the
+receding-knot Refiner family and keeps Tracker/BCPPO closed.  The next demo-following direction is
+the official causal video-action/IFP line specified in Plan 17, not another Newton residual or
+scalar-reward variant.

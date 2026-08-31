@@ -816,7 +816,7 @@ against upstream Newton must stay empty.
       steps `200/205/.../230`, hold each for five controls, mask PPO to those seven decisions, and
       retain matched 235-step episode/storage.  Future/outcome labels, shooting targets, Tracker
       and BCPPO remain absent.
-- [ ] Gate it automatically with fresh seed171753 for one zero-optimizer horizon and fresh
+- [x] Gate it automatically with fresh seed171753 for one zero-optimizer horizon and fresh
       seed171754 for exactly two updates / 3,760 transitions.  Only exact execution, seven latches
       per world, finite tensors, zero divergence and the required zero/nonzero parameter contracts
       admit fresh seed171755 for exactly 32 updates / 60,160 transitions.  Freeze model31 and use
@@ -825,7 +825,11 @@ against upstream Newton must stay empty.
       Seed171753 passes 1,880 zero-optimizer transitions with 56 exact latches, zero divergence and
       zero parameter change.  Seed171754 passes two updates / 3,760 transitions with 112 latches,
       zero divergence and actor/critic/std deltas `0.000223/0.000407/0.0000477`.  Fresh seed171755
-      is now running the sole admitted 32-update endpoint from scratch on the retained H200.
+      completes 32 updates / 60,160 transitions with 1,792 latches and zero divergence.  Frozen
+      seed181752 is finite and exact outside the correction interval, but data000 reaches only
+      `0.01005 m` lift, `0.20851` bilateral contact and `0/1` strict completion.  The automatic
+      task-wide branch is skipped; close this topology without a sweep and keep Tracker/BCPPO
+      closed.
 
 ---
 

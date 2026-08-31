@@ -55,6 +55,25 @@ The tactile/mass-adaptation line in
 `PLAN/15_online_patch_tactile_mass_adaptation/plan.md` is frozen while demo following is the active
 queue. Do not interleave new tactile training, evaluation or scale tuning with that queue.
 
+The active next demo-following method is the official Zero-WAM line in
+`PLAN/17_zero_wam_demo_following/plan.md`. Paper v2 and the official project repository have been
+audited. As of 2026-08-31, official main `5a8a2da` contains only README/project assets and announces
+code, model and data before 2026-09-15. Do not implement or train a local imitation of Zero-WAM,
+shrink Wan-2.2-TI2V-5B, or call a homemade video/action Transformer a reproduction. When the
+official artifacts appear, first strict-load the released checkpoint and run the fixed SUGAR
+matched/wrong/reversed/same-task prompt gate with official video/IFP losses. Only a pass on held-out
+task, order and selected-motion identity may open the official 29-DoF embodiment/action adaptation
+and same-checkpoint closed-loop physical gate. The current 100 Carry + 99 Kick corpus is a two-task
+same-embodiment audit, not HumanGen-scale, open-ended or cross-embodiment evidence.
+
+The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
+updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752
+is finite and keeps the released Refiner exact outside the recovery interval, but reaches only
+`0.01005 m` peak lift, `0.20851` bilateral contact and `0/1` strict completion on data000. The
+automatic task-wide branch was skipped. Do not extend it, select an intermediate checkpoint, or
+sweep knots, bound, std, reward, prefix, update budget or LR; Tracker/BCPPO remains closed for this
+family.
+
 The official-CHORD one-variable causal experiment is complete. CHORD OFF/ON used the same
 seed171648, teacher, initialization, 64-update budget and disjoint 80-profile frozen evaluation.
 ON improved mean CWS by `0.00775` and missed-contact by `0.01137`, but physical safe/fall changed

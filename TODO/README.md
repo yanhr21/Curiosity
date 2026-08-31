@@ -2,6 +2,19 @@
 
 ## Demo following
 
+- [x] close the Newton receding-knot Refiner diagnostic at its sole model31 endpoint; frozen data000
+  reaches only `0.01005 m` lift and `0/1` strict, so task-wide is skipped and the family is closed;
+- [x] complete the Zero-WAM paper/project audit and define the official-only causal
+  demo-video -> robot-future -> action-chunk direction in
+  [`17_zero_wam_demo_following/todo.md`](17_zero_wam_demo_following/todo.md);
+- [x] record that official main `5a8a2da` is project-page-only as of 2026-08-31 and that code,
+  model and data are announced before 2026-09-15; do not substitute a local world model;
+- [ ] when official artifacts appear, strict-load the released checkpoint on H200 and pass the
+  fixed matched/wrong/reversed/same-task SUGAR prompt gate before any action adaptation;
+- [ ] only after that gate, use the official embodiment/action path for one 29-DoF same-checkpoint
+  SMALLBOX prompt-swap experiment, then automatically run held-out motions only if physical and
+  selected-motion/order criteria pass;
+
 - [x] remove tactile-surface contact penalties from the goal task;
 - [x] replace demo-anchor and root-up-axis false fall checks with relative physical root-height
   loss;
