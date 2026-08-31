@@ -316,7 +316,11 @@ epochs, 224,000 atomic intervals and 1,120,000 actions must be observed. Officia
 action-flow and IFP losses must remain finite, and all three gradient norms must be finite and
 strictly positive at every recorded optimizer step. Per-epoch medians must show lower final
 video/action flow loss than the first complete epoch and non-worse final IFP; one positive joint
-step or a positive run-wide gradient sum is not sufficient. The official
+step or a positive run-wide gradient sum is not sufficient. Each counted row must also prove a
+positive effective learning rate, one applied update without an AMP/scaler skip, consecutive
+official update indices, positive video/action/IFP parameter-update norms and zero non-finite
+trainable parameters after the update. Backward calls without finite parameter changes do not count.
+The official
 video-world-model and action-decoder scopes must change, and the released video VAE and every other
 official frozen scope must remain bitwise exact. Validation/test exposure, validation-selected
 early stopping, action-only training, a local learned module or a public-Wan-only substitute rejects
@@ -365,6 +369,10 @@ training objective. For a step, Carry/Kick video-flow, action-flow and IFP losse
 only if the atomic composition contains that task. Per-epoch medians are then computed separately;
 both Carry and Kick must improve final video/action loss and keep final IFP non-worse than their own
 first complete epoch. Aggregate improvement cannot compensate for one stalled task.
+
+Gradient evidence is not counted as an optimizer update by itself. AMP-overflow skips, zero-LR calls
+or a branch with zero parameter delta reduce the effective step count and reject formal completion
+rather than being relabeled as training.
 
 ### Stage E — same-checkpoint closed-loop frozen evaluation
 

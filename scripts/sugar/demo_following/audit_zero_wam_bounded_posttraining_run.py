@@ -53,6 +53,11 @@ GRADIENT_FIELDS = (
     "action_gradient_norm",
     "ifp_gradient_norm",
 )
+UPDATE_NORM_FIELDS = (
+    "video_parameter_update_norm",
+    "action_parameter_update_norm",
+    "ifp_parameter_update_norm",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -126,11 +131,21 @@ def resolve_artifact(evidence_path: Path, reference: Any) -> tuple[Path, str]:
 
 
 def finite_nonnegative(value: Any) -> bool:
-    return isinstance(value, (int, float)) and math.isfinite(float(value)) and value >= 0
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(float(value))
+        and value >= 0
+    )
 
 
 def finite_positive(value: Any) -> bool:
-    return isinstance(value, (int, float)) and math.isfinite(float(value)) and value > 0
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(float(value))
+        and value > 0
+    )
 
 
 def frozen_epoch_order(epoch_index: int, trajectory_ids: set[str]) -> list[str]:
@@ -439,6 +454,32 @@ def evaluate(
         all(finite_positive(row.get(field)) for field in GRADIENT_FIELDS)
         for row in optimizer_rows
     )
+    update_norms_positive_every_step = all(
+        all(finite_positive(row.get(field)) for field in UPDATE_NORM_FIELDS)
+        for row in optimizer_rows
+    )
+    optimizer_updates_applied_exactly_once = all(
+        row.get("optimizer_update_applied") is True
+        and row.get("amp_update_skipped") is False
+        and finite_positive(row.get("effective_learning_rate"))
+        and isinstance(row.get("optimizer_step"), int)
+        and not isinstance(row.get("optimizer_step"), bool)
+        and isinstance(row.get("official_update_index_before"), int)
+        and not isinstance(row.get("official_update_index_before"), bool)
+        and isinstance(row.get("official_update_index_after"), int)
+        and not isinstance(row.get("official_update_index_after"), bool)
+        and row.get("official_update_index_before") == row["optimizer_step"]
+        and row.get("official_update_index_after") == row["optimizer_step"] + 1
+        for row in optimizer_rows
+    )
+    trainable_parameters_finite_after_every_step = all(
+        isinstance(row.get("nonfinite_trainable_parameter_count_after_update"), int)
+        and not isinstance(
+            row.get("nonfinite_trainable_parameter_count_after_update"), bool
+        )
+        and row["nonfinite_trainable_parameter_count_after_update"] == 0
+        for row in optimizer_rows
+    )
     loss_values_by_epoch: dict[int, dict[str, list[float]]] = defaultdict(
         lambda: {field: [] for field in LOSS_FIELDS}
     )
@@ -629,6 +670,15 @@ def evaluate(
         "video_action_ifp_receive_positive_gradient_at_every_step": (
             bool(optimizer_rows) and gradients_positive_every_step
         ),
+        "every_optimizer_step_applied_once_without_amp_skip": (
+            bool(optimizer_rows) and optimizer_updates_applied_exactly_once
+        ),
+        "video_action_ifp_parameters_change_at_every_step": (
+            bool(optimizer_rows) and update_norms_positive_every_step
+        ),
+        "trainable_parameters_remain_finite_after_every_step": (
+            bool(optimizer_rows) and trainable_parameters_finite_after_every_step
+        ),
         "full_data_epoch_loss_progress": full_data_loss_progress,
         "carry_and_kick_each_make_full_data_loss_progress": (
             every_task_full_data_loss_progress
@@ -715,6 +765,26 @@ def evaluate(
         "action_exposures": exposure_totals["actions"],
         "atomic_consumption_audit_passed": all(consumption_checks.values()),
         "optimizer_trace_records": len(optimizer_rows),
+        "applied_optimizer_update_records": sum(
+            row.get("optimizer_update_applied") is True for row in optimizer_rows
+        ),
+        "amp_skipped_update_records": sum(
+            row.get("amp_update_skipped") is True for row in optimizer_rows
+        ),
+        "all_branch_positive_update_norm_records": sum(
+            all(finite_positive(row.get(field)) for field in UPDATE_NORM_FIELDS)
+            for row in optimizer_rows
+        ),
+        "post_update_nonfinite_parameter_records": sum(
+            isinstance(
+                row.get("nonfinite_trainable_parameter_count_after_update"), int
+            )
+            and not isinstance(
+                row.get("nonfinite_trainable_parameter_count_after_update"), bool
+            )
+            and row["nonfinite_trainable_parameter_count_after_update"] > 0
+            for row in optimizer_rows
+        ),
         "optimizer_step_composition_records": len(composition_by_step),
         "minimum_optimizer_step_floor": MINIMUM_OPTIMIZER_STEPS,
         "coverage_minimum_optimizer_step_floor": COVERAGE_MINIMUM_OPTIMIZER_STEPS,
@@ -840,6 +910,15 @@ def run_self_test() -> None:
                 "video_gradient_norm": 1.0,
                 "action_gradient_norm": 0.5,
                 "ifp_gradient_norm": 0.25,
+                "optimizer_update_applied": True,
+                "amp_update_skipped": False,
+                "effective_learning_rate": 1e-5,
+                "official_update_index_before": optimizer_step,
+                "official_update_index_after": optimizer_step + 1,
+                "video_parameter_update_norm": 0.1,
+                "action_parameter_update_norm": 0.05,
+                "ifp_parameter_update_norm": 0.025,
+                "nonfinite_trainable_parameter_count_after_update": 0,
             }
             for optimizer_step in range(MINIMUM_OPTIMIZER_STEPS)
         ]
@@ -971,6 +1050,13 @@ def run_self_test() -> None:
         emit(epoch_rows, optimizer_rows, modules)
         positive = evaluate(admission_path, schedule_path, evidence_path)
         assert positive["passed"] is True, positive
+        assert positive["applied_optimizer_update_records"] == MINIMUM_OPTIMIZER_STEPS
+        assert positive["amp_skipped_update_records"] == 0
+        assert (
+            positive["all_branch_positive_update_norm_records"]
+            == MINIMUM_OPTIMIZER_STEPS
+        )
+        assert positive["post_update_nonfinite_parameter_records"] == 0
 
         low_configured_budget = read_json(evidence_path)
         low_configured_budget["official_recipe"]["configured_optimizer_steps"] = (
@@ -1023,6 +1109,73 @@ def run_self_test() -> None:
         assert (
             one_joint_step_failure["checks"][
                 "video_action_ifp_receive_positive_gradient_at_every_step"
+            ]
+            is False
+        )
+
+        skipped_update = copy.deepcopy(optimizer_rows)
+        skipped_update[17]["optimizer_update_applied"] = False
+        skipped_update[17]["amp_update_skipped"] = True
+        skipped_update[17]["official_update_index_after"] = 17
+        for field in UPDATE_NORM_FIELDS:
+            skipped_update[17][field] = 0.0
+        emit(epoch_rows, skipped_update, modules)
+        skipped_update_failure = evaluate(
+            admission_path, schedule_path, evidence_path
+        )
+        assert (
+            skipped_update_failure["checks"][
+                "every_optimizer_step_applied_once_without_amp_skip"
+            ]
+            is False
+        )
+        assert (
+            skipped_update_failure["checks"][
+                "video_action_ifp_parameters_change_at_every_step"
+            ]
+            is False
+        )
+
+        nonfinite_parameters = copy.deepcopy(optimizer_rows)
+        nonfinite_parameters[23][
+            "nonfinite_trainable_parameter_count_after_update"
+        ] = 1
+        emit(epoch_rows, nonfinite_parameters, modules)
+        nonfinite_parameter_failure = evaluate(
+            admission_path, schedule_path, evidence_path
+        )
+        assert (
+            nonfinite_parameter_failure["checks"][
+                "trainable_parameters_remain_finite_after_every_step"
+            ]
+            is False
+        )
+
+        boolean_numeric_evidence = copy.deepcopy(optimizer_rows)
+        boolean_numeric_evidence[29]["effective_learning_rate"] = True
+        boolean_numeric_evidence[29]["video_parameter_update_norm"] = True
+        boolean_numeric_evidence[29][
+            "nonfinite_trainable_parameter_count_after_update"
+        ] = False
+        emit(epoch_rows, boolean_numeric_evidence, modules)
+        boolean_numeric_failure = evaluate(
+            admission_path, schedule_path, evidence_path
+        )
+        assert (
+            boolean_numeric_failure["checks"][
+                "every_optimizer_step_applied_once_without_amp_skip"
+            ]
+            is False
+        )
+        assert (
+            boolean_numeric_failure["checks"][
+                "video_action_ifp_parameters_change_at_every_step"
+            ]
+            is False
+        )
+        assert (
+            boolean_numeric_failure["checks"][
+                "trainable_parameters_remain_finite_after_every_step"
             ]
             is False
         )
@@ -1144,6 +1297,9 @@ def run_self_test() -> None:
                         "off_schedule_order",
                         "action_only_gradient",
                         "single_joint_gradient_step",
+                        "amp_skipped_or_zero_parameter_update",
+                        "nonfinite_trainable_parameter_after_update",
+                        "boolean_masquerading_as_numeric_update_evidence",
                         "no_full_data_loss_progress",
                         "task_loss_without_consumed_task",
                         "kick_task_loss_stalled",

@@ -146,6 +146,10 @@ compute node; expose at least ten complete epochs / 224,000 atomic intervals / 1
 and preserve hash-verified epoch, optimizer, module-scope and checkpoint evidence. Joint official
 video/action/IFP losses and gradients must be finite and active, official video/action trainable
 scopes must change, and the official video VAE plus all frozen scopes must remain bitwise exact.
+Every counted optimizer row must also prove one applied update with positive effective learning
+rate, no AMP/scaler skip, consecutive official update indices, strictly positive video/action/IFP
+parameter-update norms and zero non-finite trainable parameters after the update. Backward gradients
+without an applied finite parameter change do not count toward the training budget.
 Reject nine-epoch or off-schedule runs, action-only training, held-out leakage, validation-selected
 early stopping, local learned modules and public-Wan-only substitutes. Passing this audit opens
 frozen evaluation only; it is not selected-demo following or physical success.
@@ -165,7 +169,10 @@ Atomic-consumption batch and optimizer-step indices must be monotonic and contig
 completion audit must require the optimizer trace to contain exactly the consumed step min/max/count
 with no missing or extra update. Official video/action/IFP losses must be finite and every branch's
 gradient norm must be finite and strictly positive at every optimizer step; a single early joint
-step cannot excuse later branch inactivity. Compare per-epoch medians over the exact trace: the last
+step cannot excuse later branch inactivity. Each step must also record a real non-skipped optimizer
+application and positive parameter-update norm for all three branches; zero-LR warmup calls or
+AMP-overflow skips are not optimizer updates for the fixed budget. Compare per-epoch medians over
+the exact trace: the last
 complete epoch must improve video/action flow loss over the first and may not worsen IFP. Epoch-level
 sample optimizer evidence or merely positive run-wide gradient sums are insufficient.
 

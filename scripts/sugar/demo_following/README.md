@@ -678,6 +678,10 @@ trace must contain exactly the same min/max/count step set, so no update can esc
 video-flow, action-flow and IFP loss checks or strictly positive finite gradients on every branch.
 The last complete epoch's median video/action losses must be below the first epoch and its IFP median
 must not be worse; a single joint-gradient step or flat full-data trace fails.
+Every counted row must also show positive effective learning rate, one applied update with no
+AMP/scaler skip, consecutive update indices, positive video/action/IFP parameter-update norms and
+zero non-finite trainable parameters after the update. A backward call that was skipped or produced
+no branch parameter change is not credited toward the optimizer budget.
 
 Every packed sample must stay inside one batch and optimizer step, and every batch maps to one step.
 No optimizer step may aggregate more than 140 atomic intervals, one complete-trajectory equivalent.
@@ -702,7 +706,8 @@ official module before/after hashes and the complete final checkpoint file or sh
 exact official entrypoint/config and checkpoint identity, all ten scheduled epochs, at least
 224,000 interval and 1,120,000 action exposures, finite video/action/IFP losses, strictly positive
 three-branch gradients at every optimizer step, at least 4,000 updates (or a larger released official
-budget) and first-to-last epoch median loss progress,
+budget), actual non-skipped finite parameter changes at every counted step and first-to-last epoch
+median loss progress,
 changed official video/action trainable scopes, and a bitwise-frozen official video VAE. It rejects
 undertraining, schedule drift, action-only training, collapsed inputs, frozen-scope drift, held-out leakage, local
 learned modules and public-Wan-only substitutes. Passing opens frozen evaluation; it is not model

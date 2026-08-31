@@ -126,6 +126,11 @@
       paper floor, positive released-recipe step count, effective configured step count no smaller
       than either, and at least the same number of contiguous consumed/optimizer-trace steps. Reject
       a configured 3,999-step fixture even when all other execution evidence passes.
+- [x] Prove that every counted step is a real parameter update, not only a backward call: require
+      positive effective LR, applied update, no AMP/scaler skip, exact before/after update indices,
+      positive video/action/IFP parameter-update norms and zero non-finite trainable parameters after
+      every step. Reject one skipped/zero-update row, one post-update non-finite row and booleans
+      masquerading as numeric update evidence.
 - [x] Bind optimizer contents, not only IDs: derive every step's single epoch, exact Carry/Kick
       interval counts, action exposures, forward batches and packed samples from the atomic log, then
       require field-exact optimizer-trace equality. Reject cross-epoch steps and a forged task
