@@ -79,6 +79,15 @@ all 30 layers peaks at `10,263,348,736` bytes and takes `0.5462 s`. The exact 22
 no incomplete fragments and is hash-recorded. This is Wan base compatibility evidence only, not a
 Zero-WAM checkpoint, official example or permission to train SUGAR.
 
+The training-admission gate is mandatory. It records that the exact `160/20/19` motion split,
+139,300 transitions and 22,400 training video-action intervals are sufficient only for the fixed
+two-task post-training audit from an official pretrained Zero-WAM checkpoint. They are not
+foundation-scale data: SUGAR has two tasks / 199 trajectories versus the reported `>6,000` robot
+tasks / about 400K trajectories per epoch and 74.2K HumanGen pairs / 8.6K tasks. Never train the 5B
+model from scratch on SUGAR, inflate interval count into task diversity, or let the public Wan base
+stand in for Zero-WAM. Formal training opens only when official release, frozen task/order/identity
+prompt dependence and documented official 29-DoF adapter gates all pass.
+
 The immutable SUGAR side of that gate is complete. The historical 2.5 m-spaced XIRL renders are
 rejected for Plan 17 because neighboring environments enter the camera frustum. The replacement
 corpus re-renders all 100 Carry + 99 Kick prompts and robot targets at 30 m spacing with a 20 m far

@@ -24,6 +24,12 @@
 - [x] Strict-load the exact public Wan base on H200 in BF16 with zero missing/unexpected/mismatched
       keys: `4,999,787,712` parameters, `10,263,348,736` peak bytes and a `0.5462 s` minimal-valid
       forward through all 30 released DiT blocks; record exact 22-file snapshot SHA256s.
+- [x] Implement and self-test a fail-closed training-admission gate that marks the immutable SUGAR
+      corpus ready only for the bounded two-task post-training audit, forbids 5B foundation
+      pre-training on 199 trajectories and requires official release/prompt/29-DoF adapter gates.
+- [x] Add a retained-H200 monitor that recomputes canonical release and training admission every
+      fixed interval, exits automatically when official artifacts change and contains no approval
+      or manual sentinel state.
 - [ ] Detect the first official code/model/data release, freeze its full commit and checkpoint,
       and write `OFFICIAL_RELEASE_AUDIT.json` without asking for user authorization.
 - [ ] Strict-load the official model on H200 and reproduce one released example plus documented

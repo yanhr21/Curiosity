@@ -190,6 +190,15 @@ missing, unexpected or mismatched keys and has `4,999,787,712` parameters.  BF16
 `4.51.3` and official FlashAttention `2.8.3.post1`; the final snapshot gate additionally requires
 the exact 22 paths/bytes, no incomplete fragments and SHA256 for every file.
 
+The model/data training-admission gate is also executable and distinguishes two claims that must
+never be merged.  The current immutable SUGAR corpus passes every fixed requirement for the bounded
+two-task post-training audit (`160/20/19` train/validation/test motions and `22,400` train
+video-action intervals), but foundation pre-training is forbidden: two tasks and 199 trajectories
+are orders of magnitude below the reported `>6,000` robot tasks / about 400K trajectories per epoch
+plus 74.2K HumanGen pairs over 8.6K tasks.  Formal SUGAR training remains false until one official
+Zero-WAM commit/checkpoint/example, the frozen task/order/identity prompt gate and a documented
+official 29-DoF adapter all pass.  Public Wan compatibility alone can never satisfy those checks.
+
 ### Stage B — immutable SUGAR ICL manifest
 
 Build a manifest without rendering presentation/composite videos.  Every row records task, source ID,
@@ -284,6 +293,8 @@ the result cross-embodiment only if the human and G1 streams are genuinely disti
 
 - Official code/weights absent: finish manifest/data audit, record `official_release_available=false`,
   and do not train a substitute.
+- Current SUGAR data may be admitted only for bounded post-training from an official pretrained
+  Zero-WAM checkpoint; it is permanently rejected as 5B foundation-pretraining data.
 - Official strict load or official example fails: stop Zero-WAM execution as a compatibility issue;
   do not patch model semantics.
 - Frozen prompt gate fails: do not post-train a SUGAR action policy from the failed signal.

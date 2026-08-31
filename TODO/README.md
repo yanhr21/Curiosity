@@ -12,6 +12,8 @@
 - [x] add a fail-closed live official-release gate and pass exact public Wan2.2 H200 base
   verification at `4,999,787,712` parameters / `10,263,348,736` peak bytes over the exact 22-file
   snapshot; a base pass is not Zero-WAM;
+- [x] enforce a machine model/data admission boundary: 199 SUGAR trajectories are ready for the
+  fixed two-task post-training audit only and forbidden for 5B foundation pre-training;
 - [x] build the immutable isolated SUGAR gate corpus: 199 prompt/robot streams, 139,300 exact
   Generator+Tracker actions and 27,860 synchronized intervals, with 30 m camera isolation and zero
   reused prompt/target streams;

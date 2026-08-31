@@ -548,3 +548,31 @@ missing/unexpected/mismatched keys.  CPU strict load takes `13.6326 s`, BF16 H20
 `5.4647 s`, and the exact 30-layer minimal-valid forward takes `0.5462 s` with
 `10,263,348,736` peak allocated bytes.  The exact pinned runtime is Torch `2.7.0+cu128`, CUDA
 `12.8`, Diffusers `0.33.0`, Transformers `4.51.3` and FlashAttention `2.8.3.post1`.
+
+Recompute the explicit model/data training boundary with:
+
+```bash
+python3 scripts/sugar/demo_following/audit_zero_wam_training_admission.py \
+  --release-audit experiments/demo_following/zero_wam_official_v1/official_release_status/audit/OFFICIAL_RELEASE_AUDIT.json \
+  --wan-base-audit experiments/demo_following/zero_wam_official_v1/wan_base_h200_audit_v1/WAN22_BASE_AUDIT.json \
+  --sugar-manifest-result experiments/demo_following/zero_wam_official_v1/icl_manifest_v2/RESULT.json \
+  --output-dir experiments/demo_following/zero_wam_official_v1/training_admission_v1
+```
+
+The current result intentionally has `training_allowed=false`: public-Wan and bounded-data gates
+pass, while official Zero-WAM release, frozen prompt dependence and official 29-DoF adapter gates
+remain false.  It separately emits
+`sugar_foundation_pretraining.decision=forbidden_do_not_train_5b_from_scratch_on_sugar`; 22,400
+intervals do not turn two tasks into foundation-scale diversity.
+
+Keep the release and admission decisions live inside the retained H200 allocation with:
+
+```bash
+bash scripts/sugar/demo_following/run_zero_wam_release_training_monitor.sh \
+  experiments/demo_following/zero_wam_official_v1/release_training_monitor_v1 600 30
+```
+
+Each poll archives the canonical commit/tree, recomputes training admission and writes one compact
+`MONITOR_STATE.json`.  It exits automatically if the official repository changes to a real release
+so the next autonomous stage can inspect and strict-load the unknown official schema; it has no
+approval flag, sentinel or manual checkpoint gate.

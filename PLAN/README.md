@@ -29,6 +29,12 @@ The public-base H200 preflight passes: strict load has zero missing/unexpected/m
 `0.5462 s` and peaks at `10,263,348,736` bytes.  All 22 official snapshot paths and bytes are exact,
 with no partial file retained.  This remains base compatibility evidence rather than Stage A.
 
+A machine training-admission gate now enforces the scale boundary.  The exact `160/20/19` split and
+22,400 training intervals are ready for the declared two-task post-training audit only; the same
+199 trajectories are explicitly forbidden as 5B foundation-pretraining data.  Formal training
+stays closed until official Zero-WAM release, frozen prompt-dependence and official 29-DoF adapter
+gates all pass.
+
 The immutable SUGAR data stage is complete: 199 isolated prompt/robot streams, 139,300 exact
 Generator+Tracker transitions, 27,860 synchronized video/action intervals and 22,400 train
 intervals pass the v2 machine gate.  The old 2.5 m XIRL renders are excluded because neighboring
