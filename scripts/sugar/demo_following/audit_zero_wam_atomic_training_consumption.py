@@ -263,6 +263,8 @@ def evaluate(
             )
 
     total_actions = len(rows) * ACTIONS_PER_INTERVAL
+    unique_batch_indices = sorted(set(batch_indices))
+    unique_optimizer_steps = sorted(set(optimizer_steps))
     checks = {
         **schedule_checks,
         "global_consumption_index_exact": index_sequence_exact,
@@ -292,6 +294,14 @@ def evaluate(
             and batch_indices == sorted(batch_indices)
             and optimizer_steps == sorted(optimizer_steps)
         ),
+        "batch_indices_are_contiguous_from_zero": (
+            bool(unique_batch_indices)
+            and unique_batch_indices == list(range(unique_batch_indices[-1] + 1))
+        ),
+        "optimizer_steps_are_contiguous_from_zero": (
+            bool(unique_optimizer_steps)
+            and unique_optimizer_steps == list(range(unique_optimizer_steps[-1] + 1))
+        ),
         "at_least_224000_atomic_interval_exposures": len(rows) >= MINIMUM_INTERVAL_EXPOSURES,
         "at_least_1120000_action_exposures": total_actions >= MINIMUM_ACTION_EXPOSURES,
     }
@@ -305,6 +315,12 @@ def evaluate(
         "atomic_interval_exposures": len(rows),
         "action_exposures": total_actions,
         "packed_sample_count": len(packed_groups),
+        "batch_index_min": unique_batch_indices[0] if unique_batch_indices else None,
+        "batch_index_max": unique_batch_indices[-1] if unique_batch_indices else None,
+        "distinct_batch_count": len(unique_batch_indices),
+        "optimizer_step_min": unique_optimizer_steps[0] if unique_optimizer_steps else None,
+        "optimizer_step_max": unique_optimizer_steps[-1] if unique_optimizer_steps else None,
+        "distinct_optimizer_step_count": len(unique_optimizer_steps),
         "checks": checks,
         "automatic_next_branch": (
             "continue_official_training_completion_audit"
@@ -498,6 +514,14 @@ def run_self_test(training_schedule: Path | None = None) -> None:
         collapsed_result = evaluate(schedule, EXPECTED_SCHEDULE_SHA256, rows, log_hash)
         assert collapsed_result["checks"]["every_epoch_has_22400_distinct_forward_inputs"] is False
         rows[1]["official_forward_input_sha256"] = original_forward_hash
+
+        changed_optimizer_rows = [row for row in rows if row["optimizer_step"] == 1]
+        for row in changed_optimizer_rows:
+            row["optimizer_step"] = 2
+        optimizer_gap_result = evaluate(schedule, EXPECTED_SCHEDULE_SHA256, rows, log_hash)
+        assert optimizer_gap_result["checks"]["optimizer_steps_are_contiguous_from_zero"] is False
+        for row in changed_optimizer_rows:
+            row["optimizer_step"] = 1
         print(
             json.dumps(
                 {
@@ -516,6 +540,7 @@ def run_self_test(training_schedule: Path | None = None) -> None:
                         "heldout_leakage",
                         "action_only_target",
                         "collapsed_forward_input",
+                        "optimizer_step_gap",
                     ],
                     "fixture_claim_boundary": "synthetic contract test only; not model evidence",
                 },

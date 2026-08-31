@@ -110,6 +110,10 @@
       fixture and reject nine epochs, duplication, reordering, cross-trajectory packing, held-out
       leakage, action-only targets and collapsed forward inputs; require 22,400 distinct forward
       fingerprints per epoch and bind the result/log hashes into checkpoint completion.
+- [x] Bind every atomic-consumption optimizer-step ID to the joint optimizer trace: require batch
+      and step indices monotonic and contiguous from zero, exact consumed-step min/max/count, no
+      missing or extra optimizer record, and finite video/action/IFP losses and gradients at every
+      step. Reject a consumption-step gap and an optimizer-trace gap in contract tests.
 - [ ] Inspect the released embodiment/action adapter and verify that 29-DoF continuous action
       chunks and SUGAR causal state can be represented without changing Zero-WAM semantics.
 - [ ] If no documented adapter path exists, record an unsupported-embodiment blocker; do not write a

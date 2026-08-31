@@ -389,6 +389,19 @@ def evaluate(
         "every_completed_epoch_has_optimizer_evidence": (
             set(completed_epoch_indices).issubset(optimizer_epoch_set)
         ),
+        "optimizer_trace_exactly_matches_atomic_consumption_steps": (
+            isinstance(consumption_audit.get("optimizer_step_min"), int)
+            and isinstance(consumption_audit.get("optimizer_step_max"), int)
+            and isinstance(consumption_audit.get("distinct_optimizer_step_count"), int)
+            and optimizer_steps
+            == list(
+                range(
+                    consumption_audit["optimizer_step_min"],
+                    consumption_audit["optimizer_step_max"] + 1,
+                )
+            )
+            and len(optimizer_steps) == consumption_audit["distinct_optimizer_step_count"]
+        ),
         "joint_video_action_ifp_losses_finite": bool(optimizer_rows) and losses_finite,
         "joint_video_action_ifp_gradients_finite": bool(optimizer_rows) and gradients_finite,
         "video_action_ifp_all_receive_gradient": all(
@@ -580,6 +593,9 @@ def run_self_test() -> None:
             "completed_full_epochs": MINIMUM_EPOCHS,
             "atomic_interval_exposures": MINIMUM_INTERVAL_EXPOSURES,
             "action_exposures": MINIMUM_ACTION_EXPOSURES,
+            "optimizer_step_min": 0,
+            "optimizer_step_max": MINIMUM_EPOCHS - 1,
+            "distinct_optimizer_step_count": MINIMUM_EPOCHS,
             "checks": {"full_atomic_consumption_contract_passed": True},
         }
 
@@ -675,6 +691,16 @@ def run_self_test() -> None:
         action_only_failure = evaluate(admission_path, schedule_path, evidence_path)
         assert action_only_failure["checks"]["video_action_ifp_all_receive_gradient"] is False
 
+        missing_optimizer_step = optimizer_rows[:5] + optimizer_rows[6:]
+        emit(epoch_rows, missing_optimizer_step, modules)
+        optimizer_gap_failure = evaluate(admission_path, schedule_path, evidence_path)
+        assert (
+            optimizer_gap_failure["checks"][
+                "optimizer_trace_exactly_matches_atomic_consumption_steps"
+            ]
+            is False
+        )
+
         drifted = copy.deepcopy(modules)
         drifted["modules"][-1]["after_sha256"] = "0" * 64
         emit(epoch_rows, optimizer_rows, drifted)
@@ -702,6 +728,7 @@ def run_self_test() -> None:
                         "undertrained_nine_epoch",
                         "off_schedule_order",
                         "action_only_gradient",
+                        "optimizer_trace_gap",
                         "frozen_vae_drift",
                         "heldout_data_leak",
                         "unproven_atomic_consumption",

@@ -333,6 +333,12 @@ of 160 x 140 intervals exactly once. Future/outcome inputs, held-out rows, dupli
 intervals, collapsed inputs, trajectory reordering and cross-trajectory packing reject the run. The formal completion
 gate must hash and require this passing atomic-consumption audit and its complete log.
 
+The consumption log's batch and optimizer-step indices must be monotonic and contiguous from zero.
+It reports the exact optimizer-step range and count; the formal optimizer trace must contain exactly
+that full step set with no missing or additional record. Every recorded step must carry finite
+official video-flow, action-flow and IFP losses and gradients. This closes the gap between “data
+reached some forward calls” and “every optimizer update in the formal run was jointly audited.”
+
 ### Stage E — same-checkpoint closed-loop frozen evaluation
 
 The first physical gate uses the compatible SMALLBOX scene where exact released endpoints already

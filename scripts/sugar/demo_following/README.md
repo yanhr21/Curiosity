@@ -673,6 +673,9 @@ and records that the sample reached the official forward path with video/action/
 fingerprint covers exact preprocessed model inputs and must be distinct for all 22,400 intervals in
 each epoch, rejecting collapsed or repeated loader outputs. The
 completion evidence must include hash references to both this complete log and its passing audit.
+Batch and optimizer-step indices must be monotonic and contiguous from zero. The joint optimizer
+trace must contain exactly the same min/max/count step set, so no update can escape finite
+video-flow, action-flow and IFP loss/gradient checks.
 
 The evidence manifest also points to hash-verified per-trajectory epoch JSONL, optimizer JSONL,
 official module before/after hashes and the complete final checkpoint file or sharded directory. The gate requires H200 Slurm execution, the

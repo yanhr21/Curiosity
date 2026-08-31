@@ -161,6 +161,11 @@ all 22,400 intervals within every epoch, preventing collapsed inputs from passin
 consumption audit and its full log. Reject count-only claims, dropped/duplicated intervals,
 reordering, cross-trajectory packing, held-out leakage and action-only targets.
 
+Atomic-consumption batch and optimizer-step indices must be monotonic and contiguous from zero. The
+completion audit must require the optimizer trace to contain exactly the consumed step min/max/count
+with no missing or extra update, and finite official video/action/IFP losses and gradients at every
+step. Epoch-level sample optimizer evidence is insufficient.
+
 The Newton receding-knot Refiner diagnostic is complete and negative. Seed171755 finishes 32
 updates / 60,160 transitions with 1,792 exact knot latches and zero divergence. Frozen seed181752
 is finite and keeps the released Refiner exact outside the recovery interval, but reaches only
