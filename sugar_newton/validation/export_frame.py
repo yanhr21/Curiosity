@@ -34,7 +34,6 @@ from sugar_newton.validation.g1_carrybox_policy import Actor, G1PolicyScene, loa
 from sugar_newton.validation.hand_atlas import digit_bands, digit_mask
 
 LOAD_N = 0.01           # above this a contact is carrying load, below it is a candidate
-MARGIN_MM = 5.0         # the collision margin the pipeline is built with
 
 
 def quat_rotate(q, v):
@@ -91,13 +90,16 @@ def main() -> None:
     ap.add_argument("--substeps", type=int, default=4)
     ap.add_argument("--box-tris", type=int, default=2000)
     ap.add_argument("--hand-tris", type=int, default=5000)
+    ap.add_argument("--margin", type=float, default=0.005,
+                    help="collider surface thickness [m]")
     ap.add_argument("--outdir", default="sugar_newton/_out")
     args = ap.parse_args()
 
     wp.init()
     clip = load_clip(args.clip)
     dt = 1.0 / clip["fps"]
-    scene = G1PolicyScene(clip, box_tris=args.box_tris, hand_tris=args.hand_tris)
+    scene = G1PolicyScene(clip, box_tris=args.box_tris, hand_tris=args.hand_tris,
+                          margin=args.margin)
     actor = Actor()
 
     body_of = scene.model.shape_body.numpy()
@@ -215,9 +217,10 @@ def main() -> None:
         bm.triangles = o3d.utility.Vector3iVector(bt)
         box_scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(bm))
 
+    margin_mm = args.margin * 1e3
     print(f"\nframe {args.frame}: {len(rows)} hand-box contacts reported, "
           f"{sum(r['load_bearing'] for r in rows)} load-bearing (>{LOAD_N} N), "
-          f"margin {MARGIN_MM:.0f} mm")
+          f"collider margin {margin_mm:.1f} mm per shape")
     print("gap is SIGNED distance from the digit's nearest vertex to the box surface: "
           "negative means penetrating.")
     print(f"{'digit':16s} {'gap_mm':>8s} {'contacts':>9s} {'loaded':>7s} "
@@ -240,14 +243,63 @@ def main() -> None:
             # which is correct, not a miss -- so only flag digits comfortably inside it.
             if nl:
                 verdict = "touching, carrying load"
-            elif gap <= MARGIN_MM - 1.0:
-                verdict = f"INSIDE the margin by {MARGIN_MM - gap:.1f} mm but silent -- check this"
-            elif gap <= MARGIN_MM + 1.0:
+            elif gap <= margin_mm - 1.0:
+                verdict = f"INSIDE the margin by {margin_mm - gap:.1f} mm but silent -- check this"
+            elif gap <= margin_mm + 1.0:
                 verdict = "grazing the margin, zero force is expected"
             else:
-                verdict = f"clear by {gap - MARGIN_MM:.1f} mm past the margin"
+                verdict = f"clear by {gap - margin_mm:.1f} mm past the margin"
             print(f"{side + ' ' + nm:16s} {gap:8.1f} {len(near):9d} {nl:7d} "
                   f"{fsum:9.1f}  {verdict}")
+
+    # ---- is a reported contact actually where the two surfaces meet? ----
+    # A contact can legitimately be reported across a visible gap if the shapes carry an
+    # effective radius: rigid_contact_margin* is "effective radius + margin", and the solver
+    # works on the inflated surface, not the drawn one. This checks the drawn geometry
+    # against the pair of witness points the pipeline itself produced.
+    hand_scene = {}
+    for side, (_, hv, ht) in hand_geo.items():
+        hm = o3d.geometry.TriangleMesh()
+        hm.vertices = o3d.utility.Vector3dVector(hv)
+        hm.triangles = o3d.utility.Vector3iVector(ht)
+        s = o3d.t.geometry.RaycastingScene()
+        s.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(hm))
+        hand_scene[side] = s
+
+    m0 = c.rigid_contact_margin0.numpy()[:n]
+    m1 = c.rigid_contact_margin1.numpy()[:n]
+    scale = getattr(scene.model, "shape_scale", None)
+    print("\nper load-bearing contact: where the two witness points sit, and how far the "
+          "collider is inflated")
+    print(f"{'side':6s} {'|p0-p1|_mm':>10s} {'solver_sep_mm':>13s} {'to_hand_mm':>10s} "
+          f"{'to_box_mm':>9s} {'margin0+1_mm':>12s} {'|f|_N':>8s}")
+    for i in range(n):
+        a, b = int(s0[i]), int(s1[i])
+        hand_is_0 = a in all_hand and b in box_shapes
+        hand_is_1 = b in all_hand and a in box_shapes
+        if not (hand_is_0 or hand_is_1):
+            continue
+        mag = float(np.linalg.norm(f[i]))
+        if mag <= LOAD_N:
+            continue
+        wa = apply_xform(body_q[int(body_of[a])], p0[i][None, :])[0]
+        wb = apply_xform(body_q[int(body_of[b])], p1[i][None, :])[0]
+        side = next(k for k, v in hands.items() if (a if hand_is_0 else b) in v)
+        ph, pb = (wa, wb) if hand_is_0 else (wb, wa)
+        dh = float(hand_scene[side].compute_distance(
+            o3d.core.Tensor(ph[None, :].astype(np.float32))).numpy()[0]) * 1e3
+        db = float(box_scene.compute_distance(
+            o3d.core.Tensor(pb[None, :].astype(np.float32))).numpy()[0]) * 1e3
+        # contacts.py:65 -- what the solver treats as penetration.
+        sep = (float(np.dot(nrm[i], wb - wa)) - float(m0[i] + m1[i])) * 1e3
+        print(f"{side:6s} {np.linalg.norm(wa - wb) * 1e3:10.2f} {sep:13.2f} {dh:10.2f} "
+              f"{db:9.2f} {(m0[i] + m1[i]) * 1e3:12.2f} {mag:8.1f}")
+    if scale is not None:
+        sv = scale.numpy()
+        odd = [s for s in list(all_hand) + list(box_shapes)
+               if not np.allclose(sv[s], 1.0)]
+        print(f"shape_scale away from 1 on hand/box shapes: "
+              f"{ {s: sv[s].tolist() for s in odd} if odd else 'none'}")
 
     print(f"\nwrote {out}/  (scene.ply, {'left_hand.ply, right_hand.ply, ' if hand_geo else ''}"
           f"box.ply, contacts.ply, contacts_spheres.ply, contacts.csv)")

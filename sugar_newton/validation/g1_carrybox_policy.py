@@ -447,14 +447,21 @@ class G1PolicyScene:
                  ke: float = 1.0e4, kd: float = 3.2e2, self_collision: bool = False,
                  hull_hands: bool = False, collision: str = "mesh",
                  sdf_resolution: int = 64, iterations: int = 100,
-                 ls_iterations: int = 50, box_tris: int = 0, hand_tris: int = 0):
+                 ls_iterations: int = 50, box_tris: int = 0, hand_tris: int = 0,
+                 margin: float = 0.005):
         self.clip = clip
+        self.margin = margin
         b = newton.ModelBuilder()
         newton.solvers.SolverMuJoCo.register_custom_attributes(b)
         b.default_shape_cfg.ke = ke
         b.default_shape_cfg.kd = kd
         b.default_shape_cfg.mu = mu
-        b.default_shape_cfg.margin = 0.005
+        # Surface thickness added to every collider. The solver's separation is
+        # ``dot(n, p1 - p0) - (margin0 + margin1)`` (contacts.py:65), so this is not merely a
+        # detection radius: it inflates each shape, and a pair closes at this separation
+        # rather than at touch. Measured on the carry, that means the loaded fingertips sit
+        # ~4.5 mm off the box surface while carrying tens of newtons.
+        b.default_shape_cfg.margin = margin
 
         b.add_urdf(str(URDF), floating=True, collapse_fixed_joints=False,
                    enable_self_collisions=self_collision, joint_ordering="bfs",

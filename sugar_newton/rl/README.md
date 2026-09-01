@@ -358,6 +358,50 @@ matplotlib's writer so it falls back to GIF, and the video's colour scale is per
 (peak 2.8 N) whereas the static figure's is integrated over the whole carry (peak ~150 N) --
 they are not comparable numbers.
 
+### The grasp floats on a 4.5 mm air gap, and the 5 mm margin is why
+
+Inspecting the exported frame (`validation/export_frame.py`, writes world-space PLYs plus a
+per-digit audit) shows the loaded fingertips **not touching the box**: signed distance from
+the nearest fingertip vertex to the box surface is **+4.0 to +4.7 mm**, and they are still
+carrying 28-45 N. That is not a broken collider, it is `default_shape_cfg.margin = 0.005` in
+both `carrybox_env.py:381` and `g1_carrybox_policy.py`, and it is worth understanding because
+the name is misleading.
+
+Newton's margin is not only a detection radius. The separation the solver constrains is
+
+    sep = dot(n, p1_world - p0_world) - (margin0 + margin1)          # sim/contacts.py:65
+
+so the margin *inflates* each shape: a pair reaches `sep = 0` while the drawn surfaces are
+still `margin0 + margin1` apart, and the surfaces come to rest there. Measured on frame 359,
+`|p0 - p1|` is 4.0-4.7 mm against 5.0 mm of combined margin, giving `sep` of -0.2 to -1.0 mm
+-- the solver believes it is 0.2-1.0 mm into penetration while there is 4.5 mm of visible air.
+This is PhysX's *restOffset*, not its *contactOffset*; Isaac's default is `restOffset = 0`
+with a 0.02 m contact offset, i.e. detect early but rest on the surface. Ours rests 4.5 mm
+out, so the box hangs off inflated fingertips.
+
+`--margin` is now a knob on both the scene and the exporter. Dropping it to 1 mm closes the
+gap without any other change:
+
+| collider margin | fingertip gap to box | solver `sep` | load-bearing contacts |
+| --- | --- | --- | --- |
+| 5 mm (default) | +4.0 to +4.7 mm | -0.2 to -1.0 mm | 4-5 |
+| 1 mm | +0.5 to +0.9 mm | -0.2 to -1.1 mm | 4-8 |
+
+    python -m sugar_newton.validation.export_frame --frame 359 --margin 0.001
+
+Two consequences. For **tactile sensing** the 5 mm margin is a systematic bias, not noise: the
+channel fires before physical touch, and the reported contact point sits ~2 mm off both
+surfaces rather than on either. For **matching the checkpoint** it is a candidate explanation
+for the shortfall in lift height, since a policy trained where fingers rest on the carton is
+being replayed where they rest 4.5 mm off it. The default is still 5 mm -- lowering it changes
+physics for every number already measured here, so it wants its own A/B rather than a silent
+edit.
+
+The non-loaded digits are genuinely clear, so "only two digits carry the box" is correct
+rather than a sensing miss: middle 6-12 mm, ring 8-24 mm, pinky 12-37 mm. Eyeballing the
+whole hand against the box in `scene.ply` reads as ~2 cm because most of the hand is that far
+away; only the two loaded fingertips are within 5 mm.
+
 Convex decomposition of the box is *not* the next lever -- coacd returns
 52 hulls at threshold 0.1 and 112 at 0.05, because it is fighting tessellation noise rather
 than real concavity, and it costs 30 s to build. Single-world playback speed, for reference,
