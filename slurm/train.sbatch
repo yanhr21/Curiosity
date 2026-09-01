@@ -84,33 +84,17 @@ echo "===== TRAIN_ALLOC ====="; hostname; date; echo "jobid=$SLURM_JOB_ID"
 echo "run=$RUN envs=$ENVS iters=$ITERS eval_min=$EVAL_MIN logger=$LOGGER"
 echo "wandb entity=$WANDB_USERNAME key_len=${#WANDB_API_KEY}"
 
-# WANDB_API_KEY is not in the container's environment by default, so it is passed explicitly.
-# train_bcppo.py fails fast if it is missing rather than running for minutes unlogged.
+# Everything train_leg.sh reads is exported here and carried by --export=ALL. NB: repeated
+# --export flags do NOT merge -- the last one wins -- so there is exactly one, and the
+# variables travel as environment rather than as arguments. WANDB_API_KEY has to make the trip
+# too: it is not in the container's environment by default, and $HOME there is /root, so the
+# ~/.netrc on Lustre is not visible either.
+export RB_RUN=$RUN RB_ENVS=$ENVS RB_ITERS=$ITERS RB_SAVE=$SAVE
+export RB_EVAL_MIN=$EVAL_MIN RB_LOGROOT=$LOGROOT RB_LOGGER=$LOGGER RB_EXTRA=$EXTRA
+export WANDB_API_KEY=${WANDB_API_KEY:-}
+
 srun --container-image="$IMG" \
      --container-mounts="$HOME":/home,/lustre:/lustre \
-     --export=ALL,WANDB_API_KEY="${WANDB_API_KEY:-}",WANDB_USERNAME="$WANDB_USERNAME" \
-     bash -lc "set -u; cd $REPO && \
-       echo '===== TRAIN_SETUP =====' && bash slurm/setup_container.sh 2>&1 | tail -4 && \
-       source env/activate.sh && source slurm/render_env_egl.sh && \
-       LOGDIR=$LOGROOT/$RUN && mkdir -p \$LOGDIR && \
-       HB=\$LOGDIR/.heartbeat && \
-       if [ -f \$HB ] && [ \$(( \$(date +%s) - \$(cat \$HB 2>/dev/null || echo 0) )) -lt 180 ]; \
-       then echo \"===== ANOTHER LEG IS LIVE (heartbeat \$(( \$(date +%s) - \$(cat \$HB) ))s \
-old); exiting so the two do not share \$LOGDIR\"; exit 0; fi && \
-       ( while true; do date +%s > \$HB; sleep 60; done ) & \
-       HBPID=\$! && trap \"kill \$HBPID 2>/dev/null; rm -f \$HB\" EXIT && \
-       RESUME=\$(ls -1 \$LOGDIR/model_*.pt 2>/dev/null | sed 's/.*model_//;s/\.pt//' \
-                 | sort -n | tail -1) && \
-       if [ -n \"\$RESUME\" ]; then \
-           echo \"===== RESUMING from iteration \$RESUME\" ; \
-           RESUME_ARG=\"--resume \$LOGDIR/model_\$RESUME.pt\" ; \
-       else \
-           echo '===== FRESH START' ; RESUME_ARG='' ; \
-       fi && \
-       echo '===== TRAIN_START =====' && \
-       python -u -m sugar_newton.rl.train_bcppo \
-         --num-envs $ENVS --max-iterations $ITERS --save-interval $SAVE \
-         --eval-minutes $EVAL_MIN --video-frames 400 \
-         --run-name $RUN --log-root $LOGROOT --logger $LOGGER \
-         \$RESUME_ARG $EXTRA"
+     --export=ALL \
+     bash -lc "cd $REPO && bash slurm/train_leg.sh"
 echo "===== TRAIN_EXIT ====="; date
