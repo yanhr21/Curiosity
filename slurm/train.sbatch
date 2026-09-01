@@ -29,18 +29,40 @@ RUN=${RB_RUN:-carrybox_bcppo}
 ENVS=${RB_ENVS:-512}
 ITERS=${RB_ITERS:-3000}
 EVAL_MIN=${RB_EVAL_MIN:-10}
+# One leg reaches ~240 iterations at 512 worlds, so checkpoint far more often than that:
+# the 4 h wall clock kills the job outright and only saved iterations survive.
+SAVE=${RB_SAVE:-25}
 LOGROOT=${RB_LOGROOT:-logs/newton_bcppo}
 LOGGER=${RB_LOGGER:-wandb}
 EXTRA=${RB_EXTRA:-}
 
+# Credentials live OUTSIDE the repo on purpose. RB_WANDB_ENV points at a shell snippet that
+# exports WANDB_API_KEY; it is sourced here, on the submitting node, so the key lands in the
+# job environment and then in --export below. Inside the container $HOME is /root, so
+# ~/.netrc is not the one on Lustre and cannot be relied on.
+if [ "$LOGGER" = "wandb" ]; then
+    for _we in "${RB_WANDB_ENV:-}" "$HOME/files/wandb.env" \
+               /lustre/fsw/portfolios/nvr/users/"$USER"/files/wandb.env; do
+        if [ -n "$_we" ] && [ -r "$_we" ]; then
+            # shellcheck source=/dev/null
+            set +H; . "$_we"; echo "sourced wandb credentials from $_we"; break
+        fi
+    done
+    [ -n "${WANDB_API_KEY:-}" ] || echo "WARNING: no WANDB_API_KEY found; the run will abort"
+fi
+# rsl_rl reads the wandb ENTITY from WANDB_USERNAME, not WANDB_ENTITY
+# (rsl_rl/utils/wandb_utils.py:33). Unset it lands the run in the personal entity.
+export WANDB_USERNAME=${RB_WANDB_ENTITY:-nvr-amri}
+
 echo "===== TRAIN_ALLOC ====="; hostname; date; echo "jobid=$SLURM_JOB_ID"
 echo "run=$RUN envs=$ENVS iters=$ITERS eval_min=$EVAL_MIN logger=$LOGGER"
+echo "wandb entity=$WANDB_USERNAME key_len=${#WANDB_API_KEY}"
 
-# WANDB_API_KEY is not in the container's environment by default and ~ is /root inside it,
-# so the key is passed through explicitly. train_bcppo.py fails fast if it is missing.
+# WANDB_API_KEY is not in the container's environment by default, so it is passed explicitly.
+# train_bcppo.py fails fast if it is missing rather than running for minutes unlogged.
 srun --container-image="$IMG" \
      --container-mounts="$HOME":/home,/lustre:/lustre \
-     --export=ALL,WANDB_API_KEY="${WANDB_API_KEY:-}" \
+     --export=ALL,WANDB_API_KEY="${WANDB_API_KEY:-}",WANDB_USERNAME="$WANDB_USERNAME" \
      bash -lc "set -u; cd $REPO && \
        echo '===== TRAIN_SETUP =====' && bash slurm/setup_container.sh 2>&1 | tail -4 && \
        source env/activate.sh && source slurm/render_env_egl.sh && \
@@ -55,7 +77,7 @@ srun --container-image="$IMG" \
        fi && \
        echo '===== TRAIN_START =====' && \
        python -u -m sugar_newton.rl.train_bcppo \
-         --num-envs $ENVS --max-iterations $ITERS \
+         --num-envs $ENVS --max-iterations $ITERS --save-interval $SAVE \
          --eval-minutes $EVAL_MIN --video-frames 400 \
          --run-name $RUN --log-root $LOGROOT --logger $LOGGER \
          \$RESUME_ARG $EXTRA"

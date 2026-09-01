@@ -204,8 +204,13 @@ def attach_video(runner, args) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--num-envs", type=int, default=512)
-    ap.add_argument("--max-iterations", type=int, default=30001)
-    ap.add_argument("--save-interval", type=int, default=1000)
+    ap.add_argument("--max-iterations", type=int, default=3000,
+                    help="ABSOLUTE target iteration, not a per-leg count: a resumed run "
+                         "trains only the remainder, so chained legs converge on one end")
+    ap.add_argument("--save-interval", type=int, default=25,
+                    help="iterations between checkpoints. Must be well under what one "
+                         "allocation reaches (~240 at 512 worlds in 4 h) or a wall-clock "
+                         "kill loses the whole leg and a chained run cannot advance")
     ap.add_argument("--clips", nargs="*", default=None)
     ap.add_argument("--episode-length", type=int, default=300)
     ap.add_argument("--substeps", type=int, default=4)
@@ -263,12 +268,24 @@ def main() -> None:
     print(f"[alg] {type(runner.alg).__name__}  teacher={args.teacher_ckpt}")
     if args.resume:
         runner.load(args.resume)
-        print(f"[alg] resumed from {args.resume}")
+        print(f"[alg] resumed from {args.resume} at iteration "
+              f"{runner.current_learning_iteration}")
 
     if args.eval_minutes > 0 or args.video_interval > 0:
         attach_video(runner, args)
 
-    runner.learn(num_learning_iterations=args.max_iterations, init_at_random_ep_len=True)
+    # `learn` takes a COUNT and computes `tot_iter = current + count`
+    # (on_policy_runner.py:96), so passing --max-iterations after a resume would extend the
+    # endpoint by that much again. Every 4 h leg of a chained run would then add another
+    # full budget and the run would never reach a fixed end. --max-iterations is an ABSOLUTE
+    # target here, so the count has to be the remainder.
+    todo = args.max_iterations - runner.current_learning_iteration
+    if todo <= 0:
+        print(f"[alg] already at iteration {runner.current_learning_iteration} of "
+              f"{args.max_iterations}; nothing to do")
+        return
+    print(f"[alg] training {todo} iterations to reach {args.max_iterations}")
+    runner.learn(num_learning_iterations=todo, init_at_random_ep_len=True)
 
 
 if __name__ == "__main__":
