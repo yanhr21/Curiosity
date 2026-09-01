@@ -1,0 +1,67 @@
+# Conda environment for the robot_baby / sugar_newton work.
+#
+# Versions are transcribed from the uv `.venv` that produced every measurement in
+# sugar_newton/rl/README.md, so this is a port of a known-good environment rather than a
+# fresh resolve. Only top-level packages are pinned; pip resolves the transitives.
+#
+#   bash env/setup_env.sh          # create or update it
+#   source env/activate.sh         # use it (also sets PYTHONPATH)
+#
+# Two things are deliberately NOT in here:
+#
+#   * newton itself. It lives in the repo as the submodule third_party/newton and is put on
+#     PYTHONPATH by env/activate.sh, not installed. That keeps the branch self-contained --
+#     edit the submodule and the change is live, with no reinstall and no second copy.
+#   * the GL/Xvfb system libraries. Those are OS packages inside an ephemeral container
+#     root, so they are (re)installed per container by slurm/setup_container.sh.
+name: robotbaby
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      # warp-lang ships only on NVIDIA's index, and this is a nightly: if the exact build
+      # has been pruned, relax to `warp-lang>=1.15.0.dev0` and re-record what you get.
+      - --extra-index-url=https://pypi.nvidia.com/
+      - warp-lang==1.15.0.dev20260612
+
+      # torch must come from the cu128 wheel index; the default PyPI wheel is a different
+      # CUDA build and will not share a context with warp.
+      - --extra-index-url=https://download.pytorch.org/whl/cu128
+      - torch==2.11.0+cu128
+
+      # newton[sim]
+      - mujoco-warp==3.8.1
+      - mujoco==3.8.1
+
+      # newton[importers] -- mesh and USD handling
+      - alphashape==1.3.1
+      - coacd==1.0.11
+      - fast-simplification==0.1.13
+      - meshio==5.3.5
+      - newton-usd-schemas==0.3.1
+      - open3d==0.19.0
+      - pycollada==0.9.3
+      - requests==2.34.2
+      - resolve-robotics-uri-py==0.4.1
+      - scipy==1.17.1
+      - trimesh==4.12.2
+      - usd-core==26.3
+
+      # newton[examples] -- the ViewerGL path used for rendering
+      - cbor2==6.1.2
+      - GitPython==3.1.59
+      - imgui-bundle==1.92.801
+      - Pillow==12.2.0
+      - pyglet==2.1.14
+      - pyyaml==6.0.3
+
+      # sugar_newton itself: figures, videos, and the BCPPO training loop
+      - imageio==2.37.4
+      - imageio-ffmpeg==0.6.0
+      - matplotlib==3.11.0
+      - rsl-rl-lib==3.0.1
+      - tensorboard==2.21.0
+      - tensordict==0.7.2
+      - wandb==0.23.0

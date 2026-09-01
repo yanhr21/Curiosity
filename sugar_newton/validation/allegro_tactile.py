@@ -27,7 +27,7 @@ see :meth:`AllegroTactileScene.rock_wrist`, :meth:`drive`, the ``ke``/``kh`` hel
 * ``kh`` is 1e10, not the 1e8 the shapes default to,
 * the digits ease into the grasp before they start swinging.
 
-    uv run python -m sugar_newton.validation.allegro_tactile --out <dir> --frames 300 \
+    python -m sugar_newton.validation.allegro_tactile --out <dir> --frames 300 \
         --grasp 0.34 --amplitude 0.08 --rate 1.4 --rock 0.25 --swing-mode sym --render
 """
 

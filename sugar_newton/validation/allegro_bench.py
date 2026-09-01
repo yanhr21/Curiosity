@@ -21,7 +21,7 @@ which is what a training loop pays; **+readback** adds the per-step host copy of
 channels and the per-face field, which is what recording a video pays and which a policy
 never does.
 
-    uv run python -m sugar_newton.validation.allegro_bench --ke 1e3 1e5 --substeps 4 8
+    python -m sugar_newton.validation.allegro_bench --ke 1e3 1e5 --substeps 4 8
 """
 
 from __future__ import annotations

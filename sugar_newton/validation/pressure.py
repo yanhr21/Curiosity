@@ -25,7 +25,7 @@ more load at its downhill edge -- the same reason ``utilization_max`` exceeds
 
 Hydroelastic SDF construction is CUDA-only, so this needs a GPU.
 
-    uv run python -m sugar_newton.validation.pressure
+    python -m sugar_newton.validation.pressure
 """
 
 from __future__ import annotations

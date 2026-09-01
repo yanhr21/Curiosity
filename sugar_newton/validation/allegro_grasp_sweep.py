@@ -24,7 +24,7 @@ contact caches are not reset with it. A setting that survived 300 frames in its 
 process (grasp 0.34 / cube-drop 0.05) was scored as dropped here when it ran fifth in a
 row. Re-run the winner standalone before building anything on it.
 
-    uv run python -m sugar_newton.validation.allegro_grasp_sweep --frames 200
+    python -m sugar_newton.validation.allegro_grasp_sweep --frames 200
 """
 
 from __future__ import annotations

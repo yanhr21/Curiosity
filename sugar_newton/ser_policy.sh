@@ -8,19 +8,18 @@
 #
 #   bash sugar_newton/ser_policy.sh sugar_newton/sweeps/speed_top.txt 0
 set -u
-CUR=/lustre/fs12/portfolios/nvr/projects/nvr_nxp_visionconferencing/users/shengzew/robot_baby/Curiosity
-NT=/lustre/fs12/portfolios/nvr/projects/nvr_nxp_visionconferencing/users/shengzew/robot_baby/Curiosity_newton
-OUT=$CUR/sugar_newton/_ser
+REPO=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+OUT=$REPO/sugar_newton/_ser
 mkdir -p "$OUT"
-export PATH="$NT/renders/_toolcache/bin:$PATH" HF_HUB_DISABLE_XET=1 MPLBACKEND=Agg
-export PYTHONPATH="$CUR:$NT"
+# shellcheck source=/dev/null
+. "$REPO/env/activate.sh" || exit 2
 export CUDA_VISIBLE_DEVICES="${2:-0}"
-cd "$NT" || exit 2
+cd "$REPO" || exit 2
 
 while IFS=$'\t' read -r label cfg; do
     case "$label" in ''|\#*) continue;; esac
     echo "=== $label :: $cfg"
-    uv run python -m sugar_newton.validation.g1_carrybox_policy $cfg \
+    python -m sugar_newton.validation.g1_carrybox_policy $cfg \
         > "$OUT/${label}.log" 2>&1
     grep -E "frames in|box lift|joint tracking|actuator saturation|graph captured" \
         "$OUT/${label}.log" | sed 's/^/    /'

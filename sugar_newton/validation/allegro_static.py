@@ -20,7 +20,7 @@ since -- and every one of them can move the answer while the picture still looks
 Reported, not just asserted: the ratio, the direction error, and how they vary with
 ``--ke``, so the cost of a soft contact is visible next to its speed.
 
-    uv run python -m sugar_newton.validation.allegro_static --ke 1e3 1e5 1e6
+    python -m sugar_newton.validation.allegro_static --ke 1e3 1e5 1e6
 """
 
 from __future__ import annotations

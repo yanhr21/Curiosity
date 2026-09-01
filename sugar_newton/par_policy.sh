@@ -10,13 +10,12 @@
 #
 # Each line of the config file is a label, then a tab, then the argument string.
 set -u
-CUR=/lustre/fs12/portfolios/nvr/projects/nvr_nxp_visionconferencing/users/shengzew/robot_baby/Curiosity
-NT=/lustre/fs12/portfolios/nvr/projects/nvr_nxp_visionconferencing/users/shengzew/robot_baby/Curiosity_newton
-OUT=$CUR/sugar_newton/_par
+REPO=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+OUT=$REPO/sugar_newton/_par
 mkdir -p "$OUT"
-export PATH="$NT/renders/_toolcache/bin:$PATH" HF_HUB_DISABLE_XET=1 MPLBACKEND=Agg
-export PYTHONPATH="$CUR:$NT"
-cd "$NT" || exit 2
+# shellcheck source=/dev/null
+. "$REPO/env/activate.sh" || exit 2
+cd "$REPO" || exit 2
 
 i=0
 declare -a LABELS
@@ -25,7 +24,7 @@ while IFS=$'\t' read -r label cfg; do
     echo "GPU $i <- $label :: $cfg"
     LABELS[$i]=$label
     # stdbuf: the log is tailed while running, and python block-buffers into a pipe.
-    CUDA_VISIBLE_DEVICES=$i stdbuf -oL -eL uv run python -m \
+    CUDA_VISIBLE_DEVICES=$i stdbuf -oL -eL python -m \
         sugar_newton.validation.g1_carrybox_policy $cfg \
         > "$OUT/${i}_${label}.log" 2>&1 &
     i=$((i + 1))

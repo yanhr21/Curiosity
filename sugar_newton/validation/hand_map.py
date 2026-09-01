@@ -17,7 +17,7 @@ be asserted rather than eyeballed.
 
 Hydroelastic needs CUDA.
 
-    uv run python -m sugar_newton.validation.hand_map --out <dir> --frames 600
+    python -m sugar_newton.validation.hand_map --out <dir> --frames 600
 """
 
 from __future__ import annotations

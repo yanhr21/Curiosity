@@ -443,8 +443,12 @@ transfers: it reaches about two thirds of the reference lift height.
     python -m sugar_newton.rl.train_bcppo --num-envs 512 --max-iterations 30001 \
         --wandb-project sugar_newton --run-name carrybox_bcppo
 
-Run inside the Newton container; `renders/render_carrybox_policy.sh` in the `third_party/newton`
-submodule shows the srun incantation.
+Run inside the container, via the dev node:
+
+    sbatch slurm/devnode.sbatch                        # from the repo root
+    bash slurm/devrun.sh "source env/activate.sh && python -m sugar_newton.rl.train_bcppo ..."
+
+See `SETUP.md` for the conda env these commands assume.
 
 ## The algorithm is SUGAR's, imported not reimplemented
 
@@ -612,9 +616,11 @@ A separate one-world environment is used: the training worlds are replicated at 
 spacing and sit on top of each other, so rendering the training model shows every robot
 superimposed. Actions are the policy mean rather than a sample, and the clip and start
 frame are fixed, so successive videos differ because the policy changed. Rendering needs
-`renders/render_env_egl.sh` sourced -- without it the viewer silently falls back to
-software rasterisation and each frame costs seconds; the recorder warns once if it detects
-this. A render failure is caught and logged, never allowed to end a training run.
+hardware EGL -- without it the viewer silently falls back to software rasterisation and each
+frame costs seconds; the recorder warns once if it detects this. `slurm/devnode.sbatch`
+arranges it for you (`setup_container.sh` writes the missing NVIDIA glvnd ICD), and
+`slurm/render_env_egl.sh` does it explicitly outside that path. A render failure is caught
+and logged, never allowed to end a training run.
 
 ## The algorithm is SUGAR's, imported not reimplemented
 

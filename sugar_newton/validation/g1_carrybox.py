@@ -24,7 +24,7 @@ Two things worth knowing before trusting a number out of this:
   or URDF order and ~207 mm for ``xyzw``. That is IsaacLab's convention, which is where
   the clip came from.
 
-    uv run python -m sugar_newton.validation.g1_carrybox --out <dir> --check
+    python -m sugar_newton.validation.g1_carrybox --out <dir> --check
 """
 
 from __future__ import annotations

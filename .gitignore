@@ -41,6 +41,12 @@ sugar_newton/_gpu_out/
 sugar_newton/_par*/
 sugar_newton/_ser/
 
+# slurm scratch: dev-node job ids, holder-job logs, and the Lustre-side apt cache that
+# slurm/setup_container.sh fills. The scripts themselves are tracked; this state is not.
+slurm/.devnode*
+slurm/_toolcache/
+slurm/*.log
+
 # Python/build/editor noise
 __pycache__/
 *.py[cod]

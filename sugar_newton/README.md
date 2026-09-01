@@ -29,18 +29,15 @@ no GPU, no SUGAR asset. That is what makes this validator cheap enough to run on
 every change.
 
 ```bash
-NT=/lustre/fs12/portfolios/nvr/projects/nvr_nxp_visionconferencing/users/shengzew/robot_baby/Curiosity_newton
-SP=$NT/.venv/lib/python3.12/site-packages
-PY=<a python 3.12 interpreter>     # the venv's own python lives at /root/... inside the container
-
-cd /lustre/fs12/.../robot_baby/Curiosity     # on branch 2026_8_19_sugar_newton
-PYTHONPATH=$SP:$NT:$PWD $PY -m sugar_newton.validation.incline
+cd <repo>
+source env/activate.sh
+python -m sugar_newton.validation.incline
 ```
 
-`$SP` supplies warp / mujoco_warp / torch; `$NT` supplies the editable `newton`
-package (the venv's `newton.pth` is not honoured when `PYTHONPATH` is set by
-hand). On GPU, run it inside the CUDA container per
-`Curiosity_newton/renders/build_and_render.sh`.
+`activate.sh` activates the `robotbaby` conda env (warp / mujoco_warp / torch) and puts
+the in-repo `third_party/newton` submodule on `PYTHONPATH`, so nothing resolves outside
+the checkout. See `rl/SETUP.md` to create the env. On GPU, run the same commands through
+`slurm/devrun.sh`.
 
 ## What the validator asserts
 
