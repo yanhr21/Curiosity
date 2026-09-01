@@ -241,7 +241,8 @@ class CarryBoxEnv:
                  collision: str = "mesh", sdf_resolution: int = 64,
                  contact_surface: bool = False,
                  contact_refresh: str = "step", box_tris: int = 2000,
-                 hand_tris: int = 0, margin: float = 0.0):
+                 hand_tris: int = 0, margin: float = 0.0,
+                 contact_readback: bool = False):
         self.num_envs = num_envs
         self.substeps = substeps
         self.episode_length = episode_length
@@ -313,6 +314,17 @@ class CarryBoxEnv:
                 f"collision='hydro' or a reduced-triangle box for this world count.",
                 stacklevel=2)
         pipe_kwargs["max_triangle_pairs"] = min(want, _TRI_PAIR_CEILING)
+        # `Contacts.force` is an opt-in extended attribute: the pipeline allocates it only
+        # when the MODEL has been asked for it (collide.py passes
+        # `model.get_requested_contact_attributes()` through), and otherwise leaves it None
+        # so a force readback dies on `None.numpy()`. It must be requested before
+        # `pipeline.contacts()` allocates, and it costs a spatial_vector per contact --
+        # which training, never reading forces, should not pay. `contact_report` makes the
+        # solver populate it during `update_contacts`. Same pair as the validated playback
+        # path, g1_carrybox_policy.py:578.
+        if contact_readback:
+            self.model.request_contact_attributes("force")
+            pipe_kwargs["contact_report"] = True
         self.pipeline = newton.CollisionPipeline(self.model, contact_matching="latest",
                                                  **pipe_kwargs)
         self.contacts = self.pipeline.contacts()
@@ -328,6 +340,24 @@ class CarryBoxEnv:
         # derived from overflow messages logged while nconmax was still truncating at 1024,
         # which is the same mistake twice: sizing one limit from measurements taken while
         # another was silently clipping. 16384 is what the working playback path uses.
+        # `SolverMuJoCo.update_contacts` refuses to run when the solver's total contact
+        # capacity (nconmax * num_worlds) exceeds the Newton buffer it would write back
+        # into, so reading contacts out requires the two to be consistent. Training never
+        # reads them -- it only calls `collide` and `step` -- which is why an inconsistent
+        # pair sits there harmlessly until something asks for the contact set, and then
+        # raises. The tactile map in rl/video.py is that something.
+        #
+        # Clamping is NOT applied by default. nconmax is per world while rigid_contact_max
+        # is the total, so a clamp costs capacity exactly where it matters: contacts are not
+        # spread evenly across worlds, and a grasping world can legitimately want far more
+        # than the per-world average. Lowering the cap to the average would truncate that
+        # world's contacts -- the silent-truncation failure this file already documents
+        # three times. So the readback path opts in, one world at a time, and training keeps
+        # the capacity it was measured with.
+        if contact_readback:
+            allowed = self.contacts.rigid_contact_max // max(num_envs, 1)
+            if allowed < nconmax:
+                nconmax = allowed
         self.solver = newton.solvers.SolverMuJoCo(
             self.model, solver="newton", integrator="implicitfast",
             njmax=njmax, nconmax=nconmax,

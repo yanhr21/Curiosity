@@ -17,12 +17,24 @@ the shape rsl_rl expects.
 so the teacher checkpoint is not optional -- ``BCPPO.__init__`` asserts on a missing one,
 and without it stages 1-2 have no loss at all.
 
+**Tactile is not an observation here.** The policy reads SUGAR's 510-D
+command/proprioception group and nothing else; the critic and teacher read the privileged
+890-D group. The tactile field is computed only for the evaluation video, where it is drawn
+as a per-hand heatmap so a grasp can be told apart from a wrist wedged under the box. Wiring
+tactile into the policy is Plan 16 phase 2 and is deliberately not done here.
+
 Usage::
 
     python -m sugar_newton.rl.train_bcppo \
         --num-envs 512 --max-iterations 30001 \
         --teacher-ckpt experiments/.../ckpts/refiner_model10000.pt \
+        --eval-minutes 10 \
         --wandb-project sugar_newton --run-name carrybox_bcppo_$(date +%m%d_%H%M)
+
+Evaluation runs on a wall-clock cadence (``--eval-minutes``, default 10) rather than an
+iteration count, because iteration time changes over a run and a count does not hold a
+cadence. Collider settings default to the ones the throughput and fidelity work settled on:
+``--box-tris 2000``, full-resolution hands, ``--margin 0``. See ``rl/README.md``.
 
 The runner writes wandb through rsl_rl's own ``WandbSummaryWriter`` (``logger: wandb``),
 so the run name is the log directory's basename and the project comes from
@@ -37,6 +49,7 @@ import argparse
 import builtins
 import os
 import sys
+import time
 from pathlib import Path
 
 import torch
@@ -123,46 +136,69 @@ def ensure_wandb_credentials() -> None:
 
 
 def attach_video(runner, args) -> None:
-    """Render an evaluation rollout every ``--video-interval`` iterations.
+    """Render an evaluation rollout on a wall-clock cadence, or every N iterations.
 
-    rsl_rl has no hook for this, so ``runner.save`` is wrapped: it already fires on
-    ``save_interval``, and piggybacking keeps the cadence tied to something the runner
-    controls rather than duplicating its iteration bookkeeping. A failure to render is
-    logged and swallowed -- a missing video must never end a training run.
+    ``runner.log`` is wrapped rather than ``runner.save``: ``log`` is called once per
+    iteration (``on_policy_runner.py:157``) whereas ``save`` fires only on
+    ``save_interval``, which is far too coarse to honour a minutes-based interval. A
+    failure to render is logged and swallowed -- a missing video must never end a run.
+
+    ``--eval-minutes`` is wall clock, so the cadence holds regardless of how much the
+    iteration time changes over a run; ``--video-interval`` is the iteration-count
+    alternative. Whichever fires first wins, and the first evaluation happens at the first
+    logged iteration so a broken video path is found immediately rather than in an hour.
     """
     from sugar_newton.rl.video import VideoRecorder
 
     rec = VideoRecorder(clip=(args.clips or ["data_000"])[0], frames=args.video_frames,
                         out_dir=str(Path(args.log_root) / args.run_name / "videos"),
-                        mu=args.mu, substeps=args.substeps, device=args.device)
-    original_save = runner.save
-    state = {"last": -1}
+                        mu=args.mu, substeps=args.substeps, device=args.device,
+                        tactile=not args.no_tactile_video, canvas_tris=args.canvas_tris,
+                        box_tris=args.box_tris, hand_tris=args.hand_tris,
+                        margin=args.margin)
+    period = args.eval_minutes * 60.0
+    original_log = runner.log
+    state = {"last_it": -1, "next_t": 0.0}      # next_t = 0 -> evaluate at the first log
 
-    def save_and_record(path, infos=None):
-        original_save(path, infos)
+    def log_and_record(locs, width: int = 80, pad: int = 35):
+        original_log(locs, width, pad)
         it = runner.current_learning_iteration
-        if it == state["last"] or it % args.video_interval:
+        if it == state["last_it"]:
             return
-        state["last"] = it
+        now = time.monotonic()
+        due_time = period > 0 and now >= state["next_t"]
+        due_iter = args.video_interval > 0 and it % args.video_interval == 0
+        if not (due_time or due_iter):
+            return
+        state["last_it"] = it
+
+        t0 = now
         try:
             video_path, stats = rec.record(runner.alg.policy, it)
         except Exception as exc:
-            print(f"[video] skipped at iter {it}: {type(exc).__name__}: {exc}")
-            return
+            print(f"[eval] skipped at iter {it}: {type(exc).__name__}: {exc}")
+            video_path, stats = None, {}
+        # Schedule from the END of the evaluation: rendering plus compositing takes minutes,
+        # and scheduling from the start would let a slow eval fire back-to-back forever.
+        state["next_t"] = time.monotonic() + period
         if video_path is None:
             return
-        print(f"[video] iter {it}: {video_path}  lift {stats.get('video/box_lift', 0):.3f} m "
-              f"(reference {stats.get('video/box_lift_reference', 0):.3f} m)")
+        took = time.monotonic() - t0
+        print(f"[eval] iter {it} ({took:.0f} s): {video_path}  "
+              f"lift {stats.get('video/box_lift', 0):.3f} m "
+              f"(reference {stats.get('video/box_lift_reference', 0):.3f} m)  "
+              f"load-bearing {stats.get('video/load_bearing_contacts', float('nan')):.1f}")
         if args.logger == "wandb":
             import wandb
 
             if wandb.run is not None:
-                wandb.log({**stats,
+                fmt = "gif" if video_path.endswith(".gif") else "mp4"
+                wandb.log({**stats, "video/eval_seconds": took,
                            "video/rollout": wandb.Video(video_path, fps=rec.fps,
-                                                        format="mp4")},
+                                                        format=fmt)},
                           step=it)
 
-    runner.save = save_and_record
+    runner.log = log_and_record
 
 
 def main() -> None:
@@ -180,9 +216,21 @@ def main() -> None:
     ap.add_argument("--log-root", default="logs/newton_bcppo")
     ap.add_argument("--logger", default="wandb", choices=("wandb", "tensorboard"))
     ap.add_argument("--wandb-project", default="sugar_newton")
-    ap.add_argument("--video-interval", type=int, default=100,
-                    help="render an evaluation rollout to wandb every N iterations; 0 disables")
+    ap.add_argument("--eval-minutes", type=float, default=10.0,
+                    help="wall-clock minutes between evaluation videos; 0 disables")
+    ap.add_argument("--video-interval", type=int, default=0,
+                    help="also evaluate every N iterations; 0 disables (see --eval-minutes)")
     ap.add_argument("--video-frames", type=int, default=400)
+    ap.add_argument("--no-tactile-video", action="store_true",
+                    help="scene only, no tactile heatmap panels in the evaluation video")
+    ap.add_argument("--canvas-tris", type=int, default=3000,
+                    help="triangle count of the flat hand canvas the heatmap is drawn on")
+    ap.add_argument("--box-tris", type=int, default=2000,
+                    help="decimated box collider triangles; 0 keeps the asset's ~100k")
+    ap.add_argument("--hand-tris", type=int, default=0,
+                    help="decimated hand collider triangles; 0 keeps the asset's ~45k")
+    ap.add_argument("--margin", type=float, default=0.0,
+                    help="collider surface thickness [m]; Newton's default is 0")
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
@@ -202,9 +250,12 @@ def main() -> None:
     torch.manual_seed(args.seed)
 
     env = make(args.num_envs, clip_names=args.clips, episode_length=args.episode_length,
-               substeps=args.substeps, mu=args.mu, device=args.device, seed=args.seed)
+               substeps=args.substeps, mu=args.mu, device=args.device, seed=args.seed,
+               box_tris=args.box_tris, hand_tris=args.hand_tris, margin=args.margin)
     print(f"[env] {args.num_envs} worlds, {len(env.env.clip_names)} clips, "
           f"obs {OBS_DIMS}, act {env.num_actions}")
+    print(f"[env] box_tris={args.box_tris} hand_tris={args.hand_tris} "
+          f"margin={args.margin} mu={args.mu} substeps={args.substeps}")
 
     log_dir = Path(args.log_root) / args.run_name
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -214,7 +265,7 @@ def main() -> None:
         runner.load(args.resume)
         print(f"[alg] resumed from {args.resume}")
 
-    if args.video_interval > 0:
+    if args.eval_minutes > 0 or args.video_interval > 0:
         attach_video(runner, args)
 
     runner.learn(num_learning_iterations=args.max_iterations, init_at_random_ep_len=True)

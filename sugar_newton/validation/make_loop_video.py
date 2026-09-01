@@ -29,27 +29,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warp as wp
 
+from sugar_newton.tactile.handmap import TactileFilm, hand_shapes, read_frame
 from sugar_newton.validation.g1_carrybox_policy import (
     Actor,
     G1PolicyScene,
     load_clip,
 )
-from sugar_newton.validation.hand_atlas import CANVAS_TRIS, HandAtlas, load_hands, palm_sign
-
-
-def hand_shapes(scene):
-    body_of = scene.model.shape_body.numpy()
-    labels = [l.split("/")[-1] for l in scene.model.body_label]
-    hands, box = {}, set()
-    for s, b in enumerate(body_of):
-        if b < 0:
-            continue
-        if labels[b] == "box":
-            box.add(s)
-        for side in ("left", "right"):
-            if labels[b] == f"{side}_rubber_hand":
-                hands.setdefault(side, set()).add(s)
-    return hands, box
+from sugar_newton.validation.hand_atlas import CANVAS_TRIS
 
 
 def main() -> None:
@@ -75,7 +61,7 @@ def main() -> None:
     scene = G1PolicyScene(clip, box_tris=args.box_tris, hand_tris=args.hand_tris,
                           margin=args.margin)
     actor = Actor()
-    hands, box = hand_shapes(scene)
+    hands, box = hand_shapes(scene.model)
     sides = [s for s in ("left", "right") if s in hands]
 
     import pyglet
@@ -98,7 +84,7 @@ def main() -> None:
                           math.degrees(math.asin(float(np.clip(d[2], -1.0, 1.0)))),
                           math.degrees(math.atan2(float(d[1]), float(d[0]))))
 
-    canvases = load_hands(args.canvas, tuple(sides))
+    film = TactileFilm(sides, canvas=args.canvas)
 
     scene.reset(args.start)
     for _ in range(8):                      # warm up kernels before timing
@@ -108,8 +94,6 @@ def main() -> None:
 
     buf = None
     frames, t_phys, t_rend, t_full = [], [], [], []
-    nets, loads = [], []
-    raw = {s: [] for s in sides}
     for k in range(args.frames):
         wp.synchronize()
         t0 = time.perf_counter()
@@ -125,31 +109,7 @@ def main() -> None:
         wp.synchronize()
         t2 = time.perf_counter()
         scene.solver.update_contacts(scene.contacts, scene.state_0)
-        c = scene.contacts
-        n = int(c.rigid_contact_count.numpy()[0])
-        frame = {s: (np.zeros((0, 3)), np.zeros(0)) for s in sides}
-        net, load = 0.0, 0
-        if n:
-            s0 = c.rigid_contact_shape0.numpy()[:n]
-            s1 = c.rigid_contact_shape1.numpy()[:n]
-            f = c.force.numpy()[:n, :3]
-            p0 = c.rigid_contact_point0.numpy()[:n]
-            p1 = c.rigid_contact_point1.numpy()[:n]
-            for side in sides:
-                patch = hands[side]
-                # point0 is local to shape0 and point1 to shape1, so pick whichever of the
-                # pair is the hand -- otherwise half the contacts land in the box's frame.
-                h0 = np.array([a in patch and b in box for a, b in zip(s0, s1)])
-                h1 = np.array([b in patch and a in box for a, b in zip(s0, s1)])
-                sel = h0 | h1
-                if not sel.any():
-                    continue
-                mag = np.linalg.norm(f[sel], axis=1)
-                frame[side] = (np.where(h0[sel, None], p0[sel], p1[sel]), mag)
-                net += float(np.linalg.norm(f[sel].sum(0)))
-                load += int((mag > 0.01).sum())
-        nets.append(net)
-        loads.append(load)
+        film.add(*read_frame(scene.contacts, hands, box, sides))
         wp.synchronize()
         t3 = time.perf_counter()
 
@@ -157,25 +117,14 @@ def main() -> None:
         t_rend.append(t2 - t1)
         t_full.append(t3 - t0)
         frames.append(buf.numpy().copy())
-        for side in sides:
-            raw[side].append(frame[side])
 
     print(f"loop: physics {1e3 * np.mean(t_phys):.1f} ms, render {1e3 * np.mean(t_rend):.1f} ms, "
           f"sensing {1e3 * (np.mean(t_full) - np.mean(t_phys) - np.mean(t_rend)):.1f} ms, "
           f"full {1e3 * np.mean(t_full):.1f} ms ({1 / np.mean(t_full):.1f} fps)")
 
     # ---- compositing (untimed) ----
-    atlases, maps = {}, {}
-    for side in sides:
-        _, _, cv, ct = canvases[side]
-        allp = np.concatenate([p for p, _ in raw[side]]) if raw[side] else np.zeros((0, 3))
-        allm = np.concatenate([m for _, m in raw[side]]) if raw[side] else np.zeros(0)
-        atlases[side] = HandAtlas(cv, ct, palm_sign(cv, allp, allm))
-        maps[side] = np.array([atlases[side].splat(p, m) for p, m in raw[side]])
-
-    stack = np.concatenate([m for m in maps.values()])
-    vmax = float(np.percentile(stack[stack > 1e-6], 99.0)) if (stack > 1e-6).any() else 1.0
-    norm = matplotlib.colors.PowerNorm(gamma=0.5, vmin=0.0, vmax=vmax or 1e-9)
+    atlases, maps, norm = film.develop()
+    nets, loads = film.nets, film.loads
 
     fig = plt.figure(figsize=(16.8, 6.6))
     axl = fig.add_axes([0.004, 0.02, 0.545, 0.87])
@@ -215,7 +164,7 @@ def main() -> None:
     except Exception:
         out = out.with_suffix(".gif")
         writer = imageio.get_writer(str(out), mode="I", duration=1.0 / args.fps, loop=0)
-    ntri = len(canvases[sides[0]][3])
+    ntri = film.canvas_tris
     for k in range(args.frames):
         im.set_data(frames[k])
         tot = 0.0
