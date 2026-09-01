@@ -1,30 +1,48 @@
 #!/bin/bash
 #SBATCH -A nvr_nxp_visionconferencing
-#SBATCH -p interactive_singlenode
+#SBATCH -p backfill_singlenode
 #SBATCH --gres=gpu:1
 #SBATCH -c 16
-#SBATCH -t 4:00:00
+#SBATCH -t 3-00:00:00
+#SBATCH --requeue
 #SBATCH --job-name=rb_train
 #SBATCH -o slurm/train_%j.log
 #
-# One 4-hour leg of a BCPPO training run on Newton.
+# A BCPPO training run on Newton, sized to finish in one job.
 #
 #   cd <repo> && sbatch slurm/train.sbatch
 #   RB_RUN=my_run RB_ENVS=256 sbatch slurm/train.sbatch
 #
-# Every GPU partition here caps at 4 h, and the BCPPO curriculum needs ~3000 iterations, so
-# a full run is many legs. This script therefore **auto-resumes**: it picks the
-# highest-numbered checkpoint in the run's log directory and continues from it, so
-# resubmitting the same command advances the same run instead of restarting it. Submit the
-# next leg whenever the previous one ends -- or chain with `--dependency=afterany:<jobid>`.
+# **Auto-resumes** regardless of why it stopped: it picks the highest-numbered checkpoint in
+# the run's log directory and continues from it. That makes preemption, a wall-clock kill and
+# a manual resubmission all the same event, and it is what lets this run on a preemptible
+# partition safely.
 #
-# On partition choice, because the obvious reasoning is wrong here. interactive_singlenode's
-# QOS allows only ONE running job per user, so this chain queues behind any dev node you are
-# also holding (reason: QOSMaxJobsPerUserLimit). batch_singlenode's QOS has no such cap --
-# but measured 2026-09-01 it had 6 of 9 nodes DRAINED and 64 jobs pending, while
-# interactive_singlenode had 1227 nodes and a 15-job queue. Pool size beats the per-user cap:
-# the uncapped partition never schedules. So this stays on interactive_singlenode and you
-# release the dev node to let training start. Override with `sbatch -p ...`.
+# On partition choice, because two plausible answers are both wrong here. The 3000-iteration
+# curriculum is ~49 h at 512 worlds, and every *interactive* and *batch* GPU partition caps
+# at 4 h, which would mean ~13 chained legs. Measured 2026-09-01:
+#
+#   interactive_singlenode  1227 nodes, 470 GPUs free -- but its QOS allows ONE running job
+#                           per user, so the chain queues behind any dev node you hold
+#                           (QOSMaxJobsPerUserLimit) no matter how idle the cluster is.
+#   batch_singlenode        no per-user cap -- but 6 of 9 nodes DRAINED and 64 jobs pending,
+#                           so it never schedules. Pool size beats the per-user cap.
+#   polar3 / polar4         500-700 nodes, but >3000 jobs pending and still a 4 h cap.
+#   backfill_singlenode     1227 nodes, 31 jobs pending, NO QOS cap, and 7 days of wall
+#                           clock. The whole run fits in one job.
+#
+# So: backfill. The cost is preemption, and PreemptMode=REQUEUE means a preempted job is put
+# back in the queue and restarted rather than lost -- which, with --save-interval 25 (~25
+# min) and the auto-resume above, costs at most one checkpoint interval. -t is 3 days, not 7:
+# long enough for ~49 h of training with margin, and a shorter request backfills sooner.
+#
+# Safe to queue on SEVERAL partitions at once. Which one frees first is unpredictable here, so
+# the useful thing is to sit in all of their queues -- but two legs training the same run
+# directory would interleave checkpoints and corrupt the run. A 60 s heartbeat file in the run
+# directory prevents it: a starting leg that finds a heartbeat under 3 minutes old exits
+# immediately. The check is a plain file mtime rather than a squeue lookup because squeue does
+# not exist inside the container, and the heartbeat dies with the job whether it exits, is
+# killed by the wall clock, or is preempted.
 #
 # Submit from the repo root: -o above is relative to it, and the repo is found via
 # SLURM_SUBMIT_DIR (Slurm copies the batch script to its spool dir, so $0 is useless).
@@ -74,7 +92,13 @@ srun --container-image="$IMG" \
      bash -lc "set -u; cd $REPO && \
        echo '===== TRAIN_SETUP =====' && bash slurm/setup_container.sh 2>&1 | tail -4 && \
        source env/activate.sh && source slurm/render_env_egl.sh && \
-       LOGDIR=$LOGROOT/$RUN && \
+       LOGDIR=$LOGROOT/$RUN && mkdir -p \$LOGDIR && \
+       HB=\$LOGDIR/.heartbeat && \
+       if [ -f \$HB ] && [ \$(( \$(date +%s) - \$(cat \$HB 2>/dev/null || echo 0) )) -lt 180 ]; \
+       then echo \"===== ANOTHER LEG IS LIVE (heartbeat \$(( \$(date +%s) - \$(cat \$HB) ))s \
+old); exiting so the two do not share \$LOGDIR\"; exit 0; fi && \
+       ( while true; do date +%s > \$HB; sleep 60; done ) & \
+       HBPID=\$! && trap \"kill \$HBPID 2>/dev/null; rm -f \$HB\" EXIT && \
        RESUME=\$(ls -1 \$LOGDIR/model_*.pt 2>/dev/null | sed 's/.*model_//;s/\.pt//' \
                  | sort -n | tail -1) && \
        if [ -n \"\$RESUME\" ]; then \
