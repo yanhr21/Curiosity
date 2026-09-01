@@ -63,6 +63,8 @@ def main() -> None:
     ap.add_argument("--box-tris", type=int, default=2000)
     ap.add_argument("--hand-tris", type=int, default=5000)
     ap.add_argument("--canvas", type=int, default=CANVAS_TRIS)
+    ap.add_argument("--margin", type=float, default=0.0,
+                    help="collider surface thickness [m]; 0 is the asset surface exactly")
     ap.add_argument("--fps", type=int, default=15)
     ap.add_argument("--out", default="sugar_newton/_out/loop_render_tactile.gif")
     args = ap.parse_args()
@@ -70,7 +72,8 @@ def main() -> None:
     wp.init()
     clip = load_clip(args.clip)
     dt = 1.0 / clip["fps"]
-    scene = G1PolicyScene(clip, box_tris=args.box_tris, hand_tris=args.hand_tris)
+    scene = G1PolicyScene(clip, box_tris=args.box_tris, hand_tris=args.hand_tris,
+                          margin=args.margin)
     actor = Actor()
     hands, box = hand_shapes(scene)
     sides = [s for s in ("left", "right") if s in hands]
