@@ -6,9 +6,12 @@ Design: [`../PLAN/16_newton_tactile_rewrite/plan.md`](../PLAN/16_newton_tactile_
 Task list: [`../TODO/16_newton_tactile_rewrite/todo.md`](../TODO/16_newton_tactile_rewrite/todo.md).
 The audit that motivated the rewrite: [`../claude_context/findings.md`](../claude_context/findings.md).
 
-Lives on branch `2026_8_19_sugar_newton`, branched from `sugar` — so `SUGAR/`, the
-frozen Refiner teacher and `rsl_rl_bcppo.py` are all present to port from, and
-`git diff sugar..2026_8_19_sugar_newton` shows exactly what the rewrite changes.
+Lives on branch `2026_9_1_tactile_newton` (previously `2026_8_19_sugar_newton`),
+branched from `sugar` — so `SUGAR/`, the frozen Refiner teacher and
+`rsl_rl_bcppo.py` are all present to port from, and `git diff sugar..HEAD` shows
+exactly what the rewrite changes. The branch is self-contained: the conda env is
+specified in `env/`, Newton is the `third_party/newton` submodule, and no sibling
+checkout is needed. Assets are not in git — see `../ASSETS.md`.
 
 This package **depends on** Newton; it does not vendor or patch it. Plan 16 §3 —
 the audit's sharpest finding was a local edit inside vendored IsaacLab
@@ -18,9 +21,18 @@ stay empty.
 
 ## Status
 
-Phase 1 (tactile core + analytic validator) is **running and passing**. Phases
-0 and 2-5 have not started; Phase 0 is blocked on copying assets off the runtime
-host.
+Phase 1 (tactile core + analytic validator) runs, and every **seated** assertion
+passes. One assertion does not: at `critical + 5` degrees the block accelerates
+off the measurement patch, so no contact is seen in any measured step and
+`incline.py` **exits 1**. That is the test scene, not the sensor — at `--mu 0.3`
+the 20-degree case is genuinely sliding and reports `gross_slip_fraction = 1.000`
+with nonzero slip velocity. See "Open" below; do not use this as a bare
+pass/fail gate until the sliding case is a prescribed-velocity scene.
+
+Phase 0 is no longer blocked: the assets are fetchable in-repo
+(`bash SUGAR/_downloads/fetch_assets.sh`, see `../ASSETS.md`), the G1 carry task
+runs on Newton end to end, and BCPPO trains. The RL and throughput work is
+recorded in [`rl/README.md`](rl/README.md). Phases 2-5 have not started.
 
 ## Running the validator
 
@@ -155,9 +167,13 @@ Recorded here because each one is a fact about the platform, not about this code
   they need the hydroelastic contact surface.
 - The quantitative sliding test should be a prescribed-velocity scene, where
   tangential velocity is an input rather than an outcome. The free-sliding
-  assertions here are deliberately qualitative.
-- Nothing has been run on GPU, and nothing has been run with more than one
-  world.
+  assertions here are deliberately qualitative — and one of them now fails
+  (§ Status), because a free block at `critical + 5` degrees leaves the patch
+  before the measurement window closes. This is the fix for that failure.
+- The **validator** has only been run on CPU with one world. That is no longer
+  true of the project as a whole: the carry task has been benchmarked on GPU up
+  to 512 worlds, rendered through hardware EGL, and trained with BCPPO. See
+  [`rl/README.md`](rl/README.md).
 
 ## Layout
 

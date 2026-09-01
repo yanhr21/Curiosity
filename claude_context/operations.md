@@ -170,31 +170,101 @@ job.
 
 *Hand-written. This script never touches anything outside the block above.*
 
-> **Plan 15 does not run on OCI ORD.** Everything in the cluster block above
-> describes the machine this checkout sits on — not the machine this repo
-> executes on. IsaacLab/PhysX training, evaluation and video all run on a
-> **separate host** rooted at `/public/home/yanhongru/Curiosity`, which does not
-> exist here (`ls /public/home/yanhongru` → *No such file or directory*). This
-> checkout is for reading, editing, testing and committing source. It cannot run
-> a single Plan-15 command.
->
-> The consequence people trip on: `experiments/` is gitignored and holds only
-> `README.md` and `ACTIVE_PACKAGE_MANIFEST.json` here. Every checkpoint, trace,
-> frozen-evaluation JSON, `patch_channel_scales.json` and video the README cites
-> lives **only** on that host. A path in the README that starts with
-> `experiments/` will not resolve on this filesystem, and that is expected — not
-> a broken link.
+**Two lines live in this tree, and only one of them runs here.**
 
-### Environments
+| | Plan 16 — Newton *(active)* | Plan 15 — IsaacLab/PhysX *(archived)* |
+|---|---|---|
+| runs on | **this** cluster, OCI ORD | a separate host, `/public/home/yanhongru/Curiosity` |
+| backend | Newton, `third_party/newton` submodule | IsaacLab v2.3.2 / PhysX |
+| env | conda `robotbaby`, `env/environment.yml` | `PYTHON_BIN`, an absolute interpreter path |
+| launch | SLURM, `slurm/devnode.sbatch` + `devrun.sh` | a reserved compute shell, no SLURM |
+| code | `sugar_newton/` | `scripts/sugar/`, `SUGAR/`, `IsaacLab/` |
+
+Plan 15 **cannot be run from this checkout**: its host does not exist here (`ls
+/public/home/yanhongru` → *No such file or directory*). Every checkpoint, trace,
+frozen-evaluation JSON, `patch_channel_scales.json` and video that Plan 15 cites lives only on
+that host, so a path starting with `experiments/` will not resolve on this filesystem. That is
+expected, not a broken link. For Plan 15 this checkout is for reading, editing and committing
+source only.
+
+### Environments — Plan 16
+
+One conda env, `robotbaby`, specified by `env/environment.yml` and created by
+`bash env/setup_env.sh` **on the login node** (it needs outbound network for pip, and the
+container root is ephemeral so anything installed there is lost). Expect ~10 GB, dominated by
+torch's cu128 wheels and the `nvidia-*` CUDA runtime libraries.
+
+```bash
+source env/activate.sh        # SOURCE it; do not execute it
+```
+
+Everything is derived from the file's own location, so the checkout can live anywhere. Three
+things that trip people:
+
+- **`newton` is not installed.** `activate.sh` puts the in-repo `third_party/newton` submodule
+  on `PYTHONPATH` ahead of everything else, so an edit to the submodule is live with no
+  reinstall and there is no second copy to drift. If the submodule is not checked out,
+  `activate.sh` fails loudly rather than importing some other newton.
+- **`conda activate` is a shell function, not the binary on `PATH`.** In a non-interactive
+  shell — which every runner here is — the function does not exist even when `conda` does, and
+  activation dies with "Run 'conda init' before 'conda activate'". `activate.sh` tests for the
+  *function* and sources `conda.sh` when it is missing. `RB_CONDA_BASE` overrides the install.
+- The conda env lives on Lustre, so it persists and is visible inside the container. The
+  GL/Xvfb **system** libraries cannot work that way (conda-forge does not ship the Xvfb
+  server, and `libEGL_nvidia` must come from the image), so those are reinstalled per
+  container by `slurm/setup_container.sh` from a `.deb` cache on Lustre.
+
+Assets are not in git. `bash SUGAR/_downloads/fetch_assets.sh` then
+`python -m sugar_newton.validation.make_policy_assets`; see `ASSETS.md`.
+
+### Launching — Plan 16
+
+```bash
+cd <repo> && sbatch slurm/devnode.sbatch          # 1 GPU, 4 h; submit FROM THE REPO ROOT
+bash slurm/devrun.sh "source env/activate.sh && python -m sugar_newton.validation.g1_carrybox_policy"
+RB_STATE=slurm/.devnode8 bash slurm/devrun.sh "…"  # the 8-GPU node
+```
+
+- **Submit from the repo root.** The sbatch script finds the repo through
+  `SLURM_SUBMIT_DIR`, because `dirname $0` cannot work — Slurm copies the batch script into
+  its spool directory, so `$0` is under `/var/spool/slurmd`. `RB_REPO` overrides.
+- The container is **named** (`rbdev`), and that is the point: `setup_container.sh` runs once
+  in the holder job, and every later `devrun.sh` attaches to the same container root, so the
+  GL/Xvfb dpkg installs persist for the whole 4 h instead of being redone per step.
+- **pyxis ignores `--container-mounts` when attaching** to a running container. Mounts are
+  inherited from the holder job, which is why `devnode.sbatch` has to get them right
+  (`/lustre` must be there — the repo, the conda env and the deb cache all live on it).
+- Rendering wants **hardware EGL**. The image ships `libEGL_nvidia.so.0` but has no NVIDIA
+  entry in the glvnd ICD directory, so EGL enumerates zero NVIDIA devices and every viewer
+  silently falls back to software rasterisation — the GPU idles while the CPU draws frames at
+  seconds each. `setup_container.sh` writes that one ICD file; `slurm/render_env_egl.sh` does
+  it explicitly outside that path. `slurm/render_env.sh` is the Xvfb + software-GL fallback
+  for viewers that need a real GLX context, and the two are mutually exclusive — a leftover
+  `LIBGL_ALWAYS_SOFTWARE` silently costs seconds per frame.
+- The 8-GPU variant uses partition `interactive` rather than `interactive_singlenode`, whose
+  QOS rejects an 8-GPU request. Note `interactive` has only 10 nodes.
+
+Newton's **CPU** device works on the login node with no container and no GPU, which is what
+makes the analytic validator cheap enough to run on every change:
+
+```bash
+source env/activate.sh && python -m sugar_newton.validation.incline
+```
+
+It currently **exits 1 on a healthy tree** — one sliding-regime assertion fails because the
+block leaves the measurement patch, not because the sensor is wrong (`README.md` § Open). Do
+not wire it up as a bare pass/fail gate until that scene is replaced.
+
+### Environments and filesystem — Plan 15
 
 | task | env | pinned in |
 |---|---|---|
-| all IsaacLab/PhysX work | `/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python`, exported as `PYTHON_BIN` | `README.md` § 运行环境 — there is no env yml in the repo |
-| unit tests `tests/native_tactile/` | any Python with `torch` + `numpy`, no IsaacLab import | the tests themselves — the only part of this repo runnable off the GPU host |
+| all IsaacLab/PhysX work | `/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python`, exported as `PYTHON_BIN` | nothing in the repo — there is no env yml for this line |
+| unit tests `tests/native_tactile/` | any Python with `torch` + `numpy`, no IsaacLab import | the tests themselves |
 
-There is no conda env. `PYTHON_BIN` is an absolute interpreter path that every
-shell script reads from the environment; forget to export it and the scripts fall
-through to whatever `python` resolves to and die on the first `isaaclab` import.
+`PYTHON_BIN` is an absolute interpreter path that every Plan-15 shell script reads from the
+environment; forget to export it and the scripts fall through to whatever `python` resolves to
+and die on the first `isaaclab` import.
 
 Three variables must be set in **every** shell before an IsaacLab command:
 
@@ -203,8 +273,6 @@ export PYTHON_BIN=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python
 export DISPLAY=                 # empty, not unset — headless Kit still probes it
 export OMNI_KIT_ACCEPT_EULA=Y
 ```
-
-### Filesystem
 
 All paths below are on the **runtime host**, relative to
 `/public/home/yanhongru/Curiosity`.
@@ -223,11 +291,11 @@ All paths below are on the **runtime host**, relative to
 `experiments/` and `legacy/` are both gitignored on purpose. Checkpoints, traces,
 videos and logs must never be committed or pushed.
 
-### Launching
+### Launching — Plan 15
 
-There is **no SLURM in this repo's workflow**. Work runs inside a reserved GPU
-compute-node shell, and long jobs are wrapped so their process group is
-recorded — not backgrounded with `&`.
+There is **no SLURM in the Plan-15 workflow**. Work runs inside a reserved GPU
+compute-node shell on the other host, and long jobs are wrapped so their process
+group is recorded — not backgrounded with `&`.
 
 ```bash
 # one formal training seed — endpoint is fixed at 3000 updates
@@ -267,7 +335,7 @@ Off the runtime host, the only thing that runs is the test suite:
 python3 -m pytest tests/native_tactile -q      # needs torch + numpy, not IsaacLab
 ```
 
-### Watching a run
+### Watching a run — Plan 15
 
 Follow the `--log` file the retained-child wrapper writes; `--status` holds the
 exit state and `--record` the PID/PGID. Do not exit the allocation when a task
@@ -278,7 +346,11 @@ variables and re-importing the G1 USD.
 A formal seed is 3000 updates and does not finish in one sitting; check back on
 the log rather than blocking on a long sleep.
 
-### Resume and silent failure
+### Resume and silent failure — Plan 15
+
+Long, and worth reading even if you never run Plan 15: this is the catalogue of things that
+did **not** raise. Most of these have a Newton analogue, and the three silent-truncation bugs
+found in `sugar_newton` on 2026-08-31 were the same species.
 
 `--resume_checkpoint_path <OUT>/model_<N>.pt` resumes from a numbered checkpoint.
 It is **mutually exclusive with `--warm_start_checkpoint_path`** and raises if
@@ -378,10 +450,31 @@ The things that do *not* raise:
   `--output-root` already exists. Loud, but it costs you the job — always point a
   rerun at a fresh directory.
 
-### Standing rules
+### Standing rules — Plan 16
 
-- **Never commit or push `experiments/` or `legacy/`.** Source, tests and docs
-  only.
+- **Never commit or push `experiments/`, `legacy/`, checkpoints, traces or videos.** Source,
+  tests and docs only. Assets are deliberately absent; see `ASSETS.md`.
+- **`third_party/newton` must stay a clean diff against upstream.** Report a Newton bug
+  rather than patching it in place — a local edit inside vendored IsaacLab, invisible to
+  inspection, is what caused Plan 15's shear leak.
+- **Never size a limit from measurements taken while another limit is clipping.** Three
+  separate bugs here had that shape: `njmax` was sized from overflow messages logged while
+  `nconmax` was truncating; the hydroelastic iso buffer shrank with SDF resolution while
+  demand did not; and the box's mass was 8.78× intended, which made the symptom look like a
+  contact bug localised to the wrists. Check peak-against-limit counters *in the same run*
+  that produces a timing number.
+- **Report contact counts and force separately.** ~96 % of the contacts Newton reports carry
+  zero force, so a contact count is a proximity-candidate count, not a load measurement.
+  Force-weight any centroid or spread.
+- **Decimation is not hulling.** Quadric decimation of the box collider is deliberate and
+  measured (1.6 mm worst-case surface deviation at `box_tris=2000`); convex approximation is
+  not acceptable, because it destroys the concavity the tactile channel exists to measure.
+  Do not call `approximate_meshes()` before `replicate()` on Newton's suggestion.
+- **Do not quote absolute grip force.** The scale is unexplained across measurement paths
+  (tens versus thousands of newtons). Relative comparisons are sound.
+
+### Standing rules — Plan 15
+
 - **Never merge the high-friction 6×/10× feasibility sweep into the Z/P/PS
   statistics.** Changing friction changes pickup dynamics and moves the jump
   frame (325–328), so those rollouts are not matched to the formal comparison.

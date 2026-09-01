@@ -1,17 +1,35 @@
 # Global Agent Rules
 
-## 1. Highest priority: Plan 15 only
+> **Read this first.** Sections 1, 2, 9 and 10 are current and global. Sections 3–8 are the
+> **Plan 15 contract** and describe the *archived* IsaacLab/PhysX line — they are kept because
+> that code is still in the tree and because their traps generalise, but they are not the
+> contract for current work. Where a section says "IsaacLab/PhysX only" or treats Newton as
+> legacy, § 1 overrides it.
 
-The only active research plan is
-`PLAN/15_online_patch_tactile_mass_adaptation/plan.md`; the only active task list is
-`TODO/15_online_patch_tactile_mass_adaptation/todo.md`. All older plans, RGB, demo following,
-ICM/Curiosity, Newton simulation, deformable demos and soft-body training are legacy until the
-user explicitly changes priority.
+## 1. Highest priority: Plan 16, the Newton tactile rewrite
 
-The scientific question is whether live bilateral whole-hand tactile improves frozen physical
-behavior after a complete SUGAR G1 has already lifted CarryBox and PhysX mass/inertia changes
-online without changing geometry or appearance. The claim is incremental benefit over deployable
-proprioception, never “only tactile can sense mass.”
+The active research plan is
+[`PLAN/16_newton_tactile_rewrite/plan.md`](PLAN/16_newton_tactile_rewrite/plan.md); the active
+task list is [`TODO/16_newton_tactile_rewrite/todo.md`](TODO/16_newton_tactile_rewrite/todo.md).
+All current work lives in `sugar_newton/`. Start from [`README.md`](README.md) § Start here.
+
+Plan 16 **supersedes Plan 15**, which reached a null result on IsaacLab/PhysX that a
+115-finding audit then showed was not trustworthy. Plan 15 stays in the tree as the record of
+that experiment and its audit; its code targets a host that does not exist on this cluster.
+RGB, demo following, ICM/Curiosity, deformable demos and soft-body training remain legacy.
+
+The scientific question is unchanged: whether live bilateral whole-hand tactile improves frozen
+physical behavior after a complete SUGAR G1 has already lifted CarryBox and the mass/inertia
+changes online without changing geometry or appearance. The claim is incremental benefit over
+deployable proprioception, never "only tactile can sense mass."
+
+The backend is now **Newton**, vendored as the `third_party/newton` submodule. It must stay a
+clean diff against upstream: the audit's sharpest finding was a local edit inside vendored
+IsaacLab that was indistinguishable from upstream by inspection and caused the shear leak. Do
+not fix Newton in place — report the blocker.
+
+Before touching any tactile channel or reward term, read
+[`claude_context/findings.md`](claude_context/findings.md). It is the reason this line exists.
 
 ## 2. No degraded placeholder models
 
@@ -25,9 +43,15 @@ proprioception, never “only tactile can sense mass.”
   repository BCPPO and anatomical patch Transformer. No offline tactile replay or taxel-CNN
   substitute is allowed.
 
-## 3. Online tactile contract
+## 3. Online tactile contract *(Plan 15, archived line)*
 
-- Backend: IsaacLab/PhysX only.
+> The patch layout, the "a patch is the policy unit" rule and the privileged-signal
+> prohibition all carry over to Plan 16. The backend line does not: Plan 16 is Newton, and its
+> channel set is defined in `PLAN/16_newton_tactile_rewrite/plan.md` § 4 and implemented in
+> `sugar_newton/tactile/reducer.py`. Two of the channels below are the ones the audit found
+> broken — see § "Audit addendum".
+
+- Backend: IsaacLab/PhysX only. **(Plan 15 only; Plan 16 is Newton.)**
 - Each hand has exactly 27 physical anatomical patches: palm `4 x 3`, plus
   proximal/middle/distal on thumb, index, middle, ring and little finger.
 - A patch is the policy unit. Official R15 taxels are the TacSL physics/audit backend, never policy
@@ -57,7 +81,7 @@ PatchSlipDetector.update(
 Object motion, relative contact velocity, mass factor, jump flag, reward and future frames are
 evaluation labels only. They may not enter the callable or deployed actor.
 
-## 4. Actor, teacher and mass-event contract
+## 4. Actor, teacher and mass-event contract *(Plan 15, archived line)*
 
 - The deployed actor uses the existing `504-D` no-measured-object-state Tracker-command/
   proprioception contract.
@@ -73,7 +97,7 @@ evaluation labels only. They may not enter the callable or deployed actor.
   bilateral patch contact for the 10 frames before each event. Z makes zero TacSL reads.
 - Teacher-prefix transitions are excluded from PPO surrogate/value/entropy credit.
 
-## 5. Matched formal training
+## 5. Matched formal training *(Plan 15, archived line)*
 
 Run exactly three branches serially:
 
@@ -99,7 +123,7 @@ agent explicitly start frozen evaluation or the next seed.
 If an endpoint is behaviorally invalid or ambiguous, run one fixed-condition serious overfit
 diagnostic before spending another formal budget. An overfit is diagnostic, not a formal branch.
 
-## 6. Frozen evaluation and evidence
+## 6. Frozen evaluation and evidence *(Plan 15, archived line)*
 
 Pair checkpoints one-to-one with disjoint evaluation seeds:
 
@@ -123,7 +147,7 @@ Final H.264 evidence must show the complete G1/CarryBox world view and both read
 on one clock. Contact, pressure, signed shear and slip must be visible. Mass/jump overlays are
 evaluator-only and must be labeled hidden from the actor.
 
-## 7. Current accepted evidence (2026-08-18)
+## 7. Plan 15's final evidence (2026-08-18) *(archived line; superseded by the audit below)*
 
 Sensing and slip are complete:
 
@@ -157,7 +181,7 @@ The exact three-branch comparison is complete. The next serial action is the sep
 friction-feasibility sweep and, if needed, a stronger-grip/lower-posture response or serious
 fixed-condition overfit.
 
-## 8. Heavy-box friction feasibility
+## 8. Heavy-box friction feasibility *(Plan 15, archived line)*
 
 The separate frozen-Refiner sweep at static/dynamic friction
 `0.5/0.5`, `1.0/1.0`, `1.5/1.5`, `2.0/2.0` for `6x/10x` is complete. All eight runs have exact
@@ -174,30 +198,42 @@ stored at `experiments/online_patch_tactile_mass_adaptation/visualizations/`
 
 ## 9. GPU allocation safety
 
-- Prefer retained allocations long enough to finish training and review; lower CPU/memory requests
-  are acceptable when they acquire a GPU faster.
-- Never voluntarily release a granted GPU allocation merely because one child task finished or the
-  agent turn ends. Keep the compute shell alive for review and follow-up work.
-- Launch long work through `scripts/sugar/native_tactile/launch_retained_child.sh`, recording the
-  exact child PID/PGID.
-- To change tasks, terminate only the recorded child process group. Never send a generic `Ctrl+C`
-  to the allocation shell and never cancel retained jobs unless the user explicitly requests it.
-- Multiple retained allocations may exist, but formal training/evaluation remains serial under one
-  pipeline lock. No concurrent writers to the same seed directory.
-- Do not run IsaacLab simulation or GPU training on the login node.
+Plan 16 runs on **this** cluster (OCI ORD) through SLURM. Details and failure modes are in
+[`claude_context/operations.md`](claude_context/operations.md) § This repo.
+
+- Hold a **named** dev-node container with `sbatch slurm/devnode.sbatch` and send work in with
+  `slurm/devrun.sh`. The container name is what makes the GL/Xvfb installs persist across
+  steps; a fresh `srun --container-image` starts from the pristine image every time.
+- Prefer `interactive_singlenode` for one GPU: it has ~1243 nodes against `interactive`'s 10,
+  so it actually schedules. `interactive` is needed for the 8-GPU variant, whose QOS the
+  singlenode partition rejects.
+- Allocations expire hard at 4 h and **say nothing** — the shell silently falls back to the
+  login node, so work then fails with "no NVIDIA driver" or half-runs on CPU. Confirm a
+  RUNNING job before sending work in.
+- Never voluntarily release a granted allocation merely because one task finished or the agent
+  turn ends. Keep it for review and follow-up.
+- Newton's CPU device works on the login node, and the analytic validator is meant to be run
+  there. Do not run GPU training or rendering on the login node.
 
 ## 10. Repository hygiene
 
-- `experiments/`, checkpoints, traces, videos, datasets and runtime logs are local-only and ignored.
-- The root `legacy/` is the single archive for failed, obsolete or superseded work and is ignored.
-- Active docs are README, DOCS, Plan 15 and TODO 15. Do not create streams of small status markdown
-  files; merge durable conclusions into these documents.
-- Keep only active, referenced code. Move explicit old branches, one-off diagnostics and superseded
-  renderers to `legacy/` rather than leaving ambiguous entrypoints.
-- Do not add routine SHA256 manifests, checksum ladders, duplicate validation scripts or defensive
-  version matrices. Use direct outcome checks appropriate to the risk.
-- Never commit/push experiment outputs or large binary artifacts. Before push, inspect Git status,
-  staged paths and object sizes.
+- `experiments/`, `legacy/`, checkpoints, traces, videos, datasets and runtime logs are
+  local-only and ignored. Never commit or push them. Before push, inspect git status, staged
+  paths and object sizes.
+- Assets are **not** in git and are not supposed to be. See [`ASSETS.md`](ASSETS.md) for what
+  is missing and the two commands that restore it.
+- `third_party/newton` is a submodule and must stay a clean diff against upstream (§ 1).
+- Active docs are `README.md`, `ASSETS.md`, the `sugar_newton/**/README.md` files, `DOCS/`,
+  Plan/TODO 16 and `claude_context/`. **Update the existing document.** Do not create streams
+  of small status markdown files, and do not append a new copy of a section to the end of a
+  README — that had happened three times over in `sugar_newton/rl/README.md`, leaving a file
+  that contradicted itself about whether BCPPO worked.
+- Keep only active, referenced code. Move superseded entrypoints to `legacy/` rather than
+  leaving them ambiguous.
+- Do not add routine SHA256 manifests, checksum ladders, duplicate validation scripts or
+  defensive version matrices. Use direct outcome checks appropriate to the risk. (The pinned
+  asset archives in `SUGAR/_downloads/` are the deliberate exception: an unpinned teacher
+  checkpoint had already cost one campaign.)
 
 ## Audit addendum — 2026-08-19
 
@@ -205,7 +241,11 @@ A full correctness audit (115 findings, `claude_context/findings.md`) found that
 rules above are **stated correctly but violated by the implementation**. Read this before
 treating any rule above as satisfied.
 
-### Rules currently violated in code
+This is the addendum that motivated Plan 16, so it is the most transferable part of this file:
+the "New standing rules" below apply to the Newton line too, and the specific defects are the
+ones a port must not reproduce. Everything here describes the *IsaacLab* implementation.
+
+### Rules violated in the Plan 15 code
 
 - **§3 "Object motion, relative contact velocity … may not enter the callable or deployed
   actor."** Violated. `shear_xy_n` and `friction_utilization` — two of the six inputs to

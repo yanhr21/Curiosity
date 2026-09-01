@@ -1,5 +1,15 @@
 # Verification findings
 
+> **Scope: this audits the Plan 15 IsaacLab/PhysX line, not the current Newton line.**
+> Every `Evidence` path below points into `scripts/sugar/`, `SUGAR/` or vendored `IsaacLab/`.
+> It is nonetheless **required reading before touching any tactile channel or reward term**,
+> because it is the reason Plan 16 exists and because most of these defects are portable — a
+> naive port of `hoi_contact` or `undesired_contacts` reproduces two of them exactly. See
+> `../README.md` § Rules that carry over for the short version, and `../AGENTS.md`
+> § Audit addendum for the standing rules it produced.
+>
+> None of the defects here has been fixed *in the Plan 15 code*; Plan 16 rebuilds instead.
+
 Everything found while building and auditing this page: claims checked against the
 source they describe, plus anything tripped over on the way. Nothing is hand-waved
 — each entry names the file and lines that settle it.
