@@ -18,6 +18,14 @@
 # resubmitting the same command advances the same run instead of restarting it. Submit the
 # next leg whenever the previous one ends -- or chain with `--dependency=afterany:<jobid>`.
 #
+# On partition choice, because the obvious reasoning is wrong here. interactive_singlenode's
+# QOS allows only ONE running job per user, so this chain queues behind any dev node you are
+# also holding (reason: QOSMaxJobsPerUserLimit). batch_singlenode's QOS has no such cap --
+# but measured 2026-09-01 it had 6 of 9 nodes DRAINED and 64 jobs pending, while
+# interactive_singlenode had 1227 nodes and a 15-job queue. Pool size beats the per-user cap:
+# the uncapped partition never schedules. So this stays on interactive_singlenode and you
+# release the dev node to let training start. Override with `sbatch -p ...`.
+#
 # Submit from the repo root: -o above is relative to it, and the repo is found via
 # SLURM_SUBMIT_DIR (Slurm copies the batch script to its spool dir, so $0 is useless).
 set -u
