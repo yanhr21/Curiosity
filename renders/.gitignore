@@ -6,7 +6,7 @@
 _toolcache/
 penetration_*.npz
 friction_sweep*/
-.devnode
+.devnode*
 _scratch/
 tactile_*.npz
 *.png

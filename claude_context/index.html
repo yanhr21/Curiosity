@@ -1,0 +1,1446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Newton · Physics + Tactile Sim Factory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  :root{
+    --bg:#fbfaf6;--panel:#fff;--rule:#e3dfd2;--rule-soft:#efece2;
+    --ink:#1d1c18;--ink-soft:#3a3833;--mut:#807a6c;--mut-deep:#5a564c;
+    --dark-bg:#1a1815;--dark-panel:#221f1b;--dark-rule:#3a3530;--dark-ink:#ece6d5;--dark-ink-soft:#c4bda9;--dark-mut:#8a8273;
+    --phys:#1c5b8e;--tac:#b5651d;--gen:#6d3a9e;--ing:#2f7d4f;--ing-on-dark:#6fbf8f;
+    --sans:"Geist",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    --display:"Instrument Serif",Georgia,serif;--mono:"Geist Mono","JetBrains Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}html,body{margin:0;padding:0}
+  html{scroll-behavior:smooth;scroll-padding-top:64px}
+  body{background:var(--bg);color:var(--ink);font:400 16px/1.65 var(--sans);letter-spacing:-.005em;-webkit-font-smoothing:antialiased}
+  .frame{max-width:1180px;margin:0 auto;padding:0 48px}
+  @media(max-width:760px){.frame{padding:0 22px}}
+  header.cover{padding:74px 0 34px;border-bottom:1px solid var(--rule)}
+  .eyebrow{font:500 11px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--mut);margin:0 0 26px}
+  h1.title{font:300 clamp(42px,6vw,78px)/1 var(--display);letter-spacing:-.015em;margin:0 0 18px}
+  h1.title em{font-style:italic;color:var(--ing)}
+  .oneliner{font:400 clamp(20px,3vw,28px)/1.32 var(--display);font-style:italic;color:var(--ink);max-width:840px;margin:0 0 28px;padding:0 0 0 22px;border-left:3px solid var(--ing)}
+  .oneliner b{font-style:normal;color:var(--ing);font-weight:400}
+  .lede{font:400 18px/1.55 var(--sans);color:var(--mut-deep);max-width:800px;margin:0 0 26px}
+  .lede b{color:var(--ink-soft);font-weight:600}
+  .strip{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+  .strip .cell{padding:16px 18px 16px 0;border-right:1px solid var(--rule)}
+  .strip .cell:last-child{border-right:none}
+  .strip .k{font:500 10px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--mut);margin-bottom:8px}
+  .strip .v{font:400 14.5px/1.4 var(--sans);color:var(--ink)}
+  .strip .v code{font:11.5px/1.4 var(--mono);color:var(--mut-deep)}
+  @media(max-width:820px){.strip{grid-template-columns:1fr 1fr}.strip .cell:nth-child(2){border-right:none}.strip .cell:nth-child(3),.strip .cell:nth-child(4){border-top:1px solid var(--rule)}}
+  nav.topbar{position:sticky;top:0;z-index:25;background:var(--dark-bg);border-bottom:1px solid var(--dark-rule)}
+  nav.topbar .inner{max-width:1180px;margin:0 auto;padding:12px 48px;display:flex;align-items:center;gap:24px}
+  nav.topbar .repo-info{display:flex;align-items:baseline;gap:10px;flex-shrink:0;font:500 12px/1 var(--mono)}
+  nav.topbar .repo-label{color:var(--dark-mut);font-size:10px;letter-spacing:.24em;text-transform:uppercase}
+  nav.topbar .repo-path{color:var(--dark-ink)}.repo-sep{color:var(--dark-mut);padding:0 2px}
+  nav.topbar .repo-branch{color:var(--ing-on-dark);font-weight:500}
+  nav.topbar .nav-links{flex:1;display:flex;gap:24px;justify-content:flex-end;font:500 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;overflow-x:auto;white-space:nowrap}
+  nav.topbar .nav-links a{color:var(--dark-mut);text-decoration:none;padding:6px 0;border-bottom:1px solid transparent}
+  nav.topbar .nav-links a:hover{color:var(--dark-ink);border-bottom-color:var(--dark-ink-soft)}
+  nav.topbar .nav-links a.ing{color:var(--ing-on-dark)}
+  @media(max-width:900px){nav.topbar .inner{padding:10px 22px;gap:16px;flex-wrap:wrap}nav.topbar .nav-links{gap:18px;justify-content:flex-start}}
+  section.ch{padding:60px 0 50px;border-bottom:1px solid var(--rule)}
+  .chap-no{font:italic 300 50px/1 var(--display);color:var(--mut);margin:0 0 6px}
+  h2.ch-h{font:400 clamp(28px,4vw,46px)/1.05 var(--display);letter-spacing:-.01em;margin:0 0 10px}
+  h2.ch-h em{font-style:italic;color:var(--ing)}
+  .ch-sub{font:400 17px/1.5 var(--sans);color:var(--mut);max-width:760px;margin:0 0 24px}
+  .ch-sub b{color:var(--mut-deep);font-weight:600}
+  h3.h3{font:500 11px/1 var(--mono);letter-spacing:.24em;text-transform:uppercase;color:var(--mut);margin:34px 0 14px;display:flex;align-items:center;gap:14px}
+  h3.h3::before{content:"";width:24px;height:1px;background:var(--mut)}
+  p.body{max-width:820px;margin:0 0 14px;color:var(--ink-soft)}
+  p.body b{color:var(--ink);font-weight:600}
+  .pull{margin:24px 0 4px;padding:20px 26px;background:var(--dark-panel);border-radius:6px;color:var(--dark-ink-soft);font:400 18px/1.5 var(--display);font-style:italic}
+  .pull b{color:var(--dark-ink);font-weight:400;font-style:normal}
+  /* pipeline flow */
+  .flow{display:flex;align-items:stretch;gap:0;margin:14px 0 4px;background:var(--dark-panel);border-radius:8px;padding:8px;overflow-x:auto;flex-wrap:wrap}
+  .flow .n{flex:1;min-width:150px;padding:12px 14px;color:var(--dark-ink);position:relative}
+  .flow .n+.n::before{content:"→";position:absolute;left:-9px;top:20px;color:var(--dark-mut)}
+  .flow .n .t{font:600 13.5px/1.25 var(--sans)}
+  .flow .n .d{font:400 10.5px/1.4 var(--mono);color:var(--dark-mut);margin-top:4px}
+  .flow .n.a .t{color:#a8c4e0}.flow .n.b .t{color:#d9b48a}.flow .n.c .t{color:var(--ing-on-dark)}
+  /* workstream cards */
+  .ws{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:8px 0 6px}
+  @media(max-width:820px){.ws{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:18px 20px;border-top:3px solid var(--mut)}
+  .card.phys{border-top-color:var(--phys)}.card.tac{border-top-color:var(--tac)}.card.gen{border-top-color:var(--gen)}.card.ing{border-top-color:var(--ing)}
+  .card .tag{font:500 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--mut);margin-bottom:6px}
+  .card.phys .tag{color:var(--phys)}.card.tac .tag{color:var(--tac)}.card.gen .tag{color:var(--gen)}.card.ing .tag{color:var(--ing)}
+  .card h4{font:500 18px/1.2 var(--sans);margin:0 0 10px}
+  .card ul{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink-soft)}
+  .card li{margin:5px 0}.card b{color:var(--ink);font-weight:600}
+  .card code{font:11.5px/1.4 var(--mono);background:var(--rule-soft);border:1px solid var(--rule);border-radius:3px;padding:0 3px}
+  /* tables */
+  .tbl-wrap{overflow-x:auto;margin:6px 0}
+  table.t{width:100%;border-collapse:collapse;font-size:13.5px;min-width:620px}
+  table.t th,table.t td{text-align:left;vertical-align:top;padding:10px 14px 10px 0;border-bottom:1px solid var(--rule-soft)}
+  table.t thead th{font:500 10px/1.2 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mut);border-bottom:1px solid var(--ink-soft)}
+  table.t td.k{font:600 13px/1.35 var(--sans);color:var(--ink);white-space:nowrap}
+  table.t code{font:11.5px/1.4 var(--mono);background:var(--rule-soft);border-radius:3px;padding:0 3px}
+  .note{background:var(--panel);border:1px solid var(--rule);border-left:3px solid var(--ing);border-radius:6px;padding:14px 18px;margin:14px 0;font-size:14.5px;color:var(--ink-soft)}
+  .note b{color:var(--ink)}.note code{font:12px/1.4 var(--mono);background:var(--rule-soft);border:1px solid var(--rule);border-radius:3px;padding:0 3px}
+  /* docs */
+  section.docs{padding:56px 0}
+  .docs-layout{display:grid;grid-template-columns:250px 1fr;gap:30px;margin-top:18px}
+  @media(max-width:860px){.docs-layout{grid-template-columns:1fr}}
+  .docs-sidebar{position:sticky;top:70px;align-self:start;max-height:calc(100vh - 90px);overflow-y:auto}
+  .docs-sidebar .group-h{font:500 10px/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--mut);margin:18px 0 8px}
+  .docs-sidebar ul{list-style:none;margin:0 0 6px;padding:0}
+  .docs-sidebar a.doc-link{display:block;text-decoration:none;padding:8px 10px;border-left:2px solid transparent;color:var(--ink-soft);font-size:13px;border-radius:0 4px 4px 0}
+  .docs-sidebar a.doc-link code{font:11.5px/1.3 var(--mono);color:var(--mut-deep)}
+  .docs-sidebar a.doc-link:hover{background:var(--rule-soft)}
+  .docs-sidebar a.doc-link.active{background:rgba(47,125,79,.08);border-left-color:var(--ing)}
+  .docs-sidebar a.doc-link.active code{color:var(--ing)}
+  .docs-sidebar .doc-link-badge{display:inline-block;font:500 8px/1 var(--mono);letter-spacing:.1em;color:var(--ing);border:1px solid rgba(47,125,79,.4);border-radius:3px;padding:2px 4px;margin-left:6px}
+  .docs-sidebar .doc-link-meta{display:block;font-size:10.5px;color:var(--mut);margin-top:3px}
+  .docs-pathbar{display:flex;align-items:center;gap:10px;font:500 11px/1 var(--mono);color:var(--mut);margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--rule)}
+  .docs-pathbar .raw-link{margin-left:auto;color:var(--mut);text-decoration:none;border:1px solid var(--rule);border-radius:4px;padding:4px 8px}
+  .docs-content{min-width:0}
+  .docs-content h1{font:400 30px/1.15 var(--display);margin:4px 0 14px}
+  .docs-content h2{font:400 23px/1.2 var(--display);margin:30px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--rule)}
+  .docs-content h3{font:500 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin:24px 0 10px}
+  .docs-content h4{font:600 15px/1.3 var(--sans);margin:18px 0 8px}
+  .docs-content p{margin:10px 0 14px;color:var(--ink-soft)}
+  .docs-content ul,.docs-content ol{margin:10px 0 14px;padding-left:22px;color:var(--ink-soft)}
+  .docs-content li{margin:4px 0}.docs-content strong{font-weight:600;color:var(--ink)}
+  .docs-content em{font-style:italic;color:var(--mut-deep)}
+  .docs-content a{color:var(--phys);text-decoration:none;border-bottom:1px solid var(--rule)}
+  .docs-content code{font:12.5px/1.4 var(--mono);background:var(--rule-soft);border:1px solid var(--rule);border-radius:3px;padding:1px 4px}
+  .docs-content pre{background:var(--dark-bg);color:var(--dark-ink);border-radius:6px;padding:14px 16px;overflow-x:auto;margin:14px 0}
+  .docs-content pre code{background:none;border:none;color:var(--dark-ink);padding:0;font-size:12.5px}
+  .docs-content table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+  .docs-content th,.docs-content td{text-align:left;vertical-align:top;padding:8px 12px 8px 0;border-bottom:1px solid var(--rule-soft)}
+  .docs-content th{font:500 10px/1.2 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+  .docs-content blockquote{margin:14px 0;padding:6px 16px;border-left:3px solid var(--ing);color:var(--mut-deep);font-style:italic}
+  .docs-content hr{border:none;border-top:1px solid var(--rule);margin:26px 0}
+  .docs-loading,.docs-error{color:var(--mut);font-style:italic;padding:20px 0}.docs-error{color:#b04020}
+  .footer-band{background:var(--dark-bg)}
+  footer{max-width:1180px;margin:0 auto;padding:24px 48px;display:flex;justify-content:space-between;gap:16px;color:var(--dark-mut);font-size:13px;flex-wrap:wrap}
+  footer code{font:12px/1.4 var(--mono);color:var(--dark-ink-soft)}
+  @media(max-width:760px){footer{padding:22px}}
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <div class="inner">
+    <div class="repo-info">
+      <span class="repo-label">Repo</span>
+      <span class="repo-path" id="repo-path">yanhr21/Curiosity</span>
+      <span class="repo-sep">·</span>
+      <span class="repo-branch" id="repo-branch">mike_2026_7_21_newton</span>
+    </div>
+    <div class="nav-links">
+      <a href="#map">Map</a>
+      <a href="#physics">① Physics</a>
+      <a href="#tactile">② Tactile</a>
+      <a href="#generation">③ Generation</a>
+      <a href="#ingestion" class="ing">④ Ingestion</a>
+      <a href="#docs">Docs</a>
+    </div>
+  </div>
+</nav>
+
+<div class="frame">
+
+<header class="cover">
+  <p class="eyebrow">Newton fork · physics + tactile SDG · Robot Baby / Explore stage · 2026·07</p>
+  <h1 class="title">The <em>sim factory</em></h1>
+  <p class="oneliner"><b>Generate or ingest the world</b>, then simulate its physics and let the robot feel it.</p>
+  <p class="lede">A Newton fork that turns assets into <b>contact-rich, tactile physics environments</b>. Two asset sources — a <b>generative</b> pipeline (PixelDiT→TRELLIS.2) and a <b>dataset-ingestion</b> path (SAGE-10k and friends) — feed one Newton scene builder with hydroelastic contact, FEM soft bodies, and <b>tactile sensing</b>. This is the environment factory for the Robot-Baby <em>Explore</em> stage.</p>
+  <div class="strip">
+    <div class="cell"><div class="k">① Physics</div><div class="v">FPS ↔ collision study<br><code>kh · dt · hydroelastic</code></div></div>
+    <div class="cell"><div class="k">② Tactile</div><div class="v">SensorContact + surface<br><code>pressure · shear · FEM</code></div></div>
+    <div class="cell"><div class="k">③ Generation</div><div class="v">text→image→3D→Newton<br><code>genpipe · 10k/1M</code></div></div>
+    <div class="cell"><div class="k">④ Ingestion</div><div class="v">SAGE-10k → Newton<br><code>scene_ingest</code></div></div>
+  </div>
+</header>
+
+<!-- MAP -->
+<section class="ch" id="map">
+  <div class="chap-no">⌖</div>
+  <h2 class="ch-h">The <em>pipeline</em></h2>
+  <p class="ch-sub">Two ways to get an asset; one Newton physics + tactile sink.</p>
+  <div class="flow">
+    <div class="n a"><div class="t">Generate</div><div class="d">PixelDiT → TRELLIS.2 → GLB</div></div>
+    <div class="n a"><div class="t">— or — Ingest</div><div class="d">SAGE-10k JSON+PLY → SceneSpec</div></div>
+    <div class="n b"><div class="t">Newton builder</div><div class="d">hull collision + hydroelastic SDF + material</div></div>
+    <div class="n b"><div class="t">Robot + solvers</div><div class="d">Franka · MuJoCo/VBD · FEM</div></div>
+    <div class="n c"><div class="t">Tactile + vision</div><div class="d">SensorContact · pressure · camera</div></div>
+  </div>
+  <p class="body" style="margin-top:16px">The four workstreams below correspond to the repo: a <b>physics</b> speed↔quality study, a <b>tactile</b> extraction stack, a <b>generative</b> asset pipeline, and the new <b>dataset-ingestion</b> framework that unifies them.</p>
+</section>
+
+<!-- PHYSICS -->
+<section class="ch" id="physics">
+  <div class="chap-no">01</div>
+  <h2 class="ch-h"><em>Physics</em> — FPS vs. collision quality</h2>
+  <p class="ch-sub">What actually trades speed for penetration in Newton's hydroelastic contact. Details: <code>context.md</code> §3, <code>experimental_conclusions.md</code>.</p>
+  <div class="ws">
+    <div class="card phys">
+      <div class="tag">The dials</div>
+      <h4>What moves penetration — and what doesn't</h4>
+      <ul>
+        <li><b>XPBD</b>: penetration ∝ 1/iterations, FPS ∝ 1/iterations — a genuine speed↔quality dial.</li>
+        <li><b>panda_hydro</b> (MuJoCo + hydroelastic SDF): <code>iterations</code> saturates by ~5, <code>ls_iterations</code> does nothing, <code>substeps/impratio</code> only cost FPS.</li>
+        <li>The real lever is <b><code>kh</code></b> (hydroelastic stiffness) — but it trades against <b><code>dt</code></b>, not FPS.</li>
+      </ul>
+    </div>
+    <div class="card phys">
+      <div class="tag">The finding</div>
+      <h4>kh is capped at ≈ 1/dt</h4>
+      <ul>
+        <li>MuJoCo's implicit integrator caps effective stiffness at ≈1/dt: at large dt, <code>kh</code> is inert; raise <code>kh</code> <b>and</b> substeps together to push penetration down (0.033 mm costs 25 FPS vs 73).</li>
+        <li><b>Cost is collision-bound</b> (SDF queries), not solver-bound — <code>sdf_max_resolution</code> is the FPS lever.</li>
+        <li>Penetration metric (solver-agnostic): <code>d = n·(bx_b−bx_a) − (m0+m1)</code>; pen = <code>max(0,−d)</code>.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- TACTILE -->
+<section class="ch" id="tactile">
+  <div class="chap-no">02</div>
+  <h2 class="ch-h"><em>Tactile</em> — sensing contact &amp; material</h2>
+  <p class="ch-sub">How a robot feels: contact forces, dense pressure maps, shear, and material response. Design: <code>tactile_pipeline.md</code>.</p>
+  <div class="ws">
+    <div class="card tac">
+      <div class="tag">Signals</div>
+      <h4>SensorContact + hydroelastic surface</h4>
+      <ul>
+        <li><b><code>SensorContact</code></b> (world frame): per-pad total force + friction; per-object <code>force_matrix</code>. Create before <code>model.contacts()</code>.</li>
+        <li><b>Dense map</b>: <code>get_contact_surface()</code> → per-face signed depth; <b>pressure = kh·max(0,−depth)</b> (verified sign law).</li>
+        <li>Pad-centric heatmap anchored to the fixed pad frame (gravity-up) so it doesn't balloon as contact slides.</li>
+      </ul>
+    </div>
+    <div class="card tac">
+      <div class="tag">Material model (verified)</div>
+      <h4>Rigid share kh; soft → FEM</h4>
+      <ul>
+        <li>All <b>rigid</b> materials share a hard <code>kh≈1e12</code>; they differ only by <b>friction, restitution, density</b> — not hydroelastic stiffness.</li>
+        <li>Only genuinely <b>deformable</b> materials become <b>FEM</b> (VBD), differentiated by Young's <b>E</b>. VBD stiffness is <b>iteration-limited</b>, not E-limited (~50 iters for a straight rod).</li>
+        <li>Shear result: holding a light pen, the two pads shear it in an opposing couple (net≈0); pushing it into a cup, both pads shear <b>downward together</b> (~12–17 N) — measured on the pen, world frame.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- GENERATION -->
+<section class="ch" id="generation">
+  <div class="chap-no">03</div>
+  <h2 class="ch-h"><em>Generation</em> — text → 3D → Newton</h2>
+  <p class="ch-sub">The generative asset path (<code>genpipe/</code>). Setup/run/cluster: <code>genpipe/RUNBOOK.md</code>; architecture + scaling: <code>genpipe/README.md</code>.</p>
+  <div class="flow">
+    <div class="n a"><div class="t">PixelDiT</div><div class="d">text → 1024² image · ~8 s</div></div>
+    <div class="n a"><div class="t">TRELLIS.2-4B</div><div class="d">image → PBR GLB · ~62 s</div></div>
+    <div class="n b"><div class="t">Newton rigid body</div><div class="d">hull + hydroelastic SDF · ~0.3 s</div></div>
+    <div class="n c"><div class="t">Tactile scene</div><div class="d">example_panda_clock_metal.py</div></div>
+  </div>
+  <p class="body" style="margin-top:16px">Three isolated conda envs (<code>pixeldit</code>/<code>trellis2</code>/<code>newton</code>) bridged by files on disk. Both generative stages are <b>compute-bound</b> — no batch/concurrency speedup on one GPU, so scale <b>out</b> (1 stream/GPU).</p>
+  <div class="tbl-wrap">
+  <table class="t">
+    <thead><tr><th>Fleet</th><th>10k objects</th><th>1M objects</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Compute</td><td>~197 GPU-hr</td><td>~20k GPU-hr</td></tr>
+      <tr><td class="k">Wall (8×8-GPU nodes)</td><td>~3 h</td><td>~13 days</td></tr>
+      <tr><td class="k">Storage (GLB + SDF)</td><td>~77 GB</td><td>~7.7 TB</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- INGESTION -->
+<section class="ch" id="ingestion">
+  <div class="chap-no">04</div>
+  <h2 class="ch-h"><em>Ingestion</em> — datasets → Newton</h2>
+  <p class="ch-sub">The new framework: lift pre-arranged scene datasets into Newton physics + tactile. Design: <code>dataset_ingestion.md</code>; code: <code>scene_ingest/</code>.</p>
+  <p class="body"><span style="font-weight:600;color:var(--ink)">Why.</span> Generation makes one object at a time; the Explore stage needs whole <b>human-arranged, contact-rich rooms</b>. <b>SAGE-10k</b> already ships 10k rooms / 565k objects with <b>mass, PBR, and placement</b> baked in — far cheaper than generating scenes. One path lifts any such dataset into Newton.</p>
+  <div class="flow">
+    <div class="n a"><div class="t">Adapter</div><div class="d">SAGE JSON+PLY → parse</div></div>
+    <div class="n b"><div class="t">SceneSpec (IR)</div><div class="d">objects · room · robot · sensors</div></div>
+    <div class="n c"><div class="t">Newton builder</div><div class="d">hull + hydroelastic + material</div></div>
+    <div class="n c"><div class="t">+ enrichment</div><div class="d">randomize mass/friction/compliance</div></div>
+  </div>
+  <h3 class="h3">SAGE-10k → SceneSpec mapping</h3>
+  <div class="tbl-wrap">
+  <table class="t">
+    <thead><tr><th>SAGE field</th><th>SceneSpec</th><th>Newton use</th></tr></thead>
+    <tbody>
+      <tr><td class="k">objects[].source_id</td><td><code>mesh_path</code> = objects/&lt;sid&gt;.ply</td><td>trimesh → hull collision + full visual</td></tr>
+      <tr><td class="k">position / rotation / dimensions</td><td><code>position · rotation · bbox_dims</code></td><td>body xform; fit AABB to physical dims</td></tr>
+      <tr><td class="k">mass [kg]</td><td><code>mass</code></td><td>density = mass / hull volume</td></tr>
+      <tr><td class="k">pbr_parameters</td><td><code>MaterialSpec</code></td><td>metallic/roughness → mu, restitution (rigid kh shared)</td></tr>
+      <tr><td class="k">walls / doors</td><td><code>RoomSpec</code></td><td>static extruded boxes; doors → revolute (opt.)</td></tr>
+      <tr><td class="k">place_id</td><td><code>support_parent</code></td><td>floor / on-object / wall → settle order</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="note"><b>Verified:</b> the adapter parses a real SAGE room (<code>layout_84b703fb</code>) → 59 objects (3 static furniture), 4 walls, 1 door, support hierarchy floor 21 / on-table 11 / on-bookshelf 8 / wall 19. <code>scene_ingest/adapters/sage.py</code> is runnable stdlib; <code>newton_build.py</code> is a reference implementation to run once the <code>newton</code> env is up.</p></div>
+  <div class="pull"><p>The point of ingestion isn't to reproduce SAGE's exact scene — it's to <b>randomize the physics the demonstration never revealed</b> (mass, friction, compliance), so the same intent demands a different solution. Same sink as generation; cheaper, richer, whole-scene.</p></div>
+</section>
+
+<!-- DOCS -->
+<section class="ch docs" id="docs">
+  <div class="chap-no">¶</div>
+  <h2 class="ch-h"><em>Docs</em></h2>
+  <p class="ch-sub">All repo markdown, rendered in place.</p>
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="group-h">Context</div>
+      <ul>
+        <li><a href="#" class="doc-link active" data-file="../context.md"><code>context.md</code><span class="doc-link-badge">MAIN</span><span class="doc-link-meta">Working context (env, findings, gotchas)</span></a></li>
+        <li><a href="#" class="doc-link" data-file="../TODOs.md"><code>TODOs.md</code><span class="doc-link-meta">Action items</span></a></li>
+      </ul>
+      <div class="group-h">Design</div>
+      <ul>
+        <li><a href="#" class="doc-link" data-file="dataset_ingestion.md"><code>dataset_ingestion.md</code><span class="doc-link-badge">NEW</span><span class="doc-link-meta">SAGE-10k → Newton framework</span></a></li>
+        <li><a href="#" class="doc-link" data-file="tactile_pipeline.md"><code>tactile_pipeline.md</code><span class="doc-link-meta">Tactile solver/sensor design</span></a></li>
+        <li><a href="#" class="doc-link" data-file="experimental_conclusions.md"><code>experimental_conclusions.md</code><span class="doc-link-meta">Results &amp; scaling</span></a></li>
+      </ul>
+      <div class="group-h">Generation pipeline</div>
+      <ul>
+        <li><a href="#" class="doc-link" data-file="../genpipe/README.md"><code>genpipe/README.md</code><span class="doc-link-meta">Architecture + scaling</span></a></li>
+        <li><a href="#" class="doc-link" data-file="../genpipe/RUNBOOK.md"><code>genpipe/RUNBOOK.md</code><span class="doc-link-meta">Setup / run / cluster</span></a></li>
+      </ul>
+    </aside>
+    <div class="docs-main">
+      <div class="docs-pathbar"><span id="docs-pathbar-text">context.md</span><a class="raw-link" id="docs-raw-link" href="../context.md" target="_blank" rel="noopener">raw ↗</a></div>
+      <div class="docs-content" id="docs-content"><div class="docs-loading">Loading&hellip;</div></div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /frame -->
+
+<div class="footer-band">
+  <footer>
+    <span>Newton sim factory · generate or ingest, then feel it.</span>
+    <code>claude_context/index.html</code>
+  </footer>
+</div>
+
+<!-- ============================================================ -->
+<!-- DOCS LOADER                                                  -->
+<!-- ============================================================ -->
+
+<script type="text/markdown" data-doc="../context.md">
+# Newton — Working Context
+
+Living summary of the environment, findings, tools, and gotchas from the Newton
+physics-engine work (FPS-vs-collision benchmarking, tactile-data extraction, and
+multi-material / FEM tactile demos). Detailed notes live in `claude_context/`:
+`tactile_pipeline.md` (design/architecture) and `experimental_conclusions.md`
+(results). Action items in `TODOs.md`.
+
+---
+
+## 1. Environment & repo
+
+- **conda env `newton`** (Python 3.12): `newton 1.4.0.dev0` (editable from this repo),
+  `warp-lang 1.14.0`, `mujoco-warp 3.8.1`, `usd-core 26.3`, `trimesh`, `scipy`,
+  `matplotlib`, and `torch` (cu128, added for the policy/anymal examples).
+- Activate: `source ~/miniconda3/etc/profile.d/conda.sh && conda activate newton`.
+- Run examples: `python -m newton.examples <name> [--viewer gl|usd|null] ...`.
+- Hardware: 2× NVIDIA RTX 6000 Ada (48 GB). Pin per-process with `CUDA_VISIBLE_DEVICES`.
+- **Remote**: pushed to `mikewang` =
+  `ssh://git@gitlab-master.nvidia.com:12051/shengzew/newton_mikewang.git`.
+  Work branch: `shengzew/fps-collision-benchmarks` (main = pristine upstream Newton).
+  The clone was shallow + missing LFS; had to `git fetch --unshallow` and
+  `git lfs push --all` before the first push.
+
+## 2. Demos (USD exports)
+
+All 9 robot examples were rendered to USD (gitignored):
+`allegro_hand, anymal_c_walk, anymal_d, cartpole, g1, h1, panda_hydro, policy, ur10`
+via `python -m newton.examples <name> --viewer usd --output-path <name>.usd --headless`.
+`anymal_c_walk` and `policy` require `torch`.
+
+USD note: `/root/model/com` etc. are **debug overlays** (center-of-mass points,
+inertia boxes, joint frames) written by the viewer — the real geometry is under
+`/root/geometry/*`. COM data lives in timeSamples (animated), not the default value.
+
+## 3. FPS vs collision-quality study
+
+**Scripts:** `bench_fps_vs_collision.py` (XPBD box-pyramid, sweep `--iterations`),
+`bench_panda_hydro.py` (drives `panda_hydro`, overrides `iters/ls/impratio/kh/substeps`,
+reports penetration + grasp-lift + blow-up), `plot_results.py`, `plot_panda.py`,
+`plot_kh_coupling.py`, `run_sweep_*.sh` / `run_kh_*.sh`.
+
+**Penetration metric** (solver-agnostic, computed in numpy from contact buffers):
+`d = dot(n, bx_b − bx_a) − (margin0+margin1)`; penetration `= max(0, −d)`. Negative = penetrating.
+
+**Findings:**
+- **XPBD boxes**: penetration ∝ 1/iterations, FPS ∝ 1/iterations — a genuine speed↔quality dial.
+- **panda_hydro** (MuJoCo "newton" solver + hydroelastic SDF): the usual numerical knobs are
+  *not* effective penetration levers — `iterations` saturates by ~5, `ls_iterations` does
+  nothing, `substeps`/`impratio` only cost FPS. The lever is **`kh`** (hydroelastic stiffness).
+- **`kh` trades against `dt`, not FPS.** MuJoCo's implicit integrator caps the *effective*
+  stiffness at ≈1/dt: at large dt (substeps=2) `kh` is inert (1e11=1e14=1e15 all ~1.1 mm);
+  at substeps=10 `kh` helps down to a dt-floor (~0.13 mm by `kh=1e13`) then saturates. To go
+  lower you must raise `kh` AND substeps together → FPS cost returns (0.033 mm cost 25 FPS vs
+  73 default). No blow-ups (the implicit cap absorbs the stiffness). Library default `kh=1e10`,
+  example uses `1e11` — moderate for cross-scene/mass/dt stability.
+- **panda_hydro cost is collision-bound** (SDF queries), not solver-bound; `sdf_max_resolution`
+  is the real FPS lever.
+
+## 4. Tactile data extraction
+
+**Scripts:** `tactile_video.py` (full pick-place tactile video: scene render + per-pad
+pressure maps + grip-force trace + shear-on-pencil graph; supports a downward-push mode),
+`tactile_frame420.py` (single-frame diagnostic: 3D world scatter + pen outline + discrete
+eval-point overlay), `tactile_push_probe.py` (headless push validation), `tactile_probe.py`.
+
+**APIs:**
+- `SensorContact` (`newton.sensors`): `total_force`, `total_force_friction` per sensing object;
+  `force_matrix`, `force_matrix_friction` per counterpart — **all world frame**. `[i,j]` = force
+  on sensing object `i` from counterpart `j`. Create the sensor **before** `model.contacts()`
+  (it requests the `force` extended attribute). Per step: `solver.step` →
+  `solver.update_contacts(contacts)` → `sensor.update(state, contacts)` → read `.numpy()`.
+- Hydroelastic contact surface (dense spatial map):
+  `collision_pipeline.hydroelastic_sdf.get_contact_surface()` → `ContactSurfaceData`
+  (`contact_surface_point` = 3 verts/face, `contact_surface_depth` = signed depth/face,
+  `contact_surface_shape_pair`, `face_contact_count`). Enable with
+  `HydroelasticSDF.Config(output_contact_surface=True)`.
+
+**Sign conventions (verified, not assumed):**
+- Gravity: `model.gravity = [0,0,−9.81]` (read). −Z is down.
+- Force: on the *sensing object*, world frame; +z = up (verified: resting sphere reads +mg up).
+- **Depth is SIGNED, negative = penetrating.** The hydroelastic law is
+  `pressure = −kh·signed_depth` (`linear_pressure`, `sdf_hydroelastic.py:128`), positive only
+  for `signed_depth < 0`. So **pressure = kh·max(0, −depth)**.
+
+**Pad geometry:** each finger body carries the URDF collision mesh(es) **plus** an added pad
+mesh (highest shape index → `pad = max(shapes on finger body)`). Pad mesh ≈ 4×6 cm; its face
+normal is the thin local axis. Contacts confirmed to be **only `pad↔pen`** even under hard push.
+
+**Visualization choices (in `tactile_video.py`):**
+- Pad pressure map: pressure interpolated (linear; cubic overshoots on near-collinear points)
+  from the contact-surface face centroids (~85 points at grasp, ~1 mm spacing set by
+  `sdf_max_resolution=64`).
+- Axes gravity-aligned (v = −gravity-in-plane, per frame); window **anchored to the pad's fixed
+  geometry** (center = pad origin, normal = pad thin axis, fixed ±2 cm) so it doesn't balloon as
+  the contact slides along the long pad.
+- Overlays: pen outline (cyan stadium, projected capsule), aggregate shear arrow (white), gravity
+  reference (gold "g"), and the shear-on-pencil time graph.
+
+**Findings:**
+- **Holding the light pen** (weight ≈ 0.11 N): the two pads apply an **opposing vertical shear
+  couple** (`cos∠(L,R) ≈ −1`), net ≈ 0. Verified *not* a frame bug — pen is static (not falling),
+  both pads' "up" axes are identical (`v_hat_L·v_hat_R = +1`), and the opposition is in the raw
+  world-frame sensor output.
+- **Pushing the pen into the cup bottom** (`--push-after`): the cup supplies the upward reaction,
+  so **both pads shear the pen downward together** (`cos∠ → +1`, ~12–17 N each) — same-direction
+  shear under a real common load. Measured directly on the pen via
+  `SensorContact(sensing="object", counterpart=fingers)` — world frame, no projection.
+
+## 5. Multi-material & FEM tactile demos
+
+**Goal:** show how a robot would sense different materials (metal, rubber, plastic,
+wood, porcelain), with per-material videos (scene + pressure maps + measurements).
+
+**Material model decision (verified reasoning):** all *rigid/hard* materials share
+the **same rigid `kh`** — hydroelastic stiffness does not differentiate rigid contact;
+they differ only by **friction (`mu`), density, and restitution**. Only *genuinely
+deformable* materials become FEM (differentiated by **Young's modulus `E`**). Coupling
+softness to a low `kh` fails: it causes deep penetration (grip slips), so soft = FEM.
+
+**Rigid materials** (`tactile_video.py`, `--material`): `RIGID_KH = 1e12`; `MATERIALS` =
+wood/metal/porcelain/glass differing only by `mu`/`restitution`/`density`. Material applied
+by monkeypatching `add_shape_capsule` to set `cfg.kh/mu/restitution/density` on the pen.
+Full 720-frame pick-and-place videos rendered: `tactile_material_{metal,wood,porcelain}.mp4`.
+
+**FEM indenter** (`tactile_fem.py`): a spherical indenter presses a soft FEM block
+(`add_soft_grid`, `SolverVBD`). Materials gel/soft_rubber/rubber/firm_rubber (E = 5e4 … 5e6,
+ν=0.45). Displacement-controlled (prescribed descent to 12 mm); per-material force is the
+**Hertz normal force** `F = (4/3)·E*·√R·d^1.5` (`E* = E/(1−ν²)`) from the simulated depth.
+4 mp4s rendered; force span at 12 mm indent: gel 15.5 N → soft_rubber 62 N → rubber 311 N →
+firm_rubber 1554 N. Composite = deforming scene + radial pressure map + indentation/area/force.
+
+**FEM Franka rod grasp** (`tactile_rod_franka.py`) — the deformable pick-and-place. A Franka
+Panda grasps a **deformable rubber rod** (`add_soft_grid`, E=1e6) through a full
+approach→descend→pinch→lift→carry→place→release sequence. Adapted from
+`newton.examples.softbody.example_softbody_franka` (Franka + rubber duck). Confirmed in sim:
+the rod is gripped by friction and **lifted ~180 mm** off the table, deforming while held;
+`tactile_rod_franka.mp4` (1110 frames) rendered. (Tactile measurement panels still to add.)
+
+**Soft pencil in the EXACT panda_hydro scene** (`example_panda_soft_rod.py` + composite
+`tactile_soft_rod_video.py`) — the faithful soft variant of `tactile_material_metal.mp4`.
+The original example file is **forked verbatim** and only the object+solver change: the rigid
+capsule pencil → a **round soft FEM rod** (a tetrahedralized cylinder of the same 0.5 cm
+radius / 14 cm length via `add_soft_mesh` + a local `cylinder_tetmesh` helper; Newton has no
+soft primitive, so a soft body must be a tet mesh). Arm stays on `SolverMuJoCo`; the rod is
+`SolverVBD`. `builder.color()` before finalize; `ShapeFlags.COLLIDE_PARTICLES` set on the
+rigid shapes; run **eager** (VBD's per-frame BVH rebuild does not CUDA-graph-capture). Rendered
+720-frame `tactile_material_rubber_soft.mp4` + 3-way `tactile_compare_metal_wood_softrubber.mp4`
+(metal/wood/soft labeled with sim FPS). Committed on `shengzew/fps-collision-benchmarks` (55958d82).
+
+**Coupling architecture (the key to a friction grasp):** rigid robot and FEM rod live in
+**one model / one state**; two solvers step it alternately each substep. Either rigid solver
+works because `SolverVBD(integrate_with_external_rigid_solver=True)` only *reads* `body_q`/
+`body_qd` from the state (for particle-body contact + friction) and never moves rigid bodies —
+so whichever solver updated those poses drives the friction:
+- **Featherstone** (`tactile_rod_franka.py`, cup scene): run as a **kinematic integrator** —
+  set `joint_qd` to the IK velocity target, zero gravity + particle_count during its step, then
+  restore. Gives real body velocities VBD uses for friction.
+- **MuJoCo** (`example_panda_soft_rod.py`, panda scene): keep the original `SolverMuJoCo` arm —
+  MuJoCo silently ignores particles, and VBD reads its updated body velocities. **One-way**
+  coupling (the rod never pushes the rigid fingers back). Earlier notes said MuJoCo "does not
+  couple to VBD" — that was a convention of the shipped examples, not a hard limit; it works and
+  is *more* faithful (preserves the exact panda_hydro arm dynamics, hydroelastic overlay, scene).
+
+## 6. Technical gotchas
+
+- **Headless GL render** (no X): set `pyglet.options["headless"]=True` *before* importing
+  newton/pyglet, use `ViewerGL(headless=True)`, capture with `viewer.get_frame().numpy()` →
+  `(H,W,3)` uint8 (top-left origin). Uses EGL (present); no `xvfb` on this box.
+- **mujoco_warp + CUDA graphs**: re-capturing an already-captured graph (e.g. calling the
+  example's `capture()` twice to change substeps) → `CUDA error 700 illegal memory access`.
+  Capture once; to change substeps, skip the in-`__init__` capture and capture once afterward.
+- `contacts.force` (the `force` extended attribute) is a **6-vector per contact** (wrench), not vec3.
+- numpy 2 removed `ndarray.ptp()` → use `np.ptp()`.
+- **Trajectory override**: to push the gripper down after grasping, replace `ex.set_joint_targets`
+  with a custom function that sets the IK target lower each frame and keeps the grip closed
+  (`install_push` in `tactile_video.py`).
+- **VBD + free rigid body**: with `integrate_with_external_rigid_solver=False`, VBD wrongly integrates
+  a free rigid body (a gravity-only indenter *rises*); with `=True` it leaves the body fixed
+  (expects an external solver). For a kinematic indenter, use `=True` and **prescribe `body_q`**
+  each substep. To make a rigid body *dynamic*, drive it with a real solver (e.g. Featherstone).
+- **Prescribed kinematic body transmits NO friction.** Overwriting `body_q` every substep
+  (teleport) drives *normal* force fine (squeeze/indent works) but resets the contact/friction
+  anchor each step, so no *static* friction accumulates — a prescribed jaw squeezes a soft rod
+  but can never grip-and-lift it (`tactile_rod_probe.py` is the negative result). Friction grasp
+  needs solver-integrated body velocities → Featherstone-as-kinematic-integrator + VBD.
+- **FEM block initial penetration → launch**: spawn a soft body so its bottom particles sit
+  ~one `particle_radius` above the support; placing them exactly on the surface ejects/launches
+  the body at frame 0 (and it can then slide off-center).
+- **VBD stiffness is iteration-limited, not modulus-limited.** A stiff FEM rod stays floppy if
+  VBD has too few iterations *regardless of E* — raising E from 8e5→1e8 gave the **same** bend at
+  5 iterations. The lever for a stiff/straight rod is **iterations** (≈50), not E. Past the
+  convergence limit, more E does nothing.
+- **A round soft rod rolls.** A cylinder rod rolls/slides off the table before the grasp. Seat a
+  small **flat facet at the bottom** (offset the cross-section ring phase by ½ step) and spawn at
+  exact rest height (no bounce).
+- **One-way coupling → close the gripper to a rod-thickness GAP, not 0.** The soft rod can't push
+  the rigid fingers back, so commanding full close crushes/squirts it (and the rigid pads jam on
+  each other at ~30 mm finger gap). Command the closed finger pos so the pad gap ≈ rod diameter
+  (`GRIP_CLOSE≈0.016` for the 1 cm rod).
+- **Match a reference scene by FORKING its code, not rebuilding.** GL shape colors are a
+  deterministic palette indexed by shape order, so a from-scratch `ModelBuilder` recolors
+  everything (yellow→cyan table, magenta→blue cup) and easily drops pieces (`add_ground_plane`).
+  Copy the original example file and change only the object/solver.
+- **Pad heatmap is PAD-centric, not object-centric**: anchor the window to the pad's fixed frame
+  (pad origin + thin-axis normal, gravity-up vertical) in the finger's local frame; the object/rod
+  projection then *moves* within the fixed window as the contact slides (same for rigid + soft).
+
+## 7. File inventory (repo root)
+
+- Benchmarks: `bench_fps_vs_collision.py`, `bench_panda_hydro.py`, `plot_*.py`, `run_*.sh`,
+  `run_panda_hydro_kh.py`.
+- Tactile (rigid grasp): `tactile_video.py`, `tactile_frame420.py`, `tactile_push_probe.py`,
+  `tactile_probe.py`.
+- Tactile (FEM): `tactile_fem.py` (sphere-on-block indenter), `tactile_rod_franka.py` (Franka
+  grasps deformable rod — the working pick-and-place), `tactile_fem_probe.py` (VBD indenter
+  validation), `tactile_rod_probe.py` / `tactile_rod_render.py` (prescribed-jaw grasp — negative
+  result: squeezes but cannot lift), `fem_test.py` (early feasibility).
+- Tactile (FEM, panda scene — the faithful soft-rod deliverable, committed): `example_panda_soft_rod.py`
+  (fork of `example_robot_panda_hydro` with a round soft FEM pencil, MuJoCo arm + VBD rod),
+  `tactile_soft_rod_video.py` (its composite, pad-centric compression), `render_soft_rod.py`
+  (single-frame preview driver), `stitch_compare.sh` (metal|wood|soft side-by-side with FPS labels).
+  Superseded reconstructions (NOT committed): `tactile_soft_rod.py`, `tactile_pen_soft.py`,
+  `tactile_rod_{cup,panda}.py` (from-scratch rebuilds — wrong scene/colors).
+- Generation pipeline (submodules + `genpipe/`): PixelDiT (text→image) → TRELLIS.2 (image→3D GLB) →
+  Newton. `genpipe/{trellis_image_to_glb.py, run_pipeline.sh, README.md}`; submodules under
+  `third_party/{PixelDiT,TRELLIS.2}`. Newton clock scene: `example_panda_clock_metal.py` (fork of
+  `example_robot_panda_hydro.py` — rigid TRELLIS-generated clock, metal material, grip + release-from-
+  high into cup) and `tactile_clock_metal.py` (tactile measurement composite → `tactile_material_clock_metal.mp4`).
+  Profiling + fleet scaling (10k/1M objects) in `claude_context/experimental_conclusions.md` §8 and `genpipe/README.md`.
+  **Setup+run+cluster guide: `genpipe/RUNBOOK.md`** (authoritative; env bootstrap `genpipe/cluster_setup.sh`).
+  Cluster (oci-ord Slurm) bring-up in progress — repo cloned + `pixeldit` env done; `trellis2` env must
+  finish inside a Slurm job (login node kills heavy builds). State in `experimental_conclusions.md` §9.
+- Generated (gitignored): `*.usd`, `results_*.csv`, plot/diagnostic `*.png`, `*.mp4`,
+  `tactile_frames*/`, `fem_frames*/`, `rodfr_frames/`, `*.log`, `demo_logs/`, `pipeline_out/`,
+  `tactile_clock_frames/`.
+
+</script>
+<script type="text/markdown" data-doc="../TODOs.md">
+# TODOs
+
+Action items and pending work. Status notes in `claude_context/experimental_conclusions.md`.
+
+## SDG generation pipeline (PixelDiT→TRELLIS.2→Newton) — cluster bring-up
+Full guide + live state in `genpipe/RUNBOOK.md`.
+- [ ] **Finish `trellis2` env on the cluster** — re-run `genpipe/cluster_setup.sh "8.0;9.0"`
+      **inside a Slurm job** (login node SIGKILLs the heavy torch install). Account
+      `nvr_nxp_visionconferencing`, `-p backfill_singlenode --gres=gpu:1`.
+- [ ] **Check compute-node internet** (`srun … git ls-remote …`) — decides whether pip/clone can
+      run in the job or must be staged from the login node / offline wheels.
+- [ ] **Verify envs via GPU `srun`** — `import torch/xformers/nvdiffrast/o_voxel/flex_gemm/cumesh`,
+      `torch.cuda.is_available()` (task #15).
+- [ ] Build the **`newton` sim env** on the cluster (if sim will run cluster-side).
+- [ ] **Export `HF_TOKEN`** (DINOv3-authorized; account `McMvMc`) before any generation run.
+- [ ] First end-to-end generation on the cluster, then a **multi-GPU batch** (1 stream/GPU) for the
+      10k / 1M set; shard outputs into subdirs (7.7 TB / 1M files on Lustre).
+
+## Dataset ingestion (SAGE-10k → Newton physics + tactile)
+Design: `claude_context/dataset_ingestion.md`. Code scaffold: `scene_ingest/` (`spec.py` IR,
+`adapters/sage.py` [runs on stdlib, validated on a real SAGE room], `newton_build.py` [reference,
+untested in the live `newton` env]). Browsable summary: `claude_context/index.html` (serve.py :8091).
+- [ ] Bring up the `newton` env; run one SAGE room through `newton_build.build_newton_scene` headless
+      → settle/stability report (mirror SAGE's `load_isaacsim_demo.py` + this repo's penetration metric).
+- [ ] Calibrate the SAGE `.ply` up-axis + bbox-fit (uniform vs. stretch) against live meshes.
+- [ ] Attach Franka + hydroelastic tactile pads (fork `example_panda_clock_metal.py`); pick one object
+      off a SAGE table → tactile video (reuse `tactile_video.py` composite).
+- [ ] Wire `RandomizationSpec` (mass/CoM/friction/compliance) — the physical-enrichment layer.
+- [ ] Second adapter (REST3D or a `genpipe` GLB scene) to prove the IR is dataset-agnostic.
+
+## In progress
+- [ ] **Cup-scene deformable grasp**: extend `tactile_rod_franka.py` to the panda_hydro-style
+      layout (rod + gripper + cup + table) — pick the deformable rod and place it **into a cup**.
+      Keep the Featherstone+VBD coupling (the working recipe).
+
+## Next
+- [ ] Port the **tactile measurement panels** to the cup-scene `tactile_rod_franka.py`. The panel
+      pipeline now exists for the panda-scene soft rod (`tactile_soft_rod_video.py`: VBD-compression
+      pad heatmap + grip-force + rod bend/height) — reuse it.
+- [ ] Optionally render the FEM rod grasp across rod stiffnesses (gel→firm_rubber) for a
+      material-comparison set, mirroring the indenter videos.
+
+## Verifications pending
+- [ ] Confirm cup placement actually lands the rod in the cup (visual + final particle positions).
+- [ ] Spot-check the full carry/place/release of `tactile_rod_franka.mp4` (sim verified to "hold";
+      visually confirm release + settle).
+- [ ] Spot-check the soft pencil's place/release **into the cup** in `tactile_material_rubber_soft.mp4`
+      (grasp+lift+carry verified to ~frame 300; end-of-sequence placement not yet frame-checked).
+
+## Done
+- [x] FPS-vs-collision study (XPBD + panda_hydro kh/dt coupling).
+- [x] Tactile data extraction + rigid grasp videos (pen, push-into-cup, shear-on-pen).
+- [x] Material model decision (rigid share kh; soft → FEM).
+- [x] Rigid-material videos (metal/wood/porcelain, 720 frames).
+- [x] FEM indenter videos (gel/soft_rubber/rubber/firm_rubber, Hertz force).
+- [x] Deformable rod grasp working via Featherstone+VBD coupling (lifts ~180 mm).
+- [x] Documented the prescribed-jaw negative result (squeezes, cannot lift).
+- [x] Soft pencil in the EXACT panda scene (`example_panda_soft_rod.py`, fork of the original
+      example): MuJoCo arm + VBD rod (one-way), round cylinder-tet rod, 50 VBD iters for stiffness,
+      grip/round-rod/spawn fixes. 720-frame composite `tactile_material_rubber_soft.mp4` +
+      pad-centric panels + 3-way `tactile_compare_metal_wood_softrubber.mp4` (FPS-labeled). Committed (55958d82).
+- [x] Proved MuJoCo+VBD couple (one-way: VBD reads body velocities) — corrects the earlier
+      "only Featherstone drives VBD friction" note.
+- [x] Measured rigid-vs-soft render perf: ~82 fps (rigid, CUDA graph) vs ~5 fps (soft FEM, eager) — ~16×.
+- [x] **SDG generation pipeline** vendored (PixelDiT + TRELLIS.2 submodules + `genpipe/`), verified
+      end-to-end (text→image→GLB). Commits dbe55ef8/c21dfb3e/c87b3e01/c41254a1.
+- [x] **Metal clock Newton scene** (`example_panda_clock_metal.py`) + **tactile measurement video**
+      (`tactile_clock_metal.py` → `tactile_material_clock_metal.mp4`, compliant pad + auto-zoom).
+- [x] **Profiling + scaling study**: ~8 s/image, ~62 s/object, ~5 s sim; both stages compute-bound
+      (no batch/concurrency speedup on 1 GPU). Fleet: 10k ≈ 3 h/77 GB (8 nodes); 1M ≈ 13 days/7.7 TB.
+- [x] **`genpipe/RUNBOOK.md`** written; cluster (oci-ord) repo cloned + `pixeldit` env built.
+
+</script>
+<script type="text/markdown" data-doc="dataset_ingestion.md">
+# Dataset → Newton Ingestion Framework (physics + tactile)
+
+Design for turning **pre-arranged scene datasets** (SAGE-10k first, then REST3D, RoboCasa,
+BEHAVIOR-1K, and our own `genpipe` GLBs) into **Newton physics + tactile simulation
+environments**. Reference implementation: `scene_ingest/` (repo root). Grounded in the verified
+asset→Newton recipe from `example_panda_clock_metal.py` (see `context.md` §7, `tactile_pipeline.md` §7).
+
+---
+
+## 1. Why
+
+`genpipe/` (PixelDiT→TRELLIS.2) generates **one object at a time**. The Robot-Baby *Explore* stage
+needs whole **human-arranged, contact-rich scenes** with physics and touch. Datasets like **SAGE-10k**
+already ship 10k arranged rooms / 565k objects with **mass, PBR, and placement** baked in — far cheaper
+than generating scenes from scratch. We want a single path that lifts *any* such dataset into a Newton
+`ModelBuilder` + tactile/vision sensors, with a **physical-enrichment** layer on top.
+
+**Two asset sources, one sink:** `genpipe` (generative, per-object) and this ingestion path (datasets,
+whole-scene) both feed the same Newton scene builder + tactile stack.
+
+## 2. Architecture — adapter → SceneSpec → Newton
+
+```
+SAGE-10k  ─┐
+REST3D    ─┤   per-dataset          dataset-agnostic          one Newton builder
+RoboCasa  ─┼──▶  ADAPTER    ──────▶   SceneSpec (IR)   ──────▶  build_newton_scene()
+BEHAVIOR  ─┤   (parse layout)        objects+room+robot        + tactile/vision sensors
+genpipe   ─┘                         +sensors+randomization    + solvers (MuJoCo/VBD)
+```
+
+- **Adapter** (`scene_ingest/adapters/<name>.py`): parses a dataset's native layout into `SceneSpec`.
+  The *only* dataset-specific code. SAGE reads `layout_*.json` + `objects/*.ply`.
+- **SceneSpec** (`scene_ingest/spec.py`): a small, physics-first intermediate representation. Decouples
+  "what the scene is" from "how Newton builds it".
+- **Builder** (`scene_ingest/newton_build.py`): `SceneSpec → newton.ModelBuilder`, dataset-agnostic.
+  Encodes the one verified recipe (convex-hull collision + hydroelastic SDF + full-mesh visual, material
+  from PBR + mass, static room, articulated doors), plus robot + sensor attachment and enrichment.
+
+## 3. SceneSpec (intermediate representation)
+
+Physics-first, minimal, SI units, Z-up (Newton convention).
+
+- **`ObjectSpec`** — one placeable body:
+  - `mesh_path` (PLY/GLB/OBJ) · `bbox_dims (w,l,h) [m]` (target physical size) · `up_axis` (source frame)
+  - `position (x,y,z) [m]` · `rotation` (quat or Euler-Z°) — pose in room frame, floor at z=0
+  - `mass [kg]` · `material` (see below) · `is_static` (fixed vs. dynamic) · `is_deformable` (→ FEM)
+  - `semantic_type` (e.g. "mug") · `support_parent` (floor | wall | `<object_id>`) — spawn/settle order
+- **`MaterialSpec`** — `friction (mu)`, `restitution`, `density [kg/m³]` (or `mass`→derive), `rigid_kh`
+  (`1e12` for hard, compliant pad handled at the robot), `young_E`/`poisson_nu` when deformable.
+- **`RoomSpec`** — `walls[]` (start/end/height/thickness → static extruded boxes), `floor` (ground
+  plane or box), `doors[]` (→ revolute articulation on a wall), `bounds`.
+- **`RobotSpec`** — urdf/asset + base pose + init joint config + which links are tactile pads.
+- **`SensorSpec`** — tactile (`SensorContact` + hydroelastic surface on pad links), vision
+  (`SensorTiledCamera`), proprio (`SensorIMU`).
+- **`RandomizationSpec`** — per-field distributions for the enrichment layer (§7).
+
+## 4. SAGE-10k adapter (the mapping)
+
+SAGE scene = `layout_<id>.json` + `objects/<source_id>.ply` (+ `_texture.png`) + `materials/`.
+Field mapping `layout.rooms[i]` → `SceneSpec`:
+
+| SAGE field | SceneSpec | Notes |
+|---|---|---|
+| `dimensions {width,length,height}` | `RoomSpec.bounds` | metres, floor z=0 |
+| `walls[] {start_point,end_point,height,thickness}` | `RoomSpec.walls` | static extruded boxes |
+| `doors[] {wall_id, position_on_wall, width, opens_inward}` | `RoomSpec.doors` | → revolute joint (optional) |
+| `objects[].source_id` | `ObjectSpec.mesh_path` = `objects/<source_id>.ply` | one PLY per object |
+| `objects[].position {x,y,z}` | `ObjectSpec.position` | metres, room frame |
+| `objects[].rotation {x,y,z}` (Euler°) | `ObjectSpec.rotation` | yaw=z; → quat |
+| `objects[].dimensions {w,l,h}` | `ObjectSpec.bbox_dims` | **fit mesh bbox to this** (scale) |
+| `objects[].mass` | `ObjectSpec.mass` | kg (0.25–60 seen) |
+| `objects[].pbr_parameters {metallic,roughness}` | `MaterialSpec` | metallic→hard/rigid_kh; roughness→mu heuristic |
+| `objects[].type` | `semantic_type` | "table","mug",… |
+| `objects[].place_id` | `support_parent` | `floor` / `<object_id>` / `wall` → settle order |
+
+**Calibration steps (need the live `newton` env to tune):**
+1. **Up-axis:** SAGE layout is Z-up (floor z=0); confirm the raw `.ply` up-axis and whether the mesh is
+   pre-centred or pre-posed. The `kits/export_glb.py` path applies the layout transform, so the PLY is a
+   **local-frame** mesh → we apply `scale · R(rotation) · T(position)` ourselves. (GLB export is Y-up;
+   raw PLY handling must be verified — start by fitting mesh AABB to `bbox_dims`.)
+2. **Scale:** rescale mesh so its AABB matches `bbox_dims` (SAGE dims are physical); do **not** trust raw
+   mesh units.
+3. **Seat on support:** drop each object so its bottom sits ~one contact-margin above its `support_parent`
+   surface (avoids frame-0 launch — see `context.md` §6 FEM-launch gotcha).
+
+## 5. Newton builder (dataset-agnostic) — the verified recipe
+
+Per `ObjectSpec` (mirrors `load_clock_geometry` + the clock `Example.__init__`):
+
+```python
+scene = trimesh.load(mesh_path); mesh = one_geometry(scene)
+v = fit_bbox(rotate_to_Zup(mesh.vertices), bbox_dims)         # scale to physical size
+hull = trimesh.Trimesh(v, faces).convex_hull                   # collision proxy
+density = mass / hull.volume                                   # derive density from mass + volume
+cfg = ModelBuilder.ShapeConfig(kh=material.rigid_kh, mu=material.mu,
+                               restitution=material.restitution, density=density,
+                               is_hydroelastic=True, gap=0.01)
+b = builder.add_body(xform=transform(position, quat(rotation)))
+builder.add_shape_mesh(body=b, mesh=newton.Mesh(hull_v, hull_f), cfg=cfg)   # collision (+visual full mesh)
+# static objects (walls, heavy furniture): add as a fixed body / shape on world
+```
+Then, once for the scene:
+- **Room:** walls → static boxes (`add_shape_box` on the world body); floor → `add_ground_plane` or a
+  thin static box with the floor material; doors → a hinged panel body + revolute joint (optional; skip
+  for a static room first).
+- **Convex-hull + hydroelastic:** `builder.approximate_meshes(method="convex_hull",
+  shape_indices=..., keep_visual_shapes=True)` for non-contact objects; for objects the robot will touch,
+  build a mesh SDF (`mesh.build_sdf(max_resolution=64, narrow_band_range=(-0.01,0.01), margin=gap)`) and set
+  `ShapeFlags.HYDROELASTIC` (dense tactile pressure needs the hydroelastic surface).
+- **Deformables** (`is_deformable`): `add_soft_mesh` (tetrahedralized) + `SolverVBD` alongside the rigid
+  solver, one model/state (see `tactile_pipeline.md` §4/§6 for the coupling recipe).
+
+**Materials (verified reasoning, `context.md` §5):** all *rigid* materials share `rigid_kh≈1e12`; they
+differ only by `mu` / `restitution` / `density`. Map `pbr.metallic`→hard vs. soft-ish `mu`, `roughness`→
+`mu` heuristic; only genuinely deformable items become FEM (differentiated by Young's `E`).
+
+## 6. Robot + tactile + vision attachment
+
+Reuse the `panda_hydro` / clock stack verbatim (fork, don't rebuild — `context.md` §6):
+- **Robot:** `builder.add_urdf(download_asset("franka_emika_panda")/…)` (or G1 for whole-body); set
+  finger/hand shapes to `HYDROELASTIC` with a **compliant pad** (`pad_kh≈1e10`) for a broad contact patch.
+- **Tactile:** two `SensorContact`s (pads←object for per-pad grip/shear; object←pads for shear-on-object,
+  world frame) + `HydroelasticSDF.get_contact_surface()` for the **dense per-face pressure map**
+  (`pressure = kh·max(0,−signed_depth)`). Per-step order: `solver.step → update_contacts → sensor.update →
+  get_contact_surface` (`context.md` §4). Pad-centric heatmap window (fixed pad frame).
+- **Vision:** `SensorTiledCamera` (RGB/depth) for the third-person / wrist view the Robot-Baby policy uses.
+- **Proprio:** `SensorIMU`.
+
+## 7. Physical enrichment (domain randomization) — the Robot-Baby differentiator
+
+The point of SDG here is *not* to reproduce SAGE's exact scene but to **randomize the physics the demo
+never revealed**. Per object, sample distributions over: **mass, center-of-mass offset, friction `mu`,
+restitution, hydroelastic compliance, articulation resistance, attachment strength**, plus scene-level
+lighting/materials. This is the `RandomizationSpec`; it's what makes the same intent require a *different*
+solution under different physics (ties to the main-branch `context.md` "outcome, not trajectory" pitch and
+`stack.md` enrichment layer).
+
+## 8. Validation (simulation-ready gate)
+
+Mirror SAGE's own stability check (`kits/load_isaacsim_demo.py` → stable/unstable ratio) using Newton:
+settle the scene N steps under gravity, flag objects whose pose drifts > ε (fell / penetrated / launched),
+and reuse this repo's **penetration metric** (`d = dot(n, bx_b−bx_a) − (m0+m1)`; pen = `max(0,−d)`,
+`context.md` §3). Emit a per-scene report; drop or re-seat failing objects. Gate a scene as "sim-ready"
+before it enters an RL curriculum.
+
+## 9. Scaling
+
+- **Cost:** ingest is cheap vs. generation — load PLY + convex hull ≈ tens of ms/object; hydroelastic SDF
+  ≈ 0.3 s/object (only for objects the robot touches — build lazily). No PixelDiT/TRELLIS cost.
+- **Storage:** consume SAGE in place (`$MY_DATA_HOME/robot_baby_data`, 870 GB). Cache built SDFs beside the
+  meshes (~0.5 MB/object) or rebuild at load (0.3 s).
+- **Fleet:** one scene → one Newton world; batch scenes across GPUs (1 stream/GPU, as in `genpipe/README.md`).
+  Shard by scene id.
+
+## 10. Roadmap (this framework)
+
+1. `scene_ingest/spec.py` + `adapters/sage.py` + `newton_build.py` (reference scaffold — **done, untested
+   in the live env**).
+2. Bring up the `newton` conda env; run one SAGE room headless → USD + a settle/stability report.
+3. Add a Franka + tactile pads; pick one object off a SAGE table and record a tactile video (reuse
+   `tactile_video.py` composite).
+4. Wire `RandomizationSpec`; sweep mass/friction/compliance on the picked object.
+5. Second adapter (REST3D or a `genpipe` GLB scene) to prove the IR is dataset-agnostic.
+6. Feed sim-ready scenes to the Robot-Baby *Explore* stage (main branch `2026_7_14_mike`).
+
+## 11. How this fits the two branches
+
+- **This branch (`mike_2026_7_21_newton`)** = the Newton engine fork + tactile stack + `genpipe` +
+  **this ingestion framework** → the *environment factory*.
+- **Main branch (`2026_7_14_mike`, Robot Baby)** = demonstration-conditioned, outcome-driven RL that
+  *consumes* these environments (Explore/Learn). SAGE-10k, REST3D, and `genpipe` are complementary scene
+  sources feeding the same Newton physics+tactile sink.
+
+</script>
+<script type="text/markdown" data-doc="tactile_pipeline.md">
+# Tactile Pipeline — Design & Architecture
+
+Design notes for the tactile demos: solver setup, contact/sensor wiring, the
+deformable-grasp coupling, and the video-composite pipeline. Results live in
+`experimental_conclusions.md`; high-level overview in `../context.md`.
+
+---
+
+## 1. Three scene families
+
+| Scene | Object | Solver(s) | Drive | Force signal |
+|---|---|---|---|---|
+| Rigid grasp (`tactile_video.py`) | rigid pen (capsule) | SolverMuJoCo + hydroelastic SDF | panda_hydro IK waypoints | `SensorContact` (world frame) + hydroelastic pressure |
+| FEM indenter (`tactile_fem.py`) | soft block (`add_soft_grid`) | SolverVBD | prescribed sphere descent | Hertz `F=(4/3)E*√R d^1.5` from depth |
+| FEM grasp (`tactile_rod_franka.py`) | soft rod (`add_soft_grid`) | Featherstone (robot) + VBD (rod) | Franka IK keyframes | (panels TODO) |
+| FEM pencil, panda scene (`example_panda_soft_rod.py`) | round soft rod (`add_soft_mesh` cylinder) | **SolverMuJoCo (arm) + VBD (rod)** | original panda_hydro IK waypoints | VBD soft-contact compression [mm] |
+| Metal clock, panda scene (`example_panda_clock_metal.py` + `tactile_clock_metal.py`) | rigid **generated** clock (TRELLIS GLB → convex-hull collision + hydroelastic SDF, full mesh as visual) | SolverMuJoCo + hydroelastic SDF | panda_hydro waypoints (release from high) | `SensorContact` + hydroelastic pad pressure (**compliant pad** `pad_kh=1e10`) |
+
+## 2. Rigid grasp pipeline (`tactile_video.py`)
+
+- Built on `newton.examples.robot.example_robot_panda_hydro.Example` (Franka + hydroelastic SDF,
+  `SolverMuJoCo` solver="newton"). Two monkeypatches at import:
+  - `HydroelasticSDF.Config.__init__` → force `output_contact_surface=True`.
+  - `CollisionPipeline.contacts` → `request_contact_attributes("force")` before allocation.
+- **Two `SensorContact`s**: (a) fingers←pen for per-pad grip/shear; (b) pen←fingers for
+  shear *on the pen* (world frame, no projection) to settle direction-consistency questions.
+- Per step: `ex.step()` → `ex.render()` → `solver.update_contacts` → `sensor.update` →
+  read hydroelastic `get_contact_surface()`.
+- **Pad window**: anchored to the pad's fixed geometry (origin + thin-axis normal, ±2 cm),
+  not the moving contact points, so the heatmap doesn't balloon as the contact slides.
+- **Material override**: `--material` monkeypatches `add_shape_capsule` to set
+  `cfg.kh/mu/restitution/density`. Rigid materials share `RIGID_KH=1e12`.
+
+## 3. FEM indenter pipeline (`tactile_fem.py`)
+
+- `add_ground_plane` + `add_soft_grid` block + spherical indenter rigid body. `builder.color()`
+  before finalize (required for VBD).
+- `SolverVBD(iterations=10, integrate_with_external_rigid_solver=True,
+  particle_enable_self_contact=False, particle_enable_tile_solve=False,
+  rigid_contact_hard=False, rigid_body_particle_contact_buffer_size=512)`.
+- Indenter is **kinematically prescribed** (set `body_q` + `body_qd` each substep). VBD with
+  `external_rigid=True` does not integrate it, so prescription is required.
+- `lame(E, ν)` → `k_mu=E/(2(1+ν))`, `k_lambda=Eν/((1+ν)(1−2ν))`.
+- Force is **analytic Hertz** (displacement is prescribed; VBD prevents penetration so a
+  penalty-force read is ~0). Honest label in the panel: "Hertz normal force".
+
+## 4. FEM grasp coupling (`tactile_rod_franka.py`) — the important one
+
+Adapted from `newton.examples.softbody.example_softbody_franka` (Franka + rubber duck). One
+`ModelBuilder` holds the Franka URDF, table, ground, and the soft rod. **Two solvers, one
+state, alternating each substep:**
+
+```
+per substep:
+  clear_forces
+  # robot as KINEMATIC INTEGRATOR (produces body velocities for friction):
+  particle_count = 0; gravity = 0; shape_contact_pair_count = 0
+  state.joint_qd = target_joint_qd            # = (IK target_q - current_q)/frame_dt
+  robot_solver.step(...)                       # SolverFeatherstone
+  particle_f.zero_(); restore particle_count + gravity
+  # deformable + contacts:
+  collision_pipeline.collide(state, contacts)
+  soft_solver.step(...)                        # SolverVBD, external_rigid=True
+  swap states
+```
+
+- **Why Featherstone, not prescribed `body_q`**: a teleported body carries no velocity, so VBD
+  applies no tangential (static-friction) impulse → the rod slips. Featherstone integrates the
+  arm from `joint_qd` velocity targets, giving bodies real velocities VBD friction can act on.
+- **MuJoCo also couples (see §6).** Featherstone is the shipped-example recipe, but MuJoCo works
+  too: VBD only *reads* `body_q`/`body_qd`, so any rigid solver that updates them drives friction.
+  MuJoCo is preferred for the panda scene (keeps the exact arm dynamics + hydroelastic look).
+- IK: `newton.ik.IKSolver` (position + rotation + joint-limit objectives), EE link_offset
+  `(0,0,0.22)` along the tool axis. Gripper fingers set directly via `set_gripper_q` kernel
+  (last two joint coords), `finger_pos = activation·0.04`.
+- Contact material: `model.soft_contact_ke=2e6, kd=2e-1, mu=1.0`; `shape_material_mu=1.5`.
+- **Grasp tuning that worked**: rod 10.8×1.8×2.4 cm (E=1e6, ρ=200), spawn bottom 5 mm above
+  the table (avoid launch), descend EE to pz=0.20 to straddle the short rod, `gripper_close=0.18`
+  (close hard on the 18 mm width). Result: gripped + lifted ~180 mm.
+
+## 5. Video composite pipeline (shared)
+
+- Headless GL: `pyglet.options["headless"]=True` before importing newton; `ViewerGL(headless=True)`;
+  `viewer.log_state(state)` renders deforming soft bodies; `viewer.get_frame().numpy()` →
+  `(H,W,3)` uint8.
+- Two-pass: pass 1 simulates + caches scene PNGs + measurement arrays; pass 2 composites with
+  matplotlib (scene + heatmap via `scipy.interpolate.griddata` linear + trace panels), then
+  `ffmpeg` to mp4. Custom diverging colormap dark-blue→red for pressure/compression.
+
+## 6. Soft pencil in the EXACT panda scene (`example_panda_soft_rod.py`) — the faithful variant
+
+Reproduces `tactile_material_metal.mp4` with a soft pencil by **forking the original example file**
+(`example_robot_panda_hydro.py`) and changing ONLY the object + solver — everything else (arm,
+pads, table, cup, camera, IK waypoints, hydroelastic overlay, shape colors, ground) is byte-for-byte
+the original. A from-scratch `ModelBuilder` is wrong: shape colors are a deterministic palette
+indexed by shape order, so a rebuild silently recolors the scene and drops pieces.
+
+- **Object**: rigid capsule (`add_shape_capsule`, r=0.005, L=0.14) → round soft FEM rod via
+  `add_soft_mesh(vertices, indices)` with a local `cylinder_tetmesh(radius, length)` helper
+  (structured center-fan prisms → 3 tets each, reordered to positive volume; a **flat facet
+  seated at the bottom** so it doesn't roll). No rigid "object" body.
+- **Solvers**: original `SolverMuJoCo` arm + `SolverVBD` rod, one model/state, alternating each
+  substep (`collide → mujoco.step → vbd.step → swap`). `builder.color()` before finalize;
+  `ShapeFlags.COLLIDE_PARTICLES` on every rigid shape; run **eager** (`self.graph=None`).
+- **Stiffness**: `E=2e7, ν=0.45, ρ=200`, **50 VBD iterations** — iterations (not E) set apparent
+  stiffness; with few iterations the rod stays floppy at any E (see conclusions §7).
+- **Grip**: one-way coupling means the rod can't stop the rigid fingers, so the original
+  `gripper=0.06·(1−t)` (full close) crushes/squirts it; remap the *closed* finger pos to a
+  rod-thickness gap (`GRIP_CLOSE≈0.016`). Grasp reaches slightly lower (`grasping_offset z=0.12`).
+- **Tactile panels** (`tactile_soft_rod_video.py`): a soft body has no hydroelastic surface, so the
+  pad heatmap shows **VBD soft-contact compression [mm]** (`contacts.soft_contact_*` masked to the
+  pad shape), grip force ≈ `kₑ·Σcompression·area`, plus a soft-body rod bend & height panel. The
+  pad view is **pad-centric** exactly like the rigid one (fixed pad frame, gravity-up, rod
+  projection moving within the window). `stitch_compare.sh` hstacks metal|wood|soft with FPS labels.
+- **Performance**: soft (MuJoCo + VBD 50 it, eager) ≈ **5 fps** vs rigid (MuJoCo + hydroelastic,
+  CUDA graph) ≈ **82 fps** — ~16× slower (VBD iterations + eager + per-substep collision).
+
+## 7. Generation pipeline (PixelDiT→TRELLIS.2→Newton) — architecture
+
+Synthetic-data generation of rigid objects for Newton. Three isolated conda envs bridged by files
+on disk (their dependency stacks conflict): **pixeldit** (text→image) → **trellis2** (image→3D GLB)
+→ **newton** (rigid-body sim). Full setup/run/cluster guide: **`genpipe/RUNBOOK.md`**; architecture +
+per-item cost + fleet scaling: `genpipe/README.md`.
+
+- **PixelDiT** (`third_party/PixelDiT`, `t2i/inference.py`): 1024² pixel-space diffusion, 50 steps,
+  Gemma-2 text encoder (public `Efficient-Large-Model/gemma-2-2b-it` mirror — no gate). `--bs` batches
+  prompts (no throughput gain; compute-bound). Output PNG/JPG.
+- **TRELLIS.2-4B** (`third_party/TRELLIS.2`, driven by `genpipe/trellis_image_to_glb.py`):
+  DINOv3 image conditioning → sparse-structure flow → SLat flow (shape+texture) → mesh decode →
+  xatlas UV + PBR texture bake → GLB. Runner fixes (all baked in): xformers attn backend, gated
+  DINOv3 needs `HF_TOKEN`, RMBG-2.0 rembg → ungated `ZhengPeng7/BiRefNet`, einops/fp32, transformers-v5
+  `.layer` nesting patch, `sys.path` for the source package. `num_samples>1` batching is broken.
+- **Newton**: load the GLB as a rigid body (convex-hull collision + hydroelastic SDF, full mesh as
+  visual) — see `example_panda_clock_metal.py` and the scene-families table above.
+
+</script>
+<script type="text/markdown" data-doc="experimental_conclusions.md">
+# Experimental Conclusions
+
+Results and verified findings. Design/architecture in `tactile_pipeline.md`;
+environment + gotchas in `../context.md`.
+
+---
+
+## 1. FPS vs collision quality
+
+- **XPBD boxes**: penetration ∝ 1/iterations and FPS ∝ 1/iterations — a genuine speed↔quality dial.
+- **panda_hydro (MuJoCo "newton" + hydroelastic SDF)**: `iterations` saturates by ~5,
+  `ls_iterations` is inert, `substeps`/`impratio` only cost FPS. The effective penetration lever
+  is **`kh`**, but it trades against **`dt`**, not FPS: MuJoCo's implicit integrator caps effective
+  stiffness at ≈1/dt.
+  - substeps=2: `kh` inert (1e11=1e14=1e15 → ~1.1 mm).
+  - substeps=10: `kh` helps to a dt-floor (~0.13 mm by `kh=1e13`), then saturates.
+  - To go lower, raise `kh` **and** substeps together → FPS cost returns (0.033 mm @ 25 FPS vs
+    73 FPS default). No blow-ups (implicit cap absorbs stiffness).
+- panda_hydro is **collision-bound** (SDF queries); `sdf_max_resolution` is the real FPS lever.
+
+## 2. Tactile grip on the rigid pen
+
+- **Per-pad force metric**: use per-pad magnitude `‖tf[i] − tfr[i]‖`, NOT the vector sum of both
+  pads (`(tf−tfr).sum(0)` ≈ 0 because the two pads oppose — earlier this wrongly read as "no contact").
+- **Holding the light pen** (≈0.11 N): the two pads apply an **opposing vertical shear couple**
+  (`cos∠(L,R) ≈ −1`), net ≈ 0. Verified *not* a frame bug (pen static; both pads' up-axes identical;
+  opposition is in raw world-frame sensor output).
+- **Pushing the pen into the cup bottom** (`--push-after`): cup supplies the upward reaction, so
+  **both pads shear the pen downward together** (`cos∠ → +1`, ~12–17 N each).
+
+## 3. Material model
+
+- Confirmed reasoning: **rigid/hard materials share one rigid `kh`**; stiffness does not
+  differentiate rigid contact. They differ only by **friction, density, restitution**.
+- **Soft materials must be FEM** (Young's modulus `E`), not a low `kh` — a low `kh` couples
+  softness to deep penetration and the grip slips (rubber at `kh=2e8` penetrated 1.31 mm / 26% of
+  the pen radius and was not lifted).
+
+## 4. FEM indenter — Hertz force span (12 mm prescribed indentation, ν=0.45)
+
+| Material | E [Pa] | Hertz force |
+|---|---|---|
+| gel | 5e4 | 15.5 N |
+| soft_rubber | 2e5 | 62 N |
+| rubber | 1e6 | 311 N |
+| firm_rubber | 5e6 | 1554 N |
+
+Force scales cleanly with stiffness at fixed indentation (~100× over the E range). Block deforms
+realistically (surface dimples, sides bulge, no pass-through).
+
+## 5. Deformable grasp — what holds vs what slips
+
+- **Prescribed-jaw grasp (`tactile_rod_probe.py`): FAILS to lift.** Across 5 configs (pinch depth,
+  `ke`/`kf`/`mu` up to 5.0, iterations up to 20, lift speed, stiffer rubber, longer jaws,
+  `rigid_contact_hard=True`) the rod **squeezes in Y but is never dragged up in Z** — it stays on
+  the ground. Root cause: teleporting `body_q` each substep resets the friction anchor → no static
+  friction. Visual confirmation: `tactile_rod_probe.mp4` (jaws lift, rod stays on the table).
+- **Featherstone+VBD grasp (`tactile_rod_franka.py`): WORKS.** Franka grasps the deformable rod by
+  friction and **lifts it ~180 mm** (rod mean-z 218 → 398 mm; zmin 204 → 379 mm), deforming while
+  held. `tactile_rod_franka.mp4` (1110 frames) rendered. The fix is solver-integrated body
+  velocities (Featherstone as kinematic integrator), per `example_softbody_franka`.
+- Grasp tuning: rod must spawn slightly above the table (else launched at frame 0), EE must descend
+  far enough to straddle the short rod (pz=0.20), and the gripper must close hard (`gripper_close=0.18`)
+  on the 18 mm width.
+
+## 6. Soft pencil in the EXACT panda scene (MuJoCo + VBD) — what worked
+
+Faithful soft variant of `tactile_material_metal.mp4` (`example_panda_soft_rod.py`, forked from
+the original example; composite `tactile_soft_rod_video.py`).
+
+- **MuJoCo + VBD couple on one model (one-way).** MuJoCo silently ignores particles; VBD with
+  `integrate_with_external_rigid_solver=True` only reads `body_q`/`body_qd` for friction and never
+  moves rigid bodies. So the original MuJoCo arm drives the VBD rod's friction — no Featherstone
+  needed. This keeps the *exact* panda arm dynamics + hydroelastic overlay. (Corrects the earlier
+  "MuJoCo doesn't couple to VBD" note — that was the shipped-example convention, not a limit.)
+- **Stiffness is iteration-limited, not modulus-limited.** With 5 VBD iterations the rod stayed
+  floppy (90° fold) no matter the modulus: E = 8e5 → 1e8 gave the **same** ~25 mm bend. Raising to
+  **50 iterations** at E=2e7 cut the bend to ~5–11 mm (stiff, nearly straight). Iterations are the
+  lever; E past the convergence limit does nothing.
+- **Grasp required three fixes** (one-way soft body, round object): close the gripper to a
+  rod-thickness gap (`GRIP_CLOSE≈0.016`, not 0 — else it crushes/jams the pads); seat a flat facet
+  at the cylinder bottom (else it rolls off the table pre-grasp); spawn at exact rest height (else
+  it launches). With these, the rod is gripped and lifted/carried (z 104 → ~320 mm).
+- **Scene fidelity comes from forking, not constants.** A from-scratch rebuild recolored the scene
+  (yellow→cyan table, magenta→blue cup) and lost the floor because GL colors are palette-indexed by
+  shape order. Forking the example reproduced metal's exact look automatically.
+- **Performance (rigid vs non-rigid).** Rigid (MuJoCo + hydroelastic, CUDA-graph-captured):
+  **12.3 ms/frame (~82 fps)**. Soft (MuJoCo arm + VBD 50 it, eager): **~196–201 ms/frame (~5 fps)**
+  — **~16× slower**, from 500 VBD iterations/frame, eager execution (VBD's BVH rebuild can't be
+  graph-captured), and per-substep collision. GL render cost itself is identical.
+
+## 7. Status of deliverables
+
+- Rigid-material videos: `tactile_material_{metal,wood,porcelain}.mp4` (720 frames). **Done.**
+- FEM indenter videos: `tactile_fem_{gel,soft_rubber,rubber,firm_rubber}.mp4` (200 frames). **Done.**
+- FEM Franka rod grasp: `tactile_rod_franka.mp4` (1110 frames), scene only. **Done; tactile panels pending.**
+- **Soft pencil, panda scene**: `tactile_material_rubber_soft.mp4` (720 frames, full composite with
+  pad-centric compression panels) + `tactile_compare_metal_wood_softrubber.mp4` (3-way, FPS-labeled).
+  **Done.** Code committed on `shengzew/fps-collision-benchmarks` (55958d82).
+
+## 8. Generation pipeline (PixelDiT→TRELLIS.2→Newton) — clock scene + profiling
+
+Generative asset pipeline vendored as submodules (see `genpipe/README.md`): PixelDiT text→image →
+TRELLIS.2 image→3D GLB → Newton rigid body. Verified end-to-end (brass alarm clock).
+
+- **Metal clock in the exact panda_hydro scene** (`example_panda_clock_metal.py`, fork of
+  `example_robot_panda_hydro.py`): the TRELLIS GLB loaded as a rigid body (convex-hull collision +
+  hydroelastic SDF + full mesh as visual overlay), metal material (μ=0.5, kh=1e12, **density derived
+  from mass/volume** = mass ÷ hull volume), gripped and released **from high above into the cup**
+  (`grip_dx=0.03` centers the jaws). At the default 2× scale (7.2 cm) the clock exceeds the ~5 cm cup
+  opening, so it perches on the rim (shrink to ~1× or enlarge the cup to seat it inside).
+- **Tactile measurement video** (`tactile_clock_metal.py`, adapted from `tactile_video.py`):
+  same composite as `tactile_material_wood.mp4` (scene + per-pad pressure heatmap + grip-force +
+  shear-on-object + material-signature). Two fixes for the clock: **auto-zoom the pad window to the
+  actual contact** (was a fixed ±2 cm box), and **compliant pads** (`pad_kh=1e10`) so they conform to
+  the rounded clock → broad ~100 mm² patch at realistic ~3 MPa (the rigid pad only touched the ~8.5 mm
+  dome → tiny 35 mm² patch; pressure proxy scaled by the pad, not the rigid clock kh). →
+  `tactile_material_clock_metal.mp4` (570 frames, 19 s).
+
+**Profiling (RTX 6000 Ada, one GPU, models resident):** image ~8–9 s; 3D object ~62 s end-to-end
+(range 46–84 s by complexity); Newton grasp sim ~5 s (8.6 ms/frame). Model loads: PixelDiT ~12 s,
+TRELLIS 4B ~47 s + ~64 s first-object JIT warmup. Tactile video cost is ~80 % matplotlib compositing
+(333 ms/frame), not physics.
+
+**Scaling (measured):** both stages are **compute-bound** — batching (PixelDiT `--bs`, flat 8.6→9.6
+s/img) or concurrency (TRELLIS 1/2/3 procs, each slows ∝ N; GPU 100 % util) gives **no throughput
+gain** on one GPU; memory is not the limit (~6–22 GB of 48 GB). (`num_samples>1` batching is broken
+in the 4B pipeline — tensor-shape bug 64≠128.) N objects ≈ N × single-object time → scale out across
+GPUs (1 stream/GPU optimal), not up on one.
+
+**Fleet estimate** (~71 s/object; 8 GPU/node, linear in total GPUs; Ada, H100 ~1.5–2× faster).
+Hydroelastic-SDF conversion is near-free (~0.3 s/object build, ~0.5 MB/object, or 0 if rebuilt at
+sim-load):
+
+| objects | gen compute | 8 nodes (64 GPU) | 16 nodes (128 GPU) | storage (GLB+img+SDF) |
+|---|---|---|---|---|
+| 10k | ~197 GPU-hr | ~3 h | ~1.5 h | ~77 GB |
+| 1M | ~19,700 GPU-hr | ~13 days | ~6.4 days | **~7.7 TB** (7.1 TB GLB + 75 GB img + 0.5 TB SDF) |
+
+At 1M scale: budget for retries/failures and shard the output (subdirs) — 1M files on Lustre.
+
+## 9. Cluster setup (oci-ord Slurm) — in progress
+
+Bootstrapping the SDG pipeline on the OCI-ord cluster (`sdg/newton` under
+`/lustre/fsw/portfolios/nvr/users/shengzew`), driven via a `screen` session `ord_pod`. Full
+guide + gotchas + live state: **`genpipe/RUNBOOK.md`** (authoritative). Highlights:
+
+- Repo cloned (branch + submodules + eigen). **`pixeldit` env done** (torch 2.5.0+cu124 imports).
+- **`trellis2` env incomplete** — the **login node SIGKILLs heavy builds** (torch install died
+  mid-way). Fix: re-run `genpipe/cluster_setup.sh "8.0;9.0"` **inside a Slurm job** (account
+  `nvr_nxp_visionconferencing`, 8 GPU/node; no system nvcc → conda cuda-toolkit 12.4). Open
+  question: whether compute nodes have internet for the pip/clone steps.
+- Screen-channel gotchas (documented in RUNBOOK): shell vars come back empty → absolute paths;
+  ~64-col wrap mangles long lines → widen; avoid escaped quotes / regex brackets; background long
+  ops + poll logs.
+
+</script>
+<script type="text/markdown" data-doc="../genpipe/README.md">
+# genpipe — text → image → 3D asset generation for Newton sims
+
+A two-model generation bridge that produces **rigid-body 3D assets** (GLB meshes)
+for use in Newton simulations:
+
+```
+text prompt ──[PixelDiT]──▶ image (PNG) ──[TRELLIS.2]──▶ textured mesh (GLB) ──▶ Newton rigid body
+```
+
+Both models live as git submodules under `third_party/` and run in their **own
+conda envs** (their dependency stacks conflict with each other and with `newton`).
+They are bridged by files on disk in `pipeline_out/` (gitignored).
+
+| Stage | Repo (submodule) | conda env | In → Out |
+|---|---|---|---|
+| Text → image | `third_party/PixelDiT` | `pixeldit` | prompt → 1024² PNG |
+| Image → 3D | `third_party/TRELLIS.2` | `trellis2` | PNG → `.glb` (PBR mesh) |
+
+## Submodules
+
+```bash
+git submodule update --init --recursive third_party/PixelDiT third_party/TRELLIS.2
+```
+
+## Environment setup (conda)
+
+### PixelDiT (`pixeldit`) — pure pip, no compile
+```bash
+conda create -n pixeldit python=3.10 -y
+conda activate pixeldit
+pip install -r third_party/PixelDiT/requirements.txt    # torch 2.5.0+cu124
+```
+Checkpoint `nvidia/PixelDiT-1300M-1024px` and the `Efficient-Large-Model/gemma-2-2b-it`
+text encoder auto-download on first run (both public — no HF token needed).
+
+### TRELLIS.2 (`trellis2`) — compiles CUDA extensions
+The upstream `setup.sh --basic` runs `sudo apt install libjpeg-dev` + `pillow-simd`,
+and assumes a cu124-matching `nvcc`. This box's system `nvcc` is 11.8, so we install a
+**cuda-toolkit 12.4 into the env** and skip pillow-simd (stock Pillow is fine). The
+staged build script is `/tmp/build_trellis2.sh` (kept out of the repo); essentials:
+
+```bash
+conda create -n trellis2 python=3.10 -y && conda activate trellis2
+pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu124
+conda install -y -c "nvidia/label/cuda-12.4.1" cuda-toolkit   # nvcc matching cu124
+export CUDA_HOME="$CONDA_PREFIX" PATH="$CONDA_PREFIX/bin:$PATH" TORCH_CUDA_ARCH_LIST="8.9"
+# basic deps (no pillow-simd/sudo):
+pip install imageio imageio-ffmpeg tqdm easydict opencv-python-headless ninja trimesh \
+    transformers gradio==6.0.1 tensorboard pandas lpips zstandard kornia timm
+pip install "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8"
+# Attention backend: flash-attn==2.7.3 ships only an sdist whose build can't see torch
+# under pip isolation, so it fails to install. TRELLIS.2 supports xformers as a drop-in
+# (sparse + dense), selected via ATTN_BACKEND=xformers. Use the torch-2.6.0-matching wheel:
+pip install "xformers==0.0.29.post3" --no-deps
+# compiled extensions (need CUDA_HOME above): nvdiffrast (v0.4.0), nvdiffrec (renderutils),
+# CuMesh, FlexGEMM (import name flex_gemm), o-voxel — clone URLs in third_party/TRELLIS.2/setup.sh.
+```
+The 4B checkpoint `microsoft/TRELLIS.2-4B` auto-downloads on first run (≥24 GB VRAM).
+
+> **Runtime note:** `trellis2` needs `CUDA_HOME=$CONDA_PREFIX` on the PATH **and**
+> `ATTN_BACKEND=xformers` at inference time. `nvdiffrast` JIT-compiles its CUDA ops on
+> first render (needs CUDA_HOME). `genpipe/trellis_image_to_glb.py` sets ATTN_BACKEND
+> itself; `run_pipeline.sh` exports both.
+
+## Usage
+
+End-to-end (defaults: `pipeline_out/prompt.txt`, output to `pipeline_out/`, GPU 1):
+```bash
+bash genpipe/run_pipeline.sh [PROMPT_FILE] [OUTDIR] [GPU]
+```
+
+Just the 3D step on an existing image:
+```bash
+conda activate trellis2
+export CUDA_HOME=$CONDA_PREFIX PATH=$CONDA_PREFIX/bin:$PATH
+CUDA_VISIBLE_DEVICES=1 python genpipe/trellis_image_to_glb.py \
+    --image pipeline_out/vis/<img>.png --out pipeline_out/object.glb \
+    --preview pipeline_out/object_preview.png
+```
+
+Outputs (all under `pipeline_out/`, gitignored):
+- `vis/.../*.png` — PixelDiT image
+- `object.glb` — TRELLIS.2 textured mesh (load as a Newton rigid body)
+- `object_preview.png` — one rendered frame of the mesh
+
+## Gotchas (all resolved — handled in the scripts unless noted)
+
+Setting these up surfaced several issues; the fixes are baked into `genpipe/` so a
+clean run works, but they're recorded here for reproducing the envs from scratch:
+
+1. **hf-xet stalls** on this box — HF downloads hang at 0 B. Set `HF_HUB_DISABLE_XET=1`
+   (run_pipeline.sh exports it).
+2. **flash-attn won't install** — its PyPI sdist build can't see torch under pip isolation
+   (`No module named 'torch'`). Use **xformers** instead (`ATTN_BACKEND=xformers`), which
+   TRELLIS.2 supports for both sparse + dense attention. `trellis_image_to_glb.py` sets it.
+3. **nvcc mismatch** — system `nvcc` is 11.8 but torch is cu124; the CUDA extensions won't
+   build. Install `cuda-toolkit 12.4` into the env and `export CUDA_HOME=$CONDA_PREFIX`.
+4. **DINOv3 image encoder is gated** (`facebook/dinov3-vitl16-pretrain-lvd1689m`) — needs an
+   `HF_TOKEN` with access. *(Not auto-handled — you must provide the token.)*
+5. **RMBG-2.0 rembg is gated** (`briaai/RMBG-2.0`) — `trellis_image_to_glb.py` redirects it to
+   the ungated `ZhengPeng7/BiRefNet` (identical `AutoModelForImageSegmentation` interface).
+6. **BiRefNet remote code needs `einops`** — `pip install einops` into the env.
+7. **BiRefNet ships fp16 weights**, wrapper feeds fp32 input → conv dtype mismatch; the script
+   forces the rembg model to fp32.
+8. **transformers ≥5 nests DINOv3 blocks** under `.model` (the encoder); TRELLIS.2 expects the
+   flat `.layer`. The script patches `DinoV3FeatureExtractor.extract_features` to find either.
+9. **`trellis2` is a source package** (not pip-installed) — the script adds its repo root to
+   `sys.path` and `chdir`s into it.
+
+## Performance & scaling (measured, RTX 6000 Ada, one GPU)
+
+Per-item compute with the model already resident (loads amortized over a batch):
+
+| Stage | Marginal per item | Notes |
+|---|---|---|
+| PixelDiT text→image (1024², 50 steps) | **~8–9 s / image** | one-time load ~12 s |
+| TRELLIS.2 image→3D (end-to-end incl. GLB export) | **~62 s / object** (range 46–84 s by mesh complexity) | one-time 4B load ~47 s + first-object JIT warmup ~64 s |
+| Newton grasp sim | ~5 s (8.6 ms/frame, 116 fps) | negligible |
+
+**One-GPU scaling — it's compute-bound, so packing more in gives no speedup:**
+- PixelDiT `--bs` 1→6: per-image stays ~8.6→9.6 s (flat), memory +~2 GB/image (12→22 GB). GPU already saturated at bs=1.
+- TRELLIS concurrent processes 1/2/3: each slows ∝ N (35 → 69 → ~100 s), GPU pinned at 100 % util; peak mem only ~5.6 GB/gen (of 48 GB) so memory is *not* the limit. (`num_samples>1` batching is broken in the 4B pipeline — shape bug.)
+- **Consequence:** N objects ≈ N × single-object time on one GPU. The only wins are (a) amortizing model load + JIT by looping all items in one long-lived process, and (b) **scaling out across GPUs** (1 stream/GPU is optimal). A run of N objects on one GPU ≈ `47 + 111 + 62·(N−1)` s.
+
+**Fleet estimate — 10k objects** (assume 8 GPUs/node; scales linearly with total GPUs; Ada numbers, A100/H100 ~1.5–2× faster):
+- Total generation ≈ **197 GPU-hours** (image 25 + 3D 172).
+- **8 nodes (64 GPU): ~3 h · 16 nodes (128 GPU): ~1.5 h.**
+- **Space:** GLB meshes 7.1 MB × 10k = **71 GB** (+ source images ~0.75 GB).
+- **+ Hydroelastic SDF for Newton:** build is **~0.3 s/object** (full mesh, res 64; hull ~0.01 s) → +~1 GPU-hr total (**<1 %**, ~+30–50 s of wall time) and ~0.5 MB/object → **~5 GB** (or 0 if rebuilt at sim-load, 0.3 s each).
+- **Grand total ≈ 3 h / 77 GB on 8 nodes; 1.5 h / 77 GB on 16 nodes.**
+
+Instrumentation: `trellis_image_to_glb.py` prints `[PROFILE trellis]` (load/reconstruct/export); `tactile_clock_metal.py` prints `[PROFILE tactile]` (pass1 sim+render / pass2 composite).
+
+## Tips for sim-ready assets
+Prompt for a **single, centered object on a plain background, fully visible** — TRELLIS.2
+reconstructs one foreground object per image. The GLB is unit-scaled into the
+`[-0.5, 0.5]³` AABB; rescale to physical size when adding it to a Newton `ModelBuilder`.
+
+</script>
+<script type="text/markdown" data-doc="../genpipe/RUNBOOK.md">
+# RUNBOOK — set up & run the SDG pipeline (for another agent)
+
+End-to-end guide to set up and run the **synthetic-data generation (SDG)** pipeline
+in this repo: **PixelDiT (text→image) → TRELLIS.2 (image→3D GLB) → Newton (rigid-body
+sim)**. Covers a workstation and a Slurm cluster, every gotcha we hit, how to run
+generation, and the **current cluster state** (what's done / what's left).
+
+See also: `genpipe/README.md` (architecture, per-item cost, fleet scaling),
+`claude_context/experimental_conclusions.md` §8 (profiling), and the top-level
+`context.md`.
+
+---
+
+## 0. What this is
+
+- **Repo:** a fork of `newton`, branch **`shengzew/fps-collision-benchmarks`**.
+  - Remotes: **`mikewang`** = `ssh://git@gitlab-master.nvidia.com:12051/shengzew/newton_mikewang.git`
+    (push here); `origin` = `github.com/newton-physics/newton` (upstream, don't push).
+- **Bridge code:** `genpipe/` — `run_pipeline.sh` (end-to-end), `trellis_image_to_glb.py`
+  (image→GLB, with all the fixes baked in), `cluster_setup.sh` (env bootstrap), this file.
+- **Submodules:** `third_party/PixelDiT` (NVlabs), `third_party/TRELLIS.2` (microsoft,
+  has a nested `o-voxel/third_party/eigen` from gitlab.com).
+- **Newton demo:** `example_panda_clock_metal.py` (Franka grips the generated clock, metal
+  material, places in cup) + `tactile_clock_metal.py` (tactile measurement video).
+- Outputs are gitignored (`pipeline_out/`, `tactile_clock_frames/`, `*.mp4`, GLBs).
+
+## 1. Get the repo
+
+```bash
+git clone -b shengzew/fps-collision-benchmarks --recurse-submodules -j4 \
+  ssh://git@gitlab-master.nvidia.com:12051/shengzew/newton_mikewang.git newton
+# (or clone from a mirror and: git submodule update --init --recursive)
+```
+
+## 2. Conda envs
+
+Three **separate** envs — their dependency stacks conflict with each other and with
+`newton`. They are bridged by files on disk.
+
+| env | purpose | how |
+|---|---|---|
+| `pixeldit` | text→image | `conda create -n pixeldit python=3.10 -y`; `pip install -r third_party/PixelDiT/requirements.txt` (torch 2.5 cu124) |
+| `trellis2` | image→3D | see `genpipe/cluster_setup.sh` (torch 2.6 cu124 + conda cuda-toolkit 12.4 + xformers + CUDA extensions) |
+| `newton` | rigid-body sim | not yet built on the cluster; locally it's an editable `newton` + `uv sync --extra examples` (warp, mujoco-warp, usd, torch) |
+
+**One command does pixeldit + trellis2:**
+```bash
+bash genpipe/cluster_setup.sh "8.0;9.0"   # arg = TORCH_CUDA_ARCH_LIST (A100=8.0, H100=9.0)
+```
+It's idempotent-ish and prints `CLUSTER_SETUP_DONE` + an import smoke test on success.
+
+## 3. Gotchas (all handled in the scripts — here so you understand them)
+
+1. **`HF_HUB_DISABLE_XET=1`** — the hf-xet transfer protocol stalls at 0 B on our
+   networks; forces plain HTTPS.
+2. **flash-attn won't install** (its sdist build can't see torch under pip isolation) →
+   use **xformers** (`ATTN_BACKEND=xformers`), a drop-in for TRELLIS's sparse+dense attn.
+3. **No usable system `nvcc`** → install a conda **`cuda-toolkit 12.4`** into `trellis2`
+   and set `CUDA_HOME=$CONDA_PREFIX`, `TORCH_CUDA_ARCH_LIST=<arch>` before compiling.
+4. **DINOv3 image encoder is GATED** (`facebook/dinov3-vitl16-pretrain-lvd1689m`) →
+   need an **`HF_TOKEN` with access** at *generation* time (not for env setup). The user's
+   HF account (`McMvMc`) has access — supply the token via `export HF_TOKEN=...` (never commit it).
+5. **RMBG-2.0 rembg is GATED** (`briaai/RMBG-2.0`) → `trellis_image_to_glb.py` auto-redirects
+   to the ungated `ZhengPeng7/BiRefNet` (identical interface).
+6. **BiRefNet** needs `einops` and fp32 weights (handled).
+7. **transformers ≥5** nests DINOv3 blocks under `.model`; the script patches the feature walk.
+8. **`trellis2` is a source package** (not pip-installed) — the runner adds its repo root to `sys.path`.
+
+## 4. Run generation
+
+```bash
+# Full pipeline (needs HF_TOKEN with DINOv3 access):
+export HF_TOKEN=hf_...      # DINOv3-authorized token
+bash genpipe/run_pipeline.sh [PROMPT_FILE] [OUTDIR] [GPU]
+
+# Just image→3D on an existing image:
+conda activate trellis2
+export CUDA_HOME=$CONDA_PREFIX PATH=$CONDA_PREFIX/bin:$PATH ATTN_BACKEND=xformers HF_TOKEN=hf_...
+python genpipe/trellis_image_to_glb.py --image IMG.jpg --out obj.glb [--preview p.png]
+
+# Batch many objects in ONE process to amortize the model load (see /tmp/trellis_batch.py
+# pattern in the profiling notes): load pipeline once, loop pipe.run(img) per image.
+
+# Newton clock demo (needs the `newton` env + a generated GLB at pipeline_out/object.glb):
+python example_panda_clock_metal.py --viewer gl        # grip + place-in-cup
+python tactile_clock_metal.py --frames 570             # tactile measurement video
+```
+
+**Cost (RTX 6000 Ada, 1 GPU, model resident):** ~8 s/image, ~62 s/object, ~5 s sim.
+Both generative stages are **compute-bound** — no batch/concurrency speedup on one GPU, so
+scale **out across GPUs** (1 stream/GPU). 10k objects ≈ 197 GPU-hr (~3 h on 8×8-GPU nodes),
+~71 GB GLBs; hydroelastic-SDF conversion is ~0.3 s/object (+~5 GB). Details in `genpipe/README.md`.
+
+## 5. Cluster specifics (oci-ord, Slurm)
+
+- **Login node:** `oci-ord-cs`, conda base on Lustre, `git` + `gcc 11`, **no system `nvcc`**.
+  Repo lives at `/lustre/fsw/portfolios/nvr/users/shengzew/sdg/newton`
+  (real path `/lustre/fs12/.../nvr_nxp_visionconferencing/users/shengzew/sdg/newton`).
+- **Slurm:** account **`nvr_nxp_visionconferencing`**, **8 GPUs/node**, partitions
+  `backfill_singlenode` / `batch_singlenode` (gpu:8) and `cpu`. GRES is untyped (`gpu:8`) —
+  confirm the GPU model with a job: `srun -A nvr_nxp_visionconferencing -p backfill_singlenode
+  --gres=gpu:1 -t 2 nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader`.
+- **⚠️ The login node kills heavy processes.** Our `cluster_setup.sh` got **SIGKILLed
+  mid-`torch`-install** for `trellis2` when run on the login node. **Run the build inside a
+  Slurm job**, e.g.:
+  ```bash
+  srun -A nvr_nxp_visionconferencing -p backfill_singlenode --gres=gpu:1 -t 120 \
+    bash /lustre/fsw/portfolios/nvr/users/shengzew/sdg/newton/genpipe/cluster_setup.sh "8.0;9.0"
+  ```
+  or `sbatch` a wrapper. **Check whether compute nodes have internet** (`srun ... git ls-remote
+  https://github.com/NVlabs/PixelDiT.git`); if they don't, the pip/clone steps must run on the
+  login node in small pieces (or use a data-mover / offline wheels) — TBD.
+- All GPU work (generation, verification) goes through `srun`/`sbatch`.
+
+## 6. Driving the `ord_pod` screen session (if you're a Claude agent)
+
+The user keeps a `screen` session **`ord_pod`** attached to the SSH into `oci-ord-cs`.
+Send commands with `/tmp/scx.sh` (sends `cmd ; echo <sentinel> rc=$?`, then polls
+`screen -S ord_pod -X hardcopy`). Hard-won rules:
+
+- **Shell vars come back empty** through this channel (`$MY_HOME`, `$SDG`, even `X=1;echo $X`)
+  — **use absolute paths**, no vars.
+- **Terminal is ~64 cols** by default and wraps/mangles long lines → `screen -S ord_pod -X
+  width 400 100` first (it can revert if the user reattaches — re-issue as needed).
+- **Avoid escaped quotes** (`\"`) and **regex brackets** (`[^ ]`) — they get mangled; use
+  `python -c "code with no inner quotes"`, `grep -E` with alternation only, `tr`.
+- **Background long ops**: `nohup <cmd> > log 2>&1 & disown; echo STARTED` — the `disown`
+  prevents async job-exit messages from corrupting your next command. Poll the log with
+  `tail`/`grep` (filter conda progress bars: they contain `##########` and `\r`).
+- To wait for a long job: `while kill -0 <pid> 2>/dev/null; do sleep 30; done; echo DONE`
+  (run it via a **background** local `scx.sh` call so you're notified when it prints DONE).
+
+## 7. CURRENT STATE (handoff checkpoint)
+
+- ✅ Repo cloned on the cluster (`sdg/newton`, branch @ c21dfb3e + setup script c87b3e01,
+  both submodules + eigen).
+- ✅ **`pixeldit` env** created and `requirements.txt` installed (the build reached the
+  TRELLIS.2 stage, so pixeldit finished; do a final `conda run -n pixeldit python -c "import
+  torch,transformers"` to confirm).
+- ⚠️ **`trellis2` env INCOMPLETE** — env created and torch install started, then the process
+  was **killed by the login node** partway through the torch install. Remaining: finish
+  torch, install cuda-toolkit 12.4, basic deps, xformers, einops, and the 5 CUDA extensions.
+  **Fix: re-run `genpipe/cluster_setup.sh "8.0;9.0"` inside a Slurm job** (§5); it will skip
+  the finished pixeldit env and redo trellis2.
+- ⬜ **Verify** via a GPU `srun` job: `conda run -n trellis2 python -c "import torch;
+  print(torch.cuda.is_available())"` + import nvdiffrast/o_voxel/flex_gemm/cumesh/xformers.
+- ⬜ **`newton` sim env** on the cluster: not built yet.
+- ⬜ **HF token** for DINOv3 must be exported before running generation.
+- ⬜ First end-to-end generation run + (optionally) a multi-GPU batch for the 10k-object set.
+
+</script>
+<script>
+  (function(){
+    var sidebar=document.querySelector('.docs-sidebar'),content=document.getElementById('docs-content'),
+        pathbar=document.getElementById('docs-pathbar-text'),rawLink=document.getElementById('docs-raw-link');
+    if(!sidebar||!content)return;
+    var DOCS={};
+    document.querySelectorAll('script[type="text/markdown"]').forEach(function(s){
+      var k=s.getAttribute('data-doc'); if(k) DOCS[k]=s.textContent.replace(/^\n/,'');
+    });
+    function setActive(l){sidebar.querySelectorAll('a.doc-link').forEach(function(a){a.classList.remove('active')});l.classList.add('active')}
+    function renderMd(md){
+      if(window.marked&&window.marked.setOptions)window.marked.setOptions({gfm:true,breaks:false});
+      content.innerHTML=window.marked?window.marked.parse(md):('<pre>'+md.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</pre>');
+    }
+    function loadDoc(f){
+      pathbar.textContent=f.replace(/^\.\.\//,''); rawLink.setAttribute('href',f);
+      content.innerHTML='<div class="docs-loading">Loading '+f+'&hellip;</div>';
+      var inline=DOCS[f];
+      fetch(f,{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(renderMd)
+        .catch(function(){ inline!=null?renderMd(inline):(content.innerHTML='<div class="docs-error">Could not load '+f+'.</div>') });
+    }
+    sidebar.querySelectorAll('a.doc-link').forEach(function(link){
+      link.addEventListener('click',function(e){e.preventDefault();var f=this.getAttribute('data-file');if(!f)return;setActive(this);loadDoc(f)});
+    });
+    var initial=sidebar.querySelector('a.doc-link.active')||sidebar.querySelector('a.doc-link');
+    if(initial)loadDoc(initial.getAttribute('data-file'));
+  })();
+</script>
+<script>
+(function(){
+  fetch('branch').then(function(r){return r.ok?r.json():null}).then(function(d){
+    if(!d)return; var b=document.getElementById('repo-branch');if(b&&d.branch)b.textContent=d.branch;
+    var p=document.getElementById('repo-path');if(p&&d.repo)p.textContent=d.repo;
+  }).catch(function(){});
+})();
+</script>
+</body>
+</html>
