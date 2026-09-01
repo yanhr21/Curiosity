@@ -5,8 +5,12 @@ heat map cannot answer that on its own: it shows where force IS, never whether a
 finger is resting on the box or waving 4 cm clear of it. So this also measures, per digit,
 the actual surface-to-surface gap to the box in world space, which distinguishes
 
-  * gap far above the 5 mm contact margin  -> silence is correct, the finger is not touching
-  * gap inside the margin but no force     -> a real problem worth chasing
+  * gap far above the ``--margin`` band  -> silence is correct, the finger is not touching
+  * gap inside the band but no force      -> a real problem worth chasing
+
+This is also what found the floating grasp: at the old 5 mm margin the loaded fingertips sat
+4.5 mm off the box, because ``margin`` offsets the resting surface rather than only widening
+detection. Pass ``--margin 0.005`` to reproduce that.
 
 Outputs, all in world coordinates, at ``_out/frame_<n>/``:
 
@@ -90,7 +94,7 @@ def main() -> None:
     ap.add_argument("--substeps", type=int, default=4)
     ap.add_argument("--box-tris", type=int, default=2000)
     ap.add_argument("--hand-tris", type=int, default=5000)
-    ap.add_argument("--margin", type=float, default=0.005,
+    ap.add_argument("--margin", type=float, default=0.0,
                     help="collider surface thickness [m]")
     ap.add_argument("--outdir", default="sugar_newton/_out")
     args = ap.parse_args()

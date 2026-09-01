@@ -358,49 +358,71 @@ matplotlib's writer so it falls back to GIF, and the video's colour scale is per
 (peak 2.8 N) whereas the static figure's is integrated over the whole carry (peak ~150 N) --
 they are not comparable numbers.
 
-### The grasp floats on a 4.5 mm air gap, and the 5 mm margin is why
+### The grasp was floating on a 4.5 mm air gap. `margin` is now 0
 
 Inspecting the exported frame (`validation/export_frame.py`, writes world-space PLYs plus a
-per-digit audit) shows the loaded fingertips **not touching the box**: signed distance from
-the nearest fingertip vertex to the box surface is **+4.0 to +4.7 mm**, and they are still
-carrying 28-45 N. That is not a broken collider, it is `default_shape_cfg.margin = 0.005` in
-both `carrybox_env.py:381` and `g1_carrybox_policy.py`, and it is worth understanding because
-the name is misleading.
+per-digit audit) showed the loaded fingertips **not touching the box**: signed distance from
+the nearest fingertip vertex to the box surface was **+4.0 to +4.7 mm** while they carried
+28-45 N. The cause was `default_shape_cfg.margin = 0.005`, and the name is misleading enough
+to be worth spelling out.
 
-Newton's margin is not only a detection radius. The separation the solver constrains is
+Newton splits the two things PhysX calls `restOffset` and `contactOffset` into two fields, and
+we had been using the wrong one:
 
-    sep = dot(n, p1_world - p0_world) - (margin0 + margin1)          # sim/contacts.py:65
+* **`margin`** (`ShapeConfig.margin`, library default **0.0**) is an *outward offset of the
+  surface*. The separation the solver constrains is
 
-so the margin *inflates* each shape: a pair reaches `sep = 0` while the drawn surfaces are
-still `margin0 + margin1` apart, and the surfaces come to rest there. Measured on frame 359,
-`|p0 - p1|` is 4.0-4.7 mm against 5.0 mm of combined margin, giving `sep` of -0.2 to -1.0 mm
--- the solver believes it is 0.2-1.0 mm into penetration while there is 4.5 mm of visible air.
-This is PhysX's *restOffset*, not its *contactOffset*; Isaac's default is `restOffset = 0`
-with a 0.02 m contact offset, i.e. detect early but rest on the surface. Ours rests 4.5 mm
-out, so the box hangs off inflated fingertips.
+      sep = dot(n, p1_world - p0_world) - (margin0 + margin1)      # sim/contacts.py:65
 
-`--margin` is now a knob on both the scene and the exporter. Dropping it to 1 mm closes the
-gap without any other change:
+  so a pair reaches `sep = 0` while the drawn surfaces are still `margin0 + margin1` apart,
+  and rests there. This is `restOffset`.
+* **`gap`** (`ShapeConfig.gap`, default `builder.rigid_gap = 0.1`) is the detection distance:
+  broad phase expands AABBs by `margin + gap`. This is `contactOffset`.
 
-| collider margin | fingertip gap to box | solver `sep` | load-bearing contacts |
-| --- | --- | --- | --- |
-| 5 mm (default) | +4.0 to +4.7 mm | -0.2 to -1.0 mm | 4-5 |
-| 1 mm | +0.5 to +0.9 mm | -0.2 to -1.1 mm | 4-8 |
+So earliness of detection never depended on `margin` at all -- there is already a 10 cm
+broad-phase band -- and the 5 mm was pure geometric inflation. It also has no mass
+side-effect to trade away: `margin` only enters `compute_inertia_shape` for hollow shapes
+(`is_solid=False`), and ours are solid.
 
-    python -m sugar_newton.validation.export_frame --frame 359 --margin 0.001
+It was never chosen for this scene either. `git log -S` puts it in `5dc90dc`, the Allegro
+tactile scene, from where it was carried into the G1 carry unexamined.
 
-Two consequences. For **tactile sensing** the 5 mm margin is a systematic bias, not noise: the
-channel fires before physical touch, and the reported contact point sits ~2 mm off both
-surfaces rather than on either. For **matching the checkpoint** it is a candidate explanation
-for the shortfall in lift height, since a policy trained where fingers rest on the carton is
-being replayed where they rest 4.5 mm off it. The default is still 5 mm -- lowering it changes
-physics for every number already measured here, so it wants its own A/B rather than a silent
-edit.
+Measured on `data_000`, decimated colliders, one clip each:
 
-The non-loaded digits are genuinely clear, so "only two digits carry the box" is correct
+| collider margin | fingertip gap to box | solver `sep` | load-bearing contacts | box lift | playback |
+| --- | --- | --- | --- | --- | --- |
+| 5 mm (was default) | +4.0 to +4.7 mm | -0.2 to -1.0 mm | 4-5 | 0.408 m | 24.5 fps |
+| 1 mm | +0.5 to +0.9 mm | -0.2 to -1.1 mm | 4-8 | 0.439 m | 25.1 fps |
+| **0 (now default)** | **-0.0 to +0.9 mm** | -0.04 to -4.3 mm | 27 | **0.433 m** | 25.2 fps |
+
+Reference lift is 0.628 m, so this moves the reproduction from 65 % to 69 % of it. Zero and
+1 mm are indistinguishable on lift; 0 is preferred because the collider is then exactly the
+asset surface with nothing to tune. Throughput is unchanged (a 64-env `CarryBoxEnv` smoke
+test came out 85 vs 102 env-steps/s the other way round, i.e. inside run-to-run noise), and
+neither setting diverged over 150 steps.
+
+    python -m sugar_newton.validation.export_frame --frame 359 --margin 0.005   # the old behaviour
+
+Two things this does *not* fix. It leaves most of the lift shortfall in place, which is
+consistent with the diagnosis further up -- the observation carries no absolute reference
+position, so position error is uncorrectable by construction. And contact forces roughly
+double (54-89 N peaks against 28-45 N) because the solver now sees real penetration rather
+than margin-offset penetration, which feeds directly into the still-open question of why the
+absolute force scale moves by two orders of magnitude between probes.
+
+The non-loaded digits are genuinely clear, so "only two digits carry the box" was correct
 rather than a sensing miss: middle 6-12 mm, ring 8-24 mm, pinky 12-37 mm. Eyeballing the
 whole hand against the box in `scene.ply` reads as ~2 cm because most of the hand is that far
-away; only the two loaded fingertips are within 5 mm.
+away; only the loaded fingertips are anywhere near the surface.
+
+**Open, and it follows directly from this:** the decimation analysis above uses "the 5 mm
+contact margin" as its geometric error budget -- that is where `box_tris=2000` and
+`hand_tris=5000` come from, and the figures from `plot_hand_tactile.py` still draw a 5 mm
+line. With `margin = 0` that budget has lost its stated justification and needs re-deriving
+from something physical instead (the 3.2 mm carton wall, or a target contact-position error).
+The *conclusions* are probably safe, because `compare_contacts.py` measured contact accuracy
+directly rather than inferring it from surface deviation, but the tolerance those scripts
+print and plot is now a leftover rather than a derived number.
 
 Convex decomposition of the box is *not* the next lever -- coacd returns
 52 hulls at threshold 0.1 and 112 at 0.05, because it is fighting tessellation noise rather

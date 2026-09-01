@@ -241,7 +241,7 @@ class CarryBoxEnv:
                  collision: str = "mesh", sdf_resolution: int = 64,
                  contact_surface: bool = False,
                  contact_refresh: str = "step", box_tris: int = 2000,
-                 hand_tris: int = 0):
+                 hand_tris: int = 0, margin: float = 0.0):
         self.num_envs = num_envs
         self.substeps = substeps
         self.episode_length = episode_length
@@ -262,6 +262,7 @@ class CarryBoxEnv:
         self.contact_refresh = contact_refresh
         self.box_tris = box_tris
         self.hand_tris = hand_tris
+        self.margin = margin
         world = self._build_world(box, mu, ke, kd)
         builder = newton.ModelBuilder()
         # Zero spacing on purpose. Worlds do not collide with each other, and Newton's
@@ -378,7 +379,14 @@ class CarryBoxEnv:
         b.default_shape_cfg.ke = ke
         b.default_shape_cfg.kd = kd
         b.default_shape_cfg.mu = mu
-        b.default_shape_cfg.margin = 0.005
+        # 0 = Newton's own default, and the collider is then exactly the asset surface.
+        # Margin is NOT a detection distance: the solver's separation subtracts
+        # (margin0 + margin1) (sim/contacts.py:65), so a nonzero margin inflates each shape
+        # and a grasp rests that far off the surface. Detection earliness comes from the
+        # separate `gap`, which broad phase uses as (margin + gap) and which defaults to
+        # 0.1 m. This used to be 5 mm, inherited from the Allegro scene, which left the
+        # fingertips carrying the box across 4.5 mm of air.
+        b.default_shape_cfg.margin = self.margin
         b.add_urdf(str(URDF), floating=True, collapse_fixed_joints=False,
                    enable_self_collisions=False, joint_ordering="bfs",
                    ignore_inertial_definitions=False)

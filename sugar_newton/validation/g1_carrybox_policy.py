@@ -448,7 +448,7 @@ class G1PolicyScene:
                  hull_hands: bool = False, collision: str = "mesh",
                  sdf_resolution: int = 64, iterations: int = 100,
                  ls_iterations: int = 50, box_tris: int = 0, hand_tris: int = 0,
-                 margin: float = 0.005):
+                 margin: float = 0.0):
         self.clip = clip
         self.margin = margin
         b = newton.ModelBuilder()
@@ -456,11 +456,12 @@ class G1PolicyScene:
         b.default_shape_cfg.ke = ke
         b.default_shape_cfg.kd = kd
         b.default_shape_cfg.mu = mu
-        # Surface thickness added to every collider. The solver's separation is
-        # ``dot(n, p1 - p0) - (margin0 + margin1)`` (contacts.py:65), so this is not merely a
-        # detection radius: it inflates each shape, and a pair closes at this separation
-        # rather than at touch. Measured on the carry, that means the loaded fingertips sit
-        # ~4.5 mm off the box surface while carrying tens of newtons.
+        # Surface thickness added to every collider; 0 = Newton's default, collider is
+        # exactly the asset surface. The solver's separation is
+        # ``dot(n, p1 - p0) - (margin0 + margin1)`` (sim/contacts.py:65), so this is not a
+        # detection radius: it inflates each shape, and a pair rests at that separation
+        # rather than at touch. Detection earliness is the separate `gap` (broad phase uses
+        # margin + gap, default 0.1 m), so dropping this to 0 costs no robustness.
         b.default_shape_cfg.margin = margin
 
         b.add_urdf(str(URDF), floating=True, collapse_fixed_joints=False,
@@ -847,6 +848,10 @@ def main() -> None:
                          "(0 = the asset's 5.9-6.4k)")
     ap.add_argument("--graph", action="store_true",
                     help="capture the control step as one CUDA graph")
+    ap.add_argument("--margin", type=float, default=0.0,
+                    help="collider surface thickness [m]. 0 is the asset surface exactly; a "
+                         "nonzero value inflates every collider so a grasp rests that far "
+                         "off the box (see rl/README.md)")
     ap.add_argument("--iterations", type=int, default=100)
     ap.add_argument("--ls-iterations", type=int, default=50)
     ap.add_argument("--contact-refresh", default="step", choices=("substep", "step"),
@@ -864,7 +869,8 @@ def main() -> None:
                           hull_hands=args.hull_hands, collision=args.collision,
                           sdf_resolution=args.sdf_resolution,
                           iterations=args.iterations, ls_iterations=args.ls_iterations,
-                          box_tris=args.box_tris, hand_tris=args.hand_tris)
+                          box_tris=args.box_tris, hand_tris=args.hand_tris,
+                          margin=args.margin)
     actor = Actor()
     print(f"clip {args.clip}: {clip['n']} frames at {clip['fps']:.0f} Hz")
     print(f"model: {scene.model.body_count} bodies, {scene.n_q} coords, {scene.n_qd} dofs, "
