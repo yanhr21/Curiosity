@@ -1,0 +1,13 @@
+# Throughput sweep, all with the corrected box mass. Graph capture disables the solver's
+# conditional early exit, so it can only be judged together with the iteration count:
+# rows 0-3 are eager at descending iterations, rows 4-7 are the same captured.
+# Fidelity is not assumed away -- every row reports lift, so a row that gets fast by
+# solving less will show it.
+eager_i100	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --iterations 100 --ls-iterations 50
+eager_i20	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --iterations 20 --ls-iterations 10
+eager_i10	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --iterations 10 --ls-iterations 5
+eager_i4	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --iterations 4 --ls-iterations 2
+graph_i100	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --graph --iterations 100 --ls-iterations 50
+graph_i20	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --graph --iterations 20 --ls-iterations 10
+graph_i10	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --graph --iterations 10 --ls-iterations 5
+graph_i4	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --graph --iterations 4 --ls-iterations 2

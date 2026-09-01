@@ -1,0 +1,12 @@
+# label <TAB> arguments for sugar_newton.validation.g1_carrybox_policy
+# The A/B that matters: how often the contact set is regenerated. Isaac collides every
+# physics step (sim.dt=0.005, decimation=4); this port collided once per control step.
+# Held fixed: clip data_000, 481 frames, mu=1.0, ke/kd at their measured optimum.
+mesh_step_s4	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step
+mesh_substep_s4	--frames 481 --mu 1.0 --substeps 4 --contact-refresh substep
+mesh_step_s8	--frames 481 --mu 1.0 --substeps 8 --contact-refresh step
+mesh_substep_s8	--frames 481 --mu 1.0 --substeps 8 --contact-refresh substep
+hydro64_substep_s4	--frames 481 --mu 1.0 --substeps 4 --contact-refresh substep --collision hydro --sdf-resolution 64
+hydro32_substep_s4	--frames 481 --mu 1.0 --substeps 4 --contact-refresh substep --collision hydro --sdf-resolution 32
+hydro64_step_s4	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --collision hydro --sdf-resolution 64
+mesh_substep_s4_mu075	--frames 481 --mu 0.75 --substeps 4 --contact-refresh substep

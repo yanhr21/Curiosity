@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import collections
 import pickle
+import warnings
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -118,6 +119,23 @@ def bfs_body_names(urdf: Path) -> list[str]:
             out.append(l)
         queue.extend(kids[l])
     return out
+
+
+def box_density(verts: np.ndarray, tris: np.ndarray, mass: float) -> float:
+    """Density that makes the box weigh exactly ``mass``.
+
+    ``ShapeConfig.density`` defaults to 1000 kg/m^3 and ``add_shape_mesh`` ADDS the shape's
+    mass and inertia to the body (builder.py:6125-6126), so ``add_body(mass=0.5)`` plus a
+    default-density mesh gives 4.39 kg -- 8.8x what SUGAR spawns. Deriving the density also
+    scales the inertia consistently, which is what Isaac does: the asset authors
+    ``physics:density = 0`` and ``diagonalInertia = (0,0,0)`` and lets PhysX compute the
+    tensor from geometry and the spawned mass.
+    """
+    a, b, c = verts[tris[:, 0]], verts[tris[:, 1]], verts[tris[:, 2]]
+    volume = float(np.abs(np.einsum("ij,ij->i", a, np.cross(b, c)).sum()) / 6.0)
+    if volume <= 0.0:
+        raise ValueError("box mesh has no enclosed volume")
+    return mass / volume
 
 
 def load_box_mesh(which: str):
@@ -219,9 +237,11 @@ class CarryBoxEnv:
                  box: str = "small", mu: float = 1.0, ke: float = 1.0e4,
                  kd: float = 3.2e2, substeps: int = 4, episode_length: int = 300,
                  device: str = "cuda:0", seed: int = 0,
-                 njmax: int = 2048, nconmax: int = 8192,
+                 njmax: int = 16384, nconmax: int = 8192,
                  collision: str = "mesh", sdf_resolution: int = 64,
-                 contact_surface: bool = False):
+                 contact_surface: bool = False,
+                 contact_refresh: str = "step", box_tris: int = 2000,
+                 hand_tris: int = 0):
         self.num_envs = num_envs
         self.substeps = substeps
         self.episode_length = episode_length
@@ -239,6 +259,9 @@ class CarryBoxEnv:
 
         self.collision = collision
         self.sdf_resolution = sdf_resolution
+        self.contact_refresh = contact_refresh
+        self.box_tris = box_tris
+        self.hand_tris = hand_tris
         world = self._build_world(box, mu, ke, kd)
         builder = newton.ModelBuilder()
         # Zero spacing on purpose. Worlds do not collide with each other, and Newton's
@@ -256,9 +279,39 @@ class CarryBoxEnv:
         if collision == "hydro":
             from newton.geometry import HydroelasticSDF
 
+            # buffer_mult_iso is sized as a multiple of total_num_tiles
+            # (sdf_hydroelastic.py:430), so the iso buffer shrinks with sdf_resolution while
+            # the grip's contact demand does not. At resolution 32 the grasp asked for 1280
+            # L1 subblocks against a budget of 960 and the excess was silently dropped --
+            # the same failure mode as the nconmax truncation. 4 clears the measured peak.
             pipe_kwargs["sdf_hydroelastic_config"] = HydroelasticSDF.Config(
                 output_contact_surface=contact_surface, buffer_fraction=1.0,
-                buffer_mult_iso=2)
+                buffer_mult_iso=4)
+        # max_triangle_pairs is a whole-pipeline budget with a fixed 1e6 default, but the
+        # candidate pairs scale with the number of worlds: at 256 worlds the mesh path asked
+        # for 5.58e6 and dropped the rest ("Triangle pair buffer overflowed") -- the same
+        # silent-truncation failure as nconmax and the hydroelastic iso buffer.
+        #
+        # It cannot simply be raised to meet demand. Deterministic contact packing indexes
+        # contacts with 20 bits, so 2**20 is a hard ceiling and asking for more raises
+        # ValueError rather than overflowing. Measured demand during the grasp is ~19k pairs
+        # per world (1.06-1.31e6 across 64 worlds), so the ceiling bites at ~55 worlds: below
+        # that the mesh path is correct, above it contacts are dropped no matter what is
+        # requested. The 25k estimate below is deliberately conservative, so the warning
+        # fires before the dropping starts rather than after.
+        #
+        # That ceiling, not the solver, is what caps this scene's world count on the raw
+        # triangle-mesh path: the box collides as a ~100k-triangle mesh, and no buffer size
+        # makes that scale. Reducing the collision geometry is the fix; see the README.
+        _TRI_PAIR_CEILING = 1 << 20
+        want = max(1_000_000, 25_000 * num_envs)
+        if want > _TRI_PAIR_CEILING:
+            warnings.warn(
+                f"{num_envs} worlds want ~{want} triangle pairs but deterministic contact "
+                f"packing caps them at {_TRI_PAIR_CEILING}; contacts will be dropped. Use "
+                f"collision='hydro' or a reduced-triangle box for this world count.",
+                stacklevel=2)
+        pipe_kwargs["max_triangle_pairs"] = min(want, _TRI_PAIR_CEILING)
         self.pipeline = newton.CollisionPipeline(self.model, contact_matching="latest",
                                                  **pipe_kwargs)
         self.contacts = self.pipeline.contacts()
@@ -268,8 +321,12 @@ class CarryBoxEnv:
         # the hand-box grip generates up to 6524 contacts per world, so MJWarp silently
         # drops everything above the limit ("Number of Newton contacts (6524) exceeded
         # MJWarp limit (1024)", 489 times in one short benchmark) and the simulation is
-        # simply wrong wherever it matters most. Measured peaks: 6524 contacts, njmax 570.
-        # These defaults carry headroom over both.
+        # simply wrong wherever it matters most.
+        # njmax caps constraint ROWS, not contacts, and an elliptic friction cone costs
+        # several rows per contact -- so it has to scale with nconmax. The 2048 here was
+        # derived from overflow messages logged while nconmax was still truncating at 1024,
+        # which is the same mistake twice: sizing one limit from measurements taken while
+        # another was silently clipping. 16384 is what the working playback path uses.
         self.solver = newton.solvers.SolverMuJoCo(
             self.model, solver="newton", integrator="implicitfast",
             njmax=njmax, nconmax=nconmax,
@@ -326,6 +383,10 @@ class CarryBoxEnv:
                    enable_self_collisions=False, joint_ordering="bfs",
                    ignore_inertial_definitions=False)
 
+        if self.hand_tris:
+            from sugar_newton.validation.g1_carrybox_policy import decimate_hand_colliders
+            decimate_hand_colliders(b, self.hand_tris)
+
         self._act_dofs, self._act_coords, names = [], [], []
         for j, lbl in enumerate(b.joint_label):
             name = lbl.split("/")[-1]
@@ -364,11 +425,21 @@ class CarryBoxEnv:
         if self.collision == "hydro":
             self._make_hydroelastic_hands(b)
         verts, tris = load_box_mesh(box)
+        if self.box_tris:
+            # Decimate before deriving the density, so the mass is exact for the mesh that
+            # generates the inertia. See validation.g1_carrybox_policy.decimate for the
+            # measured deviation: at 2000 triangles the surface moves by at most 1.6 mm,
+            # against a 5 mm contact margin and a 3.2 mm carton wall.
+            from sugar_newton.validation.g1_carrybox_policy import decimate
+
+            verts, tris = decimate(verts, tris, self.box_tris)
         # add_body already creates the free joint and its own articulation; adding another
         # gives the box two parents and MuJoCo silently drops it (g1_carrybox.py:312)
-        body = b.add_body(mass=BOX_MASS[box], label="box")
-        box_mesh = newton.Mesh(verts, tris.flatten(), compute_inertia=False)
-        box_cfg = newton.ModelBuilder.ShapeConfig(ke=ke, kd=kd, mu=mu)
+        body = b.add_body(label="box")
+        box_mesh = newton.Mesh(verts, tris.flatten())
+        box_cfg = newton.ModelBuilder.ShapeConfig(
+            ke=ke, kd=kd, mu=mu,
+            density=box_density(verts.astype(np.float64), tris, BOX_MASS[box]))
         if self.collision == "hydro":
             # narrow band, not a full interior field: this "box" is an open carton with no
             # well-defined inside, so only a shell around the surface is meaningful
@@ -540,10 +611,19 @@ class CarryBoxEnv:
         # IsaacLab JointPositionAction: target = action * scale + default_joint_pos
         self.target[:, self.act_dofs] = action * self.a_scale + self.q_default
 
+        # contact_refresh="substep" regenerates contacts every physics step, which is what
+        # Isaac does (sim.dt=0.005 with decimation=4, so PhysX collides at 200 Hz) and what
+        # example_g1_in_sage.py:425-429 does. It is NOT the default: measured on the
+        # playback path it moved the lift by -0.4% and +11% on two clips while costing 3-4x
+        # throughput. Pass it when reading contact forces or tactile fields, where 20 ms-old
+        # normals are wrong in a way a scalar lift height cannot detect.
         sub = self.dt / self.substeps
-        self.pipeline.collide(self.state_0, self.contacts)
+        if self.contact_refresh == "step":
+            self.pipeline.collide(self.state_0, self.contacts)
         for _ in range(self.substeps):
             self.state_0.clear_forces()
+            if self.contact_refresh == "substep":
+                self.pipeline.collide(self.state_0, self.contacts)
             self.solver.step(self.state_0, self.state_1, self.control, self.contacts, sub)
             self.state_0, self.state_1 = self.state_1, self.state_0
         self._rebind()

@@ -35,53 +35,58 @@ scipy. The observation half has its own offline unit test in
 Result
 ------
 The robot stands on its own feet for all 481 frames, grasps, and lifts the box. Measured
-on three clips at mu=1.0, substeps=4::
+on three clips at mu=1.0, substeps=4, one run each::
 
-    clip        lift        reference   joint tracking
-    data_000    0.23-0.30   0.63        7.7-8.5 deg
-    data_001    0.21        0.69        7.8 deg
-    data_005    0.24        0.64        7.7 deg
+    clip        lift    reference   fraction   joint tracking
+    data_000    0.430   0.628       68 %       7.8 deg
+    data_001    0.458   0.692       66 %       8.0 deg
+    data_005    0.460   0.643       72 %       7.7 deg
 
-So roughly a third of the reference lift, reproducibly, with the reference joints tracked
-to about 8 degrees. Note the 0.23-0.30 spread on data_000: those are two runs at
-*identical* parameters. Contact-rich rollouts here are chaotic, and differences below
-~0.1 m between single runs should not be read as effects.
+Contact-rich rollouts here are chaotic: two runs at *identical* parameters have differed
+by 0.07 m, so treat anything smaller than that as noise rather than an effect. The 66-72 %
+consistency across three clips is well outside that spread.
 
-Where the gap is not
---------------------
-* **Not the policy drifting.** 8 deg joint tracking over 481 closed-loop steps.
-* **Not grip.** Sweeping mu 0.5 -> 1.0 -> 1.5 gives lifts of 0.05 -> 0.30 -> 0.30 m; it
-  saturates, so adding friction stops helping.
+The box mass bug
+----------------
+Those numbers used to read 0.21-0.30 m, i.e. a third of the reference rather than two
+thirds, and the cause was mass, not contact::
+
+    box mass, as simulated   4.39 kg
+    box mass, as SUGAR spawns 0.50 kg      (tactile_objects.py:225)
+    ratio                    8.78x
+
+``ShapeConfig.density`` defaults to 1000 kg/m^3 and ``add_shape_mesh`` *adds* the shape's
+mass and inertia to the body (builder.py:6125-6126). So ``add_body(mass=0.5)`` followed by
+a default-density mesh does not make a 0.5 kg box; it makes 0.5 kg plus 3.89 dm^3 of water.
+The robot's own links escaped this because the URDF importer overwrites the accumulated
+value with the URDF inertial (import_urdf.py:687-691) -- which is exactly why the symptom
+looked like a contact problem: every non-wrist joint agreed with Isaac, and only the joints
+holding the box did not. See :mod:`sugar_newton.validation.check_masses`.
+
+This retracts the "Newton demands ~6x more wrist torque than Isaac, cause unknown" finding
+that stood here before. It demanded more torque because it was lifting 8.8x the mass.
+
+What the gap is not
+-------------------
+* **Not the policy drifting.** ~8 deg joint tracking over 481 closed-loop steps.
+* **Not grip.** Sweeping mu 0.5 -> 1.0 -> 1.5 saturates, so friction stops helping.
 * **Not the hand collider.** Isaac collides this hand as a convex hull
   (``UrdfConverterCfg.collider_type`` defaults to ``"convex_hull"`` and SUGAR never
-  overrides it), and that hull is 2.35x the mesh volume -- 135% more material, filling the
-  mitten's concavity. That looked like the answer. It is not: the ``--hull-hands``
-  ablation, which gives Newton the same hull, *lowers* the lift from 0.23 m to 0.07 m.
-  Hypothesis tested and refuted; the flag is kept so the check is repeatable.
-* **Not contact compliance.** Sweeping ``ke``/``kd`` over 1e3/3.2e1, 1e4/3.2e2 and
-  1e5/1.0e3 gives lifts of 0.17, 0.30, 0.26 m with joint tracking 10.8, 8.6, 19.4 deg.
-  The default is already the optimum; softening and stiffening both hurt.
+  overrides it), 2.35x the mesh volume. Giving Newton the same hull (``--hull-hands``)
+  *lowers* the lift. Refuted; the flag is kept so the check stays repeatable.
+* **Not contact compliance.** ``ke``/``kd`` at 1e4/3.2e2 is already the optimum; 1e3 and
+  1e5 are both worse.
+* **Not stale contacts.** Isaac collides every physics step and this port collided once per
+  control step, reusing 20 ms-old normals. Fixing that (``--contact-refresh substep``, now
+  matching Isaac and ``example_g1_in_sage.py:425-429``) changed the lift by -0.4 % on
+  data_000 and +11 % on data_001 while costing 3-4x throughput. More correct, but not the
+  gap, and not worth paying for by default.
 
-What is measured, and still unexplained
----------------------------------------
-Newton demands far more wrist torque than Isaac. Estimating PD demand as
-``k * (action * scale + q_default - q)`` against each joint's effort limit::
-
-    joint group      Newton              Isaac (SUGAR's own rollout dump)
-    wrists           11.7% at limit      1.9%  (worst single clip 6.6%)
-                     37.4% in the carry
-    everything else   0.1%               0.0%
-    mean |tau|, left wrist pitch
-                     5.60 N.m (lim 5.0)  0.25 - 2.83 N.m
-
-Non-wrist joints agree, so legs, waist and shoulders behave the same in both; the whole
-discrepancy sits at the hand-box interface, and the wrists are the weakest actuators on
-this robot by a factor of ten (5 N.m against 50-139). Peak demand reaches 30.8 N.m, which
-is impulsive rather than static. Contact compliance was the obvious candidate and the
-``ke`` sweep above rules it out. The next untested one: Isaac hulls *every* link, not just
-the hands, and in the reference the box is carried pressed against the chest -- so the
-torso collider, which ``--hull-hands`` leaves alone, may be what forms the shelf the box
-rests on. These are PD estimates from position error, not measured joint torques.
+Still open: the remaining ~30 %. The robot ends the clip ~0.65 m from the reference root
+position while tracking joints to 8 deg, so it under-travels rather than mis-poses. The
+observation carries reference joint angles and reference root *velocities*, never an
+absolute reference position, so position error is uncorrectable by construction and the
+question is whether it grows faster here than in Isaac.
 """
 
 from __future__ import annotations
@@ -275,6 +280,132 @@ def load_box_mesh(which: str):
     raise RuntimeError(f"no mesh in {BOX_USD[which]}")
 
 
+def decimate(verts: np.ndarray, tris: np.ndarray, target: int):
+    """Quadric-decimate a collision mesh to roughly ``target`` triangles.
+
+    Collision is 94.5 % of the step at 16 worlds and its cost tracks triangle pairs, so the
+    collider's triangle count is the throughput lever. The box ships as 100k triangles of
+    median 7.8 mm^2 tiling 1.2264 m^2 -- within 0.4 % of the exact surface area of an open
+    carton with this bounding box -- so that budget is tessellation density, not shape.
+
+    Measured symmetric surface deviation against the original
+    (:mod:`sugar_newton.validation.check_decimation`), against a 5 mm contact margin and a
+    3.2 mm wall thickness::
+
+        target   mean      p99       max
+         5000    0.037 mm  0.205 mm  1.046 mm
+         2000    0.076 mm  0.428 mm  1.634 mm
+         1000    0.135 mm  0.865 mm  4.353 mm   <- approaches both limits
+          200    0.624 mm  2.808 mm  6.077 mm   <- exceeds the margin
+
+    2000 is the RL default: a 50x reduction whose worst-case deviation is half the wall
+    thickness and a third of the margin. This is decimation, not hulling or decomposition --
+    the mesh stays non-convex and the carton stays open, so the concavity the grasp needs is
+    untouched.
+
+    What that surface deviation does NOT buy is an unchanged contact set. Probing both
+    colliders at identical states (:mod:`sugar_newton.validation.compare_contacts`, whose
+    identical-collider control is exact to 0.1 %) shows retessellation moves the contacts
+    even though it barely moves the surface::
+
+        vs original      net load/hand   sum|f|   patch centroid   per-contact corr
+        20000 tris         1.4-2.0 %     8-15 %      1.6-2.0 mm       0.65-0.97
+         2000 tris         2.8-3.2 %    18-19 %      4.9-10.1 mm      0.48-0.80
+
+    The split is the point. The net wrench each hand puts on the box -- 30.9 N of squeeze --
+    is fixed by the physics and survives to ~3 %. How that wrench is distributed over the
+    ~80 contacts per hand is underdetermined (a 6-DOF load spread over 80x3 unknowns), so it
+    is set by the tessellation and the solver's regularisation, not by the shape; note that
+    the per-contact correlation is not even monotone in triangle count. So decimation is
+    safe for dynamics and for patch-level tactile readings, and not safe for per-taxel
+    pressure patterns. Validation therefore stays at the full 100k mesh by default.
+    """
+    import open3d as o3d
+
+    m = o3d.geometry.TriangleMesh(
+        o3d.utility.Vector3dVector(np.asarray(verts, dtype=np.float64)),
+        o3d.utility.Vector3iVector(np.asarray(tris, dtype=np.int32)))
+    m = m.simplify_quadric_decimation(target_number_of_triangles=target)
+    m.remove_duplicated_vertices()
+    m.remove_degenerate_triangles()
+    return (np.asarray(m.vertices, dtype=np.float32),
+            np.asarray(m.triangles, dtype=np.int32))
+
+
+def decimate_hand_colliders(b, target: int) -> tuple[int, int]:
+    """Decimate the two rubber-hand collision meshes in place, in the builder.
+
+    The hands are the larger half of the triangle budget, not the smaller one: the URDF
+    collides them as 45748 and 43852 triangles, 89.6k together against the box's 100k. (The
+    5.9-6.4k figure quoted by ``check_geometry`` is the precomputed convex hull in
+    ``HAND_HULLS``, which is only used by the ``--hull-hands`` ablation and is not what the
+    scene collides.) Every hand triangle multiplies against every box triangle in the broad
+    phase, so this compounds with the box reduction rather than adding to it: measured on
+    top of ``box_tris=2000``, 64 worlds go 491.8 -> 345.9 ms/step at 5000 per hand and
+    373.1 ms at 2000, i.e. the two budgets are tied and the first 9x reduction banks the win.
+
+    Use 5000. Surface deviation would suggest going further -- 0.13 mm mean / 0.89 mm max at
+    2000, six times tighter than the box at the same budget -- but the contact probe
+    (:mod:`sugar_newton.validation.compare_contacts`, ``--vary hand``) finds a cliff::
+
+        per hand   net load/hand   sum|f|      per-contact corr
+        10 000       1.1-1.3 %     2.3-2.6 %      0.95
+         5 000       1.8-2.2 %     3.8-4.6 %      0.92-0.94
+         2 000      10.1-10.7 %    12-14 %        0.57-0.59   <- past the cliff
+
+    The hand is the contact patch: this grasp is a fingertip pinch touching only 8-14 % of
+    the hand, so local curvature at the fingertips sets the contact area directly, while a
+    mesh-averaged deviation is dominated by the untouched palm and cannot see it. Since 2000
+    is neither faster nor as accurate, it is dominated by 5000 outright.
+
+    Rewrites ``shape_source`` before finalize (the same swap the builder's own remeshing
+    path uses, builder.py:7094) and only for collision-enabled shapes, so the visual meshes
+    keep their full detail for rendering.
+    """
+    hands = {i for i, lbl in enumerate(b.body_label)
+             if lbl.split("/")[-1] in ("left_rubber_hand", "right_rubber_hand")}
+    before = after = 0
+    for sh in range(b.shape_count):
+        if b.shape_body[sh] not in hands:
+            continue
+        if not (b.shape_flags[sh] & int(newton.ShapeFlags.COLLIDE_SHAPES)):
+            continue
+        src = b.shape_source[sh]
+        if src is None or getattr(src, "indices", None) is None:
+            continue
+        tris = np.asarray(src.indices).reshape(-1, 3)
+        if len(tris) <= target:
+            before += len(tris)
+            after += len(tris)
+            continue
+        v, t = decimate(np.asarray(src.vertices, dtype=np.float64), tris, target)
+        before += len(tris)
+        after += len(t)
+        b.shape_source[sh] = src.copy(vertices=v, indices=t.flatten())
+    return before, after
+
+
+def box_density(verts: np.ndarray, tris: np.ndarray, mass: float) -> float:
+    """Density that makes the box weigh exactly ``mass``.
+
+    ``ShapeConfig.density`` defaults to 1000 kg/m^3 and ``add_shape_mesh`` ADDS the shape's
+    computed mass and inertia to the body (builder.py:6125-6126). So passing the asset mass
+    to ``add_body`` and then leaving the default density does not give a 0.5 kg box: it gives
+    0.5 kg plus 3.89 dm^3 of water, i.e. 4.39 kg, 8.8x the mass SUGAR spawns
+    (``tactile_objects.py:225``, ``MassPropertiesCfg(mass=0.5)``).
+
+    Deriving the density instead of setting the mass directly also gets the inertia right,
+    because the shape's contribution is then scaled consistently -- which is what Isaac does,
+    since the asset authors ``physics:density = 0`` and ``diagonalInertia = (0,0,0)`` and
+    leaves PhysX to compute the tensor from geometry and the spawned mass.
+    """
+    a, b, c = verts[tris[:, 0]], verts[tris[:, 1]], verts[tris[:, 2]]
+    volume = float(np.abs(np.einsum("ij,ij->i", a, np.cross(b, c)).sum()) / 6.0)
+    if volume <= 0.0:
+        raise ValueError("box mesh has no enclosed volume")
+    return mass / volume
+
+
 def load_clip(name: str) -> dict:
     d = np.load(CLIPS / name / "robot_50hz.npz", allow_pickle=True)
     with open(CLIPS / name / "obj_motion_global_50hz.pkl", "rb") as f:
@@ -314,7 +445,9 @@ class Actor:
 class G1PolicyScene:
     def __init__(self, clip: dict, box: str = "small", mu: float = 0.75,
                  ke: float = 1.0e4, kd: float = 3.2e2, self_collision: bool = False,
-                 hull_hands: bool = False):
+                 hull_hands: bool = False, collision: str = "mesh",
+                 sdf_resolution: int = 64, iterations: int = 100,
+                 ls_iterations: int = 50, box_tris: int = 0, hand_tris: int = 0):
         self.clip = clip
         b = newton.ModelBuilder()
         newton.solvers.SolverMuJoCo.register_custom_attributes(b)
@@ -334,6 +467,14 @@ class G1PolicyScene:
         # same hull is how the causal claim about wrist torque is tested; it is not how
         # this scene is meant to be run, because a hull is not the hand.
         self.hull_hands = hull_hands
+        self.collision = collision
+        self.sdf_resolution = sdf_resolution
+        self.hand_tris = hand_tris
+        if hand_tris:
+            n0, n1 = decimate_hand_colliders(b, hand_tris)
+            print(f"hand colliders decimated: {n0} -> {n1} triangles")
+        if collision == "hydro":
+            self._hydroelastic_hands(b, ke, kd, mu)
         if hull_hands:
             hulls = np.load(HAND_HULLS)
             body_of = {}
@@ -381,10 +522,26 @@ class G1PolicyScene:
 
         # the box: the asset's own mesh, free, at its reference pose
         verts, tris = load_box_mesh(box)
+        if box_tris:
+            # Decimate BEFORE deriving the density, so the mass is exact for the mesh that
+            # actually generates the inertia rather than for the one it replaced.
+            verts, tris = decimate(verts, tris, box_tris)
+        # The mesh must compute its inertia in BOTH collision paths: the shape's mass and
+        # inertia are what give the box its dynamics now that the density is derived rather
+        # than the mass passed to add_body.
         self.box_verts = verts.astype(np.float64)
-        body = b.add_body(mass=BOX_MASS[box], label="box")
-        b.add_shape_mesh(body=body, mesh=newton.Mesh(verts, tris.flatten()),
-                         cfg=newton.ModelBuilder.ShapeConfig(ke=ke, kd=kd, mu=mu))
+        body = b.add_body(label="box")
+        _bm = newton.Mesh(verts, tris.flatten())
+        _bcfg = newton.ModelBuilder.ShapeConfig(
+            ke=ke, kd=kd, mu=mu,
+            density=box_density(verts.astype(np.float64), tris, BOX_MASS[box]))
+        if collision == "hydro":
+            # narrow band: this "box" is an open carton, so there is no interior to fill
+            _bm.build_sdf(max_resolution=sdf_resolution,
+                          narrow_band_range=(-0.006, 0.006), margin=0.004)
+            _bcfg.is_hydroelastic = True
+            _bcfg.kh = 1.0e10
+        b.add_shape_mesh(body=body, mesh=_bm, cfg=_bcfg)
         # NO add_joint_free here. `add_body` already creates the body, its free joint
         # and its own articulation (builder.py:3975); adding another gives the box two
         # parents, and MuJoCo then reports "Loop joint ... skipping loop closure" and
@@ -415,14 +572,27 @@ class G1PolicyScene:
         self.anchor_body = labels.index(ANCHOR_LINK)
         self.box_body = labels.index("box")
 
+        _pipe_kw = {}
+        if collision == "hydro":
+            from newton.geometry import HydroelasticSDF
+
+            # buffer_mult_iso=2 is not enough at low resolution. The iso buffer is sized
+            # as buffer_mult_iso * total_num_tiles (sdf_hydroelastic.py:430), so it shrinks
+            # with sdf_resolution while the grip's contact demand does not: at resolution
+            # 32 the grasp asked for 1280 L1 subblocks against a budget of 960 and MJWarp
+            # dropped the excess, exactly like the nconmax truncation before it. 4 clears
+            # the measured peak with headroom at both 32 and 64.
+            _pipe_kw["sdf_hydroelastic_config"] = HydroelasticSDF.Config(
+                output_contact_surface=False, buffer_fraction=1.0, buffer_mult_iso=4)
         self.pipeline = newton.CollisionPipeline(self.model, contact_matching="latest",
+                                                 **_pipe_kw,
                                                  contact_report=True)
         self.contacts = self.pipeline.contacts()
         self.solver = newton.solvers.SolverMuJoCo(
             self.model, solver="newton", integrator="implicitfast",
             njmax=16384, nconmax=min(8000, self.contacts.rigid_contact_max),
-            impratio=20.0, cone="elliptic", iterations=100, ls_iterations=50,
-            use_mujoco_contacts=False,
+            impratio=20.0, cone="elliptic", iterations=iterations,
+            ls_iterations=ls_iterations, use_mujoco_contacts=False,
         )
         self.state_0, self.state_1 = self.model.state(), self.model.state()
         self.control = self.model.control()
@@ -432,6 +602,34 @@ class G1PolicyScene:
         self.hist: dict[str, collections.deque] = {}
         self.last_action = np.zeros(N_DOF)
         self.frame = 0
+        self.graph = None
+
+    def _hydroelastic_hands(self, b, ke, kd, mu) -> None:
+        """Rebuild each rubber-hand collider as a hydroelastic SDF mesh.
+
+        The builder's per-shape ``sdf_*`` fields never reach an imported mesh, so the SDF
+        has to be built on a fresh :class:`newton.Mesh` and re-added, with the original
+        shape's collision switched off so the hand is not counted twice.
+        """
+        labels = [l.split("/")[-1] for l in b.body_label]
+        hands = {i for i, n in enumerate(labels) if n.endswith("_rubber_hand")}
+        for sh in [s for s in range(b.shape_count) if b.shape_body[s] in hands]:
+            src = b.shape_source[sh]
+            if src is None or not hasattr(src, "vertices"):
+                continue
+            m = newton.Mesh(np.asarray(src.vertices, dtype=np.float32),
+                            np.asarray(src.indices, dtype=np.int32).flatten(),
+                            compute_inertia=False)
+            m.build_sdf(max_resolution=self.sdf_resolution,
+                        narrow_band_range=(-0.004, 0.004), margin=0.002)
+            cfg = newton.ModelBuilder.ShapeConfig(ke=ke, kd=kd, mu=mu)
+            cfg.is_hydroelastic = True
+            cfg.kh = 1.0e10
+            new = b.add_shape_mesh(body=b.shape_body[sh], xform=b.shape_transform[sh],
+                                   mesh=m, scale=b.shape_scale[sh], cfg=cfg,
+                                   label=f"{labels[b.shape_body[sh]]}_skin")
+            b.shape_flags[new] &= ~int(newton.ShapeFlags.VISIBLE)
+            b.shape_flags[sh] &= ~int(newton.ShapeFlags.COLLIDE_SHAPES)
 
     # ---- initial state -------------------------------------------------------
     def reset(self, t0: int = 0) -> None:
@@ -458,8 +656,10 @@ class G1PolicyScene:
         q[self.box_q0:self.box_q0 + 3] = c["obj_trans"][t0]
         q[self.box_q0 + 3:self.box_q0 + 7] = bq
 
-        self.state_0, self.state_1 = self.model.state(), self.model.state()
-        self.control = self.model.control()
+        # Reuse the State/Control buffers allocated in __init__ instead of replacing them.
+        # A captured CUDA graph records kernels against specific arrays, so handing out
+        # fresh ones would leave the graph integrating the state we just discarded.
+        # ``state_1`` needs no clearing: ``solver.step`` overwrites it in full.
         self.state_0.joint_q.assign(q.astype(np.float32))
         self.state_0.joint_qd.assign(qd.astype(np.float32))
         newton.eval_fk(self.model, self.state_0.joint_q, self.state_0.joint_qd, self.state_0)
@@ -536,14 +736,76 @@ class G1PolicyScene:
         tgt[self.act_dofs] = (action * self.a_scale + self.q_default).astype(tgt.dtype)
         self.control.joint_target_q.assign(tgt)
 
-    def step(self, dt: float, substeps: int = 4) -> None:
+    def step(self, dt: float, substeps: int = 4, contact_refresh: str = "step") -> None:
+        """Advance one 50 Hz control step as ``substeps`` physics steps.
+
+        ``contact_refresh`` decides how often the contact set is regenerated:
+
+        ``step``
+            Once per control step, reusing the same contacts for all four physics steps.
+            This is Newton's own example convention (``example_robot_g1.py:109-120``).
+        ``substep``
+            Once per physics step, which is what Isaac does (``sim.dt = 0.005`` with
+            ``decimation = 4``, so PhysX collides at 200 Hz) and what this repo's own
+            ``example_g1_in_sage.py:425-429`` does.
+
+        ``step`` is the default on measurement, not on principle. The geometric argument for
+        ``substep`` is real -- over a 20 ms control step a hand moving at 0.5 m/s travels
+        10 mm, well past the 5 mm contact margin, so normals go stale -- but switching to it
+        moved the lift by -0.4 % on data_000 and +11 % on data_001 while costing 3-4x
+        throughput, which does not justify paying for it in every rollout. Contact-force and
+        tactile work should still pass ``substep``: a pressure field read off 20 ms-old
+        geometry is wrong in a way that a scalar lift height cannot detect.
+        """
+        if self.graph is not None:
+            wp.capture_launch(self.graph)
+        else:
+            self._advance(dt, substeps, contact_refresh)
+        self.frame += 1
+
+    def _advance(self, dt: float, substeps: int, contact_refresh: str) -> None:
         sub = dt / substeps
-        self.pipeline.collide(self.state_0, self.contacts)
+        if contact_refresh == "step":
+            self.pipeline.collide(self.state_0, self.contacts)
         for _ in range(substeps):
             self.state_0.clear_forces()
+            if contact_refresh == "substep":
+                self.pipeline.collide(self.state_0, self.contacts)
             self.solver.step(self.state_0, self.state_1, self.control, self.contacts, sub)
             self.state_0, self.state_1 = self.state_1, self.state_0
-        self.frame += 1
+
+    def capture(self, dt: float, substeps: int, contact_refresh: str) -> None:
+        """Record one control step as a single CUDA graph.
+
+        At ``iterations=100`` the solve is hundreds of tiny kernel launches, so a
+        single-world scene is launch-bound rather than arithmetic-bound. Newton's own G1
+        example captures the collide as well (``example_robot_g1.py:101-120``), so the
+        contact pipeline is capture-safe.
+
+        ``substeps`` must be even: the loop swaps ``state_0``/``state_1`` on every pass, and
+        the graph records kernels against specific buffers, so only an even number of swaps
+        leaves the Python references where the recording assumed they were.
+        """
+        if not wp.get_device().is_cuda:
+            return
+        if substeps % 2:
+            raise ValueError(f"graph capture needs an even substep count, got {substeps}")
+        # Conditional graph nodes need driver 12.4+ and this box has 12.2, so capture fails
+        # outright until they are switched off. Switching them off is not free: the
+        # conditional node is what lets the constraint solver exit early once it converges
+        # (mujoco_warp/_src/solver.py:3371), so without it every step pays the full
+        # `iterations` count. That is why capture must be measured together with the
+        # iteration count rather than on its own -- at iterations=100 it is a pessimisation.
+        mjw = getattr(self.solver, "mjw_model", None)
+        if mjw is not None:
+            mjw.opt.graph_conditional = False
+        # Warm up first: the capture cannot allocate, and the first call both loads Warp
+        # kernel modules and sizes the contact buffers.
+        for _ in range(3):
+            self._advance(dt, substeps, contact_refresh)
+        with wp.ScopedCapture() as cap:
+            self._advance(dt, substeps, contact_refresh)
+        self.graph = cap.graph
 
     # ---- readout -------------------------------------------------------------
     def box_pos(self) -> np.ndarray:
@@ -566,6 +828,24 @@ def main() -> None:
     ap.add_argument("--render", default="", help="directory for scene frames (headless EGL)")
     ap.add_argument("--image-format", default="jpg", choices=("png", "jpg"))
     ap.add_argument("--cam-offset", type=float, nargs=3, default=(2.2, -2.2, 0.9))
+    ap.add_argument("--collision", default="mesh", choices=("mesh", "hydro"),
+                    help="raw triangle meshes, or hydroelastic SDF (handles concavity "
+                         "natively, cost scales with resolution not mesh complexity)")
+    ap.add_argument("--sdf-resolution", type=int, default=64)
+    ap.add_argument("--box-tris", type=int, default=0,
+                    help="decimate the box collider to about this many triangles "
+                         "(0 = the asset's 100k); 2000 keeps the surface within 1.6 mm")
+    ap.add_argument("--hand-tris", type=int, default=0,
+                    help="decimate each rubber-hand collider to about this many triangles "
+                         "(0 = the asset's 5.9-6.4k)")
+    ap.add_argument("--graph", action="store_true",
+                    help="capture the control step as one CUDA graph")
+    ap.add_argument("--iterations", type=int, default=100)
+    ap.add_argument("--ls-iterations", type=int, default=50)
+    ap.add_argument("--contact-refresh", default="step", choices=("substep", "step"),
+                    help="regenerate contacts once per control step (default, 3-4x faster "
+                         "with no measured lift penalty) or every physics step, as Isaac "
+                         "does -- use substep for contact-force and tactile work")
     ap.add_argument("--hull-hands", action="store_true",
                     help="diagnostic ablation: collide the hands as convex hulls, as Isaac does")
     ap.add_argument("--out", default="")
@@ -574,7 +854,10 @@ def main() -> None:
     wp.init()
     clip = load_clip(args.clip)
     scene = G1PolicyScene(clip, box=args.box, mu=args.mu, ke=args.ke, kd=args.kd,
-                          hull_hands=args.hull_hands)
+                          hull_hands=args.hull_hands, collision=args.collision,
+                          sdf_resolution=args.sdf_resolution,
+                          iterations=args.iterations, ls_iterations=args.ls_iterations,
+                          box_tris=args.box_tris, hand_tris=args.hand_tris)
     actor = Actor()
     print(f"clip {args.clip}: {clip['n']} frames at {clip['fps']:.0f} Hz")
     print(f"model: {scene.model.body_count} bodies, {scene.n_q} coords, {scene.n_qd} dofs, "
@@ -628,6 +911,14 @@ def main() -> None:
     dt = 1.0 / clip["fps"]
     n = min(args.frames, clip["n"] - args.start)
 
+    if args.graph:
+        # capture() warms up by advancing the scene, so re-seat it afterwards. reset() now
+        # reuses the same buffers, which is what keeps the graph valid across it.
+        scene.capture(dt, args.substeps, args.contact_refresh)
+        scene.reset(args.start)
+        print(f"CUDA graph captured (substeps {args.substeps}, "
+              f"contact refresh {args.contact_refresh})")
+
     box0 = scene.box_pos().copy()
     ref0 = clip["obj_trans"][args.start]
     rec = {"box": [], "ref_box": [], "pelvis": [], "action": [],
@@ -637,7 +928,7 @@ def main() -> None:
         obs = scene.observe()
         action = actor(obs)
         scene.apply(action)
-        scene.step(dt, args.substeps)
+        scene.step(dt, args.substeps, args.contact_refresh)
         bp = scene.box_pos()
         rec["box"].append(bp.copy())
         rec["ref_box"].append(clip["obj_trans"][min(args.start + k, clip["n"] - 1)].copy())
@@ -689,6 +980,26 @@ def main() -> None:
     print(f"  worst joints: {[(scene.joint_names[i], round(float(np.degrees(jerr[:, i].mean())), 1)) for i in worst]}")
     print(f"root pos error  mean {np.linalg.norm(rt - rrt, axis=1).mean():.4f} m   "
           f"final {np.linalg.norm(rt[-1] - rrt[-1]):.4f} m")
+
+    # Actuator saturation, the one measured discrepancy against Isaac. Same estimator as
+    # the Isaac-side check: PD demand from position error against each joint's effort
+    # limit. Not a measured joint torque, so it is comparable only to itself.
+    gains = [actuator_for(n) for n in scene.joint_names]
+    kk = np.array([g[0] for g in gains])
+    eff = np.array([g[3] for g in gains])
+    tau = kk * (np.asarray(rec["action"]) * scene.a_scale + scene.q_default - jp)
+    sat = np.abs(tau) > eff
+    wr = [i for i, n in enumerate(scene.joint_names) if "wrist" in n]
+    ot = [i for i, n in enumerate(scene.joint_names) if "wrist" not in n]
+    carry = slice(200, min(350, len(tau)))
+    print(f"\nactuator saturation (PD estimate)  wrists {100 * sat[:, wr].mean():.1f}%  "
+          f"(carry f200-350 {100 * sat[carry][:, wr].mean():.1f}%)   "
+          f"non-wrists {100 * sat[:, ot].mean():.1f}%")
+    print(f"  peak |tau| {np.abs(tau).max():.1f} N.m over all joints")
+    top = np.argsort(-sat.mean(0))[:4]
+    print("  most saturated: " + "  ".join(
+        f"{scene.joint_names[i]} {100 * sat[:, i].mean():.1f}% "
+        f"(mean {np.abs(tau[:, i]).mean():.2f} / lim {eff[i]:.0f})" for i in top))
 
     if args.out:
         np.savez(args.out, box=box, ref_box=ref, pelvis=np.asarray(rec["pelvis"]),

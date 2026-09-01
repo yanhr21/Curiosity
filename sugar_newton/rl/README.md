@@ -1,9 +1,373 @@
 # Newton-native RL for CarryBox
 
+> **Corrections, 2026-08-31.** Three silent-truncation-class bugs were found and fixed, and
+> they invalidate the numbers in the older sections below. Everything here was measured on a
+> dedicated 8xA100 node; timings come from serial runs, because eight concurrent rollouts
+> contend for CPU on the NumPy observation and add a ~20 % spread to fps.
+>
+> 1. **The box weighed 4.39 kg instead of 0.5 kg** (8.78x). `ShapeConfig.density` defaults
+>    to 1000 kg/m^3 and `add_shape_mesh` *adds* the shape's mass to the body, so
+>    `add_body(mass=0.5)` plus a default-density mesh silently added 3.89 dm^3 of water. The
+>    robot's own links were unaffected, because the URDF importer overwrites the accumulated
+>    mass with the URDF inertial -- which is why the symptom looked like a contact problem
+>    localised to the wrists. Fixed by deriving density from the asset mass and the mesh
+>    volume, which also scales the inertia consistently, as Isaac does. Verify with
+>    `python -m sugar_newton.validation.check_masses`.
+> 2. **`njmax` was 2048 while the playback path used 16384.** It caps constraint *rows*, and
+>    an elliptic cone costs several rows per contact, so it has to scale with `nconmax`. The
+>    2048 came from overflow messages logged while `nconmax` was still truncating at 1024 --
+>    sizing one limit from measurements taken while another was clipping.
+> 3. **Hydroelastic buffers were dropping contacts at low SDF resolution.** The iso buffer is
+>    sized as `buffer_mult_iso * total_num_tiles`, so it shrinks with `sdf_resolution` while
+>    the grip's demand does not: at resolution 32 the grasp asked for 1280 L1 subblocks
+>    against 960 and lost the rest, 1596 times in one rollout. `buffer_mult_iso=4` clears it.
+>
+> With the mass fixed, `tracker.pt` transfers far better than previously reported --
+> two thirds of the reference lift rather than one third, consistently across three clips:
+>
+>     clip      lift    reference   fraction
+>     data_000  0.430   0.628       68 %
+>     data_001  0.458   0.692       66 %
+>     data_005  0.460   0.643       72 %
+>
+> 4. **The triangle-pair buffer was overflowing too**, and this one does not have a fix by
+>    sizing. See "Throughput is the open problem" below.
+>
+> The retracted claim: wrist saturation was never a Newton-vs-Isaac contact discrepancy. The
+> wrists were at their limit because they were holding 8.8x the intended mass.
+
+## Throughput is the open problem, and the cause is now identified
+
+Measured with `python -m sugar_newton.rl.bench_env`, which reports peak contacts against the
+limits alongside the timing, because a fast row that was silently dropping contacts is not a
+result. `env-steps/s` is aggregate across worlds.
+
+    collision   envs   step_ms   env-steps/s   peak contacts
+    mesh           1      91.0          11.0             495
+    mesh           4     365.9          10.9           2 687
+    mesh          16   1 155.0          13.9           6 742
+    mesh          64   4 697.2          13.6           4 056   <- drops contacts
+    hydro          1     529.7           1.9           2 892
+    hydro          4   2 226.4           1.8          11 630
+    hydro         16   6 065.0           2.6          11 354
+    hydro         64  14 104.8           4.5           5 007
+
+### It is collision detection, and that was measured rather than assumed
+
+`--profile` wraps the env's own `pipeline.collide` and `solver.step` in synchronising timers,
+so the phases are literally the calls the step makes:
+
+    envs   collide   solve   obs+reward+python
+       1    75.6 %  18.6 %              5.8 %
+      16    94.5 %   4.5 %              1.1 %
+
+Read the proportions, not the absolute instrumented times: the per-phase `wp.synchronize`
+serialises work the GPU would overlap, which inflated the 1-world step from 61 ms to 146 ms.
+At 16 worlds instrumented (989 ms) and real (1105 ms) agree closely, so that split is solid.
+
+This rules out the alternative explanations directly:
+
+* **Not rigging.** Model construction is 3-7 s (the larger figure is first-run kernel
+  compilation) and happens once in `__init__`, outside every timed window.
+* **Not rendering.** There is no viewer in this path at all. Rendering is expensive where it
+  exists -- the 481-frame playback goes from 100 s to 310 s with `--render` -- but training
+  never pays it.
+* **Not the observation.** Obs, reward and Python bookkeeping are 5.8 % at one world and
+  1.1 % at sixteen, because they are Torch ops on the GPU over a batch.
+* **Not launch overhead.** If the step were bound by kernel launches, CUDA graph capture
+  would have collapsed it; it bought ~10 %.
+* **Not even the solver.** Solve is 4.5 % at 16 worlds. Cutting `iterations` from 100 to 10
+  is consistent with this -- it barely moves the clock.
+
+Collide's share *grows* with world count, 76 % to 94.5 %, which is precisely why batching
+does not amortise anything: the dominant term scales linearly with the number of worlds.
+
+Two things follow, and neither is what was assumed before:
+
+* **Batching does not help.** Aggregate throughput is flat at ~11-14 env-steps/s from 1 to 16
+  worlds. Adding worlds adds proportional cost, so the usual vectorisation argument does not
+  apply to this scene as configured.
+* **The raw triangle mesh is the ceiling, not the solver.** The box collides as a ~100k
+  triangle mesh. Candidate triangle pairs scale with world count and reached 5.58e6 at 256
+  worlds, but deterministic contact packing indexes contacts with 20 bits, so 2**20 is a hard
+  cap: request more and the pipeline raises, request less and it drops contacts. Measured
+  demand is ~19k pairs per world, so **the mesh path is correct up to ~55 worlds and wrong
+  above it**, and the env now warns instead of failing. The 64-world row above runs, but its
+  overflow log shows 1.06-1.31e6 against the 1.05e6 cap, so its physics is not trustworthy.
+* **Hydroelastic is not the escape.** It handles the concavity properly and its cost does not
+  depend on triangle count, but measured here it is 3-6x slower than the mesh path, not
+  faster. It buys fidelity, not speed.
+
+### The fix: decimate the box collider. 15x throughput, 1.6 mm of geometry given up
+
+The box ships as 100k triangles of median 7.8 mm^2 tiling 1.2264 m^2 -- within 0.4 % of the
+exact surface area of an open carton with its bounding box, and enclosing a 3.2 mm wall. So
+the triangle budget is tessellation density, not shape, and quadric decimation gives it back
+almost for free (`validation/check_decimation.py`, symmetric surface deviation):
+
+    target   mean      p99       max        vs 5 mm margin / 3.2 mm wall
+     5000    0.037 mm  0.205 mm  1.046 mm   safe
+     2000    0.076 mm  0.428 mm  1.634 mm   safe, default
+     1000    0.135 mm  0.865 mm  4.353 mm   approaches both
+      200    0.624 mm  2.808 mm  6.077 mm   exceeds the margin
+
+`--box-tris 2000` is a 50x triangle reduction whose worst case moves the surface by half the
+wall thickness and a third of the contact margin. It is decimation, not hulling and not
+decomposition: the mesh stays non-convex and the carton stays open, so the concavity the
+grasp depends on is untouched.
+
+What it buys, and what it costs:
+
+    envs   box_tris   step_ms   env-steps/s   collide %
+      16    100 000   1 052.9          15.2      94.9
+      16      5 000     186.4          85.8      73.6
+      16      2 000     153.1         104.5      61.8
+      64      2 000     435.3         147.0
+     256      2 000   1 369.2         187.0
+     512      2 000   2 472.9         207.0
+
+    playback (481 frames)   fps    lift     tracking
+    100k triangles          4.8    0.4287   8.18 deg
+    5000                   19.2    0.4131   8.10 deg
+    2000                   21.5    0.4255   8.28 deg
+
+Three things to note. Aggregate throughput **starts scaling with world count again**
+(147 -> 207 from 64 to 512 worlds) because collide is no longer 95 % of the step. The
+**2**20 ceiling stops binding**, so 512 worlds runs clean where 64 previously dropped
+contacts. And the lift moves by -0.7 % against a run-to-run spread of 0.07 m, with joint
+tracking unchanged, so the accuracy was not spent to buy the speed.
+
+At 207 env-steps/s, SUGAR's ~5.8M env-steps is about 8 hours rather than about 5 days.
+
+### The closed loop: policy -> physics -> render -> visual+tactile -> policy
+
+Every other fps number in this file is physics-only. `validation/bench_loop.py` measures the
+whole loop and attributes it, fencing each stage with `wp.synchronize()` so the split is real,
+then re-timing unfenced for the total a training loop would actually see. Single world, A100,
+`box_tris=2000 hand_tris=5000`, started in the carry (frame 180):
+
+    resolution   policy  physics  render  readout  tactile   full ms   FULL fps   render fps
+    no render      0.77    49.75       -        -     0.29     51.04       19.6            -
+    320x240        0.76    49.86    4.56     0.71     0.38     56.17       17.8        189.8
+    640x480        0.77    49.84    4.57     0.94     0.38     56.77       17.6        181.5
+    1280x720       0.77    50.70    4.66     1.32     0.38     57.56       17.4        167.2
+    1920x1080      0.80    49.66    4.62     2.06     0.38     57.45       17.4        149.7
+    2560x1440      0.80    50.22    4.73     3.01     0.38     58.39       17.1        129.2
+    3840x2160      0.76    49.26    4.55     5.73     0.38     60.87       16.4         97.3
+
+**Resolution is nearly free.** The draw cost is flat at 4.55-4.73 ms across a 108x range in
+pixel count, because this scene is draw-call and geometry bound, not fill-rate bound. Only
+`get_frame()` scales with pixels (0.71 -> 5.73 ms), and sublinearly at that. Going from QVGA to
+4K costs the full loop 8 %. So pick the resolution the policy needs and stop worrying about it.
+
+**Physics is the wall, at 81-89 % of the loop.** Rendering adds 5-10 ms to a ~50 ms physics
+step. The two sensing paths are nearly free: the tactile reduction (`PatchTactile`, all Warp
+kernels) is 0.38 ms and the frame readout is a GPU->GPU PBO copy, so neither forces a host
+round trip. Anything spent optimising this loop should go into the solver, not the renderer --
+and note physics cost tracks contact count, so the same scene runs 30.0 ms during the approach
+and 40-50 ms once the grasp closes.
+
+`validation/make_loop_video.py` renders the scene beside the live tactile map for both hands,
+flat on the palm, with all three rates burned in (`_out/loop_render_tactile.mp4`). The
+compositing is deliberately outside the timers, since drawing a matplotlib panel per frame
+costs more than the simulation does.
+
+> **Open issue: the absolute contact-force scale is not trustworthy yet.** Summed contact-force
+> magnitude on one hand swings between ~40 N and ~4000 N across frames of the same carry, and a
+> per-hand *net* of 1242 N appeared in one probe -- non-physical for a 0.5 kg box. `PatchTactile`
+> agrees with a hand-rolled sum over `contacts.force` to the digit (6770.41 N both), so the
+> reducer is not the problem; the suspects are the force units after a multi-substep step and
+> transient penetration spikes. All the decimation comparisons in this file are *relative*, run
+> through one identical path with an exact A/A control, so they stand -- but do not quote these
+> newtons as physical grip force until this is chased down.
+
+### What decimation costs a tactile channel: net load survives, per-taxel pattern does not
+
+Surface deviation is a geometric proxy, so the contact-level question was measured directly
+(`validation/compare_contacts.py`). Comparing two *rollouts* would only measure chaos -- this
+scene has a 0.07 m spread at identical parameters -- so instead one reference rollout is
+recorded and every state is replayed into both colliders, making any difference attributable
+to the collider alone. Probing two identical colliders is the control, and it agrees to 0.1 %,
+so the numbers below are signal:
+
+    vs original 100k   net load/hand   sum|f|   patch centroid   per-contact corr
+    20 000 tris          1.4-2.0 %     8-15 %      1.6-2.0 mm       0.65-0.97
+     2 000 tris          2.8-3.2 %    18-19 %      4.9-10.1 mm      0.48-0.80
+
+**Most reported "contacts" are not touches.** Newton emits every shape pair inside the 5 mm
+margin, and 95.8 % of those carry *exactly* zero force. Per hand per frame there are ~78-87
+margin candidates but only **3.6-4.5 load-bearing contacts**. Two consequences worth carrying
+around:
+
+* Any contact *count* is a proximity statistic, not a contact-mechanics one. `compare_contacts`
+  now prints `d_cand` and `d_load` separately for this reason.
+* Patch centroid and spread must be **force-weighted**, or ~85 zero-force candidates dilute
+  the answer. Doing it properly roughly doubles the measured shift (hands at 5000: 0.97 mm
+  unweighted vs 1.92 mm weighted on the right, 2.15 vs 2.95 mm on the left).
+
+The force-based metrics -- net load, `sum|f|`, correlation -- were never affected, since a
+zero-force entry contributes nothing to them.
+
+Read the rest as two different answers, not one bad one:
+
+* **Net wrench is preserved.** Each hand puts 30.9 N of squeeze on the box, and that survives
+  decimation to within 3 %. It is pinned by the physics -- the grasp has to hold the same
+  0.5 kg -- which is why the lift and the tracking do not move.
+* **The distribution of that wrench over contacts is not preserved.** A 6-DOF load spread
+  across ~80 contacts per hand is underdetermined, so which triangles carry it is set by the
+  tessellation and the solver's regularisation rather than by the shape. The giveaway that
+  this is conditioning and not accuracy loss: per-contact correlation is *not monotone* in
+  triangle count (0.65 at 20k, 0.80 at 2k on the left hand).
+
+So decimation is safe for dynamics and for patch-integrated tactile readings, and unsafe for
+per-taxel pressure patterns. Hence the split default: `box_tris=2000` in the RL env, where
+throughput is the constraint, and the full 100k mesh in `validation/`, which is the fidelity
+reference. Anyone training on per-taxel tactile input should raise `box_tris` and re-run this
+comparison rather than inherit the RL default.
+
+### The hands are the bigger collider, and decimating them adds 32 %
+
+`check_geometry` reports the hands at 5.9-6.4k triangles, but that is the precomputed convex
+hull in `HAND_HULLS`, used only by the `--hull-hands` ablation. The URDF actually collides
+them as **45 748 and 43 852 triangles** -- 89.6k together, comparable to the box's 100k. On
+top of `box_tris=2000`, `--hand-tris 2000` gives:
+
+    envs   hand_tris   step_ms   env-steps/s   collide %
+       1     45k/44k      46.7          21.4      19.4
+       1       2 000      44.2          22.6      16.3
+      16     45k/44k     136.0         117.6      63.6
+      16       5 000     119.4         134.0
+      16       2 000     117.0         136.7      59.6
+      64     45k/44k     491.8         130.1      86.4
+      64       5 000     345.9         185.0
+      64       2 000     373.1         171.5      79.6
+
+Note the 5000 and 2000 rows are tied within run-to-run variation (5000 even measures faster at
+64 worlds). Almost all of the gain is already banked by the first 9x reduction, so pushing on
+to 2000 buys no throughput while costing 5x the contact error -- see the fidelity sweep below.
+
+The gain grows with world count (+5 % at 1 world, +32 % at 64) because it is a broad-phase
+effect: hand triangles multiply against box triangles, so it compounds with the box reduction
+instead of adding to it. Deviation is 0.13 mm mean / 0.89 mm max at 2000, roughly six times
+tighter than the box at the same budget because the hand is a much smaller object; below ~300
+triangles the max deviation crosses the 5 mm margin and enclosed volume drifts over 13 %.
+
+Playback fidelity holds, which matters more here than for the box because this is the
+grasping surface itself:
+
+    box_tris=2000, playback   fps    lift      tracking      wrist sat (carry)
+    hands 45k/44k            21.4   0.4067 m   0.1408 rad        12.0 %
+    hands 10000              23.6   0.4029 m   0.1400 rad        12.0 %
+    hands 5000               24.7   0.4080 m   0.1407 rad        12.9 %
+    hands 2000               25.3   0.4018 m   0.1408 rad        11.7 %
+    hands 1000               25.6   0.4148 m   0.1408 rad        13.3 %
+
+Single-world fps is flat from 5000 down (24.7 vs 25.3), the same tie the 64-world numbers
+show, and 5000 lands closest to the full-mesh lift of the four.
+
+Lift moves within the 0.07 m run-to-run spread and mean joint tracking is identical to four
+decimals, so `--hand-tris 2000` is free *for the dynamics*.
+
+It is not free for contact fidelity, and 2000 turns out to be past a cliff. Sweeping the
+budget against the contact probe (`--vary hand`):
+
+    hand_tris (each)   net load/hand   sum|f|    patch centroid   per-contact corr
+    10 000               1.1-1.3 %    2.3-2.6 %    0.8-0.9 mm        0.95
+     5 000               1.8-2.2 %    3.8-4.6 %    1.0-2.1 mm        0.92-0.94
+     2 000              10.1-10.7 %   12-14 %      1.7-2.7 mm        0.57-0.59   <-- cliff
+
+**5000 per hand is the setting to use**, not 2000: a 9x reduction (89.6k -> 10k) for 2 % net
+load error, and better tactile fidelity than the box gets at its own default (box 2000 is
+3.1 % net at 0.37-0.75 correlation). Unlike the box, the hand degrades *monotonically* in
+triangle count, so it can be traded off predictably instead of reshuffling.
+
+Two things are worth extracting from this. First, surface deviation is not the right
+predictor: at 2000 the hands have **half the box's surface deviation and three times its
+net-load error**. The reason is visible in `_out/hand_tactile_*.png` -- this grasp is a
+fingertip pinch and only 8-14 % of the hand is ever touched, so the hand *is* the contact
+patch and its local curvature sets contact area directly, whereas the gripped part of the box
+is a flat panel whose curvature retessellation does not change. A mesh-averaged deviation is
+dominated by the untouched palm and cannot see this.
+
+Second, the safe budget has to be set by curvature in the contact region, not by a global
+triangle count. That is why the box's 2000 does not transfer: it was tuned to a five-panel
+carton. Genuinely concave objects should be swept with this probe rather than inheriting it.
+
+`--hand-tris` is off by default in both the RL env and validation, since it has not yet been
+through a training run. When you turn it on, use **5000**: it costs nothing in throughput
+against 2000 and gives 5x lower contact error, so 2000 is dominated and there is no reason to
+prefer it.
+
+### Visualising both, `validation/plot_hand_tactile.py`
+
+Everything is drawn on the flat palm layout in `validation/hand_atlas.py`: the real G1
+collider (`meshes/{left,right}_rubber_hand.STL` out of
+`g1_29dof_rev_1_0_with_rubber_hand.urdf`, the fixed five-finger rubber hand, 45748 and 43852
+triangles) projected orthographically down its own palm normal, fingertips up, digits
+labelled. The projection is free of information loss here because a box grasp puts **100.0 %
+of its force on one side of the hand**, both hands.
+
+Three independent tests agree on which side that is, and they matter because a closed mesh
+does not announce which of its faces are "the palm":
+
+| test | left hand | right hand |
+| --- | --- | --- |
+| concave side (gap to convex hull, thumb excluded) | -y, 13.0 mm vs 1.2 mm | +y, 12.9 mm vs 1.2 mm |
+| direction all four fingers curl (tip deflection off a straight base fit) | -y, 34-42 mm | +y, 32-42 mm |
+| side the grasp load lands on | -y, 100.0 % | +y, 100.0 % |
+
+With fingers at local +x and pinky-to-thumb at local +z, that gives `f x p == -n` for the
+right hand and `+n` for the left, the correct chirality for each -- the two STLs are a proper
+mirrored pair and are not swapped.
+
+    python -m sugar_newton.validation.compare_contacts --vary hand --variants 0 0 2000 \
+        --dump sugar_newton/_out/tactile_hand.npz
+    python -m sugar_newton.validation.plot_hand_tactile --hand both \
+        --dump sugar_newton/_out/tactile_hand.npz
+
+`hand_shape_*.png` puts the colliders, cross-section outlines through the fingers and palm, a
+deviation heat map and a deviation CDF against the 5 mm margin on one sheet. The
+cross-sections are the panel worth looking at: at 2000 triangles the finger outlines are
+coincident with the original at plotting scale, which is why the geometric check passes.
+
+`hand_tactile_flat.png` is the tactile map for both hands -- accumulated contact force over
+the carry, splatted with a 4 mm kernel onto a common canvas mesh so the two colliders can be
+differenced (contact points are reported in the hand's body frame, `contacts.py:210`, so this
+is well defined even though the two meshes differ). It shows the same digits loaded in both
+cases with the same rank order, but 16.5 % (left) and 18.0 % (right) of the total force
+redistributed between them, peaking at 22-30 N on a single fingertip. That is the honest
+summary of hand decimation: the grasp is qualitatively the same, the per-fingertip force is
+not.
+
+Splatting only ever uses load-bearing contacts. About 94 % of what Newton reports as a
+contact carries exactly zero force, and those proximity candidates sit up to 100 mm off the
+surface; the load-bearing ones all sit 2.1-2.6 mm off it, half the 5 mm margin.
+
+For the animated version, the dump needs per-contact frame indices, so it is a separate
+artifact from the integrated one:
+
+    python -m sugar_newton.validation.compare_contacts --vary hand --variants 0 5000 \
+        --window 190 360 --dump sugar_newton/_out/tactile_frames.npz
+    python -m sugar_newton.validation.plot_hand_tactile --hand both --only video \
+        --stride 2 --fps 12 --dump sugar_newton/_out/tactile_frames.npz
+
+That writes `hand_tactile_flat.mp4`, both hands with the original collider beside the
+5000-triangle one, and you can watch the load walk across the fingertips as the box settles
+while each pair of panels stays locked together. Two gotchas: the container has no ffmpeg for
+matplotlib's writer so it falls back to GIF, and the video's colour scale is per-frame force
+(peak 2.8 N) whereas the static figure's is integrated over the whole carry (peak ~150 N) --
+they are not comparable numbers.
+
+Convex decomposition of the box is *not* the next lever -- coacd returns
+52 hulls at threshold 0.1 and 112 at 0.05, because it is fighting tessellation noise rather
+than real concavity, and it costs 30 s to build. Single-world playback speed, for reference,
+is 4.8 fps eager and 5.3 fps with CUDA graph capture (`validation/g1_carrybox_policy.py
+--graph`); capture is worth ~10 % here because disabling conditional graph nodes, which
+driver 12.2 forces, also disables the solver's early exit.
+
 Retrain (or fine-tune) SUGAR's tracker against Newton's contact model, because
-`validation/g1_carrybox_policy.py` showed the official `tracker.pt` only partially
-transfers: it lifts the box about a third of the reference height, and its wrists sit at
-their effort limit 37% of the carry against Isaac's 1.9%.
+`validation/g1_carrybox_policy.py` shows the official `tracker.pt` only partially
+transfers: it reaches about two thirds of the reference lift height.
 
     # smoke test
     python -m sugar_newton.rl.train_bcppo --num-envs 16 --max-iterations 3 \

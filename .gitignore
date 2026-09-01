@@ -34,6 +34,13 @@ SUGAR/downloads/
 SUGAR/outputs
 SUGAR/hydra.log
 
+# sugar_newton scratch: figures/videos/dumps from the validation scripts and the per-run
+# logs the sweep runners write. All regenerable from sugar_newton/sweeps/*.txt.
+sugar_newton/_out/
+sugar_newton/_gpu_out/
+sugar_newton/_par*/
+sugar_newton/_ser/
+
 # Python/build/editor noise
 __pycache__/
 *.py[cod]

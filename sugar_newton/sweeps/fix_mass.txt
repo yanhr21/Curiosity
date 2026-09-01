@@ -1,0 +1,12 @@
+# Same configurations as ab_contact.txt but with the box mass corrected from 4.39 kg to the
+# 0.5 kg SUGAR spawns. Rows 3-5 are replicates on other clips, because the run-to-run spread
+# at identical parameters was already measured at 0.23-0.30 m and one run cannot resolve a
+# difference smaller than that. Rows 7-8 are the graph-capture test for throughput.
+fix_mesh_step_s4	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step
+fix_mesh_substep_s4	--frames 481 --mu 1.0 --substeps 4 --contact-refresh substep
+fix_mesh_step_s4_c001	--clip data_001 --frames 481 --mu 1.0 --substeps 4 --contact-refresh step
+fix_mesh_step_s4_c005	--clip data_005 --frames 481 --mu 1.0 --substeps 4 --contact-refresh step
+fix_mesh_substep_s4_c001	--clip data_001 --frames 481 --mu 1.0 --substeps 4 --contact-refresh substep
+fix_hydro64_step_s4	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --collision hydro --sdf-resolution 64
+fix_graph_step_s4	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --graph
+fix_graph_step_s4_i10	--frames 481 --mu 1.0 --substeps 4 --contact-refresh step --graph --iterations 10 --ls-iterations 5
