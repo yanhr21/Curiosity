@@ -4,7 +4,8 @@
 # gitignored. SHA-256 of each archive is recorded next to it -- Plan 15 shipped an
 # unpinned teacher (expected_sha256=None); this is the thing that stops a repeat.
 set -eu
-C=/lustre/fs12/portfolios/nvr/projects/nvr_nxp_visionconferencing/users/shengzew/robot_baby/Curiosity
+# Repo root from this file's own location, so a fresh clone anywhere can run it.
+C=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$C/SUGAR/_downloads"
 declare -A IDS=(
   [descriptions.zip]=1wXNAjNMrfV0e-d2pQ6m9dm4xrG5lSoyD
