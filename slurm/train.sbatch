@@ -65,7 +65,10 @@ RUN=${RB_RUN:-carrybox_bcppo}
 ENVS=${RB_ENVS:-64}
 GPUS=${RB_GPUS:-8}
 ITERS=${RB_ITERS:-3000}
-EVAL_MIN=${RB_EVAL_MIN:-10}
+# 20 min, not 10: an evaluation costs ~118 s (rollout, render, tactile panels, encode) and
+# every rank waits at the next all-reduce while rank 0 does it, so at 10 min it was ~19 % of
+# a 17 h run. 20 min halves that and still gives ~50 videos over the curriculum.
+EVAL_MIN=${RB_EVAL_MIN:-20}
 # Preemption is the only thing that should cost progress, so checkpoint well inside a leg:
 # at ~14 s/iteration 25 iterations is ~6 min of work at risk.
 SAVE=${RB_SAVE:-25}
