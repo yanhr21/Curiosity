@@ -251,27 +251,54 @@ def main() -> None:
 
     from sugar_newton.rl.vec_env import OBS_DIMS, make
 
+    # ---- multi-GPU ---------------------------------------------------------------------
+    # Under torchrun, rsl_rl reads WORLD_SIZE/LOCAL_RANK/RANK itself and raises unless the
+    # device is exactly cuda:LOCAL_RANK, so derive it here rather than trusting --device.
+    # BCPPO subclasses PPO and forwards **kwargs, so the multi_gpu_cfg the runner passes
+    # reaches the all-reduce paths already in its update loop; nothing else is needed.
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+    rank = int(os.environ.get("RANK", "0"))
+    if world_size > 1:
+        args.device = f"cuda:{local_rank}"
+        torch.cuda.set_device(local_rank)
+
     wp.init()
-    torch.manual_seed(args.seed)
+    # Each rank must see DIFFERENT worlds. Data-parallel training averages gradients, so
+    # eight ranks seeded alike would step eight identical rollouts and the 8x batch would
+    # carry 1x the information -- a silent waste of seven GPUs rather than a crash.
+    torch.manual_seed(args.seed + rank)
 
     env = make(args.num_envs, clip_names=args.clips, episode_length=args.episode_length,
-               substeps=args.substeps, mu=args.mu, device=args.device, seed=args.seed,
+               substeps=args.substeps, mu=args.mu, device=args.device,
+               seed=args.seed + rank,
                box_tris=args.box_tris, hand_tris=args.hand_tris, margin=args.margin)
-    print(f"[env] {args.num_envs} worlds, {len(env.env.clip_names)} clips, "
-          f"obs {OBS_DIMS}, act {env.num_actions}")
-    print(f"[env] box_tris={args.box_tris} hand_tris={args.hand_tris} "
-          f"margin={args.margin} mu={args.mu} substeps={args.substeps}")
+    if rank == 0:
+        total = args.num_envs * world_size
+        print(f"[env] {args.num_envs} worlds x {world_size} rank(s) = {total} worlds, "
+              f"{len(env.env.clip_names)} clips, obs {OBS_DIMS}, act {env.num_actions}")
+        print(f"[env] box_tris={args.box_tris} hand_tris={args.hand_tris} "
+              f"margin={args.margin} mu={args.mu} substeps={args.substeps}")
+        print(f"[env] batch/iteration = {24 * total} samples")
 
     log_dir = Path(args.log_root) / args.run_name
     log_dir.mkdir(parents=True, exist_ok=True)
     runner = OnPolicyRunner(env, runner_cfg(args), log_dir=str(log_dir), device=args.device)
-    print(f"[alg] {type(runner.alg).__name__}  teacher={args.teacher_ckpt}")
+    if rank == 0:
+        print(f"[alg] {type(runner.alg).__name__}  teacher={args.teacher_ckpt}"
+              + (f"  (DDP, {world_size} ranks)" if world_size > 1 else ""))
     if args.resume:
         runner.load(args.resume)
-        print(f"[alg] resumed from {args.resume} at iteration "
-              f"{runner.current_learning_iteration}")
+        if rank == 0:
+            print(f"[alg] resumed from {args.resume} at iteration "
+                  f"{runner.current_learning_iteration}")
 
-    if args.eval_minutes > 0 or args.video_interval > 0:
+    # Rank 0 only: the recorder builds a second environment and writes the video, and
+    # rsl_rl calls `log` on rank 0 alone, so attaching elsewhere would allocate a spare env
+    # per GPU that never renders. The other ranks wait at the next all-reduce while rank 0
+    # records -- harmless at a few minutes, but it is why eval must stay well inside NCCL's
+    # timeout (raised in the launcher).
+    if rank == 0 and (args.eval_minutes > 0 or args.video_interval > 0):
         attach_video(runner, args)
 
     # `learn` takes a COUNT and computes `tot_iter = current + count`
@@ -281,10 +308,12 @@ def main() -> None:
     # target here, so the count has to be the remainder.
     todo = args.max_iterations - runner.current_learning_iteration
     if todo <= 0:
-        print(f"[alg] already at iteration {runner.current_learning_iteration} of "
-              f"{args.max_iterations}; nothing to do")
+        if rank == 0:
+            print(f"[alg] already at iteration {runner.current_learning_iteration} of "
+                  f"{args.max_iterations}; nothing to do")
         return
-    print(f"[alg] training {todo} iterations to reach {args.max_iterations}")
+    if rank == 0:
+        print(f"[alg] training {todo} iterations to reach {args.max_iterations}")
     runner.learn(num_learning_iterations=todo, init_at_random_ep_len=True)
 
 

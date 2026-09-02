@@ -10,11 +10,15 @@
 # "HB: unbound variable". And a file is testable: `bash -n` catches what escaping inside
 # `bash -lc "..."` hides.
 #
-# Reads: RB_RUN RB_ENVS RB_ITERS RB_SAVE RB_EVAL_MIN RB_LOGROOT RB_LOGGER RB_EXTRA
+# Reads: RB_RUN RB_ENVS RB_ITERS RB_SAVE RB_EVAL_MIN RB_LOGROOT RB_LOGGER RB_EXTRA RB_GPUS
+#
+# RB_ENVS is worlds PER RANK. With RB_GPUS>1 the leg runs under torchrun and the effective
+# batch is RB_ENVS * RB_GPUS * 24, so changing RB_GPUS alone changes the batch BCPPO sees.
 set -u
 
 RUN=${RB_RUN:-carrybox_bcppo}
 ENVS=${RB_ENVS:-512}
+export PYTHONUNBUFFERED=1               # torchrun has no -u; keep both paths line-buffered
 ITERS=${RB_ITERS:-3000}
 SAVE=${RB_SAVE:-25}
 EVAL_MIN=${RB_EVAL_MIN:-10}
@@ -105,8 +109,28 @@ else
 fi
 
 echo "===== TRAIN_START ====="
+# ---- single process or torchrun -----------------------------------------------------
+# RB_ENVS is worlds PER RANK, so the batch is RB_ENVS * RB_GPUS * 24 and 8x64 reproduces
+# the 12288 samples BCPPO is tuned for. Splitting the batch this way is what buys wall
+# clock: `bench_scaling` measures 45.6 s per collection at 512 worlds on one GPU against
+# 13.9 s at 64, because a 512-world GPU is saturated and a 64-world one is not. It is 3.3x,
+# not 8x, for the same reason.
+#
+# Only rank 0 records the evaluation video (~110 s) while the others sit in the next
+# all-reduce, so the heartbeat timeout has to exceed it by a wide margin; the default 600 s
+# would be a coin flip on a contended node.
+GPUS=${RB_GPUS:-1}
+export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=${TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC:-1800}
+if [ "$GPUS" -gt 1 ]; then
+    echo "===== DDP: $GPUS ranks x $ENVS worlds = $(( GPUS * ENVS )) worlds," \
+         "batch $(( GPUS * ENVS * 24 ))"
+    launcher=(torchrun --standalone --nnodes=1 --nproc_per_node="$GPUS")
+else
+    launcher=(python -u)
+fi
+
 # shellcheck disable=SC2086
-python -u -m sugar_newton.rl.train_bcppo \
+"${launcher[@]}" -m sugar_newton.rl.train_bcppo \
     --num-envs "$ENVS" --max-iterations "$ITERS" --save-interval "$SAVE" \
     --eval-minutes "$EVAL_MIN" --video-frames 400 \
     --run-name "$RUN" --log-root "$LOGROOT" --logger "$LOGGER" \

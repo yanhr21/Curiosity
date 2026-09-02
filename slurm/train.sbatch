@@ -1,9 +1,10 @@
 #!/bin/bash
 #SBATCH -A nvr_nxp_visionconferencing
-#SBATCH -p backfill_singlenode
-#SBATCH --gres=gpu:1
-#SBATCH -c 16
-#SBATCH -t 3-00:00:00
+#SBATCH -p polar3,polar4
+#SBATCH --gres=gpu:8
+#SBATCH --ntasks=1
+#SBATCH -c 64
+#SBATCH -t 4:00:00
 #SBATCH --requeue
 #SBATCH --job-name=rb_train
 #SBATCH -o slurm/train_%j.log
@@ -18,23 +19,30 @@
 # a manual resubmission all the same event, and it is what lets this run on a preemptible
 # partition safely.
 #
-# On partition choice, because two plausible answers are both wrong here. The 3000-iteration
-# curriculum is ~49 h at 512 worlds, and every *interactive* and *batch* GPU partition caps
-# at 4 h, which would mean ~13 chained legs. Measured 2026-09-01:
+# This asks for a WHOLE NODE and trains data-parallel under torchrun. `bench_scaling`,
+# measured 2026-09-01, is why: one collection costs 45.6 s at 512 worlds on a single GPU but
+# 13.9 s at 64, because 512 worlds saturate a GPU and 64 do not. Splitting the same
+# 12288-sample batch over 8 ranks of 64 therefore cuts the 3000-iteration curriculum from
+# ~38 h to ~12 h, and because the batch and the iteration count are both unchanged it is the
+# same experiment, not a larger-batch one. The gain is 3.3x rather than 8x, and the
+# all-reduce plus a 110 s evaluation every 10 min eats into even that.
 #
-#   interactive_singlenode  1227 nodes, 470 GPUs free -- but its QOS allows ONE running job
-#                           per user, so the chain queues behind any dev node you hold
-#                           (QOSMaxJobsPerUserLimit) no matter how idle the cluster is.
-#   batch_singlenode        no per-user cap -- but 6 of 9 nodes DRAINED and 64 jobs pending,
-#                           so it never schedules. Pool size beats the per-user cap.
-#   polar3 / polar4         500-700 nodes, but >3000 jobs pending and still a 4 h cap.
-#   backfill_singlenode     1227 nodes, 31 jobs pending, NO QOS cap, and 7 days of wall
-#                           clock. The whole run fits in one job.
+# Partitions, measured 2026-09-01/02:
 #
-# So: backfill. The cost is preemption, and PreemptMode=REQUEUE means a preempted job is put
-# back in the queue and restarted rather than lost -- which, with --save-interval 25 (~25
-# min) and the auto-resume above, costs at most one checkpoint interval. -t is 3 days, not 7:
-# long enough for ~49 h of training with margin, and a shorter request backfills sooner.
+#   interactive_singlenode  1227 nodes -- but its QOS allows ONE running job per user, so it
+#                           queues behind any dev node you hold, however idle the cluster is.
+#   batch_singlenode        no per-user cap -- but 6 of 9 nodes DRAINED. Never schedules.
+#   backfill_singlenode     1227 nodes and 7 days of wall clock, so the run fits in ONE job,
+#                           but a whole-node request there sat at (Priority) without
+#                           starting.
+#   polar3 / polar4         ~1200 nodes each, ~27 fully idle, and short jobs turn over fast
+#                           even with thousands pending. 4 h cap.
+#
+# So: polar. The 4 h cap means the ~13 h run is CHAINED -- see slurm/train_chain.sh, which
+# submits the legs with --dependency=afterany so each starts when the previous ends for any
+# reason. The auto-resume above is what makes a leg boundary a non-event. At 8 GPUs this is
+# ~5 legs; the same run on one GPU needed 13, which is the other half of why DDP was worth
+# doing.
 #
 # Safe to queue on SEVERAL partitions at once. Which one frees first is unpredictable here, so
 # the useful thing is to sit in all of their queues -- but two legs training the same run
@@ -52,11 +60,14 @@ REPO=${RB_REPO:-${SLURM_SUBMIT_DIR:-$PWD}}
 IMG=${RB_IMAGE:-/lustre/fsw/portfolios/nvr/users/shengzew/cuda_docker_ver3.sqsh}
 
 RUN=${RB_RUN:-carrybox_bcppo}
-ENVS=${RB_ENVS:-512}
+# Worlds PER RANK. 8 x 64 is the same 12288-sample batch as the old 1 x 512, so the curriculum
+# is unchanged; see the RB_GPUS note in the header for why it is faster.
+ENVS=${RB_ENVS:-64}
+GPUS=${RB_GPUS:-8}
 ITERS=${RB_ITERS:-3000}
 EVAL_MIN=${RB_EVAL_MIN:-10}
-# One leg reaches ~240 iterations at 512 worlds, so checkpoint far more often than that:
-# the 4 h wall clock kills the job outright and only saved iterations survive.
+# Preemption is the only thing that should cost progress, so checkpoint well inside a leg:
+# at ~14 s/iteration 25 iterations is ~6 min of work at risk.
 SAVE=${RB_SAVE:-25}
 LOGROOT=${RB_LOGROOT:-logs/newton_bcppo}
 LOGGER=${RB_LOGGER:-wandb}
@@ -81,7 +92,8 @@ fi
 export WANDB_USERNAME=${RB_WANDB_ENTITY:-nvr-amri}
 
 echo "===== TRAIN_ALLOC ====="; hostname; date; echo "jobid=$SLURM_JOB_ID"
-echo "run=$RUN envs=$ENVS iters=$ITERS eval_min=$EVAL_MIN logger=$LOGGER"
+echo "run=$RUN gpus=$GPUS envs/rank=$ENVS total_worlds=$(( GPUS * ENVS ))" \
+     "batch=$(( GPUS * ENVS * 24 )) iters=$ITERS eval_min=$EVAL_MIN logger=$LOGGER"
 echo "wandb entity=$WANDB_USERNAME key_len=${#WANDB_API_KEY}"
 
 # Everything train_leg.sh reads is exported here and carried by --export=ALL. NB: repeated
@@ -89,11 +101,16 @@ echo "wandb entity=$WANDB_USERNAME key_len=${#WANDB_API_KEY}"
 # variables travel as environment rather than as arguments. WANDB_API_KEY has to make the trip
 # too: it is not in the container's environment by default, and $HOME there is /root, so the
 # ~/.netrc on Lustre is not visible either.
-export RB_RUN=$RUN RB_ENVS=$ENVS RB_ITERS=$ITERS RB_SAVE=$SAVE
+export RB_RUN=$RUN RB_ENVS=$ENVS RB_ITERS=$ITERS RB_SAVE=$SAVE RB_GPUS=$GPUS
 export RB_EVAL_MIN=$EVAL_MIN RB_LOGROOT=$LOGROOT RB_LOGGER=$LOGGER RB_EXTRA=$EXTRA
 export WANDB_API_KEY=${WANDB_API_KEY:-}
 
-srun --container-image="$IMG" \
+# ONE task holding all 8 GPUs, not 8 tasks of 1: torchrun spawns and ranks the workers, and
+# srun doing it too would give every rank LOCAL_RANK=0 and eight processes fighting over
+# cuda:0. --gres is repeated here because a step does not always inherit the job's full
+# allocation.
+srun --ntasks=1 --gres=gpu:"$GPUS" \
+     --container-image="$IMG" \
      --container-mounts="$HOME":/home,/lustre:/lustre \
      --export=ALL \
      bash -lc "cd $REPO && bash slurm/train_leg.sh"

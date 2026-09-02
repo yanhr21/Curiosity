@@ -85,7 +85,12 @@ class VideoRecorder:
                                    margin=self.margin,
                                    # tactile panels read the contact set back, which needs
                                    # the solver's capacity to match the Newton buffer
-                                   contact_readback=self.tactile)
+                                   contact_readback=self.tactile,
+                                   # Let the clip play out. With tracking termination on, an
+                                   # early policy resets every ~25 steps and the video is the
+                                   # same half second on repeat; `video/drift_step` below
+                                   # keeps the number that reset was reporting.
+                                   track_termination=False)
             self.viewer = ViewerGL(headless=os.environ.get("G1_XVFB") != "1")
             self.viewer.set_model(self.env.model)
             if os.environ.get("PYOPENGL_PLATFORM") != "egl" and not self._warned:
@@ -123,9 +128,9 @@ class VideoRecorder:
         import imageio.v2 as imageio
 
         env = self.env
-        env.reset()
-        env.t[:] = self.start
-        env.reset(torch.zeros(1, dtype=torch.long, device=env.device))
+        # Pin clip and frame so successive evaluations are comparable; see CarryBoxEnv.reset.
+        env.reset(torch.zeros(1, dtype=torch.long, device=env.device),
+                  start=self.start, motion=0)
 
         was_training = getattr(policy, "training", False)
         policy.eval()
@@ -134,10 +139,13 @@ class VideoRecorder:
         frames = []
         film = self._film()
         buf = None
+        drift_step = -1          # first frame the policy left the reference by >0.3 m
         for _ in range(self.frames):
             obs = self._policy_obs(policy, env)
             action = self._act_mean(policy, obs)
             env.step(action)
+            if drift_step < 0 and bool(env.drifted[0]):
+                drift_step = len(frames)
             bz = float(env._body_q()[0, env.box_body, 2])
             peak = max(peak, bz)
             self._aim(env.state_0)
@@ -160,6 +168,11 @@ class VideoRecorder:
             "video/box_lift": peak - float(box0[2]),
             "video/box_lift_reference": float(ref.max()) - float(ref[0]),
             "video/frames": len(frames),
+            # Where training would have cut the episode. Rising towards `frames` is the
+            # clearest single sign the tracker is improving, and it is not visible in the
+            # video any more now that the video plays past it.
+            "video/drift_step": float(drift_step if drift_step >= 0 else len(frames)),
+            "video/tracked_to_end": float(drift_step < 0),
         }
 
         if film is not None:
@@ -234,6 +247,7 @@ class VideoRecorder:
                        family="monospace",
                        bbox=dict(boxstyle="round,pad=0.35", fc="#ffffffcc", ec="#999999"))
         lift, ref = stats["video/box_lift"], stats["video/box_lift_reference"]
+        drift = int(stats.get("video/drift_step", len(frames)))
 
         path = self.out_dir / f"rollout_{iteration:06d}.mp4"
         try:
@@ -252,9 +266,12 @@ class VideoRecorder:
             sup.set_text(f"iter {iteration}   |   clip {self.clip} frame {self.start + k}"
                          f"   |   both hands: {film.loads[k]} load-bearing contacts, "
                          f"sum|f| {tot:.0f} N, net {film.nets[k]:.0f} N")
+            track = (f"tracking  LOST at frame {drift}" if k >= drift > -1
+                     else f"tracking  OK (>0.3 m ends training episodes)")
             hud.set_text(f"iteration {iteration}\n"
                          f"lift      {lift:.3f} m  ({100 * lift / max(ref, 1e-9):.0f}% of "
                          f"{ref:.3f} m ref)\n"
+                         f"{track}\n"
                          f"tactile   NOT an input to this policy\n"
                          f"{film.canvas_tris}-tri tactile canvas")
             fig.canvas.draw()

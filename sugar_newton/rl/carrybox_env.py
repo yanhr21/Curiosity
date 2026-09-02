@@ -242,8 +242,11 @@ class CarryBoxEnv:
                  contact_surface: bool = False,
                  contact_refresh: str = "step", box_tris: int = 2000,
                  hand_tris: int = 0, margin: float = 0.0,
-                 contact_readback: bool = False):
+                 contact_readback: bool = False, track_termination: bool = True):
         self.num_envs = num_envs
+        # Training needs this True: ending the episode on reference drift is what BCPPO
+        # optimises against. Only the evaluation recorder turns it off, to see a whole clip.
+        self.track_termination = track_termination
         self.substeps = substeps
         self.episode_length = episode_length
         self.device = torch.device(device)
@@ -296,22 +299,31 @@ class CarryBoxEnv:
         #
         # It cannot simply be raised to meet demand. Deterministic contact packing indexes
         # contacts with 20 bits, so 2**20 is a hard ceiling and asking for more raises
-        # ValueError rather than overflowing. Measured demand during the grasp is ~19k pairs
-        # per world (1.06-1.31e6 across 64 worlds), so the ceiling bites at ~55 worlds: below
-        # that the mesh path is correct, above it contacts are dropped no matter what is
-        # requested. The 25k estimate below is deliberately conservative, so the warning
-        # fires before the dropping starts rather than after.
+        # ValueError rather than overflowing.
         #
-        # That ceiling, not the solver, is what caps this scene's world count on the raw
-        # triangle-mesh path: the box collides as a ~100k-triangle mesh, and no buffer size
-        # makes that scale. Reducing the collision geometry is the fix; see the README.
+        # Demand is per *collision triangle*, not per world, which is why this estimate has
+        # to follow box_tris. On the undecimated ~100k-triangle box it was ~19-25k pairs per
+        # world, so the ceiling bit at ~55 worlds. Decimating the box to 2000 triangles cuts
+        # it by the same factor: `probe_tripairs --envs 512` measures a 222,726 peak, 435 per
+        # world, 21 % of the ceiling, and Newton's verify_narrow_phase_buffers (on by
+        # default) reports no overflow. Both regimes come out at ~0.25 pairs per triangle,
+        # so scale by that and keep 2x for the grasp transient.
+        #
+        # A fixed 25k here was the old undecimated figure and warned on every run above 41
+        # worlds -- including the 512-world configuration that measurement shows is a
+        # comfortable 4.7x inside the ceiling. Crying wolf is not the safe direction: it
+        # invites ignoring the warning on a configuration that really does drop contacts.
         _TRI_PAIR_CEILING = 1 << 20
-        want = max(1_000_000, 25_000 * num_envs)
+        _FULL_BOX_TRIS = 100_000        # asset's mesh when box_tris=0 disables decimation
+        per_world = 0.5 * (box_tris or _FULL_BOX_TRIS)
+        want = max(1_000_000, int(per_world * num_envs))
         if want > _TRI_PAIR_CEILING:
             warnings.warn(
-                f"{num_envs} worlds want ~{want} triangle pairs but deterministic contact "
-                f"packing caps them at {_TRI_PAIR_CEILING}; contacts will be dropped. Use "
-                f"collision='hydro' or a reduced-triangle box for this world count.",
+                f"{num_envs} worlds at box_tris={box_tris or _FULL_BOX_TRIS} want ~{want} "
+                f"triangle pairs but deterministic contact packing caps them at "
+                f"{_TRI_PAIR_CEILING}; contacts may be dropped. Confirm with "
+                f"`python -m sugar_newton.rl.probe_tripairs --envs {num_envs}`, then reduce "
+                f"box_tris or use collision='hydro'.",
                 stacklevel=2)
         pipe_kwargs["max_triangle_pairs"] = min(want, _TRI_PAIR_CEILING)
         # `Contacts.force` is an opt-in extended attribute: the pipeline allocates it only
@@ -400,6 +412,7 @@ class CarryBoxEnv:
         self.extras: dict[str, torch.Tensor] = {}
         self.num_diverged = 0
         self.diverged = torch.zeros(num_envs, dtype=torch.bool, device=self.device)
+        self.drifted = torch.zeros(num_envs, dtype=torch.bool, device=self.device)
         self.reset()
 
     # ---- construction -------------------------------------------------------
@@ -553,19 +566,38 @@ class CarryBoxEnv:
         return self.ref[key][self.motion_id, t]
 
     # ---- reset --------------------------------------------------------------
-    def reset(self, env_ids: torch.Tensor | None = None) -> None:
+    def reset(self, env_ids: torch.Tensor | None = None,
+              start: int | None = None, motion: int | None = None) -> None:
+        """Reset ``env_ids``. ``start``/``motion`` pin the clip frame and the clip itself.
+
+        Evaluation must compare like with like: a video recorded from a random frame of a
+        random clip is not measuring the policy against the previous video, it is measuring
+        the draw. The recorder therefore pins both. Training leaves them None and keeps
+        SUGAR's randomised start.
+
+        Pinning is explicit rather than implied. Eval already happened to start at frame 0,
+        but only because ``episode_length=10**9`` drives ``span`` to its clamp of 1 -- change
+        that episode length and every eval would silently start somewhere else, and the
+        iteration-over-iteration comparison would quietly stop meaning anything.
+        """
         if env_ids is None:
             env_ids = torch.arange(self.num_envs, device=self.device)
         if env_ids.numel() == 0:
             return
         n = env_ids.numel()
-        self.motion_id[env_ids] = torch.randint(0, self.num_motions, (n,),
-                                                device=self.device, generator=self.gen)
+        if motion is None:
+            self.motion_id[env_ids] = torch.randint(0, self.num_motions, (n,),
+                                                    device=self.device, generator=self.gen)
+        else:
+            self.motion_id[env_ids] = motion
         lengths = self.ref["length"][self.motion_id[env_ids]]
-        # start anywhere that leaves a full episode; SUGAR's rollout uses the same idea
-        span = torch.clamp(lengths - self.episode_length - 1, min=1)
-        self.start[env_ids] = (torch.rand(n, device=self.device, generator=self.gen)
-                               * span.float()).long()
+        if start is None:
+            # start anywhere that leaves a full episode; SUGAR's rollout uses the same idea
+            span = torch.clamp(lengths - self.episode_length - 1, min=1)
+            self.start[env_ids] = (torch.rand(n, device=self.device, generator=self.gen)
+                                   * span.float()).long()
+        else:
+            self.start[env_ids] = min(start, int(lengths.min()) - 1)
         self.t[env_ids] = self.start[env_ids]
 
         mid, t0 = self.motion_id[env_ids], self.t[env_ids]
@@ -720,5 +752,15 @@ class CarryBoxEnv:
 
         timeout = ((self.t - self.start) >= self.episode_length) | \
                   (self.t >= self.ref["length"][self.motion_id] - 1)
-        fail = bad_ori | bad_anchor | bad_ee | bad_obj | bad_obj_ori | diverged
+        drifted = bad_ori | bad_anchor | bad_ee | bad_obj | bad_obj_ori
+        self.drifted = drifted
+
+        # Tracking termination is the training signal, but it makes an evaluation *video*
+        # useless: an early policy drifts past 0.3 m in ~25 steps, resets, and 400 frames
+        # become ten repeats of the same half second. With track_termination=False the clip
+        # plays to the end and you can see what the policy actually does; `drifted` is still
+        # published so the recorder can report where it first left the reference, which is
+        # the information the reset was carrying. Divergence still terminates -- a non-finite
+        # state has nothing left to show.
+        fail = diverged if not self.track_termination else (drifted | diverged)
         return fail | timeout, timeout
