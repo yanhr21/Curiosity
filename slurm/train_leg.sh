@@ -129,8 +129,24 @@ else
     launcher=(python -u)
 fi
 
+# RB_STAGE picks which of SUGAR's two training stages this leg runs. Everything above --
+# the heartbeat guard, the checkpoint resume, EGL, the wandb credential re-source, torchrun
+# -- is stage-independent, so the two stages differ only in the module name and both get
+# the same operational behaviour rather than a second copy of it that drifts.
+#
+#   refiner  plain PPO on the 890-D privileged observation. Stage 1, and the prerequisite
+#            for stage 2: BCPPO needs it as the frozen teacher, and `train.sh:40` points
+#            the tracker's own reference at a ROLLOUT of it, which cannot exist first.
+#   tracker  BCPPO distilling that refiner into the 510-D deployable policy.
+case "${RB_STAGE:-tracker}" in
+    refiner) MODULE=sugar_newton.rl.train_refiner ;;
+    tracker) MODULE=sugar_newton.rl.train_bcppo ;;
+    *) echo "unknown RB_STAGE='${RB_STAGE}' (want refiner|tracker)"; exit 2 ;;
+esac
+echo "===== STAGE=${RB_STAGE:-tracker} MODULE=$MODULE"
+
 # shellcheck disable=SC2086
-"${launcher[@]}" -m sugar_newton.rl.train_bcppo \
+"${launcher[@]}" -m "$MODULE" \
     --num-envs "$ENVS" --max-iterations "$ITERS" --save-interval "$SAVE" \
     --eval-minutes "$EVAL_MIN" --video-frames 400 \
     --run-name "$RUN" --log-root "$LOGROOT" --logger "$LOGGER" \

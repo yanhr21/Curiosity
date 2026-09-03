@@ -40,7 +40,9 @@ The runner writes wandb through rsl_rl's own ``WandbSummaryWriter`` (``logger: w
 so the run name is the log directory's basename and the project comes from
 ``wandb_project`` in the runner config. Credentials follow the convention used elsewhere in
 this workspace: ``WANDB_API_KEY`` from the environment, else ``~/.netrc`` for
-``api.wandb.ai``. The key is never printed.
+``api.wandb.ai``. The key is never printed. The run *id* comes from
+:mod:`sugar_newton.rl.run_dir`, which persists it in the run directory so that every leg of a
+chained run reports into one wandb run instead of one per allocation.
 """
 
 from __future__ import annotations
@@ -54,6 +56,8 @@ from pathlib import Path
 
 import torch
 import warp as wp
+
+from sugar_newton.rl.run_dir import bind_wandb_run
 
 HERE = Path(__file__).resolve().parent
 SUGAR_SRC = HERE.parents[1] / "SUGAR" / "source" / "sugar_rl"
@@ -155,7 +159,9 @@ def attach_video(runner, args) -> None:
                         mu=args.mu, substeps=args.substeps, device=args.device,
                         tactile=not args.no_tactile_video, canvas_tris=args.canvas_tris,
                         box_tris=args.box_tris, hand_tris=args.hand_tris,
-                        margin=args.margin)
+                        margin=args.margin,
+                        # set by train_refiner; the refiner's actor reads the 890-D group
+                        privileged_policy=getattr(args, "privileged_policy", False))
     period = args.eval_minutes * 60.0
     original_log = runner.log
     state = {"last_it": -1, "next_t": 0.0}      # next_t = 0 -> evaluate at the first log
@@ -283,6 +289,8 @@ def main() -> None:
 
     log_dir = Path(args.log_root) / args.run_name
     log_dir.mkdir(parents=True, exist_ok=True)
+    if args.logger == "wandb":
+        bind_wandb_run(log_dir, project=args.wandb_project, stage="tracker", rank=rank)
     runner = OnPolicyRunner(env, runner_cfg(args), log_dir=str(log_dir), device=args.device)
     if rank == 0:
         print(f"[alg] {type(runner.alg).__name__}  teacher={args.teacher_ckpt}"

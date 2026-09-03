@@ -150,6 +150,17 @@ actually gets you a GPU. Both expire hard at 4 h, and on expiry a screen window
 falls back to the login node silently — work then fails with "no NVIDIA driver"
 or half-runs on CPU.
 
+**Running several workstreams at once inverts that advice.** The per-user cap is
+what binds, not the pool: `interactive_singlenode` allows exactly **1** node, so
+the moment one dev node is held every further request there sits in
+`QOSMaxJobsPerUserLimit` forever, no matter how many of its 1243 nodes are free.
+`interactive` allows **3** concurrent nodes and is the right target for parallel
+subagents, and it is the *only* option for a multi-GPU request since
+`interactive_singlenode`'s QOS rejects anything above 1 GPU. Reaching for
+`polar3,polar4` instead looks reasonable and then waits on `Reason=Priority`
+behind other users' jobs for an unbounded time — so check `interactive` first
+when a second or third node is needed concurrently.
+
 *Verified 2026-08-13 with `sinfo -o '%P %D %l'` and `scontrol show config`.*
 
 ### Launch
@@ -178,7 +189,7 @@ job.
 | backend | Newton, `third_party/newton` submodule | IsaacLab v2.3.2 / PhysX |
 | env | conda `robotbaby`, `env/environment.yml` | `PYTHON_BIN`, an absolute interpreter path |
 | launch | SLURM, `slurm/devnode.sbatch` + `devrun.sh` | a reserved compute shell, no SLURM |
-| code | `sugar_newton/` | `scripts/sugar/`, `SUGAR/`, `IsaacLab/` |
+| code | `sugar_newton/`, `sugar_swap/` | `scripts/sugar/`, `SUGAR/`, `IsaacLab/` |
 
 Plan 15 **cannot be run from this checkout**: its host does not exist here (`ls
 /public/home/yanhongru` → *No such file or directory*). Every checkpoint, trace,
@@ -216,6 +227,38 @@ things that trip people:
 
 Assets are not in git. `bash SUGAR/_downloads/fetch_assets.sh` then
 `python -m sugar_newton.validation.make_policy_assets`; see `ASSETS.md`.
+
+### Running IsaacLab code on Newton — `sugar_swap`
+
+There are now **two** ways this tree runs SUGAR on Newton, and they are not interchangeable.
+
+| | `sugar_newton/` | `sugar_swap/` |
+|---|---|---|
+| what it is | a from-scratch reimplementation of the env | SUGAR's *unmodified* code on a Newton backend |
+| SUGAR's MDP terms | retyped by hand | imported verbatim (~3,300 lines) |
+| fidelity | audited term by term, and it drifted | structural |
+| state | trains, has run for months | imports + configures; `builder.py` still missing |
+
+`sugar_swap` works by registering Newton-backed replacements in `sys.modules` for IsaacLab's
+Isaac Sim-specific modules, then letting IsaacLab's own managers, math and MDP term library
+bind against them unmodified. **Isaac Sim is never booted**, so this does *not* need the
+Ubuntu-24.04 container or the Vulkan ICD workaround that `experiments/isaac/` needs.
+
+The one rule: `bootstrap.install()` must run **before any `isaaclab` or `sugar_rl` import**.
+It raises if `isaaclab.assets` is already imported, because a late substitution leaves some
+call sites holding the real class and some the substitute.
+
+```python
+from sugar_swap import bootstrap
+bootstrap.install()          # first, always
+import sugar_rl.tasks        # SUGAR's real code, now on Newton
+```
+
+Do not "fix" a fidelity gap in `sugar_newton/` by hand-porting more of SUGAR. Read
+[`sugar_swap/README.md`](../sugar_swap/README.md) first — it is written as a reusable recipe
+for putting *any* IsaacLab project on Newton, including how to scope the job in three
+commands and the eight non-obvious traps. Check `sugar_swap.lenient.report_ignored()` to see
+which IsaacLab config fields the Newton backend is silently dropping.
 
 ### Launching — Plan 16
 
@@ -261,6 +304,15 @@ not wire it up as a bare pass/fail gate until that scene is replaced.
 |---|---|---|
 | all IsaacLab/PhysX work | `/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python`, exported as `PYTHON_BIN` | nothing in the repo — there is no env yml for this line |
 | unit tests `tests/native_tactile/` | any Python with `torch` + `numpy`, no IsaacLab import | the tests themselves |
+
+> **Superseded on this cluster (2026-09-02).** The `yanhongru` interpreter above is from the
+> original Plan-15 machine and does not exist here. IsaacLab now runs on *this* cluster from a
+> conda env at `/lustre/.../miniconda3/envs/isaaclab` (Isaac Sim 5.1.0, IsaacLab 2.3.0,
+> `rsl-rl-lib` 3.0.1, `sugar_rl` editable), but **only inside an Ubuntu 22.04+ container** —
+> the compute nodes are Ubuntu 20.04 / glibc 2.31 and Isaac Sim needs `GLIBC_2.33`, which
+> `LD_LIBRARY_PATH` cannot fix. Use `sbatch experiments/isaac/isaac_node.sbatch`; the full
+> recipe, including the non-obvious Vulkan ICD requirement, is in
+> [`experiments/isaac/README.md`](../experiments/isaac/README.md).
 
 `PYTHON_BIN` is an absolute interpreter path that every Plan-15 shell script reads from the
 environment; forget to export it and the scripts fall through to whatever `python` resolves to

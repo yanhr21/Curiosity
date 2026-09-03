@@ -1,5 +1,15 @@
 # Curiosity — project context
 
+> **Branch scope.** This file describes the `sugar` line of work: Plan 15/16 on
+> IsaacLab/PhysX, which does not execute on this machine. On branch
+> `2026_9_1_tactile_newton` the active work is the **Newton port**, which *does* run here
+> and is documented in [`README.md`](README.md) and
+> [`sugar_newton/rl/README.md`](sugar_newton/rl/README.md). Where this file calls Newton
+> "legacy", read that as true of the `sugar` branch only. The Plan-15 reward audit below
+> remains directly relevant to the Newton port: the same `hoi_contact` and
+> `undesired_contacts` terms are the ones the port still omits, and porting them naively
+> reproduces the bugs recorded here.
+
 **Read [`claude_context/operations.md`](claude_context/operations.md) before running
 anything.** It carries the portable cluster rules, this machine's values, and —
 most importantly here — the fact that **this repo does not execute on this

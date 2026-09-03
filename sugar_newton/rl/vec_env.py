@@ -42,10 +42,23 @@ class EnvCfg(dict):
 
 
 class CarryBoxVecEnv:
-    """rsl_rl VecEnv over :class:`CarryBoxEnv`."""
+    """rsl_rl VecEnv over :class:`CarryBoxEnv`.
 
-    def __init__(self, env: CarryBoxEnv):
+    ``privileged_policy`` selects which of SUGAR's two training stages this env is for.
+    They differ only in what the actor is allowed to see, so one adapter covers both:
+
+    * ``False`` -- the **tracker** stage. Actor reads the 510-D deployable group, and the
+      890-D teacher group carries BCPPO's distillation target.
+    * ``True`` -- the **refiner** stage. ``train_refiner/base_refiner_env_cfg.py:254-255``
+      assigns ``policy = critic = PrivilegedCfg``, so the actor reads the same 890-D vector
+      as the critic and there is no teacher at all. The refiner is trained with plain PPO
+      and is never deployed -- its output is a *recording* of feasible motion, which is why
+      it may read the future reference window a real robot could not know.
+    """
+
+    def __init__(self, env: CarryBoxEnv, privileged_policy: bool = False):
         self.env = env
+        self.privileged_policy = privileged_policy
         self.num_envs = env.num_envs
         self.num_actions = N_DOF
         self.device = env.device
@@ -56,6 +69,14 @@ class CarryBoxVecEnv:
                                               device=env.device)
 
     def _obs(self) -> TensorDict:
+        if self.privileged_policy:
+            # Refiner stage: actor and critic share the privileged vector. Built once --
+            # it is the single most expensive observation term and both keys are the same
+            # tensor, so there is nothing to gain from computing it twice.
+            priv = obs_890.build(self.env, teacher=False)
+            return TensorDict({"policy": priv, "critic": priv},
+                              batch_size=[self.num_envs], device=self.device)
+
         policy = self.env.observe()
         priv = obs_890.build(self.env, teacher=False)
         # Teacher and critic share a term list; they differ only in which motion they read.
@@ -91,8 +112,9 @@ class CarryBoxVecEnv:
         return self._obs(), reward, done, info
 
 
-def make(num_envs: int, **kwargs) -> CarryBoxVecEnv:
-    return CarryBoxVecEnv(CarryBoxEnv(num_envs=num_envs, **kwargs))
+def make(num_envs: int, privileged_policy: bool = False, **kwargs) -> CarryBoxVecEnv:
+    return CarryBoxVecEnv(CarryBoxEnv(num_envs=num_envs, **kwargs),
+                          privileged_policy=privileged_policy)
 
 
 OBS_DIMS = {"policy": OBS_DIM, "critic": obs_890.OBS_DIM_890, "teacher": obs_890.OBS_DIM_890}

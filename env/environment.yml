@@ -65,3 +65,23 @@ dependencies:
       - tensorboard==2.21.0
       - tensordict==0.7.2
       - wandb==0.23.0
+
+      # sugar_swap: what SUGAR's and IsaacLab's own code imports once we run it verbatim.
+      # IsaacLab and SUGAR are not installed -- they are put on PYTHONPATH from the repo --
+      # but their imports still have to resolve, so their leaf dependencies live here.
+      # Only the first three are IsaacLab's; the rest are pulled in because SUGAR's
+      # locomanip/mdp/commands.py imports its diffusion-policy wrapper at module scope, so
+      # the whole IL stack must be importable just to build a config.
+      - toml==0.10.2
+      - prettytable==3.18.0
+      - h5py==3.16.0
+      - diffusers==0.40.0
+      - dill==0.4.1
+      - einops==0.8.2
+      - omegaconf==2.3.1
+      - timm==1.0.29
+      - zarr==3.3.0
+
+      # pinned to match the reference isaaclab env; IsaacLab's registry is sensitive to the
+      # gym API version.
+      - gymnasium==1.2.0

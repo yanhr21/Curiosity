@@ -1,0 +1,142 @@
+---
+description: How to shape shell commands so they auto-run instead of stalling. Two failure modes: a command that cannot be auto-approved waits for a human, and a command that blocks longer than 30 s trips the stream stall detector and kills the turn. One simple command per tool call; scripts in files rather than heredocs; working_directory instead of a cd prefix; long waits submitted detached and polled, never awaited inside the call.
+alwaysApply: true
+---
+
+# Shape shell commands so they can auto-run
+
+Unattended runs stall when a command cannot be auto-approved. Approval is decided
+by a pre-check that is easy to trip and impossible to satisfy with configuration,
+so the reliable approach is to keep commands boring. Follow the invariant rather
+than memorising a list of bad shapes.
+
+## The invariant
+
+1. **One simple command per tool call.** Do not build `&&` chains around
+   anything unusual.
+2. **Scripts go in files, never in a heredoc inside a chain.** Write the file
+   with the file-edit tool, then run the file.
+3. **Never use a `cd` prefix.** The Shell tool takes a `working_directory`
+   parameter; use it.
+4. **Prefer the file-edit tool over shell redirects** for creating or appending
+   to files.
+
+Follow those four and the shape question never comes up.
+
+```bash
+# STALLS - script inlined via heredoc in an && chain
+source /path/conda.sh && conda activate myenv && python - <<'PY'
+...
+PY
+
+# auto-approves - same work, script in a file
+source /path/conda.sh && conda activate myenv && python /tmp/probe.py 2>&1 | tail -40
+```
+
+```bash
+# STALLS - cd chained to a heredoc
+cd /path/to/repo && cat >> claude_context/findings.md << 'EOF'
+...
+EOF
+
+# auto-approves - no chain; you already start in the repo root
+cat >> claude_context/findings.md << 'EOF'
+...
+EOF
+```
+
+## The specific trigger, for when you need to know
+
+A heredoc attached to a command joined by `&&` **always** stalls. Established by
+bisection, so do not generalise past it:
+
+| shape | result |
+|---|---|
+| `python3 - <<'PY'` (bare heredoc) | auto-approves |
+| `python3 - <<'PY' \| tail -3` (heredoc + pipe) | auto-approves |
+| `python3 - <<'PY' 2>&1` (heredoc + redirect) | auto-approves |
+| `cat >> f.md << 'EOF'` then a newline, then `echo done` | auto-approves |
+| `true; python3 - <<'PY'` (`;` chain) | auto-approves |
+| `source … && conda activate … && python file.py \| tail` (chain, no heredoc) | auto-approves |
+| **`true && python3 - <<'PY'`** (`&&` chain + heredoc) | **stalls** |
+
+Pipes, stderr redirects, `source`, `conda activate`, `timeout`, `cd`, and the
+redirect target's location are all innocent on their own. If you must inline a
+script in a chain, `;` works — but it does not stop on failure, so only use it
+when a failed earlier command cannot corrupt what follows.
+
+## Why configuration cannot fix this
+
+Auto-approval consults the allowlist only after a redirect pre-check passes:
+
+```js
+cmdIsAllowedByAllowlist(e,t){
+  return !!t.redirectsAllowlistSafe && (!!await this.isInShellAllowlist(e) || ...)
+}
+```
+
+`computeRedirectAllowlistSafety` derives that flag by resolving each redirect
+target against the workspace roots, and it gates the user-allowlist and
+team-allowlist branches alike. So no permission entry can reach past it —
+`Shell(**)` and `Write(**)` were both tested and neither helps, nor does
+`approvalMode: auto`. The prompt still reports `Not in allowlist: cd, conda,
+source, …`, which makes it look like a misconfiguration. It is not; it is the
+command shape.
+
+If sandbox mode is enabled, such a command runs confined instead of prompting —
+but confined means **no network egress and no writes outside the workspace**. So
+the invariant above still matters: a command that follows it runs unrestricted,
+while one that does not may now fail on a blocked write or a 403 instead of
+stalling.
+
+# Never block a tool call for longer than ~25 seconds
+
+A separate failure mode, nothing to do with approval. The CLI watches its own
+stream with a stall detector set to a **30 s no-activity threshold**. A tool call
+that blocks past that stops the client's outgoing heartbeat, so the detector
+concludes the connection died and aborts a perfectly healthy stream:
+
+```
+abortSource: "stall_detector"   stall_type: "no_activity"   threshold_ms: 30000
+```
+
+The abort counts as a transport error, so it retries — and the retry re-runs the
+same slow command, which stalls at the same mark. After three resumes that produce
+no checkpoint the turn dies with `Agent stopped retrying` and sits there until a
+human types "continue". Subagents die the same way. Measured on this repo: 35 such
+aborts in one afternoon, with the client heartbeat 35–55 s stale at every one
+against 1–6 s when healthy.
+
+So **submit long work detached and poll it in short calls.** Never wait inside the call.
+
+```bash
+# STALLS - the wait happens inside the tool call
+sleep 420; grep -aoE "Learning iteration [0-9]+/[0-9]+" $L | tail -1
+for i in $(seq 1 60); do grep -qai "box lift" $O/*.log && break; sleep 10; done
+srun --overlap --jobid=$J timeout 900 python -u experiments/isaac/ref_video.py ...
+
+# works - submit and return, then poll in separate short calls
+sbatch slurm/devnode.sbatch
+squeue -u $USER -o '%.10i %.2t %.10M'
+tail -30 experiments/isaac/isaac_train_$J.log
+```
+
+For GPU work the detached submission is `sbatch slurm/devnode.sbatch` plus
+`slurm/devrun.sh` (§ 9 of `AGENTS.md`); for anything else `setsid nohup … >log 2>&1 &`.
+
+If a wait is truly unavoidable, background the command and let the harness poll it
+(`block_until_ms: 0`, then await) rather than sleeping in the shell. The heartbeat
+keeps flowing that way, because the harness does the waiting instead of the call.
+
+# Start the CLI in the repo, not the scratch parent
+
+The sandbox scans the workspace root before it can start a confined command, and
+that scan blocks the call. Measured on this Lustre filesystem:
+
+| workspace root | dirs | sandbox scan |
+|---|---|---|
+| `robot_baby/Curiosity` | 1,280 | ~5 s |
+| `users/shengzew` — 115 entries incl. `wandb`, `exo2ego_helios_latents`, `miniconda3` | >45,000 | **153 s** |
+
+153 s is five times the stall threshold above, so from the scratch parent even a
+trivial command can kill the turn on its own. Launch in `Curiosity`.

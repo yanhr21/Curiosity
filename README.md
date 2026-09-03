@@ -65,6 +65,7 @@ sugar_newton/            the Newton line -- all current work
   rl/                    CarryBox env + the BCPPO training port
   tactile/reducer.py     PatchTactile: Newton contacts -> per-patch channels
   hand/patches.py        the anatomical patch layout
+sugar_swap/              run SUGAR's UNMODIFIED IsaacLab code on Newton (reusable technique)
 env/                     conda env spec, activate.sh, setup_env.sh
 slurm/                   dev-node sbatch, devrun.sh, container + GL setup
 third_party/newton       Newton, as a submodule -- must stay a clean upstream diff
@@ -82,8 +83,11 @@ Authoritative detail lives next to the code, not here. Read in this order:
    `add_shape_*` density trap, the compliant contact's ballistic envelope).
 2. [`sugar_newton/rl/README.md`](sugar_newton/rl/README.md) — the long record: throughput,
    decimation, the closed loop, the `margin` bug, and what is faithful to SUGAR.
-3. [`ASSETS.md`](ASSETS.md) — what the branch does not carry and how to get it.
-4. [`sugar_newton/rl/SETUP.md`](sugar_newton/rl/SETUP.md) — the two pinning traps if the env
+3. [`sugar_swap/README.md`](sugar_swap/README.md) — how to run an IsaacLab project on Newton
+   by substituting modules instead of reimplementing the environment, written up as a reusable
+   recipe. Read this before porting any further IsaacLab system by hand.
+4. [`ASSETS.md`](ASSETS.md) — what the branch does not carry and how to get it.
+5. [`sugar_newton/rl/SETUP.md`](sugar_newton/rl/SETUP.md) — the two pinning traps if the env
    is ever re-resolved.
 
 ## Current state
@@ -92,6 +96,56 @@ Authoritative detail lives next to the code, not here. Read in this order:
 box; BCPPO trains on Newton and logs to wandb; the tactile reducer is validated against
 analytic ground truth on an inclined plane; the closed loop (policy → physics → render →
 visual+tactile → policy) is instrumented end to end.
+
+**Open, as of 2026-09-02: training a policy from scratch in Newton does not learn to
+stand.** SUGAR's refiner stage is ported (`rl/train_refiner.py`: privileged 890-D actor,
+plain PPO, `RB_STAGE=refiner`) and runs data-parallel on 8 GPUs at SUGAR's own 4096 worlds,
+logging to wandb with eval video. It optimises for ~100 iterations, then one update
+destroys the policy, and every evaluation shows a 0.000 m lift with no load-bearing
+contacts. Two causes are identified and being fixed: the reward's **regularisation weights
+are not SUGAR's** (scaled down by up to 1e-7, and `feet_air_time` at +5.0 — SUGAR's largest
+positive term — is one of four omitted contact terms), and the refiner is plain PPO with no
+BC curriculum, so it lacks the stabiliser BCPPO relies on. Details and numbers in
+[`sugar_newton/rl/README.md`](sugar_newton/rl/README.md).
+
+**The reward-fidelity half of that is being fixed structurally rather than by patching.**
+[`sugar_swap/`](sugar_swap/README.md) runs SUGAR's *unmodified* source on Newton by
+substituting Newton-backed modules into `sys.modules` for the Isaac Sim-specific parts of
+IsaacLab, while reusing IsaacLab's managers, math and MDP term library verbatim. Isaac Sim is
+never booted. As of 2026-09-02 SUGAR's ~3,300-line MDP package imports verbatim and its
+refiner config constructs with all **21 reward terms at SUGAR's own weights** — including the
+four `sugar_newton/` omitted — so the reward stops being something to re-audit. Model
+construction (`builder.py`) is the remaining piece before environments can be stepped. The
+write-up is a reusable recipe: prefer it over hand-porting the next IsaacLab system.
+
+Separately, the throughput gap that looked like a Newton-vs-PhysX engine problem is **not
+one**. Measured head-to-head on one A100 on 2026-09-02, the entire gap is the collider
+representation, and the solver iterations we blamed are nearly irrelevant:
+
+| envs | configuration | env-steps/s |
+|---|---|---|
+| 512 | Newton baseline (triangle mesh, 100/50 iters) | 142 |
+| 512 | Newton, convex colliders only | 6,010 |
+| 512 | Newton, 8/4 solver iters only | 153 |
+| 512 | Newton, PhysX-matched (convex + 8/4 + self-collisions) | 6,508 |
+| 512 | IsaacLab (PhysX), SUGAR's own code | 4,949 |
+| 4096 | Newton, convex colliders only | 13,209 |
+| 4096 | Newton, PhysX-matched | 9,214 |
+| 4096 | IsaacLab (PhysX), SUGAR's own code | 26,735 |
+| 4096 | SUGAR's implied rate (1 GPU, ~1 day for 30001 iters) | 34,100 |
+
+Convex hulls cut the collider from 310,692 triangles to 3,348 and buy **42x on their own**;
+going from 100/50 to 8/4 solver iterations buys only **1.08x**. At equal world count Newton
+is *faster* than IsaacLab (6,508 vs 4,949 at 512), but IsaacLab scales far better — its step
+time grows only 1.48x for 8x the worlds against Newton's 5.65x, so IsaacLab is overhead-bound
+at 512 while Newton is already compute-saturated there. At Newton's best rate the full
+30001-iteration recipe is **~2.6 days on one GPU** rather than the ~240 days the
+triangle-mesh baseline implied. Reproduction and per-row detail in
+[`experiments/isaac/README.md`](experiments/isaac/README.md).
+
+Note the convex rows are **not tactile-grade**: they exist to bound the achievable training
+speed. Tactile work still needs the triangle-mesh path, so this is a per-purpose choice, not
+a global switch.
 
 Three silent-truncation bugs were found and fixed on 2026-08-31, and they invalidated every
 number measured before them. The pattern is worth internalising because it recurred three

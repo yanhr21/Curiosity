@@ -46,6 +46,8 @@ sugar_newton/_ser/
 slurm/.devnode*
 slurm/_toolcache/
 slurm/*.log
+# Job stdout the launchers redirect here. Regenerable by re-running; the launchers are tracked.
+slurm/out/
 
 # Python/build/editor noise
 __pycache__/

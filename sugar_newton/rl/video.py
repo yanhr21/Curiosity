@@ -50,11 +50,13 @@ class VideoRecorder:
                  fps: int = 30, out_dir: str = "videos", device: str = "cuda:0",
                  cam_offset=(2.1, -2.1, 0.95), mu: float = 1.0, substeps: int = 4,
                  tactile: bool = True, canvas_tris: int = 3000,
-                 box_tris: int = 2000, hand_tris: int = 0, margin: float = 0.0):
+                 box_tris: int = 2000, hand_tris: int = 0, margin: float = 0.0,
+                 privileged_policy: bool = False):
         self.clip, self.start, self.frames, self.fps = clip, start, frames, fps
         self.device, self.cam_offset = device, np.asarray(cam_offset, dtype=float)
         self.mu, self.substeps = mu, substeps
         self.tactile, self.canvas_tris = tactile, canvas_tris
+        self.privileged_policy = privileged_policy
         self.box_tris, self.hand_tris, self.margin = box_tris, hand_tris, margin
         self.out_dir = Path(out_dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
@@ -284,6 +286,14 @@ class VideoRecorder:
     def _policy_obs(self, policy, env):
         from sugar_newton.rl import obs_890
         from tensordict import TensorDict
+
+        if self.privileged_policy:
+            # Must mirror CarryBoxVecEnv._obs for the same stage: a refiner's actor was
+            # trained with the 890-D vector under the "policy" key, so handing it the
+            # 510-D one here would silently evaluate a different network's input.
+            priv = obs_890.build(env, teacher=False)
+            return TensorDict({"policy": priv, "critic": priv},
+                              batch_size=[1], device=env.device)
 
         return TensorDict(
             {"policy": env.observe(),

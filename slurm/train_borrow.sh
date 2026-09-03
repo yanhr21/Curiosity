@@ -3,6 +3,11 @@
 #
 #   bash slurm/train_borrow.sh 33616572
 #   RB_ENVS=256 bash slurm/train_borrow.sh 33616572 > /tmp/borrow.log 2>&1 &
+#   RB_LEG=slurm/swap_train_leg.sh bash slurm/train_borrow.sh 33697036   # sugar_swap path
+#
+# RB_LEG selects which leg script runs inside the container. Everything this file does --
+# borrowing the allocation, giving the step its own container root, and the credential
+# lookup -- is independent of which trainer runs, so both paths share it.
 #
 # Why this exists: every GPU partition here is either tiny and drained (interactive,
 # batch_singlenode and grizzly are the SAME 9 nodes, 5 of them drained) or capped at one
@@ -42,6 +47,8 @@ if [ "${RB_LOGGER:-wandb}" = "wandb" ]; then
 fi
 export WANDB_USERNAME=${RB_WANDB_ENTITY:-nvr-amri}
 export WANDB_API_KEY=${WANDB_API_KEY:-}
+export RB_STAGE=${RB_STAGE:-tracker}
+export RB_GPUS=${RB_GPUS:-1}
 export RB_RUN=${RB_RUN:-carrybox_bcppo}
 export RB_ENVS=${RB_ENVS:-512}
 export RB_ITERS=${RB_ITERS:-3000}
@@ -50,15 +57,21 @@ export RB_EVAL_MIN=${RB_EVAL_MIN:-10}
 export RB_LOGROOT=${RB_LOGROOT:-logs/newton_bcppo}
 export RB_LOGGER=${RB_LOGGER:-wandb}
 export RB_EXTRA=${RB_EXTRA:-}
+# Physics, so it travels explicitly rather than by inheritance -- same reasoning as the sbatch
+# launchers. Defaults match builder.py; RB_CONE=elliptic pins a control run.
+export RB_CONE=${RB_CONE:-pyramidal} RB_IMPRATIO=${RB_IMPRATIO:-20.0}
 # A borrowed run should not idle on a GPU that is not ours waiting for someone else's leg.
 export RB_WAIT_MIN=${RB_WAIT_MIN:-0}
 
+LEG=${RB_LEG:-slurm/train_leg.sh}
+[ -r "$REPO/$LEG" ] || { echo "no such leg script: $LEG"; exit 2; }
+
 echo "===== BORROW jobid=$JOBID node=$(squeue -j "$JOBID" -h -o %N 2>/dev/null)"
-echo "run=$RB_RUN envs=$RB_ENVS iters=$RB_ITERS eval_min=$RB_EVAL_MIN"
+echo "leg=$LEG run=$RB_RUN envs=$RB_ENVS iters=$RB_ITERS eval_min=$RB_EVAL_MIN"
 echo "wandb entity=$WANDB_USERNAME key_len=${#WANDB_API_KEY}"
 
-exec srun --overlap --jobid="$JOBID" --gres=gpu:1 \
+exec srun --overlap --jobid="$JOBID" --gres=gpu:"$RB_GPUS" \
      --container-image="$IMG" \
      --container-mounts="$HOME":/home,/lustre:/lustre \
      --export=ALL \
-     bash -lc "cd $REPO && bash slurm/train_leg.sh"
+     bash -lc "cd $REPO && bash $LEG"

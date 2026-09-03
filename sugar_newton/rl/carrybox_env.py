@@ -242,6 +242,8 @@ class CarryBoxEnv:
                  contact_surface: bool = False,
                  contact_refresh: str = "step", box_tris: int = 2000,
                  hand_tris: int = 0, margin: float = 0.0,
+                 iterations: int = 100, ls_iterations: int = 50,
+                 self_collisions: bool = False,
                  contact_readback: bool = False, track_termination: bool = True):
         self.num_envs = num_envs
         # Training needs this True: ending the episode on reference drift is what BCPPO
@@ -267,6 +269,8 @@ class CarryBoxEnv:
         self.box_tris = box_tris
         self.hand_tris = hand_tris
         self.margin = margin
+        self.self_collisions = self_collisions
+        self.convex_tris: tuple[int, int] | None = None
         world = self._build_world(box, mu, ke, kd)
         builder = newton.ModelBuilder()
         # Zero spacing on purpose. Worlds do not collide with each other, and Newton's
@@ -313,19 +317,26 @@ class CarryBoxEnv:
         # worlds -- including the 512-world configuration that measurement shows is a
         # comfortable 4.7x inside the ceiling. Crying wolf is not the safe direction: it
         # invites ignoring the warning on a configuration that really does drop contacts.
+        #
+        # collision="convex" leaves no COLLIDING triangle mesh, so no triangle pair can be
+        # generated and there is nothing to size or warn about; the box_tris-derived estimate
+        # below would only mislead. Note the buffer is still allocated at Newton's 1e6
+        # default, because `has_meshes` is read from every shape_type in the model
+        # (collide.py:765) and the 35 visual-only meshes per world stay GeoType.MESH.
         _TRI_PAIR_CEILING = 1 << 20
         _FULL_BOX_TRIS = 100_000        # asset's mesh when box_tris=0 disables decimation
-        per_world = 0.5 * (box_tris or _FULL_BOX_TRIS)
-        want = max(1_000_000, int(per_world * num_envs))
-        if want > _TRI_PAIR_CEILING:
-            warnings.warn(
-                f"{num_envs} worlds at box_tris={box_tris or _FULL_BOX_TRIS} want ~{want} "
-                f"triangle pairs but deterministic contact packing caps them at "
-                f"{_TRI_PAIR_CEILING}; contacts may be dropped. Confirm with "
-                f"`python -m sugar_newton.rl.probe_tripairs --envs {num_envs}`, then reduce "
-                f"box_tris or use collision='hydro'.",
-                stacklevel=2)
-        pipe_kwargs["max_triangle_pairs"] = min(want, _TRI_PAIR_CEILING)
+        if self.collision != "convex":
+            per_world = 0.5 * (box_tris or _FULL_BOX_TRIS)
+            want = max(1_000_000, int(per_world * num_envs))
+            if want > _TRI_PAIR_CEILING:
+                warnings.warn(
+                    f"{num_envs} worlds at box_tris={box_tris or _FULL_BOX_TRIS} want "
+                    f"~{want} triangle pairs but deterministic contact packing caps them at "
+                    f"{_TRI_PAIR_CEILING}; contacts may be dropped. Confirm with "
+                    f"`python -m sugar_newton.rl.probe_tripairs --envs {num_envs}`, then "
+                    f"reduce box_tris or use collision='hydro'.",
+                    stacklevel=2)
+            pipe_kwargs["max_triangle_pairs"] = min(want, _TRI_PAIR_CEILING)
         # `Contacts.force` is an opt-in extended attribute: the pipeline allocates it only
         # when the MODEL has been asked for it (collide.py passes
         # `model.get_requested_contact_attributes()` through), and otherwise leaves it None
@@ -373,7 +384,8 @@ class CarryBoxEnv:
         self.solver = newton.solvers.SolverMuJoCo(
             self.model, solver="newton", integrator="implicitfast",
             njmax=njmax, nconmax=nconmax,
-            impratio=20.0, cone="elliptic", iterations=100, ls_iterations=50,
+            impratio=20.0, cone="elliptic",
+            iterations=iterations, ls_iterations=ls_iterations,
             use_mujoco_contacts=False)
         self.state_0, self.state_1 = self.model.state(), self.model.state()
         self.control = self.model.control()
@@ -431,7 +443,7 @@ class CarryBoxEnv:
         # fingertips carrying the box across 4.5 mm of air.
         b.default_shape_cfg.margin = self.margin
         b.add_urdf(str(URDF), floating=True, collapse_fixed_joints=False,
-                   enable_self_collisions=False, joint_ordering="bfs",
+                   enable_self_collisions=self.self_collisions, joint_ordering="bfs",
                    ignore_inertial_definitions=False)
 
         if self.hand_tris:
@@ -499,6 +511,8 @@ class CarryBoxEnv:
             box_cfg.is_hydroelastic = True
             box_cfg.kh = 1.0e10
         b.add_shape_mesh(body=body, mesh=box_mesh, cfg=box_cfg)
+        if self.collision == "convex":
+            self.convex_tris = self._convexify(b)
         box_joint = next(j for j in range(len(b.joint_label)) if b.joint_child[j] == body)
         self.box_q0 = int(b.joint_q_start[box_joint])
         self.box_qd0 = int(b.joint_qd_start[box_joint])
@@ -522,6 +536,60 @@ class CarryBoxEnv:
         self.ref_body_idx = torch.as_tensor([clip_bodies.index(n) for n in BODY_NAMES],
                                             device=self.device)
         return b
+
+    def _convexify(self, b) -> tuple[int, int]:
+        """Replace every collision mesh with its convex hull, as PhysX would.
+
+        This exists to make the Newton-versus-PhysX throughput gap attributable rather than
+        lumped. PhysX cannot collide two dynamic triangle meshes at all, so SUGAR's box is a
+        baked convex decomposition and its G1 links are convex hulls; comparing our triangle
+        mesh against that measures our geometry choice, not the two engines. This is the
+        matched-geometry control, and it is a *measurement* configuration only -- see below.
+
+        The mechanism is ``ModelBuilder.approximate_meshes(method="convex_hull")``, which
+        runs each collider's vertices through ``scipy.spatial.ConvexHull`` capped at
+        ``Mesh.MAX_HULL_VERTICES`` = 64 -- the same budget PhysX applies by default, so the
+        colliders end up the same *kind* of object and not merely both "convex". What makes
+        it fast is not the vertex count but the type change to
+        :attr:`newton.GeoType.CONVEX_MESH`: the narrow phase tests ``type == GeoType.MESH``
+        exactly (narrow_phase.py:294), so a convex hull never enters the triangle midphase
+        and resolves through support-function GJK/MPR instead -- one manifold per shape pair
+        rather than work proportional to triangle pairs. That is a bypass, not a cheaper
+        mesh, which is why it buys far more than decimating to the same triangle count would.
+
+        Only collision shapes are converted (``approximate_meshes`` selects on
+        ``COLLIDE_SHAPES``), so the 35 visual meshes per world keep their full detail for
+        rendering -- and, because ``has_meshes`` is read from every ``shape_type`` in the
+        model, the mesh kernels are still built and launched. They find no candidate pairs,
+        so the cost is a fixed launch rather than triangle work.
+
+        Called after the box shape is added and before ``replicate()``: hulling first would
+        miss the box, and hulling after replication allocates one hull per world instead of
+        sharing one (``approximate_meshes`` documents this). Measured on the default scene,
+        the 27 colliders go from 310,692 triangles to 3,348 -- ~124 per hull, which is the
+        64-vertex cap.
+
+        Mass is unaffected, and that is worth knowing rather than assuming: ``add_shape_mesh``
+        accumulates the shape's mass and inertia into the body at add time, so replacing
+        ``shape_source`` afterwards cannot retroactively inflate it. The box stays at
+        0.500001 kg and world 0 at 33.8411 kg, identical to ``collision="mesh"``.
+
+        **Not usable for tactile work, by construction.** A hull of an open carton is a
+        closed brick: the concavity is exactly what the tactile channel exists to measure,
+        and this discards it. Hulling the hands additionally inflates them (the Isaac hull
+        is 2.35x the mesh volume, ``g1_carrybox_policy.G1PolicyScene``), which moves the
+        contact patch a fingertip pinch depends on.
+        """
+        before = sum(len(np.asarray(b.shape_source[s].indices).reshape(-1, 3))
+                     for s in range(b.shape_count)
+                     if b.shape_type[s] == int(newton.GeoType.MESH)
+                     and b.shape_flags[s] & int(newton.ShapeFlags.COLLIDE_SHAPES)
+                     and getattr(b.shape_source[s], "indices", None) is not None)
+        hulled = b.approximate_meshes(method="convex_hull", raise_on_failure=True)
+        after = sum(len(np.asarray(b.shape_source[s].indices).reshape(-1, 3))
+                    for s in sorted(hulled)
+                    if getattr(b.shape_source[s], "indices", None) is not None)
+        return before, after
 
     def _make_hydroelastic_hands(self, b) -> None:
         """Rebuild each rubber hand's collider as a hydroelastic SDF mesh.

@@ -36,7 +36,53 @@
 > The retracted claim: wrist saturation was never a Newton-vs-Isaac contact discrepancy. The
 > wrists were at their limit because they were holding 8.8x the intended mass.
 
-## Throughput is the open problem, and the cause is now identified
+## RESOLVED (2026-09-02): the gap is the collider representation, not Newton vs PhysX
+
+SUGAR's own IsaacLab code was finally made runnable on this cluster (recipe in
+[`experiments/isaac/README.md`](../../experiments/isaac/README.md)), so the comparison below
+is measured rather than inferred. Same A100-80GB, same CarryBox refiner task, one env-step =
+one 50 Hz policy decision. Newton rows from `sugar_newton.rl.bench_physics`, IsaacLab rows
+from `experiments/isaac/bench_isaac.py`. No diverged worlds in any Newton row.
+
+    envs   configuration                                    env-steps/s
+     512   Newton baseline (triangle mesh, 100/50 iters)           142
+     512   Newton, convex colliders only                         6 010
+     512   Newton, 8/4 solver iters only                           153
+     512   Newton, PhysX-matched (convex + 8/4 + self-coll.)     6 508
+     512   IsaacLab (PhysX), SUGAR's code                        4 949
+    4096   Newton, convex colliders only                        13 209
+    4096   Newton, PhysX-matched                                 9 214
+    4096   IsaacLab (PhysX), SUGAR's code                       26 735
+    4096   SUGAR's implied rate (1 GPU, ~1 day, 30001 iters)    34 100
+
+Four conclusions, two of which contradict what this file previously asserted:
+
+1. **The collider representation is the whole story.** Convex hulls take the collider from
+   310,692 triangles to 3,348 and buy **42x** by themselves.
+2. **The solver iterations were a red herring.** 100/50 -> 8/4 is worth only **1.08x**. This
+   file and the top-level README both previously named MJWarp's iteration count as a co-cause
+   of a "~150x" gap; that was wrong.
+3. **At equal world count Newton is faster than IsaacLab** (6,508 vs 4,949 at 512 worlds).
+   There is no engine-level deficit to fix.
+4. **IsaacLab scales better.** Its step time grows 1.48x for 8x the worlds against Newton's
+   5.65x, i.e. IsaacLab is fixed-overhead-bound at 512 and amortises it by 4096, while Newton
+   is already compute-saturated at 512. Closing the remaining 2.6x means finding Newton's
+   per-world cost, which needs kernel-level profiling that has not been done.
+
+Practical consequence: at Newton's best rate SUGAR's full 30001-iteration recipe is **~2.6
+days on one GPU**, not the ~240 days the triangle-mesh baseline implied. Training the refiner
+is therefore throughput-viable, and the remaining blocker on it learning to stand is the
+reward, not speed.
+
+**The convex rows are not tactile-grade.** They bound achievable training speed. Tactile work
+still needs the triangle-mesh path, so this is a per-purpose setting (`collision="convex"` on
+`CarryBoxEnv`), not a global switch. The sections below on decimation and contact fidelity
+remain the reference for the tactile path.
+
+## Historical: throughput analysis of the triangle-mesh path
+
+Superseded as a diagnosis by the section above, but retained because the decimation and
+contact-limit findings still govern the tactile path.
 
 Measured with `python -m sugar_newton.rl.bench_env`, which reports peak contacts against the
 limits alongside the timing, because a fast row that was silently dropping contacts is not a
@@ -490,6 +536,20 @@ basename. Credentials follow the convention used elsewhere in this workspace --
 `train_bcppo.py` checks for one before building the environment, so a run cannot get
 several minutes in with logging silently off. Pass `--logger tensorboard` to opt out.
 
+A run is split into chained 4-hour SLURM legs, and rsl_rl calls a bare
+`wandb.init(project=..., entity=..., name=...)` with no id, so each leg would open its own
+run and an 18-leg chain would produce 18 disconnected curves. `run_dir.bind_wandb_run`
+prevents that: it mints a wandb id on the first leg, records it in
+`<log_root>/<run_name>/run_meta.json` next to the checkpoints, reads it back on every
+later leg, and exports `WANDB_RUN_ID` / `WANDB_RESUME=allow` before the runner is built
+(the writer is constructed in `OnPolicyRunner.__init__`, so ordering matters). Rank 0 only.
+Nothing in site-packages is patched.
+
+One consequence worth knowing: a wall-clock kill rewinds to the last checkpoint, so up to
+`--save-interval - 1` iterations are redone at step numbers below wandb's high-water mark.
+wandb drops those, so the curve is flat from the kill point until the run passes its
+previous peak.
+
 ## STATUS: BCPPO trains on Newton and logs to wandb
 
 First working run, 8 worlds, 3 iterations, `data_000`
@@ -606,6 +666,70 @@ every collider, and this project does not hull interacting geometry. Accurate co
 costs more. An untested idea worth trying: keep exact meshes for the hands and the box,
 simplify colliders on links that never touch the box.
 
+## STATUS: the refiner trains on Newton but does not learn to stand (2026-09-02)
+
+The refiner is SUGAR's stage 1 and the prerequisite for everything else: BCPPO needs it as
+the frozen teacher, and `train.sh:40` points the *tracker's* reference motion at
+`rollout_datasets/refiner/rl_dataset`, a recording of what a trained refiner achieved.
+That dataset does not exist here and cannot be downloaded. SUGAR released only `tracker.pt`
+and `generator.ckpt`; the local `refiner_model10000.pt` is a one-third-trained reproduction
+and `check_teacher.py` shows it failing in Newton at frame 14 with 0.000 m lift, against
+the released tracker's frame 67 and 0.453 m in the same env.
+
+Training from scratch also sidesteps the 890-D layout question. A layout error is only
+fatal when importing someone else's weights; a policy trained here learns whatever this
+observation encodes, self-consistently.
+
+`train_refiner.py` is the port. It is thin because the two stages differ in one thing:
+`base_refiner_env_cfg.py:254-255` sets `policy = critic = PrivilegedCfg`, so the actor
+reads the same 890-D vector as the critic and there is no teacher group. Algorithm is
+`BasePPORunnerCfg` reproduced field for field -- identical to `BCPPORunnerCfg` except
+`init_noise_std` 1.0 against 0.5. All 15 reward terms and all 6 terminations are shared
+with the tracker env, verified against source. `RB_STAGE=refiner|tracker` in
+`slurm/train_leg.sh` picks the module, so both stages share the resume, EGL, wandb and
+torchrun machinery.
+
+Run: 4096 worlds (512 per rank x 8 GPUs, matching SUGAR's `--num_envs 4096`), 98304
+samples per iteration, `logs/newton_refiner/carrybox_refiner`,
+https://wandb.ai/nvr-amri/sugar_newton/runs/vwhqmthn. Stopped deliberately at iteration
+375; checkpoints kept as a baseline.
+
+    iterations 235 -> 343     reward  7.09 -> 16.93     ep_len 14.53 -> 24.18
+    iteration  348 -> 349     reward 16.77 -> -13.21    ep_len 24.03 ->  7.97
+    iterations 349 -> 377     reward       -> +5.53     ep_len       -> 11.05
+    every eval               lift 0.000 m (ref 0.628)   load-bearing contacts 0.0
+
+So it optimises, then one single update destroys the policy and it re-climbs. The collapse
+is not caused by the evaluation recorder: evals ran at 336 and 355, the collapse is at 349.
+Episodes end after ~24 of 400 frames, and `rew_motion_joint_pos` sits at 0.084, which for
+`exp(-sum_sq/0.6^2)` over 29 joints is ~10 deg of per-joint error -- the robot is not
+tracking the reference pose, it falls.
+
+Two causes, both recorded under "What is faithful to SUGAR, and what is not":
+
+1. The regularisation weights are scaled down by up to 1e-7, so SUGAR's strong
+   anti-acceleration pressure is absent, and `feet_air_time` (+5.0, the largest positive
+   weight in SUGAR's whole reward) is one of the four omitted contact terms.
+
+   **Do not fix this by hand-porting the terms.** That is how the gap arose. Cause 1 is being
+   removed structurally by [`sugar_swap/`](../../sugar_swap/README.md), which runs SUGAR's
+   real `rewards.py` on Newton instead of a retyped copy; as of 2026-09-02 its config
+   constructs with all 21 terms at SUGAR's own weights, including all four omitted ones. If
+   you are here to make the reward faithful, work there.
+2. **The refiner has no BC curriculum.** It is plain PPO from scratch, so the mechanism
+   documented above as what keeps BCPPO stable -- stages 1-2 removing the flailing policy
+   -- does not exist for this stage. In SUGAR the only thing left to suppress flailing is
+   the regularisation, which is exactly what is turned off here.
+
+Throughput, measured: 52.63 s per 24-step collection at 4096 worlds = 234 env-steps/s per
+GPU, against SUGAR's implied ~34,100. **The attribution first written here was wrong.** It
+named the triangle-mesh collider path and the solver iteration count as joint causes; the
+head-to-head measurement on 2026-09-02 (see the RESOLVED section at the top) shows the
+collider path is essentially the entire cause — convex hulls alone are worth 42x — while the
+100/50 vs 8/4 iteration count is worth only 1.08x. With convex colliders this configuration
+reaches 13,209 env-steps/s at 4096 worlds, putting the full recipe at ~2.6 days on one GPU.
+Hand decimation is 1.42x (measured, see the hands section) and is not the lever.
+
 ## Evaluation videos
 
 `--video-interval N` (default 100) renders a deterministic rollout and logs it to wandb as
@@ -629,12 +753,54 @@ Faithful, transcribed rather than re-derived:
 - the 510-D observation, validated offline against Isaac's own recorded actions to
   RMSE 0.088 by `validation/verify_tracker_obs.py`
 - actuator gains, armature, effort limits and the `0.25 * effort / stiffness` action scale
-- reward weights and stds (`BaseRewardsCfg`) and the `exp(-error/std^2)` term shapes
-- termination thresholds (`BaseTerminationsCfg`)
+- the **tracking** reward weights and stds (`BaseRewardsCfg`) and the `exp(-error/std^2)`
+  term shapes; the *regularisation* weights are NOT faithful, see below
+- termination thresholds (`BaseTerminationsCfg`), all six, verified identical between
+  `base_refiner_env_cfg.py` and `base_tracker_env_cfg.py`
+- control rate: `substeps=4` over the clip's 50 Hz reproduces SUGAR's
+  `sim.dt=0.005` with `decimation=4` (`carry_box_refiner_env_cfg.py:137-141`)
+- friction: training's `mu=1.0` matches SUGAR's `static_friction = dynamic_friction = 1.0`.
+  Note `validation/make_loop_video.py` uses `mu=0.75`, so the tactile video and the RL env
+  are not the same contact material.
 - the privileged 890-D critic and teacher groups, built by `obs_890.py`
 - PPO hyperparameters, identical between `BasePPORunnerCfg` and `BCPPORunnerCfg` except
   `init_noise_std`, which is 0.5 for the tracker (an earlier version used the inference
   task's 1.0)
+
+Not faithful, found 2026-09-02 while diagnosing the refiner (see the refiner STATUS above):
+
+- **The regularisation weights are not SUGAR's.** `rewards.WEIGHTS` carries them scaled
+  down, while the docstring claimed `BaseRewardsCfg` verbatim:
+
+      term            SUGAR     here
+      joint_acc       -2.5      -2.5e-7
+      joint_torque    -1.0      -1.0e-5
+      action_rate     -1.0      -1.0e-1
+      joint_limit     -10.0     -10.0     (the only faithful one)
+
+  The raw term bodies *are* faithful to IsaacLab (`joint_acc` divides by the control-rate
+  `dt`, not the substep; `joint_torque` penalises the clamped applied PD torque), and the
+  magnitude is not inflated: 866k here against Isaac's own measured mean 25.9k and worst
+  step 744k. So the deviation is purely the weights.
+- **`weight * dt` is not applied.** IsaacLab multiplies every term by the env step dt
+  (`managers/reward_manager.py:149`) and accumulates that same weighted value into the
+  per-term episode sums it logs (line 153). Here the weight is applied but not the dt, and
+  the logged `rew_*` lines are RAW unweighted terms -- so our per-term numbers are not
+  comparable to a SUGAR run's. Uniform dt only rescales the total, which PPO's advantage
+  normalisation largely absorbs; the per-term logging mismatch is the part that misleads.
+- **Solver work is an order of magnitude above PhysX.** MJWarp runs `iterations=100,
+  ls_iterations=50` (`carrybox_env.py:376`) against PhysX's
+  `solver_position_iteration_count=8, solver_velocity_iteration_count=4`
+  (`assets/robots/unitree.py:43-44`). This is a real fidelity difference but **not** a
+  meaningful throughput one: matching it measures 1.08x (512 worlds, 153 vs 142
+  env-steps/s). It was previously described here as a throughput cause; that was wrong.
+- **Self-collision is off** here (`enable_self_collisions=False`) and on in SUGAR
+  (`enabled_self_collisions=True`). This makes the port cheaper, not more expensive, and the
+  discount is now measured: turning it on costs 1.43x at 4096 worlds with convex colliders
+  (13,209 -> 9,214 env-steps/s), which is why the `convex` row outruns `physx-matched` there.
+- **Episode length.** `--episode-length 300` frames (6 s at 50 Hz) against SUGAR's
+  `episode_length_s = 30.0`. Clips are ~400 frames, so SUGAR's cap never binds and
+  `trajectory_complete` ends the episode; ours can truncate a clip before it finishes.
 
 Deliberate gaps, all recorded in the code:
 
@@ -661,4 +827,21 @@ to `box_tris=2000` and leaves the hands at full resolution (`hand_tris=0`), and 
 validator defaults to neither so it stays the fidelity reference. So model construction
 still scales with the real 45k-triangle hand. Expect build time, not step time, to
 dominate at high `--num-envs`.
+
+The three configurations in this repo are therefore *not* the same physics, which matters
+when comparing numbers across them:
+
+| | box_tris | hand_tris | margin | mu |
+|---|---|---|---|---|
+| tactile video (`make_loop_video.py`) | 2000 | 5000 | 0.0 | 0.75 |
+| RL training and its eval recorder | 2000 | 0 (89.6k) | 0.0 | 1.0 |
+| SUGAR (PhysX) | convex decomposition | convex | n/a | 1.0 |
+
+The RL env runs hands 18x heavier than the configuration the tactile channel was validated
+on, and the eval recorder inherits `box_tris`/`hand_tris`/`margin` from the training args,
+so the in-training tactile heatmap is also drawn from the undecimated hands rather than the
+validated 5000. PhysX cannot collide two dynamic triangle meshes at all, which is why
+SUGAR's column is convex — and, as the RESOLVED section at the top shows, that single
+difference is the whole throughput story: giving Newton convex colliders too closes the gap
+from ~45x to ~2.6x, and at 512 worlds makes Newton the faster of the two.
 

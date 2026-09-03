@@ -104,6 +104,7 @@ echo "wandb entity=$WANDB_USERNAME key_len=${#WANDB_API_KEY}"
 # variables travel as environment rather than as arguments. WANDB_API_KEY has to make the trip
 # too: it is not in the container's environment by default, and $HOME there is /root, so the
 # ~/.netrc on Lustre is not visible either.
+export RB_STAGE=${RB_STAGE:-tracker}
 export RB_RUN=$RUN RB_ENVS=$ENVS RB_ITERS=$ITERS RB_SAVE=$SAVE RB_GPUS=$GPUS
 export RB_EVAL_MIN=$EVAL_MIN RB_LOGROOT=$LOGROOT RB_LOGGER=$LOGGER RB_EXTRA=$EXTRA
 export WANDB_API_KEY=${WANDB_API_KEY:-}
