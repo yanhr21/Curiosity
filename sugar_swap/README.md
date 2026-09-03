@@ -290,6 +290,38 @@ Anyone repeating this will hit these. All are one-line fixes once understood.
     like a network problem rather than a lock. Only node 0 owns the heartbeat now
     (`SLURM_NODEID`); the others go straight to the rendezvous.
 
+14. **The importer's parent filter does not look through a fixed joint, and that one gap cost
+    the whole task.** This is the most expensive gotcha here, and the first thing to check when
+    porting a new URDF. `pelvis` declares no collision geometry of its own; the pelvis collider
+    lives on `pelvis_contour_link`, *welded* to `pelvis`. Newton filters shapes on the same body
+    and on bodies joined directly by a joint, so it filtered `pelvis` — which has no shape, hence
+    nothing — and left the real pelvis collider free to collide with `pelvis`'s own children,
+    both `*_hip_pitch_link`s. MuJoCo's `filterparent` and PhysX's articulation adjacency rule
+    both *do* look through: bodies with zero degrees of freedom between them are one rigid unit,
+    and contacts are excluded within such a unit and between it and its parent unit. The hulls
+    interfere from about 10° of hip flexion, where the motion needs 72°, and the constraint
+    carried 20.6 kN against a 33 kg robot — so the released refiner checkpoint, which lifts the
+    box in IsaacLab, bowed to 25° instead of 58° and never reached it. Note the failure did *not*
+    look like a collision bug: no joint was at a position limit, no actuator was saturated, and
+    there was 47 N·m of surplus drive against an 18.5 N·m gravity load. It looked like a
+    tracking or tuning problem for days. `_weld_filter_pairs` applies the weld-aware rule and is
+    the default; `RB_SELF_COLLISION=raw` reinstates the old behaviour for A/B, and `=0` filters
+    everything, which is a diagnostic only because SUGAR trained with self-collision on. Beware
+    the log line: it reports 176 pairs filtered, but 167 of those Newton had already excluded
+    under its own rules, and only 9 are new — compare live pair counts, not that number.
+
+15. **Convex hulling a thin cosmetic shell produces a solid blob.** MuJoCo only collides convex
+    geoms, so `approximate_meshes("convex_hull")` runs on every mesh, and for shells the hull
+    bears no resemblance to the part: `logo_link` 39.6×, `waist_support_link` 16.7×,
+    `pelvis_contour_link` 15.9× (an 82 cm³ shell becomes a 1,307 cm³ lump filling the pelvis
+    cavity), wrist roll links 10.7×, both `rubber_hand`s 2.35×. Genuinely convex links are fine
+    (`hip_pitch_link` 1.08×, `pelvis` 1.09×). Hulling was adopted for collision performance and
+    is what made gotcha 14 reachable at all. Fixing the pair filter is enough for the bow, so
+    hulling is retained — but the rubber hands are the *grasping* surfaces, so their contact
+    geometry is still coarser than PhysX's. The fix, if that matters, is convex decomposition
+    into several pieces per mesh, which costs collision time. Hulling does **not** change
+    `body_mass` for either the robot or the box; that was checked.
+
 ---
 
 ## 8. Status
@@ -305,8 +337,15 @@ Verified, with Isaac Sim never booting:
   (-2.5e-07 / -1e-05 / -0.1). Reward faithfulness is now structural.
 - Timing confirmed from SUGAR's own config: `dt=0.005`, `decimation=4`, i.e. 50 Hz control.
 
-- `builder.py` is written; environments instantiate and step. Colliders are convex hulls, to
-  match PhysX and because the triangle midphase costs 42x.
+- `builder.py` is written; environments instantiate and step. Colliders are convex hulls
+  because MuJoCo only collides convex geoms and the triangle midphase costs 42x. They are *not*
+  a match for what PhysX simulates on the shell meshes — see gotchas 14 and 15.
+- **Behaviourally validated against IsaacLab on identical weights**, which is a stronger check
+  than zero-step equivalence and is what caught the self-collision bug. The released SUGAR
+  refiner checkpoint replayed in `sugar_swap` reaches pelvis pitch 58.1° against IsaacLab's
+  58.4°, pelvis height 0.709 m against 0.711 m, and lifts the box 0.655 m against a 0.628 m
+  mocap reference, running full-length episodes with no load-bearing self-contact. Before the
+  gotcha-14 fix the same checkpoint bowed to 25° and lifted 0.057 m.
 - **Numerically equivalent to IsaacLab at zero step: 1080/1080 terms across 6 pinned states.**
   Given the same input state, every observation, reward and termination matches. After one
   substep the two diverge at ~1e-3, which is two different integrators and not a porting

@@ -23,6 +23,128 @@ and it is required reading before touching any tactile channel or reward term:
 | runs on | this cluster (OCI ORD), conda env `robotbaby`, SLURM dev node |
 | prior line | Plan 15 on IsaacLab/PhysX — [below](#prior-line-plan-15-on-isaaclabphysx), superseded but not deleted |
 
+## Important caveats
+
+Things that have already cost days, or that will silently produce a wrong number if you do not
+know them. Each one says what the problem is and what to do about it.
+
+### The IsaacLab-to-Newton port (`sugar_swap`)
+
+**A weld-adjacent self-collision blocked the hip bow.** Fixed, but understand it before porting
+another robot. `pelvis` declares no collision geometry of its own — the pelvis collider lives on
+`pelvis_contour_link`, which is *welded* to `pelvis`. Newton's importer filters shapes on the same
+body and on bodies joined directly by a joint, but neither rule looks **through** a fixed joint, so
+it filtered `pelvis` (which has no shape, hence nothing) and left the real pelvis collider free to
+collide with `pelvis`'s own children, both hip pitch links. MuJoCo's `filterparent` and PhysX's
+articulation adjacency rule both *do* look through: bodies with zero degrees of freedom between them
+are one rigid unit. The cost was 20.6 kN against a 33 kg robot, the hip bow pinned at 25° where
+IsaacLab reaches 58°, and hands that never came within 2.5 cm of the box.
+*Solution:* `_weld_filter_pairs` in `sugar_swap/builder.py` applies the weld-aware rule and is now
+the default. `RB_SELF_COLLISION=raw` reinstates the old behaviour for A/B; `=0` filters every
+robot-vs-robot pair and is a diagnostic only, since SUGAR trained with self-collision on. When
+porting a new URDF, check for colliders sitting on welded links before anything else.
+
+**Every Newton refiner run before that fix is invalid.** They trained in an environment where the
+robot could not bow past about 10° of hip flexion, so the task was physically impossible and the
+reward plateau at ~12–16 says nothing about learning. Do not compare against those curves.
+
+**Convex hulling inflates thin cosmetic shells, and the hands are among them.** `builder.py` runs
+`approximate_meshes("convex_hull")` on every mesh because MuJoCo only collides convex geoms.
+Measured hull/raw volume: `logo_link` 39.6×, `waist_support_link` 16.7×, `pelvis_contour_link`
+15.9×, wrist roll links 10.7×, and both `rubber_hand`s 2.35×; genuinely convex links are fine
+(`hip_pitch` 1.08×, `pelvis` 1.09×). The bow no longer depends on this, but the rubber hands are the
+*grasping* surfaces, so contact geometry there is coarser than PhysX's. *Solution if it matters:*
+convex decomposition into several pieces for the non-convex meshes, at a collision-performance cost.
+
+**Two randomized material properties silently do not survive MuJoCo.** Static and dynamic friction
+collapse to a single coefficient (we keep dynamic, so the robot's 0.3–1.6 static range is
+unrepresented), and restitution 0.0–0.5 is a complete no-op because `SolverMuJoCo` never reads
+`shape_material_restitution`. Not fixable without leaving MuJoCo; treat both as absent when
+reasoning about the randomization distribution.
+
+**Domain randomization has to be announced to the solver.** `SolverMuJoCo` steps its own `mjw_model`,
+so writing mass, COM or friction into the Newton model is invisible until `notify_model_changed`.
+Fixed, but it was a silent no-op for a stretch of training, and the same trap applies to anything
+else written after build. Note it is `mode='startup'`, so the run gets a fixed population of
+dynamics rather than a fresh draw per episode.
+
+**`effort_limit_sim` outranks the URDF.** SUGAR leaves `effort_limit` at `None` but sets
+`effort_limit_sim` on every actuator group, and that is what IsaacLab hands the simulator; it is also
+the numerator of the action scale (`0.25 * effort_limit_sim / stiffness`). Preferring the URDF ran
+six joints (both ankles, waist pitch and roll) at 35 N·m instead of 50 and made the policy command
+displacements they could not reach. Fixed.
+
+**The two importers order bodies differently and nothing guards it.** `hip_pitch`/`pelvis_contour`
+and `head`/`logo` come out in different positions. The tracked-body names happen to match today, so
+rewards are correct — but adding a tracked body would silently reward the wrong link. *Solution:*
+assert the name-to-index mapping rather than trusting order. Not yet done.
+
+**Post-step magnitudes diverge even where shapes match exactly.** `joint_torque` 1.81×,
+`motion_body_ang_vel` 0.52×, `joint_limit` 0.93×, and contact forces 0.23–2.8×, all with identical
+shapes and zero residual. Unresolved; do not treat these channels as calibrated across engines.
+
+**`ls_iterations` is a guess.** It is mapped from PhysX's `solver_velocity_iteration_count` (4), but
+MuJoCo's line search is a different algorithm whose own default is 50. It costs almost nothing in
+speed, so the faithful value should be decided on accuracy grounds; it has not been.
+
+**Contact margin must stay 0.** The solver subtracts `(margin0 + margin1)` from separation, so any
+nonzero margin leaves the grasp resting that far off the surface. This was a real bug once.
+
+**The friction cone is pyramidal, and that is a dynamics choice.** Pyramidal is both faster and
+closer to PhysX, but switching to elliptic under a policy trained on pyramidal is not valid — adopt
+a change like this by retraining. `RB_CONE` / `RB_IMPRATIO` override.
+
+**Newton is not run-to-run reproducible at a fixed seed.** Repeat replays of one checkpoint gave box
+lifts of 0.0385, 0.0574 and 0.0632 m. Do not read a few percent between single replays as a real
+difference, and do not quote five significant figures from one.
+
+**The two engines do not draw the same reset.** At reset the robots differ by 8.8 cm horizontally
+and 3.3° in yaw while the box is bit-identical, so a Newton replay and an IsaacLab replay are not a
+perfectly matched pair. Pin the reset RNG before any claim that hinges on small differences.
+
+### Training and comparison
+
+**envs/rank is the scaling knob, not GPU count.** 32 GPUs at 128 envs/rank runs at 28% efficiency;
+at 512 envs/rank, 92%. Four-node DDP does not pay at SUGAR's batch (2.40 s/iter on 32 GPUs versus
+2.59 on 8), so prefer a single 8-GPU node unless the total env count rises.
+
+**SUGAR's `--num_envs` is per rank; `sugar_swap`'s `RB_ENVS` is a total.** The inconsistency is
+deliberate — it keeps `RB_GPUS` changing only the wall clock and never the batch — but reading
+SUGAR's convention into ours silently multiplies the batch by the rank count.
+
+**The curriculum pool rebuilds at every leg boundary.** `MotionCommand.count` starts at 0 and
+`init_pool` is never checkpointed, so a resumed leg re-serves its 1,000-iteration warmup. Unfixed,
+and second-order, but it wastes the start of every leg.
+
+**Co-resident GPU work on a DDP node costs every rank, not one.** A 5-minute video loop run with
+`--overlap` on the training node dragged the whole run from 2.8 to 7–12 s/iter, because all-reduce
+blocks on the slowest rank. Give side jobs their own node.
+
+### Cluster and tooling
+
+**Interactive partitions expire hard at 4 h, silently.** On expiry a screen window falls back to the
+login node and work fails with "no NVIDIA driver", or half-runs on CPU. Chain legs with
+`--dependency=afterany` — `afterok` stalls, because a leg killed by the wall clock exits non-zero and
+that is the normal way a leg ends.
+
+**`find /` or `find ~` on this Lustre filesystem hangs until killed.** Chained with `;`, everything
+useful after it never runs. Use targeted `grep`/`ls` with explicit paths.
+
+**wandb has four separate traps.** Resumed legs raise `ConfigError` unless `Config.update` is allowed
+to change values (fixed by a startup hook). Shared mode cannot append to a run whose other writer is
+not also in shared mode: it ignores `step=` and drops history rows while the mp4 files still upload,
+so media lands in the Files tab with no panel — use a companion run and make the iteration a
+`step_metric` instead of wandb's step. Re-syncing a *live* offline run wipes its history (263 rows to
+0); snapshot to a separate id. And a stray `WANDB_MODE=offline` rides `--export=ALL` into jobs, so
+pin it explicitly.
+
+**Newton writes eval mp4s at 30 fps for a 50 Hz sim.** Playback is 1.67× too slow, which reads as
+sluggish motion and has already caused one wrong conclusion. Re-encode before comparing videos.
+
+**`scontrol show job` does not print the export list.** A leg's `RB_*` settings are not recoverable
+from the job record, so the run log is the provenance trail — which is why the builder prints its
+self-collision mode and batch shape at startup.
+
 ## Start here
 
 ```bash
@@ -114,9 +236,20 @@ substituting Newton-backed modules into `sys.modules` for the Isaac Sim-specific
 IsaacLab, while reusing IsaacLab's managers, math and MDP term library verbatim. Isaac Sim is
 never booted. As of 2026-09-02 SUGAR's ~3,300-line MDP package imports verbatim and its
 refiner config constructs with all **21 reward terms at SUGAR's own weights** — including the
-four `sugar_newton/` omitted — so the reward stops being something to re-audit. Model
-construction (`builder.py`) is the remaining piece before environments can be stepped. The
-write-up is a reusable recipe: prefer it over hand-porting the next IsaacLab system.
+four `sugar_newton/` omitted — so the reward stops being something to re-audit. The write-up is
+a reusable recipe: prefer it over hand-porting the next IsaacLab system.
+
+**As of 2026-09-03 `sugar_swap` builds, steps and trains data-parallel on 8 GPUs at SUGAR's
+exact 98,304-sample batch** — and it took one more environmental bug to get there. The released
+SUGAR refiner checkpoint, which lifts the box in IsaacLab, could not lift it in Newton: a
+self-collision that PhysX excludes and Newton did not was pinning the hip bow at 25° against
+IsaacLab's 58°, so the hands never reached the box. With that fixed the same checkpoint
+reproduces IsaacLab closely (pelvis pitch 58.1° vs 58.4°, lift 0.655 m against a 0.628 m mocap
+reference, full-length episodes). Read
+[the port caveat](#the-isaaclab-to-newton-port-sugar_swap) before interpreting any Newton
+refiner curve: every run before this fix trained where the task was physically impossible, so
+their reward plateau carries no information. A fresh 10,001-iteration run is in flight against
+the IsaacLab reference.
 
 Separately, the throughput gap that looked like a Newton-vs-PhysX engine problem is **not
 one**. Measured head-to-head on one A100 on 2026-09-02, the entire gap is the collider
