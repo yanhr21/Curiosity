@@ -38,14 +38,18 @@
       <span class="repo-branch" id="repo-branch">sugar</span>
     </div>
     <div class="nav-links">
+      <a href="#status">Status</a>
+      <a href="#arch">Architecture</a>
+      <a href="#map">&#8982; Diagrams</a>
+      <a href="#caveats">&#9888; Caveats</a>
       <a href="#run">Run</a>
-      <a href="#map">Map</a>
+      <a href="#archive" class="nav-sep">&#9636; Archive &middot; Plan 15</a>
       <a href="#variants">Branches</a>
-      <a href="#docs">Docs</a>
       <a href="#modules">Modules</a>
-      <a href="#obj">① Where it breaks</a>
-      <a href="#bugs">◎ The ten</a>
+      <a href="#obj">&#9312; Where it breaks</a>
+      <a href="#bugs">&#9678; The ten</a>
       <a href="#coda">Coda</a>
+      <a href="#docs">Docs</a>
       <a href="#" class="tab-link" data-tab="findings">Findings<span class="tab-count"></span></a>
       <div class="theme-pick" role="group" aria-label="Theme">
         <button type="button" data-theme-set="">Paper</button>
@@ -59,100 +63,87 @@
 <div class="frame">
 
 <header class="cover">
-  <div class="note">
-    <div class="note-k">Scope &middot; this page documents the archived IsaacLab/PhysX line</div>
-    <span>Everything here is <b>Plan 15</b>, which ran on a separate host and is superseded by <b>Plan 16</b>, the Newton tactile rewrite in <code>sugar_newton/</code>. The audit below is <i>why</i> Plan 16 exists, so it remains required reading before touching any tactile channel or reward term — but the code it describes is not the code being developed. For current state, environment and commands, start from the repository <code>README.md</code>; for operating notes, <code>claude_context/operations.md</code>. This page has <b>not</b> been rebuilt for the Newton line.</span>
-  </div>
-
-  <p class="eyebrow">Three&#8209;branch matched comparison &nbsp;·&nbsp; audited 2026·08·19</p>
+  <p class="eyebrow">Plan 16 &middot; Newton tactile rewrite &nbsp;·&nbsp; branch <code>2026_9_1_tactile_newton</code> &nbsp;·&nbsp; 2026·09·03</p>
   <h1 class="title">Does tactile <span class="ar">·</span> <em>help?</em></h1>
-  <p class="lede">A complete SUGAR G1 has already lifted the CarryBox. Mid&#8209;episode, without touching geometry, appearance or the reference trajectory, the box gets heavier. Three otherwise&#8209;identical policies differ only in what tactile they can read. The answer, so far, is <b>no</b> — and this page is mostly about why that answer should not yet be believed.</p>
-
-  <div class="note">
-    <div class="note-k">Result &middot; 2026&#8209;08&#8209;18 &middot; all 900 rollouts complete</div>
-    <span>Eligible holds at <code>1× / 1.5× / 3× / 6× / 10×</code> — <b>Z</b> <code>59,59,52,1,0</code> · <b>P</b> <code>59,59,49,0,0</code> · <b>PS</b> <code>59,58,33,0,0</code>. P never beats the no&#8209;tactile control. At 3× the paired PS&minus;P hold difference is <b>&minus;0.2712</b> over 59 paired profiles, 95% CI <code>[-0.4655,-0.0667]</code>: <b>adding slip made the policy worse</b>. (That interval is a percentile bootstrap over three seed clusters with no multiplicity control — read it as a strong point estimate, not a controlled test.)</span>
-  </div>
-
-  <div class="note">
-    <div class="note-k">Audit &middot; 115 findings, 3 rounds, 9 agents &middot; read this before trusting the result</div>
-    <span>Information that reliably makes a policy <i>worse</i> is the signature of a wiring bug, so the sensing, training and reward paths were read end to end — once by hand, then by three independent Opus auditors, one per branch. <b>The experiment's skeleton is sound</b> (the mass jump, the warm start, and — verified — the physics being genuinely identical across Z/P/PS). <b>Three things around it are not.</b> The tactile channels cannot carry the signal being tested &mdash; measured, not argued; the reward <b>penalises every patch that touches the box</b> while the term meant to reward contact is dead; and the policies are trained on motions 0&#8211;3 and scored only on motion 45. One of my own earlier claims (&ldquo;shear collapses to zero under stick&rdquo;) was <b>refuted</b> by that measurement and is corrected below. See <a href="#obj">where it breaks</a> and the <a href="#" class="tab-link" data-tab="findings">Findings</a> tab. <b>Nothing has been fixed yet.</b></span>
-  </div>
-
-  <div class="note">
-    <div class="note-k">Shared vocabulary</div>
-    <span><b>patch</b> = one physical anatomical pad, 27 per hand, and the only policy unit &nbsp;·&nbsp; <b>taxel</b> = one of 500 force&#8209;field sample points in a patch's 20×25 grid, the physics backend, <i>never</i> a policy token &nbsp;·&nbsp; <b>handoff</b> = the frozen Refiner stops <i>driving</i> and the student's action starts being executed — the student's network ran from frame 0 either way &nbsp;·&nbsp; <b>jump</b> = the online mass/inertia write &nbsp;·&nbsp; <b>hold</b> = height loss ≤ 5 cm over the 80&#8209;frame post&#8209;jump window, no robot fall, and all 80 frames eligible &nbsp;·&nbsp; <b>drop</b> = height loss ≥ 15 cm &nbsp;·&nbsp; <b>safe&#8209;lower</b> = a fourth outcome the evaluator emits and the headline counts omit.</span>
-  </div>
+  <p class="lede">A complete SUGAR G1 has already lifted the CarryBox. Mid&#8209;episode, without touching geometry, appearance or the reference trajectory, the box gets heavier. Does live whole&#8209;hand tactile improve what the robot does next, <i>over and above</i> deployable proprioception? The first attempt at this, on IsaacLab/PhysX, returned a null result that its own audit showed could not be trusted &mdash; so the experiment is being rebuilt on <b>Newton</b>. This page is the current line first, and that archive second.</p>
 
   <div class="strip">
-    <div class="cell a3">
-      <div class="k">Z &mdash; control</div>
-      <div class="v"><span class="name">no tactile</span><br><code>obs term reads no TacSL</code></div>
+    <div class="cell a6">
+      <div class="k">Live line</div>
+      <div class="v"><span class="name">Plan 16 — Newton</span><br><code>MuJoCo-Warp, PhysX retired</code></div>
     </div>
     <div class="cell a1">
-      <div class="k">P &mdash; patch</div>
-      <div class="v"><span class="name">6 live channels</span><br><code>slip &equiv; 0</code></div>
+      <div class="k">Port fidelity</div>
+      <div class="v"><span class="name">1080/1080 at zero step</span><br><code>sugar_swap, 8-GPU DDP</code></div>
     </div>
-    <div class="cell a6">
-      <div class="k">PS &mdash; patch + slip</div>
-      <div class="v"><span class="name">9 live channels</span><br><code>PatchSlipDetector</code></div>
+    <div class="cell a2">
+      <div class="k">Just fixed</div>
+      <div class="v"><span class="name">the robot can bow</span><br><code>lift 0.655 m vs 0.628 ref</code></div>
     </div>
-    <div class="cell">
-      <div class="k">Verdict legend</div>
-      <div class="v legend" style="margin-top:4px">
-        <span class="pill same"><span class="g">=</span>verified sound</span>
-        <span class="pill near"><span class="g">≈</span>similar</span>
-        <span class="pill diff"><span class="g">Δ</span>differs</span>
-        <span class="pill lose"><span class="g">−</span>blocks the claim</span>
-        <span class="pill gain"><span class="g">+</span>better than Z</span>
-      </div>
+    <div class="cell a3">
+      <div class="k">In flight</div>
+      <div class="v"><span class="name">refiner from scratch</span><br><code>10,001 iters vs IsaacLab</code></div>
     </div>
   </div>
 </header>
 
 
-<section class="ch" id="run">
-  <div class="chap-no">▶</div>
-  <h2 class="ch-h">Running <em>it</em></h2>
-  <p class="ch-sub wide"><b>Not on this machine.</b> Plan 15 executes on a separate GPU host rooted at <code>/public/home/yanhongru/Curiosity</code>, which does not exist on this filesystem. This checkout is for reading, editing, testing and committing source. Full detail — including every silent&#8209;failure path — is in <a href="#docs">operations.md</a>.</p>
+<section class="ch" id="status">
+  <div class="chap-no">&sect;</div>
+  <h2 class="ch-h">Goal <em>&amp; current status</em></h2>
+  <p class="ch-sub wide">Rebuilding the tactile experiment on Newton, because Plan 15's null result did not survive its own audit. Live branch <code>2026_9_1_tactile_newton</code>.</p>
+
+  <table class="diff">
+    <colgroup><col><col></colgroup>
+    <thead><tr><th>State</th><th>2026&#8209;09&#8209;03</th></tr></thead>
+    <tbody>
+      <tr><td><b>Works</b></td><td>Tracker transfers and lifts the box; BCPPO trains; tactile reducer validated against analytic ground truth; closed loop instrumented.</td></tr>
+      <tr><td><b>Port</b></td><td><code>sugar_swap</code> runs SUGAR unmodified on Newton, Isaac Sim never booted. <b>1080/1080</b> terms match IsaacLab at zero step; 8-GPU DDP at SUGAR's 98,304-sample batch.</td></tr>
+      <tr><td><b>Just fixed</b></td><td>The released refiner lifted 0.5355 m in IsaacLab and <b>0.057 m</b> here. A self-collision PhysX excludes pinned the bow at 25&deg; against 58&deg;; now 58.1&deg; and <b>0.655 m</b> against a 0.628 m reference. <a href="#caveats">Mechanism &rarr;</a></td></tr>
+      <tr><td><b>In flight</b></td><td>Refiner from scratch on the fixed env, 10,001 iterations, against a matched IsaacLab reference.</td></tr>
+      <tr><td><b>Invalid</b></td><td>Every Newton refiner run before today: the task was physically impossible, so the ~12&ndash;16 reward plateau is environmental, not learning.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="h3">Next, in order</h3>
+  <ol>
+    <li>Does the fixed env's curve reach SUGAR's reward level? Only now answerable.</li>
+    <li>Roll the trained refiner out in Newton to generate the <code>rl_dataset</code>.</li>
+    <li>Retrain the tracker (BCPPO distillation) on that dataset.</li>
+    <li>Re-run the tactile comparison on a reward path that no longer penalises contact.</li>
+  </ol>
+</section>
+
+<section class="ch" id="arch">
+  <div class="chap-no">&#8727;</div>
+  <h2 class="ch-h">Architecture <em>&mdash; the live line</em></h2>
+  <p class="ch-sub wide">Two stacks share this repo, and knowing which one you are reading is the most common confusion here. The pipeline itself is the <a href="#map">diagram below</a> &mdash; 50 Hz control over 200 Hz physics (<code>dt 0.005</code>, <code>decimation 4</code>).</p>
 
   <div class="gridn" style="--ncol:2">
-    <div class="col a6">
-      <h4>Train one formal seed — runtime host</h4>
+    <div class="col a1">
+      <h4><code>sugar_swap/</code> &mdash; SUGAR verbatim, on Newton</h4>
       <ul>
-        <li><code>"$PYTHON_BIN" -u SUGAR/scripts/sugar_rl/train_online_patch_mass_bcppo.py --task Sugar-G129dof-CarryBox-OnlineMass-Patch-{Z|P|PS}-BCPPO --patch-scale-file "$SCALE" --seed 151016 --log_dir "$OUT" --headless --device cuda:0</code></li>
-        <li><b>Env:</b> no conda. <code>PYTHON_BIN=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python</code>, plus <code>DISPLAY=</code> (empty, not unset) and <code>OMNI_KIT_ACCEPT_EULA=Y</code> in every shell.</li>
-        <li><b><code>--patch-scale-file</code> is not optional, in any branch</b> — including Z, where the scales are numerically inert but still validated and saved into the checkpoint. It is consumed <i>before</i> the agent config is imported, because the scales are a class-body default evaluated at import time.</li>
-        <li><b>The configured <code>learning_rate = 1e-3</code> is not the LR that runs.</b> The warm start overwrites every optimizer param group with the Tracker checkpoint's own converged LR, and BCPPO holds <code>schedule="fixed"</code> for the first 500 updates, so it never adapts back.</li>
-        <li><b>Endpoint is fixed at 3000 updates.</b> Resume with <code>--resume_checkpoint_path</code>; mutually exclusive with the warm start. Never auto-start the next seed.</li>
+        <li><code>bootstrap.py</code> swaps Newton-backed modules into <code>sys.modules</code> for only the Isaac&nbsp;Sim-specific parts of IsaacLab, so its managers, math and MDP library are reused byte-for-byte.</li>
+        <li>That makes reward fidelity <b>structural</b>: SUGAR's refiner config constructs with all 21 reward and 6 termination terms at its own weights, including four the hand-written port omitted.</li>
+        <li>What the refiner trains through today.</li>
       </ul>
     </div>
-    <div class="col a1">
-      <h4>Off the runtime host — what still works</h4>
+    <div class="col a3">
+      <h4><code>sugar_newton/</code> &mdash; the tactile stack</h4>
       <ul>
-        <li><code>python3 -m pytest tests/native_tactile -q</code> — needs <code>torch</code> and <code>numpy</code>, no IsaacLab. The only executable part of the repo here.</li>
-        <li>Everything under <code>experiments/</code> is gitignored and <b>absent</b> here apart from two index files. A README path starting <code>experiments/</code> not resolving is expected, not a broken link.</li>
-        <li><code>SUGAR/descriptions/</code> is also absent, so asset-level questions (e.g. whether the box's spawned <code>mass=0.5</code> matches <code>NOMINAL_CARRYBOX_MASS_KG = 0.3023375869</code>) cannot be settled here.</li>
-        <li>Long jobs on the runtime host go through <code>scripts/sugar/native_tactile/launch_retained_child.sh</code>, which records PID/PGID — never a bare <code>&amp;</code>.</li>
+        <li>The hand-written port, under <code>rl/</code>. Carries the whole-hand tactile reducer and its analytic validators.</li>
+        <li>Its reward path is the one Plan 15's audit condemned, which is why the refiner moved to <code>sugar_swap</code>.</li>
       </ul>
     </div>
   </div>
 
-  <h3 class="h3">Frozen evaluation and the three-branch comparison</h3>
-  <pre><span class="c"># one endpoint → 5 masses × 20 profiles. PS needs the explicit gate.</span>
-<span class="c"># NB: one --mass-factor per run; the five-way set is the sweep aggregate, not one run.</span>
-PLAN15_ALLOW_PS_ENDPOINT_EVALUATION=1 \
-bash scripts/sugar/native_tactile/run_plan15_frozen_seed.sh \
-  PS &lt;endpoint&gt;/model_2999.pt 151016 152016 &lt;fresh-output-dir&gt; cuda:0
-
-<span class="c"># the evaluator refuses to overwrite: --output-root must not already exist</span>
-"$PYTHON_BIN" SUGAR/scripts/sugar_rl/compare_online_patch_mass_sweeps.py \
-  --z-root &lt;3 seed dirs&gt; --p-root &lt;3&gt; --ps-root &lt;3&gt; --output &lt;comparison.json&gt;</pre>
+  <p class="ch-sub wide"><b><code>builder.py</code> is where fidelity is won or lost.</b> Every engine-difference bug so far has lived there: effort limits, soft joint limits, randomisation reaching the solver, contact margin, the friction cone, the self-collision filter. If a Newton run behaves unlike IsaacLab, read it and the <a href="#caveats">caveats</a> first.</p>
 </section>
 
 <section class="diagram" id="map">
   <div class="chap-no">⌖</div>
   <h2 class="ch-h">Architecture <em>map</em></h2>
-  <p class="ch-sub wide">One <b>training</b> control step, three branches, in true execution order. <b>Click any block</b> for its verified internals. Pinned at the left is <b style="color:#6d3a9e">PS</b>, the fullest path; the carousel holds <b>P</b> and the <b>Z</b> control. Everything except the tactile column is byte-identical across the three — verified, including that the 54 sensor bodies do not change the physics. The dashed rule above <code>Out</code> is a real boundary: everything below it is a <i>separate frozen-evaluator process</i>, not part of this loop.</p>
+  <p class="ch-sub wide"><b>Plan 15 built these, and the structure still holds</b> &mdash; only the engine underneath changed. One <b>training</b> control step, three branches, in true execution order. <b>Click any block</b> for its verified internals. Pinned at the left is <b style="color:#6d3a9e">PS</b>, the fullest path; the carousel holds <b>P</b> and the <b>Z</b> control. Everything except the tactile column is byte-identical across the three — verified, including that the 54 sensor bodies do not change the physics. The dashed rule above <code>Out</code> is a real boundary: everything below it is a <i>separate frozen-evaluator process</i>, not part of this loop.</p>
 
   <div class="diag-wrap">
     <div class="flow-legend">
@@ -416,6 +407,198 @@ bash scripts/sugar/native_tactile/run_plan15_frozen_seed.sh \
   <p class="diag-cap">Columns coloured by role so a stage can be compared across branches. Orange = present in this branch only. Dashed grey = present and constructed, but inert on this branch's actor path. The dotted return edge is the control loop; the dashed rule above <code>Out</code> separates training from the frozen evaluator.</p>
 </section>
 
+<section class="ch" id="caveats">
+  <div class="chap-no">⚠</div>
+  <h2 class="ch-h">Important <em>caveats</em></h2>
+  <p class="ch-sub wide">Things that have already cost days, or that will silently produce a wrong number if you do not know them. Each says what the problem is and what to do about it. The full text is in the repo <a href="#" class="doc-link" data-file="README.md">README</a>; the port's own gotcha list, with line-level detail, is in <a href="#" class="doc-link" data-file="sugar_swap/README.md">sugar_swap/README.md</a>.</p>
+
+  <div class="note">
+    <div class="note-k">Read this one first &middot; a self-collision PhysX excludes and Newton did not</div>
+    <span><code>pelvis</code> has no collider of its own; the pelvis collider sits on <code>pelvis_contour_link</code>, <b>welded</b> to it. Newton filters same-body and directly-jointed shapes, but neither rule looks <b>through</b> a fixed joint &mdash; MuJoCo's <code>filterparent</code> and PhysX's articulation adjacency both do. So the pelvis collider was left colliding with <code>pelvis</code>'s own children, both hip pitch links: <b>20.6 kN</b> against a 33 kg robot, bow pinned at 25&deg;. It never looked like a collision bug &mdash; no joint at a limit, no actuator saturated, 47 N&middot;m of surplus drive &mdash; which is why it read as a tuning problem for days.<br><br><b>Fix:</b> <code>_weld_filter_pairs</code> in <code>builder.py</code>, now the default. <code>RB_SELF_COLLISION=raw</code> restores the bug for A/B, <code>=0</code> is diagnostic only. <b>Porting a new URDF? Check for colliders on welded links first.</b></span>
+  </div>
+
+  <h3 class="h3">The IsaacLab&#8209;to&#8209;Newton port</h3>
+  <table class="diff">
+    <colgroup><col><col></colgroup>
+    <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td><b>Every Newton refiner run before 2026&#8209;09&#8209;03 is invalid.</b> They trained where the robot could not bow past ~10&deg; of hip flexion, so the task was impossible and the ~12&ndash;16 reward plateau is environmental.</td><td class="effect">Do not compare against those curves. Compare against the fresh <code>refiner_swap8_weld</code> run and the IsaacLab reference.</td></tr>
+      <tr><td><b>Convex hulling inflates thin cosmetic shells, and the hands are among them.</b> MuJoCo only collides convex geoms, so every mesh is hulled: <code>logo_link</code> 39.6&times;, <code>waist_support_link</code> 16.7&times;, <code>pelvis_contour_link</code> 15.9&times;, wrist roll 10.7&times;, both <code>rubber_hand</code>s <b>2.35&times;</b>. Genuinely convex links are fine (1.08&ndash;1.09&times;).</td><td class="effect">The bow no longer depends on this, but the rubber hands are the <i>grasping</i> surfaces, so their contact geometry is coarser than PhysX's. Fix if it matters: convex decomposition into several pieces, at a collision-performance cost.</td></tr>
+      <tr><td><b>Two randomised material properties silently do not survive MuJoCo.</b> Static and dynamic friction collapse to one coefficient, and restitution 0.0&ndash;0.5 is a complete no-op because the solver never reads it.</td><td class="effect">Treat both as absent when reasoning about the randomisation distribution. Not fixable without leaving MuJoCo.</td></tr>
+      <tr><td><b>Domain randomisation has to be announced to the solver.</b> <code>SolverMuJoCo</code> steps its own <code>mjw_model</code>, so writing mass, COM or friction into the Newton model is invisible until <code>notify_model_changed</code>. It was a silent no-op for a stretch of training.</td><td class="effect">The same trap applies to anything written after build. Note the mode is <code>startup</code>, so a run gets a fixed population of dynamics, not a fresh draw per episode.</td></tr>
+      <tr><td><b><code>effort_limit_sim</code> outranks the URDF.</b> SUGAR leaves <code>effort_limit</code> at <code>None</code> but sets <code>effort_limit_sim</code> on every group, and that is what IsaacLab hands the simulator &mdash; and the numerator of the action scale. Preferring the URDF ran six joints at 35 N&middot;m instead of 50.</td><td class="effect">Fixed. When adding actuators, read the <code>_sim</code> variant, not the URDF.</td></tr>
+      <tr><td><b>The two importers order bodies differently and nothing guards it.</b> <code>hip_pitch</code>/<code>pelvis_contour</code> and <code>head</code>/<code>logo</code> come out in different positions.</td><td class="effect">Names happen to match today, so rewards are correct &mdash; but adding a tracked body would silently reward the wrong link. Assert the name&#8209;to&#8209;index mapping. <b>Not yet done.</b></td></tr>
+      <tr><td><b>Post-step magnitudes diverge where shapes match exactly.</b> <code>joint_torque</code> 1.81&times;, <code>motion_body_ang_vel</code> 0.52&times;, <code>joint_limit</code> 0.93&times;, contact forces 0.23&ndash;2.8&times;, all with zero residual on shape.</td><td class="effect">Do not treat these channels as calibrated across engines. <b>Unresolved.</b></td></tr>
+      <tr><td><b>Newton is not run-to-run reproducible at a fixed seed.</b> Repeat replays of one checkpoint gave box lifts of 0.0385, 0.0574 and 0.0632 m.</td><td class="effect">Do not read a few percent between single replays as real, and do not quote five significant figures from one.</td></tr>
+      <tr><td><b>The two engines do not draw the same reset.</b> Robots differ by 8.8 cm horizontally and 3.3&deg; in yaw while the box is bit-identical.</td><td class="effect">A Newton replay and an IsaacLab replay are <i>not</i> a matched pair. Pin the reset RNG before any claim hinging on small differences.</td></tr>
+      <tr><td><b>Contact margin must stay 0</b>, and the friction cone is a dynamics commitment. The solver subtracts <code>(margin0 + margin1)</code> from separation; pyramidal is faster <i>and</i> closer to PhysX.</td><td class="effect">Any nonzero margin leaves the grasp resting that far off the surface (this was a real bug once). Adopt a cone change by retraining, never under a trained policy.</td></tr>
+      <tr><td><b><code>ls_iterations</code> is a guess.</b> Mapped from PhysX's velocity iteration count (4), but MuJoCo's line search is a different algorithm whose own default is 50.</td><td class="effect">It costs almost nothing in speed, so decide it on accuracy grounds. <b>Not decided.</b></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="h3">Training and comparison</h3>
+  <table class="diff">
+    <colgroup><col><col></colgroup>
+    <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td><b><code>envs/rank</code> is the scaling knob, not GPU count.</b> 32 GPUs at 128 envs/rank runs at 28% efficiency; at 512 envs/rank, 92%. Four-node DDP does not pay at SUGAR's batch (2.40 s/iter on 32 GPUs vs 2.59 on 8).</td><td class="effect">Prefer a single 8-GPU node unless the total env count rises.</td></tr>
+      <tr><td><b>SUGAR's <code>--num_envs</code> is per rank; <code>sugar_swap</code>'s <code>RB_ENVS</code> is a total.</b> The inconsistency is deliberate &mdash; it keeps rank count changing only the wall clock.</td><td class="effect">Reading SUGAR's convention into ours silently multiplies the batch by the rank count.</td></tr>
+      <tr><td><b>Co-resident GPU work on a DDP node costs every rank, not one.</b> A 5-minute video loop run with <code>--overlap</code> on the training node dragged the whole run from 2.8 to 7&ndash;12 s/iter, because all-reduce blocks on the slowest rank.</td><td class="effect">Give side jobs their own node.</td></tr>
+      <tr><td><b>The curriculum pool rebuilds at every leg boundary.</b> <code>MotionCommand.count</code> starts at 0 and <code>init_pool</code> is never checkpointed, so a resumed leg re-serves its 1,000-iteration warmup.</td><td class="effect">Second-order, but it wastes the start of every leg. <b>Unfixed.</b></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="h3">Cluster and tooling</h3>
+  <table class="diff">
+    <colgroup><col><col></colgroup>
+    <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td><b>Interactive partitions expire hard at 4 h, silently.</b> On expiry a screen window falls back to the login node and work fails with "no NVIDIA driver", or half-runs on CPU.</td><td class="effect">Chain legs with <code>--dependency=afterany</code>. <code>afterok</code> stalls, because a leg killed by the wall clock exits non-zero and that is the normal way a leg ends.</td></tr>
+      <tr><td><b><code>find /</code> or <code>find ~</code> on this Lustre filesystem hangs until killed.</b> Chained with <code>;</code>, everything useful after it never runs.</td><td class="effect">Use targeted <code>grep</code>/<code>ls</code> with explicit paths.</td></tr>
+      <tr><td><b>wandb has four separate traps.</b> Resumed legs raise <code>ConfigError</code>; shared mode cannot append to a run whose other writer is not also in shared mode (it ignores <code>step=</code> and drops history rows while mp4 files still upload, so media lands in Files with no panel); re-syncing a <i>live</i> offline run wipes its history; and a stray <code>WANDB_MODE=offline</code> rides <code>--export=ALL</code> into jobs.</td><td class="effect">Allow value changes on resume via the startup hook; use a companion run with the iteration as a <code>step_metric</code>; snapshot to a separate id rather than re-syncing live; pin the mode explicitly.</td></tr>
+      <tr><td><b>Newton writes eval mp4s at 30 fps for a 50 Hz sim.</b> Playback is 1.67&times; too slow, which reads as sluggish motion and has already caused one wrong conclusion.</td><td class="effect">Re-encode before comparing videos.</td></tr>
+      <tr><td><b><code>scontrol show job</code> does not print the export list.</b> A leg's <code>RB_*</code> settings are not recoverable from the job record.</td><td class="effect">The run log is the provenance trail &mdash; which is why the builder prints its self-collision mode and batch shape at startup.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="ch" id="run">
+  <div class="chap-no">▶</div>
+  <h2 class="ch-h">Running <em>it</em></h2>
+  <p class="ch-sub wide">The live line runs <b>here</b>, on this cluster, in conda env <code>robotbaby</code>. Nothing resolves outside the checkout: <code>env/activate.sh</code> puts the repo and the in-repo <code>third_party/newton</code> submodule on <code>PYTHONPATH</code>, so editing the submodule takes effect with no reinstall. Full operating detail, including every silent-failure path, is in <a href="#" class="doc-link" data-file="operations.md">operations.md</a>.</p>
+
+  <div class="gridn" style="--ncol:2">
+    <div class="col a1">
+      <h4>First time, on the login node</h4>
+      <ul>
+        <li><code>bash env/setup_env.sh</code> &mdash; ~10 GB, creates conda env <code>robotbaby</code>.</li>
+        <li><code>bash SUGAR/_downloads/fetch_assets.sh</code> &mdash; ~700 MB of assets, <b>not</b> in git.</li>
+        <li>The cheapest useful command needs <b>no GPU and no container</b>, because Newton runs on the login node against the CPU device:<br><code>source env/activate.sh &amp;&amp; python -m sugar_newton.validation.incline</code> (~45 s, analytic tactile ground truth).</li>
+      </ul>
+    </div>
+    <div class="col a3">
+      <h4>Interactive GPU work</h4>
+      <ul>
+        <li><code>sbatch slurm/devnode.sbatch</code> (1 GPU) or <code>slurm/devnode8.sbatch</code> (8 GPU), <b>from the repo root</b> &mdash; it locates the repo via <code>SLURM_SUBMIT_DIR</code>.</li>
+        <li>Then send work into the named container, which keeps the one-time GL/EGL installs:<br><code>bash slurm/devrun.sh "source env/activate.sh &amp;&amp; python -m sugar_newton.validation.g1_carrybox_policy"</code></li>
+        <li><b>Partition choice is what binds, not pool size.</b> One node &rarr; <code>interactive_singlenode</code> (1,243 nodes, cap 1 node, <b>rejects &gt;1 GPU</b>). Several nodes or any multi-GPU job &rarr; <code>interactive</code> (cap 3 nodes). Long unattended batch &rarr; <code>polar3,polar4</code>, which queue on priority.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 class="h3">Train the refiner &mdash; the current production command</h3>
+  <pre><span class="c"># 4 legs x 4 h, 8 GPUs x 512 envs = 4096 envs = SUGAR's exact 98,304-sample batch.</span>
+<span class="c"># RB_ENVS is a TOTAL across ranks here (the opposite of SUGAR's per-rank --num_envs),</span>
+<span class="c"># so RB_GPUS changes the wall clock and never the experiment.</span>
+RB_RUN=refiner_swap8_weld RB_GPUS=8 RB_ENVS=4096 RB_NODES=1 \
+RB_ITERS=10001 RB_PARTITION=polar3,polar4 \
+  bash slurm/swap_train_chain.sh 4
+
+<span class="c"># Legs chain with --dependency=afterany, NOT afterok: a leg killed by the 4 h wall</span>
+<span class="c"># clock exits non-zero, and that is the normal way a leg ends. Each leg resumes from</span>
+<span class="c"># the highest checkpoint in the run dir, so a boundary loses nothing.</span></pre>
+
+  <div class="gridn" style="--ncol:2">
+    <div class="col a6">
+      <h4>Watching it</h4>
+      <ul>
+        <li><b>wandb is the source of truth</b>, plus the on-disk checkpoints in <code>logs/swap_refiner/&lt;run&gt;/</code>. A leg's stdout is <code>slurm/swap_train8_&lt;jobid&gt;.log</code>.</li>
+        <li>Do <b>not</b> trust a log written through an <code>srun</code> client that has since died &mdash; it goes stale silently while training continues fine. This has cost real confusion.</li>
+        <li>The builder prints its self-collision mode and batch shape at startup; that print is the only provenance record, because <code>scontrol</code> does not keep the export list.</li>
+      </ul>
+    </div>
+    <div class="col a2">
+      <h4>Replaying a checkpoint</h4>
+      <ul>
+        <li>Newton needs the vendored package on the path explicitly:<br><code>PYTHONPATH=$REPO/third_party/newton:$REPO</code>. Without it the import dies on <code>No module named 'newton'</code>.</li>
+        <li>The container's login shell has <b>no conda env active</b>, so any <code>srun</code> payload must source <code>conda.sh</code> and activate <code>robotbaby</code> itself.</li>
+        <li>Eval mp4s are written at 30 fps for a 50 Hz sim &mdash; <b>re-encode before drawing conclusions</b> from how fast the motion looks.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="ch" id="archive">
+  <div class="chap-no">▤</div>
+  <h2 class="ch-h">Archive <em>&mdash; Plan 15 on IsaacLab/PhysX</em></h2>
+  <p class="ch-sub wide">Everything from here down is the <b>superseded</b> line. It ran on a separate GPU host rooted at <code>/public/home/yanhongru/Curiosity</code>, which does not exist on this filesystem, and the code it describes is <b>not</b> the code being developed. It is kept in full because its audit is the reason Plan 16 exists, and because the three-branch design and its measured failures are the only place several of those lessons are written down. <b>Nothing in Plan 15 was ever fixed</b> &mdash; the rebuild was chosen instead.</p>
+
+  <div class="note">
+    <div class="note-k">The null result &middot; 2026&#8209;08&#8209;18 &middot; all 900 rollouts complete</div>
+    <span>Eligible holds at <code>1&times; / 1.5&times; / 3&times; / 6&times; / 10&times;</code> &mdash; <b>Z</b> <code>59,59,52,1,0</code> &middot; <b>P</b> <code>59,59,49,0,0</code> &middot; <b>PS</b> <code>59,58,33,0,0</code>. P never beats the no-tactile control. At 3&times; the paired PS&minus;P hold difference is <b>&minus;0.2712</b> over 59 paired profiles, 95% CI <code>[-0.4655,-0.0667]</code>: <b>adding slip made the policy worse</b>. (A percentile bootstrap over three seed clusters with no multiplicity control &mdash; a strong point estimate, not a controlled test.)</span>
+  </div>
+
+  <div class="note">
+    <div class="note-k">Why that null is not reportable &middot; 115 findings, 3 rounds, 9 agents</div>
+    <span>Information that reliably makes a policy <i>worse</i> is the signature of a wiring bug, so the sensing, training and reward paths were read end to end &mdash; once by hand, then by three independent Opus auditors, one per branch. <b>The experiment's skeleton is sound</b> (the mass jump, the warm start, and &mdash; verified &mdash; the physics being genuinely identical across Z/P/PS). <b>Three things around it are not.</b> The tactile channels cannot carry the signal being tested &mdash; measured, not argued; the reward <b>penalises every patch that touches the box</b> while the term meant to reward contact is dead; and the policies are trained on motions 0&ndash;3 and scored only on motion 45. One earlier claim of mine ("shear collapses to zero under stick") was <b>refuted</b> by that measurement.</span>
+  </div>
+
+  <div class="note">
+    <div class="note-k">Shared vocabulary &middot; needed to read anything below</div>
+    <span><b>patch</b> = one physical anatomical pad, 27 per hand, and the only policy unit &nbsp;&middot;&nbsp; <b>taxel</b> = one of 500 force-field sample points in a patch's 20&times;25 grid, the physics backend, <i>never</i> a policy token &nbsp;&middot;&nbsp; <b>handoff</b> = the frozen Refiner stops <i>driving</i> and the student's action starts being executed &nbsp;&middot;&nbsp; <b>jump</b> = the online mass/inertia write &nbsp;&middot;&nbsp; <b>hold</b> = height loss &le; 5 cm over the 80-frame post-jump window, no fall, all 80 frames eligible &nbsp;&middot;&nbsp; <b>drop</b> = height loss &ge; 15 cm &nbsp;&middot;&nbsp; <b>safe-lower</b> = a fourth outcome the evaluator emits and the headline counts omit.</span>
+  </div>
+
+  <div class="strip">
+    <div class="cell a3">
+      <div class="k">Z &mdash; control</div>
+      <div class="v"><span class="name">no tactile</span><br><code>obs term reads no TacSL</code></div>
+    </div>
+    <div class="cell a1">
+      <div class="k">P &mdash; patch</div>
+      <div class="v"><span class="name">6 live channels</span><br><code>slip &equiv; 0</code></div>
+    </div>
+    <div class="cell a6">
+      <div class="k">PS &mdash; patch + slip</div>
+      <div class="v"><span class="name">9 live channels</span><br><code>PatchSlipDetector</code></div>
+    </div>
+    <div class="cell">
+      <div class="k">Verdict legend</div>
+      <div class="v legend" style="margin-top:4px">
+        <span class="pill same"><span class="g">=</span>verified sound</span>
+        <span class="pill near"><span class="g">≈</span>similar</span>
+        <span class="pill diff"><span class="g">Δ</span>differs</span>
+        <span class="pill lose"><span class="g">−</span>blocks the claim</span>
+        <span class="pill gain"><span class="g">+</span>better than Z</span>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="h3">Running Plan 15 &mdash; on its own host, not this one</h3>
+  <p class="ch-sub wide"><b>Not on this machine.</b> Plan 15 executes on a separate GPU host rooted at <code>/public/home/yanhongru/Curiosity</code>, which does not exist on this filesystem; this checkout is for reading, editing, testing and committing its source. Kept because these are the only written copy of its launch constraints.</p>
+<div class="gridn" style="--ncol:2">
+    <div class="col a6">
+      <h4>Train one formal seed — runtime host</h4>
+      <ul>
+        <li><code>"$PYTHON_BIN" -u SUGAR/scripts/sugar_rl/train_online_patch_mass_bcppo.py --task Sugar-G129dof-CarryBox-OnlineMass-Patch-{Z|P|PS}-BCPPO --patch-scale-file "$SCALE" --seed 151016 --log_dir "$OUT" --headless --device cuda:0</code></li>
+        <li><b>Env:</b> no conda. <code>PYTHON_BIN=/public/home/yanhongru/envs/sugar_py311_isaacsim510/bin/python</code>, plus <code>DISPLAY=</code> (empty, not unset) and <code>OMNI_KIT_ACCEPT_EULA=Y</code> in every shell.</li>
+        <li><b><code>--patch-scale-file</code> is not optional, in any branch</b> — including Z, where the scales are numerically inert but still validated and saved into the checkpoint. It is consumed <i>before</i> the agent config is imported, because the scales are a class-body default evaluated at import time.</li>
+        <li><b>The configured <code>learning_rate = 1e-3</code> is not the LR that runs.</b> The warm start overwrites every optimizer param group with the Tracker checkpoint's own converged LR, and BCPPO holds <code>schedule="fixed"</code> for the first 500 updates, so it never adapts back.</li>
+        <li><b>Endpoint is fixed at 3000 updates.</b> Resume with <code>--resume_checkpoint_path</code>; mutually exclusive with the warm start. Never auto-start the next seed.</li>
+      </ul>
+    </div>
+    <div class="col a1">
+      <h4>Off the runtime host — what still works</h4>
+      <ul>
+        <li><code>python3 -m pytest tests/native_tactile -q</code> — needs <code>torch</code> and <code>numpy</code>, no IsaacLab. The only executable part of the repo here.</li>
+        <li>Everything under <code>experiments/</code> is gitignored and <b>absent</b> here apart from two index files. A README path starting <code>experiments/</code> not resolving is expected, not a broken link.</li>
+        <li><code>SUGAR/descriptions/</code> is also absent, so asset-level questions (e.g. whether the box's spawned <code>mass=0.5</code> matches <code>NOMINAL_CARRYBOX_MASS_KG = 0.3023375869</code>) cannot be settled here.</li>
+        <li>Long jobs on the runtime host go through <code>scripts/sugar/native_tactile/launch_retained_child.sh</code>, which records PID/PGID — never a bare <code>&amp;</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 class="h3">Frozen evaluation and the three-branch comparison</h3>
+  <pre><span class="c"># one endpoint → 5 masses × 20 profiles. PS needs the explicit gate.</span>
+<span class="c"># NB: one --mass-factor per run; the five-way set is the sweep aggregate, not one run.</span>
+PLAN15_ALLOW_PS_ENDPOINT_EVALUATION=1 \
+bash scripts/sugar/native_tactile/run_plan15_frozen_seed.sh \
+  PS &lt;endpoint&gt;/model_2999.pt 151016 152016 &lt;fresh-output-dir&gt; cuda:0
+
+<span class="c"># the evaluator refuses to overwrite: --output-root must not already exist</span>
+"$PYTHON_BIN" SUGAR/scripts/sugar_rl/compare_online_patch_mass_sweeps.py \
+  --z-root &lt;3 seed dirs&gt; --p-root &lt;3&gt; --ps-root &lt;3&gt; --output &lt;comparison.json&gt;</pre>
+</section>
+
 <section class="ch" id="variants">
   <div class="chap-no">◱</div>
   <h2 class="ch-h">Branch <em>results</em></h2>
@@ -491,86 +674,6 @@ bash scripts/sugar/native_tactile/run_plan15_frozen_seed.sh \
   </table>
   <p class="table-hint">not monotone in friction — and the training distribution is <code>U[0.2,0.8]</code>, so every row except the first is outside it. <b>These hold/drop labels are not the branch table's</b>: they come from <code>preflight_online_patch_mass_jump.py</code> at seed 150814, computed over <i>every frame after the jump</i> rather than an 80-frame window, with no robot-fall gate and no return-to-table disjunct. The <code>mu=1.5</code> condition also holds in a camera-enabled rollout (height loss 0.02552 m), which describes only its own rollout.</p>
 </section>
-
-
-<section class="ch docs" id="docs">
-  <div class="chap-no">¶</div>
-  <h2 class="ch-h"><em>Docs &amp; plan</em></h2>
-  <p class="ch-sub">Repo markdown, grouped by location. The Plan 15 design doc opens by default. Metric tables here get the same medals and row toggles as the tables above. Much of this repo's documentation is in Chinese; the page summarises it in English.</p>
-
-  <div class="docs-layout">
-    <aside class="docs-sidebar">
-      <div class="group-h">Project context</div>
-      <ul>
-        <li>
-          <a href="#" class="doc-link active" data-file="PLAN/15_online_patch_tactile_mass_adaptation/plan.md">
-            <code>PLAN/15/plan.md</code>
-            <span class="doc-link-badge">PLAN</span>
-            <span class="doc-link-meta">The active design — contract, branches, endpoints, results</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" class="doc-link" data-file="operations.md">
-            <code>operations.md</code>
-            <span class="doc-link-badge">OPS</span>
-            <span class="doc-link-meta">How to run this &mdash; envs, paths, launch, silent failures</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" class="doc-link" data-file="context.md">
-            <code>context.md</code>
-            <span class="doc-link-meta">Repo entry point &mdash; what /recall-context reads first</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" class="doc-link" data-file="TODO/15_online_patch_tactile_mass_adaptation/todo.md">
-            <code>TODO/15/todo.md</code>
-            <span class="doc-link-meta">Execution checklist &mdash; every item closed before the audit</span>
-          </a>
-        </li>
-      </ul>
-
-      <div class="group-h">Reference</div>
-      <ul>
-        <li>
-          <a href="#" class="doc-link" data-file="README.md">
-            <code>README.md</code>
-            <span class="doc-link-meta">Method, results and the shortest reproduction path</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" class="doc-link" data-file="AGENTS.md">
-            <code>AGENTS.md</code>
-            <span class="doc-link-meta">Standing rules &mdash; the tactile and privileged-signal contracts</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" class="doc-link" data-file="DOCS/sugar_carrybox_reproduction_full_record.md">
-            <code>sugar_carrybox_reproduction_full_record.md</code>
-            <span class="doc-link-meta">Official SUGAR reproduction record</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" class="doc-link" data-file="scripts/sugar/native_tactile/README.md">
-            <code>native_tactile/README.md</code>
-            <span class="doc-link-meta">Sensing entry points and trace field definitions</span>
-          </a>
-        </li>
-      </ul>
-    </aside>
-
-    <div class="docs-main">
-      <div class="docs-pathbar">
-        <span id="docs-pathbar-text">docs/PLAN/15_online_patch_tactile_mass_adaptation/plan.md</span>
-        <a id="docs-raw-link" class="raw-link" href="docs/PLAN/15_online_patch_tactile_mass_adaptation/plan.md" target="_blank">view raw</a>
-      </div>
-      <div id="docs-content" class="docs-content md">
-        <div class="docs-loading">Loading&hellip;</div>
-      </div>
-    </div>
-  </div>
-</section>
-
 
 <section class="ch" id="modules">
   <div class="chap-no">◫</div>
@@ -670,7 +773,6 @@ bash scripts/sugar/native_tactile/run_plan15_frozen_seed.sh \
   </div>
   <p class="diag-cap">Dashed grey = present and constructed, but inert on this branch's actor path.</p>
 </section>
-
 
 <section class="ch" id="obj">
   <div class="chap-no">01</div>
@@ -778,7 +880,6 @@ bash scripts/sugar/native_tactile/run_plan15_frozen_seed.sh \
     <p>The null result is currently <b>unfalsifiable in the wrong direction</b>. Three independent confounds all push the same way: the channels that were supposed to carry the signal cannot carry it, the reward pays for <i>not</i> touching the box, and every number is measured on a motion the policy never trained on. No amount of RL tuning fixes any of them. <b>The sensing layer and the reward need to be fixed before another 9 × 3000 updates is worth the GPU time.</b></p>
   </div>
 </section>
-
 
 <section class="ch" id="bugs">
   <div class="chap-no">◎</div>
@@ -896,7 +997,6 @@ bash scripts/sugar/native_tactile/run_plan15_frozen_seed.sh \
   </div>
 </section>
 
-
 <section class="ch coda" id="coda">
   <div class="chap-no">⌘</div>
   <h2 class="ch-h"><em>Coda</em></h2>
@@ -934,6 +1034,90 @@ bash scripts/sugar/native_tactile/run_plan15_frozen_seed.sh \
     <li><b>Close the train/eval split.</b> Either train on motion 45 or evaluate on 0–3. As it stands the experiment cannot separate "tactile does not help" from "the tactile encoder did not generalise across motions".</li>
     <li><b>Accept that existing checkpoints do not survive.</b> The frozen channel scales, and therefore the actor's first-layer patch columns, are tied to the current channel definitions. Any sensing change invalidates all nine endpoints.</li>
   </ol>
+</section>
+
+<section class="ch docs" id="docs">
+  <div class="chap-no">¶</div>
+  <h2 class="ch-h"><em>Docs &amp; plan</em></h2>
+  <p class="ch-sub">Repo markdown, grouped by location. The repo <code>README.md</code>, whose caveats section is the highest-value page in the repo, opens by default; the Plan 15 design doc is further down the sidebar. Metric tables here get the same medals and row toggles as the tables above. Much of this repo's documentation is in Chinese; the page summarises it in English.</p>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="group-h">Project context</div>
+      <ul>
+        <li>
+          <a href="#" class="doc-link" data-file="PLAN/15_online_patch_tactile_mass_adaptation/plan.md">
+            <code>PLAN/15/plan.md</code>
+            <span class="doc-link-badge">PLAN</span>
+            <span class="doc-link-meta">The active design — contract, branches, endpoints, results</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="operations.md">
+            <code>operations.md</code>
+            <span class="doc-link-badge">OPS</span>
+            <span class="doc-link-meta">How to run this &mdash; envs, paths, launch, silent failures</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="context.md">
+            <code>context.md</code>
+            <span class="doc-link-meta">Repo entry point &mdash; what /recall-context reads first</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="TODO/15_online_patch_tactile_mass_adaptation/todo.md">
+            <code>TODO/15/todo.md</code>
+            <span class="doc-link-meta">Execution checklist &mdash; every item closed before the audit</span>
+          </a>
+        </li>
+      </ul>
+
+      <div class="group-h">Reference</div>
+      <ul>
+        <li>
+          <a href="#" class="doc-link active" data-file="README.md">
+            <code>README.md</code>
+            <span class="doc-link-meta">Method, results, the caveats section, and the shortest reproduction path</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="sugar_swap/README.md">
+            <code>sugar_swap/README.md</code>
+            <span class="doc-link-meta">Running unmodified IsaacLab code on Newton &mdash; recipe and the 15 gotchas</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="AGENTS.md">
+            <code>AGENTS.md</code>
+            <span class="doc-link-meta">Standing rules &mdash; the tactile and privileged-signal contracts</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="DOCS/sugar_carrybox_reproduction_full_record.md">
+            <code>sugar_carrybox_reproduction_full_record.md</code>
+            <span class="doc-link-meta">Official SUGAR reproduction record</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="doc-link" data-file="scripts/sugar/native_tactile/README.md">
+            <code>native_tactile/README.md</code>
+            <span class="doc-link-meta">Sensing entry points and trace field definitions</span>
+          </a>
+        </li>
+      </ul>
+    </aside>
+
+    <div class="docs-main">
+      <div class="docs-pathbar">
+        <span id="docs-pathbar-text">docs/PLAN/15_online_patch_tactile_mass_adaptation/plan.md</span>
+        <a id="docs-raw-link" class="raw-link" href="docs/PLAN/15_online_patch_tactile_mass_adaptation/plan.md" target="_blank">view raw</a>
+      </div>
+      <div id="docs-content" class="docs-content md">
+        <div class="docs-loading">Loading&hellip;</div>
+      </div>
+    </div>
+  </div>
 </section>
 
 </div><!-- /frame -->

@@ -127,6 +127,15 @@ nav.topbar .nav-links a {
 }
 nav.topbar .nav-links a:hover { color: var(--dark-ink); border-bottom-color: var(--dark-ink-soft) }
 
+/* The live line ends here. Everything to the right of this link is the archived
+   Plan 15 page, and the reader needs to see that boundary in the nav rather than
+   discover it three sections down. */
+nav.topbar .nav-links a.nav-sep {
+  margin-left: 14px; padding-left: 22px;
+  border-left: 1px solid var(--dark-ink-soft);
+  opacity: 0.72;
+}
+
 /* boxed links = tab switches (docs, findings), not in-page anchors */
 nav.topbar .nav-links a.tab-link {
   margin-left: 8px;

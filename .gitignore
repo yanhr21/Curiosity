@@ -92,3 +92,8 @@ sugar_newton/.venv/
 # Plan 16 GPU run outputs: traces, frames, videos and job logs stay local.
 sugar_newton/_gpu_out/
 sugar_newton/_*.log
+
+# Core dumps. An Isaac Sim rank that aborts writes ~8 GB, and a torchrun launch
+# aborts every rank at once, so one crash lands 32 GB next to the source tree.
+# The abort reason is in the job log, not in these, so they are pure junk.
+core.*

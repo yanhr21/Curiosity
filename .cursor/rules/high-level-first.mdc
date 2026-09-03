@@ -1,0 +1,42 @@
+---
+description: Order docs and pages high level first, details last
+alwaysApply: true
+---
+
+# High level first, details last
+
+People read top to bottom and stop early. Anything they must know goes where they
+land, not where it happened to be written. This applies to context pages,
+READMEs, handoffs, plans, and the summaries written back to the user.
+
+## The order
+
+1. **Goal** — what this is trying to establish, in the reader's terms.
+2. **Current status** — where it stands *today*, including what is in flight and
+   what has been invalidated. A reader who stops here should still be correct.
+3. **Overall design, pipelines, diagrams** — how the thing is put together.
+   Diagrams are high-level content and belong near the top; they are usually the
+   fastest way for someone to orient, so never bury them.
+4. **High-level TODOs / next steps** — the short ordered list, not the backlog.
+5. **Caveats** — what will silently produce a wrong number.
+6. **How to run it** — the commands.
+7. **Details** — module-by-module tables, per-file notes, results appendices.
+8. **Tools and browsers** — a docs/markdown browser is a *tool*, not a story.
+   It goes at the end. Same for raw log viewers and file indexes.
+9. **Archive** — superseded lines, behind a visible divider, kept but fenced.
+
+## Rules that follow from it
+
+- **Never lead with a superseded result.** A page that opens on last quarter's
+  null result with a disclaimer taped on top is worse than one that opens on the
+  live line and links to the archive — the disclaimer is read after the number.
+- **Fence the archive visibly**, in the navigation as well as the body. The
+  reader should see where the live line ends without scrolling into it.
+- **Provenance does not set position.** Content earns its place by whether the
+  reader needs it early, not by which era produced it. Old diagrams that still
+  describe the current structure stay at the top, labelled with what they depict.
+- **A moved section is not a deleted one** — say which when reporting, because
+  "I reordered the page" reads as "I removed things" to someone who just sees
+  their diagram gone from where it was.
+- Keep the navigation order identical to the body order. Two different orders is
+  the same defect as no order.
