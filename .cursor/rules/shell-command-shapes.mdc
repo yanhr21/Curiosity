@@ -1,5 +1,5 @@
 ---
-description: How to shape shell commands so they auto-run instead of stalling. Two failure modes: a command that cannot be auto-approved waits for a human, and a command that blocks longer than 30 s trips the stream stall detector and kills the turn. One simple command per tool call; scripts in files rather than heredocs; working_directory instead of a cd prefix; long waits submitted detached and polled, never awaited inside the call.
+description: How to shape shell commands so they auto-run instead of stalling. Two failure modes: a command that cannot be auto-approved waits for a human, and a command that blocks longer than the stream stall threshold kills the turn outright. One simple command per tool call; scripts in files rather than heredocs; working_directory instead of a cd prefix; long waits submitted detached and polled, never awaited inside the call.
 alwaysApply: true
 ---
 
@@ -89,54 +89,58 @@ the invariant above still matters: a command that follows it runs unrestricted,
 while one that does not may now fail on a blocked write or a 403 instead of
 stalling.
 
-# Never block a tool call for longer than ~25 seconds
+# Never block a tool call past the stall threshold
 
 A separate failure mode, nothing to do with approval. The CLI watches its own
-stream with a stall detector set to a **30 s no-activity threshold**. A tool call
-that blocks past that stops the client's outgoing heartbeat, so the detector
-concludes the connection died and aborts a perfectly healthy stream:
+stream with a stall detector — **30 s of no activity** on the version this was
+measured against. A tool call that blocks past it stops the client's outgoing
+heartbeat, so the detector concludes the connection died and aborts a perfectly
+healthy stream:
 
 ```
 abortSource: "stall_detector"   stall_type: "no_activity"   threshold_ms: 30000
 ```
 
-The abort counts as a transport error, so it retries — and the retry re-runs the
+The abort counts as a *transport* error, so it retries — and the retry re-runs the
 same slow command, which stalls at the same mark. After three resumes that produce
 no checkpoint the turn dies with `Agent stopped retrying` and sits there until a
-human types "continue". Subagents die the same way. Measured on this repo: 35 such
-aborts in one afternoon, with the client heartbeat 35–55 s stale at every one
-against 1–6 s when healthy.
+human types "continue". Subagents die the same way, and a nested `cursor-agent -p`
+call blocks its parent exactly like any other command.
 
-So **submit long work detached and poll it in short calls.** Never wait inside the call.
+The tell, if you are unsure whether a stall was local or a real network fault:
+`last_client_sent_heartbeat_ago_ms` in the log. Healthy is 1–6 s. If it is past
+the threshold at the moment of the abort then the *client* stopped heartbeating,
+which is local blocking, not a dropped connection.
+
+So **keep every tool call well under the threshold — submit long work detached and
+poll it in short calls.** Never wait inside the call.
 
 ```bash
 # STALLS - the wait happens inside the tool call
-sleep 420; grep -aoE "Learning iteration [0-9]+/[0-9]+" $L | tail -1
-for i in $(seq 1 60); do grep -qai "box lift" $O/*.log && break; sleep 10; done
-srun --overlap --jobid=$J timeout 900 python -u experiments/isaac/ref_video.py ...
+sleep 420; grep -aoE "iteration [0-9]+" $L | tail -1
+for i in $(seq 1 60); do grep -qai done $O/*.log && break; sleep 10; done
+timeout 1800 srun --overlap --jobid=$J python train.py
+timeout 240 cursor-agent --trust -p "…"
 
 # works - submit and return, then poll in separate short calls
-sbatch slurm/devnode.sbatch
+sbatch job.sbatch                       # or: setsid nohup … >log 2>&1 &
 squeue -u $USER -o '%.10i %.2t %.10M'
-tail -30 experiments/isaac/isaac_train_$J.log
+tail -30 log
 ```
 
-For GPU work the detached submission is `sbatch slurm/devnode.sbatch` plus
-`slurm/devrun.sh` (§ 9 of `AGENTS.md`); for anything else `setsid nohup … >log 2>&1 &`.
+If a wait is genuinely unavoidable, background the command and let the harness poll
+it (`block_until_ms: 0`, then await) rather than sleeping in the shell. The
+heartbeat keeps flowing that way, because the harness does the waiting instead of
+the call.
 
-If a wait is truly unavoidable, background the command and let the harness poll it
-(`block_until_ms: 0`, then await) rather than sleeping in the shell. The heartbeat
-keeps flowing that way, because the harness does the waiting instead of the call.
+## The workspace root counts against the same budget
 
-# Start the CLI in the repo, not the scratch parent
+With sandbox mode on, the sandbox scans the workspace root before it can start a
+confined command, and that scan blocks the call. A root big enough to take longer
+than the threshold to walk will therefore kill turns on its own, on commands that
+look trivial. Scratch parents full of `wandb/`, checkpoint and dataset trees, and
+conda installs are the usual offenders, and network filesystems make it far worse.
 
-The sandbox scans the workspace root before it can start a confined command, and
-that scan blocks the call. Measured on this Lustre filesystem:
-
-| workspace root | dirs | sandbox scan |
-|---|---|---|
-| `robot_baby/Curiosity` | 1,280 | ~5 s |
-| `users/shengzew` — 115 entries incl. `wandb`, `exo2ego_helios_latents`, `miniconda3` | >45,000 | **153 s** |
-
-153 s is five times the stall threshold above, so from the scratch parent even a
-trivial command can kill the turn on its own. Launch in `Curiosity`.
+Start the CLI inside the actual repo, never in a scratch parent that happens to
+contain it. `~/.cursor/cursor_stall_diagnose.sh <workspace_root>` measures the scan
+cost, along with everything else in this section.
