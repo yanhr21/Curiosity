@@ -1,0 +1,139 @@
+{
+  "protocol": "sugar_bpp_five_variant_corpus_contract_v1",
+  "frozen_on": "2026-09-02",
+  "candidate_variant_count_per_source_motion": 10,
+  "admitted_variant_count_per_source_motion": 5,
+  "admission_selection": "sort candidate_variant_id ascending and take the first five independently safe task-successful rollouts; fewer than five fails the source motion and the corpus",
+  "source_motion_split": {
+    "rule": "source_motion_id modulo 10: 8 validation, 9 test, otherwise train",
+    "train": 160,
+    "validation": 20,
+    "test": 19
+  },
+  "task_identity": "immutable source_motion_id",
+  "pairing_contract": {
+    "same_source_motion_id": true,
+    "distinct_rollout_variant_id": true,
+    "carry_kick_label_is_training_task_id": false,
+    "heldout_source_motion_used_for_optimization": false
+  },
+  "variants": [
+    {
+      "variant_id": 0,
+      "carry_shard_seeds": [291900, 291901, 291902, 291903],
+      "kick_shard_seeds": [291950, 291951, 291952, 291953]
+    },
+    {
+      "variant_id": 1,
+      "carry_shard_seeds": [292000, 292001, 292002, 292003],
+      "kick_shard_seeds": [292050, 292051, 292052, 292053]
+    },
+    {
+      "variant_id": 2,
+      "carry_shard_seeds": [292100, 292101, 292102, 292103],
+      "kick_shard_seeds": [292150, 292151, 292152, 292153]
+    },
+    {
+      "variant_id": 3,
+      "carry_shard_seeds": [292200, 292201, 292202, 292203],
+      "kick_shard_seeds": [292250, 292251, 292252, 292253]
+    },
+    {
+      "variant_id": 4,
+      "carry_shard_seeds": [292300, 292301, 292302, 292303],
+      "kick_shard_seeds": [292350, 292351, 292352, 292353]
+    },
+    {
+      "variant_id": 5,
+      "carry_shard_seeds": [292400, 292401, 292402, 292403],
+      "kick_shard_seeds": [292450, 292451, 292452, 292453]
+    },
+    {
+      "variant_id": 6,
+      "carry_shard_seeds": [292500, 292501, 292502, 292503],
+      "kick_shard_seeds": [292550, 292551, 292552, 292553]
+    },
+    {
+      "variant_id": 7,
+      "carry_shard_seeds": [292600, 292601, 292602, 292603],
+      "kick_shard_seeds": [292650, 292651, 292652, 292653]
+    },
+    {
+      "variant_id": 8,
+      "carry_shard_seeds": [292700, 292701, 292702, 292703],
+      "kick_shard_seeds": [292750, 292751, 292752, 292753]
+    },
+    {
+      "variant_id": 9,
+      "carry_shard_seeds": [292800, 292801, 292802, 292803],
+      "kick_shard_seeds": [292850, 292851, 292852, 292853]
+    }
+  ],
+  "execution_contract": {
+    "controller": "exact released task-specific SUGAR Generator plus Tracker",
+    "control_hz": 50,
+    "executed_steps_per_trajectory": 700,
+    "action_dimension": 29,
+    "tracker_observation_dimension": 510,
+    "deployable_proprioception_dimension": 121,
+    "deployable_proprioception_clock": "goal_policy_core_observation_before sampled before official Tracker inference and env.step",
+    "open_loop_action_replay": false,
+    "frame_augmentation_counts_as_variant": false
+  },
+  "official_inference_randomization": {
+    "robot_static_friction": [0.3, 1.6],
+    "robot_dynamic_friction": [0.3, 1.2],
+    "robot_restitution": [0.0, 0.5],
+    "object_static_friction": [0.3, 0.8],
+    "object_dynamic_friction": [0.3, 0.8],
+    "object_restitution": [0.0, 0.5],
+    "object_mass_scale_log_uniform": [0.5, 2.0],
+    "robot_default_joint_position_additive": [-0.01, 0.01],
+    "robot_torso_com_x_m": [-0.025, 0.025],
+    "robot_torso_com_y_m": [-0.05, 0.05],
+    "robot_torso_com_z_m": [-0.05, 0.05],
+    "tracker_observation_corruption": true
+  },
+  "forbidden_unreleased_randomization": {
+    "motion_pose_range": "all zero, matching the released Tracker training and inference configs",
+    "motion_joint_position_range": "all zero, matching the released Tracker training and inference configs",
+    "camera_pose_change": false,
+    "camera_intrinsics_change": false
+  },
+  "render_contract": {
+    "camera_keys": ["agentview_rgb", "eye_in_hand_rgb"],
+    "independent_real_rgb_streams": true,
+    "share_rgb_model": false,
+    "eye_in_hand_attachment": "{ENV_REGEX_NS}/Robot/d435_link",
+    "camera_candidate_contract": {
+      "path": "scripts/sugar/demo_following/config/bpp_dual_camera_candidates_v1.json",
+      "sha256": "9276b901a33b788fb03b93a1b5fe2abaf5093bb44cf51376617e5ea787165daf"
+    },
+    "environment_spacing_m": 30.0,
+    "camera_far_clip_m": 20.0,
+    "rtx_resolution": [640, 640],
+    "saved_resolution": [320, 320],
+    "saved_fps": 10,
+    "frames_per_trajectory": 141,
+    "frames_per_camera": 140295,
+    "total_two_camera_frames": 280590,
+    "actions_per_saved_interval": 5
+  },
+  "exact_admitted_totals": {
+    "trajectories": 995,
+    "train_trajectories": 800,
+    "validation_trajectories": 100,
+    "test_trajectories": 95,
+    "executed_transitions": 696500,
+    "five_action_intervals": 139300,
+    "train_five_action_intervals": 112000,
+    "train_target_anchors_per_trajectory": 700,
+    "train_target_samples_per_epoch": 560000,
+    "train_target_sample_exposures_at_goal_chain_7_epochs": 3920000
+  },
+  "exact_candidate_collection_totals": {
+    "trajectories": 1990,
+    "executed_transitions": 1393000,
+    "five_action_intervals": 278600
+  }
+}

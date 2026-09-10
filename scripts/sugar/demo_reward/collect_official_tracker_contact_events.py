@@ -13,6 +13,7 @@ adapters.  Reference binary labels are never used as actual-contact targets.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -63,6 +64,17 @@ parser.add_argument("--num-envs", type=int, default=4)
 parser.add_argument("--steps", type=int, default=700)
 parser.add_argument("--seed", type=int, default=271001)
 parser.add_argument("--contact-threshold-n", type=float, default=0.1)
+parser.add_argument(
+    "--bpp-variant-id",
+    type=int,
+    choices=range(10),
+    default=None,
+    help=(
+        "Optional frozen BPP rollout-variant identity. This does not change the "
+        "official environment; it binds the seed and startup-physics readback to "
+        "the frozen candidate reservoir for the five-variant corpus."
+    ),
+)
 cli_args.add_rsl_rl_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
@@ -75,7 +87,51 @@ if args.contact_threshold_n <= 0:
 args.task = f"Sugar-G129dof-{args.task_family}-Inference"
 args.enable_cameras = False
 
-app_launcher = AppLauncher(args)
+# Isaac Sim's default ``--portable`` location lives inside the shared Python
+# environment.  Persistent GUI/PhysX settings and KVDB locks from another job
+# must never leak into a formal corpus shard.  SimulationApp recognizes this as
+# a two-argument Kit option and therefore does not append its shared fallback.
+portable_root_base = os.environ.get("SUGAR_KIT_PORTABLE_ROOT")
+if portable_root_base:
+    portable_root = Path(portable_root_base) / f"process_{os.getpid()}"
+    portable_root.mkdir(parents=True, exist_ok=False)
+    sys.argv.extend(["--portable-root", str(portable_root)])
+
+# Every corpus shard is launched with exactly one Slurm-assigned H200.  Leaving
+# SimulationApp's renderer multi-GPU mode enabled makes Vulkan enumerate the
+# node's physical devices while CUDA uses Slurm's remapped logical device 0;
+# on Slurm-remapped allocations this can make CUDA/Vulkan device identity
+# ambiguous.  Pinning one renderer device removes that ambiguity; it does not
+# claim to cure node-level VK_ERROR_DEVICE_LOST failures.  This changes only
+# renderer routing, not PhysX, robot assets, policy, or collected tensors.
+launcher_kwargs = {
+    "multi_gpu": False,
+    "max_gpu_count": 1,
+}
+kit_args = ["--/renderer/multiGpu/autoEnable=false"]
+if os.environ.get("SUGAR_HEADLESS_RENDERER") == "pxr":
+    # This collector has no cameras.  A CPU Hydra renderer keeps the extensions
+    # required by the official URDF importer while avoiding the unused RTX
+    # graphics queue; CUDA remains the configured PhysX and Tracker device.
+    kit_args.extend([
+        "--/renderer/enabled=pxr",
+        "--/renderer/active=pxr",
+    ])
+else:
+    # This collector never enables cameras.  Match the already verified SUGAR
+    # H200 inference route and do not initialize an unused RTX render queue.
+    # PhysX and policy inference remain on the assigned CUDA device.
+    kit_args.extend([
+        "--/renderer/enabled=",
+        "--/renderer/multiGpu/enabled=false",
+    ])
+# ``add_app_launcher_args`` always places ``kit_args`` on the Namespace, and
+# AppLauncher rejects the same key in kwargs.  Extend that Namespace value so
+# the options take the one supported forwarding path into Kit.
+args.kit_args = " ".join(
+    part for part in [getattr(args, "kit_args", ""), *kit_args] if part
+)
+app_launcher = AppLauncher(args, **launcher_kwargs)
 simulation_app = app_launcher.app
 
 import builtins  # noqa: E402
@@ -113,6 +169,15 @@ CONTROL_DT_S = 0.02
 LIFT_THRESHOLD_M = 0.05
 MOVE_THRESHOLD_MPS = 0.05
 GOAL_POLICY_CORE_DIM = 121
+
+
+def _array_sha256(value: np.ndarray) -> str:
+    array = np.ascontiguousarray(value)
+    digest = hashlib.sha256()
+    digest.update(str(array.dtype).encode("utf-8"))
+    digest.update(np.asarray(array.shape, dtype=np.int64).tobytes())
+    digest.update(array.tobytes())
+    return digest.hexdigest()
 
 
 def _goal_policy_core_observation(base) -> torch.Tensor:
@@ -374,6 +439,39 @@ def main() -> None:
     policy = runner.get_inference_policy(device=base.device)
     print("COLLECTOR_PHASE=policy_loaded", flush=True)
 
+    # Startup events have already run during gym.make. Read every randomized
+    # physical parameter back from PhysX rather than treating the RNG seed as
+    # evidence that two rollout variants differ.
+    robot = base.scene["robot"]
+    obj = base.scene["obj"]
+    startup_profile = {
+        "startup_robot_material_properties": (
+            robot.root_physx_view.get_material_properties()
+            .detach().cpu().numpy().copy()
+        ),
+        "startup_object_material_properties": (
+            obj.root_physx_view.get_material_properties()
+            .detach().cpu().numpy().copy()
+        ),
+        "startup_object_masses": (
+            obj.root_physx_view.get_masses().detach().cpu().numpy().copy()
+        ),
+        "startup_robot_coms": (
+            robot.root_physx_view.get_coms().detach().cpu().numpy().copy()
+        ),
+        "startup_robot_default_joint_pos": (
+            robot.data.default_joint_pos.detach().cpu().numpy().copy()
+        ),
+    }
+    for name, value in startup_profile.items():
+        if value.shape[0] != args.num_envs:
+            raise RuntimeError(
+                f"startup profile env geometry drift for {name}: {value.shape}"
+            )
+        if not np.isfinite(value).all():
+            raise RuntimeError(f"startup profile contains non-finite values: {name}")
+    print("COLLECTOR_PHASE=startup_profile_read_back", flush=True)
+
     obs = env.get_observations()
     if isinstance(obs, tuple):
         obs = obs[0]
@@ -388,6 +486,7 @@ def main() -> None:
         "robot_joint_vel_before": [],
         "object_root_state_before_w": [],
         "policy_observation_before": [],
+        "goal_policy_core_observation_before": [],
         "generator_command_before": [],
         "motion_frame_before": [],
         "local_motion_id_before": [],
@@ -411,6 +510,7 @@ def main() -> None:
     print("COLLECTOR_PHASE=rollout_started", flush=True)
     for step in range(args.steps):
         policy_observation_before = obs["policy"]
+        goal_policy_core_observation_before = _goal_policy_core_observation(base)
         generator_command_before = command.last_command[:, 0, :]
         if policy_observation_before.shape != (args.num_envs, 510):
             raise RuntimeError(
@@ -448,6 +548,9 @@ def main() -> None:
         )
         records["policy_observation_before"].append(
             policy_observation_before.detach().cpu().numpy().copy()
+        )
+        records["goal_policy_core_observation_before"].append(
+            goal_policy_core_observation_before.detach().cpu().numpy().copy()
         )
         records["generator_command_before"].append(
             generator_command_before.detach().cpu().numpy().copy()
@@ -564,6 +667,15 @@ def main() -> None:
             "tracker_checkpoint": str(tracker_checkpoint),
             "generator_checkpoint": str(generator_checkpoint),
             "motion_folder": str(motion_folder),
+            "bpp_variant_id": args.bpp_variant_id,
+            "startup_profile": {
+                name: {
+                    "shape": list(value.shape),
+                    "dtype": str(value.dtype),
+                    "sha256": _array_sha256(value),
+                }
+                for name, value in startup_profile.items()
+            },
             "artifacts": {"trace": "TRACE.npz", "result": "RESULT.json"},
         }
     )
@@ -590,12 +702,22 @@ def main() -> None:
             np.arange(args.steps, dtype=np.float64) * CONTROL_DT_S
         ),
         control_dt_s=np.asarray([CONTROL_DT_S], dtype=np.float32),
+        **startup_profile,
     )
     (output / "RESULT.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     print("COLLECTOR_PHASE=result_written", flush=True)
-    print(json.dumps(result, indent=2, sort_keys=True))
+    print(json.dumps(result, indent=2, sort_keys=True), flush=True)
+    if os.environ.get("SUGAR_FAST_EXIT_AFTER_RESULT") == "1":
+        # Some H200 allocations hang in Isaac Sim teardown after a complete
+        # trace and eventually report VK_ERROR_DEVICE_LOST.  At this
+        # point both artifacts have been atomically closed and stdout flushed;
+        # process exit releases the same CUDA/PhysX resources without making the
+        # next formal shard wait forever.  Startup or rollout failures still take
+        # the exception path below and exit non-zero.
+        sys.stderr.flush()
+        os._exit(0)
     env.close()
 
 

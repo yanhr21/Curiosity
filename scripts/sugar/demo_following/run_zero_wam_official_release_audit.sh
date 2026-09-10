@@ -8,6 +8,7 @@ PYTHON_BIN="${PYTHON_BIN:-/public/home/yanhongru/envs/sugar_py311_isaacsim510/bi
 OUTPUT_DIR="${1:-$PROJECT_ROOT/experiments/demo_following/zero_wam_official_v1/official_release_status}"
 CHECKPOINT_DIR="${2:-}"
 STRICT_LOAD_RESULT="${3:-}"
+BRANCHES_JSON="$OUTPUT_DIR/GITHUB_BRANCHES.json"
 TAGS_JSON="$OUTPUT_DIR/GITHUB_TAGS.json"
 RELEASES_JSON="$OUTPUT_DIR/GITHUB_RELEASES.json"
 CANDIDATE_REFS_JSON="$OUTPUT_DIR/OFFICIAL_CANDIDATE_REFS.json"
@@ -23,19 +24,49 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
 fi
 
 mkdir -p "$OUTPUT_DIR"
-env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
-    curl --fail --silent --show-error --max-time 30 \
-    'https://api.github.com/repos/robbyant-research/Zero-WAM/tags?per_page=100' \
-    -o "$TAGS_JSON"
-env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
-    curl --fail --silent --show-error --max-time 30 \
-    'https://api.github.com/repos/robbyant-research/Zero-WAM/releases?per_page=100' \
-    -o "$RELEASES_JSON"
+fetch_github_array() {
+    local endpoint="$1"
+    local output="$2"
+    local page=1
+    local page_file="$OUTPUT_DIR/.github_api_page.$$.json"
+    local item_count
+    printf '[]\n' >"$output"
+    while true; do
+        env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
+            curl --fail --silent --show-error --max-time 30 \
+            "${endpoint}?per_page=100&page=${page}" -o "$page_file"
+        jq -e 'type == "array"' "$page_file" >/dev/null
+        item_count=$(jq 'length' "$page_file")
+        jq -s '.[0] + .[1]' "$output" "$page_file" >"$output.tmp"
+        mv "$output.tmp" "$output"
+        if ((item_count < 100)); then
+            break
+        fi
+        page=$((page + 1))
+        if ((page > 1000)); then
+            echo "official GitHub pagination exceeded 1000 pages" >&2
+            return 2
+        fi
+    done
+    rm -f "$page_file"
+}
+
+fetch_github_array \
+    'https://api.github.com/repos/robbyant-research/Zero-WAM/branches' \
+    "$BRANCHES_JSON"
+fetch_github_array \
+    'https://api.github.com/repos/robbyant-research/Zero-WAM/tags' \
+    "$TAGS_JSON"
+fetch_github_array \
+    'https://api.github.com/repos/robbyant-research/Zero-WAM/releases' \
+    "$RELEASES_JSON"
 
 jq -n \
+    --slurpfile branches "$BRANCHES_JSON" \
     --slurpfile tags "$TAGS_JSON" \
     --slurpfile releases "$RELEASES_JSON" \
     '[{source_kind:"main",source_ref:"main"}]
+     + ($branches[0] | map({source_kind:"branch",source_ref:.name}))
      + ($tags[0] | map({source_kind:"tag",source_ref:.name}))
      + ($releases[0] | map({source_kind:"release",source_ref:.tag_name}))
      | group_by(.source_ref)

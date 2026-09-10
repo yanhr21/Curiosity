@@ -1,0 +1,156 @@
+{
+  "protocol": "sugar_bpp_official_interface_adapter_contract_v1",
+  "frozen_on": "2026-09-02",
+  "official_artifact": {
+    "source_repository": "https://github.com/real-stanford/behavior_prompting.git",
+    "source_commit": "b5b494ed05fdd5d79e57b8b27072d3fa109ebfd0",
+    "checkpoint_repository": "austinpatel/liberogen_goal_chain",
+    "checkpoint_revision": "ab2ce394ad4a30b83356083ebdd32cb528be87f2",
+    "checkpoint_file": "liberogen_goal_chain_behavior_prompting.ckpt",
+    "checkpoint_sha256": "f37e769c9460810be5f59b0ed77e1503c9dbbf2ed9780da85fe2760aac0ef7b4"
+  },
+  "inheritance_source": "state_dicts.model from the official checkpoint, which the official workspace saves after copying EMA weights into policy",
+  "forbidden_checkpoint_state": [
+    "official optimizer state",
+    "official scheduler state",
+    "official raw non-EMA training parameters"
+  ],
+  "topology_invariants": {
+    "rgb_modalities": [
+      "agentview_rgb",
+      "eye_in_hand_rgb"
+    ],
+    "independent_rgb_towers": 2,
+    "share_rgb_model": false,
+    "rgb_backbone": "vit_base_patch16_clip_224.openai",
+    "lowdim_token_count": 3,
+    "observation_horizon": 2,
+    "action_horizon": 16,
+    "prompt_observation_rate_hz": 1,
+    "diffusion_train_timesteps": 50,
+    "diffusion_inference_steps": 16,
+    "unet_down_dims": [
+      256,
+      512,
+      1024
+    ]
+  },
+  "official_interface": {
+    "action_dimension": 10,
+    "prompt_action_chunk_steps": 20,
+    "lowdim_modalities": {
+      "ee_pos": 3,
+      "ee_ori": 6,
+      "gripper_states": 2
+    }
+  },
+  "sugar_interface": {
+    "action_dimension": 29,
+    "prompt_action_chunk_steps": 50,
+    "lowdim_modalities": {
+      "ee_pos": {
+        "semantic_alias": "robot_kinematics",
+        "core_slice": [
+          0,
+          68
+        ],
+        "dimension": 68
+      },
+      "ee_ori": {
+        "semantic_alias": "previous_action",
+        "core_slice": [
+          68,
+          97
+        ],
+        "dimension": 29
+      },
+      "gripper_states": {
+        "semantic_alias": "task_geometry",
+        "core_slice": [
+          97,
+          121
+        ],
+        "dimension": 24
+      }
+    },
+    "core_dimension": 121
+  },
+  "expected_shape_new_parameter_tensor_count": 8,
+  "expected_shape_new_parameter_tensors": [
+    {
+      "logical_id": "current_obs_lowdim_ee_pos_input_weight",
+      "count": 1,
+      "official_module_role": "TransformerObsEncoder key_projection_map ee_pos input projection weight",
+      "allowed_change": "input feature axis 3 to 68 only",
+      "bias_must_inherit_exactly": true
+    },
+    {
+      "logical_id": "current_obs_lowdim_ee_ori_input_weight",
+      "count": 1,
+      "official_module_role": "TransformerObsEncoder key_projection_map ee_ori input projection weight",
+      "allowed_change": "input feature axis 6 to 29 only",
+      "bias_must_inherit_exactly": true
+    },
+    {
+      "logical_id": "current_obs_lowdim_gripper_states_input_weight",
+      "count": 1,
+      "official_module_role": "TransformerObsEncoder key_projection_map gripper_states input projection weight",
+      "allowed_change": "input feature axis 2 to 24 only",
+      "bias_must_inherit_exactly": true
+    },
+    {
+      "logical_id": "prompt_action_chunk_input_weight",
+      "count": 1,
+      "official_module_role": "PairPromptTransformerTokenizer action_proj first linear input weight",
+      "allowed_change": "flattened prompt action input axis 10x20 to 29x50 only",
+      "bias_must_inherit_exactly": true
+    },
+    {
+      "logical_id": "diffusion_action_input_main_conv_weight",
+      "count": 1,
+      "official_module_role": "ConditionalUnet1D first down-path residual block first Conv1d weight",
+      "allowed_change": "input action channel axis 10 to 29 only"
+    },
+    {
+      "logical_id": "diffusion_action_input_residual_conv_weight",
+      "count": 1,
+      "official_module_role": "ConditionalUnet1D first down-path residual shortcut Conv1d weight",
+      "allowed_change": "input action channel axis 10 to 29 only"
+    },
+    {
+      "logical_id": "diffusion_action_output_conv_weight",
+      "count": 1,
+      "official_module_role": "ConditionalUnet1D final 1x1 Conv1d weight",
+      "allowed_change": "output action channel axis 10 to 29 only"
+    },
+    {
+      "logical_id": "diffusion_action_output_conv_bias",
+      "count": 1,
+      "official_module_role": "ConditionalUnet1D final 1x1 Conv1d bias",
+      "allowed_change": "output action channel axis 10 to 29 only"
+    }
+  ],
+  "shape_new_initialization": "exact constructor-native initialization from the official classes instantiated with the frozen SUGAR shape metadata; no old-tensor slicing, tiling, padding, interpolation, or local learned adapter",
+  "exact_key_resolution": {
+    "timing": "after strict-loading the unmodified official model and constructing the official classes with frozen SUGAR shape metadata, before any SUGAR model forward, loss, optimizer construction, or outcome inspection",
+    "method": "resolve each logical_id to exactly one state_dict parameter by official class/module identity and verify its old/new shape transition",
+    "artifact": "BPP_INTERFACE_EXACT_KEY_RESOLUTION.json",
+    "artifact_must_bind": [
+      "this contract SHA256",
+      "official source commit",
+      "official checkpoint SHA256",
+      "unmodified model state_dict key-shape manifest SHA256",
+      "SUGAR model state_dict key-shape manifest SHA256"
+    ]
+  },
+  "fail_closed_rules": [
+    "exactly eight and no more state_dict parameter tensors may differ in shape",
+    "every logical_id must resolve to exactly one parameter tensor",
+    "no buffer may differ in shape",
+    "all same-shaped parameters and buffers must equal the official EMA checkpoint bitwise at update zero",
+    "both independent visual towers must strict-inherit bitwise",
+    "prompt transformer, attention pool, diffusion conditioning and every UNet intermediate tensor must strict-inherit bitwise",
+    "an unresolved, duplicate, differently shaped, or ninth mismatch closes the adapter before SUGAR training"
+  ],
+  "claim_boundary": "This contract freezes the only admitted official BPP interface shape changes. It is not a strict-load result, SUGAR forward result, training result, prompt-dependence result, or policy-success claim."
+}

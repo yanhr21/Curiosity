@@ -137,7 +137,7 @@ def main() -> None:
 
     checks = {
         "canonical_official_repository": OFFICIAL_REPOSITORY.lower() in html_url.lower(),
-        "official_main_tag_release_discovery_passed": (
+        "official_main_branch_tag_release_discovery_passed": (
             discovery.get("protocol") == "zero_wam_official_multiref_discovery_v1"
             and discovery.get("repository") == OFFICIAL_REPOSITORY
             and discovery.get("api_origin") == "https://api.github.com"
@@ -149,7 +149,7 @@ def main() -> None:
             and isinstance(discovery.get("selected_source_kinds"), list)
             and bool(discovery.get("selected_source_kinds"))
             and set(discovery["selected_source_kinds"]).issubset(
-                {"main", "tag", "release"}
+                {"main", "branch", "tag", "release"}
             )
         ),
         "selected_ref_artifacts_match_discovery_hashes": (
@@ -184,7 +184,7 @@ def main() -> None:
         checks[name]
         for name in (
             "canonical_official_repository",
-            "official_main_tag_release_discovery_passed",
+            "official_main_branch_tag_release_discovery_passed",
             "selected_ref_commit_matches_audited_commit",
             "selected_ref_artifacts_match_discovery_hashes",
             "selected_ref_is_structural_official_release",
@@ -227,7 +227,8 @@ def main() -> None:
             "run_frozen_sugar_prompt_gate" if passed else
             "strict_load_official_release" if release_available else
             discovery.get(
-                "automatic_next_branch", "recheck_official_main_tags_and_releases"
+                "automatic_next_branch",
+                "recheck_official_main_branches_tags_and_releases",
             )
         ),
         "claim_boundary": (

@@ -3,7 +3,7 @@
 
 This is a provenance/discovery auditor, not a model implementation.  It accepts
 only commit and recursive-tree responses fetched from the canonical official
-GitHub repository, inventories main/tags/releases, and emits one selected
+GitHub repository, inventories main/branches/tags/releases, and emits one selected
 commit/tree pair for the stricter source, checkpoint and strict-load audit.
 """
 
@@ -32,7 +32,7 @@ ENTRYPOINT_RE = re.compile(
 DATA_RE = re.compile(
     r"(^|/)(data|dataset|datasets|dataloader|manifest|schema)(/|[_\.])", re.I
 )
-SOURCE_PRIORITIES = {"main": 1, "tag": 2, "release": 3}
+SOURCE_PRIORITIES = {"main": 1, "branch": 2, "tag": 3, "release": 4}
 
 
 def parse_args() -> argparse.Namespace:
@@ -227,7 +227,7 @@ def evaluate(index_path: Path) -> tuple[dict[str, Any], Path, Path]:
             and len(source_refs) == index.get("discovered_source_ref_count")
             and index.get("resolution_error_count") == 0
         ),
-        "all_source_kinds_are_main_tag_or_release": all(
+        "all_source_kinds_are_main_branch_tag_or_release": all(
             kind in SOURCE_PRIORITIES for kind, _ in source_refs
         ),
         "selected_commit_is_canonical_official": selected["canonical_official_commit"],
@@ -260,7 +260,7 @@ def evaluate(index_path: Path) -> tuple[dict[str, Any], Path, Path]:
         "automatic_next_branch": (
             "download_and_strict_audit_selected_official_release"
             if release_available
-            else "recheck_official_main_tags_and_releases"
+            else "recheck_official_main_branches_tags_and_releases"
         ),
         "claim_boundary": (
             "Passing discovery proves canonical multi-ref provenance and structural source presence "
@@ -302,7 +302,20 @@ def run_self_test() -> None:
         rows = []
         for index, (sha, real, kinds, refs, date) in enumerate(
             (
-                (page_sha, False, ["main"], ["main"], "2026-08-27T00:00:00Z"),
+                (
+                    page_sha,
+                    False,
+                    ["main", "branch"],
+                    ["main", "main"],
+                    "2026-08-27T00:00:00Z",
+                ),
+                (
+                    "3" * 40,
+                    False,
+                    ["branch"],
+                    ["gh-pages"],
+                    "2026-08-30T00:00:00Z",
+                ),
                 (tag_sha, True, ["tag", "release"], ["v1.0", "v1.0"], "2026-09-01T00:00:00Z"),
             )
         ):
@@ -326,7 +339,7 @@ def run_self_test() -> None:
                 "protocol": INDEX_PROTOCOL,
                 "repository": OFFICIAL_REPOSITORY,
                 "api_origin": OFFICIAL_API_ORIGIN,
-                "discovered_source_ref_count": 3,
+                "discovered_source_ref_count": 5,
                 "resolution_error_count": 0,
                 "candidates": rows,
             },
@@ -336,6 +349,32 @@ def run_self_test() -> None:
         assert positive["release_available"] is True, positive
         assert positive["selected_commit"] == tag_sha, positive
         assert positive["selected_source_kinds"] == ["tag", "release"], positive
+
+        branch_sha = "2" * 40
+        branch_candidate = root / "candidate_003"
+        branch_candidate.mkdir()
+        write_json(
+            branch_candidate / "COMMIT.json",
+            fixture_commit(branch_sha, "2026-09-02T00:00:00Z"),
+        )
+        write_json(branch_candidate / "TREE.json", fixture_tree(True))
+        branch_index = read_json(index_path)
+        branch_index["discovered_source_ref_count"] = 6
+        branch_index["candidates"].append(
+            {
+                "source_kinds": ["branch"],
+                "source_refs": ["official-code-preview"],
+                "commit_json": "candidate_003/COMMIT.json",
+                "tree_json": "candidate_003/TREE.json",
+                "release_assets": [],
+            }
+        )
+        write_json(index_path, branch_index)
+        branch_result, _, _ = evaluate(index_path)
+        assert branch_result["passed"] is True, branch_result
+        assert branch_result["release_available"] is True, branch_result
+        assert branch_result["selected_commit"] == branch_sha, branch_result
+        assert branch_result["selected_source_kinds"] == ["branch"], branch_result
 
         external = read_json(index_path)
         external["repository"] = "untrusted/Zero-WAM-copy"
@@ -350,11 +389,11 @@ def run_self_test() -> None:
             "protocol": INDEX_PROTOCOL,
             "repository": OFFICIAL_REPOSITORY,
             "api_origin": OFFICIAL_API_ORIGIN,
-            "discovered_source_ref_count": 3,
+            "discovered_source_ref_count": 5,
             "resolution_error_count": 0,
             "candidates": copy.deepcopy(rows),
         }
-        untrusted_asset["candidates"][1]["release_assets"] = [
+        untrusted_asset["candidates"][2]["release_assets"] = [
             {
                 "name": "zero-wam.safetensors",
                 "bytes": 2_000_000_000,
@@ -387,6 +426,7 @@ def run_self_test() -> None:
                 {
                     "self_test_passed": True,
                     "selected_tagged_release_while_main_page_only": True,
+                    "selected_official_code_branch_while_pages_remain_page_only": True,
                     "rejected": [
                         "external_repository_candidate_index",
                         "untrusted_release_asset_url",

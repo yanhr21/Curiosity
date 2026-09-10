@@ -1,0 +1,57 @@
+{
+  "protocol": "sugar_bpp_dual_camera_candidate_contract_v1",
+  "frozen_on": "2026-09-02",
+  "camera_keys": ["agentview_rgb", "eye_in_hand_rgb"],
+  "saved_resolution": [320, 320],
+  "rtx_resolution": [640, 640],
+  "saved_fps": 10,
+  "camera_far_clip_m": 20.0,
+  "environment_spacing_m": 30.0,
+  "sampled_saved_frame_indices": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140],
+  "visibility_thresholds": {
+    "minimum_robot_pixels_640x640": 4096,
+    "minimum_object_pixels_640x640": 64,
+    "minimum_passing_frames_per_task": 12,
+    "minimum_eye_camera_translation_range_m": 0.001,
+    "maximum_rgb_identity_fraction_against_agentview": 0.0
+  },
+  "agentview_rgb": {
+    "prim_path": "{ENV_REGEX_NS}/BppAgentviewCamera",
+    "position": [3.6, 3.6, 2.4],
+    "quaternion_wxyz": [0.3043649418, 0.2319667899, 0.5600173703, 0.7348019703],
+    "convention": "opengl",
+    "focal_length_mm": 24.0,
+    "horizontal_aperture_mm": 20.955
+  },
+  "eye_in_hand_candidates": [
+    {
+      "candidate_id": 0,
+      "prim_path": "{ENV_REGEX_NS}/Robot/d435_link/BppEyeInHandCamera",
+      "position": [0.0, 0.0, 0.0],
+      "quaternion_wxyz": [1.0, 0.0, 0.0, 0.0],
+      "convention": "world",
+      "focal_length_mm": 18.15,
+      "horizontal_aperture_mm": 20.955
+    },
+    {
+      "candidate_id": 1,
+      "prim_path": "{ENV_REGEX_NS}/Robot/d435_link/BppEyeInHandCameraPitchMinus10",
+      "position": [0.0, 0.0, 0.0],
+      "quaternion_wxyz": [0.9961946981, 0.0, -0.0871557427, 0.0],
+      "convention": "world",
+      "focal_length_mm": 18.15,
+      "horizontal_aperture_mm": 20.955
+    },
+    {
+      "candidate_id": 2,
+      "prim_path": "{ENV_REGEX_NS}/Robot/d435_link/BppEyeInHandCameraPitchPlus10",
+      "position": [0.0, 0.0, 0.0],
+      "quaternion_wxyz": [0.9961946981, 0.0, 0.0871557427, 0.0],
+      "convention": "world",
+      "focal_length_mm": 18.15,
+      "horizontal_aperture_mm": 20.955
+    }
+  ],
+  "selection_rule": "A candidate must pass the frozen robot/object visibility, rigid-motion and pixel-nonidentity thresholds independently on CarryBox source 0 and KickBox source 0 training traces. Among joint passes select the largest minimum object-pixel median across the two tasks, then the largest minimum robot-pixel median, then the smallest candidate_id.",
+  "claim_boundary": "This is a model-independent camera visibility selection. No BPP checkpoint, feature, loss, action or rollout outcome participates."
+}

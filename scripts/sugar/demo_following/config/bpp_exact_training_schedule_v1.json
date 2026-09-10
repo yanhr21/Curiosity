@@ -1,0 +1,125 @@
+{
+  "protocol": "sugar_bpp_exact_training_schedule_contract_v1",
+  "frozen_on": "2026-09-02",
+  "schedule_seed": 301500,
+  "official_recipe": {
+    "experiment": "liberogen_goal_chain behavior prompting",
+    "epochs": 7,
+    "official_process_count": 4,
+    "official_batch_size_per_process": 100,
+    "official_gradient_accumulation_steps": 1,
+    "official_effective_batch_size": 400,
+    "official_config_learning_rate": 0.00005,
+    "official_workspace_process_scaled_main_learning_rate": 0.0002,
+    "official_workspace_process_scaled_pretrained_backbone_learning_rate": 0.00002,
+    "optimizer": "AdamW",
+    "weight_decay": 0.000001,
+    "betas": [
+      0.95,
+      0.999
+    ],
+    "scheduler": "cosine",
+    "warmup_fraction": 0.05,
+    "ema": true,
+    "mixed_precision": "bf16",
+    "gradient_clip_norm": 0.3
+  },
+  "single_h200_equivalence": {
+    "process_count": 1,
+    "microbatch_size": 100,
+    "gradient_accumulation_steps": 4,
+    "effective_batch_size": 400,
+    "configured_main_learning_rate": 0.0002,
+    "expected_effective_main_learning_rate": 0.0002,
+    "expected_pretrained_backbone_learning_rate": 0.00002,
+    "requires_pretraining_smoke_verification": true,
+    "smoke_verification": "before formal training, two complete accumulation boundaries must prove the observed optimizer/scheduler learning rates, no scaler skip, and finite positive parameter deltas in every official trainable group; smoke weights are discarded"
+  },
+  "corpus": {
+    "train_source_motion_identities": 160,
+    "carry_identities": 80,
+    "kick_identities": 80,
+    "admitted_variants_per_identity": 5,
+    "target_anchors_per_variant": 700,
+    "target_samples_per_identity_per_epoch": 3500,
+    "target_samples_per_epoch": 560000,
+    "target_sample_exposures": 3920000,
+    "validation_or_test_samples_in_optimizer": 0
+  },
+  "exact_microbatch_layout": {
+    "target_variants_per_identity": 5,
+    "target_anchor_blocks_per_variant": 7,
+    "target_anchors_per_microbatch": 100,
+    "microbatches_per_identity_per_epoch": 35,
+    "microbatches_per_epoch": 5600,
+    "accumulation_boundaries_per_epoch": 1400,
+    "total_microbatches": 39200,
+    "total_accumulation_boundaries": 9800,
+    "one_source_motion_identity_per_microbatch": true,
+    "one_target_variant_per_microbatch": true,
+    "one_shared_full_prompt_per_microbatch": true,
+    "cross_trajectory_target_batch": false,
+    "cross_source_motion_batch": false
+  },
+  "deterministic_construction": {
+    "variant_ranking": "sort the five admitted candidate_variant_id values ascending and assign ranks 0 through 4 independently for each source_motion_id",
+    "target_anchor_permutation": "for every epoch, source_motion_id and target_variant_rank, deterministically permute the exact 700 official SequenceSampler target indices using a seed derived injectively from schedule_seed, epoch, task label, source_motion_id and target_variant_rank; split into seven ordered blocks of 100",
+    "prompt_variant_rank": "(target_variant_rank + 1 + ((target_anchor_block_rank + epoch) mod 4)) mod 5",
+    "prompt_balance": "the modulo-5 nonzero-offset construction selects every prompt variant exactly seven times per source_motion_id per epoch across the 35 microbatches",
+    "self_pair_possible": false,
+    "epoch_microbatch_order": "deterministically permute the complete 5600-record epoch list using a disjoint seed derived from schedule_seed and epoch",
+    "official_data_path_after_index_selection": "unchanged official SequenceSampler item loading, prompt loading, action chunking, collation, model forward and diffusion loss"
+  },
+  "required_epoch_audit": {
+    "unique_target_rows": 560000,
+    "duplicate_target_rows": 0,
+    "missing_target_rows": 0,
+    "self_pairs": 0,
+    "cross_source_motion_pairs": 0,
+    "heldout_rows": 0,
+    "prompt_variant_uses_per_source_motion": {
+      "each_of_five_variants": 7
+    },
+    "required_log_fields": [
+      "epoch",
+      "microbatch_index",
+      "accumulation_boundary_index",
+      "task_label",
+      "source_motion_id",
+      "target_variant_id",
+      "target_sampler_indices",
+      "target_anchor_indices",
+      "prompt_variant_id",
+      "prompt_sampler_index",
+      "preprocessed_forward_input_sha256",
+      "official_loss",
+      "optimizer_applied",
+      "effective_learning_rates"
+    ]
+  },
+  "optimizer_evidence": {
+    "expected_accumulation_boundaries": 9800,
+    "positive_learning_rate_update_count": "derived from the exact optimizer trace after the pretraining smoke fixes official scheduler call order; never inferred from boundary count",
+    "counted_update_requires": [
+      "positive effective learning rate",
+      "finite official loss",
+      "finite gradients",
+      "no AMP or scaler skip",
+      "one applied optimizer step",
+      "strictly positive aggregate parameter-update norm in every official trainable group",
+      "zero non-finite trainable parameters after the update"
+    ],
+    "seven_complete_epochs_remain_mandatory": true,
+    "shortened_for_walltime": false
+  },
+  "fail_closed_rules": [
+    "the final schedule is materialized only after the immutable five-variant admission manifest passes and is hash-bound to that manifest",
+    "all 560000 target rows must reach the official forward and loss exactly once per epoch",
+    "no prompt may use the target rollout variant",
+    "no validation or test source motion may reach optimization",
+    "a missing, duplicate, resampled, unlogged or cross-identity row invalidates the epoch",
+    "a partial epoch is resumed within the retained allocation but never counted as complete",
+    "the official seven-epoch floor may be increased only by a larger checkpoint-matched official recipe, never decreased for runtime convenience"
+  ],
+  "claim_boundary": "This contract fixes exact data scheduling and single-H200 effective-batch equivalence. It is not a dataset-admission result, optimizer smoke result, completed training run, loss-improvement result, prompt-dependence result, or policy-success claim."
+}
