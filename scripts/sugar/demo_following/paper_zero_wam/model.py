@@ -5,6 +5,8 @@ small proxy: two independent 30-layer, 3072-wide experts; per-layer shared
 attention with modality-owned QKV/FFN/output projections; a human-video RoPE
 height offset; flow matching in video/action space; and four training-only IFP
 heads initialized from the final video layer.
+This is not the authors' released code. Disabling ``ifp_trunk_gradient`` is
+an explicitly local training variant, not the paper's representation loss.
 """
 
 from __future__ import annotations
@@ -252,24 +254,15 @@ class ActionFlowHead(nn.Module):
         self.projection = nn.Linear(hidden_dim, action_dim)
         self.modulation = nn.Parameter(torch.randn(1, 2, hidden_dim) / hidden_dim**0.5)
         if zero_init:
-            # Wan's convention: a zero output projection makes the residual
-            # branch start as identity.  That is right for a long pretraining
-            # run, but it makes a 32-step diagnostic impossible to interpret.
-            #
-            # Measured: the flow target is (noise - clean) with var ~1.25, and
-            # predicting exactly zero velocity gives loss 1.25.  The observed
-            # action_loss went 1.2617 -> 1.1625, i.e. the head barely left
-            # zero.  To reach the required output std ~1.2 each weight needs
-            # magnitude ~0.0217, while AdamW at lr=1e-5 with clip ~0.4 moves
-            # ~1.3e-4 in 32 steps -- short by ~169x.  The head therefore
-            # *cannot* fit within the diagnostic budget, and its 50-step
-            # integration returns the untouched initial noise (predicted std
-            # 1.05 vs target 0.5), which is worse than predicting zeros.
+            # Zero velocity at initialization blocks the upstream derivative
+            # through this projection on the first backward pass. Once the
+            # head updates, that path can open. This does not prove that
+            # fitting within any fixed number of updates is impossible.
             nn.init.zeros_(self.projection.weight)
             nn.init.zeros_(self.projection.bias)
         else:
-            # Standard scaled init so the head starts at the target scale and
-            # the short-horizon diagnostic measures learning, not growth.
+            # Nonzero scaled initialization; its actual output scale and
+            # benefit must be measured, not inferred from this formula alone.
             nn.init.normal_(self.projection.weight, std=hidden_dim**-0.5)
             nn.init.zeros_(self.projection.bias)
 
@@ -929,10 +922,9 @@ class PaperZeroWAM(nn.Module):
         if action_guidance != 1.0:
             raise ValueError("paper action CFG is fixed at 1.0; no action CFG branch exists")
         video = torch.randn_like(batch["video_target_latents"])
-        # Training always shows the video pass an action-target block at flow
-        # time action_t, i.e. (1-t)*clean + t*noise.  Holding action_time at
-        # 1.0 while feeding exact zeros is a distribution the video branch
-        # never saw.  At t=1 the matching input is pure noise.
+        # These target-action tokens have no path to video under the audited
+        # mask. Their value is not a causal video-conditioning repair. Retain
+        # the selected RNG draw convention for reproducible action sampling.
         if self.config.inactive_action_token_noise:
             inactive_action_target = torch.randn_like(batch["action_target"])
         else:
@@ -1146,8 +1138,9 @@ class PaperZeroWAM(nn.Module):
         raw_robot_history = video_tokens[:, layout.robot_history]
         raw_action_history = action_tokens[:, layout.action_history]
         if not self.config.ifp_trunk_gradient:
-            # Same isolation as the fusion taps: the IFP context must not
-            # push gradient back through the patch embedding / action encoder.
+            # Detach this history route only. The IFP future-token path still
+            # uses shared embedding/conditioning modules, so this is not a
+            # complete isolation of all IFP gradients from shared parameters.
             raw_robot_history = raw_robot_history.detach()
             raw_action_history = raw_action_history.detach()
         fusion_features: list[torch.Tensor] = []
@@ -1173,14 +1166,10 @@ class PaperZeroWAM(nn.Module):
                 video_tokens, action_tokens = layer(*args)
             if layer_index in self.config.ifp_fusion_layers:
                 tap = video_tokens[:, layout.video_target]
-                # The IFP heads are training-only scaffolding that is deleted
-                # at inference.  Letting their loss (total weight 1.05, equal
-                # to the video term) flow back into the pretrained trunk
-                # through a randomly initialized fusion MLP is what destroyed
-                # the video branch.  Detaching keeps the paper's supervision
-                # -- the heads still read the main representation and are
-                # still trained -- while the deployed trunk is optimized only
-                # by the video and action objectives.
+                # Paper IFP supervises the main robot-video representation.
+                # Detaching this tap changes that objective; it is a local
+                # gradient-interference diagnostic, not a faithful repair or
+                # an established explanation of the historical video failure.
                 fusion_features.append(tap if self.config.ifp_trunk_gradient else tap.detach())
 
         video_output_tokens = self.video_head(

@@ -5,7 +5,7 @@
 set -euo pipefail
 ROOT=/public/home/yanhongru/Curiosity
 EXPERIMENT="$ROOT/experiments/demo_following/paper_zero_wam_v1"
-ENDPOINT="$EXPERIMENT/overfit_resampled_noise_20260911"
+ENDPOINT="${1:-$EXPERIMENT/overfit_resampled_noise_20260911}"
 test -n "${SLURM_JOB_ID:-}"
 test -n "${SLURM_STEP_ID:-}"
 case "$(hostname)" in login*|mgmtserver*) exit 2 ;; esac
@@ -19,11 +19,15 @@ flock -n 9
 import json
 import sys
 from pathlib import Path
-root = Path(sys.argv[1])
+root = Path(sys.argv[1]).resolve()
 endpoint = json.loads((root / 'OVERFIT_RESULT.json').read_text())
 workflow = json.loads((root / 'DIAGNOSTIC_RESULT.json').read_text())
 rendered = json.loads((root / 'training_videos/RENDER_RESULT.json').read_text())
-assert endpoint['execution_completed'] and endpoint['optimizer_steps'] == 32
+step = endpoint['optimizer_steps']
+assert endpoint['execution_completed'] and type(step) is int and step > 0 and step % 32 == 0
+expected_name = ('overfit_resampled_noise_20260911' if step == 32
+                 else f'overfit_resampled_noise_20260911_step{step}')
+assert root.name == expected_name
 assert workflow['requested_workflow_completed']
 assert rendered['execution_completed'] and len(rendered['cases']) == 8
 assert sorted(case['slot'] for case in rendered['cases']) == list(range(8))

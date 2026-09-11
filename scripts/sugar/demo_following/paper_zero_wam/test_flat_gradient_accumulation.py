@@ -9,6 +9,42 @@ from .train_single_gpu import accumulate_cpu_gradients
 
 
 class FlatGradientAccumulationTest(unittest.TestCase):
+    def test_reusable_staging_matches_original_and_never_owns_retained_gradients(self):
+        original, reusable, staging = {}, {}, {}
+        for step in range(8):
+            large = torch.arange(64, dtype=torch.float32) + step * 0.125
+            small = torch.arange(16, dtype=torch.float32) - step * 0.25
+            rows = [("video.weight", SimpleNamespace(grad=large[:16])),
+                    ("action.weight", SimpleNamespace(grad=large[32:48])),
+                    ("ifp.weight", SimpleNamespace(grad=small[4:12]))]
+            accumulate_cpu_gradients(rows, original)
+            accumulate_cpu_gradients(rows, reusable, staging=staging)
+            if step == 0:
+                self.assertFalse(staging)
+            else:
+                self.assertEqual(staging["buffer"].numel(), 64)
+                address = staging["buffer"].untyped_storage().data_ptr()
+                self.assertTrue(all(v.untyped_storage().data_ptr() != address for v in reusable.values()))
+                staging["buffer"].fill_(float("nan"))
+            large.fill_(float("nan"))
+            small.fill_(float("nan"))
+            for name in original:
+                self.assertTrue(torch.equal(original[name], reusable[name]))
+
+    def test_staging_keeps_new_or_missing_parameter_ownership_safe(self):
+        original, reusable, staging = {}, {}, {}
+        for step in range(8):
+            source = torch.arange(32, dtype=torch.float32) + step
+            rows = [("video.weight", SimpleNamespace(grad=source[:8]))]
+            if step > 1 and step != 4:
+                rows.append(("action.weight", SimpleNamespace(grad=source[16:24])))
+            accumulate_cpu_gradients(rows, original)
+            accumulate_cpu_gradients(rows, reusable, staging=staging)
+            if "buffer" in staging:
+                staging["buffer"].fill_(float("nan"))
+            for name in original:
+                self.assertTrue(torch.equal(original[name], reusable[name]))
+
     def test_optional_timing_is_additive_and_preserves_exact_values(self):
         observed, unobserved = {}, {}
         timing = {"unrelated_phase": 9.0}

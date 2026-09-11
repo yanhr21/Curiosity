@@ -240,12 +240,10 @@ def decay_parameter_groups(
 ) -> list[dict[str, Any]]:
     """Split AdamW groups so decay never touches norms, biases or modulation.
 
-    The original code passed ``model.parameters()`` directly, so weight decay
-    also pulled every LayerNorm/RMSNorm weight, every bias, and -- most
-    damaging -- Wan's pretrained ``modulation`` tables toward zero.  Those
-    tables produce every AdaLN shift/scale/gate, so decaying them attacks the
-    conditioning path of the pretrained backbone itself.  Standard practice is
-    to decay only parameters with ndim >= 2.
+    This is an explicit optimization choice. The historical all-parameter
+    group also decayed conditioning parameters, but direct decay over its
+    32-update budget was small; it has not been established as the cause of
+    video failure. Preserve this distinction from a verified code defect.
     """
 
     pairs = [(name, p) for name, p in named_parameters if p.requires_grad]
@@ -326,11 +324,9 @@ def learning_rate(
     step: int, total_steps: int, config: PaperZeroWAMConfig, mode: str
 ) -> float:
     if mode == "overfit":
-        # Repaired: the original returned peak_learning_rate (1e-4) flat from
-        # step 0.  On a pretrained Wan trunk with beta2=0.95 that applies a
-        # full-magnitude AdamW step while the second-moment estimate is still
-        # meaningless, and a clip norm of 2.0 over 10.7B parameters never
-        # binds.  Use a finetuning-scale LR with a short linear warmup.
+        # Explicit lower-LR/warmup variant. AdamW uses bias-corrected moments,
+        # and the old run did trigger clipping (24/32 updates). Its failure
+        # cannot be attributed to absent clipping or warmup from code alone.
         peak = config.overfit_learning_rate
         warmup = config.overfit_warmup_steps
         if warmup > 0 and step < warmup:
@@ -984,11 +980,14 @@ def overfit_execution_decision(
     expected_steps: int,
     config: PaperZeroWAMConfig,
     *, execution_world_size: int = 8, accumulation_steps: int = 1,
+    start_step: int = 0,
 ) -> dict[str, Any]:
     """Prove that the sole full-width overfit applied every declared update."""
 
     if (execution_world_size, accumulation_steps) not in ((8, 1), (1, 8)):
         raise ValueError("execution must preserve eight samples per optimizer update")
+    if type(start_step) is not int or start_step < 0 or start_step % 32:
+        raise ValueError("overfit segments must begin at a completed 32-update boundary")
     with log_path.open("r", encoding="utf-8") as stream:
         records = [json.loads(line) for line in stream if line.strip()]
     expected_samples = expected_overfit_trace_samples(schedule_path, config)
@@ -1006,7 +1005,7 @@ def overfit_execution_decision(
             expected_steps == 32
             and len(records) == expected_steps
             and [int(record["optimizer_step"]) for record in records]
-            == list(range(expected_steps))
+            == list(range(start_step, start_step + expected_steps))
         ),
         "full_width_batch_eight_every_update": all(
             record.get("mode") == "overfit"

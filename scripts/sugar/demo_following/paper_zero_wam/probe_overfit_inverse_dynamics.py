@@ -198,7 +198,7 @@ def main():
         render_frozen_controls(root, args.output, config, device, renders)
         return
     model = PaperZeroWAM.from_wan_pretrained(config, dtype=torch.float32)
-    payload = torch.load(root / "diagnostic_model_step32.pt", map_location="cpu",
+    payload = torch.load(root / f"diagnostic_model_step{result['optimizer_steps']}.pt", map_location="cpu",
                          weights_only=False)
     if payload["step"] != result["optimizer_steps"]:
         raise RuntimeError("checkpoint and endpoint step differ")

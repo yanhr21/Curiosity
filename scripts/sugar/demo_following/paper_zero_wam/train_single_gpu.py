@@ -203,7 +203,7 @@ def matching_cpu_accumulator(entries, host, gradients, storage_members):
         return None
     storage = previous.untyped_storage()
     identity = (previous.dtype, storage.data_ptr())
-    if (storage.nbytes() != host.untyped_storage().nbytes()
+    if (storage.nbytes() != host.numel() * host.element_size()
             or storage_members.get(identity) != {name for name, _ in entries}):
         return None
     intervals = []
@@ -223,7 +223,7 @@ def matching_cpu_accumulator(entries, host, gradients, storage_members):
         storage, 0, host.shape, (1,))
 
 
-def accumulate_cpu_gradients(named_parameters, gradients, timing=None):
+def accumulate_cpu_gradients(named_parameters, gradients, timing=None, staging=None):
     """Copy each shared FSDP gradient storage once, retaining exact tensor views.
 
     This avoids a synchronized device-to-host transfer for every original
@@ -234,6 +234,9 @@ def accumulate_cpu_gradients(named_parameters, gradients, timing=None):
     views retain the original per-parameter addition path.
     Optional wall-clock counters observe the existing synchronous transfer and
     host addition separately; they introduce no tensor operation or CUDA fence.
+    An optional caller-owned staging dictionary reuses one bounded CPU copy
+    destination only after all group members already own independent buffers.
+    First-seen gradients never retain views into this reusable temporary.
     """
     transfer_seconds = 0.0
     addition_seconds = 0.0
@@ -258,7 +261,15 @@ def accumulate_cpu_gradients(named_parameters, gradients, timing=None):
         # Accumulate in FP32 on the host even when the resident gradient is
         # BF16: summing eight microbatches in 8-bit mantissa would lose real
         # signal, and the AdamW master weights are FP32 anyway.
-        host = flat.to(device="cpu", dtype=torch.float32, copy=True)
+        if staging is not None and all(name in gradients for name, _ in entries):
+            buffer = staging.get("buffer")
+            if buffer is None or buffer.numel() < count:
+                buffer = torch.empty(count, dtype=torch.float32, device="cpu")
+                staging["buffer"] = buffer
+            host = buffer[:count]
+            host.copy_(flat)
+        else:
+            host = flat.to(device="cpu", dtype=torch.float32, copy=True)
         if timing is not None:
             transfer_seconds += time.perf_counter() - phase_started
             phase_started = time.perf_counter()
@@ -494,6 +505,142 @@ def load_checkpoint(model, optimizer, root, config, master_pairs):
     return step
 
 
+def admit_overfit_continuation(root, output, config):
+    """Read-only admission after a complete evaluated/rendered overfit endpoint."""
+    from .overfit_diagnostic import RESAMPLED_DIRECTORY
+    root, output = root.resolve(), output.resolve()
+    result = json.loads((root / "OVERFIT_RESULT.json").read_text())
+    step = result.get("optimizer_steps")
+    if type(step) is not int or step <= 0 or step % 32:
+        raise ValueError("overfit continuation requires a complete 32-update boundary")
+    base = config.resolved(config.output_root)
+    expected_parent = base / (RESAMPLED_DIRECTORY if step == 32 else f"{RESAMPLED_DIRECTORY}_step{step}")
+    if root != expected_parent.resolve() or output != (base / f"{RESAMPLED_DIRECTORY}_step{step + 32}").resolve():
+        raise ValueError("overfit continuation must preserve isolated parent and next-segment paths")
+    previous = json.loads((root / "CONFIG.json").read_text())
+    workflow = json.loads((root / "DIAGNOSTIC_RESULT.json").read_text())
+    renders = json.loads((root / "training_videos/RENDER_RESULT.json").read_text())
+    if (result.get("execution_completed") is not True
+            or result.get("architecture_parameter_count") != config.expected_parameter_count
+            or result.get("resumed_from_step", 0) != step - 32
+            or previous.get("model_and_schedule_config") != json.loads(json.dumps(config.as_dict()))
+            or workflow.get("requested_workflow_completed") is not True
+            or workflow["contract"].get("noise_and_flow_time_resampled_every_step_and_slot") is not True
+            or renders.get("execution_completed") is not True
+            or sorted(c["slot"] for c in renders["cases"]) != list(range(8))
+            or any(c["target_split"] != "train" or c["render_frame_count"] != 8 for c in renders["cases"])):
+        raise ValueError("overfit parent is not the complete unchanged eight-case endpoint")
+    decision = overfit_execution_decision(root / "TRAIN_TRACE.jsonl",
+        config.resolved(config.output_root) / "schedule/TRAIN_SCHEDULE.jsonl", 32, config,
+        execution_world_size=1, accumulation_steps=8, start_step=step - 32)
+    if decision != result["execution_decision"] or not decision["passed"]:
+        raise ValueError("parent endpoint differs from its actual optimizer trace")
+    actions = json.loads((root / "ACTION_RECONSTRUCTION.json").read_text())
+    controls = json.loads((root / "FROZEN_VAE_ALL_FRAMES.json").read_text())
+    if (actions.get("execution_completed") is not True or len(actions["cases"]) != 8
+            or controls.get("execution_completed") is not True or controls.get("control_frames") != 64):
+        raise ValueError("complete endpoint action readback and frozen controls are required")
+    if actions["inverse_dynamics_probe_needed"]:
+        probe = json.loads((root / "INVERSE_DYNAMICS_PROBE.json").read_text())
+        if (probe.get("execution_completed") is not True or probe.get("checkpoint_step") != step
+                or len(probe["cases"]) != 8 or not all(c["saved_action_replay_exact"] for c in probe["cases"])):
+            raise ValueError("required inverse-dynamics diagnosis is incomplete")
+    for name in (f"diagnostic_model_step{step}.pt", f"diagnostic_optimizer_step{step}.pt",
+                 "INITIAL_PROMPT_GATE.json", "UNSEEN_NOISE_INITIAL.json", "UNSEEN_NOISE_FINAL.json"):
+        if not (root / name).is_file():
+            raise ValueError(f"missing retained overfit artifact: {name}")
+    return step, result
+
+
+def load_overfit_checkpoint(model, optimizer, root, config, master_pairs, step):
+    """Exact FP32-weight and CPU-moment recovery; never use rounded BF16 masters."""
+    if any(p.dtype != torch.float32 or m.dtype != torch.float32 for _, p, m in master_pairs):
+        raise ValueError("this retained endpoint does not contain separate BF16-run FP32 masters")
+    payload = torch.load(root / f"diagnostic_model_step{step}.pt", map_location="cpu", weights_only=False)
+    if payload["step"] != step or any(v.is_floating_point() and v.dtype != torch.float32
+                                      for v in payload["model"].values()):
+        raise ValueError("retained model is not the exact FP32 endpoint")
+    with full_state_dict_context(model):
+        model.load_state_dict(payload["model"], strict=True)
+    del payload
+    with torch.no_grad():
+        for _, parameter, master in master_pairs:
+            master.copy_(parameter.detach().cpu())
+            if not torch.equal(parameter, master.to(device=parameter.device)):
+                raise RuntimeError("restored model/master readback differs")
+    payload = torch.load(root / f"diagnostic_optimizer_step{step}.pt", map_location="cpu", weights_only=False)
+    evidence = restore_overfit_adamw(optimizer, ((n, m) for n, _, m in master_pairs), payload, config, step)
+    return {**evidence, "gpu_parameter_master_readback_exact": True, "parent_endpoint": str(root)}
+
+
+def restore_overfit_adamw(optimizer, named_masters, payload, config, expected_step):
+    """Restore retained CPU AdamW without resetting moments or parameter clocks.
+
+    This is state-restoration glue, not a training entrypoint. The caller must
+    separately admit a completed endpoint and restore its exact FP32 weights.
+    No optimizer update, model construction, or GPU operation occurs here.
+    """
+    pairs = list(named_masters)
+    if (type(expected_step) is not int or expected_step <= 0
+            or type(payload.get("step")) is not int or payload["step"] != expected_step
+            or payload.get("parameter_names") != [name for name, _ in pairs]
+            or payload.get("execution") != EXECUTION
+            or json.loads(json.dumps(payload.get("model_and_schedule_config")))
+            != json.loads(json.dumps(config.as_dict()))):
+        raise ValueError("retained overfit optimizer step/order/configuration mismatch")
+    if any(parameter.device.type != "cpu" or parameter.dtype != torch.float32
+           for _, parameter in pairs):
+        raise ValueError("exact overfit recovery requires FP32 CPU master parameters")
+    saved = payload["optimizer"]
+    current = optimizer.state_dict()
+    groups = optimizer.param_groups
+    if len(saved["param_groups"]) != len(groups):
+        raise ValueError("retained overfit optimizer group count differs")
+    names_by_id = {id(parameter): name for name, parameter in pairs}
+    expected_groups = decay_parameter_groups(pairs, config)
+    if [[names_by_id[id(p)] for p in g["params"]] for g in groups] != [
+            [names_by_id[id(p)] for p in g["params"]] for g in expected_groups]:
+        raise ValueError("current optimizer does not preserve the declared parameter groups")
+    parameter_by_index = {}
+    for before, after, live in zip(saved["param_groups"], current["param_groups"], groups):
+        # The saved LR is the last applied LR, not necessarily the next one.
+        if ({k: v for k, v in before.items() if k != "lr"}
+                != {k: v for k, v in after.items() if k != "lr"}
+                or not math.isfinite(float(before["lr"])) or before["lr"] <= 0):
+            raise ValueError("retained overfit optimizer groups/hyperparameters differ")
+        parameter_by_index.update(zip(before["params"], live["params"]))
+    if set(saved["state"]) != set(parameter_by_index):
+        raise ValueError("retained optimizer is missing parameter moments; cold restart forbidden")
+    for index, state in saved["state"].items():
+        if index not in parameter_by_index or set(state) != {"step", "exp_avg", "exp_avg_sq"}:
+            raise ValueError("retained optimizer contains an unexpected state entry")
+        parameter = parameter_by_index[index]
+        clock = state["step"]
+        if (not torch.is_tensor(clock) or clock.numel() != 1
+                or not math.isfinite(float(clock))
+                or not 0 < float(clock) <= expected_step
+                or float(clock) != int(float(clock))):
+            raise ValueError("retained optimizer parameter clock is invalid")
+        for key in ("exp_avg", "exp_avg_sq"):
+            value = state[key]
+            if (value.device.type != "cpu" or value.dtype != torch.float32
+                    or value.shape != parameter.shape or not bool(torch.isfinite(value).all())):
+                raise ValueError("retained optimizer moment shape/dtype/value is invalid")
+        if bool((state["exp_avg_sq"] < 0).any()):
+            raise ValueError("retained optimizer second moment is negative")
+    if not saved["state"]:
+        raise ValueError("retained overfit optimizer has no moments; cold restart forbidden")
+    optimizer.load_state_dict(saved)
+    for index, state in saved["state"].items():
+        restored = optimizer.state[parameter_by_index[index]]
+        if not all(torch.equal(restored[key], value) for key, value in state.items()):
+            raise RuntimeError("retained AdamW state did not restore exactly")
+    return {"completed_optimizer_steps": expected_step,
+            "optimizer_state_entries": len(saved["state"]),
+            "parameter_order_exact": True, "optimizer_moments_and_clocks_exact": True,
+            "optimizer_updates_added": 0}
+
+
 def prepare_training_trace(log, completed_steps):
     """Retain committed updates, archiving any infrastructure-interrupted tail."""
     retained = retained_trace_prefix(log, completed_steps) if completed_steps else []
@@ -525,6 +672,8 @@ def main():
     parser.add_argument("--resume-repaired-preupdate", action="store_true")
     parser.add_argument("--save-overfit-optimizer", action="store_true",
                         help="retain endpoint AdamW state for the continuing overfit investigation")
+    parser.add_argument("--resume-overfit-endpoint", type=Path,
+                        help="after endpoint diagnosis, restore its exact state for one further 32-update segment")
     args = parser.parse_args()
     if args.save_overfit_optimizer and (args.mode != "overfit" or not args.fixed_noise_overfit_diagnostic):
         raise ValueError("optimizer retention is only supported for an isolated overfit diagnostic")
@@ -537,15 +686,28 @@ def main():
         verify_first_forward,
         restored_conditioning_gradient_decision, validate_preupdate_recovery,
     )
-    validate_diagnostic_request(args.fixed_noise_overfit_diagnostic, args.mode,
-                                args.output_dir, config, args.resampled_noise_overfit)
+    resume_step, resume_result = 0, None
+    if args.resume_overfit_endpoint is not None:
+        if (args.mode != "overfit" or not args.fixed_noise_overfit_diagnostic
+                or not args.repaired_overfit or not args.resampled_noise_overfit
+                or not args.save_overfit_optimizer or args.resume_repaired_preupdate):
+            raise ValueError("continuation requires unchanged repaired resampled overfit with retained optimizer")
+        args.resume_overfit_endpoint = args.resume_overfit_endpoint.resolve()
+        resume_step, resume_result = admit_overfit_continuation(
+            args.resume_overfit_endpoint, args.output_dir, config)
+    else:
+        validate_diagnostic_request(args.fixed_noise_overfit_diagnostic, args.mode,
+                                    args.output_dir, config, args.resampled_noise_overfit)
     if args.resume_repaired_preupdate:
         if not args.repaired_overfit:
             raise ValueError("pre-update recovery requires the isolated repaired diagnostic")
         validate_preupdate_recovery(args.output_dir, config)
-    if args.fixed_noise_overfit_diagnostic and args.output_dir.exists() and not args.resume_repaired_preupdate:
+    if (args.fixed_noise_overfit_diagnostic and args.output_dir.exists()
+            and not args.resume_repaired_preupdate and not args.verify_terminal):
         raise RuntimeError("isolated diagnostic output already exists; refusing overwrite/replay")
     execution_end = requested_training_end(args.mode, args.stop_after_step)
+    if resume_step:
+        execution_end = resume_step + 32
     if args.stop_after_step is not None:
         existing_state = args.output_dir / "latest_checkpoint" / "STATE.json"
         if existing_state.exists():
@@ -565,8 +727,9 @@ def main():
         log = root / "TRAIN_TRACE.jsonl"
         if args.mode == "overfit":
             decision = overfit_execution_decision(log, schedule, 32, config,
-                                                 execution_world_size=1, accumulation_steps=8)
-            steps = 32
+                                                 execution_world_size=1, accumulation_steps=8,
+                                                 start_step=resume_step)
+            steps = resume_step + 32
         else:
             formal = formal_training_decision(log, schedule, config,
                                              execution_world_size=1, accumulation_steps=8)
@@ -633,6 +796,11 @@ def main():
     })
     diagnostic = (diagnostic_contract(config, args.resampled_noise_overfit)
                   if args.fixed_noise_overfit_diagnostic else None)
+    if diagnostic and resume_step:
+        diagnostic.update(optimizer_steps=resume_step + 32, optimizer_updates_added=32,
+                          resumed_from_step=resume_step,
+                          initialization="retained_full_FP32_overfit_model_and_CPU_AdamW",
+                          parent_endpoint=str(args.resume_overfit_endpoint))
     if diagnostic:
         write_json_atomic(root / "DIAGNOSTIC_CONTRACT.json", diagnostic)
     started = time.perf_counter()
@@ -679,7 +847,7 @@ def main():
     milestone("gpu_resident_model_and_cpu_adamw_constructed")
     schedule = config.resolved(config.output_root) / "schedule/TRAIN_SCHEDULE.jsonl"
     datasets = [ScheduledSamples(schedule, config.resolved(config.latent_cache), slot, config,
-                                 args.mode, 32) for slot in range(8)]
+                                 args.mode, resume_step + 32) for slot in range(8)]
     # Eight logical slots share immutable CPU data; they are not eight workers.
     for dataset in datasets[1:]:
         dataset._latent_cpu_cache = datasets[0]._latent_cpu_cache
@@ -687,18 +855,26 @@ def main():
         dataset._action_shard_cpu_cache = datasets[0]._action_shard_cpu_cache
     for dataset in datasets:
         dataset._scheduled_action_selector_count = 160 if args.mode == "formal" else 8
-    total = 32 if args.mode == "overfit" else 4200
+    total = resume_step + 32 if args.mode == "overfit" else 4200
     deadline = allocation_deadline() if args.mode == "formal" else None
     start = load_checkpoint(model, optimizer, root, config, master_pairs) if args.mode == "formal" else 0
+    if resume_step:
+        recovery = load_overfit_checkpoint(model, optimizer, args.resume_overfit_endpoint,
+                                           config, master_pairs, resume_step)
+        write_json_atomic(root / "OVERFIT_RESUME.json", recovery)
+        start = resume_step
     log = root / "TRAIN_TRACE.jsonl"
-    prepare_training_trace(log, start)
+    # A continuation owns only its new 32 rows. Parent traces remain untouched
+    # and are linked explicitly, never copied as though they were rerun here.
+    prepare_training_trace(log, 0 if resume_step else start)
     milestone("schedule_and_data_admitted", scheduled_optimizer_steps=total)
     # A fixed-noise diagnostic is *defined* by its single (noise, t), so its
     # gate stays single-draw and keeps the step-0 equivalence check.  Any run
     # that resamples during training needs an averaged gate to get a ratio that
     # reflects the model instead of one sampled flow time.
     gate_draws = 8 if args.resampled_noise_overfit else 1
-    initial = (json.loads(initial_path.read_text()) if reuse_initial else
+    initial = (json.loads((args.resume_overfit_endpoint / "INITIAL_PROMPT_GATE.json").read_text())
+               if resume_step else json.loads(initial_path.read_text()) if reuse_initial else
                prompt_gate(model, datasets, device, config.noise_seed + 9_999_991,
                            gate_draws)
                if args.mode == "overfit" else None)
@@ -708,7 +884,12 @@ def main():
         milestone("identical_initial_gate_reused_after_infrastructure_failure")
     unseen_initial = None
     if diagnostic:
-        if args.resume_repaired_preupdate:
+        if resume_step:
+            unseen_initial = json.loads((args.resume_overfit_endpoint / "UNSEEN_NOISE_INITIAL.json").read_text())
+            write_json_atomic(root / "UNSEEN_NOISE_INITIAL.json", unseen_initial)
+            milestone("retained_endpoint_and_original_probe_baselines_restored",
+                      resumed_from_step=resume_step)
+        elif args.resume_repaired_preupdate:
             unseen_initial = json.loads((root / "UNSEEN_NOISE_INITIAL.json").read_text())
             milestone("identical_preupdate_probes_reused_zero_optimizer_updates")
         else:
@@ -893,7 +1074,7 @@ def main():
     formal = None
     if args.mode == "overfit":
         decision = overfit_execution_decision(log, schedule, 32, config,
-            execution_world_size=1, accumulation_steps=8)
+            execution_world_size=1, accumulation_steps=8, start_step=start)
         ratios = {key: prompt["losses"]["matched"][key] / initial["losses"]["matched"][key]
                   for key in ("video_loss", "action_loss", "ifp_loss")}
         passed = prompt["passed"] and all(math.isfinite(v) and v <= 0.5 for v in ratios.values())
@@ -913,6 +1094,10 @@ def main():
         "first_losses": records[0]["losses"], "last_losses": records[-1]["losses"],
         "last_to_first_loss_ratios": ratios, "initial_prompt_gate": initial, "prompt_gate": prompt,
         "batch": EXECUTION, "hash_checks": False, "elapsed_seconds": time.perf_counter() - started}
+    if resume_step:
+        result.update(resumed_from_step=resume_step, optimizer_updates_added=32,
+                      parent_endpoint=str(args.resume_overfit_endpoint),
+                      segment_initial_prompt_gate=resume_result["prompt_gate"])
     if diagnostic:
         unseen_final = matched_loss_probe(model, datasets, device, diagnostic["unseen_noise_seed"], gate_draws)
         write_json_atomic(root / "UNSEEN_NOISE_FINAL.json", unseen_final)
@@ -925,18 +1110,22 @@ def main():
             "original_combined_overfit_criterion_passed": passed,
             "automatic_formal_training": False, "hash_checks": False,
         }
+        if resume_step:
+            parent_unseen = json.loads((args.resume_overfit_endpoint / "UNSEEN_NOISE_FINAL.json").read_text())
+            diagnostic_result.update(
+                segment_matched_noise_fitting=reduction_result(resume_result["prompt_gate"], prompt),
+                segment_unseen_noise_fitting=reduction_result(parent_unseen, unseen_final))
         write_json_atomic(root / "FITTING_RESULT.json", diagnostic_result)
-        # Preserve the endpoint model for inspection; no optimizer/continuation
-        # checkpoint and no mutation of the original overfit or formal artifacts.
+        # Preserve this endpoint without mutating any parent or formal artifact.
         with full_state_dict_context(model, offload_to_cpu=True, rank0_only=True):
-            torch.save({"model": model.state_dict(), "step": 32,
-                        "diagnostic_contract": diagnostic}, root / "diagnostic_model_step32.pt")
+            torch.save({"model": model.state_dict(), "step": total,
+                        "diagnostic_contract": diagnostic}, root / f"diagnostic_model_step{total}.pt")
         if args.save_overfit_optimizer:
             torch.save({"step": total, "optimizer": optimizer.state_dict(),
                         "parameter_names": [name for name, _, _ in master_pairs],
                         "model_and_schedule_config": config.as_dict(),
                         "execution": EXECUTION, "diagnostic_contract": diagnostic},
-                       root / "diagnostic_optimizer_step32.pt")
+                       root / f"diagnostic_optimizer_step{total}.pt")
         # Publish training evidence before rendering so a renderer failure cannot
         # be misreported as a missing/failed optimizer result or retrigger training.
         write_json_atomic(terminal, result)

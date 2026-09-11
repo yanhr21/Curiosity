@@ -117,17 +117,11 @@ def validate_diagnostic_request(enabled, mode, root, config, resampled=False):
 def training_noise_seed(config, step, slot, fixed_noise):
     """Per-(step, slot) noise seed, or one frozen seed for the fixed-noise mode.
 
-    IMPORTANT SCOPE NOTE.  ``fixed_noise=True`` returns a constant, so every
-    optimizer step and every slot reuses the *same* Gaussian noise AND the same
-    flow time.  That is deliberate -- it isolates optimizer behaviour from
-    sampling variance -- but it means the model is only ever supervised at a
-    single point on the flow trajectory.
-
-    Consequently the fixed-noise run's unseen-noise probe and its 25/50-step
-    renders cannot succeed even in principle: inference has to integrate the
-    whole t: 1 -> 0 path that training never visited.  Treat fixed-noise ratios
-    as an optimizer health check only.  Use ``--resampled-noise-overfit`` for
-    the question "can the model actually fit these eight trajectories".
+    ``fixed_noise=True`` repeats each slot's noise/time draws every update.
+    This isolates optimizer behavior from resampling but does not test fitting
+    across the flow trajectory used by generation. It does not mathematically
+    rule out improvement on other draws either. Use resampled training plus
+    independent probes and actual sampling to test generative overfit.
     """
 
     return config.noise_seed + 9_999_991 if fixed_noise else config.noise_seed + step * 8 + slot
@@ -140,8 +134,11 @@ def diagnostic_contract(config, resampled=False):
         "optimizer_steps": 32, "fixed_training_cases": 8,
         "initialization": "original_Wan_video_and_copied_video_action_blocks_not_step700",
         "architecture_parameter_count": config.expected_parameter_count,
-        "model_or_objective_changes": config.repaired_conditioning,
-        "objective_changes": False,
+        "model_or_objective_changes": config.repaired_conditioning or not config.ifp_trunk_gradient,
+        "objective_changes": not config.ifp_trunk_gradient,
+        "ifp_trunk_gradient": config.ifp_trunk_gradient,
+        "objective_variant": ("paper_IFP_representation_gradient" if config.ifp_trunk_gradient
+                              else "local_IFP_feature_and_history_detach"),
         "restored_official_text_conditioning": config.repaired_conditioning,
         "repaired_prompt_coverage": config.repaired_conditioning,
         "training_noise_seed": training_noise_seed(config, 0, 0, True),
@@ -150,8 +147,8 @@ def diagnostic_contract(config, resampled=False):
         "noise_and_flow_time_resampled_every_step_and_slot": resampled,
         "scope": ("generative overfit: can the model fit these eight trajectories "
                   "across the whole flow trajectory" if resampled else
-                  "optimizer health only: one frozen (noise, t); its unseen-noise "
-                  "probe and renders cannot succeed by construction"),
+                  "optimizer diagnostic at frozen noise/time; this alone "
+                  "does not establish fitting across the generative flow trajectory"),
         "endpoint_ratio_limit": 0.5,
         "per_task_reduction_required": True,
         "prompt_dependence_is_separate_from_fitting": True,
