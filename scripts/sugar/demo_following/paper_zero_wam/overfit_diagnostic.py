@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import math
 import json
+import os
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -19,24 +21,65 @@ from .data import read_jsonl
 
 DIAGNOSTIC_DIRECTORY = "overfit_debug_fixed_noise_20260909"
 REPAIRED_DIRECTORY = "overfit_repaired_fixed_noise_20260910"
+RESAMPLED_DIRECTORY = "overfit_resampled_noise_20260910"
 LOSS_NAMES = ("video_loss", "action_loss", "ifp_loss")
 
 
-def restored_conditioning_gradient_decision(cross_sums, text_sum, step):
-    """Account for the existing exact-zero action output head at update zero."""
+def resolve_ffmpeg() -> Path:
+    """Locate ffmpeg without pinning one absolute site-packages path.
+
+    The original literal pointed into a specific conda env that does not exist
+    on every machine, so rendering failed after training had already finished.
+    """
+
+    override = os.environ.get("PZW_FFMPEG")
+    if override:
+        return Path(override)
+    try:
+        import imageio_ffmpeg
+
+        return Path(imageio_ffmpeg.get_ffmpeg_exe())
+    except Exception:
+        pass
+    found = shutil.which("ffmpeg")
+    if found:
+        return Path(found)
+    raise RuntimeError(
+        "no ffmpeg available; pip install imageio-ffmpeg or set PZW_FFMPEG"
+    )
+
+
+def restored_conditioning_gradient_decision(cross_sums, text_sum, step,
+                                            zero_init_action_head=True):
+    """Require every restored cross-attention module to carry real gradient.
+
+    With a zero-initialized action output projection, the final action block
+    provably receives exactly zero gradient at update zero (its output is
+    multiplied by a zero weight), so that one module is whitelisted at step 0.
+
+    Once the head is scaled-init that whitelist is wrong in both directions:
+    the module now *does* get gradient, and demanding it be exactly zero makes
+    a healthy run fail.  The substantive property -- all 64 modules active, and
+    the inherited text projection receiving gradient -- is unchanged.
+    """
+
     final_action = {name for name in cross_sums
                     if ".mot_layers.29." in f".{name}." and name.endswith(".action_block")}
-    allowed_zero = final_action if step == 0 else set()
+    allowed_zero = final_action if (step == 0 and zero_init_action_head) else set()
     expected_names = len(cross_sums) == 64 and len(final_action) == 1
     finite = all(math.isfinite(value) and value >= 0 for value in cross_sums.values())
     active = all(value > 0 for name, value in cross_sums.items() if name not in allowed_zero)
     expected_zero = all(cross_sums[name] == 0 for name in allowed_zero)
     passed = expected_names and finite and active and expected_zero and math.isfinite(text_sum) and text_sum > 0
     return {"passed": passed, "optimizer_updates_already_applied": step,
+            "zero_init_action_head": zero_init_action_head,
             "cross_attention_module_squared_norms": dict(cross_sums),
             "text_embedding_gradient_squared_norm": text_sum,
             "expected_zero_modules": sorted(allowed_zero),
-            "reason": "initial zero action-output projection blocks the final action block; require all 64 active after its first update",
+            "reason": ("zero action-output projection blocks the final action block at "
+                       "update zero; require all 64 active thereafter"
+                       if zero_init_action_head else
+                       "scaled-init action head: require all 64 modules active at every step"),
             "hash_checks": False}
 
 
@@ -59,22 +102,41 @@ def validate_preupdate_recovery(root, config):
             raise ValueError("run reached or passed the first optimizer boundary; cold restart forbidden")
 
 
-def validate_diagnostic_request(enabled, mode, root, config):
+def validate_diagnostic_request(enabled, mode, root, config, resampled=False):
     if not enabled:
         return
-    directory = REPAIRED_DIRECTORY if config.repaired_conditioning else DIAGNOSTIC_DIRECTORY
+    if resampled:
+        directory = RESAMPLED_DIRECTORY
+    else:
+        directory = REPAIRED_DIRECTORY if config.repaired_conditioning else DIAGNOSTIC_DIRECTORY
     expected = config.resolved(config.output_root) / directory
     if mode != "overfit" or root.resolve() != expected.resolve():
-        raise ValueError("fixed-noise diagnostic requires its isolated overfit directory")
+        raise ValueError("overfit diagnostic requires its isolated output directory")
 
 
 def training_noise_seed(config, step, slot, fixed_noise):
+    """Per-(step, slot) noise seed, or one frozen seed for the fixed-noise mode.
+
+    IMPORTANT SCOPE NOTE.  ``fixed_noise=True`` returns a constant, so every
+    optimizer step and every slot reuses the *same* Gaussian noise AND the same
+    flow time.  That is deliberate -- it isolates optimizer behaviour from
+    sampling variance -- but it means the model is only ever supervised at a
+    single point on the flow trajectory.
+
+    Consequently the fixed-noise run's unseen-noise probe and its 25/50-step
+    renders cannot succeed even in principle: inference has to integrate the
+    whole t: 1 -> 0 path that training never visited.  Treat fixed-noise ratios
+    as an optimizer health check only.  Use ``--resampled-noise-overfit`` for
+    the question "can the model actually fit these eight trajectories".
+    """
+
     return config.noise_seed + 9_999_991 if fixed_noise else config.noise_seed + step * 8 + slot
 
 
-def diagnostic_contract(config):
+def diagnostic_contract(config, resampled=False):
     return {
-        "protocol": "paper_zero_wam_user_fixed_noise_overfit_v1",
+        "protocol": ("paper_zero_wam_resampled_noise_overfit_v1" if resampled
+                     else "paper_zero_wam_user_fixed_noise_overfit_v1"),
         "optimizer_steps": 32, "fixed_training_cases": 8,
         "initialization": "original_Wan_video_and_copied_video_action_blocks_not_step700",
         "architecture_parameter_count": config.expected_parameter_count,
@@ -84,7 +146,12 @@ def diagnostic_contract(config):
         "repaired_prompt_coverage": config.repaired_conditioning,
         "training_noise_seed": training_noise_seed(config, 0, 0, True),
         "unseen_noise_seed": config.noise_seed + 10_000_007,
-        "fixed_noise_and_flow_time_every_update": True,
+        "fixed_noise_and_flow_time_every_update": not resampled,
+        "noise_and_flow_time_resampled_every_step_and_slot": resampled,
+        "scope": ("generative overfit: can the model fit these eight trajectories "
+                  "across the whole flow trajectory" if resampled else
+                  "optimizer health only: one frozen (noise, t); its unseen-noise "
+                  "probe and renders cannot succeed by construction"),
         "endpoint_ratio_limit": 0.5,
         "per_task_reduction_required": True,
         "prompt_dependence_is_separate_from_fitting": True,
@@ -101,23 +168,47 @@ def diagnostic_contract(config):
 
 
 @torch.no_grad()
-def matched_loss_probe(model, datasets, device, seed):
+def matched_loss_probe(model, datasets, device, seed, repeats=8):
+    """Average each case over ``repeats`` independent (noise, t) draws.
+
+    The original probe seeded once per call, so all eight cases shared a single
+    Gaussian sample AND a single flow time.  Under a resampled-noise run the
+    per-sample loss varies strongly with t, which made the resulting ratio a
+    high-variance point estimate: the same checkpoint scored video 1.2382 at
+    t=0.767 and 0.0487 at t=0.963 -- a 25x spread from sampling alone, with one
+    "FAIL" and one "PASS".
+
+    Averaging over a fixed, reproducible ladder of draws makes the ratio a
+    property of the model rather than of one lucky t.  The draw seeds are
+    derived from ``seed`` so the probe stays exactly reproducible.
+    """
+
     previous_training = model.training
     model.eval()
     cases = []
     try:
         for slot, dataset in enumerate(datasets):
             batch = dataset.conditioned_sample(0, device, "matched")
-            torch.manual_seed(seed)
-            torch.cuda.manual_seed_all(seed)
-            with torch.autocast("cuda", dtype=torch.bfloat16):
-                loss = model(batch)
+            totals = {key: 0.0 for key in LOSS_NAMES}
+            draws = []
+            for repeat in range(repeats):
+                draw_seed = seed + 1_000_003 * repeat
+                torch.manual_seed(draw_seed)
+                torch.cuda.manual_seed_all(draw_seed)
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    loss = model(batch)
+                row = {key: float(loss[key]) for key in LOSS_NAMES}
+                draws.append({"draw_seed": draw_seed, **row})
+                for key in LOSS_NAMES:
+                    totals[key] += row[key]
+                del loss
             cases.append({"slot": slot, "meta": batch["meta"],
-                          "losses": {key: float(loss[key]) for key in LOSS_NAMES}})
-            del loss, batch
+                          "losses": {key: totals[key] / repeats for key in LOSS_NAMES},
+                          "draws": draws})
+            del batch
     finally:
         model.train(previous_training)
-    return {"seed": seed, "cases": cases,
+    return {"seed": seed, "draws_per_case": repeats, "cases": cases,
             "losses": {key: sum(row["losses"][key] for row in cases) / len(cases)
                        for key in LOSS_NAMES},
             "task_losses": {task: {key: sum(row["losses"][key] for row in cases
@@ -144,12 +235,27 @@ def reduction_result(initial, final):
             "initial": first, "final": last, "limit": 0.5}
 
 
-def verify_first_forward(initial, aggregate):
+def verify_first_forward(initial, aggregate, draws_per_condition=1):
+    """Training and eval forwards must agree before the first update.
+
+    This only holds when the gate used exactly one noise draw and that draw
+    matches the fixed training noise.  Once the gate averages over several
+    (noise, t) draws -- which it must, to give a low-variance ratio -- the two
+    numbers are no longer comparable, so the equivalence is reported as
+    inapplicable rather than silently "passing" on a mismatched comparison.
+    """
+
+    if draws_per_condition != 1:
+        return {"passed": None, "applicable": False,
+                "reason": ("gate averages over %d (noise, t) draws while training "
+                           "step 0 uses one; the two forwards are not comparable"
+                           % draws_per_condition),
+                "gate_draws_per_condition": draws_per_condition}
     expected = initial["losses"]["matched"]
     errors = {key: abs(aggregate[key] - expected[key]) for key in LOSS_NAMES}
     if any(error > 1e-5 * max(1.0, abs(expected[key])) for key, error in errors.items()):
         raise RuntimeError(f"fixed-noise training/eval forward mismatch before update: {errors}")
-    return {"passed": True, "absolute_errors": errors,
+    return {"passed": True, "applicable": True, "absolute_errors": errors,
             "description": "same full-width weights/data/noise before first optimizer update"}
 
 
@@ -160,11 +266,11 @@ def render_training_cases(model, datasets, config, device, output_dir):
     from wan.modules.vae2_2 import Wan2_2_VAE
 
     output_dir.mkdir(parents=True, exist_ok=False)
-    ffmpeg = Path("/public/home/yanhongru/envs/sugar_py311_isaacsim510/lib/python3.11/"
-                  "site-packages/imageio_ffmpeg/binaries/ffmpeg-linux-x86_64-v7.0.2")
+    ffmpeg = resolve_ffmpeg()
     rows = {(row["task"], int(row["source_motion_id"])): row
             for row in read_jsonl(config.resolved(config.manifest)) if row["split"] == "train"}
-    vae = Wan2_2_VAE(vae_pth=str(config.resolved(config.wan_checkpoint) / "Wan2.2_VAE.pth"),
+    vae = Wan2_2_VAE(vae_pth=os.environ.get("PZW_VAE_PATH") or
+                    str(config.resolved(config.wan_checkpoint) / "Wan2.2_VAE.pth"),
                     dtype=torch.bfloat16, device=str(device))
     model.eval()
     cases = []
@@ -239,7 +345,19 @@ def render_training_cases(model, datasets, config, device, output_dir):
                     "predicted_video_latents": predicted_video.detach().cpu(),
                     "target_video_latents": target_video, "meta": meta},
                    output_dir / f"{name}_predictions.pt")
+        # A generated action is only meaningful if it beats the trivial
+        # predictors.  The original render reported normalized_action_mse with
+        # no reference, so an output that was WORSE than predicting all zeros
+        # still looked like a number.  Record both baselines.
+        zeros_mse = float(target_action.square().mean())
+        mean_mse = float((target_action - target_action.mean()).square().mean())
+        action_mse = float((predicted_action - target_action).square().mean())
         record = {"slot": slot, "meta": meta, "target_split": "train",
+                  "action_mse_all_zeros_baseline": zeros_mse,
+                  "action_mse_constant_mean_baseline": mean_mse,
+                  "action_beats_all_zeros_baseline": action_mse < zeros_mse,
+                  "predicted_action_std": float(predicted_action.std()),
+                  "target_action_std": float(target_action.std()),
                   "video": str(video), "render_frame_count": 8,
                   "render_frame_names": [f"{index:03d}.png" for index in range(8)],
                   "inference_seed": seed, "video_guidance_scale": 1.0,
@@ -256,7 +374,10 @@ def render_training_cases(model, datasets, config, device, output_dir):
         del prediction, predicted_video, predicted_action, decoded, decode_latents, deployed, batch
         del clean_decoded, clean_latents
     verify_decodable_render_cases(cases, ffmpeg)
+    beats = sum(1 for c in cases if c["action_beats_all_zeros_baseline"])
     result = {"execution_completed": True, "target_split": "train", "cases": cases,
+              "cases_where_action_beats_all_zeros": beats,
+              "all_cases_beat_all_zeros": beats == len(cases),
               "all_eight_exact_training_cases": True, "physical_rollout": False,
               "video_guidance_scale": 1.0, "hash_checks": False}
     write_json_atomic(output_dir / "RENDER_RESULT.json", result)

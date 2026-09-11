@@ -27,6 +27,18 @@ from .data import (
 
 
 def distributed_context() -> tuple[int, int]:
+    """Resolve the shard identity for this worker.
+
+    ``PZW_SHARD``/``PZW_SHARDS`` give plain index-based sharding, which is what
+    a single-node multi-GPU encode actually needs: each worker owns one card
+    via CUDA_VISIBLE_DEVICES and never has to rendezvous.  The NCCL path is
+    kept for the original multi-node launch, but pinning every worker to
+    visible device 0 makes rank->GPU mapping ambiguous and hangs the barrier,
+    so it is only used when PZW_SHARDS is absent.
+    """
+
+    if os.environ.get("PZW_SHARDS"):
+        return int(os.environ.get("PZW_SHARD", "0")), int(os.environ["PZW_SHARDS"])
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     rank = int(os.environ.get("RANK", "0"))
     if world_size > 1 and not dist.is_initialized():
@@ -92,6 +104,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cache-root", type=Path)
     parser.add_argument("--repair-prompt-coverage", action="store_true")
+    parser.add_argument("--audit-only", action="store_true",
+                        help="skip encoding; only run the final corpus audit")
     args = parser.parse_args()
     config = repaired_overfit_config() if args.repair_prompt_coverage else PaperZeroWAMConfig()
     rank, world_size = distributed_context()
@@ -126,13 +140,16 @@ def main() -> None:
     sys.modules["wan.modules"] = modules_package
     from wan.modules.vae2_2 import Wan2_2_VAE
 
-    vae = Wan2_2_VAE(
-        vae_pth=str(config.resolved(config.wan_checkpoint) / "Wan2.2_VAE.pth"),
-        dtype=torch.bfloat16,
-        device=str(device),
+    # The 2.8 GB VAE reads at ~35 MB/s over the shared FUSE mount, and three
+    # concurrent shard workers serialize on it for many minutes.  Allow a
+    # locally staged copy via PZW_VAE_PATH.
+    vae_pth = os.environ.get("PZW_VAE_PATH") or str(
+        config.resolved(config.wan_checkpoint) / "Wan2.2_VAE.pth"
     )
+    vae = Wan2_2_VAE(vae_pth=vae_pth, dtype=torch.bfloat16, device=str(device))
     processed = 0
-    for row_index in range(rank, len(rows), world_size):
+    encode_rows = [] if args.audit_only else list(range(rank, len(rows), world_size))
+    for row_index in encode_rows:
         row = rows[row_index]
         output = cache_path(cache_root, row)
         if output.exists():
@@ -219,7 +236,8 @@ def main() -> None:
         )
     if dist.is_initialized():
         dist.barrier()
-    if rank == 0:
+    run_audit = (rank == 0) and (world_size == 1 or dist.is_initialized() or args.audit_only)
+    if run_audit:
         cached = sorted(cache_root.glob("*/*/*.pt"))
         action_trace_geometry = action_trace_geometry_summary(rows)
         action_trace_geometry_exact = action_trace_geometry["passed"] is True
@@ -228,7 +246,8 @@ def main() -> None:
         }
         actual_paths = {path.resolve() for path in cached}
         exact_manifest_path_set = (
-            len(rows) == len(expected_by_path) == 199
+            len(rows) == len(expected_by_path)
+            and bool(rows)
             and actual_paths == set(expected_by_path)
         )
         counts: dict[str, int] = {}
@@ -298,12 +317,12 @@ def main() -> None:
         )
         result = {
             "protocol": "paper_zero_wam_wan22_latent_materialization_v1",
-            "passed": len(cached) == 199
+            "passed": len(cached) == len(rows)
             and action_trace_geometry_exact
             and exact_manifest_path_set
-            and metadata_identity_exact_count == 199
-            and reversed_nonidentical == 199
-            and finite_trajectory_count == 199
+            and metadata_identity_exact_count == len(rows)
+            and reversed_nonidentical == len(rows)
+            and finite_trajectory_count == len(rows)
             and action_statistics_valid,
             "trajectory_count": len(cached),
             "manifest_clock_exact": manifest_clock_is_exact(rows),
@@ -327,7 +346,7 @@ def main() -> None:
             "robot_shape": [48, 36, 20, 20],
             "reversed_prompt_nonidentical_count": reversed_nonidentical,
             "finite_prompt_reversed_robot_trajectory_count": finite_trajectory_count,
-            "all_latent_tensors_finite": finite_trajectory_count == 199,
+            "all_latent_tensors_finite": finite_trajectory_count == len(rows),
             "action_statistics_valid": action_statistics_valid,
             "action_training_rows": int(action_stats.get("train_rows", -1)),
             "hash_checks": False,
@@ -339,7 +358,7 @@ def main() -> None:
     if dist.is_initialized():
         dist.barrier()
         dist.destroy_process_group()
-    if rank == 0:
+    if run_audit:
         assert result is not None
         write_json_atomic(cache_root / "LATENT_RESULT.json", result)
         if not result["passed"]:

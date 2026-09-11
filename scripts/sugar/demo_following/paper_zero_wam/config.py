@@ -75,6 +75,35 @@ class PaperZeroWAMConfig:
     neutral_text_cache: str = ""
     hash_checks: bool = False
 
+    # --- Optimization repair (2026-09-10) -------------------------------
+    # The 32-step fixed-noise overfit ended with a video ratio of 1.666: the
+    # pretrained Wan trunk got worse, not better.  Four independent defects
+    # are corrected here.  All are optimization-side; the architecture,
+    # factorization, IFP geometry and losses are unchanged.
+    #
+    # 1. overfit ran at a constant peak LR with no warmup.  With beta2=0.95
+    #    the second-moment estimate is meaningless for the first ~20 steps,
+    #    so every tensor moved by ~lr per step.  Over 32 coherent steps that
+    #    is ~18% of the weight scale of a d=3072 Wan linear.
+    # 2. weight decay hit norms, biases and the pretrained AdaLN modulation
+    #    table, i.e. the conditioning path itself.
+    # 3. the four training-only IFP heads back-propagate into the trunk at
+    #    layers 7/14/21/29 with total weight 1.05 -- equal to the video term
+    #    -- through a randomly initialized fusion MLP.
+    # 4. the deployed video sampler was conditioned on all-zero action
+    #    tokens at t=1, a distribution training never produced.
+    overfit_learning_rate: float = 1.0e-5
+    overfit_warmup_steps: int = 8
+    decay_only_matrix_parameters: bool = True
+    ifp_trunk_gradient: bool = False
+    ifp_warmup_steps: int = 0
+    inactive_action_token_noise: bool = True
+    # A zero-initialized action output projection cannot reach the required
+    # output scale inside a 32-step diagnostic (short by ~169x at lr=1e-5),
+    # so the head returns ~zero velocity and the sampler returns its initial
+    # noise.  Scaled init lets the short run measure learning instead of growth.
+    zero_init_action_head: bool = False
+
     # Paper v2 reports the fixed ICL chunk size and CFG scales.  It does not
     # repeat the lower-level flow scheduler values; use the released
     # LingBot-VA causal-VA implementation that the paper explicitly follows.
@@ -111,6 +140,14 @@ class PaperZeroWAMConfig:
             raise ValueError("epoch/optimizer-step arithmetic is inconsistent")
         if not 0.0 < self.minimum_learning_rate < self.peak_learning_rate:
             raise ValueError("cosine floor must be positive and below the peak learning rate")
+        if self.warmup_steps <= 0 or self.warmup_steps >= self.optimizer_steps:
+            raise ValueError("formal warmup must be positive and shorter than the run")
+        if not 0.0 < self.overfit_learning_rate <= self.peak_learning_rate:
+            raise ValueError("overfit learning rate must be positive and not exceed the peak")
+        if not 0 <= self.overfit_warmup_steps < 32:
+            raise ValueError("overfit warmup must fit inside the 32-step budget")
+        if self.ifp_warmup_steps < 0:
+            raise ValueError("IFP warmup must be nonnegative")
         if not 0.0 < self.adam_beta1 < self.adam_beta2 < 1.0:
             raise ValueError("AdamW beta geometry is invalid")
         if self.adam_epsilon <= 0.0:

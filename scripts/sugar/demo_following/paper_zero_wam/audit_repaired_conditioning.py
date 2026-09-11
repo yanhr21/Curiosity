@@ -19,8 +19,12 @@ from .model import (PaperMoTLayer, PaperZeroWAM, IFPHead, import_wan_model, modu
 
 @torch.no_grad()
 def main():
-    if not os.environ.get("SLURM_STEP_ID") or not torch.cuda.is_available():
-        raise RuntimeError("official full-width numerical audit requires Slurm GPU")
+    if not torch.cuda.is_available():
+        raise RuntimeError("official full-width numerical audit requires a GPU")
+    if not os.environ.get("SLURM_STEP_ID") and not os.environ.get("PZW_ALLOW_NON_SLURM"):
+        raise RuntimeError(
+            "run inside a retained srun step, or set PZW_ALLOW_NON_SLURM=1"
+        )
     config = repaired_overfit_config()
     output = config.resolved(config.latent_cache) / "OFFICIAL_FORWARD_AUDIT.json"
     if output.exists():

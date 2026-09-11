@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import math
+import os
 import sys
 import types
 from dataclasses import dataclass
@@ -135,6 +136,7 @@ class TokenLayout:
     grid_width: int
     target_latent_frames: int
     official_attention_groups: Any = None
+    self_only_queries: Any = None
 
 
 _ATTENTION_GROUP_CACHE: dict[tuple, list] = {}
@@ -160,19 +162,61 @@ def official_mask_groups(mask: torch.Tensor, cache_key: tuple) -> list:
     return _ATTENTION_GROUP_CACHE[key]
 
 
+_SELF_ONLY_CACHE: dict[tuple, Any] = {}
+
+
+def self_only_query_index(mask: torch.Tensor, cache_key: tuple):
+    """Queries that attend to exactly themselves and nothing else.
+
+    With the prompt dropped, ``_layout`` sets the prompt block to an identity
+    mask, so each of the 1600 prompt tokens forms its own visibility group.
+    Routed through the grouped-varlen adapter that becomes ~1700 groups and
+    ~214 FlashAttention launches per layer, versus 14 when the prompt is on --
+    the dominant cost of a training step.
+
+    Attention over a single visible key is analytically the identity on the
+    value: softmax of one logit is exactly 1.0, so the output equals v[i].
+    Handling these queries directly is bit-exact, not an approximation, and it
+    changes no mask entry.
+    """
+
+    key = (str(mask.device), *cache_key)
+    if key not in _SELF_ONLY_CACHE:
+        counts = mask.sum(dim=1)
+        single = counts == 1
+        arange = torch.arange(mask.shape[0], device=mask.device)
+        diagonal = mask[arange, arange]
+        selected = single & diagonal
+        _SELF_ONLY_CACHE[key] = (
+            arange[selected] if bool(selected.any()) else None
+        )
+    return _SELF_ONLY_CACHE[key]
+
+
 def official_masked_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor,
-                              groups: list) -> torch.Tensor:
+                              groups: list, self_only=None) -> torch.Tensor:
     """Adapter from the exact MoT mask to the released Wan FlashAttention API.
 
     Up to eight visibility groups share one varlen call. Q padding is discarded;
     k_lens excludes every padded key. No learned replacement attention is added.
+    ``self_only`` carries the analytically-identity queries described above.
     """
     from wan.modules.attention import flash_attention
     if q.shape[0] != 1:
-        raise ValueError("single-H200 repaired attention requires microbatch one")
+        raise ValueError("repaired attention requires microbatch one")
     result = torch.zeros_like(q)
-    for start in range(0, len(groups), 8):
-        chunk = groups[start:start + 8]
+    skip = None
+    if self_only is not None and len(self_only):
+        # ``result`` follows q's dtype (FP32 after the official-precision RoPE)
+        # while v may still be BF16; cast so the identity copy is well-typed.
+        result[0, self_only] = v[0, self_only].to(result.dtype)
+        skip = set(self_only.tolist())
+    pending = [
+        (queries, keys) for queries, keys in groups
+        if skip is None or len(keys) != 1 or int(queries[0]) not in skip
+    ]
+    for start in range(0, len(pending), 8):
+        chunk = pending[start:start + 8]
         q_size = max(len(queries) for queries, _ in chunk)
         k_size = max(len(keys) for _, keys in chunk)
         queries_padded, keys_padded, values_padded = [], [], []
@@ -201,13 +245,33 @@ def ifp_head_execution_plan(
 
 
 class ActionFlowHead(nn.Module):
-    def __init__(self, hidden_dim: int, action_dim: int, eps: float = 1.0e-6):
+    def __init__(self, hidden_dim: int, action_dim: int, eps: float = 1.0e-6,
+                 zero_init: bool = True):
         super().__init__()
         self.norm = nn.LayerNorm(hidden_dim, eps=eps, elementwise_affine=False)
         self.projection = nn.Linear(hidden_dim, action_dim)
         self.modulation = nn.Parameter(torch.randn(1, 2, hidden_dim) / hidden_dim**0.5)
-        nn.init.zeros_(self.projection.weight)
-        nn.init.zeros_(self.projection.bias)
+        if zero_init:
+            # Wan's convention: a zero output projection makes the residual
+            # branch start as identity.  That is right for a long pretraining
+            # run, but it makes a 32-step diagnostic impossible to interpret.
+            #
+            # Measured: the flow target is (noise - clean) with var ~1.25, and
+            # predicting exactly zero velocity gives loss 1.25.  The observed
+            # action_loss went 1.2617 -> 1.1625, i.e. the head barely left
+            # zero.  To reach the required output std ~1.2 each weight needs
+            # magnitude ~0.0217, while AdamW at lr=1e-5 with clip ~0.4 moves
+            # ~1.3e-4 in 32 steps -- short by ~169x.  The head therefore
+            # *cannot* fit within the diagnostic budget, and its 50-step
+            # integration returns the untouched initial noise (predicted std
+            # 1.05 vs target 0.5), which is worse than predicting zeros.
+            nn.init.zeros_(self.projection.weight)
+            nn.init.zeros_(self.projection.bias)
+        else:
+            # Standard scaled init so the head starts at the target scale and
+            # the short-horizon diagnostic measures learning, not growth.
+            nn.init.normal_(self.projection.weight, std=hidden_dim**-0.5)
+            nn.init.zeros_(self.projection.bias)
 
     def forward(self, tokens: torch.Tensor, time_embedding: torch.Tensor) -> torch.Tensor:
         if time_embedding.dtype != torch.float32:
@@ -299,6 +363,7 @@ class PaperMoTLayer(nn.Module):
         freqs: torch.Tensor,
         text_context: torch.Tensor | None = None,
         attention_groups: Any = None,
+        self_only: Any = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         vq, vk, vv, vgates = self._attention_io(
             self.video_block, video_tokens, video_time_mod, video_positions, freqs
@@ -313,7 +378,7 @@ class PaperMoTLayer(nn.Module):
             if attention_groups is None:
                 raise ValueError("repaired MoT requires exact official mask grouping")
             attended = official_masked_attention(q.transpose(1, 2), k.transpose(1, 2),
-                v.transpose(1, 2), attention_groups).flatten(2)
+                v.transpose(1, 2), attention_groups, self_only).flatten(2)
         else:
             attended = F.scaled_dot_product_attention(
                 q, k, v, attn_mask=attention_mask.unsqueeze(0).unsqueeze(0),
@@ -420,7 +485,8 @@ class PaperZeroWAM(nn.Module):
         self.action_encoder = nn.Linear(config.action_dim, config.action_hidden_dim)
         self.action_time_embedding = copy.deepcopy(video_backbone.time_embedding)
         self.action_time_projection = copy.deepcopy(video_backbone.time_projection)
-        self.action_head = ActionFlowHead(config.action_hidden_dim, config.action_dim)
+        self.action_head = ActionFlowHead(config.action_hidden_dim, config.action_dim,
+                                  zero_init=config.zero_init_action_head)
 
         fusion_width = len(config.ifp_fusion_layers) * config.hidden_dim
         self.ifp_fusion = nn.Sequential(
@@ -443,8 +509,14 @@ class PaperZeroWAM(nn.Module):
         dtype: torch.dtype = torch.bfloat16,
     ) -> "PaperZeroWAM":
         WanModel = import_wan_model(config.resolved(config.wan_source))
+        # The shared FUSE mount delivers the 32 GB checkpoint at ~35 MB/s, which
+        # costs ~8 minutes per launch.  PZW_WAN_CHECKPOINT allows a locally
+        # staged copy of the same files.
+        checkpoint = os.environ.get("PZW_WAN_CHECKPOINT") or config.resolved(
+            config.wan_checkpoint
+        )
         loaded = WanModel.from_pretrained(
-            config.resolved(config.wan_checkpoint),
+            checkpoint,
             torch_dtype=dtype,
             low_cpu_mem_usage=True,
             output_loading_info=True,
@@ -462,6 +534,42 @@ class PaperZeroWAM(nn.Module):
     @property
     def parameter_count(self) -> int:
         return sum(parameter.numel() for parameter in self.parameters())
+
+    def upcast_precision_critical_modules(self) -> dict[str, int]:
+        """Keep Wan's FP32 numerical boundary intact under BF16 residency.
+
+        When the bulk of the model is resident in BF16 (needed to fit an 80 GB
+        card), the modules that Wan deliberately evaluates in FP32 -- timestep
+        embeddings/projections, every LayerNorm/RMSNorm, the AdaLN modulation
+        tables and the output heads -- must stay FP32 or ``_time_state`` and
+        the disabled-autocast blocks raise on dtype mismatch.  These are ~140M
+        parameters (~0.5 GB), so the memory cost is negligible.
+        """
+
+        upcast = 0
+        for module in self.modules():
+            if isinstance(module, (nn.LayerNorm, nn.RMSNorm)) or type(
+                module
+            ).__name__ in ("WanLayerNorm", "WanRMSNorm", "Head", "ActionFlowHead"):
+                module.float()
+                upcast += sum(p.numel() for p in module.parameters(recurse=False))
+        for module in (
+            self.video_time_embedding,
+            self.video_time_projection,
+            self.action_time_embedding,
+            self.action_time_projection,
+            self.video_head,
+            self.action_head,
+        ):
+            module.float()
+        for name, parameter in self.named_parameters():
+            if name.endswith("modulation") and parameter.dtype != torch.float32:
+                parameter.data = parameter.data.float()
+                upcast += parameter.numel()
+        total = sum(
+            p.numel() for p in self.parameters() if p.dtype == torch.float32
+        )
+        return {"fp32_parameter_count": total}
 
     def _text_context(self) -> torch.Tensor | None:
         if not self.config.repaired_conditioning:
@@ -589,6 +697,12 @@ class PaperZeroWAM(nn.Module):
         mask[at0:at1, v0:v1] = True
         mask[at0:at1, ah0:ah1] = True
         mask[at0:at1, at0:at1] = True
+        # Action-target queries deliberately never see the prompt (p0:p1).
+        # This is the paper's factorization: task intent must reach the action
+        # branch through the predicted robot future, not by a direct shortcut
+        # to the demonstration.  Combined with the hardcoded prompt_enabled
+        # =False on the action pass, it means the action expert receives no
+        # prompt gradient -- which is intended, not a bug.
         if not mask.any(dim=1).all():
             raise AssertionError("attention mask contains an empty query row")
         return TokenLayout(
@@ -611,6 +725,9 @@ class PaperZeroWAM(nn.Module):
             grid_width=grid_width,
             target_latent_frames=target_frames,
             official_attention_groups=(official_mask_groups(mask,
+                (prompt_frames, robot_history_frames, target_frames, grid_height, grid_width,
+                 action_history, action_target, prompt_enabled)) if self.config.repaired_conditioning else None),
+            self_only_queries=(self_only_query_index(mask,
                 (prompt_frames, robot_history_frames, target_frames, grid_height, grid_width,
                  action_history, action_target, prompt_enabled)) if self.config.repaired_conditioning else None),
         )
@@ -767,6 +884,7 @@ class PaperZeroWAM(nn.Module):
                 self.freqs,
                 text_context,
                 layout.official_attention_groups,
+                layout.self_only_queries,
             )
             if self.gradient_checkpointing and self.training:
                 video_tokens, action_tokens = checkpoint(
@@ -811,7 +929,14 @@ class PaperZeroWAM(nn.Module):
         if action_guidance != 1.0:
             raise ValueError("paper action CFG is fixed at 1.0; no action CFG branch exists")
         video = torch.randn_like(batch["video_target_latents"])
-        inactive_action_target = torch.zeros_like(batch["action_target"])
+        # Training always shows the video pass an action-target block at flow
+        # time action_t, i.e. (1-t)*clean + t*noise.  Holding action_time at
+        # 1.0 while feeding exact zeros is a distribution the video branch
+        # never saw.  At t=1 the matching input is pure noise.
+        if self.config.inactive_action_token_noise:
+            inactive_action_target = torch.randn_like(batch["action_target"])
+        else:
+            inactive_action_target = torch.zeros_like(batch["action_target"])
         video_sigmas = inference_sigmas(
             video_steps, self.config.video_snr_shift, device=video.device
         )
@@ -912,14 +1037,27 @@ class PaperZeroWAM(nn.Module):
         )
         video_velocity_target = video_noise - video_clean
         action_velocity_target = action_noise - action_clean
+        inactive_action = (
+            torch.randn_like(action_clean)
+            if self.config.inactive_action_token_noise
+            else torch.zeros_like(action_clean)
+        )
         video_prediction, _ = self._predict_main_velocities(
             batch,
             video_noisy,
-            torch.zeros_like(action_clean),
+            inactive_action,
             video_t,
             video_t.new_ones((1,)),
             bool(batch["prompt_enabled"]),
         )
+        # NOTE ON LEAKAGE: x_t - t*v_hat expands to (1-t)*x0 + t*(eps - v_hat).
+        # It therefore carries a (1-t)-weighted verbatim copy of the ground
+        # truth future regardless of model quality (mean weight ~0.25 at
+        # video_snr_shift=5).  Conditioning the action pass on it and calling
+        # the result "generated-future-conditioned" is not supportable.
+        # Callers that need a genuine open-loop number must use the real
+        # two-phase sampler in _sample_next_chunk.  The tensor is still
+        # returned for diagnostics, but under an explicit name.
         predicted_clean_future = video_noisy - (
             video_t[:, None, None, None, None] * video_prediction.to(video_noisy.dtype)
         )
@@ -939,6 +1077,10 @@ class PaperZeroWAM(nn.Module):
                 action_prediction.float(), action_velocity_target.float()
             ),
             "predicted_future_latents": predicted_clean_future,
+            "ground_truth_weight_in_action_condition": float(
+                (1.0 - video_t).reshape(-1)[0]
+            ),
+            "action_condition_is_ground_truth_contaminated": True,
             "predicted_action_velocity": action_prediction,
         }
 
@@ -1003,6 +1145,11 @@ class PaperZeroWAM(nn.Module):
         )
         raw_robot_history = video_tokens[:, layout.robot_history]
         raw_action_history = action_tokens[:, layout.action_history]
+        if not self.config.ifp_trunk_gradient:
+            # Same isolation as the fusion taps: the IFP context must not
+            # push gradient back through the patch embedding / action encoder.
+            raw_robot_history = raw_robot_history.detach()
+            raw_action_history = raw_action_history.detach()
         fusion_features: list[torch.Tensor] = []
 
         text_context = self._text_context()
@@ -1018,13 +1165,23 @@ class PaperZeroWAM(nn.Module):
                 self.freqs,
                 text_context,
                 layout.official_attention_groups,
+                layout.self_only_queries,
             )
             if self.gradient_checkpointing and self.training:
                 video_tokens, action_tokens = checkpoint(layer, *args, use_reentrant=False)
             else:
                 video_tokens, action_tokens = layer(*args)
             if layer_index in self.config.ifp_fusion_layers:
-                fusion_features.append(video_tokens[:, layout.video_target])
+                tap = video_tokens[:, layout.video_target]
+                # The IFP heads are training-only scaffolding that is deleted
+                # at inference.  Letting their loss (total weight 1.05, equal
+                # to the video term) flow back into the pretrained trunk
+                # through a randomly initialized fusion MLP is what destroyed
+                # the video branch.  Detaching keeps the paper's supervision
+                # -- the heads still read the main representation and are
+                # still trained -- while the deployed trunk is optimized only
+                # by the video and action objectives.
+                fusion_features.append(tap if self.config.ifp_trunk_gradient else tap.detach())
 
         video_output_tokens = self.video_head(
             video_tokens[:, layout.video_target],

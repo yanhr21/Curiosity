@@ -9,6 +9,7 @@ fixed-noise overfit diagnostic has an isolated output and never starts formal tr
 from __future__ import annotations
 
 import argparse
+import contextlib
 from collections import defaultdict
 from datetime import datetime, timedelta
 import json
@@ -32,7 +33,8 @@ from .data import ScheduledSamples, read_jsonl
 from .model import IFPHead, PaperMoTLayer, PaperZeroWAM
 from .results import refresh_results_document_best_effort
 from .train import (
-    TRACE_SAMPLE_FIELDS, branch_name, expected_overfit_step_evidence,
+    TRACE_SAMPLE_FIELDS, branch_name, decay_parameter_groups,
+    expected_overfit_step_evidence,
     formal_training_decision, learning_rate, overfit_execution_decision,
     publish_runtime_milestone, retained_trace_prefix,
 )
@@ -52,6 +54,59 @@ EXECUTION = {
 
 CHECKPOINT_INTERVAL = 35  # Eight recovery points per unchanged 280-update epoch.
 CPU_ACCUMULATION_IMPLEMENTATION = "matching_flat_storage_add_else_parameterwise_v1"
+
+# Full-width parameter count; used for the memory plan below.
+FULL_PARAMETER_COUNT = 10_680_751_069
+
+
+@contextlib.contextmanager
+def full_state_dict_context(model, **kwargs):
+    """FSDP FULL_STATE_DICT when wrapped; a no-op for a bare module."""
+    if isinstance(model, FSDP):
+        with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, *(
+            [FullStateDictConfig(**kwargs)] if kwargs else []
+        )):
+            yield
+    else:
+        yield
+
+
+def resolve_execution_plan(device_index: int = 0) -> dict:
+    """Pick GPU parameter dtype from the card actually present.
+
+    The original code hard-required an H200 and then kept parameters and
+    gradients in FP32 with NO_SHARD, which needs ~80 GB before a single
+    activation.  That fits a 141 GB H200 and nothing else.  An 80 GB card
+    (H800/A100-80G/H100) needs BF16 resident parameters; the FP32 master
+    weights and the AdamW moments already live on the CPU, so optimizer
+    precision is unchanged -- only the resident forward/backward copy differs.
+    """
+
+    name = torch.cuda.get_device_name(device_index)
+    total_bytes = torch.cuda.get_device_properties(device_index).total_memory
+    total_gib = total_bytes / 2**30
+    fp32_resident_gib = FULL_PARAMETER_COUNT * 8 / 2**30  # params + grads
+    bf16_resident_gib = FULL_PARAMETER_COUNT * 4 / 2**30
+    # Leave headroom for activations, fragmentation and the flash workspace.
+    if total_gib >= fp32_resident_gib + 24.0:
+        param_dtype, resident = torch.float32, fp32_resident_gib
+    elif total_gib >= bf16_resident_gib + 16.0:
+        param_dtype, resident = torch.bfloat16, bf16_resident_gib
+    else:
+        raise RuntimeError(
+            f"{name} has {total_gib:.1f} GiB; the full-width model needs at least "
+            f"{bf16_resident_gib + 16.0:.1f} GiB resident. Use more GPUs or a larger card."
+        )
+    if not torch.cuda.is_bf16_supported():
+        raise RuntimeError(f"{name} does not support BF16 autocast")
+    return {
+        "device_name": name,
+        "total_memory_gib": round(total_gib, 2),
+        "gpu_parameter_dtype": str(param_dtype).replace("torch.", ""),
+        "resident_parameter_gradient_gib": round(resident, 2),
+        "optimizer_master_dtype": "float32_cpu",
+        "_param_dtype": param_dtype,
+    }
 
 
 def requested_training_end(mode, stop_after_step):
@@ -155,7 +210,7 @@ def matching_cpu_accumulator(entries, host, gradients, storage_members):
     for name, value in entries:
         retained = gradients.get(name)
         if (retained is None or not value.is_contiguous() or not retained.is_contiguous()
-                or retained.device.type != "cpu" or retained.dtype != value.dtype
+                or retained.device.type != "cpu" or retained.dtype != host.dtype
                 or retained.shape != value.shape or retained.stride() != value.stride()
                 or retained.storage_offset() != value.storage_offset()
                 or retained.untyped_storage().data_ptr() != storage.data_ptr()):
@@ -200,7 +255,10 @@ def accumulate_cpu_gradients(named_parameters, gradients, timing=None):
         flat = torch.empty(0, dtype=first.dtype, device=first.device).set_(
             storage, 0, (count,), (1,))
         phase_started = time.perf_counter() if timing is not None else None
-        host = flat.to(device="cpu", copy=True)
+        # Accumulate in FP32 on the host even when the resident gradient is
+        # BF16: summing eight microbatches in 8-bit mantissa would lose real
+        # signal, and the AdamW master weights are FP32 anyway.
+        host = flat.to(device="cpu", dtype=torch.float32, copy=True)
         if timing is not None:
             transfer_seconds += time.perf_counter() - phase_started
             phase_started = time.perf_counter()
@@ -261,8 +319,18 @@ def native_adamw_streamed_step(optimizer, named_parameters, gradients, clip_scal
     return {key: math.sqrt(value) for key, value in update_sums.items()}, finite, calls
 
 
-def prompt_gate(model, datasets, device, seed):
-    """Same eight full-width cases/conditions as the distributed overfit gate."""
+def prompt_gate(model, datasets, device, seed, loss_repeats=8):
+    """Same eight full-width cases/conditions as the distributed overfit gate.
+
+    ``loss_repeats`` averages each (case, condition) loss over that many
+    independent (noise, t) draws.  With a single draw the gate ratio is a
+    high-variance point estimate -- the same checkpoint measured video 1.2382
+    at t=0.767 and 0.0487 at t=0.963 -- so prompt margins and endpoint ratios
+    were dominated by which flow time happened to be sampled.  The draw seeds
+    are derived from ``seed``, keeping the gate exactly reproducible.  The
+    one-step connectivity probe stays single-draw: it only needs to show that
+    swapping the prompt changes the generated future at all.
+    """
     model.eval()
     names = ("loss", "video_loss", "action_loss", "ifp_loss")
     interventions = ("wrong_task", "reversed", "same_task_alternate")
@@ -276,12 +344,18 @@ def prompt_gate(model, datasets, device, seed):
             for condition in ("matched", *interventions):
                 batch = dataset.conditioned_sample(0, device, condition)
                 task = batch["meta"]["task"]
-                torch.manual_seed(seed)
-                torch.cuda.manual_seed_all(seed)
-                with torch.autocast("cuda", dtype=torch.bfloat16):
-                    losses = model(batch)
-                task_values[task][condition].append({key: scalar(losses[key]) for key in names})
-                del losses
+                totals = {key: 0.0 for key in names}
+                for repeat in range(loss_repeats):
+                    draw_seed = seed + 1_000_003 * repeat
+                    torch.manual_seed(draw_seed)
+                    torch.cuda.manual_seed_all(draw_seed)
+                    with torch.autocast("cuda", dtype=torch.bfloat16):
+                        losses = model(batch)
+                    for key in names:
+                        totals[key] += scalar(losses[key])
+                    del losses
+                task_values[task][condition].append(
+                    {key: totals[key] / loss_repeats for key in names})
                 torch.manual_seed(seed + 1)
                 torch.cuda.manual_seed_all(seed + 1)
                 probe = dict(batch, inference=True, video_inference_steps=1,
@@ -328,7 +402,9 @@ def prompt_gate(model, datasets, device, seed):
             "prompt_loss_passed": prompt_passed, "teacher_action_isolated": isolated,
             "generated_future_to_action_path_active": connected,
             "interventions": list(interventions), "condition_count": 4,
-            "loss_forward_count": 32, "one_step_connectivity_forward_count": 32,
+            "loss_draws_per_condition": loss_repeats,
+            "loss_forward_count": 32 * loss_repeats,
+            "one_step_connectivity_forward_count": 32,
             "optimizer_updates_added": 0, "execution": EXECUTION}
 
 
@@ -358,8 +434,7 @@ def task_records(observations, config):
 def save_checkpoint(model, optimizer, root, step, config):
     directory = next_checkpoint_directory(root)
     directory.mkdir(exist_ok=True)
-    with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT,
-                             FullStateDictConfig(offload_to_cpu=True, rank0_only=True)):
+    with full_state_dict_context(model, offload_to_cpu=True, rank0_only=True):
         state = model.state_dict()
     temporary = directory / "model_rank00.tmp"
     torch.save({"step": step, "model": state}, temporary)
@@ -406,7 +481,7 @@ def load_checkpoint(model, optimizer, root, config, master_pairs):
     payload = torch.load(directory / "model_rank00.pt", map_location="cpu", weights_only=False)
     if payload["step"] != step:
         raise ValueError("model checkpoint step mismatch")
-    with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT):
+    with full_state_dict_context(model):
         model.load_state_dict(payload["model"], strict=True)
     del payload
     with torch.no_grad():
@@ -444,6 +519,9 @@ def main():
     parser.add_argument("--stop-after-step", type=int, choices=[700])
     parser.add_argument("--fixed-noise-overfit-diagnostic", action="store_true")
     parser.add_argument("--repaired-overfit", action="store_true")
+    parser.add_argument("--resampled-noise-overfit", action="store_true",
+                        help="resample noise and flow time every step/slot: the "
+                             "generative overfit, whose renders are meaningful")
     parser.add_argument("--resume-repaired-preupdate", action="store_true")
     args = parser.parse_args()
     config = repaired_overfit_config() if args.repaired_overfit else PaperZeroWAMConfig()
@@ -456,7 +534,7 @@ def main():
         restored_conditioning_gradient_decision, validate_preupdate_recovery,
     )
     validate_diagnostic_request(args.fixed_noise_overfit_diagnostic, args.mode,
-                                args.output_dir, config)
+                                args.output_dir, config, args.resampled_noise_overfit)
     if args.resume_repaired_preupdate:
         if not args.repaired_overfit:
             raise ValueError("pre-update recovery requires the isolated repaired diagnostic")
@@ -505,11 +583,18 @@ def main():
             raise ValueError("terminal is not an exact complete single-GPU execution")
         emit_json_best_effort({"terminal_reused": str(root / name), "optimizer_updates_added": 0})
         return
-    if int(os.environ.get("WORLD_SIZE", "0")) != 1 or not os.environ.get("SLURM_STEP_ID"):
-        raise RuntimeError("single-GPU trainer requires one rank inside retained srun")
+    if int(os.environ.get("WORLD_SIZE", "0")) != 1:
+        raise RuntimeError("single-GPU trainer requires exactly one rank")
+    if not os.environ.get("SLURM_STEP_ID") and not os.environ.get(
+        "PZW_ALLOW_NON_SLURM"
+    ):
+        raise RuntimeError(
+            "launch inside a retained srun step, or set PZW_ALLOW_NON_SLURM=1 "
+            "when the scheduler is not present"
+        )
     torch.cuda.set_device(0)
-    if "H200" not in torch.cuda.get_device_name(0):
-        raise RuntimeError("full-width execution requires H200")
+    execution_plan = resolve_execution_plan(0)
+    gpu_param_dtype = execution_plan.pop("_param_dtype")
     dist.init_process_group("nccl", timeout=timedelta(hours=2))
     device = torch.device("cuda", 0)
     config.validate()
@@ -542,7 +627,8 @@ def main():
         "model_and_schedule_config": config.as_dict(), "execution": EXECUTION, "hash_checks": False,
         "cpu_accumulation_implementation": CPU_ACCUMULATION_IMPLEMENTATION,
     })
-    diagnostic = diagnostic_contract(config) if args.fixed_noise_overfit_diagnostic else None
+    diagnostic = (diagnostic_contract(config, args.resampled_noise_overfit)
+                  if args.fixed_noise_overfit_diagnostic else None)
     if diagnostic:
         write_json_atomic(root / "DIAGNOSTIC_CONTRACT.json", diagnostic)
     started = time.perf_counter()
@@ -552,19 +638,38 @@ def main():
     milestone("distributed_initialized")
     torch.manual_seed(config.noise_seed)
     torch.cuda.manual_seed_all(config.noise_seed)
-    model = PaperZeroWAM.from_wan_pretrained(config, dtype=torch.float32)
+    model = PaperZeroWAM.from_wan_pretrained(config, dtype=gpu_param_dtype)
     if model.parameter_count != config.expected_parameter_count:
         raise ValueError("full model parameter count changed")
-    milestone("full_width_model_constructed", architecture_parameter_count=model.parameter_count)
-    model = FSDP(model, auto_wrap_policy=ModuleWrapPolicy({PaperMoTLayer, IFPHead}),
-        sharding_strategy=ShardingStrategy.NO_SHARD,
-        cpu_offload=CPUOffload(offload_params=False),
-        mixed_precision=MixedPrecision(param_dtype=None, reduce_dtype=torch.bfloat16),
-        device_id=device, use_orig_params=True, limit_all_gathers=True)
-    master_pairs = [(name, parameter, torch.nn.Parameter(parameter.detach().cpu(),
+    if gpu_param_dtype is not torch.float32:
+        execution_plan.update(model.upcast_precision_critical_modules())
+    milestone("full_width_model_constructed",
+              architecture_parameter_count=model.parameter_count,
+              execution_plan=execution_plan)
+    # FSDP with NO_SHARD on a single rank performs no sharding, no gradient
+    # reduction and no parameter offload -- it is a pass-through wrapper here.
+    # It does, however, require every parameter inside a flattened unit to
+    # share one dtype, which is incompatible with keeping Wan's FP32 numerical
+    # boundary (norms / modulation / heads) under BF16 residency.  Use the
+    # bare module in that case; the checkpoint helpers below handle both.
+    fsdp_wrapped = gpu_param_dtype is torch.float32
+    if fsdp_wrapped:
+        model = FSDP(model, auto_wrap_policy=ModuleWrapPolicy({PaperMoTLayer, IFPHead}),
+            sharding_strategy=ShardingStrategy.NO_SHARD,
+            cpu_offload=CPUOffload(offload_params=False),
+            mixed_precision=MixedPrecision(param_dtype=None, reduce_dtype=torch.bfloat16),
+            device_id=device, use_orig_params=True, limit_all_gathers=True)
+    else:
+        model = model.to(device)
+    execution_plan["fsdp_no_shard_wrapper"] = fsdp_wrapped
+    # FP32 CPU master weights and AdamW moments are unchanged regardless of the
+    # resident GPU dtype, so optimizer arithmetic keeps full precision.
+    master_pairs = [(name, parameter, torch.nn.Parameter(parameter.detach().float().cpu(),
                                                        requires_grad=parameter.requires_grad))
                     for name, parameter in model.named_parameters()]
-    optimizer = torch.optim.AdamW([master for _, _, master in master_pairs], lr=config.peak_learning_rate,
+    optimizer = torch.optim.AdamW(
+        decay_parameter_groups(((n, m) for n, _, m in master_pairs), config),
+        lr=config.peak_learning_rate,
         betas=(config.adam_beta1, config.adam_beta2), eps=config.adam_epsilon,
         weight_decay=config.weight_decay, foreach=False)
     milestone("gpu_resident_model_and_cpu_adamw_constructed")
@@ -584,8 +689,14 @@ def main():
     log = root / "TRAIN_TRACE.jsonl"
     prepare_training_trace(log, start)
     milestone("schedule_and_data_admitted", scheduled_optimizer_steps=total)
+    # A fixed-noise diagnostic is *defined* by its single (noise, t), so its
+    # gate stays single-draw and keeps the step-0 equivalence check.  Any run
+    # that resamples during training needs an averaged gate to get a ratio that
+    # reflects the model instead of one sampled flow time.
+    gate_draws = 8 if args.resampled_noise_overfit else 1
     initial = (json.loads(initial_path.read_text()) if reuse_initial else
-               prompt_gate(model, datasets, device, config.noise_seed + 9_999_991)
+               prompt_gate(model, datasets, device, config.noise_seed + 9_999_991,
+                           gate_draws)
                if args.mode == "overfit" else None)
     if initial is not None and not reuse_initial:
         write_json_atomic(root / "INITIAL_PROMPT_GATE.json", initial)
@@ -597,7 +708,7 @@ def main():
             unseen_initial = json.loads((root / "UNSEEN_NOISE_INITIAL.json").read_text())
             milestone("identical_preupdate_probes_reused_zero_optimizer_updates")
         else:
-            unseen_initial = matched_loss_probe(model, datasets, device, diagnostic["unseen_noise_seed"])
+            unseen_initial = matched_loss_probe(model, datasets, device, diagnostic["unseen_noise_seed"], gate_draws)
             write_json_atomic(root / "UNSEEN_NOISE_INITIAL.json", unseen_initial)
     model.train()
     first_forward_check = None
@@ -621,7 +732,9 @@ def main():
             phase_started = time.perf_counter()
             batch = dataset.sample(step, device)
             batch["loss_scales"] = evidence["loss_rank_evidence"][slot]["scales"]
-            step_noise_seed = training_noise_seed(config, step, slot, bool(diagnostic))
+            step_noise_seed = training_noise_seed(
+                config, step, slot,
+                bool(diagnostic) and not args.resampled_noise_overfit)
             torch.manual_seed(step_noise_seed)
             torch.cuda.manual_seed_all(step_noise_seed)
             timing["data_loading"] += time.perf_counter() - phase_started
@@ -652,10 +765,12 @@ def main():
             emit_json_best_effort({"optimizer_step_pending": step, "microbatch_completed": slot + 1,
                                   "gradient_accumulation_steps": 8, "optimizer_applied": False,
                                   "gradient_storage_transfers": gradient_storage_transfers})
-        if diagnostic and step == 0:
+        if diagnostic and step == 0 and not args.resampled_noise_overfit:
             first_aggregate = {key: sum(row["losses"][key] for row in observations) / 8
                                for key in observations[0]["losses"]}
-            first_forward_check = verify_first_forward(initial, first_aggregate)
+            first_forward_check = verify_first_forward(
+                initial, first_aggregate,
+                initial.get("loss_draws_per_condition", 1))
             write_json_atomic(root / "TRAIN_EVAL_FORWARD_EQUIVALENCE.json", first_forward_check)
         phase_started = time.perf_counter()
         norms = branch_norms(gradients.items())
@@ -671,13 +786,15 @@ def main():
                     cross_sums[name.split(".cross_attn.")[0]] += squared_norm(value)
                 if "video_text_embedding." in name:
                     text_sum += squared_norm(value)
-            restored_decision = restored_conditioning_gradient_decision(cross_sums, text_sum, step)
+            restored_decision = restored_conditioning_gradient_decision(
+                cross_sums, text_sum, step, config.zero_init_action_head)
             gradient_result_name = ("RESTORED_MODULE_GRADIENTS_INITIAL.json" if step == 0
                                     else "RESTORED_MODULE_GRADIENTS.json")
             write_json_atomic(root / gradient_result_name, restored_decision)
             if not restored_decision["passed"]:
                 raise RuntimeError("restored video/action/IFP conditioning has inactive or invalid gradients")
         clip_scale = min(1.0, config.gradient_clip_norm / (math.sqrt(sum(v*v for v in norms.values())) + 1e-6))
+        global_gradient_norm = math.sqrt(sum(v * v for v in norms.values()))
         milestone("global_gradient_ready", optimizer_step_pending=step)
         timing["gradient_norm_and_clip_audit"] = time.perf_counter() - phase_started
         phase_started = time.perf_counter()
@@ -687,8 +804,12 @@ def main():
         phase_started = time.perf_counter()
         with torch.no_grad():
             for _, parameter, master in master_pairs:
+                # master is FP32 on CPU; the resident parameter may be BF16.
+                # Verify the copy landed exactly in the *resident* dtype, i.e.
+                # compare against the master rounded to that dtype.
                 parameter.copy_(master)
-                if not torch.equal(parameter, master.to(device)):
+                if not torch.equal(parameter, master.to(device=parameter.device,
+                                                        dtype=parameter.dtype)):
                     raise RuntimeError("updated GPU parameter differs from native AdamW master")
         timing["gpu_master_copy_and_exact_readback"] = time.perf_counter() - phase_started
         require_positive_finite(updates, "update")
@@ -708,6 +829,10 @@ def main():
             "physical_execution_map": [{"logical_schedule_slot": slot, "physical_rank": 0,
                                         "microbatch_index": slot} for slot in range(8)],
             "gradient_norms": norms, "parameter_update_norms": updates,
+            "global_gradient_norm": global_gradient_norm,
+            "gradient_clip_scale": clip_scale,
+            "gradient_clip_fired": clip_scale < 1.0,
+            "gpu_parameter_dtype": execution_plan["gpu_parameter_dtype"],
             "all_trainable_parameters_finite": finite, "optimizer_applied": True,
             "optimizer_native_parameter_calls": native_calls,
             "gpu_parameter_master_readback_exact": True,
@@ -715,8 +840,11 @@ def main():
             "timing_seconds": timing,
             "amp_scaler_skipped": False, "elapsed_seconds": time.perf_counter() - started}
         if diagnostic:
-            record["diagnostic_noise_seeds"] = [training_noise_seed(config, step, slot, True)
-                                                 for slot in range(8)]
+            record["diagnostic_noise_seeds"] = [
+                training_noise_seed(config, step, slot,
+                                    not args.resampled_noise_overfit)
+                for slot in range(8)]
+            record["noise_resampled_every_step"] = bool(args.resampled_noise_overfit)
             record["fixed_noise_overfit_diagnostic"] = True
         with log.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(record, sort_keys=True) + "\n")
@@ -755,7 +883,8 @@ def main():
             })
             dist.destroy_process_group()
             raise SystemExit(75)  # End only this child; keep the retained compute shell alive.
-    prompt = prompt_gate(model, datasets, device, config.noise_seed + 9_999_991) if args.mode == "overfit" else None
+    prompt = (prompt_gate(model, datasets, device, config.noise_seed + 9_999_991,
+                          gate_draws) if args.mode == "overfit" else None)
     records = read_jsonl(log)
     formal = None
     if args.mode == "overfit":
@@ -781,7 +910,7 @@ def main():
         "last_to_first_loss_ratios": ratios, "initial_prompt_gate": initial, "prompt_gate": prompt,
         "batch": EXECUTION, "hash_checks": False, "elapsed_seconds": time.perf_counter() - started}
     if diagnostic:
-        unseen_final = matched_loss_probe(model, datasets, device, diagnostic["unseen_noise_seed"])
+        unseen_final = matched_loss_probe(model, datasets, device, diagnostic["unseen_noise_seed"], gate_draws)
         write_json_atomic(root / "UNSEEN_NOISE_FINAL.json", unseen_final)
         diagnostic_result = {
             "contract": diagnostic, "execution_completed": True,
@@ -795,8 +924,7 @@ def main():
         write_json_atomic(root / "FITTING_RESULT.json", diagnostic_result)
         # Preserve the endpoint model for inspection; no optimizer/continuation
         # checkpoint and no mutation of the original overfit or formal artifacts.
-        with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT,
-                                 FullStateDictConfig(offload_to_cpu=True, rank0_only=True)):
+        with full_state_dict_context(model, offload_to_cpu=True, rank0_only=True):
             torch.save({"model": model.state_dict(), "step": 32,
                         "diagnostic_contract": diagnostic}, root / "diagnostic_model_step32.pt")
         # Publish training evidence before rendering so a renderer failure cannot

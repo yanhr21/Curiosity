@@ -235,6 +235,39 @@ def branch_name(name: str) -> str:
     return "video"
 
 
+def decay_parameter_groups(
+    named_parameters, config: PaperZeroWAMConfig
+) -> list[dict[str, Any]]:
+    """Split AdamW groups so decay never touches norms, biases or modulation.
+
+    The original code passed ``model.parameters()`` directly, so weight decay
+    also pulled every LayerNorm/RMSNorm weight, every bias, and -- most
+    damaging -- Wan's pretrained ``modulation`` tables toward zero.  Those
+    tables produce every AdaLN shift/scale/gate, so decaying them attacks the
+    conditioning path of the pretrained backbone itself.  Standard practice is
+    to decay only parameters with ndim >= 2.
+    """
+
+    pairs = [(name, p) for name, p in named_parameters if p.requires_grad]
+    if not config.decay_only_matrix_parameters:
+        return [
+            {
+                "params": [p for _, p in pairs],
+                "weight_decay": config.weight_decay,
+                "group_name": "all",
+            }
+        ]
+    decay, no_decay = [], []
+    for name, parameter in pairs:
+        excluded = parameter.ndim < 2 or name.endswith("modulation")
+        (no_decay if excluded else decay).append(parameter)
+    groups = [
+        {"params": decay, "weight_decay": config.weight_decay, "group_name": "decay"},
+        {"params": no_decay, "weight_decay": 0.0, "group_name": "no_decay"},
+    ]
+    return [group for group in groups if group["params"]]
+
+
 def gradient_norms(model: FSDP) -> dict[str, float]:
     sums = {name: torch.zeros((), device=torch.cuda.current_device()) for name in ("video", "action", "ifp")}
     for name, parameter in model.named_parameters():
@@ -293,7 +326,16 @@ def learning_rate(
     step: int, total_steps: int, config: PaperZeroWAMConfig, mode: str
 ) -> float:
     if mode == "overfit":
-        return config.peak_learning_rate
+        # Repaired: the original returned peak_learning_rate (1e-4) flat from
+        # step 0.  On a pretrained Wan trunk with beta2=0.95 that applies a
+        # full-magnitude AdamW step while the second-moment estimate is still
+        # meaningless, and a clip norm of 2.0 over 10.7B parameters never
+        # binds.  Use a finetuning-scale LR with a short linear warmup.
+        peak = config.overfit_learning_rate
+        warmup = config.overfit_warmup_steps
+        if warmup > 0 and step < warmup:
+            return peak * float(step + 1) / float(warmup)
+        return peak
     if step < config.warmup_steps:
         return config.peak_learning_rate * float(step + 1) / float(config.warmup_steps)
     progress = float(step - config.warmup_steps) / float(max(1, total_steps - config.warmup_steps))
@@ -1029,8 +1071,37 @@ def overfit_execution_decision(
             and float(record["learning_rate"]) > 0.0
             for record in records
         ),
+        # The eleven checks above certify that the declared execution happened
+        # and was recorded.  None of them can observe whether the model
+        # learned: a run whose loss rises 67% satisfies every one.  The two
+        # below are the actual scientific criteria, computed from the trace
+        # the GPU produced rather than from constants the writer chose.  They
+        # are reported in ``scientific_checks`` and deliberately kept out of
+        # ``passed`` so that a negative result is still a *complete* run whose
+        # artifacts get written, not a crash.
     }
-    return {"passed": all(checks.values()), "checks": checks}
+    scientific = {
+        "total_loss_decreased": (
+            len(records) >= 2
+            and math.isfinite(float(records[-1]["losses"]["loss"]))
+            and float(records[-1]["losses"]["loss"])
+            < float(records[0]["losses"]["loss"])
+        ),
+        "video_branch_did_not_regress": (
+            len(records) >= 2
+            and math.isfinite(float(records[-1]["losses"]["video_loss"]))
+            and float(records[-1]["losses"]["video_loss"])
+            <= float(records[0]["losses"]["video_loss"])
+        ),
+    }
+    return {
+        "passed": all(checks.values()),
+        "checks": checks,
+        "scientific_checks": scientific,
+        "scientific_passed": all(scientific.values()),
+        "trace_first_losses": records[0]["losses"] if records else None,
+        "trace_last_losses": records[-1]["losses"] if records else None,
+    }
 
 
 def formal_training_decision(
@@ -1532,7 +1603,7 @@ def main() -> None:
         architecture_parameter_count=full_parameter_count,
     )
     optimizer = torch.optim.AdamW(
-        model.parameters(),
+        decay_parameter_groups(model.named_parameters(), config),
         lr=config.peak_learning_rate,
         betas=(config.adam_beta1, config.adam_beta2),
         eps=config.adam_epsilon,
