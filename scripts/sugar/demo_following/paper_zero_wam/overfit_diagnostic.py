@@ -175,9 +175,10 @@ def matched_loss_probe(model, datasets, device, seed, repeats=8):
     t=0.767 and 0.0487 at t=0.963 -- a 25x spread from sampling alone, with one
     "FAIL" and one "PASS".
 
-    Averaging over a fixed, reproducible ladder of draws makes the ratio a
-    property of the model rather than of one lucky t.  The draw seeds are
-    derived from ``seed`` so the probe stays exactly reproducible.
+    Averaging over a fixed, reproducible ladder reduces single-draw variance;
+    it does not remove dependence on the selected noise/time draws. Compare
+    both predeclared ladders and actual generation, not only a favorable
+    average. Seeds are derived from ``seed`` for exact reproducibility.
     """
 
     previous_training = model.training

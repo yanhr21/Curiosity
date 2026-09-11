@@ -19,6 +19,80 @@ from .data import ScheduledSamples, read_jsonl
 from .model import PaperZeroWAM, inference_sigmas, import_wan_model
 
 
+ACTION_FLOW_TIMES = (0.02, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0)
+
+
+def action_velocity_metrics(prediction, target, noise):
+    """Arithmetic readback of a true-future teacher-forced velocity probe.
+
+    Noise-only and target-only predictors use privileged labels. They are
+    explanatory baselines, never deployed policies or substitute networks.
+    The three-column least-squares readback describes the existing model's
+    output; it does not train a replacement model or alter any prediction.
+    """
+    p, clean, eps = [v.detach().double().cpu() for v in (prediction, target, noise)]
+    if p.shape != clean.shape or p.shape != eps.shape:
+        raise ValueError("velocity readback requires matching action shapes")
+    if not all(bool(torch.isfinite(v).all()) for v in (p, clean, eps)):
+        raise ValueError("nonfinite action-flow observation")
+    # Preserve forward()'s original-dtype subtraction before accumulating
+    # statistics in FP64; BF16 subtraction is not an exact real difference.
+    velocity = (noise - target).detach().double().cpu()
+    design = torch.stack((eps.flatten(), -clean.flatten(), torch.ones_like(p.flatten())), dim=1)
+    fit = torch.linalg.lstsq(design, p.flatten())
+    return {"velocity_mse": float((p - velocity).square().mean()),
+            "zero_velocity_mse": float(velocity.square().mean()),
+            "privileged_negative_clean_only_mse": float((-clean - velocity).square().mean()),
+            "privileged_noise_only_mse": float((eps - velocity).square().mean()),
+            "predicted_velocity_std": float(p.std()),
+            "target_velocity_std": float(velocity.std()),
+            "per_joint_velocity_mse": (p - velocity).square().mean(dim=(0, 1)).tolist(),
+            "output_projection_on_noise_negative_clean_bias": fit.solution.tolist(),
+            "projection_design_rank": int(fit.rank),
+            "projection_residual_mse": float((design @ fit.solution - p.flatten()).square().mean())}
+
+
+def paired_noise_response(predictions, noises):
+    """Ideal real-arithmetic velocity differences equal noise differences.
+
+    Original-dtype subtraction can add small rounding deviations; this is a
+    response measurement, not a demand for bitwise ideal flow predictions.
+    """
+    if len(predictions) != 2 or len(noises) != 2:
+        raise ValueError("a paired noise response needs exactly two draws")
+    dp = predictions[1].detach().double().cpu() - predictions[0].detach().double().cpu()
+    dn = noises[1].detach().double().cpu() - noises[0].detach().double().cpu()
+    energy = dn.square().mean()
+    if dp.shape != dn.shape or not bool(torch.isfinite(dp).all()) or not bool(torch.isfinite(dn).all()) or energy <= 0:
+        raise ValueError("invalid or identical paired noise draws")
+    return {"velocity_difference_gain_along_noise_difference": float((dp * dn).mean() / energy),
+            "velocity_difference_energy_to_noise_difference": float(dp.square().mean() / energy),
+            "velocity_difference_error_to_ideal": float((dp - dn).square().mean() / energy)}
+
+
+@torch.no_grad()
+def probe_action_flow(model, batch, future, target, seed):
+    """Measure the full retained action expert at fixed flow times; no updates."""
+    noises = [torch.randn(target.shape, device=target.device, dtype=target.dtype,
+                          generator=torch.Generator(device=target.device).manual_seed(seed + draw))
+              for draw in range(2)]
+    rows = []
+    for sigma in ACTION_FLOW_TIMES:
+        time = torch.tensor([sigma], device=target.device, dtype=torch.float32)
+        predictions, draws = [], []
+        for draw, noise in enumerate(noises):
+            # Match forward()'s FP32-time / original-action-dtype mixing.
+            noisy = (1 - time[:, None, None]) * target + time[:, None, None] * noise
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                _, prediction = model._predict_main_velocities(
+                    batch, future, noisy, future.new_zeros((1,)), time, False)
+            draws.append({"seed": seed + draw, **action_velocity_metrics(prediction, target, noise)})
+            predictions.append(prediction.detach().cpu())
+        rows.append({"action_flow_time": sigma, "draws": draws,
+                     "paired_noise_response": paired_noise_response(predictions, noises)})
+    return rows
+
+
 def endpoint_config(saved):
     """Restore tuple-valued configuration fields after JSON serialization."""
     restored = dict(saved)
@@ -176,6 +250,8 @@ def main():
                         help="export every frozen-VAE control frame without world-model inference")
     modes.add_argument("--action-readback-only", action="store_true",
                        help="CPU-only metrics on actual saved TRAIN action predictions")
+    modes.add_argument("--action-flow-only", action="store_true",
+                       help="after complete inverse diagnosis, probe full-model action denoising at seven fixed times")
     args = parser.parse_args()
     if args.output.exists():
         raise RuntimeError("refusing to overwrite an endpoint diagnosis")
@@ -189,6 +265,15 @@ def main():
     if args.action_readback_only:
         readback_actions(root, args.output, renders)
         return
+    if args.action_flow_only:
+        prior = json.loads((root / "INVERSE_DYNAMICS_PROBE.json").read_text())
+        if (prior.get("execution_completed") is not True
+                or prior.get("checkpoint_step") != result["optimizer_steps"]
+                or len(prior["cases"]) != 8
+                or not all(c["saved_action_replay_exact"] for c in prior["cases"])):
+            raise RuntimeError("action-flow diagnosis requires complete exact inverse replays")
+        if not any(needs_inverse_probe(c["ground_truth_future_oracle"]) for c in prior["cases"]):
+            raise RuntimeError("true-future action baseline failure is required for this diagnosis")
     if not os.environ.get("SLURM_STEP_ID") or not torch.cuda.is_available():
         raise RuntimeError("run on the retained GPU compute step")
     saved = json.loads((root / "CONFIG.json").read_text())["model_and_schedule_config"]
@@ -228,6 +313,13 @@ def main():
                     ("prompt_latents", "robot_history_latents", "action_history")}
         deployed["video_target_latents"] = torch.zeros_like(batch["video_target_latents"])
         deployed["action_target"] = torch.zeros_like(target)
+        if args.action_flow_only:
+            observations = probe_action_flow(model, deployed, batch["video_target_latents"],
+                                             target, config.noise_seed + 90_000 + 2 * slot)
+            cases.append({"slot": slot, "case": name, "flow_observations": observations})
+            emit_json_best_effort({"action_flow_case_completed": slot + 1, "case": name,
+                                  "flow_observations": observations})
+            continue
         initial = action_initial_noise(deployed, config, config.noise_seed + 70_000 + slot)
         generated_future = tensors["predicted_video_latents"].to(
             device=device, dtype=batch["video_target_latents"].dtype)
@@ -242,6 +334,16 @@ def main():
                "oracle_is_privileged_not_deployable": True}
         cases.append(row)
         emit_json_best_effort(row)
+    if args.action_flow_only:
+        write_json_atomic(args.output, {"execution_completed": True, "optimizer_updates": 0,
+            "checkpoint_step": result["optimizer_steps"], "architecture_parameter_count": model.parameter_count,
+            "cases": cases, "action_flow_times": list(ACTION_FLOW_TIMES), "noise_draws_per_case": 2,
+            "main_forward_calls": 8 * len(ACTION_FLOW_TIMES) * 2,
+            "velocity_target_arithmetic": "original-dtype noise minus target, then FP64 statistics",
+            "prior_exact_replay_source": str(root / "INVERSE_DYNAMICS_PROBE.json"),
+            "scope": "Full retained model, privileged true-future action-flow response; no optimizer, new model, changed inference result, or deployment-success claim",
+            "hash_checks": False})
+        return
     write_json_atomic(args.output, {"execution_completed": True, "optimizer_updates": 0,
         "checkpoint_step": result["optimizer_steps"], "architecture_parameter_count": model.parameter_count,
         "cases": cases, "generated_future_cases_beating_zero": sum(

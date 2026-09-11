@@ -13,6 +13,47 @@ from .train import decay_parameter_groups, learning_rate
 
 
 class RemoteRepairTests(unittest.TestCase):
+    def test_velocity_readback_distinguishes_noise_from_clean_prediction(self):
+        from .probe_overfit_inverse_dynamics import action_velocity_metrics
+        # Exact arithmetic fixtures only: no learned or replacement model.
+        generator = torch.Generator().manual_seed(12)
+        clean = torch.randn(1, 40, 29, generator=generator, dtype=torch.float64)
+        noise = torch.randn(1, 40, 29, generator=generator, dtype=torch.float64)
+        ideal = action_velocity_metrics(noise - clean, clean, noise)
+        self.assertEqual(ideal["velocity_mse"], 0)
+        self.assertEqual(ideal["projection_design_rank"], 3)
+        for actual, expected in zip(ideal["output_projection_on_noise_negative_clean_bias"], [1, 1, 0]):
+            self.assertAlmostEqual(actual, expected, places=10)
+        clean_only = action_velocity_metrics(-clean, clean, noise)
+        self.assertAlmostEqual(clean_only["velocity_mse"], float(noise.square().mean()), places=12)
+        for actual, expected in zip(clean_only["output_projection_on_noise_negative_clean_bias"], [0, 1, 0]):
+            self.assertAlmostEqual(actual, expected, places=10)
+        invalid = noise.clone(); invalid[0, 0, 0] = float("nan")
+        with self.assertRaises(ValueError):
+            action_velocity_metrics(invalid, clean, noise)
+
+    def test_paired_noise_response_identifies_noise_insensitivity(self):
+        from .probe_overfit_inverse_dynamics import paired_noise_response
+        generator = torch.Generator().manual_seed(13)
+        clean, a, b = [torch.randn(1, 40, 29, generator=generator, dtype=torch.float64) for _ in range(3)]
+        ideal = paired_noise_response([a - clean, b - clean], [a, b])
+        self.assertAlmostEqual(ideal["velocity_difference_gain_along_noise_difference"], 1)
+        self.assertAlmostEqual(ideal["velocity_difference_error_to_ideal"], 0)
+        insensitive = paired_noise_response([-clean, -clean], [a, b])
+        self.assertEqual(insensitive["velocity_difference_gain_along_noise_difference"], 0)
+        self.assertEqual(insensitive["velocity_difference_error_to_ideal"], 1)
+        with self.assertRaises(ValueError):
+            paired_noise_response([a, b], [a, a])
+
+    def test_velocity_readback_preserves_bfloat16_training_target_rounding(self):
+        from .probe_overfit_inverse_dynamics import action_velocity_metrics
+        generator = torch.Generator().manual_seed(14)
+        clean, noise = [torch.randn(1, 40, 29, generator=generator).bfloat16() for _ in range(2)]
+        rounded_velocity = noise - clean
+        self.assertGreater(float((rounded_velocity.double() - (noise.double() - clean.double())).square().mean()), 0)
+        metrics = action_velocity_metrics(rounded_velocity, clean, noise)
+        self.assertEqual(metrics["velocity_mse"], 0)
+
     def test_action_readback_exposes_temporally_constant_predictions(self):
         from .probe_overfit_inverse_dynamics import action_metrics, needs_inverse_probe
         # Arithmetic fixture, not a learned model or generated experiment.
