@@ -11,6 +11,27 @@
 不自动启动 formal 或 physics。
 详见[代码对比与完成条件](../experiments/demo_following/paper_zero_wam_v1/bugfix_audit_20260911/CODE_COMPARISON.json)。
 
+9 月 11 日 12:49 初始八例／八噪声评估已完成：匹配条件的 video/action/IFP loss 为
+`0.1872653 / 1.4499187 / 0.6574702`。teacher-action 隔离及生成视频到动作的连接通过，
+正确 demo 的损失优势未通过。这是**更新前基线**，不能称为本轮 overfit 结果。
+完整包级 CPU 回归 54 项通过；后续独立动作诊断另修复了 JSON 配置的 tuple 恢复并通过
+往返测试，未修改正在运行的训练代码、模型或配置。
+12:57 已在同一计算 shell 的当前前台任务之后排入
+`run_paper_zero_wam_bugfix_endpoint_held.sh`：终点完成后导出全部 64 张冻结 VAE 对照帧；
+先保存逐关节和时序动作回读；若采样动作未优于零／均值或时序基线，再做同一完整
+checkpoint 的真实未来条件诊断。读取使用已有的仅导入重试入口，不重试训练或推理。
+该诊断尚未开始，日志前缀为 `logs/held_291647_bugfix_endpoint`，不要重复排队。
+13:52 在 server31 核实已完成 8 次真实更新，warmup LR 从 `1.25e-6` 升至 `1e-5`。
+八次更新均有限且 GPU/CPU AdamW 主参数回读一致；前两次检查的 64 个 cross-attention
+模块均有非零梯度。八步均触发既定梯度裁剪：第 7 次范数 `82.8513`，第 8 次回落至
+`7.4131`，尚无持续发散证据。平均每步约 `446.6 s`，主要耗时仍为 CPU 梯度搬运／累加。
+第 8 次单次 video/action/IFP loss 为 `0.0297365 / 1.2501502 / 0.3724995`；由于每步
+噪声／时间不同，不把它们与平均初始探针直接相除来宣称通过。终点评估和新画面尚未完成。
+
+旧修复版八例的逐关节回读再次证实动作失败：动作 MSE `0.648–0.752`，逐关节常数均值
+oracle 的 MSE 仅 `0.0464–0.0904`；相邻帧动作变化误差为零变化基线的 `89.5–352.6` 倍。
+这不是新实验结果；详见本地 `bugfix_audit_20260911/HISTORICAL_ACTION_RECONSTRUCTION.json`。
+
 已验证的对比边界：旧梯度裁剪实际触发 24/32 步，而非“从未触发”；真实 attention mask
 阻断了 action-target 到视频 token 的所有路径，因此替换这些 token 不能解释视频条件修复。
 学习率／初始化／IFP detach 是待实测的优化或方法变更，不能直接等同于已经定位的 bug。

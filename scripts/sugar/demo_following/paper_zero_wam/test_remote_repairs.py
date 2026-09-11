@@ -1,5 +1,6 @@
 """Tensor/configuration checks for the imported fixes; no replacement model."""
 from dataclasses import replace
+import json
 from types import SimpleNamespace
 import unittest
 
@@ -12,6 +13,33 @@ from .train import decay_parameter_groups, learning_rate
 
 
 class RemoteRepairTests(unittest.TestCase):
+    def test_action_readback_exposes_temporally_constant_predictions(self):
+        from .probe_overfit_inverse_dynamics import action_metrics, needs_inverse_probe
+        # Arithmetic fixture, not a learned model or generated experiment.
+        target = torch.arange(4, dtype=torch.float32)[None, :, None].expand(1, 4, 29)
+        prediction = target.mean(dim=1, keepdim=True).expand_as(target)
+        metrics = action_metrics(prediction, target)
+        self.assertTrue(metrics["beats_normalized_zero"])
+        self.assertFalse(metrics["beats_per_joint_constant_oracle"])
+        self.assertEqual(metrics["temporal_delta_mse"], metrics["target_temporal_delta_energy"])
+        self.assertEqual(metrics["per_joint_predicted_temporal_std"], [0.0] * 29)
+        self.assertEqual(len(metrics["per_joint_mse"]), 29)
+        self.assertTrue(needs_inverse_probe(metrics))
+        self.assertFalse(needs_inverse_probe(action_metrics(target, target)))
+        self.assertFalse(needs_inverse_probe(action_metrics(target * 0, target * 0)))
+        self.assertEqual(action_metrics(target, target)["normalized_mse"], 0.0)
+
+    def test_endpoint_configuration_survives_json_round_trip(self):
+        from .probe_overfit_inverse_dynamics import endpoint_config
+        original = repaired_overfit_config()
+        saved = json.loads(json.dumps(original.as_dict()))
+        self.assertIsInstance(saved["ifp_weights"], list)
+        self.assertEqual(endpoint_config(saved), original)
+        self.assertIsInstance(saved["ifp_weights"], list)
+        saved["ifp_weights"][0] = 0.0
+        with self.assertRaises(ValueError):
+            endpoint_config(saved)
+
     def test_action_replay_consumes_the_same_random_draws_as_sampler(self):
         from .probe_overfit_inverse_dynamics import action_initial_noise
         batch = {"video_target_latents": torch.zeros(1, 48, 2, 4, 4),
