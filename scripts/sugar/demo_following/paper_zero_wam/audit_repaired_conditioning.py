@@ -4,7 +4,9 @@ This tests inherited video/block computation, not Zero-WAM task success. It does
 not construct or train a reduced replacement network.
 """
 import os
+import argparse
 import json
+from pathlib import Path
 from types import SimpleNamespace
 import warnings
 
@@ -19,6 +21,10 @@ from .model import (PaperMoTLayer, PaperZeroWAM, IFPHead, import_wan_model, modu
 
 @torch.no_grad()
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path,
+                        help="isolated evidence path for a newly changed implementation")
+    args = parser.parse_args()
     if not torch.cuda.is_available():
         raise RuntimeError("official full-width numerical audit requires a GPU")
     if not os.environ.get("SLURM_STEP_ID") and not os.environ.get("PZW_ALLOW_NON_SLURM"):
@@ -26,7 +32,7 @@ def main():
             "run inside a retained srun step, or set PZW_ALLOW_NON_SLURM=1"
         )
     config = repaired_overfit_config()
-    output = config.resolved(config.latent_cache) / "OFFICIAL_FORWARD_AUDIT.json"
+    output = args.output or config.resolved(config.latent_cache) / "OFFICIAL_FORWARD_AUDIT.json"
     if output.exists():
         previous = json.loads(output.read_text())
         if (previous.get("passed") is True and previous.get("mask_forward_backward_passed") is True
@@ -71,7 +77,8 @@ def main():
         with torch.enable_grad():
             inputs = [torch.randn(1, length, 24, 128, device="cuda", dtype=torch.bfloat16,
                                   requires_grad=True) for _ in range(3)]
-            adapted_out = official_masked_attention(*inputs, layout.official_attention_groups)
+            adapted_out = official_masked_attention(
+                *inputs, layout.official_attention_groups, layout.self_only_queries)
             reference_out = F.scaled_dot_product_attention(*(t.transpose(1, 2) for t in inputs),
                 attn_mask=layout.attention_mask[None, None], dropout_p=0.0).transpose(1, 2)
             adapted_grad = torch.autograd.grad(adapted_out.float().square().mean(), inputs)

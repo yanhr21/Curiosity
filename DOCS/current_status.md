@@ -1,6 +1,23 @@
 # 当前科学状态
 
-记录日期：2026-09-10。最新用户任务是仓库整理，不是继续训练。
+记录日期：2026-09-11。最新用户目标：拉取 GitHub sugar 新代码、区分 bug 修复与数据／GPU
+适配，并继续 overfit 直至指标和实际可视化正常。已拉取 4bcf8582；旧结果均保留。
+
+当前使用原始 PhysX 199 轨迹／160-20-19 split、原八个 TRAIN 案例、完整 10.681B 模型，
+不使用新提交中的运动学栅格替代数据。单 H200 291647/server31/step0 已在 tmux 保留。
+23 项 CPU 回归及当前代码的官方完整 30 层数值检查通过；优化变更的实际效果尚待实验。
+首个新 endpoint 为 overfit_resampled_noise_20260911，32 次噪声／时间重采样更新后自动
+评估并渲染所有八例。此 endpoint 不等于目标完成，失败后继续依据证据分析和 overfit，
+不自动启动 formal 或 physics。
+详见[代码对比与完成条件](../experiments/demo_following/paper_zero_wam_v1/bugfix_audit_20260911/CODE_COMPARISON.json)。
+
+已验证的对比边界：旧梯度裁剪实际触发 24/32 步，而非“从未触发”；真实 attention mask
+阻断了 action-target 到视频 token 的所有路径，因此替换这些 token 不能解释视频条件修复。
+学习率／初始化／IFP detach 是待实测的优化或方法变更，不能直接等同于已经定位的 bug。
+论文的 IFP 目标是监督主干表示，detach 会改变这条训练路径；保留为明确标注的变体诊断，
+不宣称忠实复现。[Zero-WAM §3.3](https://arxiv.org/html/2608.26103v2#S3.SS3)
+
+以下是 9 月 10 日已结束的历史结果，不是当前新实验的结论。
 
 ## 修复版 overfit：完成但未通过
 

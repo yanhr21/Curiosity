@@ -523,7 +523,11 @@ def main():
                         help="resample noise and flow time every step/slot: the "
                              "generative overfit, whose renders are meaningful")
     parser.add_argument("--resume-repaired-preupdate", action="store_true")
+    parser.add_argument("--save-overfit-optimizer", action="store_true",
+                        help="retain endpoint AdamW state for the continuing overfit investigation")
     args = parser.parse_args()
+    if args.save_overfit_optimizer and (args.mode != "overfit" or not args.fixed_noise_overfit_diagnostic):
+        raise ValueError("optimizer retention is only supported for an isolated overfit diagnostic")
     config = repaired_overfit_config() if args.repaired_overfit else PaperZeroWAMConfig()
     if args.repaired_overfit and (args.mode != "overfit" or not args.fixed_noise_overfit_diagnostic):
         raise ValueError("correction is admitted only for the user-requested isolated overfit")
@@ -927,6 +931,12 @@ def main():
         with full_state_dict_context(model, offload_to_cpu=True, rank0_only=True):
             torch.save({"model": model.state_dict(), "step": 32,
                         "diagnostic_contract": diagnostic}, root / "diagnostic_model_step32.pt")
+        if args.save_overfit_optimizer:
+            torch.save({"step": total, "optimizer": optimizer.state_dict(),
+                        "parameter_names": [name for name, _, _ in master_pairs],
+                        "model_and_schedule_config": config.as_dict(),
+                        "execution": EXECUTION, "diagnostic_contract": diagnostic},
+                       root / "diagnostic_optimizer_step32.pt")
         # Publish training evidence before rendering so a renderer failure cannot
         # be misreported as a missing/failed optimizer result or retrigger training.
         write_json_atomic(terminal, result)

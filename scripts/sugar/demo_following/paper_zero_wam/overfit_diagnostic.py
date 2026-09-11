@@ -21,7 +21,7 @@ from .data import read_jsonl
 
 DIAGNOSTIC_DIRECTORY = "overfit_debug_fixed_noise_20260909"
 REPAIRED_DIRECTORY = "overfit_repaired_fixed_noise_20260910"
-RESAMPLED_DIRECTORY = "overfit_resampled_noise_20260910"
+RESAMPLED_DIRECTORY = "overfit_resampled_noise_20260911"
 LOSS_NAMES = ("video_loss", "action_loss", "ifp_loss")
 
 

@@ -49,7 +49,25 @@
 The user may still interrupt, reprioritize or stop work at any time. That user control must never be
 implemented as a prerequisite approval gate for ordinary autonomous progress.
 
-## 1. Current task and scientific terminal (2026-09-10)
+## 1. Current task: imported bugfix audit and generative overfit (2026-09-11)
+
+Newest user objective: pull updated GitHub sugar, distinguish genuine bug fixes from alternate
+data/GPU adaptations, then continue overfit until all metrics and actual visuals are normal.
+This explicitly supersedes the old no-new-overfit terminal below for this investigation only.
+Pulled 4bcf8582 over 7312737a. Preserve full model, original PhysX corpus, old caches/results;
+do not use the new kinematic rasterizer or substitute joint positions for executed actions.
+Retained allocation 291647/server31/step0 in tmux curiosity_pzw_bugfix_h200_20260911 is the
+only current H200 allocation (16 CPUs/256 GiB/one day). Old 288297 was externally cancelled.
+Initial current-code audit passed 23 CPU tests and official full-width forward/backward checks.
+First new endpoint is overfit_resampled_noise_20260911: 32 resampled-noise updates, same eight
+TRAIN cases, imported optimization settings explicitly labelled a local method variant, then
+eight-draw endpoint probes and all eight actual TRAIN renders. Retain model and optimizer state.
+This endpoint is not the full objective: if negative, diagnose remaining causes and continue
+bounded evidence-driven overfit; do not relabel execution as success or open formal/physics.
+Comparison and completion criteria: experiments/demo_following/paper_zero_wam_v1/
+bugfix_audit_20260911/CODE_COMPARISON.json. Current status: DOCS/current_status.md.
+
+### Prior completed scientific terminal (2026-09-10; historical)
 
 Current user task: repository housekeeping. Archive superseded experiments and documents under
 root `legacy/`, preserve results and dependencies, and keep active entrypoints concise.
