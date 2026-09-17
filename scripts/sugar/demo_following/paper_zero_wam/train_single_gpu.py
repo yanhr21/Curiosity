@@ -16,6 +16,7 @@ import json
 import math
 import os
 from pathlib import Path
+import statistics
 import subprocess
 import time
 
@@ -57,6 +58,64 @@ CPU_ACCUMULATION_IMPLEMENTATION = "matching_flat_storage_add_else_parameterwise_
 
 # Full-width parameter count; used for the memory plan below.
 FULL_PARAMETER_COUNT = 10_680_751_069
+ACTION_INTERFACE_PARAMETERS = frozenset({
+    "action_encoder.weight", "action_encoder.bias",
+    "action_head.projection.weight", "action_head.projection.bias",
+})
+
+
+def action_interface_lr_map(named_parameters, multiplier):
+    """Select only the four shape-new action interface tensors, not the expert."""
+    if multiplier not in (1.0, 100.0):
+        raise ValueError("bounded action-interface experiment supports only 1x or 100x")
+    selected, found = {}, set()
+    for name, _ in named_parameters:
+        plain = name.replace("_fsdp_wrapped_module.", "")
+        if plain in ACTION_INTERFACE_PARAMETERS:
+            if plain in found:
+                raise ValueError("duplicate action interface parameter")
+            selected[name] = float(multiplier)
+            found.add(plain)
+    if found != ACTION_INTERFACE_PARAMETERS:
+        raise ValueError("full model is missing an exact action interface parameter")
+    return selected
+
+
+def action_interface_intervention(parent, requested, step):
+    """Evidence-based optimizer variant; never change model/data/loss config."""
+    previous = (json.loads((parent / "CONFIG.json").read_text()).get(
+        "optimizer_intervention", {}).get("action_interface_lr_multiplier", 1.0)
+        if parent is not None else 1.0)
+    multiplier = previous if requested is None else requested
+    if multiplier not in (1.0, 100.0) or (previous == 100.0 and multiplier != previous):
+        raise ValueError("unexpected action-interface optimizer transition")
+    source = None
+    if multiplier != previous:
+        if parent is None or step <= 0:
+            raise ValueError("interface intervention requires a diagnosed retained endpoint")
+        source = parent / "ACTION_FLOW_PROBE.json"
+        probe = json.loads(source.read_text())
+        cases = probe.get("cases", [])
+        if (probe.get("execution_completed") is not True
+                or probe.get("checkpoint_step") != step
+                or probe.get("optimizer_updates") != 0
+                or probe.get("architecture_parameter_count") != FULL_PARAMETER_COUNT
+                or sorted(c["slot"] for c in cases) != list(range(8))):
+            raise ValueError("complete same-checkpoint full-model flow evidence required")
+        for case in cases:
+            high = [r for r in case["flow_observations"] if r["action_flow_time"] == 1.0]
+            if len(high) != 1:
+                raise ValueError("missing high-noise response")
+            gain = high[0]["paired_noise_response"]["velocity_difference_gain_along_noise_difference"]
+            if not math.isfinite(gain) or not 0 <= gain < 0.05:
+                raise ValueError("measured noise insensitivity does not support this intervention")
+    return {"action_interface_lr_multiplier": float(multiplier),
+            "parameter_names": sorted(ACTION_INTERFACE_PARAMETERS),
+            "previous_multiplier": float(previous),
+            "changed_at_optimizer_step": step if multiplier != previous else None,
+            "evidence_source": str(source) if source else None,
+            "scope": "local optimization experiment, not a confirmed bug fix or official paper recipe",
+            "model_data_loss_unchanged": True, "optimizer_moments_reset": False}
 
 
 @contextlib.contextmanager
@@ -223,6 +282,55 @@ def matching_cpu_accumulator(entries, host, gradients, storage_members):
         storage, 0, host.shape, (1,))
 
 
+def cpu_gradient_staging_plan(benchmark_log, device_name):
+    """Admit optional copy-buffer reuse from a completed same-device benchmark.
+
+    Recompute the predeclared 10% speed criterion from actual timings, not a
+    reported success flag. Missing or incorrect evidence refuses the option;
+    correct but slow measurements retain the original implementation.
+    """
+    if benchmark_log is None:
+        return {"enabled": False, "reason": "not_requested"}
+    path = Path(benchmark_log).resolve()
+    if "exit_code=0" not in path.with_suffix(".status").read_text().splitlines():
+        raise ValueError("CPU staging requires a normally completed benchmark")
+    records = []
+    for line in path.read_text().splitlines():
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict) and value.get("execution_completed") is True:
+            records.append(value)
+    if len(records) != 1:
+        raise ValueError("expected one complete CPU staging benchmark")
+    result = records[0]
+    rows = result.get("results", [])
+    if (result.get("optimizer_updates") != 0 or result.get("device") != device_name
+            or "H200" not in device_name or len(rows) != 8):
+        raise ValueError("CPU staging benchmark device or execution differs")
+    sizes = (268435456, 1073741824)
+    expected = [(size, reuse) for size in sizes for reuse in (False, True, True, False)]
+    if [(row.get("bytes_per_copy"), row.get("reuse")) for row in rows] != expected:
+        raise ValueError("CPU staging benchmark size/order differs")
+    for row in rows:
+        seconds = row.get("elapsed_seconds", float("nan"))
+        if (row.get("microbatches") != 8 or row.get("all_accumulated_values_exact") is not True
+                or row.get("retained_storage_independent") is not True
+                or not math.isfinite(seconds) or seconds <= 0):
+            raise ValueError("CPU staging benchmark arithmetic/ownership/timing failed")
+    ratios = {str(size): statistics.median(row["elapsed_seconds"] for row in rows
+                    if row["bytes_per_copy"] == size and row["reuse"])
+              / statistics.median(row["elapsed_seconds"] for row in rows
+                    if row["bytes_per_copy"] == size and not row["reuse"])
+              for size in sizes}
+    enabled = all(ratio < 0.9 for ratio in ratios.values())
+    return {"enabled": enabled, "benchmark_log": str(path),
+            "reason": "exact_and_faster" if enabled else "speed_criterion_not_met",
+            "reuse_to_original_median_elapsed_ratios": ratios,
+            "model_data_objective_optimizer_unchanged": True}
+
+
 def accumulate_cpu_gradients(named_parameters, gradients, timing=None, staging=None):
     """Copy each shared FSDP gradient storage once, retaining exact tensor views.
 
@@ -294,7 +402,8 @@ def accumulate_cpu_gradients(named_parameters, gradients, timing=None, staging=N
     return len(groups)
 
 
-def native_adamw_streamed_step(optimizer, named_parameters, gradients, clip_scale):
+def native_adamw_streamed_step(optimizer, named_parameters, gradients, clip_scale,
+                               lr_multipliers=None):
     """One global update using unmodified native AdamW on independent tensors.
 
     Global clipping is already computed over all eight samples. AdamW has no
@@ -305,6 +414,10 @@ def native_adamw_streamed_step(optimizer, named_parameters, gradients, clip_scal
     """
     parameters = list(named_parameters)
     names = {id(parameter): name for name, parameter in parameters}
+    lr_multipliers = {} if lr_multipliers is None else lr_multipliers
+    if (not set(lr_multipliers).issubset(names.values())
+            or any(not math.isfinite(v) or v <= 0 for v in lr_multipliers.values())):
+        raise ValueError("invalid named optimizer learning-rate multipliers")
     original_groups = optimizer.param_groups
     update_sums = dict.fromkeys(("video", "action", "ifp"), 0.0)
     calls = 0
@@ -318,7 +431,8 @@ def native_adamw_streamed_step(optimizer, named_parameters, gradients, clip_scal
                     raise RuntimeError("optimizer parameters must remain CPU-offloaded")
                 parameter.grad = gradients.pop(name).mul_(clip_scale)
                 before = parameter.detach().clone()
-                optimizer.param_groups = [{**group, "params": [parameter]}]
+                optimizer.param_groups = [{**group, "params": [parameter],
+                    "lr": group["lr"] * lr_multipliers.get(name, 1.0)}]
                 optimizer.step()
                 calls += 1
                 update_sums[branch_name(name)] += squared_norm(parameter.detach() - before)
@@ -674,6 +788,10 @@ def main():
                         help="retain endpoint AdamW state for the continuing overfit investigation")
     parser.add_argument("--resume-overfit-endpoint", type=Path,
                         help="after endpoint diagnosis, restore its exact state for one further 32-update segment")
+    parser.add_argument("--action-interface-lr-multiplier", type=float, choices=(1.0, 100.0),
+                        help="explicit diagnosed overfit optimizer variant; omitted inherits parent")
+    parser.add_argument("--cpu-gradient-staging-benchmark", type=Path,
+                        help="completed retained-H200 copy benchmark; enable reuse only if exact and faster")
     args = parser.parse_args()
     if args.save_overfit_optimizer and (args.mode != "overfit" or not args.fixed_noise_overfit_diagnostic):
         raise ValueError("optimizer retention is only supported for an isolated overfit diagnostic")
@@ -698,6 +816,12 @@ def main():
     else:
         validate_diagnostic_request(args.fixed_noise_overfit_diagnostic, args.mode,
                                     args.output_dir, config, args.resampled_noise_overfit)
+    if args.action_interface_lr_multiplier is not None and not resume_step:
+        raise ValueError("action-interface LR option is restricted to retained overfit continuation")
+    if args.cpu_gradient_staging_benchmark is not None and not resume_step:
+        raise ValueError("CPU staging trial is restricted to retained overfit continuation")
+    intervention = action_interface_intervention(
+        args.resume_overfit_endpoint, args.action_interface_lr_multiplier, resume_step)
     if args.resume_repaired_preupdate:
         if not args.repaired_overfit:
             raise ValueError("pre-update recovery requires the isolated repaired diagnostic")
@@ -762,6 +886,9 @@ def main():
     torch.cuda.set_device(0)
     execution_plan = resolve_execution_plan(0)
     gpu_param_dtype = execution_plan.pop("_param_dtype")
+    staging_plan = cpu_gradient_staging_plan(
+        args.cpu_gradient_staging_benchmark, torch.cuda.get_device_name(0))
+    execution_plan["cpu_gradient_staging"] = staging_plan
     dist.init_process_group("nccl", timeout=timedelta(hours=2))
     device = torch.device("cuda", 0)
     config.validate()
@@ -793,6 +920,8 @@ def main():
     write_json_atomic(root / "CONFIG.json", {
         "model_and_schedule_config": config.as_dict(), "execution": EXECUTION, "hash_checks": False,
         "cpu_accumulation_implementation": CPU_ACCUMULATION_IMPLEMENTATION,
+        "optimizer_intervention": intervention,
+        "cpu_gradient_staging": staging_plan,
     })
     diagnostic = (diagnostic_contract(config, args.resampled_noise_overfit)
                   if args.fixed_noise_overfit_diagnostic else None)
@@ -801,6 +930,7 @@ def main():
                           resumed_from_step=resume_step,
                           initialization="retained_full_FP32_overfit_model_and_CPU_AdamW",
                           parent_endpoint=str(args.resume_overfit_endpoint))
+        diagnostic["optimizer_intervention"] = intervention
     if diagnostic:
         write_json_atomic(root / "DIAGNOSTIC_CONTRACT.json", diagnostic)
     started = time.perf_counter()
@@ -839,6 +969,9 @@ def main():
     master_pairs = [(name, parameter, torch.nn.Parameter(parameter.detach().float().cpu(),
                                                        requires_grad=parameter.requires_grad))
                     for name, parameter in model.named_parameters()]
+    interface_lrs = action_interface_lr_map(
+        ((name, master) for name, _, master in master_pairs),
+        intervention["action_interface_lr_multiplier"])
     optimizer = torch.optim.AdamW(
         decay_parameter_groups(((n, m) for n, _, m in master_pairs), config),
         lr=config.peak_learning_rate,
@@ -897,6 +1030,7 @@ def main():
             write_json_atomic(root / "UNSEEN_NOISE_INITIAL.json", unseen_initial)
     model.train()
     first_forward_check = None
+    gradient_staging = {} if staging_plan["enabled"] else None
     for step in range(start, execution_end):
         step_started = time.perf_counter()
         timing = dict(data_loading=0.0, forward_backward=0.0, cpu_gradient_transfer_accumulation=0.0)
@@ -935,7 +1069,8 @@ def main():
             # Own the exact eight-microbatch sum on CPU. FSDP original
             # parameters are views into a small number of flat gradient
             # storages; transfer each block once, without changing values.
-            gradient_storage_transfers = accumulate_cpu_gradients(model.named_parameters(), gradients, timing)
+            gradient_storage_transfers = accumulate_cpu_gradients(
+                model.named_parameters(), gradients, timing, gradient_staging)
             timing["cpu_gradient_transfer_accumulation"] += time.perf_counter() - phase_started
             observations.append({"task": metas[slot]["task"],
                 "elements": evidence["loss_rank_evidence"][slot]["local_elements"],
@@ -984,7 +1119,8 @@ def main():
         timing["gradient_norm_and_clip_audit"] = time.perf_counter() - phase_started
         phase_started = time.perf_counter()
         updates, finite, native_calls = native_adamw_streamed_step(
-            optimizer, ((name, master) for name, _, master in master_pairs), gradients, clip_scale)
+            optimizer, ((name, master) for name, _, master in master_pairs), gradients, clip_scale,
+            interface_lrs)
         timing["native_cpu_adamw_and_update_audit"] = time.perf_counter() - phase_started
         phase_started = time.perf_counter()
         with torch.no_grad():
@@ -1008,6 +1144,8 @@ def main():
         record = {**evidence, "mode": args.mode, "optimizer_step": step, "resumed_from_step": start,
             "epoch": epoch, "epoch_step": step if args.mode == "overfit" else step % 280,
             "learning_rate": lr, "world_size": 1, "packed_samples_per_rank": 1,
+            "action_interface_learning_rates": {name: lr * scale for name, scale in interface_lrs.items()},
+            "action_interface_lr_multiplier": intervention["action_interface_lr_multiplier"],
             "global_packed_sample_batch": 8, "gradient_accumulation_steps": 8,
             "main_pass_count_per_sample": 2, "losses": aggregate,
             "task_losses": task_records(observations, config), "samples": metas,
@@ -1022,6 +1160,9 @@ def main():
             "optimizer_native_parameter_calls": native_calls,
             "gpu_parameter_master_readback_exact": True,
             "cpu_accumulation_implementation": CPU_ACCUMULATION_IMPLEMENTATION,
+            "cpu_gradient_staging_enabled": staging_plan["enabled"],
+            "cpu_gradient_staging_buffer_bytes": (gradient_staging["buffer"].numel() * 4
+                if gradient_staging and "buffer" in gradient_staging else 0),
             "timing_seconds": timing,
             "amp_scaler_skipped": False, "elapsed_seconds": time.perf_counter() - started}
         if diagnostic:

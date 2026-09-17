@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# First 32-update generative-overfit endpoint on the original PhysX corpus.
-# Later continuation is evidence-driven; no formal/physics stage is launched.
+# A 32-update generative-overfit segment on the original PhysX corpus.
+# Optional retained parent, action-interface LR multiplier and copy benchmark.
 set -euo pipefail
 ROOT=/public/home/yanhongru/Curiosity
 EXPERIMENT="$ROOT/experiments/demo_following/paper_zero_wam_v1"
+PARENT="${1:-}"
+INTERFACE_MULTIPLIER="${2:-}"
+STAGING_BENCHMARK="${3:-}"
+if [[ $# -gt 3 || ( -n "$INTERFACE_MULTIPLIER$STAGING_BENCHMARK" && -z "$PARENT" ) ]]; then
+    echo "usage: $0 [retained_endpoint [action_interface_lr_multiplier [cpu_staging_benchmark_log]]]" >&2
+    exit 2
+fi
 test -n "${SLURM_JOB_ID:-}"
 test -n "${SLURM_STEP_ID:-}"
 case "$(hostname)" in login*|mgmtserver*) exit 2 ;; esac
@@ -40,6 +47,26 @@ assert fresh['mask_forward_backward_passed'] and fresh['official_parameters'] ==
 print(json.dumps({'original_PhysX_corpus_retained': True, 'trajectories': 199,
                   'fresh_official_forward_audit_passed': True, 'hash_checks': False}))
 PY
+training_args=(--output-dir "$EXPERIMENT/overfit_resampled_noise_20260911")
+if [[ -n "$PARENT" ]]; then
+    next_step=$(/usr/bin/python3.10 - "$PARENT" <<'PY'
+import json
+import sys
+from pathlib import Path
+step = json.loads((Path(sys.argv[1]) / 'OVERFIT_RESULT.json').read_text())['optimizer_steps']
+assert type(step) is int and step > 0 and step % 32 == 0
+print(step + 32)
+PY
+)
+    training_args=(--resume-overfit-endpoint "$PARENT"
+                   --output-dir "$EXPERIMENT/overfit_resampled_noise_20260911_step$next_step")
+    if [[ -n "$INTERFACE_MULTIPLIER" ]]; then
+        training_args+=(--action-interface-lr-multiplier "$INTERFACE_MULTIPLIER")
+    fi
+    if [[ -n "$STAGING_BENCHMARK" ]]; then
+        training_args+=(--cpu-gradient-staging-benchmark "$STAGING_BENCHMARK")
+    fi
+fi
 exec /usr/bin/python3.10 \
     scripts/sugar/demo_following/paper_zero_wam/run_module_with_import_retry.py \
     torch.distributed.run --standalone --nproc_per_node=1 \
@@ -47,4 +74,4 @@ exec /usr/bin/python3.10 \
     scripts.sugar.demo_following.paper_zero_wam.train_single_gpu \
     --mode overfit --fixed-noise-overfit-diagnostic --repaired-overfit \
     --resampled-noise-overfit --save-overfit-optimizer \
-    --output-dir "$EXPERIMENT/overfit_resampled_noise_20260911"
+    "${training_args[@]}"

@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Build motion-disjoint cross-demo targets from actual SUGAR rollouts.
 
+Historical v1 label contract: the reference Kick role heuristic below used
+hip/knee indices 6/12, not ankle21/22. Retained for exact old-checkpoint/data
+reproduction. New training must use demo_future/repair_reference_roles.py and
+its versioned corrected bank; do not attach changed labels to frozen v1 reward
+models or transfer their calibration claims.
+
 The selected demonstration is a fixed numeric condition.  Actual contact,
 event duration and motion regime come only from the same-clock IsaacLab
 rollout trace.  Official binary contact annotations are used only to describe

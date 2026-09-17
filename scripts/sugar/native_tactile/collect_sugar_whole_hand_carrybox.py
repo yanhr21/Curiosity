@@ -200,6 +200,20 @@ parser.add_argument(
 )
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
+if args.force_only:
+    # Same renderer-free GPU PhysX entry used by the current SUGAR collectors.
+    # Headless alone still initializes Vulkan, which H200 does not support.
+    args.enable_cameras = False
+    args.kit_args = (args.kit_args or "") + (
+        " --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/enabled=false"
+        " --/renderer/enabled= --/app/vulkan=false --/renderer/multiGpu/maxGpuCount=1"
+    )
+    if os.environ.get("SUGAR_HEADLESS_RENDERER") == "pxr":
+        args.kit_args += " --/renderer/enabled=pxr --/renderer/active=pxr"
+    if os.environ.get("SUGAR_PORTABLE_ROOT_BASE"):
+        portable_root = Path(os.environ["SUGAR_PORTABLE_ROOT_BASE"]) / f"process_{os.getpid()}"
+        portable_root.mkdir(parents=True, exist_ok=False)
+        sys.argv.extend(["--portable-root", str(portable_root)])
 
 output_root = args.output_root.expanduser().resolve()
 action_trace_path = (
@@ -279,7 +293,7 @@ os.environ["ISAACLAB_GROUND_PLANE_USD"] = str(
 )
 os.environ["ISAACLAB_USE_LOCAL_FRAME_MARKER"] = "1"
 os.chdir(ROOT / "SUGAR")
-simulation_app = AppLauncher(args).app
+simulation_app = AppLauncher(args, **({"multi_gpu": False, "max_gpu_count": 1} if args.force_only else {})).app
 
 import gymnasium as gym  # noqa: E402
 import imageio_ffmpeg  # noqa: E402
@@ -309,9 +323,10 @@ from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_official_re
 from sugar_rl.tasks.locomanip.robots.g129dof.train_refiner.carry_box_official_refiner_anatomical_whole_hand_tacsl_env_cfg import (  # noqa: E402
     OfficialRefinerAnatomicalWholeHandTacSLEnvCfg,
 )
-from sugar_rl.tasks.locomanip.robots.g129dof.train_tracker.pick_bottle_anatomical_whole_hand_tacsl_env_cfg import (  # noqa: E402
-    PickBottleAnatomicalWholeHandTacSLEnvCfg,
-)
+if args.object_kind == "bottle":
+    from sugar_rl.tasks.locomanip.robots.g129dof.train_tracker.pick_bottle_anatomical_whole_hand_tacsl_env_cfg import (  # noqa: E402
+        PickBottleAnatomicalWholeHandTacSLEnvCfg,
+    )
 from sugar_rl.utils.official_refiner_nominal_teacher import (  # noqa: E402
     FrozenOfficialRefinerTeacher,
 )

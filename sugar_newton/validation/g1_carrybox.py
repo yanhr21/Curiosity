@@ -201,10 +201,19 @@ class G1CarryBoxScene:
     def __init__(self, clip: dict, kh=1.0e10, ke=1.0e4, kd=3.2e2, mu=0.75,
                  hand_sdf_res=128, box_sdf_res=128, quat_wxyz=True, joint_ordering="bfs",
                  box="small", rest_box_on_ground=True, upper_body_only=True,
-                 tactile=True):
+                 tactile=True, object_scale=(1.0, 1.0, 1.0), object_mass=None,
+                 collide_each_substep=False):
         self.clip, self.quat_wxyz = clip, quat_wxyz
         self.want_tactile = tactile
+        self.collide_each_substep = bool(collide_each_substep)
         _bbox_half, box_mass = BOXES[box]
+        object_scale = np.asarray(object_scale, dtype=np.float32)
+        if object_scale.shape != (3,) or not np.all(object_scale > 0):
+            raise ValueError("object_scale must contain three positive values")
+        if object_mass is not None:
+            box_mass = float(object_mass)
+            if not box_mass > 0:
+                raise ValueError("object_mass must be positive")
         self.box_half = np.asarray(_bbox_half, dtype=float)
         self.rest_box_on_ground = rest_box_on_ground
         b = newton.ModelBuilder()
@@ -319,9 +328,19 @@ class G1CarryBoxScene:
             density=0.0, mu_torsional=0.0, mu_rolling=0.0,
         )
         bv, bt = load_box_mesh(box)
+        bv = bv * object_scale
         self.box_verts = np.asarray(bv, dtype=float)
         self.box_half = ((bv.max(axis=0) - bv.min(axis=0)) * 0.5).astype(float)
-        bm = newton.Mesh(bv, bt.flatten(), compute_inertia=False)
+        bm = newton.Mesh(bv, bt.flatten(), compute_inertia=object_mass is not None)
+        if object_mass is not None:
+            # Explicit mass randomization for object-state identification also
+            # needs the corresponding mesh inertia, not the historical fallback.
+            # Original validator calls (object_mass=None) keep their old path.
+            if not float(bm.mass) > 0:
+                raise ValueError("Object mesh must have positive unit-density mass")
+            b.body_inertia[self.box_body] = wp.mat33(
+                np.asarray(bm.inertia).reshape(3, 3) * (box_mass / float(bm.mass)))
+            b.body_com[self.box_body] = bm.com
         bm.build_sdf(max_resolution=box_sdf_res, narrow_band_range=(-0.006, 0.006),
                      margin=0.004)
         self.box_shape = b.add_shape_mesh(
@@ -506,9 +525,12 @@ class G1CarryBoxScene:
         self.drive()
         t0 = self._mark("drive", t0) or t0
         sub = dt / substeps
-        self.pipeline.collide(self.state_0, self.contacts)
+        if not self.collide_each_substep:
+            self.pipeline.collide(self.state_0, self.contacts)
         t0 = self._mark("collide", t0) or t0
         for _ in range(substeps):
+            if self.collide_each_substep:
+                self.pipeline.collide(self.state_0, self.contacts)
             self.state_0.clear_forces()
             self.solver.step(self.state_0, self.state_1, self.control, self.contacts, sub)
             self.state_0, self.state_1 = self.state_1, self.state_0

@@ -18,10 +18,121 @@ from .train_single_gpu import (
     native_adamw_streamed_step, next_checkpoint_directory, single_gpu_checkpoint_step,
     requested_training_end, restore_overfit_adamw, admit_overfit_continuation,
     load_overfit_checkpoint,
+    ACTION_INTERFACE_PARAMETERS, FULL_PARAMETER_COUNT,
+    action_interface_lr_map, action_interface_intervention,
+    cpu_gradient_staging_plan,
 )
 
 
 class NativeOptimizerTest(unittest.TestCase):
+    def test_cpu_staging_uses_actual_correct_timings_not_success_flag(self):
+        self.assertFalse(cpu_gradient_staging_plan(None, "NVIDIA H200")["enabled"])
+        # Benchmark-record fixture only; not GPU performance evidence.
+        rows = [dict(bytes_per_copy=size, reuse=reuse, microbatches=8,
+                     elapsed_seconds=8.0 if reuse else 10.0,
+                     all_accumulated_values_exact=True, retained_storage_independent=True)
+                for size in (268435456, 1073741824)
+                for reuse in (False, True, True, False)]
+        result = dict(execution_completed=True, optimizer_updates=0,
+                      device="NVIDIA H200", results=rows, candidate_supports_future_trial=False)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "benchmark.log"
+            status = path.with_suffix(".status")
+            status.write_text("exit_code=0\n")
+            def observe():
+                path.write_text("runtime message\n" + json.dumps(result) + "\n")
+                return cpu_gradient_staging_plan(path, "NVIDIA H200")
+            self.assertTrue(observe()["enabled"])
+            result["candidate_supports_future_trial"] = True
+            for row in rows:
+                if row["reuse"]:
+                    row["elapsed_seconds"] = 9.0
+            self.assertFalse(observe()["enabled"])
+            rows[0]["retained_storage_independent"] = False
+            with self.assertRaises(ValueError):
+                observe()
+            rows[0]["retained_storage_independent"] = True
+            rows[0]["elapsed_seconds"] = float("nan")
+            with self.assertRaises(ValueError):
+                observe()
+            rows[0]["elapsed_seconds"] = 10.0
+            result["device"] = "NVIDIA A100"
+            with self.assertRaises(ValueError):
+                observe()
+            result["device"] = "NVIDIA H200"
+            status.write_text("exit_code=1\n")
+            with self.assertRaises(ValueError):
+                observe()
+
+    def test_interface_selection_is_exact_and_wrapper_independent(self):
+        names = ["_fsdp_wrapped_module." + n for n in sorted(ACTION_INTERFACE_PARAMETERS)]
+        names += ["_fsdp_wrapped_module.mot_layers.0._fsdp_wrapped_module.action_block.q.weight",
+                  "_fsdp_wrapped_module.action_head.modulation"]
+        selected = action_interface_lr_map(((n, None) for n in names), 100.0)
+        self.assertEqual(set(selected), set(names[:4]))
+        self.assertEqual(set(selected.values()), {100.0})
+        with self.assertRaises(ValueError):
+            action_interface_lr_map(((n, None) for n in names[1:]), 100.0)
+
+    def test_interface_intervention_requires_evidence_and_inherits_without_reset(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "CONFIG.json").write_text("{}")
+            self.assertEqual(action_interface_intervention(root, None, 32)[
+                "action_interface_lr_multiplier"], 1.0)
+            probe = dict(execution_completed=True, checkpoint_step=32, optimizer_updates=0,
+                architecture_parameter_count=FULL_PARAMETER_COUNT,
+                cases=[dict(slot=i, flow_observations=[dict(action_flow_time=1.0,
+                    paired_noise_response=dict(velocity_difference_gain_along_noise_difference=0.02))])
+                    for i in range(8)])
+            path = root / "ACTION_FLOW_PROBE.json"
+            path.write_text(json.dumps(probe))
+            result = action_interface_intervention(root, 100.0, 32)
+            self.assertEqual(result["changed_at_optimizer_step"], 32)
+            self.assertFalse(result["optimizer_moments_reset"])
+            probe["cases"][0]["flow_observations"][0]["paired_noise_response"][
+                "velocity_difference_gain_along_noise_difference"] = 0.9
+            path.write_text(json.dumps(probe))
+            with self.assertRaises(ValueError):
+                action_interface_intervention(root, 100.0, 32)
+            (root / "CONFIG.json").write_text(json.dumps({"optimizer_intervention": result}))
+            self.assertEqual(action_interface_intervention(root, None, 64)[
+                "action_interface_lr_multiplier"], 100.0)
+            with self.assertRaises(ValueError):
+                action_interface_intervention(root, 1.0, 64)
+            with self.assertRaises(ValueError):
+                action_interface_intervention(None, 100.0, 0)
+
+    def test_named_lr_variant_matches_native_groups_with_retained_moments(self):
+        # Tensor arithmetic fixture, not a learned model or substitute expert.
+        names = ("video.weight", "action_encoder.weight")
+        reference = [torch.nn.Parameter(torch.arange(9, dtype=torch.float32) / 9 + i)
+                     for i in range(2)]
+        serial = [torch.nn.Parameter(p.detach().clone()) for p in reference]
+        options = dict(lr=1e-5, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.01, foreach=False)
+        ref = torch.optim.AdamW([{"params": [p]} for p in reference], **options)
+        opt = torch.optim.AdamW(serial, **options)
+        groups = opt.param_groups
+        for step in range(5):
+            scale = 1.0 if step < 2 else 100.0
+            ref.param_groups[1]["lr"] = options["lr"] * scale
+            gradients = {}
+            for index, (name, p) in enumerate(zip(names, reference)):
+                grad = torch.arange(9, dtype=torch.float32) * (step + 1) / 40 + index + 0.1
+                p.grad = grad * 0.75
+                gradients[name] = grad.clone()
+            ref.step()
+            _, finite, calls = native_adamw_streamed_step(
+                opt, zip(names, serial), gradients, 0.75, {names[1]: scale})
+            self.assertTrue(finite)
+            self.assertEqual(calls, 2)
+            self.assertIs(opt.param_groups, groups)
+            self.assertEqual(opt.param_groups[0]["lr"], options["lr"])
+            for expected, actual in zip(reference, serial):
+                self.assertTrue(torch.equal(expected, actual))
+                for key in ("step", "exp_avg", "exp_avg_sq"):
+                    self.assertTrue(torch.equal(ref.state[expected][key], opt.state[actual][key]))
+
     def test_continuation_requires_complete_isolated_parent_and_diagnostics(self):
         from .overfit_diagnostic import RESAMPLED_DIRECTORY
         # Metadata fixture: placeholder paths are never loaded as checkpoints.
